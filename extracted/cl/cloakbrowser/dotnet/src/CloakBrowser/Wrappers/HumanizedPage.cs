@@ -181,6 +181,26 @@ public sealed partial class HumanizedPage : IPage
     }
 
     private static IElementHandle Unwrap(IElementHandle h) => h is HumanizedElementHandle hh ? hh.Original : h;
+    private static ILocator Unwrap(ILocator l) => l is HumanizedLocator hl ? hl.Original : l;
+
+    // #549: Playwright down-casts ILocator args to concrete Locator; unwrap ours first.
+    public Task AddLocatorHandlerAsync(ILocator locator, Func<Task> handler, PageAddLocatorHandlerOptions? options = null) =>
+        _inner.AddLocatorHandlerAsync(Unwrap(locator), handler, options);
+
+    // Re-wrap the callback locator so the user's handler stays humanized.
+    public Task AddLocatorHandlerAsync(ILocator locator, Func<ILocator, Task> handler, PageAddLocatorHandlerOptions? options = null) =>
+        _inner.AddLocatorHandlerAsync(Unwrap(locator), l => handler(Wrap(l)), options);
+
+    public Task RemoveLocatorHandlerAsync(ILocator locator) =>
+        _inner.RemoveLocatorHandlerAsync(Unwrap(locator));
+
+    // #549: unwrap masked locators in place (rebuilding options would drop future fields).
+    public Task<byte[]> ScreenshotAsync(PageScreenshotOptions? options = null)
+    {
+        if (options?.Mask != null)
+            options.Mask = options.Mask.Select(Unwrap).ToList();
+        return _inner.ScreenshotAsync(options);
+    }
 
     // -----------------------------------------------------------------------
     // Locator-returning members - re-wrap.

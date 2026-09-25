@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: geemap
-Version: 0.38.5
+Version: 0.38.8
 Summary: A Python package for interactive mapping using Google Earth Engine and ipyleaflet
 Project-URL: Homepage, https://github.com/gee-community/geemap
 Author-email: Qiusheng Wu <giswqs@gmail.com>
@@ -43,6 +43,7 @@ Requires-Dist: langchain; extra == 'ai'
 Requires-Dist: langchain-community; extra == 'ai'
 Requires-Dist: langchain-google-genai; extra == 'ai'
 Provides-Extra: all
+Requires-Dist: beautifulsoup4>=4.12.0; extra == 'all'
 Requires-Dist: cartopy; extra == 'all'
 Requires-Dist: ee-extra>=0.0.15; extra == 'all'
 Requires-Dist: ffmpeg-python; extra == 'all'
@@ -88,6 +89,8 @@ Requires-Dist: psycopg2-binary; extra == 'all'
 Requires-Dist: pycrs; extra == 'all'
 Requires-Dist: pydeck; extra == 'all'
 Requires-Dist: pyntcloud[las]; extra == 'all'
+Requires-Dist: pyrefly>=1.2.0; extra == 'all'
+Requires-Dist: pytest>=9.1.1; extra == 'all'
 Requires-Dist: pyvista; extra == 'all'
 Requires-Dist: pyvista-xarray; extra == 'all'
 Requires-Dist: rasterio; extra == 'all'
@@ -110,8 +113,42 @@ Provides-Extra: backends
 Requires-Dist: keplergl; extra == 'backends'
 Requires-Dist: pydeck; extra == 'backends'
 Provides-Extra: dev
+Requires-Dist: beautifulsoup4>=4.12.0; extra == 'dev'
 Requires-Dist: jupyterlab; extra == 'dev'
+Requires-Dist: pyrefly>=1.2.0; extra == 'dev'
+Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: watchfiles; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: black; extra == 'docs'
+Requires-Dist: black[jupyter]; extra == 'docs'
+Requires-Dist: bump-my-version; extra == 'docs'
+Requires-Dist: codespell; extra == 'docs'
+Requires-Dist: coverage; extra == 'docs'
+Requires-Dist: deadlink; extra == 'docs'
+Requires-Dist: ipykernel; extra == 'docs'
+Requires-Dist: jupyter-client<8.11; extra == 'docs'
+Requires-Dist: livereload; extra == 'docs'
+Requires-Dist: mkdocs; extra == 'docs'
+Requires-Dist: mkdocs-git-revision-date-localized-plugin; extra == 'docs'
+Requires-Dist: mkdocs-git-revision-date-plugin; extra == 'docs'
+Requires-Dist: mkdocs-jupyter>=0.26.3; extra == 'docs'
+Requires-Dist: mkdocs-material>=9.7.7; extra == 'docs'
+Requires-Dist: mkdocs-pdf-export-plugin; extra == 'docs'
+Requires-Dist: mkdocstrings; extra == 'docs'
+Requires-Dist: mkdocstrings-crystal; extra == 'docs'
+Requires-Dist: mkdocstrings-python; extra == 'docs'
+Requires-Dist: nbconvert; extra == 'docs'
+Requires-Dist: nbformat; extra == 'docs'
+Requires-Dist: pip; extra == 'docs'
+Requires-Dist: pre-commit; extra == 'docs'
+Requires-Dist: pygments; extra == 'docs'
+Requires-Dist: pymdown-extensions; extra == 'docs'
+Requires-Dist: pyproject-flake8; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: tox; extra == 'docs'
+Requires-Dist: twine; extra == 'docs'
+Requires-Dist: watchdog; extra == 'docs'
+Requires-Dist: wheel; extra == 'docs'
 Provides-Extra: extra
 Requires-Dist: cartopy; extra == 'extra'
 Requires-Dist: ee-extra>=0.0.15; extra == 'extra'
@@ -165,6 +202,8 @@ Requires-Dist: sqlalchemy; extra == 'sql'
 Provides-Extra: tests
 Requires-Dist: beautifulsoup4; extra == 'tests'
 Requires-Dist: psutil; extra == 'tests'
+Requires-Dist: pyrefly>=1.2.0; extra == 'tests'
+Requires-Dist: pytest>=9.1.1; extra == 'tests'
 Provides-Extra: vector
 Requires-Dist: geopandas; extra == 'vector'
 Requires-Dist: osmnx; extra == 'vector'

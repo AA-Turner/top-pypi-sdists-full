@@ -211,7 +211,15 @@ def infer_via_stage_file_schema(
     # reader_options, JSON via the sampling_ratio arg), else full-sample.
     sampling_key = lower.get("samplingratio")
     sampling = reader_opts.pop(sampling_key) if sampling_key else sampling_ratio
-    reader_opts["samplingRatio"] = float(sampling)
+    # Clamp above 1.0 rather than forwarding verbatim (SNOW-3964811). Spark imposes no upper
+    # bound - JsonUtils.sample / CSVUtils.sample only require(ratio > 0) and then treat any
+    # ratio > 0.99 as "no sampling" - so samplingRatio=5 is a legal Spark read. GS enforces
+    # (0, 1] and would fail compilation with
+    # "invalid value 'OPTIONS_JSON.readerOptions.samplingRatio' for property '5.0'", turning a
+    # working COPY-path read into an internal error under NSS. 1.0 is exactly what Spark does
+    # with any such value. Non-positive ratios are rejected client-side with Spark's own message
+    # by ReaderWriterConfig._validate_sampling_ratio, before this call.
+    reader_opts["samplingRatio"] = min(float(sampling), 1.0)
     # Set the infer defaults only when the caller didn't already supply them (case-insensitive),
     # so we never emit duplicate multiline/mode/... keys.
     if "multiline" not in lower:

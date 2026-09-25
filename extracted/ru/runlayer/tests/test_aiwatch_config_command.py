@@ -14,11 +14,24 @@ from typer.testing import CliRunner
 
 from runlayer_cli import aiwatch_config_cache, mdm_config
 from runlayer_cli.aiwatch import app as aiwatch_app
+from runlayer_cli.commands.aiwatch_config import (
+    _UNRECOGNIZED_SECRET,
+    _redact_secret,
+)
 from runlayer_cli.commands.aiwatch_setup import app as aiwatch_setup_app
 from runlayer_cli.mdm_config import AIWatchMode
 
 
 runner = CliRunner()
+
+_SECRET_DISPLAY_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "managed_secret_display_cases.json"
+)
+_SECRET_DISPLAY_CASES = json.loads(_SECRET_DISPLAY_FIXTURE.read_text())
+
+ORG_API_KEY = "rl_org_Ab1C2d3E4f5G6h7I8j9K0LmN1oP2qR3s"
+SKILL_SYNC_ORG_API_KEY = "rl_org_Zy9Xw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg0Fe"
+ENROLLMENT_KEY = "rl_enroll_Ab1C2d3E4f5G6h7I8j9K0LmN1oP2qR3s"
 
 
 def test_managed_config_secret_fields_cover_sensitive_names() -> None:
@@ -125,12 +138,49 @@ def test_hidden_aiwatch_commands_remain_invocable(command: tuple[str, ...]) -> N
     assert "Usage:" in result.output
 
 
+@pytest.mark.parametrize("case", _SECRET_DISPLAY_CASES, ids=lambda case: case["id"])
+def test_redact_secret_matches_dashboard_display(case: dict[str, str]) -> None:
+    assert _redact_secret(case["field"], case["secret"]) == case["expected"]
+
+
+def test_redact_secret_covers_every_secret_field() -> None:
+    assert {case["field"] for case in _SECRET_DISPLAY_CASES} == set(
+        mdm_config.SECRET_FIELDS
+    )
+
+
+@pytest.mark.parametrize(
+    ("field", "secret"),
+    [
+        ("org_api_key", "rl_Ab1C2d3E4f5G6h7I8j9K0LmN1oP2qR3s"),
+        ("org_api_key", "rl_org_short"),
+        ("skill_sync_org_api_key", "not-a-key"),
+        ("enrollment_key", "rl_enroll_ab"),
+        ("enrollment_key", "rl_org_Ab1C2d3E4f5G6h7I8j9K0LmN1oP2qR3s"),
+    ],
+)
+def test_redact_secret_masks_unrecognized_values(field: str, secret: str) -> None:
+    rendered = _redact_secret(field, secret)
+
+    assert rendered == _UNRECOGNIZED_SECRET
+    assert secret not in rendered
+    assert secret[:4] not in rendered
+
+
+def test_redact_secret_distinguishes_enrollment_keys() -> None:
+    other = "rl_enroll_Zy9Xw8Vu7Ts6Rq5Po4Nm3Lk2Ji1Hg0Fe"
+
+    assert _redact_secret("enrollment_key", ENROLLMENT_KEY) != _redact_secret(
+        "enrollment_key", other
+    )
+
+
 def test_config_show_json_redacts_all_managed_secrets() -> None:
     managed = {
         "host": "https://tenant.runlayer.com",
-        "org_api_key": "rl_org_12345678",
-        "enrollment_key": "enroll_abcdefgh",
-        "skill_sync_org_api_key": "rl_org_skills_wxyz",
+        "org_api_key": ORG_API_KEY,
+        "enrollment_key": ENROLLMENT_KEY,
+        "skill_sync_org_api_key": SKILL_SYNC_ORG_API_KEY,
         "mode": AIWatchMode.PROTECT,
         "sessions": True,
     }
@@ -143,22 +193,22 @@ def test_config_show_json_redacts_all_managed_secrets() -> None:
     assert result.exit_code == 0
     payload = json.loads(result.output)
     assert payload["config"] == {
-        "enrollment_key": "****efgh",
+        "enrollment_key": "rl_enroll_...qR3s",
         "host": "https://tenant.runlayer.com",
         "mode": "protect",
-        "org_api_key": "****5678",
+        "org_api_key": "rl_org_Ab1C2d3...",
         "sessions": True,
-        "skill_sync_org_api_key": "****wxyz",
+        "skill_sync_org_api_key": "rl_org_Zy9Xw8V...",
     }
-    assert "rl_org_12345678" not in result.output
-    assert "enroll_abcdefgh" not in result.output
-    assert "rl_org_skills_wxyz" not in result.output
+    assert ORG_API_KEY not in result.output
+    assert ENROLLMENT_KEY not in result.output
+    assert SKILL_SYNC_ORG_API_KEY not in result.output
 
 
 def test_config_show_text_redacts_secrets_and_reports_cache_status() -> None:
     managed = {
-        "org_api_key": "rl_org_12345678",
-        "enrollment_key": "enroll_abcdefgh",
+        "org_api_key": ORG_API_KEY,
+        "enrollment_key": ENROLLMENT_KEY,
         "mode": AIWatchMode.PROTECT,
     }
     with (
@@ -171,12 +221,12 @@ def test_config_show_text_redacts_secrets_and_reports_cache_status() -> None:
         result = runner.invoke(aiwatch_app, ["config", "show"])
 
     assert result.exit_code == 0
-    assert "org_api_key: ****5678" in result.output
-    assert "enrollment_key: ****efgh" in result.output
+    assert "org_api_key: rl_org_Ab1C2d3..." in result.output
+    assert "enrollment_key: rl_enroll_...qR3s" in result.output
     assert "mode: protect" in result.output
     assert "status: unsupported" in result.output
-    assert "rl_org_12345678" not in result.output
-    assert "enroll_abcdefgh" not in result.output
+    assert ORG_API_KEY not in result.output
+    assert ENROLLMENT_KEY not in result.output
 
 
 def test_config_show_works_without_managed_config() -> None:

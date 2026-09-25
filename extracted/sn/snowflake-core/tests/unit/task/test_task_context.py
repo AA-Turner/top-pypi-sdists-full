@@ -89,6 +89,28 @@ def test_task_context(fake_root):
     assert sse.match("Some error")
 
 
+@pytest.mark.parametrize(
+    "malicious_property_name",
+    [
+        "x\\' UNION SELECT 'PWNED' -- ",
+        "x')) UNION SELECT CURRENT_USER() -- ",
+        "'; DROP TABLE FOO; --",
+        "back\\slash\\and'quote",
+    ],
+)
+def test_get_runtime_info_escapes_property_name(fake_root, malicious_property_name):
+    task_context = TaskContext(fake_root)
+    mock_result = Mock()
+    mock_result.collect.return_value = [["abc"]]
+    fake_root.sql.return_value = mock_result
+
+    task_context.get_runtime_info(malicious_property_name)
+
+    (query,), _ = fake_root.sql.call_args
+    expected_escaped = malicious_property_name.upper().replace("\\", "\\\\").replace("'", "''")
+    assert query == f"select to_char(system$task_runtime_info('{expected_escaped}'))"
+
+
 def test_get_current_task_short_name(fake_root):
     task_context = TaskContext(fake_root)
 

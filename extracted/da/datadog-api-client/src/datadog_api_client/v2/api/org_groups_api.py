@@ -18,6 +18,7 @@ from datadog_api_client.v2.model.org_group_membership_bulk_update_request import
 from datadog_api_client.v2.model.org_group_membership_response import OrgGroupMembershipResponse
 from datadog_api_client.v2.model.org_group_membership_update_request import OrgGroupMembershipUpdateRequest
 from datadog_api_client.v2.model.org_group_policy_list_response import OrgGroupPolicyListResponse
+from datadog_api_client.v2.model.org_group_policy_filter_policy_type_value import OrgGroupPolicyFilterPolicyTypeValue
 from datadog_api_client.v2.model.org_group_policy_sort_option import OrgGroupPolicySortOption
 from datadog_api_client.v2.model.org_group_policy_response import OrgGroupPolicyResponse
 from datadog_api_client.v2.model.org_group_policy_create_request import OrgGroupPolicyCreateRequest
@@ -49,7 +50,7 @@ class OrgGroupsApi:
         self._bulk_update_org_group_memberships_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupMembershipListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_memberships/bulk",
                 "operation_id": "bulk_update_org_group_memberships",
                 "http_method": "PATCH",
@@ -69,7 +70,7 @@ class OrgGroupsApi:
         self._create_org_group_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_groups",
                 "operation_id": "create_org_group",
                 "http_method": "POST",
@@ -89,7 +90,7 @@ class OrgGroupsApi:
         self._create_org_group_policy_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policies",
                 "operation_id": "create_org_group_policy",
                 "http_method": "POST",
@@ -109,7 +110,7 @@ class OrgGroupsApi:
         self._create_org_group_policy_override_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyOverrideResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_overrides",
                 "operation_id": "create_org_group_policy_override",
                 "http_method": "POST",
@@ -129,7 +130,7 @@ class OrgGroupsApi:
         self._delete_org_group_endpoint = _Endpoint(
             settings={
                 "response_type": None,
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_groups/{org_group_id}",
                 "operation_id": "delete_org_group",
                 "http_method": "DELETE",
@@ -152,7 +153,7 @@ class OrgGroupsApi:
         self._delete_org_group_policy_endpoint = _Endpoint(
             settings={
                 "response_type": None,
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policies/{org_group_policy_id}",
                 "operation_id": "delete_org_group_policy",
                 "http_method": "DELETE",
@@ -175,7 +176,7 @@ class OrgGroupsApi:
         self._delete_org_group_policy_override_endpoint = _Endpoint(
             settings={
                 "response_type": None,
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_overrides/{org_group_policy_override_id}",
                 "operation_id": "delete_org_group_policy_override",
                 "http_method": "DELETE",
@@ -198,7 +199,7 @@ class OrgGroupsApi:
         self._get_org_group_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_groups/{org_group_id}",
                 "operation_id": "get_org_group",
                 "http_method": "GET",
@@ -221,7 +222,7 @@ class OrgGroupsApi:
         self._get_org_group_membership_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupMembershipResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_memberships/{org_group_membership_id}",
                 "operation_id": "get_org_group_membership",
                 "http_method": "GET",
@@ -244,7 +245,7 @@ class OrgGroupsApi:
         self._get_org_group_policy_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policies/{org_group_policy_id}",
                 "operation_id": "get_org_group_policy",
                 "http_method": "GET",
@@ -267,7 +268,7 @@ class OrgGroupsApi:
         self._get_org_group_policy_override_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyOverrideResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_overrides/{org_group_policy_override_id}",
                 "operation_id": "get_org_group_policy_override",
                 "http_method": "GET",
@@ -290,7 +291,7 @@ class OrgGroupsApi:
         self._list_org_group_memberships_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupMembershipListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_memberships",
                 "operation_id": "list_org_group_memberships",
                 "http_method": "GET",
@@ -339,7 +340,7 @@ class OrgGroupsApi:
         self._list_org_group_policies_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policies",
                 "operation_id": "list_org_group_policies",
                 "http_method": "GET",
@@ -355,6 +356,11 @@ class OrgGroupsApi:
                 "filter_policy_name": {
                     "openapi_types": (str,),
                     "attribute": "filter[policy_name]",
+                    "location": "query",
+                },
+                "filter_policy_type": {
+                    "openapi_types": (OrgGroupPolicyFilterPolicyTypeValue,),
+                    "attribute": "filter[policy_type]",
                     "location": "query",
                 },
                 "page_number": {
@@ -389,7 +395,7 @@ class OrgGroupsApi:
         self._list_org_group_policy_configs_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyConfigListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_configs",
                 "operation_id": "list_org_group_policy_configs",
                 "http_method": "GET",
@@ -405,7 +411,7 @@ class OrgGroupsApi:
         self._list_org_group_policy_overrides_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyOverrideListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_overrides",
                 "operation_id": "list_org_group_policy_overrides",
                 "http_method": "GET",
@@ -455,7 +461,7 @@ class OrgGroupsApi:
         self._list_org_group_policy_suggestions_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicySuggestionListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_suggestions",
                 "operation_id": "list_org_group_policy_suggestions",
                 "http_method": "GET",
@@ -478,7 +484,7 @@ class OrgGroupsApi:
         self._list_org_groups_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupListResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_groups",
                 "operation_id": "list_org_groups",
                 "http_method": "GET",
@@ -517,7 +523,7 @@ class OrgGroupsApi:
         self._update_org_group_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_groups/{org_group_id}",
                 "operation_id": "update_org_group",
                 "http_method": "PATCH",
@@ -543,7 +549,7 @@ class OrgGroupsApi:
         self._update_org_group_membership_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupMembershipResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_memberships/{org_group_membership_id}",
                 "operation_id": "update_org_group_membership",
                 "http_method": "PATCH",
@@ -569,7 +575,7 @@ class OrgGroupsApi:
         self._update_org_group_policy_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policies/{org_group_policy_id}",
                 "operation_id": "update_org_group_policy",
                 "http_method": "PATCH",
@@ -595,7 +601,7 @@ class OrgGroupsApi:
         self._update_org_group_policy_override_endpoint = _Endpoint(
             settings={
                 "response_type": (OrgGroupPolicyOverrideResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/org_group_policy_overrides/{org_group_policy_override_id}",
                 "operation_id": "update_org_group_policy_override",
                 "http_method": "PATCH",
@@ -849,6 +855,7 @@ class OrgGroupsApi:
         filter_org_group_id: UUID,
         *,
         filter_policy_name: Union[str, UnsetType] = unset,
+        filter_policy_type: Union[OrgGroupPolicyFilterPolicyTypeValue, UnsetType] = unset,
         page_number: Union[int, UnsetType] = unset,
         page_size: Union[int, UnsetType] = unset,
         sort: Union[OrgGroupPolicySortOption, UnsetType] = unset,
@@ -861,6 +868,8 @@ class OrgGroupsApi:
         :type filter_org_group_id: UUID
         :param filter_policy_name: Filter policies by policy name.
         :type filter_policy_name: str, optional
+        :param filter_policy_type: Filter policies by policy type. Supported values are ``org_config`` and ``role``.
+        :type filter_policy_type: OrgGroupPolicyFilterPolicyTypeValue, optional
         :param page_number: The page number to return.
         :type page_number: int, optional
         :param page_size: The number of items per page. Maximum is 1000.
@@ -874,6 +883,9 @@ class OrgGroupsApi:
 
         if filter_policy_name is not unset:
             kwargs["filter_policy_name"] = filter_policy_name
+
+        if filter_policy_type is not unset:
+            kwargs["filter_policy_type"] = filter_policy_type
 
         if page_number is not unset:
             kwargs["page_number"] = page_number

@@ -222,6 +222,14 @@ public sealed partial class HumanizedLocator : ILocator
     public ILocator And(ILocator locator) =>
         Wrap(_inner.And(locator is HumanizedLocator h ? h.Original : locator));
 
+    // #549: unwrap Has/HasNot in place (rebuilding options would drop future fields).
+    public ILocator Filter(LocatorFilterOptions? options = null)
+    {
+        if (options?.Has is HumanizedLocator has) options.Has = has.Original;
+        if (options?.HasNot is HumanizedLocator hasNot) options.HasNot = hasNot.Original;
+        return Wrap(_inner.Filter(options));
+    }
+
     public ILocator Locator(string selectorOrLocator, LocatorLocatorOptions? options = null) =>
         Wrap(_inner.Locator(selectorOrLocator, options));
     public ILocator Locator(ILocator selectorOrLocator, LocatorLocatorOptions? options = null) =>

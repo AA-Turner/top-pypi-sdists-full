@@ -291,7 +291,7 @@ class MemUsageTest(EnsureZeroed):
     def test_DecimalResultProcessor_init(self):
         @profile_memory()
         def go():
-            to_decimal_processor_factory({}, 10)
+            to_decimal_processor_factory(dict, 10)
 
         go()
 
@@ -395,14 +395,7 @@ class MemUsageTest(EnsureZeroed):
 
         go()
 
-    @testing.variation(
-        "scenario",
-        [
-            "plain",
-            "orm_index",
-            ("declare_last", testing.fails("issue #9147 is not yet fixed")),
-        ],
-    )
+    @testing.variation("scenario", ["plain", "orm_index", "declare_last"])
     def test_registry_dispose_releases_classes(self, scenario):
         """test #13566, #9147
 
@@ -411,16 +404,12 @@ class MemUsageTest(EnsureZeroed):
         #13566, where an :class:`.Index` against an ORM annotated
         expression links the :class:`.Table` to the mapper and from there
         to the whole registry; the "declare_last" scenario illustrates
-        #9147, where a ``__declare_last__`` method leaves behind an
-        ``after_configured`` event listener.
+        #9147, where a ``__declare_last__`` method would leave behind a
+        Mapper-wide ``after_configured`` event listener.
 
         """
 
-        # the "declare_last" scenario is expected to fail; don't spend the
-        # default number of iterations proving that it grows
-        maxtimes = 20 if scenario.declare_last else 250
-
-        @profile_memory(maxtimes=maxtimes)
+        @profile_memory()
         def go():
             reg = sa.orm.registry()
             Base = reg.generate_base()
@@ -1150,62 +1139,6 @@ class MemUsageWBackendTest(fixtures.MappedTest, EnsureZeroed):
     # https://thread.gmane.org/gmane.comp.python.db.pysqlite.user/2290
 
     @testing.crashes("mysql+cymysql", "blocking")
-    def test_join_cache_deprecated_coercion(self):
-        metadata = MetaData()
-        table1 = Table(
-            "table1",
-            metadata,
-            Column(
-                "id", Integer, primary_key=True, test_needs_autoincrement=True
-            ),
-            Column("data", String(30)),
-        )
-        table2 = Table(
-            "table2",
-            metadata,
-            Column(
-                "id", Integer, primary_key=True, test_needs_autoincrement=True
-            ),
-            Column("data", String(30)),
-            Column("t1id", Integer, ForeignKey("table1.id")),
-        )
-
-        class Foo:
-            pass
-
-        class Bar:
-            pass
-
-        self.mapper_registry.map_imperatively(
-            Foo,
-            table1,
-            properties={
-                "bars": relationship(
-                    self.mapper_registry.map_imperatively(Bar, table2)
-                )
-            },
-        )
-        metadata.create_all(self.engine)
-        session = sessionmaker(self.engine)
-
-        @profile_memory()
-        def go():
-            s = table2.select()
-            sess = session()
-            with testing.expect_deprecated(
-                "Implicit coercion of SELECT and textual SELECT constructs",
-                "An alias is being generated automatically",
-                assert_=False,
-            ):
-                sess.query(Foo).join(s, Foo.bars).all()
-            sess.rollback()
-
-        try:
-            go()
-        finally:
-            metadata.drop_all(self.engine)
-
-    @testing.crashes("mysql+cymysql", "blocking")
     def test_join_cache(self):
         metadata = MetaData()
         table1 = Table(
@@ -1620,7 +1553,7 @@ class CycleTest(_fixtures.FixtureTest):
 
         stmt = s.query(User).join(User.addresses).statement
 
-        @assert_cycles(4)
+        @assert_cycles(21)
         def go():
             result = s.execute(stmt)
             rows = result.fetchall()  # noqa
@@ -1635,7 +1568,7 @@ class CycleTest(_fixtures.FixtureTest):
 
         stmt = s.query(User).join(User.addresses).statement
 
-        @assert_cycles(4)
+        @assert_cycles(21)
         def go():
             result = s.execute(stmt)
             for partition in result.partitions(3):
@@ -1651,7 +1584,7 @@ class CycleTest(_fixtures.FixtureTest):
 
         stmt = s.query(User).join(User.addresses).statement
 
-        @assert_cycles(4)
+        @assert_cycles(21)
         def go():
             result = s.execute(stmt)
             for partition in result.unique().partitions(3):

@@ -6,17 +6,18 @@ for hiding payloads in images for multimodal attack testing.
 
 import typing as t
 
-import numpy as np
-from PIL import Image as PILImage
-from PIL import ImageDraw, ImageFont
-
 from dreadnode.core.transforms import Transform
 from dreadnode.core.types import Image
 from dreadnode.scorers.image import Norm
 
+if t.TYPE_CHECKING:
+    import numpy as np
+    from PIL import ImageFont
+
 
 def add_gaussian_noise(*, scale: float = 1, seed: int | None = None) -> Transform[Image, Image]:
     """Adds Gaussian noise to an image."""
+    import numpy as np
 
     random = np.random.default_rng(seed)  # nosec
 
@@ -30,6 +31,7 @@ def add_gaussian_noise(*, scale: float = 1, seed: int | None = None) -> Transfor
 
 def add_laplace_noise(*, scale: float = 1, seed: int | None = None) -> Transform[Image, Image]:
     """Adds Laplace noise to an image."""
+    import numpy as np
 
     random = np.random.default_rng(seed)  # nosec
 
@@ -45,6 +47,7 @@ def add_uniform_noise(
     *, low: float = -1, high: float = 1, seed: int | None = None
 ) -> Transform[Image, Image]:
     """Adds Uniform noise to an image."""
+    import numpy as np
 
     random = np.random.default_rng(seed)  # nosec
 
@@ -58,6 +61,7 @@ def add_uniform_noise(
 
 def shift_pixel_values(max_delta: int = 5, *, seed: int | None = None) -> Transform[Image, Image]:
     """Randomly shifts pixel values by a small integer amount."""
+    import numpy as np
 
     random = np.random.default_rng(seed)  # nosec
 
@@ -86,6 +90,7 @@ def interpolate_images(
         A Transform that takes a tuple of (start_image, end_image) and
         returns the interpolated image.
     """
+    import numpy as np
 
     def transform(
         images: tuple[Image, Image],
@@ -142,6 +147,8 @@ def add_text_overlay(
         >>> transform = add_text_overlay("CONFIDENTIAL", position="top", color=(255, 0, 0))
         >>> modified_image = transform(original_image)
     """
+    from PIL import Image as PILImage
+    from PIL import ImageDraw, ImageFont
 
     def transform_func(image: Image) -> Image:
         # Convert to PIL
@@ -280,6 +287,8 @@ def image_steganography(
         - https://en.wikipedia.org/wiki/Steganography
         - https://arxiv.org/abs/2306.13213 (Visual Adversarial Examples)
     """
+    import numpy as np
+
     if bits_per_channel < 1 or bits_per_channel > 4:
         raise ValueError("bits_per_channel must be between 1 and 4")
 
@@ -535,6 +544,8 @@ def jpeg_compression(
     """
     import io
 
+    from PIL import Image as PILImage
+
     def transform_func(image: Image) -> Image:
         pil_img = image.to_pil().convert("RGB")
 
@@ -564,6 +575,7 @@ def pixelate(
         pixel_size: Size of pixel blocks (larger = more pixelated).
         name: Name of the transform.
     """
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil_img = image.to_pil()
@@ -624,6 +636,8 @@ def overlay_emoji(
         opacity: Emoji opacity (0-1).
         name: Name of the transform.
     """
+    from PIL import Image as PILImage
+    from PIL import ImageDraw, ImageFont
 
     def transform_func(image: Image) -> Image:
         pil_img = image.to_pil().convert("RGBA")
@@ -742,6 +756,7 @@ def color_jitter(
         seed: Random seed for reproducibility.
         name: Name of the transform.
     """
+    import numpy as np
     from PIL import ImageEnhance
 
     rand = np.random.default_rng(seed)
@@ -783,6 +798,8 @@ def shuffle_pixels(
         seed: Random seed for reproducibility.
         name: Name of the transform.
     """
+    import numpy as np
+
     rand = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -920,6 +937,7 @@ def adversarial_patch(
         font_size: Font size for the payload text.
         name: Name of the transform.
     """
+    from PIL import ImageDraw, ImageFont
 
     def transform_func(image: Image) -> Image:
         pil_img = image.to_pil().convert("RGB")
@@ -979,6 +997,7 @@ def extract_steganography(
         assert extracted == original_payload
         ```
     """
+    import numpy as np
 
     def transform_func(image: Image) -> str:
         arr = image.to_numpy(dtype=np.uint8)
@@ -1051,6 +1070,8 @@ def salt_pepper_noise(
     name: str = "salt_pepper_noise",
 ) -> Transform[Image, Image]:
     """Add impulse (salt-and-pepper) noise by flipping random pixels to white/black."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1067,6 +1088,7 @@ def motion_blur(
     *, size: int = 9, angle: float = 0.0, name: str = "motion_blur"
 ) -> Transform[Image, Image]:
     """Apply directional motion blur along ``angle`` degrees (simulated camera motion)."""
+    import numpy as np
     from scipy import ndimage
 
     def transform_func(image: Image) -> Image:
@@ -1100,6 +1122,8 @@ def cutout(
     name: str = "cutout",
 ) -> Transform[Image, Image]:
     """Occlude a random rectangular region (CutOut / random-erasing augmentation)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1125,6 +1149,8 @@ def channel_shuffle(
     name: str = "channel_shuffle",
 ) -> Transform[Image, Image]:
     """Permute the RGB channels (e.g. swap to BGR) to break pixel-exact matching."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1141,6 +1167,8 @@ def channel_shuffle(
 
 def hue_shift(*, degrees: float = 90.0, name: str = "hue_shift") -> Transform[Image, Image]:
     """Rotate the hue channel by ``degrees`` in HSV space (color-cast shift)."""
+    import numpy as np
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         arr = np.array(image.to_pil().convert("HSV"))
@@ -1156,6 +1184,7 @@ def chromatic_aberration(
     *, shift: int = 3, name: str = "chromatic_aberration"
 ) -> Transform[Image, Image]:
     """Laterally offset the red and blue channels (lens chromatic-aberration effect)."""
+    import numpy as np
 
     def transform_func(image: Image) -> Image:
         arr = image.to_numpy()
@@ -1173,6 +1202,8 @@ def _perspective_coeffs(
     dst: list[tuple[float, float]], src: list[tuple[float, float]]
 ) -> list[float]:
     """Solve the 8 PIL PERSPECTIVE coefficients mapping output ``dst`` to input ``src``."""
+    import numpy as np
+
     matrix = []
     for d, s in zip(dst, src, strict=True):
         matrix.append([d[0], d[1], 1, 0, 0, 0, -s[0] * d[0], -s[0] * d[1]])
@@ -1186,6 +1217,7 @@ def perspective_warp(
     *, magnitude: float = 0.15, name: str = "perspective_warp"
 ) -> Transform[Image, Image]:
     """Apply a perspective (viewpoint) warp by pinching the top edge inward."""
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil()
@@ -1210,6 +1242,7 @@ def elastic_deform(
     name: str = "elastic_deform",
 ) -> Transform[Image, Image]:
     """Apply a smooth elastic displacement field (spatial warp used for OCR/robustness)."""
+    import numpy as np
     from scipy.ndimage import gaussian_filter, map_coordinates
 
     rng = np.random.default_rng(seed)
@@ -1270,6 +1303,7 @@ def autocontrast(*, cutoff: float = 2.0, name: str = "autocontrast") -> Transfor
 
 def downscale(*, scale: float = 0.25, name: str = "downscale") -> Transform[Image, Image]:
     """Downsample then upsample (bilinear) to destroy fine detail at the original size."""
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil()
@@ -1290,6 +1324,7 @@ def high_frequency_perturbation(
     name: str = "high_frequency_perturbation",
 ) -> Transform[Image, Image]:
     """Add a near-Nyquist sinusoidal grating (a low-visibility high-frequency perturbation)."""
+    import numpy as np
 
     def transform_func(image: Image) -> Image:
         arr = image.to_numpy()
@@ -1305,6 +1340,7 @@ def high_frequency_perturbation(
 
 def sepia(*, name: str = "sepia") -> Transform[Image, Image]:
     """Apply a sepia color matrix (warm monochrome tint)."""
+    import numpy as np
 
     def transform_func(image: Image) -> Image:
         arr = np.asarray(image.to_pil().convert("RGB"), dtype=np.float64) / 255.0
@@ -1319,6 +1355,7 @@ def change_aspect_ratio(
     *, ratio: float = 1.5, name: str = "change_aspect_ratio"
 ) -> Transform[Image, Image]:
     """Stretch the width by ``ratio`` (anamorphic distortion of aspect ratio)."""
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil()
@@ -1333,6 +1370,7 @@ def skew(
     *, shear: float = 0.3, fill_color: tuple[int, int, int] = (0, 0, 0), name: str = "skew"
 ) -> Transform[Image, Image]:
     """Apply a horizontal shear/skew (affine slant)."""
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
@@ -1358,6 +1396,8 @@ def meme_format(
     name: str = "meme_format",
 ) -> Transform[Image, Image]:
     """Add a white caption bar with bold text (image-macro / meme framing of a payload)."""
+    from PIL import Image as PILImage
+    from PIL import ImageDraw, ImageFont
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
@@ -1388,6 +1428,7 @@ def opacity_blend(
     name: str = "opacity",
 ) -> Transform[Image, Image]:
     """Blend the image toward a flat background color (reduced opacity / wash-out)."""
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
@@ -1408,6 +1449,8 @@ def overlay_stripes(
     name: str = "overlay_stripes",
 ) -> Transform[Image, Image]:
     """Overlay evenly spaced semi-transparent stripes (occluding line pattern)."""
+    from PIL import Image as PILImage
+    from PIL import ImageDraw
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGBA")
@@ -1455,6 +1498,8 @@ def shot_noise(
     *, scale: float = 60.0, seed: int | None = None, name: str = "shot_noise"
 ) -> Transform[Image, Image]:
     """Add Poisson (shot) noise — signal-dependent sensor noise (ImageNet-C)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1469,6 +1514,8 @@ def speckle_noise(
     *, scale: float = 0.15, seed: int | None = None, name: str = "speckle_noise"
 ) -> Transform[Image, Image]:
     """Add multiplicative speckle noise ``x + x*N(0,scale)`` (ImageNet-C)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1481,6 +1528,7 @@ def speckle_noise(
 
 def defocus_blur(*, radius: int = 3, name: str = "defocus_blur") -> Transform[Image, Image]:
     """Blur with a disk (defocus) kernel — out-of-focus lens (ImageNet-C)."""
+    import numpy as np
     from scipy import ndimage
 
     def transform_func(image: Image) -> Image:
@@ -1509,11 +1557,12 @@ def glass_blur(
     name: str = "glass_blur",
 ) -> Transform[Image, Image]:
     """Frosted-glass blur: Gaussian blur plus local pixel jitter (ImageNet-C)."""
+    import numpy as np
     from scipy.ndimage import gaussian_filter
 
     rng = np.random.default_rng(seed)
 
-    def _blur(arr: np.ndarray) -> np.ndarray:
+    def _blur(arr: "np.ndarray") -> "np.ndarray":
         if arr.ndim == 2:
             return gaussian_filter(arr, sigma)
         return np.stack([gaussian_filter(arr[..., c], sigma) for c in range(arr.shape[2])], axis=-1)
@@ -1539,6 +1588,8 @@ def zoom_blur(
     *, max_zoom: float = 1.1, step: float = 0.02, name: str = "zoom_blur"
 ) -> Transform[Image, Image]:
     """Average progressively zoomed copies — radial zoom blur (ImageNet-C)."""
+    import numpy as np
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
@@ -1563,6 +1614,7 @@ def fog(
     *, intensity: float = 0.6, seed: int | None = None, name: str = "fog"
 ) -> Transform[Image, Image]:
     """Blend a low-frequency bright cloud over the image — fog (ImageNet-C)."""
+    import numpy as np
     from scipy.ndimage import zoom as ndzoom
 
     rng = np.random.default_rng(seed)
@@ -1591,6 +1643,7 @@ def snow(
     name: str = "snow",
 ) -> Transform[Image, Image]:
     """Overlay motion-blurred bright specks — falling snow (ImageNet-C)."""
+    import numpy as np
     from scipy import ndimage
 
     rng = np.random.default_rng(seed)
@@ -1621,6 +1674,7 @@ def spatter(
     name: str = "spatter",
 ) -> Transform[Image, Image]:
     """Paint random mud/rain blobs over the image — spatter (ImageNet-C)."""
+    import numpy as np
     from scipy.ndimage import gaussian_filter
 
     rng = np.random.default_rng(seed)
@@ -1646,6 +1700,8 @@ def spatter(
 
 
 def _load_font(size: int) -> "ImageFont.FreeTypeFont":
+    from PIL import ImageFont
+
     try:
         return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", size)
     except Exception:
@@ -1727,6 +1783,8 @@ def figstep_image(
         Gong et al., "FigStep: Jailbreaking LVLMs via Typographic Visual Prompts",
         arXiv:2311.05608.
     """
+    from PIL import Image as PILImage
+    from PIL import ImageDraw
 
     def transform_func(image: Image) -> Image:
         img = PILImage.new("RGB", (width, height), (255, 255, 255))
@@ -1765,6 +1823,8 @@ def typographic_prompt(
     Reference:
         Liu et al., "MM-SafetyBench", arXiv:2311.17600.
     """
+    from PIL import Image as PILImage
+    from PIL import ImageDraw
 
     def transform_func(image: Image) -> Image:
         img = PILImage.new("RGB", (width, height), background)
@@ -1788,6 +1848,7 @@ def typographic_prompt(
 
 def median_blur(*, size: int = 3, name: str = "median_blur") -> Transform[Image, Image]:
     """Median filter — removes speckle while preserving edges."""
+    import numpy as np
     from scipy import ndimage
 
     def transform_func(image: Image) -> Image:
@@ -1808,6 +1869,7 @@ def gamma_correction(
     *, gamma: float = 1.5, name: str = "gamma_correction"
 ) -> Transform[Image, Image]:
     """Apply a power-law (gamma) tone curve. gamma>1 darkens, <1 brightens."""
+    import numpy as np
 
     def transform_func(image: Image) -> Image:
         arr = np.clip(image.to_numpy(), 0, 1)
@@ -1820,6 +1882,7 @@ def color_quantize(
     *, colors: int = 16, dither: bool = False, name: str = "color_quantize"
 ) -> Transform[Image, Image]:
     """Reduce to an adaptive N-color palette (color banding / poster effect)."""
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
@@ -1832,6 +1895,7 @@ def color_quantize(
 
 def ordered_dither(*, name: str = "ordered_dither") -> Transform[Image, Image]:
     """4x4 Bayer ordered dithering to 1-bit-per-channel."""
+    import numpy as np
 
     bayer = (
         np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], dtype=np.float64)
@@ -1851,6 +1915,7 @@ def ordered_dither(*, name: str = "ordered_dither") -> Transform[Image, Image]:
 
 def vignette(*, strength: float = 0.6, name: str = "vignette") -> Transform[Image, Image]:
     """Darken the image radially toward the corners (lens vignette)."""
+    import numpy as np
 
     def transform_func(image: Image) -> Image:
         arr = image.to_numpy()
@@ -1874,6 +1939,7 @@ def rgb_shift(
     name: str = "rgb_shift",
 ) -> Transform[Image, Image]:
     """Add a constant per-channel value shift (color cast)."""
+    import numpy as np
 
     def transform_func(image: Image) -> Image:
         arr = image.to_numpy().astype(np.float64).copy()
@@ -1894,6 +1960,8 @@ def channel_dropout(
     name: str = "channel_dropout",
 ) -> Transform[Image, Image]:
     """Zero (drop) a single color channel."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1914,6 +1982,8 @@ def hsv_shift(
     name: str = "hsv_shift",
 ) -> Transform[Image, Image]:
     """Shift saturation and value (brightness) in HSV space."""
+    import numpy as np
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         hsv = np.asarray(image.to_pil().convert("HSV"), dtype=np.float64) / 255.0
@@ -1934,6 +2004,8 @@ def coarse_dropout(
     name: str = "coarse_dropout",
 ) -> Transform[Image, Image]:
     """Erase multiple random rectangles (CoarseDropout / cutout with many holes)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1957,6 +2029,8 @@ def pixel_dropout(
     name: str = "pixel_dropout",
 ) -> Transform[Image, Image]:
     """Randomly zero individual pixels (Bernoulli pixel dropout)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -1975,9 +2049,10 @@ def morphology(
     name: str = "morphology",
 ) -> Transform[Image, Image]:
     """Grayscale morphological erode/dilate/open/close (thickens or thins structures)."""
+    import numpy as np
     from scipy import ndimage
 
-    def _op(a: np.ndarray) -> np.ndarray:
+    def _op(a: "np.ndarray") -> "np.ndarray":
         if operation == "erode":
             return ndimage.grey_erosion(a, size=(size, size))
         if operation == "dilate":
@@ -2001,6 +2076,7 @@ def optical_distortion(
     *, k: float = 0.3, name: str = "optical_distortion"
 ) -> Transform[Image, Image]:
     """Radial barrel (k>0) or pincushion (k<0) lens distortion."""
+    import numpy as np
     from scipy.ndimage import map_coordinates
 
     def transform_func(image: Image) -> Image:
@@ -2037,6 +2113,7 @@ def grid_distortion(
     name: str = "grid_distortion",
 ) -> Transform[Image, Image]:
     """Warp the image along a randomly perturbed grid."""
+    import numpy as np
     from scipy.ndimage import map_coordinates, zoom
 
     rng = np.random.default_rng(seed)
@@ -2074,6 +2151,7 @@ def rain(
     name: str = "rain",
 ) -> Transform[Image, Image]:
     """Overlay directional rain streaks (darker/thinner than snow)."""
+    import numpy as np
     from scipy import ndimage
 
     rng = np.random.default_rng(seed)
@@ -2099,6 +2177,10 @@ def random_shadow(
     *, strength: float = 0.5, seed: int | None = None, name: str = "random_shadow"
 ) -> Transform[Image, Image]:
     """Darken a random triangular region (cast shadow)."""
+    import numpy as np
+    from PIL import Image as PILImage
+    from PIL import ImageDraw
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -2122,6 +2204,8 @@ def iso_noise(
     name: str = "iso_noise",
 ) -> Transform[Image, Image]:
     """Camera-sensor ISO noise: Poisson shot noise plus color-channel Gaussian noise."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -2137,6 +2221,7 @@ def iso_noise(
 
 def ringing_overshoot(*, size: int = 7, name: str = "ringing_overshoot") -> Transform[Image, Image]:
     """Convolve with a sinc kernel to produce ringing (Gibbs) artifacts near edges."""
+    import numpy as np
     from scipy import ndimage
 
     ax = np.linspace(-2, 2, size)
@@ -2165,6 +2250,8 @@ def fancy_pca(
     *, alpha_std: float = 0.1, seed: int | None = None, name: str = "fancy_pca"
 ) -> Transform[Image, Image]:
     """AlexNet-style PCA color augmentation along the RGB principal axes."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform_func(image: Image) -> Image:
@@ -2189,6 +2276,8 @@ def webp_compression(
     """Apply WebP lossy-compression artifacts."""
     import io
 
+    from PIL import Image as PILImage
+
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
         buffer = io.BytesIO()
@@ -2210,6 +2299,8 @@ def affine(
     name: str = "affine",
 ) -> Transform[Image, Image]:
     """Combined affine transform (rotate + scale + translate + shear)."""
+    import numpy as np
+    from PIL import Image as PILImage
 
     def transform_func(image: Image) -> Image:
         pil = image.to_pil().convert("RGB")
@@ -2264,6 +2355,8 @@ def invisible_text(
         color: Base RGB of the text (blended in at ``contrast`` alpha).
         name: Name of the transform.
     """
+    from PIL import Image as PILImage
+    from PIL import ImageDraw, ImageFont
 
     def transform_func(image: Image) -> Image:
         pil_img = image.to_pil().convert("RGBA")

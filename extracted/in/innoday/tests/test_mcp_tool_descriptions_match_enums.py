@@ -131,10 +131,11 @@ def test_the_scan_finds_the_board_type_parameters():
     """Vacuity guard: an empty scan passes the assertion above forever.
 
     Named rather than counted -- a count drifts on any unrelated tool being
-    added, and these three are the ones that had the bug.
+    added, and these are the ones that had the bug (a third, setup_org_with_env,
+    was removed in PF-457).
     """
     found = _board_type_descriptions()
-    assert {"register_board", "sync_all_boards", "setup_org_with_env"} <= set(found), (
+    assert {"register_board", "sync_all_boards"} <= set(found), (
         f"the board_type scan is not finding the tools it used to: {sorted(found)}"
     )
     for tool, description in found.items():

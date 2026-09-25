@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hierarchicalforecast
-Version: 1.5.1
+Version: 1.5.3
 Summary: Hierarchical Methods Time Series Forecasting
 Author-email: Nixtla <business@nixtla.io>
 License: Apache Software License 2.0
@@ -27,6 +27,8 @@ Requires-Dist: matplotlib
 Requires-Dist: narwhals>=2.0
 Requires-Dist: qpsolvers[clarabel]
 Requires-Dist: utilsforecast>=0.2.12
+Provides-Extra: polars
+Requires-Dist: polars[numpy]<=1.32.0; extra == "polars"
 Dynamic: license-file
 
 # Nixtla &nbsp;[![Slack](https://img.shields.io/badge/Slack-4A154B?&logo=slack&logoColor=white)](https://join.slack.com/t/nixtlacommunity/shared_invite/zt-1pmhan9j5-F54XR20edHk0UtYAPcW4KQ)
@@ -46,7 +48,7 @@ Dynamic: license-file
 </div>
 
 ## 📚 Intro
-A vast amount of time series datasets are organized into structures with different levels or hierarchies of aggregation. Examples include cross-sectional aggregations such as categories, brands, or geographical groupings, or temporal aggregations such as weeks, months or years. Coherent forecasts across levels are necessary for consistent decision-making and planning. Hierachical Forecast offers different reconciliation methods that render coherent forecasts across cross-sectional and temporal hierachies.
+A vast number of time series datasets are organized into structures with different levels or hierarchies of aggregation. Examples include cross-sectional aggregations such as categories, brands, or geographical groupings, or temporal aggregations such as weeks, months or years. Coherent forecasts across levels are necessary for consistent decision-making and planning. Hierarchical Forecast offers different reconciliation methods that render coherent forecasts across cross-sectional and temporal hierarchies.
 
 ## 🎊 Features
 
@@ -91,7 +93,7 @@ pip install hierarchicalforecast
 ## 🧬 How to use
 
 The following example needs `statsforecast` and `datasetsforecast` as additional packages. If not installed, install it via your preferred method, e.g. `pip install statsforecast datasetsforecast`.
-The `datasetsforecast` library allows us to download hierarhical datasets and we will use `statsforecast` to compute the base forecasts to be reconciled.
+The `datasetsforecast` library allows us to download hierarchical datasets and we will use `statsforecast` to compute the base forecasts to be reconciled.
 
 You can open a complete example in Colab [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nixtla/hierarchicalforecast/blob/main/nbs/examples/TourismSmall.ipynb)
 
@@ -152,7 +154,7 @@ evaluation = evaluate(df = df,
 ```
 
 ## 📖 Documentation
-Here is a link to the [documentation](https://nixtlaverse.nixtla.io/hierarchicalforecast/index).
+Here is a link to the [documentation](https://nixtlaverse.nixtla.io/hierarchicalforecast/index.html).
 
 ## 📃 License
 This project is licensed under the Apache 2.0 License - see the [LICENSE](https://github.com/Nixtla/hierarchicalforecast/blob/main/LICENSE) file for details.

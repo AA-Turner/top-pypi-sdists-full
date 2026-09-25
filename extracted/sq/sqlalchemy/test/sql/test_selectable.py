@@ -1574,24 +1574,6 @@ class SelectableTest(
             "SELECT table1.col1 AS a FROM table1) AS b) AS c) AS anon_1",
         )
 
-    def test_self_referential_select_raises(self):
-        t = table("t", column("x"))
-
-        # this issue is much less likely as subquery() applies a labeling
-        # style to the select, eliminating the self-referential call unless
-        # the select already had labeling applied
-
-        s = select(t).set_label_style(LABEL_STYLE_TABLENAME_PLUS_COL)
-
-        with testing.expect_deprecated("The SelectBase.c"):
-            s.where.non_generative(s, s.c.t_x > 5)
-
-        assert_raises_message(
-            exc.InvalidRequestError,
-            r"select\(\) construct refers to itself as a FROM",
-            s.compile,
-        )
-
     def test_unusual_column_elements_text(self):
         """test that .c excludes text()."""
 
@@ -3190,7 +3172,7 @@ class AnnotationsTest(fixtures.TestBase):
         """
         user = Table("user", MetaData(), Column("id", Integer))
 
-        ids_param = bindparam("ids")
+        ids_param = bindparam("ids", -1)
 
         cte = select(user).where(user.c.id == ids_param).cte("cte")
 
@@ -3200,6 +3182,8 @@ class AnnotationsTest(fixtures.TestBase):
 
         if use_get_params:
             stmt = stmt.params(ids=17)
+            exp = -1
+            eq_(stmt._generate_cache_key()[2], {"ids": 17})
         else:
             # test without using params(), as the implementation
             # for params() will be changing
@@ -3213,13 +3197,16 @@ class AnnotationsTest(fixtures.TestBase):
                 {"maintain_key": True, "detect_subquery_cols": True},
                 {"bindparam": visit_bindparam},
             )
+            exp = 17
+            eq_(stmt._generate_cache_key()[2], None)
 
         eq_(
             stmt.selected_columns.id.table.element._where_criteria[
                 0
             ].right.value,
-            17,
+            exp,
         )
+        eq_(stmt.compile().params, {"ids": 17})
 
     def test_basic_attrs(self):
         t = Table(
@@ -4029,6 +4016,8 @@ class ResultMapTest(fixtures.TestBase):
         lambda e, t: e.correlate(t),
         lambda e, t: e.correlate_except(t),
         lambda e, t: e.select_from(t),
+        lambda e, t: e.with_hint(t, "hint", "mssql"),
+        lambda e, t: e.with_statement_hint("hint", "mssql"),
         lambda e, t: e.where(t.c.y == 5),
         argnames="testcase",
     )

@@ -9,7 +9,6 @@ import asyncio
 import hashlib
 import itertools
 import json
-import os
 import time
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from datetime import datetime, timezone
@@ -54,16 +53,20 @@ from smg_grpc_servicer.vllm.kv_transfer import (
     params_to_response_fields,
     resolve_pd_connector,
 )
+from smg_grpc_servicer.vllm.media_identity import build_media_identity, media_identity_supported
 from smg_grpc_servicer.vllm.media_refs import parse_media_refs, validate_schemes
 from smg_grpc_servicer.vllm.mm_processor import (
-    DEFAULT_MAX_INFLIGHT,
-    ENV_MAX_INFLIGHT,
     ENV_PROCESSOR,
+    PROCESSOR_FLAG,
     MmProcessorUnavailable,
+    MmSettings,
     build_mm_processor,
-    env_int,
 )
-from smg_grpc_servicer.vllm.mm_salt import has_preprocessed_mm_payload, mm_identity_cache_salt
+from smg_grpc_servicer.vllm.mm_salt import (
+    engine_accepts_mm_inputs,
+    has_preprocessed_mm_payload,
+    mm_identity_cache_salt,
+)
 from smg_grpc_servicer.vllm.mm_tensors import tensor_from_proto
 
 from ..pd_pairing import pairing_protocol_from_env
@@ -153,34 +156,66 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
     - GetTokenizer: Stream tokenizer artifacts
     """
 
-    def __init__(self, async_llm: EngineClient, start_time: float):
+    def __init__(
+        self,
+        async_llm: EngineClient,
+        start_time: float,
+        mm_settings: MmSettings | None = None,
+    ):
         """
         Initialize the servicer.
 
         Args:
             async_llm: The EngineClient instance (e.g. AsyncLLM)
             start_time: The server start time, in seconds since epoch
+            mm_settings: The launcher's `--mm-*` flags; None (an older
+                launcher) resolves everything from the environment
         """
         self.engine = async_llm
         self.start_time = start_time
         # Resolve KV-event publishing config from the engine. Non-None only when
         # vLLM was started with --kv-events-config enabling the ZMQ publisher.
         self._kv_events_config = resolve_kv_events_config(async_llm)
+        # Flag > env > default, resolved once so each value names its source.
+        self._mm_settings = (mm_settings or MmSettings()).resolve()
         # Worker-side media processing (media_refs); None keeps refs rejected.
-        self._mm_processor = build_mm_processor(async_llm)
+        self._mm_processor = build_mm_processor(async_llm, settings=self._mm_settings)
         # One cap over all the multimodal work this servicer runs off the event
         # loop, whether it fetches the media itself or converts tensors the
         # router already prepared. Both are sized by the same setting, so a
         # worker's memory ceiling does not depend on which path a request takes.
-        self._mm_inflight = asyncio.Semaphore(
+        self._mm_limit = (
             self._mm_processor.max_inflight
             if self._mm_processor is not None
-            else env_int(os.environ, ENV_MAX_INFLIGHT, DEFAULT_MAX_INFLIGHT)
+            else self._mm_settings.max_inflight
         )
+        self._mm_inflight = asyncio.Semaphore(self._mm_limit)
+        self._mm_waiting = 0
+        self._unhealthy_logged = False
         logger.info(
-            "VllmEngineServicer initialized (mm_processor=%s)",
+            "VllmEngineServicer initialized (mm_processor=%s, source=%s)",
             self._mm_processor.name if self._mm_processor is not None else "off",
+            self._mm_settings.source,
         )
+
+    async def _acquire_mm_slot(self) -> None:
+        """Take one multimodal slot, shedding load instead of queueing forever.
+
+        Once as many requests are waiting as the worker can run at once, the
+        ones behind them will not be reached before their callers give up. A
+        retryable refusal now sends them to a worker that can take them, rather
+        than a deadline later that tells the caller nothing about where to go.
+        """
+        if self._mm_waiting >= self._mm_limit:
+            raise MmProcessorUnavailable(
+                f"worker is saturated: {self._mm_limit} multimodal requests in flight "
+                f"and as many waiting"
+            )
+        self._mm_waiting += 1
+        try:
+            await self._mm_inflight.acquire()
+        finally:
+            self._mm_waiting -= 1
 
     async def _off_the_event_loop(self, work, *args):
         """Run one piece of blocking multimodal work under the in-flight cap.
@@ -190,7 +225,7 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         A caller that goes away while the work is still running therefore does
         not let the next one start against memory that is still held.
         """
-        await self._mm_inflight.acquire()
+        await self._acquire_mm_slot()
         running = asyncio.ensure_future(asyncio.to_thread(work, *args))
         # Kept so the callback below can tell whether a caller is still waiting.
         shielded = asyncio.shield(running)
@@ -255,6 +290,8 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         )
 
         kv_transfer_params: dict | None = None
+        # What a PD prefill leg learned about its media, for the decode leg.
+        media_identity = None
         engine_started = False
         try:
             arrival_time = time.time()
@@ -270,12 +307,14 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
                     )
                 if self._mm_processor is None:
                     raise ValueError(
-                        f"media_refs sent but {ENV_PROCESSOR} is off on this worker; check the "
-                        "router's SMG_MM_PROCESSING and this worker's mm_processor label"
+                        f"media_refs sent but {PROCESSOR_FLAG} ({ENV_PROCESSOR}) is off on this "
+                        "worker; check the router's --mm-processing and this worker's "
+                        "mm_processor label"
                     )
                 items = parse_media_refs(request.media_refs)
                 validate_schemes(items, self._mm_processor.accepted_schemes)
-                async with self._mm_inflight:
+                await self._acquire_mm_slot()
+                try:
                     prompt = await self._mm_processor.process(
                         list(request.tokenized.input_ids),
                         request.tokenized.original_text or None,
@@ -283,6 +322,30 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
                         arrival_time,
                         request_id=request_id,
                     )
+                finally:
+                    self._mm_inflight.release()
+                # A PD prefill leg answers with the identity so decode is
+                # served without pixels or references. The identity is an
+                # optimisation with a fallback (decode reprocesses), so a
+                # shape it cannot read must not fail a served request.
+                if kv_transfer_params is not None:
+                    if media_identity_supported():
+                        try:
+                            media_identity = build_media_identity(prompt)
+                        except Exception as e:  # noqa: BLE001 - any failure falls back
+                            logger.warning(
+                                "Request %s: media identity not built (%s); the decode leg "
+                                "will reprocess the media",
+                                request_id,
+                                e,
+                            )
+                            media_identity = None
+                    else:
+                        logger.warning(
+                            "Request %s: the installed smg-grpc-proto has no media_identity; "
+                            "the decode leg will reprocess the media",
+                            request_id,
+                        )
             elif has_preprocessed_mm and input_type == "tokenized":
                 # A pixel-less payload (PD decode leg) is only decodable with
                 # remote KV: a local recompute would schedule the vision
@@ -381,6 +444,7 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
                                 completion=completion,
                                 num_logprobs=num_logprobs,
                                 num_prompt_logprobs=num_prompt_logprobs,
+                                media_identity=media_identity,
                             )
 
                 # For non-streaming, send complete response when finished
@@ -391,8 +455,17 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
                             completion=completion,
                             num_logprobs=num_logprobs,
                             num_prompt_logprobs=num_prompt_logprobs,
+                            media_identity=media_identity,
                         )
 
+        except asyncio.CancelledError:
+            # A caller that gives up while media is still being fetched leaves
+            # the same blocks pinned as any other pre-admission failure, and the
+            # cleanup has to outlive a second cancellation to land.
+            await asyncio.shield(
+                self._notify_kv_transfer_rejected(request_id, kv_transfer_params, engine_started)
+            )
+            raise
         except MmProcessorUnavailable as e:
             # Retryable: the router re-selects a worker on UNAVAILABLE.
             logger.warning("Media processing unavailable for request %s: %s", request_id, e)
@@ -516,7 +589,12 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         is_healthy = not self.engine.errored
         message = "Health" if is_healthy else "Engine is not alive"
 
-        logger.info("HealthCheck request: healthy=%s, message=%s", is_healthy, message)
+        # Probes arrive on a fixed interval and the answer is engine state the
+        # caller already receives, so only the turn for the worse is worth a
+        # line, and only the first one: the engine does not come back.
+        if not is_healthy and not self._unhealthy_logged:
+            self._unhealthy_logged = True
+            logger.error("HealthCheck is now reporting unhealthy: %s", message)
 
         return vllm_engine_pb2.HealthCheckResponse(healthy=is_healthy, message=message)
 
@@ -545,7 +623,15 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         request_ids = request.request_ids
         logger.info("Abort requests: %s", request_ids)
 
-        await self.engine.abort(request_ids)
+        try:
+            await self.engine.abort(request_ids)
+        except Exception as e:
+            code = grpc_code_for(e)
+            if code is grpc.StatusCode.INTERNAL:
+                logger.exception("Abort failed for requests %s", request_ids)
+            else:
+                logger.warning("Abort rejected (%s) for requests %s: %s", code.name, request_ids, e)
+            await context.abort(code, str(e))
         return vllm_engine_pb2.AbortResponse()
 
     async def GetModelInfo(
@@ -584,7 +670,7 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             is_generation=model_config.runner_type == "generate",
             max_context_length=model_config.max_model_len,
             vocab_size=model_config.get_vocab_size(),
-            supports_vision=model_config.is_multimodal_model,
+            supports_vision=engine_accepts_mm_inputs(model_config),
             served_model_name=model_config.served_model_name or model_config.model,
             tokenizer_path=model_config.tokenizer or "",
             model_type=getattr(hf_config, "model_type", "") or "",
@@ -627,15 +713,18 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
 
         mm_processor = ""
         mm_media_ref_schemes = ""
+        # A --language-model-only engine accepts no multimodal inputs, so it
+        # must not advertise worker-side media processing either: the router
+        # would send media references this worker cannot expand.
         if (
             self._mm_processor is not None
-            and self.engine.model_config.is_multimodal_model
+            and engine_accepts_mm_inputs(self.engine.model_config)
             and await self._mm_processor.probe()
         ):
             mm_processor = self._mm_processor.name
             mm_media_ref_schemes = self._mm_processor.schemes
 
-        return vllm_engine_pb2.GetServerInfoResponse(
+        info = vllm_engine_pb2.GetServerInfoResponse(
             kv_connector=kv_connector,
             kv_role=kv_role,
             kv_engine_id=kv_engine_id,
@@ -646,6 +735,11 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             pairing_protocol=pairing_protocol_from_env(),
             **pairing_fields(self.engine.vllm_config),
         )
+        # Where the processor mode came from, for the gateway's /workers; a
+        # proto package predating the field simply leaves it out.
+        if mm_processor and "mm_processor_source" in info.DESCRIPTOR.fields_by_name:
+            info.mm_processor_source = self._mm_settings.source
+        return info
 
     async def GetLoads(
         self,
@@ -726,15 +820,16 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         # For now, GetTokenizer only works when vLLM is started with a local path.
         tokenizer_dir = Path(tokenizer_path)
 
-        # Build ZIP archive in memory
+        # Reading and compressing the tokenizer directory is file I/O and CPU
+        # measured in hundreds of milliseconds, so it stays off the event loop
+        # and the engine keeps answering everything else meanwhile.
         try:
-            zip_buffer = build_tokenizer_zip(tokenizer_dir)
+            zip_buffer, sha256 = await asyncio.to_thread(self._tokenizer_bundle, tokenizer_dir)
         except Exception as e:
             logger.exception("Failed to build tokenizer ZIP")
             await context.abort(grpc.StatusCode.INTERNAL, str(e))
 
         zip_data = zip_buffer.getbuffer()
-        sha256 = hashlib.sha256(zip_data).hexdigest()
 
         logger.info(
             "Streaming tokenizer bundle: %d bytes, sha256=%s",
@@ -755,6 +850,12 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             offset = end
 
     # ========== Helper methods ==========
+
+    @staticmethod
+    def _tokenizer_bundle(tokenizer_dir: Path):
+        """The tokenizer archive and its fingerprint, built in one pass."""
+        zip_buffer = build_tokenizer_zip(tokenizer_dir)
+        return zip_buffer, hashlib.sha256(zip_buffer.getbuffer()).hexdigest()
 
     def _build_preprocessed_mm_inputs(
         self,
@@ -1124,6 +1225,7 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         completion: "CompletionOutput | None" = None,
         num_logprobs: int | None = None,
         num_prompt_logprobs: int | None = None,
+        media_identity: "vllm_engine_pb2.MediaIdentity | None" = None,
     ) -> vllm_engine_pb2.GenerateResponse:
         """
         Build a final completion response from vLLM output.
@@ -1137,6 +1239,7 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
                        If None, uses output.outputs[0] for backwards compatibility.
             num_logprobs: Number of top logprobs for output tokens
             num_prompt_logprobs: Number of top logprobs for prompt tokens
+            media_identity: A PD prefill leg's processed media, for the decode leg
 
         Returns:
             GenerateResponse with complete field set
@@ -1179,6 +1282,12 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
 
         # Build matched_stop kwargs from stop_reason (int token ID or str stop sequence)
         stop_kwargs = {}
+        # A proto package predating the field cannot carry the identity.
+        if (
+            media_identity is not None
+            and "media_identity" in vllm_engine_pb2.GenerateComplete.DESCRIPTOR.fields_by_name
+        ):
+            stop_kwargs["media_identity"] = media_identity
         if completion.stop_reason is not None:
             if isinstance(completion.stop_reason, int):
                 stop_kwargs["matched_token_id"] = completion.stop_reason

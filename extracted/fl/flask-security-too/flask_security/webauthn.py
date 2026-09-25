@@ -56,6 +56,7 @@ try:
     )
     from webauthn.registration.verify_registration_response import VerifiedRegistration
     from webauthn.helpers import (
+        options_to_json_dict,
         parse_registration_credential_json,
         parse_authentication_credential_json,
     )
@@ -78,11 +79,12 @@ from .decorators import anonymous_user_required, auth_required, unauth_csrf
 from .forms import (
     Form,
     RequiredLocalize,
-    build_form_from_request,
-    build_form,
-    get_form_field_label,
+    _build_form_from_request,
+    _build_form,
+    _get_form_field_label,
     get_form_field_xlate,
     _setup_methods_xlate,
+    IsString,
 )
 from .proxies import _security, _datastore
 from .quart_compat import get_quart_status
@@ -92,25 +94,26 @@ from .utils import (
     _,
     base_render_json,
     check_and_get_token_status,
-    config_value as cv,
+    _config_value as cv,
     do_flash,
     get_message,
-    get_post_login_redirect,
-    get_post_verify_redirect,
+    _get_post_login_redirect,
+    _get_post_verify_redirect,
     get_url,
-    get_within_delta,
     login_user,
     lookup_identity,
-    propagate_next,
+    _propagate_next,
     simple_render_json,
     url_for_security,
-    view_commit,
+    _view_commit,
     localize_callback,
+    allowed_auth_token,
+    _td_format,
 )
 
 if t.TYPE_CHECKING:  # pragma: no cover
     import flask
-    from flask.typing import ResponseValue
+    from flask.typing import ResponseValue, ResponseReturnValue
     from flask_security import Security, UserMixin, WebAuthnMixin
 
 if get_quart_status():  # pragma: no cover
@@ -120,11 +123,11 @@ else:
 
 
 class WebAuthnRegisterForm(Form):
-    name = StringField(
+    name: StringField = StringField(
         get_form_field_xlate(_("Nickname")),
-        validators=[RequiredLocalize(message="WEBAUTHN_NAME_REQUIRED")],
+        validators=[IsString(), RequiredLocalize(message="WEBAUTHN_NAME_REQUIRED")],
     )
-    usage = RadioField(
+    usage: RadioField = RadioField(
         get_form_field_xlate(_("Usage")),
         choices=[
             ("first", get_form_field_xlate(_("Use as a first authentication factor"))),
@@ -136,15 +139,22 @@ class WebAuthnRegisterForm(Form):
         default="secondary",
         validate_choice=True,
     )
-    submit = SubmitField(label=get_form_field_label("submit"), id="wan_register")
+    submit: SubmitField = SubmitField(
+        label=_get_form_field_label("submit"), id="wan_register"
+    )
+    clean_name: str | None
 
     def validate(self, **kwargs: t.Any) -> bool:
         if not super().validate(**kwargs):
             return False
         assert isinstance(self.name.errors, list)
-        inuse = any([self.name.data == cred.name for cred in current_user.webauthn])
-        if inuse:
-            msg = get_message("WEBAUTHN_NAME_INUSE", name=self.name.data)[0]
+        assert self.name.data
+        msg, self.clean_name = _security.webauthn_util.name_svn(self.name.data)
+        if msg:
+            self.name.errors.append(msg)
+            return False
+        if any([self.clean_name == cred.name for cred in current_user.webauthn]):
+            msg = get_message("WEBAUTHN_NAME_INUSE", name=self.clean_name)[0]
             self.name.errors.append(msg)
             return False
         if not cv("WAN_ALLOW_AS_FIRST_FACTOR"):
@@ -153,8 +163,8 @@ class WebAuthnRegisterForm(Form):
 
 
 class WebAuthnRegisterResponseForm(Form):
-    credential = HiddenField()
-    submit = SubmitField(label=get_form_field_label("submit"))
+    credential: HiddenField = HiddenField()
+    submit: SubmitField = SubmitField(label=_get_form_field_label("submit"))
 
     # from state
     challenge: str
@@ -220,18 +230,22 @@ class WebAuthnRegisterResponseForm(Form):
 
 
 class WebAuthnSigninForm(Form, NextFormMixin):
-    identity = StringField(get_form_field_label("identity"))
-    remember = BooleanField(
-        get_form_field_label("remember_me"),
+    identity: StringField = StringField(
+        _get_form_field_label("identity"), validators=[IsString()]
+    )
+    remember: BooleanField = BooleanField(
+        _get_form_field_label("remember_me"),
         default=lambda: cv("DEFAULT_REMEMBER_ME", app=current_app),
     )
-    submit = SubmitField(label=get_form_field_xlate(_("Start")), id="wan_signin")
+    submit: SubmitField = SubmitField(
+        label=get_form_field_xlate(_("Start")), id="wan_signin"
+    )
 
     user: UserMixin | None = None
     # set by caller - is this a second factor authentication?
     is_secondary: bool
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
 
     def validate(self, **kwargs: t.Any) -> bool:
@@ -257,9 +271,9 @@ class WebAuthnSigninResponseForm(Form, NextFormMixin):
     This form is used both for signin (primary/first or secondary) and verify.
     """
 
-    remember = HiddenField()
-    submit = SubmitField(label=get_form_field_label("submit"))
-    credential = HiddenField()
+    remember: HiddenField = HiddenField()
+    submit: SubmitField = SubmitField(label=_get_form_field_label("submit"))
+    credential: HiddenField = HiddenField()
 
     # set by caller
     challenge: str
@@ -325,7 +339,7 @@ class WebAuthnSigninResponseForm(Form, NextFormMixin):
             usage = "secondary"
         else:
             usage = "first"
-        if not is_cred_usable(self.cred, usage):
+        if not _is_cred_usable(self.cred, usage):
             self.credential.errors.append(
                 get_message("WEBAUTHN_CREDENTIAL_WRONG_USAGE")[0]
             )
@@ -369,18 +383,24 @@ class WebAuthnSigninResponseForm(Form, NextFormMixin):
 class WebAuthnDeleteForm(Form):
     # Change id of name since this shows up on register form that ALSO has a name
     # element.
-    name = StringField(
+    name: StringField = StringField(
         get_form_field_xlate(_("Nickname")),
-        validators=[RequiredLocalize(message="WEBAUTHN_NAME_REQUIRED")],
+        validators=[IsString(), RequiredLocalize(message="WEBAUTHN_NAME_REQUIRED")],
         id="delete-name",
     )
-    submit = SubmitField(label=get_form_field_label("delete"))
+    submit: SubmitField = SubmitField(label=_get_form_field_label("delete"))
+    clean_name: str | None
 
     def validate(self, **kwargs: t.Any) -> bool:
         if not super().validate(**kwargs):
             return False
         assert isinstance(self.name.errors, list)
-        if not any([self.name.data == cred.name for cred in current_user.webauthn]):
+        assert self.name.data
+        msg, self.clean_name = _security.webauthn_util.name_svn(self.name.data)
+        if msg:
+            self.name.errors.append(msg)
+            return False
+        if not any([self.clean_name == cred.name for cred in current_user.webauthn]):
             self.name.errors.append(
                 get_message("WEBAUTHN_NAME_NOT_FOUND", name=self.name.data)[0]
             )
@@ -389,7 +409,9 @@ class WebAuthnDeleteForm(Form):
 
 
 class WebAuthnVerifyForm(Form):
-    submit = SubmitField(label=get_form_field_label("submit"), id="wan_verify")
+    submit: SubmitField = SubmitField(
+        label=_get_form_field_label("submit"), id="wan_verify"
+    )
 
     user: UserMixin
 
@@ -406,7 +428,7 @@ class WebAuthnVerifyForm(Form):
     within=lambda: cv("FRESHNESS"),
     grace=lambda: cv("FRESHNESS_GRACE_PERIOD"),
 )
-def webauthn_register() -> ResponseValue:
+def webauthn_register() -> ResponseReturnValue:
     """Start Registration for an existing authenticated user
 
     Note that it requires a POST to start the registration and must send 'name'
@@ -418,7 +440,7 @@ def webauthn_register() -> ResponseValue:
     payload: dict[str, t.Any]
 
     form: WebAuthnRegisterForm = t.cast(
-        WebAuthnRegisterForm, build_form_from_request("wan_register_form")
+        WebAuthnRegisterForm, _build_form_from_request("wan_register_form")
     )
 
     if form.validate_on_submit():
@@ -428,8 +450,8 @@ def webauthn_register() -> ResponseValue:
         if not current_user.fs_webauthn_user_handle:
             # set a user handle. This allows an easy migration when adding this
             # column (and not requiring as part of schema change to update all existing
-            # records. New users will have this set as part of user creation.
-            after_this_request(view_commit)
+            # records). New users will have this set as part of user creation.
+            after_this_request(_view_commit)
             _datastore.set_webauthn_user_handle(current_user)
 
         ro = dict(
@@ -439,7 +461,7 @@ def webauthn_register() -> ResponseValue:
             user_id=current_user.fs_webauthn_user_handle.encode(),
             user_name=current_user.calc_username(),
             timeout=cv("WAN_REGISTER_TIMEOUT"),
-            exclude_credentials=create_credential_list(
+            exclude_credentials=_create_credential_list(
                 current_user, ["first", "secondary"]
             ),
         )
@@ -447,7 +469,7 @@ def webauthn_register() -> ResponseValue:
             current_user, form.usage.data, ro
         )
         credential_options = webauthn.generate_registration_options(**ro)
-        co_json = json.loads(webauthn.options_to_json(credential_options))
+        co_json = options_to_json_dict(credential_options)
         co_json["extensions"] = {"credProps": True}
 
         # If we ask for UserVerification then we need to check that in the response.
@@ -459,7 +481,7 @@ def webauthn_register() -> ResponseValue:
             )
         state = {
             "challenge": challenge,
-            "name": form.name.data,
+            "name": form.clean_name,
             "usage": form.usage.data,
             "user_verification": uv,
         }
@@ -475,7 +497,7 @@ def webauthn_register() -> ResponseValue:
         return _security.render_template(
             cv("WAN_REGISTER_TEMPLATE"),
             wan_register_form=form,
-            wan_register_response_form=build_form("wan_register_response_form"),
+            wan_register_response_form=_build_form("wan_register_response_form"),
             wan_state=state_token,
             credential_options=json.dumps(co_json),
             **_security._run_ctx_processor("wan_register"),
@@ -512,27 +534,29 @@ def webauthn_register() -> ResponseValue:
     return _security.render_template(
         cv("WAN_REGISTER_TEMPLATE"),
         wan_register_form=form,
-        wan_delete_form=build_form("wan_delete_form"),
+        wan_delete_form=_build_form("wan_delete_form"),
         registered_credentials=current_creds,
         **_security._run_ctx_processor("wan_register"),
     )
 
 
 @auth_required(lambda: cv("API_ENABLED_METHODS"))
-def webauthn_register_response(token: str) -> ResponseValue:
+def webauthn_register_response(token: str) -> ResponseReturnValue:
     """Response from browser."""
     form: WebAuthnRegisterResponseForm = t.cast(
         WebAuthnRegisterResponseForm,
-        build_form_from_request("wan_register_response_form"),
+        _build_form_from_request("wan_register_response_form"),
     )
 
     expired, invalid, state = check_and_get_token_status(
-        token, "wan", get_within_delta("WAN_REGISTER_WITHIN")
+        token, "wan", cv("WAN_REGISTER_WITHIN")
     )
     if invalid:
         m, c = get_message("API_ERROR")
     if expired:
-        m, c = get_message("WEBAUTHN_EXPIRED", within=cv("WAN_REGISTER_WITHIN"))
+        m, c = get_message(
+            "WEBAUTHN_EXPIRED", within=_td_format(cv("WAN_REGISTER_WITHIN"))
+        )
     if invalid or expired:
         if _security._want_json(request):
             form.form_errors.append(m)
@@ -546,7 +570,7 @@ def webauthn_register_response(token: str) -> ResponseValue:
     form.user_verification = state["user_verification"]
     if form.validate_on_submit():
         # store away successful registration
-        after_this_request(view_commit)
+        after_this_request(_view_commit)
         _datastore.create_webauthn(
             current_user._get_current_object(),  # Not needed with Werkzeug >2.0.0
             name=state["name"],
@@ -595,7 +619,7 @@ def _signin_common(user: UserMixin | None, usage: list[str]) -> tuple[t.Any, str
     # Populate allowedCredentials if identity passed and allowed
     allow_credentials = None
     if user:
-        allow_credentials = create_credential_list(user, usage)
+        allow_credentials = _create_credential_list(user, usage)
 
     ao = dict(
         rp_id=request.host.split(":")[0],
@@ -615,7 +639,7 @@ def _signin_common(user: UserMixin | None, usage: list[str]) -> tuple[t.Any, str
         "user_verification": uv,
     }
 
-    o_json = json.loads(webauthn.options_to_json(options))
+    o_json = options_to_json_dict(options)
     state_token = t.cast(  # type: ignore[redundant-cast]
         str, _security.wan_serializer.dumps(state)
     )
@@ -624,7 +648,7 @@ def _signin_common(user: UserMixin | None, usage: list[str]) -> tuple[t.Any, str
 
 @anonymous_user_required
 @unauth_csrf()
-def webauthn_signin() -> ResponseValue:
+def webauthn_signin() -> ResponseReturnValue:
     # This view can be called either as a 'first' authentication or as part of
     # 2FA.
     is_secondary = all(k in session for k in ["tf_user_id", "tf_state"]) and session[
@@ -635,7 +659,7 @@ def webauthn_signin() -> ResponseValue:
     else:
         abort(404)
 
-    form = t.cast(WebAuthnSigninForm, build_form_from_request("wan_signin_form"))
+    form = t.cast(WebAuthnSigninForm, _build_form_from_request("wan_signin_form"))
     form.is_secondary = is_secondary
     if form.validate_on_submit():
         o_json, state_token = _signin_common(
@@ -655,7 +679,7 @@ def webauthn_signin() -> ResponseValue:
         return _security.render_template(
             cv("WAN_SIGNIN_TEMPLATE"),
             wan_signin_form=form,
-            wan_signin_response_form=build_form(
+            wan_signin_response_form=_build_form(
                 "wan_signin_response_form",
                 remember=form.remember.data,
                 next=form.next.data,
@@ -671,29 +695,31 @@ def webauthn_signin() -> ResponseValue:
     return _security.render_template(
         cv("WAN_SIGNIN_TEMPLATE"),
         wan_signin_form=form,
-        wan_signin_response_form=build_form("wan_signin_response_form"),
+        wan_signin_response_form=_build_form("wan_signin_response_form"),
         is_secondary=is_secondary,
         **_security._run_ctx_processor("wan_signin"),
     )
 
 
 @unauth_csrf()
-def webauthn_signin_response(token: str) -> ResponseValue:
+def webauthn_signin_response(token: str) -> ResponseReturnValue:
     is_secondary = all(k in session for k in ["tf_user_id", "tf_state"]) and session[
         "tf_state"
     ] in ["ready"]
 
     form = t.cast(
-        WebAuthnSigninResponseForm, build_form_from_request("wan_signin_response_form")
+        WebAuthnSigninResponseForm, _build_form_from_request("wan_signin_response_form")
     )
 
     expired, invalid, state = check_and_get_token_status(
-        token, "wan", get_within_delta("WAN_SIGNIN_WITHIN")
+        token, "wan", cv("WAN_SIGNIN_WITHIN")
     )
     if invalid:
         m, c = get_message("API_ERROR")
     if expired:
-        m, c = get_message("WEBAUTHN_EXPIRED", within=cv("WAN_SIGNIN_WITHIN"))
+        m, c = get_message(
+            "WEBAUTHN_EXPIRED", within=_td_format(cv("WAN_SIGNIN_WITHIN"))
+        )
     if invalid or expired:
         if _security._want_json(request):
             form.form_errors.append(m)
@@ -708,7 +734,7 @@ def webauthn_signin_response(token: str) -> ResponseValue:
 
     if form.validate_on_submit():
         # update last use and sign count
-        after_this_request(view_commit)
+        after_this_request(_view_commit)
         assert form.cred
         assert form.user
         form.cred.lastuse_datetime = _security.datetime_factory()
@@ -742,21 +768,23 @@ def webauthn_signin_response(token: str) -> ResponseValue:
                     form.user,
                     remember_me,
                     "webauthn",
-                    next_loc=propagate_next(request.url, form),
+                    next_loc=_propagate_next(request.url, form),
                 )
                 if response:
                     return response
             # login user
             login_user(form.user, remember=remember_me, authn_via=["webauthn"])
 
-        goto_url = get_post_login_redirect()
+        goto_url = _get_post_login_redirect()
         if _security._want_json(request):
             # Tell caller where we would go if forms based - they can use it or
             # not.
             json_payload["post_login_url"] = goto_url
             json_payload["tf_required"] = False
             return base_render_json(
-                form, include_auth_token=True, additional=json_payload
+                form,
+                include_auth_token=allowed_auth_token(form.user),
+                additional=json_payload,
             )
         return redirect(goto_url)
 
@@ -777,14 +805,14 @@ def webauthn_signin_response(token: str) -> ResponseValue:
     within=lambda: cv("FRESHNESS"),
     grace=lambda: cv("FRESHNESS_GRACE_PERIOD"),
 )
-def webauthn_delete() -> ResponseValue:
+def webauthn_delete() -> ResponseReturnValue:
     """Deletes an existing registered credential."""
-    form = t.cast(WebAuthnDeleteForm, build_form_from_request("wan_delete_form"))
+    form = t.cast(WebAuthnDeleteForm, _build_form_from_request("wan_delete_form"))
 
     if form.validate_on_submit():
         # validate made sure form.name.data exists.
-        cred = [c for c in current_user.webauthn if c.name == form.name.data][0]
-        after_this_request(view_commit)
+        cred = [c for c in current_user.webauthn if c.name == form.clean_name][0]
+        after_this_request(_view_commit)
 
         wan_deleted.send(
             current_app._get_current_object(),  # type: ignore
@@ -795,7 +823,7 @@ def webauthn_delete() -> ResponseValue:
         _datastore.delete_webauthn(cred)
         if _security._want_json(request):
             return base_render_json(form)
-        msg, c = get_message("WEBAUTHN_CREDENTIAL_DELETED", name=form.name.data)
+        msg, c = get_message("WEBAUTHN_CREDENTIAL_DELETED", name=form.clean_name)
         do_flash(msg, c)
 
     if _security._want_json(request):
@@ -806,14 +834,14 @@ def webauthn_delete() -> ResponseValue:
 
 
 @auth_required(lambda: cv("API_ENABLED_METHODS"))
-def webauthn_verify() -> ResponseValue:
+def webauthn_verify() -> ResponseReturnValue:
     """
     Re-authenticate to reset freshness time.
     This is likely the result of a reauthn_handler redirect, which
     will have filled in ?next=xxx - which we want to carefully not lose as we
     go through these steps.
     """
-    form = t.cast(WebAuthnVerifyForm, build_form_from_request("wan_verify_form"))
+    form = t.cast(WebAuthnVerifyForm, _build_form_from_request("wan_verify_form"))
 
     if form.validate_on_submit():
         o_json, state_token = _signin_common(form.user, cv("WAN_ALLOW_AS_VERIFY"))
@@ -824,7 +852,7 @@ def webauthn_verify() -> ResponseValue:
         return _security.render_template(
             cv("WAN_VERIFY_TEMPLATE"),
             wan_verify_form=form,
-            wan_signin_response_form=build_form("wan_signin_response_form"),
+            wan_signin_response_form=_build_form("wan_signin_response_form"),
             wan_state=state_token,
             credential_options=json.dumps(o_json),
             **_security._run_ctx_processor("wan_verify"),
@@ -835,25 +863,27 @@ def webauthn_verify() -> ResponseValue:
     return _security.render_template(
         cv("WAN_VERIFY_TEMPLATE"),
         wan_verify_form=form,
-        wan_signin_response_form=build_form("wan_signin_response_form"),
+        wan_signin_response_form=_build_form("wan_signin_response_form"),
         skip_login_menu=True,
         **_security._run_ctx_processor("wan_verify"),
     )
 
 
 @auth_required(lambda: cv("API_ENABLED_METHODS"))
-def webauthn_verify_response(token: str) -> ResponseValue:
+def webauthn_verify_response(token: str) -> ResponseReturnValue:
     form = t.cast(
-        WebAuthnSigninResponseForm, build_form_from_request("wan_signin_response_form")
+        WebAuthnSigninResponseForm, _build_form_from_request("wan_signin_response_form")
     )
 
     expired, invalid, state = check_and_get_token_status(
-        token, "wan", get_within_delta("WAN_SIGNIN_WITHIN")
+        token, "wan", cv("WAN_SIGNIN_WITHIN")
     )
     if invalid:
         m, c = get_message("API_ERROR")
     if expired:
-        m, c = get_message("WEBAUTHN_EXPIRED", within=cv("WAN_SIGNIN_WITHIN"))
+        m, c = get_message(
+            "WEBAUTHN_EXPIRED", within=_td_format(cv("WAN_SIGNIN_WITHIN"))
+        )
     if invalid or expired:
         if _security._want_json(request):
             form.form_errors.append(m)
@@ -883,7 +913,7 @@ def webauthn_verify_response(token: str) -> ResponseValue:
             return redirect(url_for_security("wan_verify"))
 
         # update last use and sign count
-        after_this_request(view_commit)
+        after_this_request(_view_commit)
         form.cred.lastuse_datetime = _security.datetime_factory()
         form.cred.sign_count = form.authentication_verification.new_sign_count
         _datastore.put(form.cred)
@@ -892,10 +922,12 @@ def webauthn_verify_response(token: str) -> ResponseValue:
         session["fs_paa"] = time.time()
 
         if _security._want_json(request):
-            return base_render_json(form, include_auth_token=True)
+            return base_render_json(
+                form, include_auth_token=allowed_auth_token(form.user)
+            )
 
         do_flash(*get_message("REAUTHENTICATION_SUCCESSFUL"))
-        return redirect(get_post_verify_redirect())
+        return redirect(_get_post_verify_redirect())
 
     # Here on validate error (only POST is allowed on this endpoint)
     if _security._want_json(request):
@@ -908,7 +940,7 @@ def webauthn_verify_response(token: str) -> ResponseValue:
     return redirect(url_for_security("wan_verify"))
 
 
-def is_cred_usable(cred: WebAuthnMixin, usage: str | list[str]) -> bool:
+def _is_cred_usable(cred: WebAuthnMixin, usage: str | list[str]) -> bool:
     # Return True is cred can be used for the requested usage/verify
     if not isinstance(usage, list):
         usage = [usage]
@@ -923,12 +955,12 @@ def has_webauthn(user: UserMixin, usage: str | list[str]) -> bool:
         usage = [usage]
     wan_keys = getattr(user, "webauthn", [])
     for cred in wan_keys:
-        if is_cred_usable(cred, usage):
+        if _is_cred_usable(cred, usage):
             return True
     return False
 
 
-def create_credential_list(
+def _create_credential_list(
     user: UserMixin, usage: list[str]
 ) -> list[PublicKeyCredentialDescriptor]:
     # Return a list of registered credentials - filtered by whether they apply to our
@@ -936,7 +968,7 @@ def create_credential_list(
     cl = []
 
     for cred in user.webauthn:
-        if not is_cred_usable(cred, usage):
+        if not _is_cred_usable(cred, usage):
             continue
         descriptor = PublicKeyCredentialDescriptor(
             type=PublicKeyCredentialType.PUBLIC_KEY, id=cred.credential_id

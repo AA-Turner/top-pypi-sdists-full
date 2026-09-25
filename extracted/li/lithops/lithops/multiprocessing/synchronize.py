@@ -9,14 +9,54 @@
 # Modifications Copyright (c) 2020 Cloudlab URV
 #
 
+import os
 import threading
+import math
 import time
 import logging
+
+import redis
 
 from . import util
 from . import config as mp_config
 
 logger = logging.getLogger(__name__)
+
+#: Redis takes a fractional BLPOP timeout from 6.0 on
+_BLPOP_TAKES_FLOAT = True
+
+
+def _blpop(client, name, timeout):
+    """
+    BLPOP with a timeout the server will accept.
+
+    A fractional one needs Redis 6.0; an older server answers with an error,
+    and the wait is rounded up to the next whole second rather than cut
+    short of what the caller asked for. Only a fractional timeout can
+    provoke that, so a whole-second one never goes near the fallback.
+
+    The retry is narrowed to the server rejecting the argument: a socket
+    read that timed out also says "timeout", and swallowing one would both
+    hide it and leave every later wait rounded to the second
+    """
+    if timeout is None:
+        # redis-py reads None as zero, which BLPOP reads as "block for ever"
+        return client.blpop([name], timeout=0)
+
+    global _BLPOP_TAKES_FLOAT
+    if _BLPOP_TAKES_FLOAT and timeout != int(timeout):
+        try:
+            return client.blpop([name], timeout=timeout)
+        except redis.exceptions.ResponseError as exc:
+            if 'timeout' not in str(exc).lower():
+                raise
+            _BLPOP_TAKES_FLOAT = False
+            logger.debug(
+                'This Redis does not take a fractional BLPOP timeout '
+                '(%s); rounding waits up to the second', exc
+            )
+    return client.blpop([name], timeout=math.ceil(timeout))
+
 
 #
 # Constants
@@ -35,10 +75,12 @@ class SemLock:
     # return new semlock value
     # only increments its value if
     # it is not above the max value
+    # Returns the new value, or -1 when the lock or semaphore was already
+    # at its maximum, which is a release of something that was never held
     LUA_RELEASE_SCRIPT = """
         local current_value = tonumber(redis.call('llen', KEYS[1]))
         if current_value >= tonumber(ARGV[1]) then
-            return current_value
+            return -1
         end
         redis.call('rpush', KEYS[1], '')
         return current_value + 1
@@ -77,20 +119,55 @@ class SemLock:
         value = self._client.llen(self._name)
         return int(value)
 
-    def acquire(self, block=True):
-        if block:
+    def acquire(self, block=True, timeout=None):
+        """
+        Takes the lock, waiting at most ``timeout`` seconds for it.
+
+        ``timeout`` is what the standard library takes and this used to
+        reject outright. A zero or negative one is a single attempt, since
+        BLPOP reads a zero timeout as "block for ever"
+        """
+        if not block or (timeout is not None and timeout <= 0):
+            logger.debug('Requested non-blocking acquire for lock %s', self._name)
+            acquired = self._client.lpop(self._name) is not None
+        elif timeout is None:
             logger.debug('Requested blocking acquire for lock %s', self._name)
             self._client.blpop([self._name])
-            return True
+            acquired = True
         else:
-            logger.debug('Requested non-blocking acquire for lock %s', self._name)
-            return self._client.lpop(self._name) is not None
+            logger.debug(
+                'Requested acquire for lock %s within %s s', self._name, timeout
+            )
+            acquired = _blpop(self._client, self._name, timeout) is not None
+        if acquired:
+            self._refresh_expiry()
+        return acquired
 
     def release(self):
         logger.debug('Requested release for lock %s', self._name)
-        self._lua_release(keys=[self._name],
-                          args=[self._max_value],
-                          client=self._client)
+        value = self._lua_release(keys=[self._name],
+                                  args=[self._max_value],
+                                  client=self._client)
+        if value == -1:
+            # What the standard library raises for a lock that was not held
+            # and for a bounded semaphore released more often than acquired
+            raise ValueError('semaphore or lock released too many times')
+        self._refresh_expiry()
+
+    def _refresh_expiry(self):
+        """
+        Pushes the key's deadline out again.
+
+        Redis deletes a list once its last token is taken, expiry and all,
+        and the release script recreates it with none: without this a lock
+        used once never expires. A semaphore with tokens left keeps its
+        key, and the deadline set at creation would take those tokens
+        """
+        pipeline = self._ref.pipeline()
+        pipeline.expire(
+            self._name, mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME)
+        )
+        pipeline.execute()
 
     def __repr__(self):
         try:
@@ -131,14 +208,28 @@ class Lock(SemLock):
         super().__setstate__(state)
         self.owned = False
 
-    def acquire(self, block=True):
-        res = super().acquire(block)
-        self.owned = True
+    def acquire(self, block=True, timeout=None):
+        """
+        Marks the lock as owned only when it was really taken.
+
+        Setting it whatever the outcome left an RLock whose first acquire
+        had failed reporting success on the next one, handing out mutual
+        exclusion it did not hold
+        """
+        res = super().acquire(block, timeout)
+        if res:
+            self.owned = True
         return res
 
     def release(self):
-        super().release()
         self.owned = False
+        super().release()
+
+    def _release_save(self):
+        self.release()
+
+    def _acquire_restore(self, state):
+        self.acquire()
 
 
 #
@@ -146,8 +237,64 @@ class Lock(SemLock):
 #
 
 class RLock(Lock):
-    def acquire(self, block=True):
-        return self.owned or super().acquire(block)
+    """
+    A lock the same holder can take more than once.
+
+    The recursion is counted here rather than in Redis: only the first
+    acquire takes the token, and only the last release gives it back. It
+    used to take one token and give back one per release, so a re-entrant
+    acquire/release pair returned a token it never took
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._count = 0
+        self._owner = None
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        self._count = 0
+        self._owner = None
+
+    def _holder(self):
+        """The process and thread that may re-enter without a new token"""
+        return (os.getpid(), threading.get_ident())
+
+    def acquire(self, block=True, timeout=None):
+        holder = self._holder()
+        # owned is one flag for the whole object. Another thread in this
+        # process would see it and walk in beside the holder
+        if self._owner == holder:
+            self._count += 1
+            return True
+        res = super().acquire(block, timeout)
+        if res:
+            self._count = 1
+            self._owner = holder
+        return res
+
+    def release(self):
+        if self._owner != self._holder():
+            # The wording the standard library uses
+            raise AssertionError(
+                'attempt to release recursive lock not owned by thread'
+            )
+        self._count -= 1
+        if self._count == 0:
+            self._owner = None
+            super().release()
+
+    def _release_save(self):
+        """Release all acquisitions while a condition waits."""
+        count = self._count
+        self._count = 0
+        self._owner = None
+        super().release()
+        return count
+
+    def _acquire_restore(self, count):
+        self.acquire()
+        self._count = count
 
 
 #
@@ -175,6 +322,25 @@ class Condition:
     def release(self):
         self._lock.release()
 
+    def _release_save(self):
+        """
+        Hands the lock over while waiting. A lock that keeps no recursion
+        depth, such as a plain Semaphore, is simply released, which is what
+        threading.Condition does for the same case
+        """
+        release_save = getattr(self._lock, '_release_save', None)
+        if release_save is None:
+            self._lock.release()
+            return None
+        return release_save()
+
+    def _acquire_restore(self, state):
+        acquire_restore = getattr(self._lock, '_acquire_restore', None)
+        if acquire_restore is None:
+            self._lock.acquire()
+        else:
+            acquire_restore(state)
+
     def __enter__(self):
         return self._lock.__enter__()
 
@@ -191,19 +357,42 @@ class Condition:
         if not res:
             raise Exception('Condition ({}) could not enqueue waiting key'.format(self._notify_handle))
 
-        # Release lock, wait to get notified, acquire lock
-        self.release()
-        logger.debug('Waiting for token %s on condition %s', wait_handle, self._notify_handle)
-        self._client.blpop([wait_handle], timeout)
-        self._client.expire(wait_handle, mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
-        self.acquire()
+        # A notifier needs the lock even when the waiter acquired it more
+        # than once. Restore ownership on errors as well as on notification.
+        state = self._release_save()
+        try:
+            logger.debug('Waiting for token %s on condition %s', wait_handle, self._notify_handle)
+            if timeout is not None and timeout <= 0:
+                # BLPOP reads a zero timeout as "block for ever"
+                notified = self._client.lpop(wait_handle) is not None
+            else:
+                notified = _blpop(self._client, wait_handle, timeout) is not None
+        finally:
+            self._acquire_restore(state)
+        if not notified:
+            # A notify that won the race already took our handle off the
+            # list and pushed a token. Take that token. Otherwise take
+            # ourselves off the list: the next notify pops the oldest
+            # handle, and a waiter that has gone spends that wakeup
+            if self._client.lpop(wait_handle) is not None:
+                notified = True
+            else:
+                self._client.lrem(self._notify_handle, 1, wait_handle)
+        self._client.expire(
+            wait_handle, mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME)
+        )
+        # Whether a notify arrived, rather than the timeout expiring, which
+        # is what the standard library returns and callers branch on
+        return notified
 
-    def notify(self):
+    def notify(self, n=1):
         assert self._lock.owned
 
         logger.debug('Notify condition %s', self._notify_handle)
-        wait_handle = self._client.lpop(self._notify_handle)
-        if wait_handle is not None:
+        for _ in range(n):
+            wait_handle = self._client.lpop(self._notify_handle)
+            if wait_handle is None:
+                break
             res = self._client.rpush(wait_handle, '')
 
             if not res:
@@ -275,9 +464,13 @@ class Event:
             self._client.set(self._flag_handle, '0')
 
     def wait(self, timeout=None):
+        """
+        Waits for the flag and reports it, as in the standard library, where
+        `if event.wait(timeout):` is how a timeout is told from a set flag
+        """
         with self._cond:
             logger.debug('Request wait for event %s', self._flag_handle)
-            self._cond.wait_for(self.is_set, timeout)
+            return bool(self._cond.wait_for(self.is_set, timeout))
 
 
 #
@@ -305,7 +498,9 @@ class Barrier(threading.Barrier):
 
     @_state.setter
     def _state(self, value):
-        self._client.set(self._state_handle, value, ex=mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
+        pipeline = self._ref.pipeline()
+        pipeline.set(self._state_handle, value, ex=mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
+        pipeline.execute()
 
     @property
     def _count(self):
@@ -313,4 +508,6 @@ class Barrier(threading.Barrier):
 
     @_count.setter
     def _count(self, value):
-        self._client.set(self._count_handle, value, ex=mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
+        pipeline = self._ref.pipeline()
+        pipeline.set(self._count_handle, value, ex=mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
+        pipeline.execute()

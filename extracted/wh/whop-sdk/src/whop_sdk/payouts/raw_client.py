@@ -107,6 +107,7 @@ class RawPayoutsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "payouts",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -255,7 +256,7 @@ class RawPayoutsClient:
             Whether the parent platform covers the payout fee instead of the account being paid out. Omit to use the platform's configured fee coverage policy; pass `false` to opt out of it. `true` is only accepted for accounts that belong to a platform, and requires the platform's policy to cover this payout method's category or a caller authorized to manage the platform's child account fees.
 
         quote_token : typing.Optional[str]
-            The server-signed quote_token returned by POST /payouts/quotes. Required when the ledger account's payout_quote_required is true; a payout without it is refused with the invalid_payout_quote error type. When provided, Whop will not commit a provider payout below the destination amount the quote showed.
+            The server-signed quote_token returned by POST /payouts/quotes. Send it when the ledger account's payout_quote_required is true. A business with quote enforcement on refuses a payout without it with the invalid_payout_quote error type. When provided, Whop will not commit a provider payout below the destination amount the quote showed.
 
         speed : typing.Optional[CreatePayoutsRequestSpeed]
             How fast the funds should arrive. `instant` is only accepted when the account and payout method are eligible; otherwise the payout is rejected.
@@ -276,6 +277,7 @@ class RawPayoutsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "payouts",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -423,6 +425,7 @@ class RawPayoutsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "payouts/quotes",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -535,6 +538,7 @@ class RawPayoutsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payouts/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -637,6 +641,7 @@ class RawPayoutsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payouts/{encode_path_param(id)}/cancel",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             params={
                 "account_id": account_id,
@@ -780,6 +785,7 @@ class AsyncRawPayoutsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payouts",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -931,7 +937,7 @@ class AsyncRawPayoutsClient:
             Whether the parent platform covers the payout fee instead of the account being paid out. Omit to use the platform's configured fee coverage policy; pass `false` to opt out of it. `true` is only accepted for accounts that belong to a platform, and requires the platform's policy to cover this payout method's category or a caller authorized to manage the platform's child account fees.
 
         quote_token : typing.Optional[str]
-            The server-signed quote_token returned by POST /payouts/quotes. Required when the ledger account's payout_quote_required is true; a payout without it is refused with the invalid_payout_quote error type. When provided, Whop will not commit a provider payout below the destination amount the quote showed.
+            The server-signed quote_token returned by POST /payouts/quotes. Send it when the ledger account's payout_quote_required is true. A business with quote enforcement on refuses a payout without it with the invalid_payout_quote error type. When provided, Whop will not commit a provider payout below the destination amount the quote showed.
 
         speed : typing.Optional[CreatePayoutsRequestSpeed]
             How fast the funds should arrive. `instant` is only accepted when the account and payout method are eligible; otherwise the payout is rejected.
@@ -952,6 +958,7 @@ class AsyncRawPayoutsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payouts",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -1099,6 +1106,7 @@ class AsyncRawPayoutsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payouts/quotes",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -1211,6 +1219,7 @@ class AsyncRawPayoutsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payouts/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -1313,6 +1322,7 @@ class AsyncRawPayoutsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payouts/{encode_path_param(id)}/cancel",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             params={
                 "account_id": account_id,

@@ -69,13 +69,47 @@ from runlayer_cli.uuid_utils import is_uuid
 logger = structlog.get_logger("cli")
 
 
+# Parent variables a stdio child may inherit beyond mcp's platform base set
+# (PATH/HOME/USER/SHELL/TERM/LOGNAME, or APPDATA/SYSTEMROOT/TEMP/... on Windows),
+# which ``mcp.client.stdio.stdio_client`` merges under whatever we pass: proxy,
+# CA trust for Python/OpenSSL, Node and curl (TLS-inspecting corp proxies), and
+# locale. Nothing else from the AI client's environment (cloud credentials,
+# tokens) reaches the spawned server; the backend-configured ``env`` is the
+# only other source.
+_STDIO_INHERITED_ENV_VARS = (
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "NO_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "no_proxy",
+    "SSL_CERT_FILE",
+    "SSL_CERT_DIR",
+    "REQUESTS_CA_BUNDLE",
+    "CURL_CA_BUNDLE",
+    "NODE_EXTRA_CA_CERTS",
+    "LANG",
+    "LC_ALL",
+    "TMPDIR",
+)
+
+
+def _stdio_env_key(key: str) -> str:
+    """Windows env names are case-insensitive: fold them so a connector override
+    replaces the inherited value instead of sitting beside it as a second key."""
+    return key.upper() if os.name == "nt" else key
+
+
 def _build_stdio_env(transport_config: dict[str, object]) -> dict[str, str]:
-    env = dict(os.environ)
+    env: dict[str, str] = {}
+    for key in _STDIO_INHERITED_ENV_VARS:
+        if key in os.environ:
+            env.setdefault(_stdio_env_key(key), os.environ[key])
     config_env = transport_config.get("env")
     if isinstance(config_env, dict):
         for key, value in config_env.items():
             if isinstance(key, str) and isinstance(value, str):
-                env[key] = value
+                env[_stdio_env_key(key)] = value
     return env
 
 

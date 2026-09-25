@@ -197,9 +197,6 @@ class RESTClientObject:
         if _preload_content:
             r = RESTResponse(r)
 
-            # log response body
-            logger.debug("response body: %s", r.data)
-
         return evaluate_status_codes(root, r)
 
     def get_request(
@@ -405,8 +402,6 @@ class StoredProcClientObject:
         )
         if _preload_content:
             r = RESTResponse(r)
-            # log response body
-            logger.debug("response body: %s", r.data)
 
         return evaluate_status_codes(root, r)
 

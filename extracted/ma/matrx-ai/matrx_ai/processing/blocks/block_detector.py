@@ -28,6 +28,10 @@ from matrx_graph.content_ir.directives import (
     parse_directive_slug,
 )
 
+from matrx_ai.processing.blocks.fence_nesting import (
+    classify_inner_fence_line,
+    fence_nests_inner_fences,
+)
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
 from matrx_graph.content_ir.envelope import KIND_KEY
 
@@ -936,18 +940,24 @@ def extract_code_block(
     lines: list[str],
     open_ticks: int = 3,
     language: str | None = None,
+    allow_nesting: bool = True,
 ) -> ExtractionResult:
     """Extract code-block content starting after the opening fence.
 
     Mirrors the TypeScript ``extractCodeBlock``: a block closes only on a BARE
     run of >= ``open_ticks`` backticks, and inside a ```json fence a ``` that
-    sits within a string literal is content, never a fence.
+    sits within a string literal is content, never a fence. A ```markdown
+    fence nests its own ```lang ... ``` blocks (the one rule in
+    ``fence_nesting.py``, shared with the frontend splitters).
     """
     content_lines: list[str] = []
     i = start_index
     is_json = language == "json"
     in_string = False
     escaped = False
+    nests = allow_nesting and fence_nests_inner_fences(language)
+    nested_depth = 0
+    saw_nested = False
 
     while i < len(lines):
         line = lines[i]
@@ -967,9 +977,16 @@ def extract_code_block(
                     )
                     continue
 
-            close_ticks = _backtick_run_length(trimmed, 0)
-            if close_ticks >= open_ticks and trimmed[close_ticks:].strip() == "":
+            fence_line = classify_inner_fence_line(
+                trimmed, open_ticks, nests, nested_depth
+            )
+            if fence_line == "close-outer":
                 break
+            if fence_line == "open-nested":
+                nested_depth += 1
+                saw_nested = True
+            elif fence_line == "close-nested":
+                nested_depth -= 1
 
             content_lines.append(line)
             i += 1
@@ -995,6 +1012,7 @@ def extract_code_block(
             if (
                 close_ticks >= open_ticks
                 and line[backtick_idx + close_ticks :].strip() == ""
+                and nested_depth == 0
             ):
                 before = line[:backtick_idx]
                 if before.strip():
@@ -1011,6 +1029,12 @@ def extract_code_block(
         i += 1
         if is_json:
             in_string, escaped = _advance_json_string_state(line, 0, in_string, escaped)
+
+    # The text ended with a nested fence still open: that inner fence was
+    # never closed, so it swallowed the outer closer. The complete text is in
+    # hand, so fall back to strict CommonMark rather than eat the rest.
+    if saw_nested and nested_depth > 0 and i >= len(lines):
+        return extract_code_block(start_index, lines, open_ticks, language, False)
 
     return ExtractionResult(
         content="\n".join(content_lines),

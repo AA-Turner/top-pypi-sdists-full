@@ -81,18 +81,23 @@ class ThreadedYielder(Iterable):
         self._futures.append(self._pool.submit(self._worker, fn, *args, priority=priority, **kwargs))
 
     def __iter__(self) -> Iterator[Any]:
-        while True:
-            if self._exception:
-                raise self._exception
+        try:
+            while True:
+                if self._exception:
+                    raise self._exception
 
-            while self._yield:
-                yield self._yield.popleft()
+                while self._yield:
+                    yield self._yield.popleft()
 
-            if not self._futures:
-                # No more tasks
-                return
+                if not self._futures:
+                    # No more tasks
+                    return
 
-            if self._futures[0].done():
-                self._futures.popleft()
-            else:
-                sleep(0.001)
+                if self._futures[0].done():
+                    self._futures.popleft()
+                else:
+                    sleep(0.001)
+        finally:
+            # When the caller stops early (takes a sample, or hits an error), drop the queued work. Otherwise the
+            # pool finishes the whole diff in the background, piling up results in _yield that nobody will read.
+            self._pool.shutdown(wait=False, cancel_futures=True)

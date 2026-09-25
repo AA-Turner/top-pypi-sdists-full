@@ -48,6 +48,7 @@ class RawPartnersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "partners",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -127,6 +128,7 @@ class RawPartnersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "partners/leaderboard",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "period": period,
@@ -166,6 +168,7 @@ class RawPartnersClient:
     def referred_users(
         self,
         *,
+        query: typing.Optional[str] = None,
         has_businesses: typing.Optional[bool] = None,
         has_earning_businesses: typing.Optional[bool] = None,
         first: typing.Optional[int] = None,
@@ -179,6 +182,9 @@ class RawPartnersClient:
 
         Parameters
         ----------
+        query : typing.Optional[str]
+            Search referred users by name or username.
+
         has_businesses : typing.Optional[bool]
             When true, only referred users who brought at least one business onto Whop.
 
@@ -207,8 +213,10 @@ class RawPartnersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "partners/referred_users",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
+                "query": query,
                 "has_businesses": has_businesses,
                 "has_earning_businesses": has_earning_businesses,
                 "first": first,
@@ -234,6 +242,7 @@ class RawPartnersClient:
                     _parsed_next = _parsed_response.page_info.end_cursor
                     _has_next = _parsed_next is not None and _parsed_next != ""
                     _get_next = lambda: self.referred_users(
+                        query=query,
                         has_businesses=has_businesses,
                         has_earning_businesses=has_earning_businesses,
                         first=first,
@@ -265,7 +274,7 @@ class RawPartnersClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Partner]:
         """
-        Retrieves the authenticated user's public profile, enrollment date, partner verification timestamp, verification waitlist status, active direct business referral count, and default payout rates. Use me or the authenticated user's own user ID; other users are not accessible. Users who have not enrolled have a null joined_at. Retrieve referral URLs and promotion links from GET /partners/links.
+        Retrieves the authenticated user's public profile, enrollment date, partner verification timestamp, verification waitlist status, partner certification completion, active direct business referral count, and default payout rates. Use me or the authenticated user's own user ID; other users are not accessible. Users who have not enrolled have a null joined_at. Create and manage referral links through /partner_referral_requests.
 
         Parameters
         ----------
@@ -282,6 +291,7 @@ class RawPartnersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"partners/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -360,6 +370,7 @@ class AsyncRawPartnersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "partners",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -439,6 +450,7 @@ class AsyncRawPartnersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "partners/leaderboard",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "period": period,
@@ -478,6 +490,7 @@ class AsyncRawPartnersClient:
     async def referred_users(
         self,
         *,
+        query: typing.Optional[str] = None,
         has_businesses: typing.Optional[bool] = None,
         has_earning_businesses: typing.Optional[bool] = None,
         first: typing.Optional[int] = None,
@@ -491,6 +504,9 @@ class AsyncRawPartnersClient:
 
         Parameters
         ----------
+        query : typing.Optional[str]
+            Search referred users by name or username.
+
         has_businesses : typing.Optional[bool]
             When true, only referred users who brought at least one business onto Whop.
 
@@ -519,8 +535,10 @@ class AsyncRawPartnersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "partners/referred_users",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
+                "query": query,
                 "has_businesses": has_businesses,
                 "has_earning_businesses": has_earning_businesses,
                 "first": first,
@@ -548,6 +566,7 @@ class AsyncRawPartnersClient:
 
                     async def _get_next():
                         return await self.referred_users(
+                            query=query,
                             has_businesses=has_businesses,
                             has_earning_businesses=has_earning_businesses,
                             first=first,
@@ -582,7 +601,7 @@ class AsyncRawPartnersClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Partner]:
         """
-        Retrieves the authenticated user's public profile, enrollment date, partner verification timestamp, verification waitlist status, active direct business referral count, and default payout rates. Use me or the authenticated user's own user ID; other users are not accessible. Users who have not enrolled have a null joined_at. Retrieve referral URLs and promotion links from GET /partners/links.
+        Retrieves the authenticated user's public profile, enrollment date, partner verification timestamp, verification waitlist status, partner certification completion, active direct business referral count, and default payout rates. Use me or the authenticated user's own user ID; other users are not accessible. Users who have not enrolled have a null joined_at. Create and manage referral links through /partner_referral_requests.
 
         Parameters
         ----------
@@ -599,6 +618,7 @@ class AsyncRawPartnersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"partners/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )

@@ -1,11 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
+from typing import assert_type
 from typing import List
+from typing import Tuple
+from typing import Unpack
 
+from sqlalchemy import Column
 from sqlalchemy import create_engine
 from sqlalchemy import ForeignKey
 from sqlalchemy import inspect
+from sqlalchemy import Integer
+from sqlalchemy import MetaData
+from sqlalchemy import Result
+from sqlalchemy import Select
+from sqlalchemy import select
+from sqlalchemy import String
+from sqlalchemy import Table
+from sqlalchemy.engine.row import Row
 from sqlalchemy.ext.asyncio import async_scoped_session
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +29,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import SessionTransaction
+from sqlalchemy.orm.query import Query
 
 
 class Base(DeclarativeBase):
@@ -40,6 +55,14 @@ class Address(Base):
     user: Mapped[User] = relationship(back_populates="addresses")
 
 
+user_table = Table(
+    "user",
+    MetaData(),
+    Column("id", Integer, primary_key=True),
+    Column("name", String, primary_key=True),
+)
+
+
 e = create_engine("sqlite://")
 Base.metadata.create_all(e)
 
@@ -51,19 +74,16 @@ with Session(e) as sess:
 
     q = sess.query(User).filter_by(id=7)
 
-    # EXPECTED_TYPE: Query[User]
-    reveal_type(q)
+    assert_type(q, Query[User])
 
     rows1 = q.all()
 
-    # EXPECTED_RE_TYPE: [Ll]ist\[.*User\*?\]
-    reveal_type(rows1)
+    assert_type(rows1, list[User])
 
     q2 = sess.query(User.id).filter_by(id=7)
     rows2 = q2.all()
 
-    # EXPECTED_TYPE: List[Row[Tuple[int]]]
-    reveal_type(rows2)
+    assert_type(rows2, list[Row[int]])
 
     # test #8280
 
@@ -87,12 +107,10 @@ with Session(e) as sess:
     # test #9125
 
     for row in sess.query(User.id, User.name):
-        # EXPECTED_TYPE: Row[Tuple[int, str]]
-        reveal_type(row)
+        assert_type(row, Row[int, str])
 
     for uobj1 in sess.query(User):
-        # EXPECTED_TYPE: User
-        reveal_type(uobj1)
+        assert_type(uobj1, User)
 
     sess.query(User).limit(None).offset(None).limit(10).offset(10).limit(
         User.id
@@ -101,8 +119,7 @@ with Session(e) as sess:
     # test #11083
 
     with sess.begin() as tx:
-        # EXPECTED_TYPE: SessionTransaction
-        reveal_type(tx)
+        assert_type(tx, SessionTransaction)
 
     # test #9256
     sess.bulk_insert_mappings(User, [{"id": 1, "name": "u1"}])
@@ -181,3 +198,31 @@ async def async_test_exec_options() -> None:
     await scoped.connection(
         execution_options={"isolation_level": "REPEATABLE READ"}
     )
+
+
+def test_13091() -> None:
+    session = Session()
+    stmt = select(user_table.c.id)
+    assert_type(stmt, Select[Unpack[Tuple[Any, ...]]])
+    result = session.execute(stmt)
+
+    assert_type(result, Result[Unpack[Tuple[Any, ...]]])
+    data1 = result.scalar()
+    assert_type(data1, Any | None)
+
+    data2 = session.scalar(stmt)
+    assert_type(data2, Any | None)
+
+
+async def async_test_13091() -> None:
+    session = AsyncSession()
+    stmt = select(user_table.c.id)
+    assert_type(stmt, Select[Unpack[Tuple[Any, ...]]])
+    result = await session.execute(stmt)
+
+    assert_type(result, Result[Unpack[Tuple[Any, ...]]])
+    data1 = result.scalar()
+    assert_type(data1, Any | None)
+
+    data2 = await session.scalar(stmt)
+    assert_type(data2, Any | None)

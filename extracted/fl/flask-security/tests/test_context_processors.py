@@ -30,6 +30,8 @@ from tests.test_utils import authenticate, capture_reset_password_requests, logo
     verify_template="custom_security/verify.html",
     username_recovery_template="custom_security/recover_username.html",
     change_username_template="custom_security/change_username.html",
+    email_template_password_reset="security/email/reset_instructions_test",
+    email_html=False,
 )
 def test_context_processors(client, app, outbox):
     @app.security.context_processor
@@ -106,7 +108,7 @@ def test_context_processors(client, app, outbox):
     def mail():
         return {"foo": "bar-mail"}
 
-    client.get("/logout")
+    client.post("/logout")
 
     client.post("/reset", data=dict(email="matt@lp.com"))
 
@@ -127,7 +129,7 @@ def test_context_processors(client, app, outbox):
     def recover_username():
         return {"foo": "bar-recover-username"}
 
-    client.get("/logout")
+    client.post("/logout")
     response = client.get("/recover-username")
     assert b"global" in response.data
     assert b"bar-recover-username" in response.data
@@ -276,3 +278,23 @@ def test_mf_recovery_context_processors(client, app):
     response = client.get("/mf-recovery")
     assert b"global" in response.data
     assert b"code" in response.data
+
+
+@pytest.mark.settings(
+    logout_user_template="custom_security/logout_user.html", logout_csrf=True
+)
+@pytest.mark.csrf(ignore_unauth=True)
+def test_logout_context_processor(app, client):
+    @app.security.context_processor
+    def default_ctx_processor():
+        return {"global": "global"}
+
+    @app.security.logout_context_processor
+    def logout_ctx():
+        return {"foo": "bar-logout"}
+
+    authenticate(client)
+    response = client.post("/logout")
+
+    assert b"global" in response.data
+    assert b"bar-logout" in response.data

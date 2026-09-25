@@ -24,7 +24,12 @@ from dbos._serialization import DefaultSerializer
 from dbos._sys_db import OperationResultInternal, SystemDatabase
 from dbos._utils import GlobalParams
 
-from .conftest import postgres_urls, retry_until_success, set_workflow_status
+from .conftest import (
+    explain_with_index_scans_only,
+    postgres_urls,
+    retry_until_success,
+    set_workflow_status,
+)
 
 
 def test_list_workflow(dbos: DBOS) -> None:
@@ -349,6 +354,8 @@ def test_list_workflow_end_times_positive(
     time_1 = (now - timedelta(seconds=20)).isoformat()
     simple_workflow()
     time_2 = datetime.now().isoformat()
+    # created_at is ms-granular, so keep the second workflow out of time_2's millisecond.
+    time.sleep(0.01)
     simple_workflow()
     time_3 = datetime.now().isoformat()
 
@@ -1681,12 +1688,17 @@ def _completed_workflow_id(dbos: DBOS) -> str:
 def test_step_conflict_over_child_workflow_row(dbos: DBOS) -> None:
     workflow_id = _completed_workflow_id(dbos)
 
-    dbos._sys_db.record_child_workflow(
-        workflow_id,
-        str(uuid.uuid4()),
-        10,
-        "child.wf",
-        started_at_epoch_ms=int(time.time() * 1000),
+    dbos._sys_db.record_operation_result(
+        {
+            "workflow_uuid": workflow_id,
+            "function_id": 10,
+            "function_name": "child.wf",
+            "output": None,
+            "error": None,
+            "serialization": None,
+            "started_at_epoch_ms": int(time.time() * 1000),
+            "child_workflow_id": str(uuid.uuid4()),
+        }
     )
 
     result: OperationResultInternal = {
@@ -1697,6 +1709,7 @@ def test_step_conflict_over_child_workflow_row(dbos: DBOS) -> None:
         "error": None,
         "serialization": None,
         "started_at_epoch_ms": int(time.time() * 1000),
+        "child_workflow_id": None,
     }
     with pytest.raises(DBOSWorkflowConflictIDError):
         # Explicit far-future completion time so it can't equal the child row's same-millisecond completed_at.
@@ -1727,6 +1740,7 @@ def test_step_conflict_over_row_without_completion(dbos: DBOS) -> None:
         "error": None,
         "serialization": None,
         "started_at_epoch_ms": int(time.time() * 1000),
+        "child_workflow_id": None,
     }
     with pytest.raises(DBOSWorkflowConflictIDError):
         dbos._sys_db.record_operation_result(result)
@@ -2253,6 +2267,80 @@ def test_get_workflow_aggregates_select_max_durations(
     assert queued_row["max_total_latency_ms"] >= queued_row["max_queue_wait_ms"]
 
 
+def test_get_workflow_aggregates_in_flight_query_plan(
+    dbos: DBOS, skip_with_sqlite: None
+) -> None:
+    """The queues-page aggregate (app-scoped in-flight counts) must run index-only on
+    idx_workflow_status_in_flight_v2, not fetch the row of every in-flight workflow."""
+    ws = SystemSchema.workflow_status
+    now = int(time.time() * 1000)
+    statuses = ["ENQUEUED", "PENDING"] + ["SUCCESS"] * 18
+    # A tenth of the table is in flight, so the partial index is small relative to the heap.
+    rows = [
+        {
+            "workflow_uuid": f"agg-plan-{i}-{uuid.uuid4()}",
+            "name": "plan_probe",
+            "status": statuses[i % 20],
+            "created_at": now,
+            "updated_at": now,
+            "queue_name": f"agg-plan-q{i % 3}",
+            "application_name": dbos._sys_db.app_name,
+        }
+        for i in range(1000)
+    ]
+    with dbos._sys_db.engine.begin() as conn:
+        conn.execute(sa.insert(ws), rows)
+
+    def probe_total(results: List[Any]) -> int:
+        return sum(
+            r["count"]
+            for r in results
+            if (r["group"]["queue_name"] or "").startswith("agg-plan-q")
+        )
+
+    captured: List[Tuple[str, Any]] = []
+
+    def before_cursor_execute(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        if "GROUP BY" in statement:
+            captured.append((statement, parameters))
+
+    event.listen(dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        in_flight = dbos._sys_db.get_workflow_aggregates(
+            group_by_queue_name=True,
+            group_by_status=True,
+            select_count=True,
+            status=["ENQUEUED", "PENDING"],
+        )
+    finally:
+        event.remove(
+            dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute
+        )
+    assert probe_total(in_flight) == 100
+    # A status outside the in-flight pair must not pick up the in-flight predicate.
+    mixed = dbos._sys_db.get_workflow_aggregates(
+        group_by_queue_name=True, select_count=True, status=["PENDING", "SUCCESS"]
+    )
+    assert probe_total(mixed) == 950
+
+    assert captured
+    statement, parameters = captured[0]
+    assert "application_name" in statement
+    details = explain_with_index_scans_only(
+        dbos, "workflow_status", statement, parameters
+    )
+    assert any(
+        "Index Only Scan using idx_workflow_status_in_flight_v2" in d for d in details
+    ), details
+
+
 def test_get_step_aggregates(dbos: DBOS) -> None:
     @DBOS.step()
     def step_ok() -> None:
@@ -2445,6 +2533,81 @@ def test_get_step_aggregates_completed_window_and_max(
     assert by_fn[quick_step.__qualname__]["max_duration_ms"] is not None
     assert by_fn[slow_step.__qualname__]["count"] is None
     assert by_fn[slow_step.__qualname__]["max_duration_ms"] is not None
+
+
+def test_step_counts_query_plan(dbos: DBOS, skip_with_sqlite: None) -> None:
+    """App-scoped step counts by function name (get_metrics, get_step_aggregates) must run
+    index-only on idx_operation_outputs_completed_at_function_name_v2."""
+    prefix = f"step-plan-{uuid.uuid4().hex[:8]}"
+    now = int(time.time() * 1000)
+    # One step every 3.6s for two hours; the queried window holds the newest 200.
+    rows = [
+        {
+            "workflow_uuid": f"{prefix}-{i // 10}",
+            "function_id": i % 10,
+            "function_name": f"{prefix}.step_{i % 5}",
+            "started_at_epoch_ms": now - (2000 - i) * 3600 - 5,
+            "completed_at_epoch_ms": now - (2000 - i) * 3600,
+            "application_name": dbos._sys_db.app_name,
+            "retention_timestamp": now,
+        }
+        for i in range(2000)
+    ]
+    with dbos._sys_db.engine.begin() as conn:
+        conn.execute(sa.insert(SystemSchema.operation_outputs), rows)
+
+    def iso(epoch_ms: int) -> str:
+        return datetime.fromtimestamp(epoch_ms / 1000, timezone.utc).isoformat()
+
+    # Midway between two steps, so millisecond rounding can't move the boundary.
+    window_start = now - 721_800
+    captured: List[Tuple[str, Any]] = []
+
+    def before_cursor_execute(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        if "operation_outputs" in statement and "GROUP BY" in statement:
+            captured.append((statement, parameters))
+
+    event.listen(dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        aggregates = dbos._sys_db.get_step_aggregates(
+            group_by_function_name=True,
+            select_count=True,
+            completed_after=iso(window_start),
+        )
+        metrics = dbos._sys_db.get_metrics(iso(window_start), iso(now + 1000))
+    finally:
+        event.remove(
+            dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute
+        )
+    expected = {f"{prefix}.step_{i}": 40 for i in range(5)}
+    assert {
+        r["group"]["function_name"]: r["count"]
+        for r in aggregates
+        if (r["group"]["function_name"] or "").startswith(prefix)
+    } == expected
+    assert {
+        m["metric_name"]: m["value"]
+        for m in metrics
+        if m["metric_type"] == "step_count" and m["metric_name"].startswith(prefix)
+    } == expected
+
+    assert len(captured) == 2
+    covered = (
+        "Index Only Scan using idx_operation_outputs_completed_at_function_name_v2"
+    )
+    for statement, parameters in captured:
+        assert "application_name" in statement
+        details = explain_with_index_scans_only(
+            dbos, "operation_outputs", statement, parameters
+        )
+        assert any(covered in d for d in details), details
 
 
 def _bound_values(parameters: Any) -> List[Any]:

@@ -19,7 +19,7 @@ from typing import Annotated
 from pydantic import Field
 
 from .base import BaseOptionsModel
-from .bit_flip_checks_options import BitFlipChecksOptions
+from .bit_flip_checks import BitFlipChecksOptions
 from .environment import EnvironmentOptions
 from .execution import ExecutionOptions
 from .post_selection import PostSelectionOptions
@@ -72,3 +72,11 @@ class NoiseLearnerV3Options(BaseOptionsModel):
 
     environment: EnvironmentOptions = EnvironmentOptions()
     """Options related to the execution environment."""
+
+    max_execution_time: int | None = None
+    """Maximum execution time in seconds.
+
+    This value bounds system execution time (not wall clock time). System execution time is the
+    amount of time that the system is dedicated to processing your job. If a job exceeds this time
+    limit, it is forcibly cancelled.
+    """

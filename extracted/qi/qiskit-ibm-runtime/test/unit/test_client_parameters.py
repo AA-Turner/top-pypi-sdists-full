@@ -12,7 +12,10 @@
 
 """Tests for ClientParameters."""
 
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING, Any
 
 from requests_ntlm import HttpNtlmAuth
 
@@ -21,6 +24,9 @@ from qiskit_ibm_runtime.api.client_parameters import ClientParameters
 from qiskit_ibm_runtime.proxies import ProxyConfiguration
 
 from ..ibm_test_case import IBMTestCase
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class TestClientParameters(IBMTestCase):
@@ -113,7 +119,7 @@ class TestClientParameters(IBMTestCase):
             "username_ntlm": "domain\\username",
             "password_ntlm": "password",
         }
-        ntlm_expected_result = {
+        ntlm_expected_result: dict[str, Any] = {
             "verify": True,
             "proxies": self.mock_proxies_urls,
             "auth": HttpNtlmAuth("domain\\username", "password"),
@@ -140,7 +146,7 @@ class TestClientParameters(IBMTestCase):
             "password_ntlm": 5678,
         }
         malformed_ntlm_credentials = self._get_client_params(
-            proxies=malformed_ntlm_credentials_dict
+            proxies=malformed_ntlm_credentials_dict  # type: ignore[arg-type]
         )
         # Should raise when trying to do username.split('\\', <int>)
         # in NTLM credentials due to int not facilitating 'split'.
@@ -161,24 +167,29 @@ class TestClientParameters(IBMTestCase):
         )
         handler = params.get_auth_handler()
         self.assertIsInstance(handler, CloudAuth)
-        self.assertIn(f"apikey {token}", handler.get_headers().values())
+
+        with self.assertWarnsRegex(UserWarning, "Unable to retrieve"):
+            headers = handler.get_headers()
+        self.assertIn(f"apikey {token}", headers.values())
 
         # Use a new handler, for avoiding delay in second response.
         handler = params.get_auth_handler()
-        self.assertIn(instance, handler.get_headers().values())
+        with self.assertWarnsRegex(UserWarning, "Unable to retrieve"):
+            headers = handler.get_headers()
+        self.assertIn(f"apikey {token}", headers.values())
         self.assertEqual(handler.tm.disable_ssl_verification, not verify)
         self.assertEqual(handler.tm.proxies, self.mock_proxies_urls)
 
     def _get_client_params(
         self,
-        channel="ibm_quantum_platform",
-        token="dummy_token",
-        url="https://dummy_url",
-        instance=None,
-        proxies=None,
-        verify=None,
-        url_resolver=None,
-    ):
+        channel: str = "ibm_quantum_platform",
+        token: str = "dummy_token",
+        url: str = "https://dummy_url",
+        instance: str | None = None,
+        proxies: ProxyConfiguration | None = None,
+        verify: bool | None = None,
+        url_resolver: Callable | None = None,
+    ) -> ClientParameters:
         """Return a custom ClientParameters."""
         if verify is None:
             verify = True

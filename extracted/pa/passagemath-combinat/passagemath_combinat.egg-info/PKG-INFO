@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-combinat
-Version: 10.8.11
+Version: 10.8.12
 Summary: passagemath: Algebraic combinatorics, combinatorial representation theory
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -35,25 +35,25 @@ Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals>=1.12.6; python_version >= "3.14"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator<0.2
-Requires-Dist: passagemath-categories~=10.8.11.0
-Requires-Dist: passagemath-environment~=10.8.11.0
+Requires-Dist: passagemath-categories~=10.8.12.0
+Requires-Dist: passagemath-environment~=10.8.12.0
 Provides-Extra: test
-Requires-Dist: passagemath-repl~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.8.12.0; extra == "test"
 Provides-Extra: gap3
-Requires-Dist: passagemath-gap3~=10.8.11.0; extra == "gap3"
+Requires-Dist: passagemath-gap3~=10.8.12.0; extra == "gap3"
 Provides-Extra: glucose
-Requires-Dist: passagemath-glucose~=10.8.11.0; extra == "glucose"
+Requires-Dist: passagemath-glucose~=10.8.12.0; extra == "glucose"
 Provides-Extra: kissat
-Requires-Dist: passagemath-kissat~=10.8.11.0; extra == "kissat"
+Requires-Dist: passagemath-kissat~=10.8.12.0; extra == "kissat"
 Provides-Extra: lrcalc
 Requires-Dist: lrcalc~=2.1; extra == "lrcalc"
 Provides-Extra: symmetrica
 Provides-Extra: graphs
-Requires-Dist: passagemath-graphs~=10.8.11.0; extra == "graphs"
+Requires-Dist: passagemath-graphs~=10.8.12.0; extra == "graphs"
 Provides-Extra: modules
-Requires-Dist: passagemath-modules~=10.8.11.0; extra == "modules"
+Requires-Dist: passagemath-modules~=10.8.12.0; extra == "modules"
 Provides-Extra: species
-Requires-Dist: passagemath-gap~=10.8.11.0; extra == "species"
+Requires-Dist: passagemath-gap~=10.8.12.0; extra == "species"
 Provides-Extra: findstat
 Requires-Dist: requests>=2.13.0; extra == "findstat"
 Provides-Extra: standard

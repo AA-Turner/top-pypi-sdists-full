@@ -203,6 +203,22 @@ class ScanSubmissionResult:
     backend_incomplete: list[tuple[ScanManifestCategory, ScanManifestSurface, str]] = (
         field(default_factory=list)
     )
+    # Manifest scopes a sibling profile's newer scan already owns, as
+    # ``(scope, last_accepted_at)``: ``superseded`` entries on a 200, or the
+    # whole manifest on a ``scan_ordering_conflict`` 409 from a backend
+    # predating ``superseded`` (it could not tell a sibling's scan from a
+    # regression). Informational only.
+    manifest_superseded: list[tuple[str, str]] = field(default_factory=list)
+    # Manifest scopes rejected because this profile's own newer scan already
+    # owns them (a current backend's 409: clock rewind, stale replay). Absence
+    # reconciliation for these scopes did not happen; counted as a failed
+    # submission.
+    manifest_regressed: list[tuple[str, str]] = field(default_factory=list)
+    # Plugin positives the backend accepted but did not record because a
+    # sibling profile's newer scan owns the device-shared ``plugin/device``
+    # scope, as ``(kind, identifier)``. Reported to the user; informational only.
+    # Only plugins have a device-location rule today.
+    positives_superseded: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def exit_code(self) -> int:
@@ -218,6 +234,14 @@ class ScanSubmissionResult:
         backend already produced (and logged) the reason, and the manifest
         gates the surface so nothing is removed. The device cannot fix it, so a
         nonzero exit would only read as a failed scheduled task.
+
+        ``manifest_superseded`` and ``positives_superseded`` never contribute
+        either: a sibling profile's newer scan on a shared device owns those
+        cursors, so the device's state is current and there is nothing for
+        this run to redo.
+        ``manifest_regressed`` does contribute (through ``failed_submissions``):
+        the backend refused this profile's own absence evidence as out of
+        order, so the surface was never reconciled.
         """
         if self.failed_submissions:
             return EXIT_SUBMIT_FAILED
@@ -1586,7 +1610,7 @@ def _filter_presence_gated_project_configurations(
     the shared-path config would silently lose a real finding.
     """
     if not presence_status.complete:
-        logger.info(
+        logger.debug(
             "presence_gate_skipped_incomplete_presence_scan",
             reasons=presence_status.reasons,
         )
@@ -2574,6 +2598,7 @@ def _submit_planned_artifact(
     batch_lookups: dict[str, dict[str, bool]] | None,
     artifact_cache: ArtifactCache | None,
     config: _ArtifactSubmissionConfig[_ArtifactT],
+    superseded: list[tuple[str, str]] | None,
 ) -> bool:
     """Look up, submit and record one artifact; ``False`` when unsupported."""
     if item.cache_hit:
@@ -2592,6 +2617,9 @@ def _submit_planned_artifact(
     submit_response = config.submit(payload)
     if submit_response.get("unsupported") is True:
         return False
+    if submit_response.get("superseded") is True:
+        _note_superseded_positive(item, config=config, superseded=superseded)
+        return True
 
     cache_backed_content_strip = (
         artifact_cache is not None
@@ -2610,9 +2638,33 @@ def _submit_planned_artifact(
         submit_response = config.submit(item.full_payload)
         if submit_response.get("unsupported") is True:
             return False
+        # A sibling can finish between the stripped submit and this retry.
+        if submit_response.get("superseded") is True:
+            _note_superseded_positive(item, config=config, superseded=superseded)
+            return True
     if submit_response.get("has_content") is True:
         _artifact_cache_record(artifact_cache, item.identifier, item.submission_key)
     return True
+
+
+def _note_superseded_positive(
+    item: _PlannedSubmission[_ArtifactT],
+    *,
+    config: _ArtifactSubmissionConfig[_ArtifactT],
+    superseded: list[tuple[str, str]] | None,
+) -> None:
+    """A sibling profile's newer scan owns this device-shared scope.
+
+    The backend wrote nothing, so there is no content to cache or re-send. The
+    finding was dropped, so tell the user rather than count it as recorded.
+    """
+    logger.warning(
+        "artifact_positive_superseded",
+        artifact_type=config.kind,
+        identifier=item.identifier,
+    )
+    if superseded is not None:
+        superseded.append((config.kind, item.identifier))
 
 
 def _submit_discovered_artifacts(
@@ -2623,6 +2675,7 @@ def _submit_discovered_artifacts(
     config: _ArtifactSubmissionConfig[_ArtifactT],
     failed_surfaces: set[ScanManifestSurface] | None = None,
     throttled_surfaces: set[ScanManifestSurface] | None = None,
+    superseded: list[tuple[str, str]] | None = None,
 ) -> SubmissionStatus:
     """Resolve and submit one artifact kind with cache-backed content stripping.
 
@@ -2709,6 +2762,7 @@ def _submit_discovered_artifacts(
                 batch_lookups=batch_lookups,
                 artifact_cache=artifact_cache,
                 config=config,
+                superseded=superseded,
             ):
                 return unsupported_status()
         except NotImplementedError:
@@ -2757,7 +2811,7 @@ def _submit_discovered_artifacts(
         due = [
             item for item in planned if not item.skippable and not item.always_submits
         ]
-        logger.info(
+        logger.debug(
             f"{config.kind}_resubmit_throttled",
             skipped=skipped,
             submitted=len(planned) - skipped,
@@ -2834,6 +2888,7 @@ def submit_discovered_plugins(
     scan_result: ScanResult | None = None,
     artifact_cache: ArtifactCache | None = None,
     failed_surfaces: set[ScanManifestSurface] | None = None,
+    superseded: list[tuple[str, str]] | None = None,
 ) -> SubmissionStatus:
     """Resolve plugin fingerprints in batches, then always submit each plugin.
 
@@ -2873,6 +2928,7 @@ def submit_discovered_plugins(
         artifact_cache=artifact_cache,
         config=config,
         failed_surfaces=failed_surfaces,
+        superseded=superseded,
     )
 
 
@@ -3479,6 +3535,86 @@ def _consume_backend_surface_failures(
             )
 
 
+def _record_manifest_superseded(
+    submission: ScanSubmissionResult,
+    superseded: object,
+) -> None:
+    """Fold ``superseded`` entries from a 200 manifest response."""
+    if not isinstance(superseded, list):
+        return
+    for item in superseded[:30]:
+        if isinstance(item, dict):
+            submission.manifest_superseded.append(
+                (
+                    f"{item.get('category')}/{item.get('surface')}",
+                    str(item.get("last_accepted_at")),
+                )
+            )
+    if submission.manifest_superseded:
+        logger.info(
+            "scan_manifest_superseded",
+            superseded=submission.manifest_superseded,
+        )
+
+
+def _record_manifest_ordering_conflict(
+    submission: ScanSubmissionResult,
+    response: httpx.Response,
+) -> None:
+    """A 409 manifest: every complete scope already belongs to a newer scan.
+
+    Only a ``scan_ordering_conflict`` body carries that verdict; any other 409
+    (a proxy, a different code, no JSON) is a plain failed submission.
+
+    A current backend sends ``conflicting_scopes`` (possibly empty) and only
+    409s when this profile's *own* newer scan owns the scopes: a real
+    regression, so the manifest counts as a failed submission. A backend
+    predating that field 409s for a sibling profile's newer scan as well (a
+    long manual scan on a shared device racing another user's scheduled run on
+    the device-wide plugin scope), which it cannot tell apart, so its 409 is
+    recorded as superseded and does not fail the scan.
+    """
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    detail = body.get("detail") if isinstance(body, dict) else None
+    detail = detail if isinstance(detail, dict) else {}
+    if detail.get("code") != "scan_ordering_conflict":
+        logger.warning(
+            "scan_manifest_submission_failed",
+            status_code=response.status_code,
+            code=detail.get("code"),
+        )
+        submission.failed_submissions.append("scan manifest")
+        return
+    last_accepted_at = str(detail.get("last_accepted_at", "unknown"))
+    raw_scopes = detail.get("conflicting_scopes")
+    scopes = (
+        [str(scope) for scope in raw_scopes[:30]]
+        if isinstance(raw_scopes, list) and raw_scopes
+        else ["manifest"]
+    )
+    log_context = {
+        "status_code": response.status_code,
+        "code": detail.get("code"),
+        "last_accepted_at": last_accepted_at,
+        "conflicting_scopes": scopes,
+    }
+    if "conflicting_scopes" in detail:
+        logger.warning("scan_manifest_ordering_conflict", **log_context)
+        submission.manifest_regressed.extend(
+            (scope, last_accepted_at) for scope in scopes
+        )
+        submission.failed_submissions.append("scan manifest")
+        return
+    # Rollout caveat: until the backend is updated this branch also absorbs a
+    # genuine own-profile regression, which the newer backend would 409 with
+    # ``conflicting_scopes`` and fail the scan.
+    logger.warning("scan_manifest_superseded", legacy_backend=True, **log_context)
+    submission.manifest_superseded.extend((scope, last_accepted_at) for scope in scopes)
+
+
 def submit_scan_results(
     client: RunlayerClient,
     scan_result: ScanResult,
@@ -3561,6 +3697,7 @@ def submit_scan_results(
             scan_result,
             artifact_cache=artifact_cache,
             failed_surfaces=failed_plugin_surfaces,
+            superseded=submission.positives_superseded,
         )
         _record_artifact_submission_outcome(
             submission,
@@ -3681,6 +3818,7 @@ def submit_scan_results(
     try:
         manifest_response = client.submit_scan_manifest(manifest_payload)
         if manifest_response.get("unsupported") is not True:
+            _record_manifest_superseded(submission, manifest_response.get("superseded"))
             logger.debug(
                 "scan_manifest_submitted",
                 entries_reconciled=manifest_response.get("entries_reconciled"),
@@ -3689,13 +3827,16 @@ def submit_scan_results(
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code in (401, 403):
             raise
-        logger.warning(
-            "scan_manifest_submission_failed",
-            error=str(exc),
-            error_type=type(exc).__name__,
-            status_code=exc.response.status_code,
-        )
-        submission.failed_submissions.append("scan manifest")
+        if exc.response.status_code == 409:
+            _record_manifest_ordering_conflict(submission, exc.response)
+        else:
+            logger.warning(
+                "scan_manifest_submission_failed",
+                error=str(exc),
+                error_type=type(exc).__name__,
+                status_code=exc.response.status_code,
+            )
+            submission.failed_submissions.append("scan manifest")
     except httpx.RequestError as exc:
         logger.warning(
             "scan_manifest_submission_failed",

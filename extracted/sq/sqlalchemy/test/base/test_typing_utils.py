@@ -13,19 +13,15 @@ from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
 from sqlalchemy.testing import requires
-from sqlalchemy.util import py310
 from sqlalchemy.util import py312
 from sqlalchemy.util import py314
-from sqlalchemy.util import py38
 from sqlalchemy.util import typing as sa_typing
 
 TV = typing.TypeVar("TV")
 
 
 def union_types():
-    res = [typing.Union[int, str]]
-    if py310:
-        res.append(int | str)
+    res = [typing.Union[int, str], int | str]
     return res
 
 
@@ -34,19 +30,19 @@ def null_union_types():
         typing.Optional[typing.Union[int, str]],
         typing.Union[int, str, None],
         typing.Union[int, str, "None"],
+        int | str | None,
+        typing.Optional[int | str],
+        typing.Union[int, str] | None,
+        typing.Optional[int] | str,
     ]
-    if py310:
-        res.append(int | str | None)
-        res.append(typing.Optional[int | str])
-        res.append(typing.Union[int, str] | None)
-        res.append(typing.Optional[int] | str)
     return res
 
 
 def generic_unions():
-    # remove new-style unions `int | str` that are not generic
     res = union_types() + null_union_types()
-    if py310 and not py314:
+    if not py314:
+        # for py310 through py313, remove new-style unions `int | str` that
+        # are not generic
         new_ut = type(int | str)
         res = [t for t in res if not isinstance(t, new_ut)]
     return res
@@ -194,16 +190,14 @@ def new_types():
     return [NT_str, NT_null, NT_union]
 
 
-A_str = typing_extensions.Annotated[str, "meta"]
-A_null_str = typing_extensions.Annotated[
-    typing.Union[str, None], "other_meta", "null"
-]
-A_union = typing_extensions.Annotated[typing.Union[str, int], "other_meta"]
-A_null_union = typing_extensions.Annotated[
+A_str = typing.Annotated[str, "meta"]
+A_null_str = typing.Annotated[typing.Union[str, None], "other_meta", "null"]
+A_union = typing.Annotated[typing.Union[str, int], "other_meta"]
+A_null_union = typing.Annotated[
     typing.Union[str, int, None], "other_meta", "null"
 ]
-A_pep695 = typing_extensions.Annotated[TA_int, "meta"]
-A_pep695_ext = typing_extensions.Annotated[TAext_int, "meta"]
+A_pep695 = typing.Annotated[TA_int, "meta"]
+A_pep695_ext = typing.Annotated[TAext_int, "meta"]
 
 
 def compare_type_by_string(a, b):
@@ -300,8 +294,7 @@ class TestTyping(fixtures.TestBase):
         eq_(sa_typing.is_pep593(str), False)
         eq_(sa_typing.is_pep593(None), False)
         eq_(sa_typing.is_pep593(typing_extensions.Annotated[int, "a"]), True)
-        if py310:
-            eq_(sa_typing.is_pep593(typing.Annotated[int, "a"]), True)
+        eq_(sa_typing.is_pep593(typing.Annotated[int, "a"]), True)
 
         for t in annotated_l():
             eq_(sa_typing.is_pep593(t), True)
@@ -311,8 +304,7 @@ class TestTyping(fixtures.TestBase):
             eq_(sa_typing.is_pep593(t), False)
 
     def test_is_literal(self):
-        if py38:
-            eq_(sa_typing.is_literal(typing.Literal["a"]), True)
+        eq_(sa_typing.is_literal(typing.Literal["a"]), True)
         eq_(sa_typing.is_literal(typing_extensions.Literal["a"]), True)
         eq_(sa_typing.is_literal(None), False)
         for t in all_types():
@@ -373,7 +365,6 @@ class TestTyping(fixtures.TestBase):
             eq_(sa_typing.is_pep695(t), False)
             eq_(sa_typing.is_pep593(t), True)
 
-    @requires.python38
     def test_pep695_value(self):
         eq_(sa_typing.pep695_values(int), {int})
         eq_(
@@ -475,7 +466,6 @@ class TestTyping(fixtures.TestBase):
             {typing.ForwardRef("TAext_recursive_a"), str},
         )
 
-    @requires.up_to_date_typealias_type
     def test_pep695_value_generics(self):
         # generics
 
@@ -572,14 +562,13 @@ class TestTyping(fixtures.TestBase):
             typing.Union[bool, TAext_int, NT_str],
         )
 
-    @requires.up_to_date_typealias_type
-    @requires.python38
     def test_includes_none_generics(self):
         # TODO: these are false negatives
         false_negatives = {
             TA_null_union4,  # does not evaluate FW ref
             TAext_null_union4,  # does not evaluate FW ref
         }
+
         for t in type_aliases() + new_types():
             if t in false_negatives:
                 exp = False
@@ -587,7 +576,6 @@ class TestTyping(fixtures.TestBase):
                 exp = "null" in t.__name__
             eq_(sa_typing.includes_none(t), exp, str(t))
 
-    @requires.python38
     def test_includes_none(self):
         eq_(sa_typing.includes_none(None), True)
         eq_(sa_typing.includes_none(type(None)), True)

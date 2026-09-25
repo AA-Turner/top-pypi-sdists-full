@@ -12,11 +12,9 @@ Standard RFC 8628 polling responses (``authorization_pending`` / ``slow_down`` /
 ``error`` field, matching the spec so a conventional device-flow client works.
 """
 
-import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select, update
 
@@ -31,21 +29,12 @@ from src.domain.device_authorization import (
 )
 from src.domain.user import User
 from src.middleware.rbac import get_current_user
-from src.page_paths import DEVICE_PATH, UI_PREFIX
-from src.routers._brand_pages import brand_page
+from src.page_paths import DEVICE_PATH, app_url
 from src.routers.auth import default_org_alias, mint_cli_token
 
 router = APIRouter(tags=["device-auth"])
 
-# The browser-facing approval page, split off the API router above so it can
-# carry the /ui prefix. Same convention as invites.py's page_router.
-page_router = APIRouter(prefix=UI_PREFIX, tags=["device-auth"])
-
 DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"
-
-
-def _app_url() -> str:
-    return os.getenv("APP_URL", "http://localhost:8000").rstrip("/")
 
 
 class DeviceCodeRequest(BaseModel):
@@ -100,7 +89,7 @@ async def start_device_flow(
     session.commit()
     session.refresh(grant)
 
-    verification_uri = f"{_app_url()}{DEVICE_PATH}"
+    verification_uri = f"{app_url()}{DEVICE_PATH}"
     exp = grant.expires_at
     if exp.tzinfo is None:
         exp = exp.replace(tzinfo=timezone.utc)
@@ -232,47 +221,3 @@ async def approve_device(
     session.add(grant)
     session.commit()
     return {"status": grant.status.value, "message": message}
-
-
-@page_router.get("/device", response_class=HTMLResponse)
-async def device_verification_page(request: Request):
-    """Pixelfuel-branded hosted approval page. Prefills the user_code from the
-    query string (verification_uri_complete) when present."""
-    user_code = request.query_params.get("user_code", "")
-    return HTMLResponse(_render_device_page(user_code))
-
-
-def _render_device_page(user_code: str) -> str:
-    """Pixelfuel-branded device-approval page (shared shell in _brand_pages).
-
-    Submits to POST /api/v1/device/approve with the user's Bearer token, which
-    the page collects (the human pastes/holds a session token) -- in the full
-    UI this page lives inside the authenticated app and reuses its session.
-    """
-    card = f"""    <div class="brand">Pixelfuel · InnoDay</div>
-    <h1>Authorize this device</h1>
-    <p>Confirm the code shown in your terminal to finish signing in the CLI.</p>
-    <label for="code">Device code</label>
-    <input id="code" value="{user_code}" placeholder="XXXX-XXXX" autocomplete="off" />
-    <button id="approve">Approve</button>
-    <div class="msg" id="msg"></div>"""
-    script = """
-  const msg = document.getElementById('msg');
-  document.getElementById('approve').addEventListener('click', async () => {
-    const user_code = document.getElementById('code').value.trim().toUpperCase();
-    if (!user_code) { msg.textContent = 'Enter the code from your terminal.'; msg.className='msg err'; return; }
-    // The authenticated app injects the session Bearer token; standalone use
-    // reads it from localStorage('innoday_token') as a fallback.
-    const token = window.localStorage.getItem('innoday_token') || '';
-    try {
-      const r = await fetch('/api/v1/device/approve', {
-        method:'POST',
-        headers:{'Content-Type':'application/json', ...(token ? {'Authorization':'Bearer '+token} : {})},
-        body: JSON.stringify({ user_code, approve:true })
-      });
-      const data = await r.json();
-      if (r.ok) { msg.textContent = data.message || 'Approved. Return to your terminal.'; msg.className='msg ok'; }
-      else { msg.textContent = (data.detail||'Could not approve') + ''; msg.className='msg err'; }
-    } catch (e) { msg.textContent = 'Network error: ' + e.message; msg.className='msg err'; }
-  });"""
-    return brand_page("InnoDay · Authorize device", card, script)

@@ -14,18 +14,22 @@ from sqlalchemy import null
 from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy import String
+from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import text
 from sqlalchemy import true
 from sqlalchemy import union
 from sqlalchemy import update
 from sqlalchemy import util
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import column_property
 from sqlalchemy.orm import contains_eager
 from sqlalchemy.orm import deferred
 from sqlalchemy.orm import join as orm_join
 from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import query_expression
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Session
@@ -35,16 +39,19 @@ from sqlalchemy.orm import with_loader_criteria
 from sqlalchemy.orm import with_polymorphic
 from sqlalchemy.sql import and_
 from sqlalchemy.sql import sqltypes
+from sqlalchemy.sql import visitors
 from sqlalchemy.sql.selectable import Join as core_join
 from sqlalchemy.sql.selectable import LABEL_STYLE_DISAMBIGUATE_ONLY
 from sqlalchemy.sql.selectable import LABEL_STYLE_TABLENAME_PLUS_COL
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import eq_
+from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
 from sqlalchemy.testing import mock
 from sqlalchemy.testing import Variation
+from sqlalchemy.testing.assertions import expect_deprecated
 from sqlalchemy.testing.fixtures import fixture_session
 from sqlalchemy.testing.util import resolve_lambda
 from sqlalchemy.util.langhelpers import hybridproperty
@@ -59,17 +66,6 @@ from ..sql.test_compiler import CorrelateTest as _CoreCorrelateTest
 
 class SelectableTest(QueryTest, AssertsCompiledSQL):
     __dialect__ = "default"
-
-    def test_filter_by(self):
-        User, Address = self.classes("User", "Address")
-
-        stmt = select(User).filter_by(name="ed")
-
-        self.assert_compile(
-            stmt,
-            "SELECT users.id, users.name FROM users "
-            "WHERE users.name = :name_1",
-        )
 
     def test_c_accessor_not_mutated_subq(self):
         """test #6394, ensure all_selected_columns is generated each time"""
@@ -363,11 +359,69 @@ class SelectableTest(QueryTest, AssertsCompiledSQL):
             checkparams={"param_1": 6, "param_2": 5},
         )
 
+    @testing.variation("use_get_params", [True, False])
+    def test_annotated_cte_params_traverse(self, use_get_params):
+        """test #12915
+
+        Tests the original issue in #12915 which was a specific issue
+        involving cloned_traverse with Annotated subclasses, where traversal
+        would not properly cover a CTE's self-referential structure.
+
+        This case still does not work in the general ORM case, so the
+        implementation of .params() was changed to not rely upon
+        cloned_traversal.
+
+        """
+        User = self.classes.User
+        ids_param = bindparam("ids")
+        cte = select(User).where(User.id == ids_param).cte("cte")
+        ca = cte._annotate({"foo": "bar"})
+        stmt = select(ca)
+        if use_get_params:
+            stmt = stmt.params(ids=17)
+        else:
+            # test without using params(), in case the implementation
+            # for params() changes we still want to test cloned_traverse
+            def visit_bindparam(bind):
+                if bind.key == "ids":
+                    bind.value = 17
+                    bind.required = False
+
+            stmt = visitors.cloned_traverse(
+                stmt,
+                {"maintain_key": True, "detect_subquery_cols": True},
+                {"bindparam": visit_bindparam},
+            )
+        self.assert_compile(
+            stmt,
+            "WITH cte AS (SELECT users.id AS id, users.name AS name "
+            "FROM users WHERE users.id = :ids) "
+            "SELECT cte.id, cte.name FROM cte",
+            checkparams={"ids": 17},
+        )
+
+    def test_orm_cte_with_params(self, connection):
+        """test for #12915's new implementation"""
+        User = self.classes.User
+        ids_param = bindparam("ids")
+        cte = select(User).where(User.id == ids_param).cte("cte")
+        stmt = select(aliased(User, cte.alias("a1"), adapt_on_names=True))
+
+        res = connection.execute(stmt, {"ids": 7}).all()
+        eq_(res, [(7, "jack")])
+        with Session(connection) as s:
+            res = s.scalars(stmt, {"ids": 7}).all()
+        eq_(res, [User(id=7, name="jack")])
+
 
 class PropagateAttrsTest(QueryTest):
     __sparse_driver_backend__ = True
 
     def propagate_cases():
+        def distinct_deprecated(User, user_table):
+            with expect_deprecated("Passing expression to"):
+                return select(1).distinct(User.id).select_from(user_table)
+
         return testing.combinations(
             (lambda: select(1), False),
             (lambda User: select(User.id), True),
@@ -433,8 +487,13 @@ class PropagateAttrsTest(QueryTest):
             ),
             (
                 # changed as part of #9805
-                lambda User, user_table: select(1)
-                .distinct(User.id)
+                distinct_deprecated,
+                True,
+                testing.requires.supports_distinct_on,
+            ),
+            (
+                lambda user_table, User: select(1)
+                .ext(distinct_on(User.id))
                 .select_from(user_table),
                 True,
                 testing.requires.supports_distinct_on,
@@ -490,10 +549,8 @@ class PropagateAttrsTest(QueryTest):
                 r = s.execute(stmt)
                 r.close()
 
-        if expected:
-            eq_(before_flush.mock_calls, [mock.call()])
-        else:
-            eq_(before_flush.mock_calls, [])
+        # After issue #9809: unconditionally autoflush on all executions
+        eq_(before_flush.mock_calls, [mock.call()])
 
 
 class DMLTest(QueryTest, AssertsCompiledSQL):
@@ -808,15 +865,22 @@ class JoinTest(QueryTest, AssertsCompiledSQL):
             "User", "Address", "Order", "Item", "Keyword"
         )
 
+        # Note: Both Order and Item have 'description' column
+        # After joining Item, filter_by(description=...) would be ambiguous
+        # Use explicit filter() for Item.description to avoid ambiguity
         stmt = (
             select(User)
             .filter_by(name="n1")
             .join(User.addresses)
             .filter_by(email_address="a1")
             .join_from(User, Order, User.orders)
-            .filter_by(description="d1")
+            .filter_by(
+                description="d1"
+            )  # Order.description (no ambiguity yet)
             .join(Order.items)
-            .filter_by(description="d2")
+            .filter(
+                Item.description == "d2"
+            )  # Use explicit filter() to avoid ambiguity
         )
         self.assert_compile(
             stmt,
@@ -883,6 +947,81 @@ class JoinTest(QueryTest, AssertsCompiledSQL):
         stmt = stmt.params(**bindparams)
 
         self.assert_compile(stmt, expected, checkparams=expected_params)
+
+    @testing.fixture
+    def grandchild_fixture(self, decl_base):
+        class Parent(decl_base):
+            __tablename__ = "parent"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            data: Mapped[str]
+
+        class Child(decl_base):
+            __tablename__ = "child"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            parent_id: Mapped[int] = mapped_column(ForeignKey("parent.id"))
+
+        class GrandchildWParent(decl_base):
+            __tablename__ = "grandchildwparent"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            parent_id: Mapped[int] = mapped_column(ForeignKey("parent.id"))
+            child_id: Mapped[int] = mapped_column(ForeignKey("child.id"))
+
+        return Parent, Child, GrandchildWParent
+
+    @testing.variation(
+        "jointype",
+        ["child_grandchild", "parent_grandchild", "grandchild_alone"],
+    )
+    def test_join_from_favors_explicit_left(
+        self, grandchild_fixture, jointype
+    ):
+        """test #12931 in terms of ORM joins"""
+
+        Parent, Child, GrandchildWParent = grandchild_fixture
+
+        if jointype.child_grandchild:
+            stmt = (
+                select(Parent)
+                .join_from(Parent, Child)
+                .join_from(Child, GrandchildWParent)
+            )
+
+            self.assert_compile(
+                stmt,
+                "SELECT parent.id, parent.data FROM parent JOIN "
+                "child ON parent.id = child.parent_id "
+                "JOIN grandchildwparent "
+                "ON child.id = grandchildwparent.child_id",
+            )
+
+        elif jointype.parent_grandchild:
+            stmt = (
+                select(Parent)
+                .join_from(Parent, Child)
+                .join_from(Parent, GrandchildWParent)
+            )
+
+            self.assert_compile(
+                stmt,
+                "SELECT parent.id, parent.data FROM parent "
+                "JOIN child ON parent.id = child.parent_id "
+                "JOIN grandchildwparent "
+                "ON parent.id = grandchildwparent.parent_id",
+            )
+        elif jointype.grandchild_alone:
+            stmt = (
+                select(Parent).join_from(Parent, Child).join(GrandchildWParent)
+            )
+
+            self.assert_compile(
+                stmt,
+                "SELECT parent.id, parent.data FROM parent "
+                "JOIN child ON parent.id = child.parent_id "
+                "JOIN grandchildwparent "
+                "ON child.id = grandchildwparent.child_id",
+            )
+        else:
+            jointype.fail()
 
 
 class LoadersInSubqueriesTest(QueryTest, AssertsCompiledSQL):
@@ -3081,3 +3220,207 @@ class CrudParamOverlapTest(test_compiler.CrudParamOverlapTest):
             type_.fail()
 
         yield table1
+
+
+class FilterByTest(QueryTest, AssertsCompiledSQL):
+    __dialect__ = "default"
+
+    def test_filter_by(self):
+        User, Address = self.classes("User", "Address")
+
+        stmt = select(User).filter_by(name="ed")
+
+        self.assert_compile(
+            stmt,
+            "SELECT users.id, users.name FROM users "
+            "WHERE users.name = :name_1",
+        )
+
+    def test_filter_by_w_join(self):
+        User, Address = self.classes("User", "Address")
+
+        stmt = select(User).join(Address).filter_by(name="ed")
+
+        self.assert_compile(
+            stmt,
+            "SELECT users.id, users.name FROM users JOIN addresses "
+            "ON users.id = addresses.user_id WHERE users.name = :name_1",
+        )
+
+    def test_filter_by_core_column_elem_only(self):
+        User, Address = self.classes("User", "Address")
+
+        stmt = (
+            select(Address.__table__.c.id)
+            .select_from(User)
+            .filter_by(email_address="ed")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT addresses.id FROM users, addresses "
+            "WHERE addresses.email_address = :email_address_1",
+        )
+
+    def test_filter_by_select_from(self):
+        User, Address = self.classes("User", "Address")
+
+        stmt = select("*").select_from(User).filter_by(name="ed")
+
+        self.assert_compile(
+            stmt, "SELECT * FROM users WHERE users.name = :name_1"
+        )
+
+    def test_filter_by_across_join_entities_issue_8601(self):
+        """Test issue #8601 - filter_by after with_only_columns."""
+        User, Address = self.classes("User", "Address")
+
+        # The original failing case from issue #8601
+        stmt = (
+            select(User)
+            .join(Address)
+            .with_only_columns(User.id)
+            .filter_by(email_address="foo@bar.com")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT users.id FROM users "
+            "JOIN addresses ON users.id = addresses.user_id "
+            "WHERE addresses.email_address = :email_address_1",
+        )
+
+    def test_filter_by_unambiguous_across_orm_joins(self):
+        """Test filter_by finds unambiguous attributes in ORM joins."""
+        User, Address = self.classes("User", "Address")
+
+        # email_address only exists in Address
+        stmt = (
+            select(User)
+            .join(Address)
+            .filter_by(email_address="test@example.com")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT users.id, users.name FROM users "
+            "JOIN addresses ON users.id = addresses.user_id "
+            "WHERE addresses.email_address = :email_address_1",
+        )
+
+    def test_filter_by_searches_all_joined_entities(self):
+        """Test that filter_by searches all joined entities, not just last"""
+        User, Address, Order = self.classes("User", "Address", "Order")
+
+        # Filter by Address attribute after joining to Order
+        stmt = (
+            select(User)
+            .join(User.addresses)
+            .join(User.orders)
+            .filter_by(email_address="test@example.com")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT users.id, users.name FROM users "
+            "JOIN addresses ON users.id = addresses.user_id "
+            "JOIN orders ON users.id = orders.user_id "
+            "WHERE addresses.email_address = :email_address_1",
+        )
+
+    def test_filter_by_with_only_columns_preserves_joins(self):
+        """Verify with_only_columns doesn't affect filter_by entity search"""
+        User, Address = self.classes("User", "Address")
+
+        # Change selected columns but still search all FROM entities
+        stmt = (
+            select(User)
+            .join(User.addresses)
+            .with_only_columns(User.id, User.name)
+            .filter_by(email_address="foo")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT users.id, users.name FROM users "
+            "JOIN addresses ON users.id = addresses.user_id "
+            "WHERE addresses.email_address = :email_address_1",
+        )
+
+    def test_filter_by_column_not_in_any_orm_entity(self):
+        """Test error when attribute not found in any ORM entity"""
+        User, Address = self.classes("User", "Address")
+
+        stmt = select(User).join(Address)
+
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            'None of the FROM clause entities have a property "nonexistent"',
+        ):
+            stmt.filter_by(nonexistent="foo")
+
+    @testing.fixture
+    def m2m_fixture(self, decl_base):
+        atob = Table(
+            "atob",
+            decl_base.metadata,
+            Column("a_id", ForeignKey("a.a_id")),
+            Column("b_id", ForeignKey("b.b_id")),
+            Column("association", String(50)),
+        )
+
+        class A(decl_base):
+            __tablename__ = "a"
+
+            a_id: Mapped[int] = mapped_column(primary_key=True)
+            bs = relationship("B", secondary=atob)
+
+        class B(decl_base):
+            __tablename__ = "b"
+
+            b_id: Mapped[int] = mapped_column(primary_key=True)
+
+        return A, B, atob
+
+    def test_filter_by_ignores_secondary_w_overlap(self, m2m_fixture):
+        A, B, _ = m2m_fixture
+        stmt = select(A).join(A.bs).filter_by(a_id=5)
+        self.assert_compile(
+            stmt,
+            "SELECT a.a_id FROM a JOIN atob AS atob_1 ON a.a_id = atob_1.a_id "
+            "JOIN b ON b.b_id = atob_1.b_id WHERE a.a_id = :a_id_1",
+        )
+
+    def test_filter_by_ignores_secondary_will_raise(self, m2m_fixture):
+        A, B, _ = m2m_fixture
+
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            'None of the FROM clause entities have a property "association". '
+            r"Searched entities: Mapper\[(?:A|B).*], Mapper\[(?:A|B).*]",
+        ):
+            select(A).join(A.bs).filter_by(association="hi")
+
+    @testing.variation("jointype", ["join", "froms"])
+    def test_filter_by_with_table(self, m2m_fixture, jointype):
+        A, B, atob = m2m_fixture
+
+        if jointype.join:
+            stmt = select(A).join(atob).filter_by(b_id=5)
+            self.assert_compile(
+                stmt,
+                "SELECT a.a_id FROM a JOIN atob ON a.a_id = atob.a_id "
+                "WHERE atob.b_id = :b_id_1",
+            )
+        elif jointype.froms:
+            stmt = (
+                select(A)
+                .select_from(A, atob)
+                .where(A.a_id == atob.c.a_id)
+                .filter_by(b_id=5)
+            )
+            self.assert_compile(
+                stmt,
+                "SELECT a.a_id FROM a, atob WHERE a.a_id = atob.a_id "
+                "AND atob.b_id = :b_id_1",
+            )

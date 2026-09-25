@@ -7,6 +7,7 @@ QS uses "slugs" (named queries) to know which query need to be executed.
 """
 import asyncio
 import hashlib
+from typing import TYPE_CHECKING
 
 from aiohttp import web
 from asyncdb.exceptions import (
@@ -23,14 +24,26 @@ from ..connections import QueryConnection
 from ..exceptions import (
     DataNotFound,
     EmptySentence,
+    ParserError,
+    QueryAccessDenied,
     QueryError,
     QueryException,
+    RawQueryPlaceholderError,
 )
 from ..ownership_logging import ownership_fields
 from ..providers import BaseProvider
+from ..tenant_errors import TenantError
 from ..utils.cache_serialization import deserialize_cache_payload, is_parquet_payload
 from ..utils.functions import check_empty
 from .base import BaseQuery
+
+if TYPE_CHECKING:
+    from ..auth.principal import QSPrincipal
+    from ..tenants import LoadedDefinition
+
+# FEAT-150: with a principal, these TenantError codes collapse into
+# QueryAccessDenied so "missing" and "denied" look identical.
+_COLLAPSED_OWNER_ERRORS = frozenset({"query_not_found", "tenant_not_available"})
 
 
 class QS(BaseQuery):
@@ -47,6 +60,8 @@ class QS(BaseQuery):
             loop: asyncio.AbstractEventLoop = None,
             *,
             tenant: str | None = None,
+            definition: "LoadedDefinition | None" = None,
+            principal: "QSPrincipal | None" = None,
             **kwargs
     ):
         super().__init__(
@@ -55,6 +70,8 @@ class QS(BaseQuery):
             request=request,
             loop=loop,
             tenant=tenant,
+            definition=definition,
+            principal=principal,
             **kwargs
         )
         if not conditions:
@@ -81,6 +98,8 @@ class QS(BaseQuery):
                 )
         elif 'raw_query' in self.kwargs:
             self._query = kwargs.pop('raw_query', None)
+            self.kwargs.pop('raw_query', None)
+            self._driver = kwargs.pop('driver', 'db')
             self._type = 'raw'
             if not self._query:
                 raise ValueError(
@@ -164,17 +183,43 @@ class QS(BaseQuery):
             except Exception:
                 _pbac_session = None
 
+        if self._principal is not None and self._type != 'slug':
+            from ..auth._resource_types import ResourceType
+            from ..auth.enforcement import enforce_principal
+            await enforce_principal(
+                self._principal, ResourceType.RAW_QUERY, "raw_query", "raw_query:execute",
+                tenant=self._tenant_selector, logger=self._logger,
+            )
+
         if self._type == 'slug':  # query-based provider:
             self._logger.debug(f':: QS Slug: {self._query!s}')
+            if self._principal is not None:
+                from ..auth._resource_types import ResourceType
+                from ..auth.enforcement import enforce_principal
+                await enforce_principal(
+                    self._principal, ResourceType.SLUG, self._query, "slug:execute",
+                    tenant=self._tenant_selector, logger=self._logger,
+                )
             # Resolve tenant store and create QueryIdentity. Retrieved via
             # get_definition_repository() (TASK-720) so the registry used
             # is the one initialized on QuerySource's singleton (real
             # discovery), never an empty, never-discovered TenantRegistry.
             from querysource.tenants import QueryIdentity
-            repo = await self.get_definition_repository()
-            store = repo.registry.resolve(self._tenant_selector)
-            identity = QueryIdentity(store=store, slug=self._query)
-            loaded_def = await repo.get(identity)
+            preloaded = self._preloaded_definition
+            if preloaded is not None and preloaded.identity.slug == self._query:
+                # FEAT-151: the tenant dispatcher already read this definition.
+                loaded_def = preloaded
+                self._logger.debug(f"Using pre-loaded definition for slug={self._query}")
+            else:
+                repo = await self.get_definition_repository()
+                try:
+                    store = repo.registry.resolve(self._tenant_selector)
+                    identity = QueryIdentity(store=store, slug=self._query)
+                    loaded_def = await repo.get(identity)
+                except TenantError as ex:
+                    if self._principal is not None and ex.error_code in _COLLAPSED_OWNER_ERRORS:
+                        raise QueryAccessDenied() from ex
+                    raise
             # Store definition identity and revision on the execution object
             self._definition_identity = loaded_def.identity
             self._definition_revision = loaded_def.revision
@@ -238,17 +283,22 @@ class QS(BaseQuery):
                 self._qs = self._provider(**args)
                 await self._qs.prepare_connection()
                 return self
+            except RawQueryPlaceholderError:
+                # Operational error in the query itself: surface it as-is.
+                raise
             except Exception as err:
                 self._logger.exception(
                     f"Cannot Initialize the provider {self._provider}, error: {err}"
                 )
                 raise QueryError(
-                    f"Cannot Initialize the provider {self._provider}, error: {err}"
+                    f"Cannot Initialize the provider {self._provider}, error: {err}",
+                    code=400 if isinstance(err, ParserError) else 500
                 ) from err
-        elif self._type == 'query':
-            ## Query Object (TBD)
+        elif self._type in ('query', 'raw'):
+            # 'query' goes through the dialect parser; 'raw' is rendered by the
+            # provider's validating substitution only (no parser).
             self._logger.debug(
-                f':: Query: {self._query_preview(self._query)} for {self._driver}'
+                f':: {self._type.capitalize()}: {self._query_preview(self._query)} for {self._driver}'
             )
             ### build manually objquery:
             objquery = AttrDict({"provider": self._driver})
@@ -259,7 +309,8 @@ class QS(BaseQuery):
                 )
             except (QueryException, DriverError) as ex:
                 raise QueryError(
-                    str(ex)
+                    str(ex),
+                    code=getattr(ex, 'code', 0) or 500
                 ) from ex
             ### Check conditions:
             conditions = {}
@@ -281,18 +332,17 @@ class QS(BaseQuery):
                 self._qs = self._provider(**args)
                 await self._qs.prepare_connection()
                 return self
+            except RawQueryPlaceholderError:
+                # Operational error in the query itself: surface it as-is.
+                raise
             except Exception as err:
                 self._logger.exception(
                     f"Cannot Initialize the provider {self._provider}, error: {err}"
                 )
                 raise QueryError(
-                    f"Cannot Initialize the provider {self._provider}, error: {err}"
+                    f"Cannot Initialize the provider {self._provider}, error: {err}",
+                    code=400 if isinstance(err, ParserError) else 500
                 ) from err
-        elif self._type == 'raw':
-            ## Raw Query
-            self._logger.debug(
-                f':: Raw Query: {self._query_preview(self._query)} for {self._driver}'
-            )
         elif self._type == 'driver':
             ### calling an HTTP, REST or other provider:
             self._logger.debug(
@@ -336,11 +386,13 @@ class QS(BaseQuery):
                     f"Cannot Initialize Provider {self._provider}, error: {err}"
                 )
                 raise QueryError(
-                    f"Cannot Initialize Provider {self._provider}, error: {err}"
+                    f"Cannot Initialize Provider {self._provider}, error: {err}",
+                    code=400 if isinstance(err, ParserError) else 500
                 ) from err
         else:
             raise QueryError(
-                f"Invalid type of Query: {self._query}"
+                f"Invalid type of Query: {self._query}",
+                code=400
             )
 
     def format_from_accepts(self, accepts: str) -> str:
@@ -504,21 +556,22 @@ class QS(BaseQuery):
                     f"QS: {err}",
                     exception=err,
                     code=400
-                )
+                ) from err
             except (NoDataFound, DataNotFound) as err:
                 raise DataNotFound(
                     f'{self._qs.__name__!s}: {err}'
                 ) from err
             except (StatementError, EmptySentence) as err:
                 raise QueryError(
-                    f"Query Error: {err}"
+                    f"Query Error: {err}",
+                    code=400
                 ) from err
             except Exception as ex:
                 raise self.Error(
                     "QS unhandler Error",
                     exception=ex,
                     code=500
-                )
+                ) from ex
             finally:
                 try:
                     await self.connection.dispose(

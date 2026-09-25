@@ -12,6 +12,7 @@ from rich.prompt import Confirm
 
 from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.config import CLIConfig
+from src.cli.utils import guidance
 from src.cli.utils.formatters import (
     OutputFormatter,
     describe_error,
@@ -144,9 +145,7 @@ class ScopeCommands:
 
             org_id = config.get_organization_id(org_alias)
             if not org_id:
-                console.print(
-                    format_error(f"Organization ID not found for '{org_alias}'")
-                )
+                console.print(format_error(guidance.org_not_found(org_alias)))
                 return 1
 
             project_id = (
@@ -242,9 +241,7 @@ class ScopeCommands:
 
             org_id = config.get_organization_id(org_alias)
             if not org_id:
-                console.print(
-                    format_error(f"Organization ID not found for '{org_alias}'")
-                )
+                console.print(format_error(guidance.org_not_found(org_alias)))
                 return 1
 
             project_id = (

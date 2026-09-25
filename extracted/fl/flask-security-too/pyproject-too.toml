@@ -7,7 +7,7 @@ keywords = ["flask security"]
 license = { file = "LICENSE.txt" }
 maintainers = [{ name = "Chris Wagner", email = "jwag.wagner+github@gmail.com"}]
 authors = [{ name = "Matt Wright"}, { name = "Chris Wagner", email = "jwag.wagner+github@gmail.com"}]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 urls.Documentation = "https://flask-security.readthedocs.io"
 urls.Homepage = "https://github.com/pallets-eco/flask-security"
 urls.Source = "https://github.com/pallets-eco/flask-security"
@@ -38,14 +38,65 @@ dependencies = [
     "email-validator>=2.3.0",
     "markupsafe>=2.1.0",
     "libpass>=1.9.3",
-    "wtforms>=3.0.0",  # for form-level errors
+    "wtforms>=3.2.1",  # for form-level errors
 ]
 
 [project.optional-dependencies]
-babel = ["babel>=2.17.0", "flask_babel>=4.0.0"]
+babel = ["babel>=2.17.0", "flask_babel>=4.0.0", "humanize>=4.12.0"]
 fsqla = ["flask_sqlalchemy>=3.1.1", "sqlalchemy>=2.0.41"]
-common = ["argon2_cffi>=25.1.0", "bcrypt>=4.2.1", "flask_mail>=0.10.0", "bleach>=6.0.0"]
-mfa = ["cryptography>=45.0.7", "qrcode>=7.4.2", "phonenumberslite>=8.13.11", "webauthn>=2.6.0"]
+common = ["argon2_cffi>=25.1.0", "bcrypt>=4.3.0", "flask_mail>=0.10.0", "nh3>=0.2.15"]
+mfa = ["cryptography>=46.0.7", "qrcode>=8.2", "phonenumberslite>=8.13.11", "webauthn>=2.8.0"]
+
+[dependency-groups]
+tests = [
+    "Flask-Babel",
+    "Babel",
+    "Flask-Mail",
+    "Flask-SQLAlchemy",
+    "Flask-SQLAlchemy-Lite",
+    "argon2-cffi",
+    "authlib",
+    "bcrypt",
+    "cbor2",
+    "coverage",
+    "cryptography",
+    "djlint",
+    "freezegun",
+    "humanize",
+    "mongoengine",
+    "mongomock",
+    "msgcheck",
+    "nh3",
+    "peewee",
+    "phonenumberslite",
+    "pydocstyle",
+    "pytest-cache",
+    "pytest-cov",
+    "pytest",
+    "qrcode",
+    # authlib requires requests
+    "requests",
+    "sqlalchemy",
+    "sqlalchemy-utils",
+    "webauthn",
+    "zxcvbn",
+]
+dev = [
+    "flit",
+    "check-wheel-contents",
+    "psycopg2-binary",
+    "pymysql",
+    "pre-commit",
+    "tox",
+    # for dev - might not install Flask-Security - list those dependencies here
+    "flask",
+    "flask-wtf",
+    "flask-login",
+    "flask-principal",
+    "markupsafe",
+    "libpass",
+    "email_validator",
+]
 low = [
     # Lowest supported versions
     "Flask==3.1.1",
@@ -57,29 +108,45 @@ low = [
     "Flask-WTF==1.1.2",
     "peewee==3.17.9",
     "argon2_cffi==21.3.0",
-    "authlib==1.2.0",
+    "authlib==1.6.0",
     "babel==2.16.0",
-    "bcrypt==4.0.1",
-    "bleach==6.0.0",
+    "bcrypt==4.3.0",
+    "nh3==0.2.15",
     "freezegun",
+    "humanize",
     "jinja2==3.1.2",
     "itsdangerous==2.2.0",
     "markupsafe==2.1.2",
     "mongoengine==0.29.1",
     "mongomock==4.3.0",
-    "pony==0.7.16;python_version<'3.11'",
     "phonenumberslite==8.13.11",
-    "qrcode==7.4.2",
+    "qrcode==8.2.0",
     # authlib requires requests
     "requests",
     "sqlalchemy==2.0.41",
     "sqlalchemy-utils==0.42.0",
-    "webauthn==2.0.0",
+    "webauthn==2.8.0",
     "werkzeug==3.1.3",
     "zxcvbn==4.4.28"
 ]
+docs = [
+    "Pallets-Sphinx-Themes",
+    "Sphinx",
+    "sphinx-issues",
+    "packaging",
+    "Flask-SQLAlchemy",
+    "sqlalchemy",
+    "sqlalchemy-utils",
+]
+
+typing = [
+    "basedpyright",
+    "types-requests",
+    "mypy",
+]
+
 [build-system]
-requires = ["flit_core >=3.8,<5"]
+requires = ["flit_core >=3.8,<4"]
 build-backend = "flit_core.buildapi"
 
 [tool.flit.module]
@@ -104,7 +171,6 @@ include = [
     "tox.ini",
     "docs/",
     "examples/",
-    "requirements",
     "tests/",
 ]
 exclude = ["docs/_build/"]
@@ -112,7 +178,10 @@ exclude = ["docs/_build/"]
 [tool.djlint]
     ignore="H005,H006"  # lang, img height/width
 
-[tool.pyright]
+[tool.basedpyright]
     include=["flask_security", "tests/view_scaffold.py"]
-    analyzeUnannotatedFunctions = "none"
+    analyzeUnannotatedFunctions = false
     reportMissingImports = false
+    reportAny = false
+    reportPrivateUsage = false
+    failOnWarnings = false

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: swagger-plugin-for-sphinx
-Version: 7.3.0
+Version: 8.0.0
 Summary: Sphinx plugin which renders a OpenAPI specification with Swagger
 Author-email: Kai Harder <kai.harder@sap.com>
 License-Expression: Apache-2.0
@@ -15,7 +15,6 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -23,10 +22,10 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Typing :: Typed
-Requires-Python: <4,>=3.10
+Requires-Python: <4,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sphinx<10,>=8.0
+Requires-Dist: sphinx<10,>=9.0
 Requires-Dist: jinja2~=3.0
 Requires-Dist: docutils
 Requires-Dist: pyyaml~=6.0

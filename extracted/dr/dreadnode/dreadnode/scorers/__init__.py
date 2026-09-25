@@ -88,6 +88,7 @@ from dreadnode.scorers.classification import (
     detect_refusal_with_zero_shot,
     zero_shot_classification,
 )
+from dreadnode.scorers.compaction_injection_detection import compaction_injection_detected
 from dreadnode.scorers.consistency import character_consistency
 from dreadnode.scorers.contains import (
     contains,
@@ -105,6 +106,10 @@ from dreadnode.scorers.documentation_security import (
     package_readme_poisoning,
     resource_hint_exfil,
 )
+from dreadnode.scorers.exfil_advanced_detection import (
+    covert_channel_capacity,
+    trusted_proxy_exfil_detected,
+)
 from dreadnode.scorers.exfiltration_detection import (
     dns_exfil_detected,
     markdown_exfil_detected,
@@ -114,6 +119,11 @@ from dreadnode.scorers.exfiltration_detection import (
     unicode_exfil_detected,
 )
 from dreadnode.scorers.format import is_json, is_xml
+from dreadnode.scorers.gui_agent_detection import (
+    credential_egress,
+    resource_blowup,
+    unsafe_click_disclosure,
+)
 from dreadnode.scorers.ide_security import (
     config_persistence,
     covert_exfiltration,
@@ -128,6 +138,7 @@ from dreadnode.scorers.judge_ensemble import (
 )
 from dreadnode.scorers.length import length_in_range, length_ratio, length_target
 from dreadnode.scorers.lexical import type_token_ratio
+from dreadnode.scorers.mcp_lifecycle_detection import line_jump_fired
 from dreadnode.scorers.mcp_security import (
     ansi_cloaking_detected,
     cross_server_shadow_detected,
@@ -139,6 +150,8 @@ from dreadnode.scorers.mcp_security import (
     tool_output_injected,
 )
 from dreadnode.scorers.memorization import training_data_memorization
+from dreadnode.scorers.memory_activation_detection import minja_activation_detected
+from dreadnode.scorers.mesh_propagation_detection import infection_propagation
 from dreadnode.scorers.multi_agent_security import (
     agent_config_overwrite_detected,
     agent_spoofing_detected,
@@ -149,6 +162,7 @@ from dreadnode.scorers.multi_agent_security import (
 )
 from dreadnode.scorers.pii import detect_pii, detect_pii_with_presidio
 from dreadnode.scorers.prompt_leak import system_prompt_leaked
+from dreadnode.scorers.rag_optimization_detection import poison_retrieved_and_steered
 from dreadnode.scorers.readability import readability
 from dreadnode.scorers.reasoning_security import (
     cot_backdoor_detected,
@@ -169,6 +183,10 @@ from dreadnode.scorers.supply_chain_detection import (
     merge_backdoor_detected,
     package_hallucination,
     skill_poisoning_detected,
+)
+from dreadnode.scorers.tool_misuse_detection import (
+    approval_bypassed,
+    rce_evidence_gate,
 )
 
 if t.TYPE_CHECKING:
@@ -196,6 +214,7 @@ __all__ = [
     "and_",
     "ansi_cloaking_detected",
     "any_tool_invoked",
+    "approval_bypassed",
     "avg",
     "bleu",
     "bootstrap_hook_injected",
@@ -203,12 +222,15 @@ __all__ = [
     "character_consistency",
     "clickfix_executed",
     "clip",
+    "compaction_injection_detected",
     "config_persistence",
     "consensus_poisoned",
     "contains",
     "contains_crucible_flag",
     "cot_backdoor_detected",
+    "covert_channel_capacity",
     "covert_exfiltration",
+    "credential_egress",
     "credential_leakage",
     "cross_server_shadow_detected",
     "cumulative_harm",
@@ -241,6 +263,7 @@ __all__ = [
     "image_distance",
     "implicit_tool_poison_detected",
     "indirect_injection_success",
+    "infection_propagation",
     "intent_manipulation_detected",
     "invert",
     "invisible_character_detected",
@@ -251,6 +274,7 @@ __all__ = [
     "length_ratio",
     "length_target",
     "likert_exploitation_detected",
+    "line_jump_fired",
     "llm_judge",
     "m2s_reformatting_detected",
     "malformed_json_injection_detected",
@@ -260,6 +284,7 @@ __all__ = [
     "memory_injection_detected",
     "memory_poisoning_detected",
     "merge_backdoor_detected",
+    "minja_activation_detected",
     "mode_confusion_detected",
     "multi_judge_consensus",
     "multimodal_judge",
@@ -273,15 +298,18 @@ __all__ = [
     "phase_bypass_detected",
     "phase_downgrade_detected",
     "pipeline_manipulation_detected",
+    "poison_retrieved_and_steered",
     "practical_outcome",
     "prefill_bypass_detected",
     "prompt_infection_detected",
+    "rce_evidence_gate",
     "readability",
     "reasoning_dos_detected",
     "reasoning_hijack_detected",
     "reasoning_loop_detected",
     "remap_range",
     "resilience_gap",
+    "resource_blowup",
     "resource_hint_exfil",
     "rubric_judge",
     "rug_pull_detected",
@@ -326,8 +354,10 @@ __all__ = [
     "tool_squatting",
     "training_data_memorization",
     "trusted_domain_exfil_detected",
+    "trusted_proxy_exfil_detected",
     "type_token_ratio",
     "unicode_exfil_detected",
+    "unsafe_click_disclosure",
     "visual_injection_followed",
     "weighted_avg",
     "wordlist_exhaustion_detected",

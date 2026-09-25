@@ -6,6 +6,8 @@ DisputeEvidenceDocumentDocumentType = typing.Union[
     typing.Literal[
         "return_policy",
         "shipping_policy",
+        "cancellation_policy",
+        "terms_of_service",
         "physical_fulfillment",
         "customer_order_history",
         "product_image",
@@ -13,6 +15,7 @@ DisputeEvidenceDocumentDocumentType = typing.Union[
         "customer_session",
         "digital_fulfillment",
         "subscription",
+        "customer_communication",
     ],
     typing.Any,
 ]

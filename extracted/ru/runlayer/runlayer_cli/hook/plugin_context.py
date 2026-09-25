@@ -2,12 +2,13 @@
 
 Org installs ship a ``runlayer`` SKILL.md that asks the model to route tool
 and skill discovery through the Runlayer Plugin. The model can skip a skill;
-it cannot skip ``additionalContext`` emitted by a ``SessionStart`` or
-``UserPromptSubmit`` hook. This module builds that context when the built-in
-Runlayer Plugin is configured for the current session and stays silent
-otherwise, so sessions without the plugin are untouched.
+it cannot skip ``additionalContext`` emitted by a ``SessionStart`` hook, which
+fires on startup, resume, clear and compaction, so the rules survive the
+context window being summarized. This module builds that context when the
+built-in Runlayer Plugin is configured for the current session and stays
+silent otherwise, so sessions without the plugin are untouched.
 
-Runs inside ``aiwatch hook`` on every prompt: config lookups only, no network.
+Runs inside ``aiwatch hook``: config lookups only, no network.
 """
 
 from __future__ import annotations

@@ -25,6 +25,7 @@ from lithops.tests.functions import (
     lithops_return_futures_call_async,
     lithops_return_futures_map_multiple,
     concat,
+    echo_env_flag,
 )
 
 
@@ -153,3 +154,47 @@ class TestMap:
             result = fexec.get_result()
 
         assert result == [22, 22, 20, 30, 32, 32, 32]
+
+    def test_extra_args_tuple_and_dict(self):
+        fexec = lithops.FunctionExecutor(config=pytest.lithops_config)
+        fexec.map(simple_map_function, [1, 2, 3], extra_args=(10,))
+        assert fexec.get_result() == [11, 12, 13]
+
+        fexec = lithops.FunctionExecutor(config=pytest.lithops_config)
+        fexec.map(
+            simple_map_function,
+            [{'x': 1}, {'x': 2}],
+            extra_args={'y': 10},
+        )
+        assert fexec.get_result() == [11, 12]
+
+    def test_extra_env(self):
+        fexec = lithops.FunctionExecutor(config=pytest.lithops_config)
+        fexec.map(
+            echo_env_flag, [1, 2], extra_env={'LITHOPS_TEST_FLAG': 'hello'}
+        )
+        assert fexec.get_result() == ['hello', 'hello']
+
+    def test_futures_list_chaining(self):
+        def add_one(x):
+            return x + 1
+
+        def mul_two(x):
+            return x * 2
+
+        fexec = lithops.FunctionExecutor(config=pytest.lithops_config)
+        result = fexec.map(add_one, [1, 2, 3]).map(mul_two).get_result()
+        assert result == [4, 6, 8]
+
+    @pytest.mark.parametrize('container', [list, tuple, lambda fs: fs[:]])
+    def test_chaining_plain_futures_hides_consumed_outputs(self, container):
+        with lithops.FunctionExecutor(config=pytest.lithops_config) as fexec:
+            first = fexec.map(lambda x: x * x, [1, 2])
+            fexec.map(lambda x: x * 2, container(first))
+            assert fexec.get_result() == [2, 8]
+
+    def test_chaining_a_slice_keeps_unconsumed_outputs(self):
+        with lithops.FunctionExecutor(config=pytest.lithops_config) as fexec:
+            first = fexec.map(lambda x: x * x, [1, 2])
+            fexec.map(lambda x: x * 2, first[:1])
+            assert fexec.get_result() == [4, 2]

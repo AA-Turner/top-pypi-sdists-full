@@ -31,6 +31,7 @@ from src.middleware.rbac import get_current_user
 # The one pool of quotes, owned by the boards router that has always written
 # this column. Importing it keeps the two persisting paths from drifting apart.
 from src.routers.boards import MOTIVATIONAL_QUOTES
+from src.routers.platform import require_platform_access
 from src.services.claude_ticket_parser import (
     ClaudeTicketParser,
     TicketParseRequest,
@@ -648,11 +649,15 @@ async def chat_with_claude(
 
 
 @router.get("/health")
-async def check_ai_health():
+async def check_ai_health(_admin: User = Depends(require_platform_access)):
     """
     Check if AI services are configured and accessible.
 
     Returns the health status of Claude API and related services.
+
+    Platform admins only: the probe is a live, paid Claude call, so an
+    anonymous caller could spend the org's budget and rate limit by looping on
+    it. Until PF-455 the global team-secret gate was all that stopped that.
     """
     try:
         claude_api = ClaudeAPI()

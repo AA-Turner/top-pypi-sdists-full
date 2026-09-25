@@ -35,9 +35,7 @@ yaml = ["PyYAML"]
 rdflib = ["rdflib"]
 pylibpcap = ["python-libpcap"]
 mcp = [
-    # mcp 2.0 renamed FastMCP to MCPServer and moved transport params to
-    # run_*(); bacpypes3.mcp targets that API.
-    "mcp>=2; python_version >= '3.10'",
+    "mcp; python_version >= '3.10'",
     "pydantic; python_version >= '3.10'",
 ]
 
@@ -62,3 +60,20 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "ruff>=0.15.5",
 ]
+
+# Publish targets for `uv publish --index <name>`. Credentials live
+# outside this file: source ~/.uv-publish.pypi.env or
+# ~/.uv-publish.testpypi.env before invoking uv publish. `explicit = true`
+# keeps these entries out of dependency resolution — they are upload
+# destinations, not sources of packages to install.
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+publish-url = "https://upload.pypi.org/legacy/"
+explicit = true
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true

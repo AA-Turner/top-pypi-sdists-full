@@ -1,6 +1,8 @@
 import array
 import datetime
 import decimal
+import functools
+import json
 import os
 import random
 
@@ -24,6 +26,7 @@ from sqlalchemy import MetaData
 from sqlalchemy import NCHAR
 from sqlalchemy import Numeric
 from sqlalchemy import NVARCHAR
+from sqlalchemy import schema
 from sqlalchemy import select
 from sqlalchemy import SmallInteger
 from sqlalchemy import String
@@ -48,7 +51,6 @@ from sqlalchemy.dialects.oracle import VectorStorageFormat
 from sqlalchemy.dialects.oracle import VectorStorageType
 from sqlalchemy.sql import column
 from sqlalchemy.sql.sqltypes import NullType
-from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import expect_raises_message
@@ -58,8 +60,9 @@ from sqlalchemy.testing import mock
 from sqlalchemy.testing.engines import testing_engine
 from sqlalchemy.testing.schema import Column
 from sqlalchemy.testing.schema import Table
+from sqlalchemy.testing.suite import test_types as suite
 from sqlalchemy.util import b
-from sqlalchemy.util.concurrency import await_fallback
+from sqlalchemy.util.concurrency import await_
 
 
 def exec_sql(conn, sql, *args, **kwargs):
@@ -115,6 +118,36 @@ class DialectTypesTest(fixtures.TestBase, AssertsCompiledSQL):
         assert isinstance(
             start.dialect_impl(dialect), test
         ), "wanted %r got %r" % (test, start.dialect_impl(dialect))
+
+    @testing.variation(
+        "use_blob",
+        ["none", "true", "false", "dialect_support", "dialect_not_support"],
+    )
+    def test_json_types(self, use_blob):
+        if use_blob.none:
+            self.assert_compile(oracle.JSON(), "JSON")
+        elif use_blob.false:
+            self.assert_compile(oracle.JSON(use_blob=False), "JSON")
+        elif use_blob.true:
+            self.assert_compile(oracle.JSON(use_blob=True), "BLOB")
+        elif use_blob.dialect_support:
+            dialect = oracle.OracleDialect()
+            dialect._supports_oracle_json = True
+            self.assert_compile(oracle.JSON(), "JSON", dialect=dialect)
+
+            # test force override
+            self.assert_compile(
+                oracle.JSON(use_blob=True), "BLOB", dialect=dialect
+            )
+        elif use_blob.dialect_not_support:
+            dialect = oracle.OracleDialect()
+            dialect._supports_oracle_json = False
+            self.assert_compile(oracle.JSON(), "BLOB", dialect=dialect)
+
+            # test force override
+            self.assert_compile(
+                oracle.JSON(use_blob=False), "JSON", dialect=dialect
+            )
 
     @testing.combinations(
         (String(), String),
@@ -248,6 +281,46 @@ class DialectTypesTest(fixtures.TestBase, AssertsCompiledSQL):
     )
     def test_interval_literal_processor(self, type_, expected):
         self.assert_compile(type_, expected, literal_binds=True)
+
+    def test_compile_boolean_native(self):
+        dialect = oracle.OracleDialect()
+        dialect.supports_native_boolean = True
+
+        t = Table(
+            "t",
+            MetaData(),
+            Column("x", sqltypes.Boolean),
+            Column("y", oracle.BOOLEAN),
+            Column(
+                "z", sqltypes.Boolean().with_variant(oracle.BOOLEAN, "oracle")
+            ),
+        )
+
+        self.assert_compile(
+            schema.CreateTable(t),
+            "CREATE TABLE t (x BOOLEAN, y BOOLEAN, z BOOLEAN)",
+            dialect=dialect,
+        )
+
+    def test_compile_boolean_emulated(self):
+        dialect = oracle.OracleDialect()
+        dialect.supports_native_boolean = False
+
+        t = Table(
+            "t",
+            MetaData(),
+            Column("x", sqltypes.Boolean),
+            Column("y", oracle.BOOLEAN),
+            Column(
+                "z", sqltypes.Boolean().with_variant(oracle.BOOLEAN, "oracle")
+            ),
+        )
+
+        self.assert_compile(
+            schema.CreateTable(t),
+            "CREATE TABLE t (x SMALLINT, y BOOLEAN, z BOOLEAN)",
+            dialect=dialect,
+        )
 
 
 class TypesTest(fixtures.TestBase):
@@ -1197,6 +1270,177 @@ class TypesTest(fixtures.TestBase):
         eq_(result[1].indices, array.array("I", [1, 2]))
         eq_(result[1].values, array.array("f", [23.25, 221.625]))
 
+    @testing.only_on("oracle>=23.0")
+    def test_boolean_native(self, metadata, connection):
+        """Test native BOOLEAN type on Oracle 23c+"""
+        t = Table(
+            "boolean_test",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("x", sqltypes.Boolean),
+            Column("y", oracle.BOOLEAN),
+            Column(
+                "z", sqltypes.Boolean().with_variant(oracle.BOOLEAN, "oracle")
+            ),
+        )
+        t.create(connection)
+
+        # Insert test data
+        connection.execute(
+            t.insert(),
+            [
+                dict(id=1, x=True, y=True, z=True),
+                dict(id=2, x=False, y=False, z=False),
+                dict(id=3, x=None, y=None, z=None),
+            ],
+        )
+
+        # Test SELECT
+        rows = connection.execute(t.select().order_by(t.c.id)).fetchall()
+
+        for row, expected in zip(
+            rows,
+            [
+                (1, True, True, True),
+                (2, False, False, False),
+                (3, None, None, None),
+            ],
+        ):
+            for rval, expval in zip(row, expected):
+                # use is_() to ensure boolean type
+                is_(rval, expval)
+
+        # Test WHERE clause with boolean
+        result = connection.execute(t.select().where(t.c.x == True)).fetchall()
+        eq_(len(result), 1)
+        eq_(result[0][0], 1)
+
+        result = connection.execute(
+            t.select().where(t.c.x == False)
+        ).fetchall()
+        eq_(len(result), 1)
+        eq_(result[0][0], 2)
+
+    def test_boolean_emulated(self, metadata, testing_engine):
+        """Test emulated BOOLEAN type behavior
+
+        This test forces emulated mode by setting
+        supports_native_boolean=False, even on Oracle 23c+. This verifies
+        that the emulation layer still works correctly when native BOOLEAN
+        is available but not used.
+
+        Note: We only test sqltypes.Boolean here, not oracle.BOOLEAN or
+        with_variant(), because those explicitly request native BOOLEAN type
+        regardless of the supports_native_boolean setting.
+        """
+
+        e = testing_engine()
+
+        with e.connect() as connection:
+            e.dialect.supports_native_boolean = False
+
+            t = Table(
+                "boolean_emulated_test",
+                metadata,
+                Column("id", Integer, primary_key=True),
+                Column("data", sqltypes.Boolean),
+            )
+            t.create(connection)
+
+            # Insert test data
+            connection.execute(
+                t.insert(),
+                [
+                    dict(id=1, data=True),
+                    dict(id=2, data=False),
+                    dict(id=3, data=None),
+                ],
+            )
+
+            # Test SELECT - emulated boolean returns True/False
+            rows = connection.execute(t.select().order_by(t.c.id)).fetchall()
+
+            for row, expected in zip(
+                rows,
+                [
+                    (1, True, True, True),
+                    (2, False, False, False),
+                    (3, None, None, None),
+                ],
+            ):
+                for rval, expval in zip(row, expected):
+                    # use is_() to ensure boolean type
+                    is_(rval, expval)
+
+            # Test WHERE clause with boolean
+            result = connection.execute(
+                t.select().where(t.c.data == True)
+            ).fetchall()
+            eq_(len(result), 1)
+            eq_(result[0][0], 1)
+
+            result = connection.execute(
+                t.select().where(t.c.data == False)
+            ).fetchall()
+            eq_(len(result), 1)
+            eq_(result[0][0], 2)
+
+    @testing.only_on("oracle>=23.0")
+    def test_boolean_upgrade(self, metadata, connection):
+        """test that a table that has SMALLINT from a prior SQLAlchemy
+        version or older oracle version still works when native boolean is
+        flipped on for it.
+
+        """
+        t = Table(
+            "boolean_test",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("x", sqltypes.SMALLINT),
+        )
+        t.create(connection)
+
+        # Insert test data
+        connection.execute(
+            t.insert(),
+            [
+                dict(id=1, x=1),
+                dict(id=2, x=0),
+            ],
+        )
+
+        # now let's say we upgraded to oracle 23c and have the new
+        # SQLAlchemy
+
+        tt = Table(
+            "boolean_test",
+            MetaData(),
+            Column("id", Integer, primary_key=True),
+            Column("x", sqltypes.Boolean),
+        )
+
+        returning_result = connection.execute(
+            tt.insert().returning(tt.c.id, tt.c.x),
+            [
+                dict(id=3, x=True),
+                dict(id=4, x=False),
+            ],
+        )
+        rr = returning_result.all()
+
+        for row, expected in zip(rr, [(3, True), (4, False)]):
+            for rval, expval in zip(row, expected):
+                # use is_() to ensure boolean type
+                is_(rval, expval)
+
+        rows = connection.execute(tt.select().order_by(tt.c.id)).fetchall()
+        for row, expected in zip(
+            rows, [(1, True), (2, False), (3, True), (4, False)]
+        ):
+            for rval, expval in zip(row, expected):
+                # use is_() to ensure boolean type
+                is_(rval, expval)
+
 
 class LOBFetchTest(fixtures.TablesTest):
     __only_on__ = "oracle"
@@ -1247,8 +1491,8 @@ class LOBFetchTest(fixtures.TablesTest):
 
     def _read_lob(self, engine, row):
         if engine.dialect.is_async:
-            data = await_fallback(row._mapping["data"].read())
-            bindata = await_fallback(row._mapping["bindata"].read())
+            data = await_(row._mapping["data"].read())
+            bindata = await_(row._mapping["bindata"].read())
         else:
             data = row._mapping["data"].read()
             bindata = row._mapping["bindata"].read()
@@ -1293,16 +1537,7 @@ class LOBFetchTest(fixtures.TablesTest):
                 )
             eq_(actual, self.data)
 
-        # this comes from cx_Oracle because these are raw
-        # cx_Oracle.Variable objects
-        if testing.requires.oracle5x.enabled:
-            assert_raises_message(
-                testing.db.dialect.dbapi.ProgrammingError,
-                "LOB variable no longer valid after subsequent fetch",
-                go,
-            )
-        else:
-            go()
+        go()
 
     def test_lobs_with_convert_many_rows(self):
         # even with low arraysize, lobs are fine in autoconvert
@@ -1604,3 +1839,231 @@ class SetInputSizesTest(fixtures.TestBase):
             )
         finally:
             event.remove(testing.db, "do_setinputsizes", _remove_type)
+
+
+class JSONTest(fixtures.TestBase):
+    __requires__ = ("json_type",)
+    __only_on__ = "oracle"
+    __backend__ = True
+
+    @testing.requires.reflects_json_type
+    def test_reflection(self, metadata, connection):
+        Table("oracle_json", metadata, Column("foo", oracle.JSON))
+        metadata.create_all(connection)
+
+        reflected = Table("oracle_json", MetaData(), autoload_with=connection)
+        is_(reflected.c.foo.type._type_affinity, sqltypes.JSON)
+        assert isinstance(reflected.c.foo.type, oracle.JSON)
+
+    def test_rudimentary_round_trip(self, metadata, connection):
+        oracle_json = Table(
+            "oracle_json", metadata, Column("foo", oracle.JSON)
+        )
+        metadata.create_all(connection)
+
+        value = {"json": {"foo": "bar"}, "recs": ["one", "two"]}
+
+        connection.execute(oracle_json.insert(), dict(foo=value))
+
+        eq_(connection.scalar(select(oracle_json.c.foo)), value)
+
+    def test_extract_subobject(self, connection, metadata):
+        oracle_json = Table(
+            "oracle_json", metadata, Column("foo", oracle.JSON)
+        )
+        metadata.create_all(connection)
+
+        value = {"json": {"foo": "bar"}}
+        connection.execute(oracle_json.insert(), dict(foo=value))
+
+        eq_(
+            connection.scalar(select(oracle_json.c.foo["json"])),
+            value["json"],
+        )
+
+
+class JSONBlobSuiteTest(suite.JSONTest):
+    __only_on__ = "oracle+oracledb"
+
+    datatype = functools.partial(oracle.JSON, use_blob=True)
+
+
+class TextualSelectTypeHandlerTest(fixtures.TablesTest):
+    """test that per-cursor outputtypehandlers are established for
+    textual constructs that carry positional column information, such as
+    :func:`_sql.text` / :func:`_sql.tstring` with ``.columns()``.
+
+    For these constructs the names reported by ``cursor.description`` are
+    generated by the database and don't correspond to the names given to
+    ``.columns()``, so the handlers have to be matched positionally.
+
+    See #13479
+
+    """
+
+    __only_on__ = "oracle"
+    __backend__ = True
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "data_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", sqltypes.JSON, nullable=True),
+        )
+
+    @testing.requires.json_type
+    def test_json_bound_literal(self, connection):
+        """the JSON value arrives as a plain string bound parameter, with
+        no JSON column involved at all"""
+
+        value = {"json": {"foo": "bar"}, "recs": ["one", "two"]}
+
+        stmt = text("select :p from dual").columns(column("jj", sqltypes.JSON))
+        eq_(connection.scalar(stmt, {"p": json.dumps(value)}), value)
+
+    @testing.requires.json_type
+    def test_json_column(self, connection):
+        value = {"json": {"foo": "bar"}}
+        connection.execute(
+            self.tables.data_table.insert(), {"id": 1, "data": value}
+        )
+
+        stmt = text("select data from data_table").columns(
+            column("jj", sqltypes.JSON)
+        )
+        eq_(connection.scalar(stmt), value)
+
+    @testing.requires.json_type
+    def test_json_null_value(self, connection):
+        connection.execute(
+            self.tables.data_table.insert(), {"id": 1, "data": None}
+        )
+
+        stmt = text("select data from data_table").columns(
+            column("jj", sqltypes.JSON)
+        )
+        eq_(connection.scalar(stmt), None)
+
+    @testing.requires.json_type
+    def test_json_clob_expression(self, connection):
+        """a JSON expression that the database reports as a LOB"""
+
+        value = {"json": {"foo": "bar"}, "recs": ["one", "two"]}
+
+        stmt = text("select to_clob(:p) from dual").columns(
+            column("jj", sqltypes.JSON)
+        )
+        eq_(connection.scalar(stmt, {"p": json.dumps(value)}), value)
+
+    def test_json_blob_bound_literal(self, connection):
+        value = {"json": {"foo": "bar"}}
+
+        stmt = text("select :p from dual").columns(
+            column("jj", oracle.JSON(use_blob=True))
+        )
+        eq_(connection.scalar(stmt, {"p": json.dumps(value)}), value)
+
+    @testing.requires.json_type
+    def test_positional_alignment_mixed_types(self, connection):
+        """handlers have to line up with the cursor's columns positionally,
+        including for columns that have no handler of their own"""
+
+        value = {"json": {"foo": "bar"}}
+
+        stmt = text("select 'x', :p, 1, 2.5, 'y' from dual").columns(
+            column("a", String),
+            column("jj", sqltypes.JSON),
+            column("i", Integer),
+            column("n", Numeric(asdecimal=True)),
+            column("b", String),
+        )
+        eq_(
+            connection.execute(stmt, {"p": json.dumps(value)}).all(),
+            [("x", value, 1, decimal.Decimal("2.5"), "y")],
+        )
+
+    def test_numeric_positional(self, connection):
+        """Numeric is normally handled by the connection-level handler;
+        assert the cursor-level handler doesn't misalign it"""
+
+        stmt = text("select 1.5, 2.5 from dual").columns(
+            column("a", Numeric(asdecimal=False)),
+            column("b", Numeric(asdecimal=True)),
+        )
+        eq_(connection.execute(stmt).all(), [(1.5, decimal.Decimal("2.5"))])
+
+    @testing.requires.json_type
+    def test_compiled_select_still_matches_by_name(self, connection):
+        """the non-textual case continues to match handlers by the
+        rendered column name"""
+
+        value = {"json": {"foo": "bar"}}
+        eq_(
+            connection.scalar(select(literal(value, sqltypes.JSON))),
+            value,
+        )
+
+
+class JSONDeserializerTest(fixtures.TablesTest):
+    """test that a custom ``json_deserializer`` is honored by each of the
+    branches of the JSON outputtypehandler.
+
+    """
+
+    __only_on__ = "oracle"
+    __backend__ = True
+    __requires__ = ("json_type",)
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "json_deser_data",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", sqltypes.JSON),
+        )
+
+    @testing.fixture
+    def json_connection(self, testing_engine):
+        def loads(value):
+            return ("deserialized", json.loads(value))
+
+        engine = testing_engine(options={"json_deserializer": loads})
+        with engine.connect() as conn:
+            yield conn
+
+    def test_native_json_column(self, json_connection):
+        """a native JSON column, which the driver would otherwise decode
+        on its own"""
+
+        value = {"json": {"foo": "bar"}}
+        json_connection.execute(
+            self.tables.json_deser_data.insert(), {"id": 1, "data": value}
+        )
+
+        eq_(
+            json_connection.scalar(select(self.tables.json_deser_data.c.data)),
+            ("deserialized", value),
+        )
+
+    def test_character_expression(self, json_connection):
+        value = {"json": {"foo": "bar"}}
+
+        stmt = text("select :p from dual").columns(column("jj", sqltypes.JSON))
+        eq_(
+            json_connection.scalar(stmt, {"p": json.dumps(value)}),
+            ("deserialized", value),
+        )
+
+    def test_lob_expression(self, json_connection):
+        value = {"json": {"foo": "bar"}}
+
+        stmt = text("select to_clob(:p) from dual").columns(
+            column("jj", sqltypes.JSON)
+        )
+        eq_(
+            json_connection.scalar(stmt, {"p": json.dumps(value)}),
+            ("deserialized", value),
+        )

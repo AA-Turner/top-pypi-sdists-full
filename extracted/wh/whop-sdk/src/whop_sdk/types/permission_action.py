@@ -4,6 +4,9 @@ import typing
 
 PermissionAction = typing.Union[
     typing.Literal[
+        "waitlist_entry:read",
+        "waitlist_entry:create",
+        "waitlist_entry:cancel",
         "experiment:manage",
         "experiment:read",
         "ai_prompt:create",
@@ -183,6 +186,11 @@ PermissionAction = typing.Union[
         "partner:basic:read",
         "partner:email:read",
         "partner:invite:create",
+        "partner:referral_request:read",
+        "partner:referral_request:create",
+        "partner:referral_request:accept",
+        "partner:referral_request:decline",
+        "partner:referral_request:cancel",
         "partner:create",
         "stats:read",
         "support_chat:read",
@@ -247,6 +255,8 @@ PermissionAction = typing.Union[
         "checkout_request:basic:read",
         "crypto_wallet:manage",
         "crypto_wallet:swap",
+        "crypto_wallet:trade",
+        "crypto_wallet:trade:read",
         "airdrop_link:basic:read",
         "airdrop_link:manage",
         "lead:manage",

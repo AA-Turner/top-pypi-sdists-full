@@ -445,7 +445,8 @@ class KnativeServingBackend:
         svc_res['spec']['template']['spec']['timeoutSeconds'] = timeout
         svc_res['spec']['template']['spec']['containerConcurrency'] = 1
         svc_res['spec']['template']['metadata']['labels']['lithops-version'] = __version__.replace('.', '-')
-        svc_res['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/maxScale'] = str(self.kn_config['max_workers'])
+        annotations = svc_res['spec']['template']['metadata']['annotations']
+        annotations['autoscaling.knative.dev/maxScale'] = str(self.kn_config['max_workers'])
 
         container = svc_res['spec']['template']['spec']['containers'][0]
         container['image'] = runtime_name
@@ -678,11 +679,12 @@ class KnativeServingBackend:
                 conn = http.client.HTTPConnection(parsed_url.netloc)
 
             if exec_id and job_id and call_ids:
-                logger.debug('ExecutorID {} | JobID {} - Invoking function call {}'
-                             .format(exec_id, job_id, ', '.join(call_ids)))
+                logger.debug(
+                    f'{utils.log_prefix(exec_id, job_id)} - Invoking function call '
+                    f'{", ".join(call_ids)}'
+                )
             elif exec_id and job_id:
-                logger.debug('ExecutorID {} | JobID {} - Invoking function'
-                             .format(exec_id, job_id))
+                logger.debug(f'{utils.log_prefix(exec_id, job_id)} - Invoking function')
             else:
                 logger.debug('Invoking function')
 
@@ -704,8 +706,10 @@ class KnativeServingBackend:
         elif resp_status == 404:
             raise Exception("Lithops runtime is not deployed in your k8s cluster")
         else:
-            logger.debug('ExecutorID {} | JobID {} - Function call {} failed ({}). Retrying request'
-                         .format(exec_id, job_id, ', '.join(call_ids), resp_status))
+            logger.debug(
+                f'{utils.log_prefix(exec_id, job_id)} - Function call {", ".join(call_ids)} '
+                f'failed ({resp_status}). Retrying request'
+            )
 
     def get_runtime_key(self, runtime_name, runtime_memory, version=__version__):
         """

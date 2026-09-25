@@ -10,7 +10,6 @@ import typing as t
 from abc import abstractmethod
 from enum import Enum, auto
 
-import numpy as np
 from loguru import logger
 
 from dreadnode.core.types import Image
@@ -18,30 +17,37 @@ from dreadnode.optimization.sampler import Sample, Sampler
 from dreadnode.optimization.trial import Trial
 from dreadnode.scorers.image import Norm
 
+if t.TYPE_CHECKING:
+    import numpy as np
+
 #: Input type accepted by all adversarial samplers.
-ArrayInput = Image | np.ndarray
+ArrayInput: t.TypeAlias = "Image | np.ndarray"
 
 
-def _to_array(x: ArrayInput) -> np.ndarray:
+def _to_array(x: ArrayInput) -> "np.ndarray":
     """Extract a float32 numpy array from *x*."""
+    import numpy as np
+
     if isinstance(x, Image):
         return x.to_numpy()
     return np.asarray(x, dtype=np.float32)
 
 
-def _wrap(arr: np.ndarray, *, like_image: bool) -> ArrayInput:
+def _wrap(arr: "np.ndarray", *, like_image: bool) -> ArrayInput:
     """Wrap *arr* back to the caller's input type."""
     if like_image:
         return Image(clip(arr, 0, 1))
     return arr
 
 
-def clip(arr: np.ndarray, min_val: float, max_val: float) -> np.ndarray:
+def clip(arr: "np.ndarray", min_val: float, max_val: float) -> "np.ndarray":
     """Clip array values to a range."""
+    import numpy as np
+
     return np.clip(arr, min_val, max_val)
 
 
-def get_random(shape: tuple, norm: Norm, seed: int | None = None) -> np.ndarray:
+def get_random(shape: tuple, norm: Norm, seed: int | None = None) -> "np.ndarray":
     """Generate random noise with specified norm.
 
     Args:
@@ -52,6 +58,8 @@ def get_random(shape: tuple, norm: Norm, seed: int | None = None) -> np.ndarray:
     Returns:
         Random noise array normalized according to the specified norm.
     """
+    import numpy as np
+
     rng = np.random.default_rng(seed)
     noise = rng.standard_normal(shape).astype(np.float32)
 
@@ -104,6 +112,8 @@ class ImageSampler(Sampler[t.Any]):
         max_iterations: int = 1000,
         seed: int | None = None,
     ):
+        import numpy as np
+
         self.original = original
         self.objective = objective
         self.max_iterations = max_iterations
@@ -113,11 +123,11 @@ class ImageSampler(Sampler[t.Any]):
         self._rng = np.random.default_rng(seed)
         self._iteration = 0
         self._best_score = -float("inf")
-        self._best_candidate: ArrayInput | None = None
+        self._best_candidate: Image | np.ndarray | None = None
         self._phase = _Phase.INIT
         self._exhausted = False
 
-    def _wrap(self, arr: np.ndarray) -> ArrayInput:
+    def _wrap(self, arr: "np.ndarray") -> ArrayInput:
         """Wrap array back to caller's input type."""
         return _wrap(arr, like_image=self._is_image)
 
@@ -149,6 +159,8 @@ class ImageSampler(Sampler[t.Any]):
 
     def reset(self) -> None:
         """Reset sampler state."""
+        import numpy as np
+
         self._rng = np.random.default_rng(self.seed)
         self._iteration = 0
         self._best_score = -float("inf")
@@ -178,6 +190,8 @@ class SimBASampler(ImageSampler):
         max_iterations: int = 10_000,
         seed: int | None = None,
     ):
+        import numpy as np
+
         super().__init__(original, objective=objective, max_iterations=max_iterations, seed=seed)
         self.theta = theta
         self.num_masks = num_masks
@@ -242,6 +256,8 @@ class SimBASampler(ImageSampler):
                 self._current_mask = self._current_mask + self._pending_mask
 
     def reset(self) -> None:
+        import numpy as np
+
         super().reset()
         self._current_mask = np.zeros_like(_to_array(self.original))
         self._pending_mask = None
@@ -271,6 +287,8 @@ class NESSampler(ImageSampler):
         adam_epsilon: float = 1e-8,
         seed: int | None = None,
     ):
+        import numpy as np
+
         super().__init__(original, objective=objective, max_iterations=max_iterations, seed=seed)
         self.learning_rate = learning_rate
         self.num_samples = num_samples
@@ -324,6 +342,8 @@ class NESSampler(ImageSampler):
 
     def _process_results(self, trials: list[Trial[t.Any]]) -> None:
         # Process initial trial
+        import numpy as np
+
         if self._phase == _Phase.UPDATING and self._best_candidate is None:
             for trial in trials:
                 if trial.status == "finished":
@@ -402,6 +422,8 @@ class ZOOSampler(ImageSampler):
         adam_epsilon: float = 1e-8,
         seed: int | None = None,
     ):
+        import numpy as np
+
         super().__init__(original, objective=objective, max_iterations=max_iterations, seed=seed)
         self.learning_rate = learning_rate
         self.num_samples = num_samples
@@ -425,6 +447,8 @@ class ZOOSampler(ImageSampler):
 
     def _generate_samples(self) -> list[Sample[t.Any]]:
         # First - evaluate original
+        import numpy as np
+
         if self._phase == _Phase.INIT:
             self._phase = _Phase.UPDATING
             return [Sample(self.original)]
@@ -464,6 +488,8 @@ class ZOOSampler(ImageSampler):
 
     def _process_results(self, trials: list[Trial[t.Any]]) -> None:
         # Process initial trial
+        import numpy as np
+
         if self._phase == _Phase.UPDATING and self._best_candidate is None:
             for trial in trials:
                 if trial.status == "finished":
@@ -538,7 +564,7 @@ class HopSkipJumpSampler(Sampler[t.Any]):
     def __init__(
         self,
         source: ArrayInput,
-        adversarial: ArrayInput | None = None,
+        adversarial: "ArrayInput | None" = None,
         *,
         objective: str | None = None,
         adversarial_threshold: float = 0.0,
@@ -551,6 +577,8 @@ class HopSkipJumpSampler(Sampler[t.Any]):
         max_iterations: int = 1_000,
         seed: int | None = None,
     ):
+        import numpy as np
+
         self.source = source
         self.adversarial = adversarial
         self.objective = objective
@@ -567,7 +595,7 @@ class HopSkipJumpSampler(Sampler[t.Any]):
         self._is_image = isinstance(source, Image)
         self._rng = np.random.default_rng(seed)
         self._source_array = _to_array(source)
-        self._current_best: ArrayInput | None = adversarial
+        self._current_best: Image | np.ndarray | None = adversarial
         self._current_best_array: np.ndarray | None = (
             _to_array(adversarial) if adversarial is not None else None
         )
@@ -592,7 +620,7 @@ class HopSkipJumpSampler(Sampler[t.Any]):
             f"max_iterations={max_iterations}, input_type={'image' if self._is_image else 'array'}"
         )
 
-    def _wrap_output(self, arr: np.ndarray) -> ArrayInput:
+    def _wrap_output(self, arr: "np.ndarray") -> ArrayInput:
         """Wrap array back to caller's input type."""
         return _wrap(arr, like_image=self._is_image)
 
@@ -600,8 +628,10 @@ class HopSkipJumpSampler(Sampler[t.Any]):
         """Check if trial is adversarial based on score threshold."""
         return trial.get_directional_score(self.objective) > self.adversarial_threshold
 
-    def _compute_distance(self, arr: np.ndarray) -> float:
+    def _compute_distance(self, arr: "np.ndarray") -> float:
         """Compute distance from source."""
+        import numpy as np
+
         diff = arr.flatten() - self._source_array.flatten()
         if self.norm == "l2":
             return float(np.linalg.norm(diff))
@@ -612,6 +642,8 @@ class HopSkipJumpSampler(Sampler[t.Any]):
 
     def sample(self, history: "list[Trial[t.Any]]") -> "list[Sample[t.Any]]":  # noqa: ARG002
         """Generate next batch of samples."""
+        import numpy as np
+
         if self._exhausted:
             return []
 
@@ -682,6 +714,8 @@ class HopSkipJumpSampler(Sampler[t.Any]):
 
     def tell(self, trials: "list[Trial[t.Any]]") -> None:
         """Process completed trials."""
+        import numpy as np
+
         if not trials:
             return
 
@@ -820,6 +854,8 @@ class HopSkipJumpSampler(Sampler[t.Any]):
 
     def reset(self) -> None:
         """Reset sampler state."""
+        import numpy as np
+
         self._rng = np.random.default_rng(self.seed)
         self._current_best = self.adversarial
         self._current_best_array = (

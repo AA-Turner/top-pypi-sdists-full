@@ -74,7 +74,7 @@ WELCOME_FREE_INTERVAL = 24 * 3600
 # Pro Chromium major shown in the free-tier welcome banner. Bump at each Pro
 # major release (there is no local constant to derive it from — the live Pro
 # version comes from the network, which we don't call just to print a banner).
-PRO_MAJOR = "151"
+PRO_MAJOR = "152"
 
 
 def _welcome_due(marker: Path, pro: bool) -> bool:
@@ -933,40 +933,21 @@ def _extract_archive(
 
 
 def _extract_tar(archive_path: Path, dest_dir: Path) -> None:
-    """Extract tar.gz archive with path traversal protection."""
+    """Extract tar.gz. Archive is signature-verified before extraction, so unpack
+    as-is. filter="fully_trusted" pins legacy behavior (3.14 defaults to "data",
+    which mangles macOS .app symlinks/perms); fallback covers Python < 3.12."""
     with tarfile.open(archive_path, "r:gz") as tar:
-        safe_members = []
-        for member in tar.getmembers():
-            # Allow symlinks — macOS .app bundles require them (Framework layout)
-            if member.issym() or member.islnk():
-                link_target = member.linkname
-                if os.path.isabs(link_target) or ".." in link_target.split("/"):
-                    logger.warning(
-                        "Skipping suspicious symlink: %s -> %s",
-                        member.name,
-                        link_target,
-                    )
-                    continue
-            else:
-                member_path = (dest_dir / member.name).resolve()
-                if not str(member_path).startswith(str(dest_dir.resolve())):
-                    raise RuntimeError(
-                        f"Archive contains path traversal: {member.name}"
-                    )
-            safe_members.append(member)
-
-        tar.extractall(dest_dir, members=safe_members)
+        try:
+            tar.extractall(dest_dir, filter="fully_trusted")
+        except TypeError:
+            tar.extractall(dest_dir)
 
 
 def _extract_zip(archive_path: Path, dest_dir: Path) -> None:
-    """Extract zip archive with path traversal protection."""
+    """Extract zip. Signature-verified before extraction, so unpack as-is."""
     import zipfile
 
     with zipfile.ZipFile(archive_path, "r") as zf:
-        for info in zf.infolist():
-            member_path = (dest_dir / info.filename).resolve()
-            if not str(member_path).startswith(str(dest_dir.resolve())):
-                raise RuntimeError(f"Archive contains path traversal: {info.filename}")
         zf.extractall(dest_dir)
 
 

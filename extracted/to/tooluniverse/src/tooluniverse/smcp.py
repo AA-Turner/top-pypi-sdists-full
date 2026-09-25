@@ -97,7 +97,6 @@ import functools
 import json
 import os
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional, Union, Callable, Literal
 
 from fastmcp import FastMCP
@@ -105,6 +104,7 @@ from fastmcp import FastMCP
 FASTMCP_AVAILABLE = True
 
 from .execute_function import ToolUniverse
+from .credentials import ContextThreadPoolExecutor
 from .logging_config import (
     get_logger,
 )
@@ -207,6 +207,17 @@ def _truncate_response(
     if full_path:
         suffix += f"\nFull response saved to: {full_path}"
     return serialized[:max_chars] + suffix
+
+
+def _readable_tool_title(name: str) -> str:
+    """Human-readable title for a tool that declares none.
+
+    The directory requires ``title`` on every tool. Registered names read
+    ``Vendor_verb_what``, so replacing the separators is enough to give a
+    reviewer and a user something legible without inventing wording that could
+    drift from the description.
+    """
+    return name.replace("_", " ").strip() or name
 
 
 class SMCP(FastMCP):
@@ -500,7 +511,10 @@ class SMCP(FastMCP):
         self.profile_metadata = None
 
         # Thread pool for concurrent tool execution
-        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+        # Preserve request-scoped credentials and tracing context across the async-to-sync
+        # boundary. Standard ThreadPoolExecutor drops ContextVars and can therefore make a hosted
+        # request silently fall back to process-global credentials.
+        self.executor = ContextThreadPoolExecutor(max_workers=max_workers)
 
         # Track exposed tools to avoid duplicates
         self._exposed_tools = set()
@@ -993,7 +1007,7 @@ class SMCP(FastMCP):
             str: Tool name to use for search
         """
         # Get available tools
-        all_tools = self.tooluniverse.return_all_loaded_tools()
+        all_tools = self.tooluniverse.return_all_loaded_tools(copy_tools=False)
         available_tool_names = [tool.get("name", "") for tool in all_tools]
 
         # Handle specific method requests
@@ -1182,6 +1196,7 @@ class SMCP(FastMCP):
 
         @self.tool(
             annotations=ToolAnnotations(
+                title="Find tools by description",
                 readOnlyHint=True,  # Search tool is read-only
                 destructiveHint=False,
             )
@@ -1248,7 +1263,7 @@ class SMCP(FastMCP):
 
         # Check if ToolFinderLLM is available in loaded tools
         try:
-            all_tools = self.tooluniverse.return_all_loaded_tools()
+            all_tools = self.tooluniverse.return_all_loaded_tools(copy_tools=False)
             available_tool_names = [tool.get("name", "") for tool in all_tools]
 
             # Try ToolFinderLLM first (more advanced)
@@ -1294,7 +1309,7 @@ class SMCP(FastMCP):
                     self.logger.debug(f"Could not load tool_finder category: {e}")
 
             # Re-check availability after potential loading
-            all_tools = self.tooluniverse.return_all_loaded_tools()
+            all_tools = self.tooluniverse.return_all_loaded_tools(copy_tools=False)
             available_tool_names = [tool.get("name", "") for tool in all_tools]
 
             if "Tool_Finder_LLM" in available_tool_names:
@@ -1678,7 +1693,9 @@ class SMCP(FastMCP):
                 for option in alternatives
                 if isinstance(option, dict)
             ]
-            return Union[tuple(types)] if len(types) > 1 else (types[0] if types else Any)
+            return (
+                Union[tuple(types)] if len(types) > 1 else (types[0] if types else Any)
+            )
 
         param_type = param_info.get("type", "string")
         if isinstance(param_type, list):
@@ -1710,6 +1727,19 @@ class SMCP(FastMCP):
         """Translate common JSON Schema limits into Pydantic Field limits."""
         constraints: Dict[str, Any] = {}
         param_type = param_info.get("type")
+        # "type" may be a list. ["integer", "null"] is how an optional parameter
+        # is spelled across the shipped configs, and it is also what
+        # mcp_tool_registry._py_type_to_json_schema infers for Optional[int].
+        # The set membership test below hashes its left operand, so a list
+        # raised TypeError: unhashable type: 'list'. Narrow to the first
+        # non-null member, the same way _resolve_param_type does in its
+        # non-strict branch, so the limits are still applied. The first
+        # non-null member is the right one to read: of the 1674 list typed
+        # parameters under data/, the 59 that carry a limit are either nullable
+        # or ["array", "string"], so that member is what the limit describes.
+        if isinstance(param_type, list):
+            non_null = [item for item in param_type if item != "null"]
+            param_type = non_null[0] if non_null else None
         if param_type == "string":
             mapping = {
                 "minLength": "min_length",
@@ -2186,6 +2216,14 @@ Returns:
             from mcp.types import ToolAnnotations
 
             tool_annotations = ToolAnnotations(
+                # The connectors directory requires a title on every tool, and
+                # rejects a submission without one. Tools that set their own in
+                # ``mcp_annotations`` keep it; the rest get their registered
+                # name made readable, which beats shipping no title at all.
+                title=annotations_dict.get("title")
+                or _readable_tool_title(
+                    tool_config.get("original_name") or tool_config.get("name", "")
+                ),
                 readOnlyHint=annotations_dict.get("readOnlyHint"),
                 destructiveHint=annotations_dict.get("destructiveHint"),
             )
@@ -2217,9 +2255,7 @@ Returns:
                     # metadata. Bypass that normalization after construction; the
                     # callable's strict signature remains the runtime validator.
                     strict_parameters = copy.deepcopy(parameters)
-                    object.__setattr__(
-                        registered_tool, "parameters", strict_parameters
-                    )
+                    object.__setattr__(registered_tool, "parameters", strict_parameters)
                     # FastMCP 3 stores a validated copy in its local provider.
                     # Update that copy as well; get_tool()/tools/list read it.
                     local_provider = getattr(self, "_local_provider", None)

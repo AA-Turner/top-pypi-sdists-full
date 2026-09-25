@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cognee
-Version: 1.6.0
+Version: 1.6.1
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -25,6 +25,7 @@ Requires-Dist: cbor2>=5.8.0
 Requires-Dist: cryptography<51,>=43.0.0
 Requires-Dist: datamodel-code-generator>=0.54.0
 Requires-Dist: diskcache>=5.6.3
+Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0
 Requires-Dist: enola-cli==0.4.21
 Requires-Dist: fakeredis[lua]>=2.32.0
 Requires-Dist: fastapi-users[sqlalchemy]>=15.0.2
@@ -33,6 +34,7 @@ Requires-Dist: fastembed<=0.8.0
 Requires-Dist: filelock<4.0.0,>=3.12.0
 Requires-Dist: filetype<2.0.0,>=1.2.0
 Requires-Dist: gunicorn<24,>=20.1.0
+Requires-Dist: huggingface-hub<1,>=0.34
 Requires-Dist: instructor<1.15.3,>=1.9.1
 Requires-Dist: jinja2<4,>=3.1.3
 Requires-Dist: ladybug<0.18,>=0.17.0; sys_platform == 'darwin' and ('Darwin Kernel Version 22.' in platform_version or 'Darwin Kernel Version 23.' in platform_version)
@@ -47,6 +49,8 @@ Requires-Dist: numpy<=4.0.0,>=1.26.4
 Requires-Dist: onnxruntime<=1.23.2; python_version < '3.14'
 Requires-Dist: onnxruntime>=1.24.1; python_version >= '3.14'
 Requires-Dist: openai>=1.80.1
+Requires-Dist: packaging>=24.0
+Requires-Dist: pandas<3.0.0,>=2.2.2
 Requires-Dist: pydantic-settings!=2.12.*,!=2.13.*,!=2.14.0,!=2.14.1,<3,>=2.7.0
 Requires-Dist: pydantic>=2.10.5
 Requires-Dist: pylance<=0.36.0,>=0.22.0
@@ -61,6 +65,7 @@ Requires-Dist: starlette>=0.48
 Requires-Dist: structlog<26,>=25.2.0
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: tiktoken<1.0.0,>=0.8.0
+Requires-Dist: tokenizers<=0.23.0,>=0.22
 Requires-Dist: typing-extensions<5.0.0,>=4.12.2
 Requires-Dist: urllib3>=2.6.0
 Requires-Dist: uvicorn<1.0.0,>=0.34.0
@@ -81,6 +86,7 @@ Provides-Extra: deepeval
 Requires-Dist: deepeval<4,>=3.0.1; extra == 'deepeval'
 Provides-Extra: dev
 Requires-Dist: coverage<8,>=7.3.2; extra == 'dev'
+Requires-Dist: dateparser<2,>=1.2; extra == 'dev'
 Requires-Dist: deptry<0.21,>=0.20.0; extra == 'dev'
 Requires-Dist: gitpython<4,>=3.1.43; extra == 'dev'
 Requires-Dist: mkdocs-material<10,>=9.5.42; extra == 'dev'
@@ -97,8 +103,6 @@ Requires-Dist: ruff<=0.16.6,>=0.9.2; extra == 'dev'
 Requires-Dist: tweepy<5.0.0,>=4.14.0; extra == 'dev'
 Requires-Dist: ty<0.1.0,>=0.0.31; extra == 'dev'
 Provides-Extra: dlt
-Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0; extra == 'dlt'
-Requires-Dist: pandas<3.0.0,>=2.2.2; extra == 'dlt'
 Provides-Extra: docling
 Requires-Dist: docling-slim[convert-core,format-email,format-html,format-latex,format-markdown,format-office,format-pdf]<3,>=2.115; extra == 'docling'
 Provides-Extra: docling-full
@@ -122,12 +126,15 @@ Provides-Extra: gliner
 Requires-Dist: gliner2[local]<3,>=2.0.0; extra == 'gliner'
 Requires-Dist: protobuf>=5.29.6; extra == 'gliner'
 Requires-Dist: sentencepiece>=0.2.0; extra == 'gliner'
+Requires-Dist: torch<3,>=2.1; extra == 'gliner'
 Provides-Extra: gmail
-Requires-Dist: dlt[sqlalchemy]<2,>=1.9.0; extra == 'gmail'
 Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'gmail'
 Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'gmail'
 Requires-Dist: google-auth<3,>=2.23.0; extra == 'gmail'
-Requires-Dist: pandas<3.0.0,>=2.2.2; extra == 'gmail'
+Provides-Extra: google-drive
+Requires-Dist: google-api-python-client<3,>=2.100.0; extra == 'google-drive'
+Requires-Dist: google-auth-oauthlib<2,>=1.1.0; extra == 'google-drive'
+Requires-Dist: google-auth<3,>=2.23.0; extra == 'google-drive'
 Provides-Extra: groq
 Requires-Dist: groq<1.0.0,>=0.8.0; extra == 'groq'
 Provides-Extra: huggingface
@@ -190,7 +197,7 @@ Description-Content-Type: text/markdown
 
   <br />
 
-  <p>Cognee - The Open-Source AI Memory Platform for Agents</p>
+  <p>Cognee - The Free Open-Source AI Memory Platform for Agents</p>
 
   <p align="center">
   <a href="https://www.youtube.com/watch?v=8hmqS2Y5RVQ&t=13s">Demo</a>
@@ -224,7 +231,9 @@ Description-Content-Type: text/markdown
   </a>
 </p>
 
-  <p>Cognee is the open-source AI memory platform that gives AI agents persistent long-term memory across sessions. Ingest data in any format, build a self-hosted knowledge graph, and let every agent recall, connect, and act with full context</p>
+  <p>Cognee is a free open-source AI memory platform that gives AI agents persistent long-term memory across sessions. Turn documents, code, and conversations into a self-hosted knowledge graph your agents can search and reuse.</p>
+
+  <p><strong>Start locally for free without an OpenAI or Anthropic API key.</strong> Build memory from text with local extraction and embedding models. Add a local or hosted LLM when you want more functionality or reach out to us for a production-ready small model pipeline.</p>
 
   <p align="center">
   🌐 This README is also available in:<br />
@@ -256,8 +265,9 @@ Description-Content-Type: text/markdown
 
 | I want to… | Start here |
 | --- | --- |
-| See a memory graph without an API key | [Bundled demo](#try-it-without-an-api-key) |
-| Build with text, code, and session memory | [Python quickstart](#quickstart) |
+| Build memory without an LLM | [Local Python quickstart](#run-locally-without-an-llm) |
+| Explore a prebuilt graph without downloading models | [Bundled demo](#explore-the-bundled-demo) |
+| Generate answers with a local or hosted LLM | [Optional LLM setup](#optional-configure-the-llm) |
 | Give an existing agent memory | [Plugins and MCP](#connect-your-agent) |
 | Run Cognee on my infrastructure | [Deployment options](#deploy-cognee) |
 | Use a managed service | [Cognee Cloud](https://docs.cognee.ai/cognee-cloud/overview) |
@@ -266,29 +276,14 @@ Description-Content-Type: text/markdown
 
 Requires **Python 3.10–3.14**.
 
+
 You can install Cognee with **pip**, **uv**, or your preferred Python package manager.
 
 ```bash
-uv pip install cognee
+uv pip install "cognee[gliner]"
 ```
 
-### Try it without an API key
-
-```bash
-cognee-cli demo
-```
-
-With no `LLM_API_KEY` set at all, `remember` and `cognify` build the graph with the local
-GLiNER demo extractor and embed with a local model (`pip install "cognee[gliner]"`), and
-`recall` answers with the matching chunks.
-
-> **Demo:** The GLiNER extractor shipped in open source is a demo of cognee's enterprise
-> GLiNER extraction. It is free to use, but the production-grade version — higher accuracy
-> and broader label coverage — is available as a licensed product. Write to us at
-> social@cognee.ai to explore the options.
-
-
-### Step 2: Configure the LLM
+### Optional: Configure the LLM
 ```python
 import os
 
@@ -299,35 +294,65 @@ Alternatively, create a `.env` file using our [template](https://github.com/topo
 The default uses OpenAI for language models and embeddings. Processing and generated answers make provider calls. See [installation](https://docs.cognee.ai/getting-started/installation), [other providers](https://docs.cognee.ai/setup-configuration/llm-providers), or [local Ollama models](https://docs.cognee.ai/guides/local-ollama) for other setups.
 
 
+
+
+
+### Run locally without an LLM
+
+
+In step 1, you did "cognee[gliner]" install.
+
+Save this as `quickstart.py` and run `python quickstart.py` if you are feeling old school, or tell your LLM to do it:
+
 ```python
-import cognee
 import asyncio
+
+import cognee
 
 
 async def main():
-    # Store permanently in the knowledge graph (runs add + cognify + improve)
-    await cognee.remember("Cognee turns documents into AI memory.")
+    # Extract a knowledge graph and embed the text with local models.
+    await cognee.remember(
+        "Marie Curie was born in Warsaw and worked at the University of Paris.",
+        dataset_name="local_quickstart",
+    )
 
-    # Store in session memory (fast cache, syncs to graph in background)
-    await cognee.remember("User prefers detailed explanations.", session_id="chat_1")
-
-    # Query with auto-routing (picks best search strategy automatically)
-    results = await cognee.recall("What does Cognee do?")
+    # Retrieve the matching source text; no LLM generates an answer.
+    results = await cognee.recall(
+        "Where was Marie Curie born?",
+        datasets=["local_quickstart"],
+    )
     for result in results:
         print(result)
-
-    # Query session memory first, fall through to graph if needed
-    results = await cognee.recall("What does the user prefer?", session_id="chat_1")
-    for result in results:
-        print(result)
-
-    # Delete when done
-    await cognee.forget(dataset="main_dataset")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+The same workflow is available from the CLI:
+
+```bash
+cognee-cli remember "Marie Curie was born in Warsaw." -d local_quickstart
+cognee-cli recall "Where was Marie Curie born?" -d local_quickstart
+```
+
+Text ingestion, retrieval, and session storage work without an LLM. LLM-dependent improvement stages skip automatically.
+
+Generated answers and media processing that requires a vision or transcription model need additional LLM configuration.
+
+
+
+### Explore the bundled demo
+
+To explore a prebuilt graph without downloading extraction or embedding models:
+
+```bash
+cognee-cli demo
+```
+
+This command works with the base `pip install cognee` package. It loads bundled sample data and runs keyword search without an API key. Use the local quickstart above to build a graph from your own text.
+
 
 
 ## How Cognee works
@@ -422,6 +447,8 @@ docker compose --profile ui --profile mcp up
 
 The default ports are API **8000**, UI **3000**, and MCP **8001**. For deployment beyond a local demo, configure authentication, persistent storage, and compatible backends using the [permissions guide](https://docs.cognee.ai/setup-configuration/permissions) and [deployment templates](distributed/deploy/README.md). [Cognee Cloud](https://docs.cognee.ai/cognee-cloud/overview) provides the managed option.
 
+The default Docker image does not include GLiNER. To ingest text without an LLM in Docker, add the `gliner` extra to your image; the local quickstart installs it explicitly.
+
 ## Run the Whole Memory Layer on Postgres
 
 Graph memory traditionally means operating a stack — a graph database for relationships, a vector database for embeddings, Redis for sessions, and a relational database for metadata — all deployed, secured, and paid for before an agent remembers anything. In cognee 1.0 you can run the entire memory layer on a single Postgres instance.
@@ -447,12 +474,9 @@ For the research behind Cognee's graph/LLM interface, see [Optimizing the Interf
 
 [![Watch Demo](https://img.youtube.com/vi/8hmqS2Y5RVQ/maxresdefault.jpg)](https://www.youtube.com/watch?v=8hmqS2Y5RVQ&t=13s)
 
-- Cognee comes with better incremental load
-- Cognee now supports ingestion of multiple repositories at once
-- Cognee now has better memory usage
-- Cognee now has better conflict resolution
-- Cognee now has ability to call external relational stores
-- Cognee can now ingest from relational databases at scale
+- **[v1.6.0 — Keyless workflows & pipeline reliability](https://github.com/topoteretes/cognee/releases/tag/v1.6.0)** (September 18, 2026): build and search text memory with local models and no cloud LLM key.
+- Local model downloads are announced on first use, and LLM-dependent improvement stages skip when no LLM is configured.
+- Pipeline recovery preserves completed documents after crashes, and datasets track their embedding model to prevent mismatches.
 
 
 ## Community & Support
@@ -479,5 +503,3 @@ We recently published a research paper on optimizing knowledge graphs for LLM re
       url={https://arxiv.org/abs/2505.24478},
 }
 ```
-
-</details>

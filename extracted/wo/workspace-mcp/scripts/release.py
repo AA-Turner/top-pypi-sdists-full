@@ -94,11 +94,8 @@ PYPI_TOKEN_ENV_VARS = (
     "UV_PUBLISH_TOKEN",
 )
 
-# mcp-publisher writes its login to the working directory, falling back to $HOME.
-MCP_REGISTRY_TOKEN_FILES = (
-    REPO_ROOT / ".mcpregistry_registry_token",
-    Path.home() / ".mcp_publisher_token",
-)
+# mcp-publisher reads a GitHub token from here, skipping its browser device flow.
+MCP_GITHUB_TOKEN_ENV_VAR = "MCP_GITHUB_TOKEN"
 
 # --- Helper Functions ---
 
@@ -304,16 +301,50 @@ def check_pypi_credentials():
 
 
 def check_registry_credentials():
-    """Pre-flight: warn early if mcp-publisher has no saved login."""
-    if any(path.exists() for path in MCP_REGISTRY_TOKEN_FILES):
-        print("✅ MCP Registry login found.")
-        return True
-    print(
-        "⚠️ Warning: no MCP Registry token found "
-        f"({', '.join(str(p) for p in MCP_REGISTRY_TOKEN_FILES)})."
-    )
-    print("   Run 'mcp-publisher login github' first, or the publish step will fail.")
-    return False
+    """Pre-flight: resolve the GitHub token mcp-publisher will log in with.
+
+    A registry login is a JWT that expires five minutes after it is issued, so
+    a saved one is stale by the time a release reaches the publish step. The
+    login is redone right before publishing instead, non-interactively, from
+    $MCP_GITHUB_TOKEN or else the gh CLI's token.
+    """
+    token = os.environ.get(MCP_GITHUB_TOKEN_ENV_VAR)
+    source = f"${MCP_GITHUB_TOKEN_ENV_VAR}"
+    if not token:
+        # Not run_command: it echoes stdout, and stdout here is the secret.
+        result = subprocess.run(
+            ["gh", "auth", "token"], capture_output=True, text=True, check=False
+        )
+        token = result.stdout.strip() if result.returncode == 0 else ""
+        source = "gh auth token"
+    if not token:
+        print(
+            f"❌ Error: --registry needs a GitHub token: set ${MCP_GITHUB_TOKEN_ENV_VAR} "
+            "or run 'gh auth login'.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    print(f"✅ MCP Registry GitHub token resolved from {source}.")
+    return token
+
+
+def publish_to_registry(github_token):
+    """Log in fresh and publish; report failure without aborting the release.
+
+    By this point the tag is pushed and PyPI has the package, so a registry
+    failure must not stop the GitHub release and docs sync that follow.
+    """
+    env = {MCP_GITHUB_TOKEN_ENV_VAR: github_token}
+    for command in (["mcp-publisher", "login", "github"], ["mcp-publisher", "publish"]):
+        if run_command(command, check=False, env=env).returncode != 0:
+            print(
+                "⚠️ MCP Registry publish failed; the rest of the release continues.\n"
+                f"   Retry with: {MCP_GITHUB_TOKEN_ENV_VAR}=$(gh auth token) "
+                "mcp-publisher login github && mcp-publisher publish"
+            )
+            return False
+    print("✅ Successfully published to MCP Registry.")
+    return True
 
 
 def get_current_version():
@@ -636,8 +667,7 @@ def main():
     # Resolve every credential up front. Step 6 force-pushes a tag, and there is
     # no graceful way back from a tag that ships without the package it names.
     pypi_credentials = check_pypi_credentials()
-    if args.registry:
-        check_registry_credentials()
+    registry_token = check_registry_credentials() if args.registry else None
 
     previous_tag = run_command(
         ["git", "describe", "--tags", "--abbrev=0"], check=False
@@ -696,11 +726,10 @@ def main():
     print("✅ Successfully uploaded to PyPI (or skipped if already present).")
 
     # 8. Publish to MCP Registry (opt-in via --registry)
+    registry_published = False
     if args.registry:
         print("\n--- 8. Publishing to MCP Registry ---")
-        run_command(["mcp-publisher", "--version"])
-        run_command(["mcp-publisher", "publish"])
-        print("✅ Successfully published to MCP Registry.")
+        registry_published = publish_to_registry(registry_token)
     else:
         print("\n--- 8. Skipping MCP Registry (use --registry to publish) ---")
 
@@ -782,7 +811,7 @@ def main():
                     "assets": [f.name for f in artifacts],
                     "notes_file": str(notes_path),
                     "edit_url": edit_url,
-                    "registry_published": bool(args.registry),
+                    "registry_published": registry_published,
                     "pypi_credential_source": pypi_credentials.source,
                     "site_docs": site_sync,
                 },

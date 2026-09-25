@@ -640,6 +640,13 @@ class UserData(_message.Message):
         CLASSIFICATION_TYPE_BOT_WARN_DATA_PROFILING_ADMIN: UserData._ClassificationType.ValueType  # 6880
         CLASSIFICATION_TYPE_BOT_DELETE_DATA_SALE_ADMIN: UserData._ClassificationType.ValueType  # 6890
         CLASSIFICATION_TYPE_BOT_WARN_DATA_SALE_ADMIN: UserData._ClassificationType.ValueType  # 6900
+        CLASSIFICATION_TYPE_BOT_DELETE_LACKS_RATING_ADMIN: UserData._ClassificationType.ValueType  # 6910
+        CLASSIFICATION_TYPE_BOT_WARN_LACKS_RATING_ADMIN: UserData._ClassificationType.ValueType  # 6920
+        CLASSIFICATION_TYPE_BOT_DELETE_GAMBLING_ADMIN: UserData._ClassificationType.ValueType  # 6930
+        CLASSIFICATION_TYPE_BOT_DELETE_ILLEGAL_ADMIN: UserData._ClassificationType.ValueType  # 6940
+        CLASSIFICATION_TYPE_BOT_WARN_IMPERSONATION_ADMIN: UserData._ClassificationType.ValueType  # 6950
+        CLASSIFICATION_TYPE_BOT_DELETE_DATA_AI_TRAINING_ADMIN: UserData._ClassificationType.ValueType  # 6960
+        CLASSIFICATION_TYPE_BOT_WARN_DATA_AI_TRAINING_ADMIN: UserData._ClassificationType.ValueType  # 6970
         CLASSIFICATION_TYPE_HIGH_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData._ClassificationType.ValueType  # 7005
         CLASSIFICATION_TYPE_MEDIUM_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData._ClassificationType.ValueType  # 7015
         CLASSIFICATION_TYPE_LOW_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData._ClassificationType.ValueType  # 7025
@@ -1356,6 +1363,13 @@ class UserData(_message.Message):
     CLASSIFICATION_TYPE_BOT_WARN_DATA_PROFILING_ADMIN: UserData.ClassificationType.ValueType  # 6880
     CLASSIFICATION_TYPE_BOT_DELETE_DATA_SALE_ADMIN: UserData.ClassificationType.ValueType  # 6890
     CLASSIFICATION_TYPE_BOT_WARN_DATA_SALE_ADMIN: UserData.ClassificationType.ValueType  # 6900
+    CLASSIFICATION_TYPE_BOT_DELETE_LACKS_RATING_ADMIN: UserData.ClassificationType.ValueType  # 6910
+    CLASSIFICATION_TYPE_BOT_WARN_LACKS_RATING_ADMIN: UserData.ClassificationType.ValueType  # 6920
+    CLASSIFICATION_TYPE_BOT_DELETE_GAMBLING_ADMIN: UserData.ClassificationType.ValueType  # 6930
+    CLASSIFICATION_TYPE_BOT_DELETE_ILLEGAL_ADMIN: UserData.ClassificationType.ValueType  # 6940
+    CLASSIFICATION_TYPE_BOT_WARN_IMPERSONATION_ADMIN: UserData.ClassificationType.ValueType  # 6950
+    CLASSIFICATION_TYPE_BOT_DELETE_DATA_AI_TRAINING_ADMIN: UserData.ClassificationType.ValueType  # 6960
+    CLASSIFICATION_TYPE_BOT_WARN_DATA_AI_TRAINING_ADMIN: UserData.ClassificationType.ValueType  # 6970
     CLASSIFICATION_TYPE_HIGH_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData.ClassificationType.ValueType  # 7005
     CLASSIFICATION_TYPE_MEDIUM_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData.ClassificationType.ValueType  # 7015
     CLASSIFICATION_TYPE_LOW_RISK_DANGEROUS_AND_REGULATED_GOODS_GUILD_RETOOL: UserData.ClassificationType.ValueType  # 7025
@@ -1636,6 +1650,7 @@ class UserData(_message.Message):
         DISPLAY_NAME_FONT_ORBITRON: UserData._DisplayNameFont.ValueType  # 14
         DISPLAY_NAME_FONT_NEW_ROCKER: UserData._DisplayNameFont.ValueType  # 15
         DISPLAY_NAME_FONT_KALAM: UserData._DisplayNameFont.ValueType  # 16
+        DISPLAY_NAME_FONT_HEXAGON: UserData._DisplayNameFont.ValueType  # 17
 
     class DisplayNameFont(_DisplayNameFont, metaclass=_DisplayNameFontEnumTypeWrapper): ...
     DISPLAY_NAME_FONT_UNSPECIFIED: UserData.DisplayNameFont.ValueType  # 0
@@ -1655,6 +1670,7 @@ class UserData(_message.Message):
     DISPLAY_NAME_FONT_ORBITRON: UserData.DisplayNameFont.ValueType  # 14
     DISPLAY_NAME_FONT_NEW_ROCKER: UserData.DisplayNameFont.ValueType  # 15
     DISPLAY_NAME_FONT_KALAM: UserData.DisplayNameFont.ValueType  # 16
+    DISPLAY_NAME_FONT_HEXAGON: UserData.DisplayNameFont.ValueType  # 17
 
     class _DisplayNameEffect:
         ValueType = _typing.NewType("ValueType", _builtins.int)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.0.6
+Version: 1.1.0
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -59,6 +59,7 @@ Requires-Dist: perplexityai>=0.30.0,<1 ; extra == 'perplexity'
 Requires-Dist: redis>=5.0,<9 ; extra == 'redis'
 Requires-Dist: tavily-python>=0.7.4,<0.9 ; extra == 'tavily'
 Requires-Dist: opentelemetry-sdk>=1.20 ; extra == 'tracing'
+Requires-Dist: typesafe-sdk>=0.7.1,<0.8 ; extra == 'typesafe'
 Requires-Dist: xai-sdk>=1.12.2,<2 ; extra == 'xai'
 Requires-Dist: zai-sdk>=0.2.3,<1 ; extra == 'zai'
 Requires-Python: >=3.10
@@ -87,6 +88,7 @@ Provides-Extra: perplexity
 Provides-Extra: redis
 Provides-Extra: tavily
 Provides-Extra: tracing
+Provides-Extra: typesafe
 Provides-Extra: xai
 Provides-Extra: zai
 Description-Content-Type: text/markdown

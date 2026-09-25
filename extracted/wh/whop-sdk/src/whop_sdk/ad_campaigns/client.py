@@ -133,7 +133,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -172,6 +172,7 @@ class AdCampaignsClient:
         account_id: typing.Optional[str] = OMIT,
         bid_type: typing.Optional[CreateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[CreateAdCampaignsRequestBudgetType] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
@@ -201,7 +202,10 @@ class AdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign's budget, in the ad account's currency. Required when budget_optimization is `ad_campaign`; omit when each ad group sets its own budget.
+            The campaign's budget in USD, which is what it is stored and billed in. Required when budget_optimization is `ad_campaign` (or send budget_amount_local instead); omit when each ad group sets its own budget.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign's budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[CreateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Defaults to `ad_group`.
@@ -234,7 +238,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -251,6 +255,7 @@ class AdCampaignsClient:
             account_id=account_id,
             bid_type=bid_type,
             budget_amount=budget_amount,
+            budget_amount_local=budget_amount_local,
             budget_optimization=budget_optimization,
             budget_type=budget_type,
             desired_cost_per_result=desired_cost_per_result,
@@ -304,7 +309,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -344,7 +349,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -361,6 +366,7 @@ class AdCampaignsClient:
         *,
         bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[UpdateAdCampaignsRequestBudgetType] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
@@ -382,7 +388,10 @@ class AdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign budget, in the account's currency. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+            The campaign budget in USD, which is what it is stored and billed in. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount; an amount equal to the current budget_amount_local keeps the stored USD budget as is. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[UpdateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign is live on the ad network; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
@@ -418,7 +427,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -430,6 +439,7 @@ class AdCampaignsClient:
             id,
             bid_type=bid_type,
             budget_amount=budget_amount,
+            budget_amount_local=budget_amount_local,
             budget_optimization=budget_optimization,
             budget_type=budget_type,
             ends_at=ends_at,
@@ -476,7 +486,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -511,7 +521,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -520,39 +530,6 @@ class AdCampaignsClient:
         )
         """
         _response = self._raw_client.pause(id, request_options=request_options)
-        return _response.data
-
-    def retry_payment(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> AdCampaign:
-        """
-        Retries billing for an ad campaign whose payment previously failed.
-
-        Parameters
-        ----------
-        id : str
-            The ad campaign ID.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AdCampaign
-            payment retried
-
-        Examples
-        --------
-        from whop_sdk import Whop
-
-        client = Whop(
-            "2026-09-15",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        client.ad_campaigns.retry_payment(
-            id="id",
-        )
-        """
-        _response = self._raw_client.retry_payment(id, request_options=request_options)
         return _response.data
 
     def unpause(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> AdCampaign:
@@ -577,7 +554,7 @@ class AdCampaignsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -689,7 +666,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -735,6 +712,7 @@ class AsyncAdCampaignsClient:
         account_id: typing.Optional[str] = OMIT,
         bid_type: typing.Optional[CreateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[CreateAdCampaignsRequestBudgetType] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
@@ -764,7 +742,10 @@ class AsyncAdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign's budget, in the ad account's currency. Required when budget_optimization is `ad_campaign`; omit when each ad group sets its own budget.
+            The campaign's budget in USD, which is what it is stored and billed in. Required when budget_optimization is `ad_campaign` (or send budget_amount_local instead); omit when each ad group sets its own budget.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign's budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[CreateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Defaults to `ad_group`.
@@ -799,7 +780,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -822,6 +803,7 @@ class AsyncAdCampaignsClient:
             account_id=account_id,
             bid_type=bid_type,
             budget_amount=budget_amount,
+            budget_amount_local=budget_amount_local,
             budget_optimization=budget_optimization,
             budget_type=budget_type,
             desired_cost_per_result=desired_cost_per_result,
@@ -877,7 +859,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -927,7 +909,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -950,6 +932,7 @@ class AsyncAdCampaignsClient:
         *,
         bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[UpdateAdCampaignsRequestBudgetType] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
@@ -971,7 +954,10 @@ class AsyncAdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign budget, in the account's currency. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+            The campaign budget in USD, which is what it is stored and billed in. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount; an amount equal to the current budget_amount_local keeps the stored USD budget as is. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[UpdateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign is live on the ad network; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
@@ -1009,7 +995,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1027,6 +1013,7 @@ class AsyncAdCampaignsClient:
             id,
             bid_type=bid_type,
             budget_amount=budget_amount,
+            budget_amount_local=budget_amount_local,
             budget_optimization=budget_optimization,
             budget_type=budget_type,
             ends_at=ends_at,
@@ -1075,7 +1062,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1118,7 +1105,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1133,47 +1120,6 @@ class AsyncAdCampaignsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.pause(id, request_options=request_options)
-        return _response.data
-
-    async def retry_payment(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> AdCampaign:
-        """
-        Retries billing for an ad campaign whose payment previously failed.
-
-        Parameters
-        ----------
-        id : str
-            The ad campaign ID.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AdCampaign
-            payment retried
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-
-        client = AsyncWhop(
-            "2026-09-15",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.ad_campaigns.retry_payment(
-                id="id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.retry_payment(id, request_options=request_options)
         return _response.data
 
     async def unpause(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> AdCampaign:
@@ -1200,7 +1146,7 @@ class AsyncAdCampaignsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -23,7 +23,6 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.primitives.containers.estimator_pub import EstimatorPub
 
 from ..base_primitive import get_mode_service_backend
-from ..fake_provider.local_service import QiskitRuntimeLocalService
 from ..ibm_backend import IBMBackend
 from ..options.estimator_options import EstimatorOptions
 from ..options.noise_learner_options import NoiseLearnerOptions
@@ -38,6 +37,7 @@ if TYPE_CHECKING:
     from qiskit.primitives.containers import EstimatorPubLike
     from qiskit.providers import BackendV2
 
+    from .. import options  # Needed as sphinx is unable to solve conflicts.
     from ..batch import Batch
     from ..runtime_job_v2 import RuntimeJobV2
     from ..session import Session
@@ -109,7 +109,8 @@ class NoiseLearner:
             `Qiskit Runtime documentation <https://quantum.cloud.ibm.com/docs/guides/execution-modes>`__
             for more information about the execution modes.
 
-        options: :class:`NoiseLearnerOptions`. Alternatively, :class:`EstimatorOptions` can be
+        options: :class:`NoiseLearnerOptions`. Alternatively,
+            :class:`~qiskit_ibm_runtime.options.EstimatorOptions` can be
             provided for convenience, in which case the estimator options get reformatted into
             noise learner options and all the irrelevant fields are ignored.
 
@@ -124,10 +125,10 @@ class NoiseLearner:
     def __init__(
         self,
         mode: BackendV2 | Session | Batch | None = None,
-        options: dict | NoiseLearnerOptions | EstimatorOptions | None = None,
+        options: dict | NoiseLearnerOptions | options.EstimatorOptions | None = None,
     ):
         self._mode, self._service, self._backend = get_mode_service_backend(mode)
-        if isinstance(self._service, QiskitRuntimeLocalService):
+        if self._service.is_local:
             raise ValueError("``NoiseLearner`` not currently supported in local mode.")
 
         self._set_options(options)
@@ -137,7 +138,9 @@ class NoiseLearner:
         """The options in this noise learner."""
         return self._options
 
-    def run(self, circuits: Iterable[QuantumCircuit | EstimatorPubLike]) -> RuntimeJobV2:
+    def run(
+        self, circuits: Iterable[QuantumCircuit | EstimatorPubLike], dry_run: bool = False
+    ) -> RuntimeJobV2:
         """Submit a request to the noise learner program.
 
         This function breaks the given list of circuits into a list of unique layers, following
@@ -153,6 +156,12 @@ class NoiseLearner:
                 tuples ``(circuit, observables)`` or ``(circuit, observables, parameter_values)``.
                 In this case, the pub-like objects are converted to a list of circuits, and all
                 the other fields (such as ``observables`` and ``parameter_values``) are ignored.
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
 
         Returns:
             The submitted job.
@@ -195,6 +204,7 @@ class NoiseLearner:
                 inputs=inputs,
                 options=runtime_options,
                 calibration_id=calibration_id,
+                dry_run=dry_run,
             )
 
         if self._backend:
@@ -208,6 +218,7 @@ class NoiseLearner:
                 options=runtime_options,
                 inputs=inputs,
                 calibration_id=calibration_id,
+                dry_run=dry_run,
             )
 
         return self._service._run(  # type: ignore[attr-defined]
@@ -215,6 +226,7 @@ class NoiseLearner:
             options=runtime_options,
             inputs=inputs,
             calibration_id=calibration_id,
+            dry_run=dry_run,
         )
 
     @classmethod

@@ -74,7 +74,11 @@ from composio.core.models.tool_router_session_delete import (
     ToolRouterSessionDeleteResponse,
     delete_tool_router_session,
 )
-from composio.core.models.tools import ToolExecuteParams, ToolExecutionResponse
+from composio.core.models.tools import (
+    PremiumCharge,
+    ToolExecuteParams,
+    ToolExecutionResponse,
+)
 from composio.core.provider import TTool, TToolCollection
 from composio.core.provider.base import BaseProvider
 
@@ -109,6 +113,32 @@ ToolRouterSessionConfig = t.Union[
     session_attach_response.Config,
     session_patch_response.Config,
 ]
+
+
+class ToolRouterPremiumUsageEnable(te.TypedDict):
+    enable: t.List[str]
+
+
+class ToolRouterPremiumUsageDisable(te.TypedDict):
+    disable: t.List[str]
+
+
+class ToolRouterPremiumUsageConfig(te.TypedDict, total=False):
+    """Experimental premium usage policy for a Session."""
+
+    toolkits: t.Union[ToolRouterPremiumUsageEnable, ToolRouterPremiumUsageDisable]
+    tools: t.Dict[
+        str, t.Union[ToolRouterPremiumUsageEnable, ToolRouterPremiumUsageDisable]
+    ]
+    return_premium_charge: bool
+
+
+class ToolRouterSessionExecuteResponse(SessionExecuteResponse):
+    """Result of :meth:`ToolRouterSession.execute`."""
+
+    premium_charge: t.Optional[PremiumCharge] = None
+    """Present only when the Session sets
+    ``premium_usage.return_premium_charge`` and a charge is available."""
 
 
 class ToolRouterUpdateManageConnectionsConfig(te.TypedDict, total=False):
@@ -183,8 +213,8 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
     #: Experimental capabilities available on this session.
     experimental: "ToolRouterSessionExperimental"
     #: Version of the server-side configuration this object last observed.
-    #: Refreshed in place by :meth:`update`, which sends it as the
-    #: ``expected_config_version`` precondition by default.
+    #: Refreshed in place by :meth:`update`. Pass it as ``expected_config_version``
+    #: to make an update conditional.
     config_version: t.Optional[int]
 
     def __init__(
@@ -672,11 +702,14 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
                 else f"{failed} out of {len(all_results)} tools failed"
             )
 
-        return {
+        merged: t.Dict[str, t.Any] = {
             "data": merged_data,
             "error": error_message,
             "successful": not has_any_error,
         }
+        if remote_result and remote_result.get("premium_charge") is not None:
+            merged["premium_charge"] = remote_result["premium_charge"]
+        return merged
 
     def authorize(
         self,
@@ -831,7 +864,7 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         *,
         arguments: t.Optional[t.Dict[str, t.Any]] = None,
         account: t.Optional[str] = None,
-    ) -> SessionExecuteResponse:
+    ) -> ToolRouterSessionExecuteResponse:
         """
         Execute a tool within the session.
 
@@ -844,18 +877,14 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
             multi-account sessions. Helper/meta tools either ignore this
             top-level field or define their own account-selection fields.
 
-        Both paths return a ``SessionExecuteResponse`` with ``data``,
-        ``error``, and ``log_id`` attributes.
+        Both paths return a ``ToolRouterSessionExecuteResponse`` with ``data``,
+        ``error``, ``log_id``, and ``premium_charge`` attributes.
         """
-        from composio_client.types.tool_router.session_execute_response import (
-            SessionExecuteResponse,
-        )
-
         # Check if this is a local tool (by original or final slug)
         entry = find_custom_tool(self._custom_tools_map, tool_slug)
         if entry and self._session_context:
             result = execute_custom_tool(entry, arguments or {}, self._session_context)
-            return SessionExecuteResponse(
+            return ToolRouterSessionExecuteResponse(
                 data=result["data"],
                 error=result["error"],
                 log_id="",
@@ -863,7 +892,7 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
 
         assert_unambiguous_custom_tool_slug(self._custom_tools_map, tool_slug)
 
-        return self._client.tool_router.session.execute(
+        response = self._client.tool_router.session.execute(
             session_id=self.session_id,
             tool_slug=tool_slug,
             arguments=arguments if arguments is not None else omit,
@@ -872,6 +901,10 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
                 self._inline_custom_tools_payload
             ),
         )
+        # The client already validated data/error/log_id and kept the
+        # undeclared premium_charge as an extra. Construct without
+        # revalidating so a malformed charge can't fail an executed call.
+        return ToolRouterSessionExecuteResponse.model_construct(**dict(response))
 
     def custom_tools(
         self, *, toolkit: t.Optional[str] = None
@@ -982,6 +1015,9 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         self,
         *,
         toolkits: t.Union[t.Optional[session_patch_params.Toolkits], "Omit"] = omit,
+        premium_usage: t.Union[
+            t.Literal[False], ToolRouterPremiumUsageConfig, "Omit"
+        ] = omit,
         tools: t.Union[
             t.Optional[t.Dict[str, session_patch_params.Tools]], "Omit"
         ] = omit,
@@ -1021,16 +1057,23 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
         as-is). Supplied ``tools``, ``auth_configs`` and ``connected_accounts``
         maps replace the stored map entirely. Inside ``manage_connections``,
         ``callback_url=None`` removes only the stored callback URL.
+        Experimental ``premium_usage`` accepts ``False`` to disable billed
+        access or an object to set its filters; it does not accept ``None``.
+        Any object, even one that only sets ``return_premium_charge``,
+        re-enables premium usage on a Session set to ``False``.
 
-        The request carries the ``config_version`` this object last observed
-        as the ``expected_config_version`` precondition, so a concurrent change
-        raises :class:`~composio.exceptions.SessionConfigConflictError`
-        (HTTP 409) instead of being overwritten. Pass an ``int`` to send another
-        version, or ``expected_config_version=False`` to send no precondition
-        (last writer wins). The PATCH is never retried by the transport, so a
-        409 is reported exactly once. On conflict this object stays unchanged:
-        re-fetch the session with ``composio.sessions.use(session_id)`` and
-        retry against the fresh ``config_version``.
+        By default the request carries no precondition: the last writer wins.
+        Pass ``expected_config_version`` (for example this object's
+        ``config_version``) to make the update conditional: the API then
+        applies it only when the stored version still matches, and a concurrent
+        change raises :class:`~composio.exceptions.SessionConfigConflictError`
+        (HTTP 409) instead of being overwritten. The API must support the
+        ``expected_config_version`` field; otherwise it rejects the request with
+        a 400. ``expected_config_version=False`` is the same as omitting it.
+        The PATCH is never retried by the transport, so a 409 is reported
+        exactly once. On conflict this object stays unchanged: re-fetch the
+        session with ``composio.sessions.use(session_id)`` and retry against
+        the fresh ``config_version``.
 
         ``config``, ``config_version`` and ``preload`` are refreshed in place
         only after a successful response, and the updated ``config`` is
@@ -1049,12 +1092,15 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
                 "Pass either `sandbox` or `workbench`, not both. "
                 "`workbench` is a backwards-compatible alias for `sandbox`."
             )
+        if premium_usage is None:
+            raise exceptions.InvalidParams(
+                "`premium_usage` does not accept None; pass False to disable "
+                "premium usage, or omit it to keep the stored policy"
+            )
 
         precondition: t.Union[int, "Omit"]
-        if expected_config_version is False:
+        if expected_config_version is None or expected_config_version is False:
             precondition = omit
-        elif expected_config_version is None:
-            precondition = omit if self.config_version is None else self.config_version
         elif isinstance(expected_config_version, bool) or expected_config_version < 1:
             raise exceptions.InvalidParams(
                 "`expected_config_version` must be a positive integer, or False to "
@@ -1104,6 +1150,14 @@ class ToolRouterSession(t.Generic[TTool, TToolCollection]):
                 experimental=t.cast(
                     t.Union[t.Optional[session_patch_params.Experimental], "Omit"],
                     experimental,
+                ),
+                premium_usage=t.cast(
+                    t.Union[
+                        t.Literal[False],
+                        session_patch_params.CurrentPremiumUsageVariant1,
+                        "Omit",
+                    ],
+                    premium_usage,
                 ),
                 extra_body=extra_body,
                 # A stale precondition is a deterministic 409: never retry it.

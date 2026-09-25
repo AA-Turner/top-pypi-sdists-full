@@ -1,5 +1,6 @@
 """Main API client used by the Python SDK and CLI."""
 
+import os
 import ssl
 import typing as t
 from urllib.parse import quote as _url_quote
@@ -46,7 +47,7 @@ from dreadnode.app.api.models import (
     Workspace,
 )
 from dreadnode.core.exceptions import InsufficientCreditsError
-from dreadnode.core.tls import create_platform_ssl_context
+from dreadnode.core.tls import cached_platform_ssl_context, create_platform_ssl_context
 from dreadnode.version import VERSION
 
 _TRANSPORT_ERRORS = (
@@ -117,7 +118,8 @@ class ApiClient:
         timeout: int = 30,
         default_org: str | None = None,
         ssl_context: ssl.SSLContext | None = None,
-    ):
+        network: t.Literal["cluster", "public"] | None = None,
+    ) -> None:
         """
         Initialize the API client.
 
@@ -127,7 +129,19 @@ class ApiClient:
             timeout: Request timeout in seconds.
             default_org: Optional default organization key for org-scoped endpoints.
             ssl_context: Optional platform TLS context override.
+            network: Connection network context; defaults to DREADNODE_NETWORK,
+                then public. Cluster selects server-configured internal storage.
         """
+        if network is not None:
+            network_context, network_source = network, "network"
+        else:
+            # An exported-but-empty variable is noise, not a choice.
+            network_context = os.getenv("DREADNODE_NETWORK") or "public"
+            network_source = "DREADNODE_NETWORK"
+        if network_context not in ("cluster", "public"):
+            raise ValueError(
+                f"{network_source} must be 'cluster' or 'public', got {network_context!r}"
+            )
         api_base_url, server_root_url = self._normalize_base_urls(base_url)
         self._base_url = api_base_url
         self._server_root_url = server_root_url
@@ -138,6 +152,7 @@ class ApiClient:
         headers = {
             "User-Agent": f"dreadnode-sdk/{VERSION}",
             "Accept": "application/json",
+            "X-Dreadnode-Network": network_context,
         }
         if api_key:
             headers["X-API-Key"] = api_key
@@ -348,9 +363,9 @@ class ApiClient:
     # User (authenticated routes)
     # =========================================================================
 
-    def get_user(self) -> User:
+    def get_user(self, *, timeout: float | None = None) -> User:
         """GET /api/user - Get current user."""
-        response = self.request("GET", "/user")
+        response = self.request("GET", "/user", timeout=timeout)
         return User(**response.json())
 
     # =========================================================================
@@ -558,9 +573,9 @@ class ApiClient:
     # Organization
     # =========================================================================
 
-    def get_organization(self, org: str) -> Organization:
+    def get_organization(self, org: str, *, timeout: float | None = None) -> Organization:
         """GET /api/org/{org} - Get org details."""
-        response = self.request("GET", f"/org/{org}")
+        response = self.request("GET", f"/org/{org}", timeout=timeout)
         return Organization(**response.json())
 
     def list_user_organizations(self) -> list[Organization]:
@@ -568,16 +583,18 @@ class ApiClient:
         response = self.request("GET", "/user/organizations")
         return [Organization(**org) for org in response.json()]
 
-    def list_organization_workspaces(self, org: str) -> list[Workspace]:
+    def list_organization_workspaces(
+        self, org: str, *, timeout: float | None = None
+    ) -> list[Workspace]:
         """GET /api/org/{org}/ws - List workspaces in an organization."""
-        response = self.request("GET", f"/org/{org}/ws")
+        response = self.request("GET", f"/org/{org}/ws", timeout=timeout)
         data = response.json()
         items = data.get("workspaces", data) if isinstance(data, dict) else data
         return [Workspace(**ws) for ws in items]
 
-    def list_workspaces(self, org: str) -> list[Workspace]:
+    def list_workspaces(self, org: str, *, timeout: float | None = None) -> list[Workspace]:
         """Compatibility alias for list_organization_workspaces()."""
-        return self.list_organization_workspaces(org)
+        return self.list_organization_workspaces(org, timeout=timeout)
 
     # =========================================================================
     # Packages - Type Aliases
@@ -932,9 +949,9 @@ class ApiClient:
     # Workspace
     # =========================================================================
 
-    def get_workspace(self, org: str, workspace: str) -> Workspace:
+    def get_workspace(self, org: str, workspace: str, *, timeout: float | None = None) -> Workspace:
         """GET /org/{org}/ws/{workspace} - Get workspace details."""
-        response = self.request("GET", f"/org/{org}/ws/{workspace}")
+        response = self.request("GET", f"/org/{org}/ws/{workspace}", timeout=timeout)
         return Workspace(**response.json())
 
     def create_workspace(
@@ -968,9 +985,13 @@ class ApiClient:
                 return project.key
         return projects[0].key if projects else None
 
-    def get_project(self, org: str, workspace: str, project: str) -> Project:
+    def get_project(
+        self, org: str, workspace: str, project: str, *, timeout: float | None = None
+    ) -> Project:
         """GET /org/{org}/ws/{workspace}/projects/{project} - Get project details."""
-        response = self.request("GET", f"/org/{org}/ws/{workspace}/projects/{project}")
+        response = self.request(
+            "GET", f"/org/{org}/ws/{workspace}/projects/{project}", timeout=timeout
+        )
         return Project(**response.json())
 
     def create_project(
@@ -2691,9 +2712,22 @@ class ApiClient:
         return t.cast("dict[str, t.Any]", response.json())
 
     def download_capability_bundle(self, org: str, name: str, version: str) -> bytes:
-        """Download the tar.gz bundle for a capability via presigned URL."""
+        """Download the tar.gz bundle for a capability via presigned URL.
+
+        The presigned URL points at object storage, which on a self-hosted
+        install is served on the operator's own domain behind their CA
+        (``storage.<domain>``). Verify against the native trust store like
+        every other platform-facing transport — a bare ``httpx.get`` falls
+        back to ``certifi`` and cannot see the operator CA, so the download
+        fails certificate verification and the capability silently never
+        syncs to the sandbox (WP1-66).
+        """
         info = self.get_capability_bundle_url(org, name, version)
-        resp = httpx.get(info["download_url"], timeout=httpx.Timeout(120, connect=10))
+        resp = httpx.get(
+            info["download_url"],
+            timeout=httpx.Timeout(120, connect=10),
+            verify=cached_platform_ssl_context(),
+        )
         resp.raise_for_status()
         return resp.content
 

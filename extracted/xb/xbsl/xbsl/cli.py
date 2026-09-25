@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections import Counter
 import sys
 import textwrap
 from collections.abc import Callable
@@ -73,9 +74,18 @@ def discover_with_context(paths: list[str]) -> tuple[list[Path], list[Path] | No
 
     Returns (files, requested): files is what to lint; requested is the explicitly asked-for
     subset the caller must narrow the diagnostics down to (_filter_requested), or None when no
-    context was added and the diagnostics need no filtering."""
+    context was added and the diagnostics need no filtering.
+
+    With context added, every file of the run is RESOLVED, the requested ones included. The
+    context comes from the resolved project root, and a requested path left as typed (relative
+    to the working directory, another letter case, a `..` in it) lies under no folder of that
+    root: the placement model found no subsystem for it and code/foreign-not-public took the
+    module for the project module, the resources of the project were not found for it - a list
+    of four files of a subsystem got ten false visibility findings a tree run did not have.
+    The requested paths keep the typed form, and the narrowing reports under it."""
     files = discover(paths)
-    seen = {f.resolve() for f in files}
+    resolved = [f.resolve() for f in files]
+    seen = set(resolved)
     roots: list[Path] = []
     for raw in paths:
         p = Path(raw)
@@ -97,16 +107,25 @@ def discover_with_context(paths: list[str]) -> tuple[list[Path], list[Path] | No
                     added.append(f)
     if not added:
         return files, None
-    return files + added, files
+    return resolved + added, files
+
+
+def _context_of(files, requested):
+    """The files of a discover_with_context run that were loaded for the project picture
+    only: the project rules read them, the file rules skip them (engine.run_sources)."""
+    if requested is None:
+        return None
+    wanted = {p.resolve() for p in requested}
+    return frozenset(f for f in files if f not in wanted)
 
 
 def _filter_requested(diagnostics, requested):
-    """The diagnostics of the explicitly requested files: the project context loaded by
-    discover_with_context is checked for the cross-file picture, not reported on."""
+    """The diagnostics of the explicitly requested files, under the paths as they were typed:
+    the project context loaded by discover_with_context is checked for the cross-file picture,
+    not reported on."""
     if requested is None:
         return diagnostics
-    wanted = {p.resolve() for p in requested}
-    return [d for d in diagnostics if Path(d.path).resolve() in wanted]
+    return engine.narrow_to_requested(diagnostics, requested)
 
 
 def _commands_help() -> str:
@@ -367,6 +386,63 @@ def _selfupdate_main(argv: list[str]) -> int:
     return 0
 
 
+def _fold_parser() -> argparse.ArgumentParser:
+    parser = i18n.ArgumentParser(prog="xbsl fold-comments",
+                                 description=i18n.t("cli.help.commands.fold-comments"))
+    parser.add_argument("paths", nargs="+", help=i18n.t("cli.help.fold-paths"))
+    parser.add_argument("--write", action="store_true", help=i18n.t("cli.help.fold-write"))
+    parser.add_argument("--all", action="store_true", dest="take_proposed",
+                        help=i18n.t("cli.help.fold-all"))
+    parser.add_argument("--format", choices=("text", "json"), default="text",
+                        help=i18n.t("cli.help.fold-format"))
+    return parser
+
+
+def _fold_main(argv: list[str]) -> int:
+    """`xbsl fold-comments`: show, and with --write apply, the fold of the yaml comments."""
+    import difflib
+
+    from xbsl import commentfold
+
+    args = _fold_parser().parse_args(argv)
+    files = [path for path in discover(args.paths) if path.suffix.lower() == ".yaml"]
+    folds = commentfold.fold_paths(files, take_proposed=args.take_proposed)
+    written = commentfold.write_folds(folds) if args.write else 0
+    counts = Counter(
+        (move.kind, move.action) for fold in folds for move in fold.moves
+    )
+    if args.format == "json":
+        # The MCP tool meta_fold_comments answers with the same report.
+        print(json.dumps(commentfold.report(folds, written), ensure_ascii=False, indent=1))
+        return 0
+    for fold in folds:
+        print(fold.rel)
+        for move in fold.moves:
+            where = f" -> {move.target_line}" if move.target_line else ""
+            subject = f" `{move.subject}`" if move.subject else ""
+            action = i18n.t(f"fold.action.{move.action}")
+            print(f"  {move.line}: {i18n.t(f'fold.kind.{move.kind}')}{subject}{where} - {action}")
+            if move.reason:
+                print(f"      {i18n.t(move.reason)}")
+            for note in move.notes:
+                print(f"      {note}")
+        for problem in fold.audit:
+            print(f"  ! {problem}")
+        if fold.changed and not args.write:
+            original = Path(fold.rel).read_bytes().decode("utf-8")
+            print("".join(difflib.unified_diff(
+                original.splitlines(keepends=True), fold.text.splitlines(keepends=True),
+                fromfile=fold.rel, tofile=fold.rel,
+            )))
+    applied = sum(count for (_kind, action), count in counts.items() if action == "applied")
+    proposed = sum(count for (_kind, action), count in counts.items() if action == "proposed")
+    left = sum(count for (_kind, action), count in counts.items() if action == "left")
+    key = "fold.summary.written" if args.write else "fold.summary.dry"
+    print(i18n.t(key, files=len(folds), written=written, applied=applied, proposed=proposed,
+                 left=left))
+    return 0
+
+
 def _mcplog_parser() -> argparse.ArgumentParser:
     parser = i18n.ArgumentParser(prog="xbsl mcp-log",
                                  description=i18n.t("cli.help.commands.mcp-log"))
@@ -392,6 +468,16 @@ def _mcplog_line(event: dict) -> str:
     elif kind == "stopped":
         text = i18n.t("mcplog.stopped", target=event.get("target", "?"),
                       name=event.get("name", ""), reason=event.get("reason", ""))
+    elif kind == "stale":
+        # Written by the server that found the engine on disk replaced under it
+        # (xbsl/freshness.py): a version on disk it refuses over, or sources changed under a
+        # failing call.
+        key = "mcplog.stale.sources" if event.get("reason") == "sources" else "mcplog.stale.version"
+        error = event.get("error")
+        text = i18n.t(key, loaded=event.get("loaded", "?"), on_disk=event.get("on_disk", "?"),
+                      tool=event.get("tool", "?"))
+        if error:
+            text += "; " + i18n.t("mcplog.stale.error", error=error)
     else:
         text = i18n.t("mcplog.unknown", event=kind)
     return f"{event.get('time', '?')}  pid {event.get('pid', '?')}  {text}"
@@ -489,7 +575,8 @@ def _baseline_main(argv: list[str]) -> int:
 
     diagnostics = _filter_requested(
         run_parallel(files, select=select, jobs=args.jobs,
-                     element_version=args.element_version or None),
+                     element_version=args.element_version or None,
+                     context=_context_of(files, requested)),
         requested,
     )
     added = baseline.add_entries(data, diagnostics, target.parent, reason=args.reason)
@@ -1634,6 +1721,7 @@ def _check_main(argv: list[str]) -> int:
                 run_parallel(
                     files, select=select, ignore=ignore, enable=enable,
                     jobs=args.jobs, element_version=args.element_version or None,
+                    context=_context_of(files, requested),
                 ),
                 requested,
             )
@@ -1881,6 +1969,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("self-update", "cli.help.commands.self-update", _selfupdate_main,
             parser=_selfupdate_parser),
     Command("mcp-log", "cli.help.commands.mcp-log", _mcplog_main, parser=_mcplog_parser),
+    Command("fold-comments", "cli.help.commands.fold-comments", _fold_main, parser=_fold_parser),
     *(Command(name, f"cli.help.scaf.{name}", partial(_scaffold_run, name),
               parser=_scaffold_parser, scaffold=True) for name in _META_COMMANDS),
 )

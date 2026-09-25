@@ -11,6 +11,7 @@ from typing import (
     AsyncIterable,
     Awaitable,
     Iterable,
+    Mapping,
     Sequence,
     overload,
 )
@@ -30,6 +31,10 @@ if TYPE_CHECKING:
         BulkCancelResponse,
         DetailedRunResponse,
         PipelineRunSummaryResponse,
+    )
+    from dlthub_sdk._gen.telemetry.models import (
+        GetJobResultTraceResponse200,
+        JobResultResponse,
     )
 
 
@@ -159,6 +164,99 @@ class CancelReport:
                 for item in payload.cancelled
             ),
             not_running=tuple(payload.not_running),
+        )
+
+
+@dataclass(frozen=True)
+class JobResultTrace:
+    """The whole job-result envelope a run delivered, as the runner sent it.
+
+    `JobResult` serves the promoted columns; this serves everything, which is
+    where an agent's per-turn tool calls live.
+
+    Attributes:
+        run_id: The run that declared it.
+        result: The envelope exactly as delivered — the declared output and, for
+            an agent, its trace: turns and the tools each called, token counts,
+            stop reason. Left opaque: the platform stores and returns it verbatim
+            and declares no shape for it.
+    """
+
+    run_id: str
+    result: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class JobResult:
+    """The structured result a run declared.
+
+    A run yields at most one, and most do not: a plain pipeline job declares
+    none, where an agent job reports its own outcome here. The agent fields are
+    ``None`` for any other kind of result.
+
+    Attributes:
+        run_id: The run that declared it.
+        job_ref: The job that ran.
+        result_type: What kind of result this is, as the job declared it.
+        engine_version: Manifest engine version the job was written for.
+        result: The job's declared output, left opaque: the shape is the job's
+            own and the platform stores it verbatim.
+        agent_status: The agent's self-report. This may legitimately disagree
+            with the run's own status — a failed agent inside a succeeded run
+            is normal.
+        summary: Model-authored markdown, unbounded. Untrusted: render it as
+            user content, never as instructions.
+        model: The model the agent ran on.
+        loop_type: The agent loop that produced this.
+        input_tokens: Tokens the agent consumed as input.
+        output_tokens: Tokens it produced.
+        total_tokens: The two combined, as the platform counted them.
+        cost_usd: What the run cost, as a decimal string so no client rounds it
+            through a float.
+        turn_count: How many turns the loop took.
+        stop_reason: Why the loop ended.
+        created_at: When the result was first recorded.
+        updated_at: When it last changed.
+    """
+
+    run_id: str
+    job_ref: str
+    result_type: str
+    engine_version: int
+    result: Any
+    agent_status: str | None
+    summary: str | None
+    model: str | None
+    loop_type: str | None
+    input_tokens: int | None
+    output_tokens: int | None
+    total_tokens: int | None
+    cost_usd: str | None
+    turn_count: int | None
+    stop_reason: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    @staticmethod
+    def _from_payload(_ctx: _Ctx[Any], payload: JobResultResponse) -> JobResult:
+        return JobResult(
+            run_id=str(payload.run_id),
+            job_ref=payload.job_ref,
+            result_type=payload.result_type,
+            engine_version=payload.engine_version,
+            result=_narrow.data(payload.result),
+            agent_status=_narrow.text(payload.agent_status),
+            summary=_narrow.text(payload.summary),
+            model=_narrow.text(payload.model),
+            loop_type=_narrow.text(payload.loop_type),
+            input_tokens=_narrow.whole(payload.input_tokens),
+            output_tokens=_narrow.whole(payload.output_tokens),
+            total_tokens=_narrow.whole(payload.total_tokens),
+            cost_usd=_narrow.text(payload.cost_usd),
+            turn_count=_narrow.whole(payload.turn_count),
+            stop_reason=_narrow.text(payload.stop_reason),
+            created_at=payload.date_added,
+            updated_at=payload.date_updated,
         )
 
 
@@ -368,6 +466,44 @@ class JobRun(Entity[M]):
             subject=f"run {self.number} had not finished",
         )
 
+    @overload
+    def result(self: JobRun[Sync]) -> JobResult: ...
+
+    @overload
+    def result(self: JobRun[Async]) -> Awaitable[JobResult]: ...
+
+    def result(self) -> JobResult | Awaitable[JobResult]:
+        """Read the structured result this run declared.
+
+        Returns:
+            The result; awaitable in async mode.
+
+        Raises:
+            NotFound: The run declared none, which is the normal case for a job
+                that reports no result — not a sign the run is missing.
+            ScopeMissing: Reached without a workspace in scope.
+        """
+        return JobRuns(self._ctx).result(id=self.id)
+
+    @overload
+    def trace(self: JobRun[Sync]) -> JobResultTrace: ...
+
+    @overload
+    def trace(self: JobRun[Async]) -> Awaitable[JobResultTrace]: ...
+
+    def trace(self) -> JobResultTrace | Awaitable[JobResultTrace]:
+        """Read the whole result envelope this run delivered, trace included.
+
+        Returns:
+            The envelope; awaitable in async mode.
+
+        Raises:
+            NotFound: The run declared no result, which is the normal case for a
+                job that reports none — not a sign the run is missing.
+            ScopeMissing: Reached without a workspace in scope.
+        """
+        return JobRuns(self._ctx).trace(id=self.id)
+
     @staticmethod
     def _from_payload(ctx: _Ctx[Any], payload: DetailedRunResponse) -> JobRun[Any]:
         return JobRun._bind(
@@ -453,6 +589,78 @@ class JobRuns(Collection[M]):
         return self._ctx.run(
             lambda t: t.get_run(workspace_id=workspace_id, run_id=id),
             JobRun._from_payload,
+        )
+
+    @overload
+    def result(self: JobRuns[Sync], *, id: str) -> JobResult: ...
+
+    @overload
+    def result(self: JobRuns[Async], *, id: str) -> Awaitable[JobResult]: ...
+
+    def result(self, *, id: str) -> JobResult | Awaitable[JobResult]:
+        """Read one run's declared result, without reading the run itself.
+
+        Args:
+            id: The run's uuid.
+
+        Returns:
+            The result; awaitable in async mode.
+
+        Raises:
+            BadRequest: ``id`` is not a uuid.
+            NotFound: No such run, or it declared no result — the platform
+                answers the same either way.
+            ScopeMissing: Reached without a workspace in scope.
+        """
+        workspace_id = self._ctx.require_workspace()
+        dataplane_url = self._ctx.require_dataplane()
+        return self._ctx.run(
+            lambda t: t.get_job_result(
+                workspace_id=workspace_id,
+                dataplane_url=dataplane_url,
+                run_id=id,
+            ),
+            JobResult._from_payload,
+        )
+
+    @overload
+    def trace(self: JobRuns[Sync], *, id: str) -> JobResultTrace: ...
+
+    @overload
+    def trace(self: JobRuns[Async], *, id: str) -> Awaitable[JobResultTrace]: ...
+
+    def trace(self, *, id: str) -> JobResultTrace | Awaitable[JobResultTrace]:
+        """Read one run's whole result envelope, without reading the run itself.
+
+        Args:
+            id: The run's uuid.
+
+        Returns:
+            The envelope; awaitable in async mode.
+
+        Raises:
+            BadRequest: ``id`` is not a uuid.
+            NotFound: No such run, or it declared no result — the platform
+                answers the same either way.
+            ScopeMissing: Reached without a workspace in scope.
+        """
+        workspace_id = self._ctx.require_workspace()
+        dataplane_url = self._ctx.require_dataplane()
+
+        def parse(
+            _ctx: _Ctx[Any], payload: GetJobResultTraceResponse200
+        ) -> JobResultTrace:
+            # Returned verbatim, so the generated model declares no fields and
+            # everything lands in additional_properties.
+            return JobResultTrace(run_id=id, result=dict(payload.additional_properties))
+
+        return self._ctx.run(
+            lambda t: t.get_job_result_trace(
+                workspace_id=workspace_id,
+                dataplane_url=dataplane_url,
+                run_id=id,
+            ),
+            parse,
         )
 
     @overload

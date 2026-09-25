@@ -6,11 +6,13 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-from ..basetypes import NetworkNumberQuality, NetworkType
-from ..debugging import ModuleLogger, bacpypes_debugging
-from ..object import NetworkPortObject as _NetworkPortObject
-from ..pdu import Address, IPv4Address, IPv6Address, LocalStation
+from ..debugging import bacpypes_debugging, ModuleLogger
+from ..pdu import Address, LocalStation, IPv4Address, IPv6Address
 from ..primitivedata import CharacterString, ObjectType
+
+from ..basetypes import NetworkType, NetworkNumberQuality
+from ..object import NetworkPortObject as _NetworkPortObject
+
 from .object import Object as _Object
 
 # some debugging

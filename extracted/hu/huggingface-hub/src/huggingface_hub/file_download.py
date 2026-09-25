@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, cast, overload
 from urllib.parse import quote
 
-import httpx
+import httpx2
 from tqdm import tqdm as base_tqdm
 
 from . import constants
@@ -50,7 +50,7 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_EXCEPTIONS,
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
-    _httpx_follow_hub_redirects_with_backoff,
+    _httpx2_follow_hub_redirects_with_backoff,
     _is_same_or_hub_host,
     flag_as_download_call,
     http_stream_backoff,
@@ -78,10 +78,10 @@ _CACHED_NO_EXIST_T = Any
 HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
 
 # Regex to check if the revision IS directly a commit_hash
-REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+REGEX_COMMIT_HASH = re.compile(r"[0-9a-f]{40}")
 
 # Regex to check if the file etag IS a valid sha256
-REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+REGEX_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
 
@@ -110,10 +110,8 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
     if constants.HF_HUB_DISABLE_SYMLINKS:
         return False
 
-    # Check symlink compatibility only once (per cache directory) at first time use
+    # Cache symlink compatibility per directory, publishing the result only after the probe completes.
     if cache_dir not in _are_symlinks_supported_in_dir:
-        _are_symlinks_supported_in_dir[cache_dir] = True
-
         os.makedirs(cache_dir, exist_ok=True)
         with SoftTemporaryDirectory(dir=cache_dir) as tmpdir:
             src_path = Path(tmpdir) / "dummy_file_src"
@@ -124,6 +122,7 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
             relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
             try:
                 os.symlink(relative_src, dst_path)
+                _are_symlinks_supported_in_dir[cache_dir] = True
             except OSError:
                 # Likely running on Windows
                 _are_symlinks_supported_in_dir[cache_dir] = False
@@ -296,7 +295,7 @@ def hf_hub_url(
     return url
 
 
-def _get_file_length_from_http_response(response: httpx.Response) -> int | None:
+def _get_file_length_from_http_response(response: httpx2.Response) -> int | None:
     """
     Get the length of the file from the HTTP response headers.
 
@@ -304,7 +303,7 @@ def _get_file_length_from_http_response(response: httpx.Response) -> int | None:
     `Content-Range` or `Content-Length` header, if available (in that order).
 
     Args:
-        response (`httpx.Response`):
+        response (`httpx2.Response`):
             The HTTP response object.
 
     Returns:
@@ -355,7 +354,8 @@ def http_get(
         url (`str`):
             The URL of the file to download.
         temp_file (`BinaryIO`):
-            The file-like object where to save the file.
+            The file-like object where to save the file. Content is written from the object's current position, so the
+            caller may hand over a file that already contains data of its own (see [`HfFileSystem.get_file`]).
         resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
@@ -403,7 +403,9 @@ def http_get(
             # If we requested a Range but got 200 back, the server ignored our Range header
             # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
             if resume_size > 0 and response.status_code == 200:
-                temp_file.seek(0)
+                # Rewind to where this download started, which is not necessarily the start of the file: the caller
+                # may have handed over a file object that already contains data of its own.
+                temp_file.seek(max(temp_file.tell() - resume_size, 0))
                 temp_file.truncate()
                 if _tqdm_bar is not None:
                     # When the progress bar is reused across retries, its counter has already been advanced by `resume_size`
@@ -463,7 +465,7 @@ def http_get(
                     new_resume_size += len(chunk)
                     # Some data has been downloaded from the server so we reset the number of retries.
                     _nb_retries = 5
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
+        except (httpx2.ConnectError, httpx2.TimeoutException, httpx2.RemoteProtocolError) as e:
             # Retry transient failures both when opening the stream and while reading its body.
             if _nb_retries <= 0:
                 logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
@@ -483,10 +485,12 @@ def http_get(
                 _tqdm_bar=progress,
             )
 
-    if expected_size is not None and expected_size != temp_file.tell():
+    # Compare against the bytes downloaded by this call rather than the absolute file position: the two differ
+    # whenever the caller passed a file object that was not positioned at 0.
+    if expected_size is not None and expected_size != new_resume_size:
         raise OSError(
             consistency_error_message.format(
-                actual_size=temp_file.tell(),
+                actual_size=new_resume_size,
             )
         )
 
@@ -934,7 +938,7 @@ def hf_hub_download(
             the local cache.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up, which is passed to `httpx.request`.
+            data before giving up, which is passed to `httpx2.request`.
         token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
@@ -1093,7 +1097,7 @@ def _hf_hub_download_to_cache_dir(
     relative_filename = os.path.join(*filename.split("/"))
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
-    if REGEX_COMMIT_HASH.match(revision):
+    if REGEX_COMMIT_HASH.fullmatch(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
         if os.path.exists(pointer_path):
             if dry_run:
@@ -1139,7 +1143,7 @@ def _hf_hub_download_to_cache_dir(
         # Couldn't make a HEAD call => let's try to find a local file
         if not force_download:
             commit_hash = None
-            if REGEX_COMMIT_HASH.match(revision):
+            if REGEX_COMMIT_HASH.fullmatch(revision):
                 commit_hash = revision
             else:
                 ref_path = os.path.join(storage_folder, "refs", revision)
@@ -1337,7 +1341,7 @@ def _hf_hub_download_to_local_dir(
 
     # Local file exists + metadata exists + commit_hash matches => return file
     if (
-        REGEX_COMMIT_HASH.match(revision)
+        REGEX_COMMIT_HASH.fullmatch(revision)
         and paths.file_path.is_file()
         and local_metadata is not None
         and local_metadata.commit_hash == revision
@@ -1441,7 +1445,7 @@ def _hf_hub_download_to_local_dir(
         # => means it's an LFS file (large)
         # => let's compute local hash and compare
         # => if match, update metadata and return file
-        if local_metadata is None and REGEX_SHA256.match(etag) is not None:
+        if local_metadata is None and REGEX_SHA256.fullmatch(etag) is not None:
             with open(paths.file_path, "rb") as f:
                 file_hash = sha_fileobj(f).hex()
             if file_hash == etag:
@@ -1662,7 +1666,7 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_hub_redirects_with_backoff(
+    response = _httpx2_follow_hub_redirects_with_backoff(
         method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
     )
     hf_raise_for_status(response)
@@ -1730,7 +1734,7 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if tree_cache_folder is not None and REGEX_COMMIT_HASH.match(revision):
+    if tree_cache_folder is not None and REGEX_COMMIT_HASH.fullmatch(revision):
         tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
@@ -1815,10 +1819,10 @@ def _get_metadata_or_catch_error(
                 if not _is_same_or_hub_host(url, metadata.location):
                     # Remove authorization header when downloading a LFS blob from a CDN
                     headers.pop("authorization", None)
-        except httpx.ProxyError:
+        except httpx2.ProxyError:
             # Actually raise on proxy error
             raise
-        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
+        except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
             # Otherwise, our Internet connection is down.
             # etag is None
             head_error_call = error
@@ -1995,7 +1999,9 @@ def _download_to_tmp_and_move(
     # process, a broken lock costs only duplicated bandwidth: each process downloads the full
     # file and atomically renames it to the final destination.
     # See https://github.com/huggingface/huggingface_hub/pull/4228.
+    # Re-check the length on Windows: the suffix can push a path just under the limit above MAX_PATH.
     tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+    tmp_path = Path(as_extended_path(tmp_path))
     try:
         with tmp_path.open("wb") as f:
             logger.debug(f"Downloading '{filename}' to '{tmp_path}'")

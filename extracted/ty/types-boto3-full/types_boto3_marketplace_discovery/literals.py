@@ -44,6 +44,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceTypeType",
     "ReviewSourceIdType",
+    "SaasQuickLaunchStatusType",
     "SearchFacetTypeType",
     "SearchFacetsPaginatorName",
     "SearchFilterTypeType",
@@ -101,6 +102,7 @@ RateCardConstraintTypeType = Literal["Allowed", "Disallowed"]
 ResourceContentTypeType = Literal["EMAIL", "LINK", "OTHER", "PHONE_NUMBER"]
 ResourceTypeType = Literal["MANUFACTURER_INSTRUCTIONS", "MANUFACTURER_SUPPORT"]
 ReviewSourceIdType = Literal["AWS_MARKETPLACE"]
+SaasQuickLaunchStatusType = Literal["DISABLED", "ENABLED"]
 SearchFacetTypeType = Literal[
     "AVERAGE_CUSTOMER_RATING",
     "CATEGORY",
@@ -300,6 +302,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",

@@ -10,52 +10,63 @@ Flask-Security signals module
 """
 
 import blinker
+from blinker import Namespace, NamedSignal
 
-signals = blinker.Namespace()
+signals: Namespace = blinker.Namespace()
 
-user_authenticated = signals.signal("user-authenticated")
+user_authenticated: NamedSignal = signals.signal("user-authenticated")
 
-user_unauthenticated = signals.signal("user-unauthenticated")
+user_unauthenticated: NamedSignal = signals.signal("user-unauthenticated")
 
-user_failed_authn = signals.signal("user-failed-authn")
+user_failed_authn: NamedSignal = signals.signal("user-failed-authn")
 
-user_registered = signals.signal("user-registered")
+user_registered: NamedSignal = signals.signal("user-registered")
 
 # For cases of RETURN_GENERIC_RESPONSES with existing email/username
-user_not_registered = signals.signal("user-not-registered")
+user_not_registered: NamedSignal = signals.signal("user-not-registered")
 
-user_confirmed = signals.signal("user-confirmed")
+user_confirmed: NamedSignal = signals.signal("user-confirmed")
 
-confirm_instructions_sent = signals.signal("confirm-instructions-sent")
+confirm_instructions_sent: NamedSignal = signals.signal("confirm-instructions-sent")
 
-login_instructions_sent = signals.signal("login-instructions-sent")
+login_instructions_sent: NamedSignal = signals.signal("login-instructions-sent")
 
-password_reset = signals.signal("password-reset")
+password_reset: NamedSignal = signals.signal("password-reset")
 
-password_changed = signals.signal("password-changed")
+password_changed: NamedSignal = signals.signal("password-changed")
 
-reset_password_instructions_sent = signals.signal("password-reset-instructions-sent")
+refresh_tracker_created: NamedSignal = signals.signal("refresh-tracker-created")
 
-tf_code_confirmed = signals.signal("tf-code-confirmed")
+refresh_tracker_revoked: NamedSignal = signals.signal("refresh-tracker-revoked")
 
-tf_profile_changed = signals.signal("tf-profile-changed")
+reset_password_instructions_sent: NamedSignal = signals.signal(
+    "password-reset-instructions-sent"
+)
 
-tf_security_token_sent = signals.signal("tf-security-token-sent")
+tf_code_confirmed: NamedSignal = signals.signal("tf-code-confirmed")
 
-tf_disabled = signals.signal("tf-disabled")
+tf_profile_changed: NamedSignal = signals.signal("tf-profile-changed")
 
-us_security_token_sent = signals.signal("us-security-token-sent")
+tf_security_token_sent: NamedSignal = signals.signal("tf-security-token-sent")
 
-us_profile_changed = signals.signal("us-profile-changed")
+tf_disabled: NamedSignal = signals.signal("tf-disabled")
 
-wan_registered = signals.signal("wan-registered")
+us_security_token_sent: NamedSignal = signals.signal("us-security-token-sent")
 
-wan_deleted = signals.signal("wan-deleted")
+us_profile_changed: NamedSignal = signals.signal("us-profile-changed")
 
-change_email_instructions_sent = signals.signal("change-email-instructions-sent")
+wan_registered: NamedSignal = signals.signal("wan-registered")
 
-change_email_confirmed = signals.signal("change-email")
+wan_deleted: NamedSignal = signals.signal("wan-deleted")
 
-username_recovery_email_sent = signals.signal("username-recovery-email-sent")
+change_email_instructions_sent: NamedSignal = signals.signal(
+    "change-email-instructions-sent"
+)
 
-username_changed = signals.signal("username-changed")
+change_email_confirmed: NamedSignal = signals.signal("change-email")
+
+username_recovery_email_sent: NamedSignal = signals.signal(
+    "username-recovery-email-sent"
+)
+
+username_changed: NamedSignal = signals.signal("username-changed")

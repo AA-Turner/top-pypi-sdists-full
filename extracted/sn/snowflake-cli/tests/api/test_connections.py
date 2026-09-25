@@ -21,7 +21,7 @@ from snowflake.cli.api.connections import (
     ConnectionContext,
     OpenConnectionCache,
 )
-from snowflake.cli.api.exceptions import InvalidConnectionConfigurationError
+from snowflake.cli.api.exceptions import SnowflakeConnectionError
 from snowflake.connector.errors import DatabaseError
 
 _SECRET_SENTINEL = "do-not-log-this-secret"
@@ -156,7 +156,7 @@ def test_connection_cache_caches_failures(
 
     cached_exc = None
     for _ in range(3):
-        with pytest.raises(InvalidConnectionConfigurationError) as excinfo:
+        with pytest.raises(SnowflakeConnectionError) as excinfo:
             local_connection_cache[ctx]
         if cached_exc is None:
             cached_exc = excinfo.value
@@ -182,7 +182,7 @@ def test_connection_cache_clear_failures_allows_retry(
 
     ctx = ConnectionContext(connection_name="default")
 
-    with pytest.raises(InvalidConnectionConfigurationError):
+    with pytest.raises(SnowflakeConnectionError):
         local_connection_cache[ctx]
     assert mock_connect.call_count == 1
 
@@ -208,7 +208,7 @@ def test_connection_cache_clear_also_forgets_failures(
 
     ctx = ConnectionContext(connection_name="default")
 
-    with pytest.raises(InvalidConnectionConfigurationError):
+    with pytest.raises(SnowflakeConnectionError):
         local_connection_cache[ctx]
 
     local_connection_cache.clear()
@@ -370,3 +370,54 @@ def test_connection_cache_failure_log_does_not_leak_credentials(
     # We should still see a "failed to connect" breadcrumb so the debug log
     # retains diagnostic value.
     assert "failed to connect" in rendered_logs
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_get_if_open_does_not_dial(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    """get_if_open must never create a connection -- callers use it precisely
+    because authenticating would be a side effect they cannot afford."""
+    mock_command_info.return_value = "application"
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    assert local_connection_cache.get_if_open(ctx) is None
+    mock_connect.assert_not_called()
+
+    # Once something else opens it, the same peek returns that connection.
+    opened = local_connection_cache[ctx]
+    assert local_connection_cache.get_if_open(ctx) is opened
+    mock_connect.assert_called_once()
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+def test_get_if_open_reports_cached_failure_as_none(
+    mock_command_info, mock_connect, local_connection_cache, test_snowcli_config
+):
+    """A cached failure is reported as None rather than re-raised: a caller that
+    only wants to observe an existing connection has nothing to handle."""
+    mock_command_info.return_value = "application"
+    mock_connect.side_effect = DatabaseError("boom")
+
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    ctx = ConnectionContext(connection_name="default")
+
+    with pytest.raises(SnowflakeConnectionError):
+        local_connection_cache[ctx]
+
+    assert local_connection_cache.get_if_open(ctx) is None
+
+
+def test_get_if_open_rejects_non_context(local_connection_cache):
+    with pytest.raises(ValueError, match="Expected key to be ConnectionContext"):
+        local_connection_cache.get_if_open("default")

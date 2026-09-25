@@ -363,6 +363,7 @@ import cloudpickle
 import inspect
 import json
 import pandas
+import re
 
 from snowflake.snowpark.types import *
 from typing import Optional
@@ -374,6 +375,13 @@ def process_dependencies_string_array(input_str: str) -> list[str]:
     if input_str and len(input_str) > 0:
         return [i.strip() for i in input_str.strip("[] ").split(",") if i.strip()]
     return []
+
+
+def package_name(spec: str) -> str:
+    # Snowflake rejects a PACKAGES list naming the same package twice (391533), so a
+    # user-supplied 'pyspark==3.5.4' has to suppress the pin below. Name-only compare;
+    # a prefix match would also swallow 'pyspark-extras'.
+    return re.split(r"[<>=!~[]", spec, maxsplit=1)[0].strip()
 
 
 def create(session, func_info_json):
@@ -435,14 +443,18 @@ def create(session, func_info_json):
     _ApplyInPandas.end_partition._sf_vectorized_input = pandas.DataFrame
 
     # Build packages list with required dependencies
-    packages = process_dependencies_string_array(udtf_packages) + ["pandas"]
+    packages = process_dependencies_string_array(udtf_packages)
+    # A user-supplied pandas spec must win, or Snowflake rejects the PACKAGES list
+    # with 391533 ("specified with multiple versions").
+    if "pandas" not in [package_name(p).lower() for p in packages]:
+        packages.append("pandas")
     # cloudpickle is required for serialization/deserialization when using artifact_repository
     # (it's not automatically included by Snowflake in that case)
     if artifact_repository and "cloudpickle" not in packages:
         packages.append("cloudpickle")
     # pyspark is needed to support table argument in UDTF
-    if "pyspark" not in packages:
-        packages.append("pyspark")
+    if "pyspark" not in [package_name(p).lower() for p in packages]:
+        packages.append("pyspark>=3.5.0,<4")
 
     _apply_in_pandas_udtf = session.udtf.register(
         handler=_ApplyInPandas,

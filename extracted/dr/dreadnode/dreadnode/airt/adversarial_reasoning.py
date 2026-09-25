@@ -166,7 +166,7 @@ def adversarial_reasoning_attack(
         for i, trial in enumerate(context_trials, 1):
             response = ""
             if trial.evaluation_result and trial.evaluation_result.samples:
-                response = trial.evaluation_result.samples[0].output[:500]  # ty: ignore[not-subscriptable]
+                response = str(trial.evaluation_result.samples[0].output)[:500]
             context_lines.append(f"Attempt {i}:")
             context_lines.append(f"  Prompt: {trial.candidate}")
             context_lines.append(f"  Response: {response}")

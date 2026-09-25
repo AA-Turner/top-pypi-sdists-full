@@ -120,52 +120,74 @@ def datetime_test(x: str) -> bool:
     return any(p.match(x) for p in datetime_patterns)
 
 
+def bounded_integer(x: str, pattern: re.Pattern[str]) -> Optional[int]:
+    if pattern.match(x) is None:
+        return None
+    digits = x.lstrip("+-").lstrip("0")
+    # 256-bit unsigned integers have at most 78 decimal digits.
+    if len(digits) > 78:
+        return None
+    return int(x) if len(x) <= 78 else int(digits or "0") * (-1 if x.startswith("-") else 1)
+
+
 def int_8_test(x: str) -> bool:
-    return intx_re.match(x) is not None and -int_8_max <= int(x) < int_8_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and -int_8_max <= value < int_8_max
 
 
 def int16_test(x: str) -> bool:
-    return intx_re.match(x) is not None and -int16_max <= int(x) < int16_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and -int16_max <= value < int16_max
 
 
 def int32_test(x: str) -> bool:
-    return intx_re.match(x) is not None and -int32_max <= int(x) < int32_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and -int32_max <= value < int32_max
 
 
 def int64_test(x: str) -> bool:
-    return intx_re.match(x) is not None and -int64_max <= int(x) < int64_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and -int64_max <= value < int64_max
 
 
 def int128_test(x: str) -> bool:
-    return intx_re.match(x) is not None and -int128_max <= int(x) < int128_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and -int128_max <= value < int128_max
 
 
 def int256_test(x: str) -> bool:
-    return intx_re.match(x) is not None and -int256_max <= int(x) < int256_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and -int256_max <= value < int256_max
 
 
 def uint_8_test(x: str) -> bool:
-    return uintx_re.match(x) is not None and 0 <= int(x) < uint_8_max
+    value = bounded_integer(x, uintx_re)
+    return value is not None and 0 <= value < uint_8_max
 
 
 def uint16_test(x: str) -> bool:
-    return uintx_re.match(x) is not None and 0 <= int(x) < uint16_max
+    value = bounded_integer(x, uintx_re)
+    return value is not None and 0 <= value < uint16_max
 
 
 def uint32_test(x: str) -> bool:
-    return uintx_re.match(x) is not None and 0 <= int(x) < uint32_max
+    value = bounded_integer(x, uintx_re)
+    return value is not None and 0 <= value < uint32_max
 
 
 def uint64_test(x: str) -> bool:
-    return uintx_re.match(x) is not None and 0 <= int(x) < uint64_max
+    value = bounded_integer(x, uintx_re)
+    return value is not None and 0 <= value < uint64_max
 
 
 def uint128_test(x: str) -> bool:
-    return intx_re.match(x) is not None and 0 <= int(x) < uint128_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and 0 <= value < uint128_max
 
 
 def uint256_test(x: str) -> bool:
-    return intx_re.match(x) is not None and 0 <= int(x) < uint256_max
+    value = bounded_integer(x, intx_re)
+    return value is not None and 0 <= value < uint256_max
 
 
 def float_test(x: str) -> bool:

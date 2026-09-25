@@ -14,7 +14,7 @@
 
 """Deals with coordinate values in the time dimensions of input data."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 import dataclasses
 import datetime
 import functools
@@ -213,8 +213,8 @@ class TimeCoordinates:
     """Creates a sequence of dates containing all points in selected interval.
 
     Args:
-      selected_interval: Tuple of the start and end times, or a `DateInterval`
-        proto. If `None`, then `all_dates` is returned.
+      selected_interval: Start and end dates of the interval to select. If
+        `None`, then `all_dates` is returned.
 
     Returns:
       A sequence of dates representing the subset of `all_dates` between the
@@ -226,13 +226,31 @@ class TimeCoordinates:
     if selected_interval is None:
       return self.all_dates
 
-    selected_dates = normalize_date_interval(selected_interval)
-    expanded = self.expand_selected_time_dims(
-        selected_dates[0], selected_dates[1]
-    )
+    start_date, end_date = selected_interval
+    expanded = self.expand_selected_time_dims(start_date, end_date)
     if expanded is None:
       return self.all_dates
     return expanded
+
+  def get_selected_dates_str(
+      self,
+      selected_interval: DateInterval | None = None,
+  ) -> list[str]:
+    """Creates a sequence of date strings containing all points in selected interval.
+
+    Args:
+      selected_interval: Start and end dates of the interval to select. If
+        `None`, then `all_dates_str` is returned.
+
+    Returns:
+      A sequence of date strings representing the subset of `all_dates_str`
+      between the given start and end dates.
+
+    Raises:
+      ValueError: If `selected_interval` is not a subset of `all_dates`.
+    """
+    selected_dates = self.get_selected_dates(selected_interval)
+    return [d.strftime(constants.DATE_FORMAT) for d in selected_dates]
 
   def get_period_bounds(
       self,
@@ -253,8 +271,8 @@ class TimeCoordinates:
     day additions.
 
     Args:
-      selected_interval: Tuple of start and end times. If `None`, intervals are
-        generated for all dates in the coordinates.
+      selected_interval: Start and end dates of the interval to select. If
+        `None`, intervals are generated for all dates in the coordinates.
 
     Returns:
       A list of `(start_date, end_date)` tuples as `datetime.date` objects.
@@ -294,6 +312,19 @@ class TimeCoordinates:
       bounds.append((start_date, end_date))
 
     return bounds
+
+  @functools.cached_property
+  def period_ends(self) -> Mapping[datetime.date, datetime.date]:
+    """Maps each time coordinate to the exclusive end of the period it starts.
+
+    This is `get_period_bounds()` over the whole range, keyed by start date, for
+    callers that need to look a single coordinate's period end up rather than
+    iterate the sequence.
+
+    Raises:
+      ValueError: If the time coordinates are not regularly spaced.
+    """
+    return dict(self.get_period_bounds())
 
   def expand_selected_time_dims(
       self,

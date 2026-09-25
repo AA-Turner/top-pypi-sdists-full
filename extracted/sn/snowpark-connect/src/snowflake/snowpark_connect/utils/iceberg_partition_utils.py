@@ -25,6 +25,7 @@ from snowflake.snowpark_connect.error.error_utils import attach_custom_error_cod
 from snowflake.snowpark_connect.utils.identifiers import spark_to_sf_single_id
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
+    telemetry,
 )
 
 # Spark partition-transform function name (as it arrives in the proto) ->
@@ -157,6 +158,9 @@ def parse_v2_partition_specs(
                     )
                 )
             else:
+                telemetry.report_iceberg_unsupported_feature(
+                    "partition_transform_unsupported"
+                )
                 exception = SnowparkConnectNotImplementedError(
                     f"Unsupported partition transform '{fn.function_name}' "
                     "for Iceberg table"
@@ -164,6 +168,9 @@ def parse_v2_partition_specs(
                 attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
                 raise exception
         else:
+            telemetry.report_iceberg_unsupported_feature(
+                "partition_by_expr_unsupported"
+            )
             exception = SnowparkConnectNotImplementedError(
                 "Unsupported partitionedBy expression for Iceberg table"
             )

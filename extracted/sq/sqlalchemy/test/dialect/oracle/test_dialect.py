@@ -29,6 +29,7 @@ from sqlalchemy.testing import assert_raises
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import AssertsExecutionResults
+from sqlalchemy.testing import async_test
 from sqlalchemy.testing import config
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
@@ -41,25 +42,31 @@ from sqlalchemy.testing.schema import Column
 from sqlalchemy.testing.schema import pep435_enum
 from sqlalchemy.testing.schema import Table
 from sqlalchemy.testing.suite import test_select
+from sqlalchemy.util import greenlet_spawn
 
 
 class CxOracleDialectTest(fixtures.TestBase):
     def test_cx_oracle_version_parse(self):
-        dialect = cx_oracle.OracleDialect_cx_oracle()
-
         def check(version):
-            dbapi = Mock(version=version)
-            dialect._load_version(dbapi)
+            # a new dialect per version; dbapi_version is memoized
+            dialect = cx_oracle.OracleDialect_cx_oracle(
+                dbapi=Mock(version=version)
+            )
             return dialect.cx_oracle_ver
 
         eq_(check("8.2"), (8, 2))
         eq_(check("8.0.1"), (8, 0, 1))
-        eq_(check("9.0b1"), (9, 0))
+
+        # a pre-release sorts before the release it qualifies
+        beta = check("9.0b1")
+        eq_(tuple(beta), (9, 0))
+        is_true(beta < (9, 0))
 
     def test_minimum_version(self):
         with expect_raises_message(
             exc.InvalidRequestError,
-            "cx_Oracle version 8 and above are supported",
+            r"Dialect oracle\+cx_oracle requires version 8 or greater of "
+            r"the cx_oracle DBAPI; version 5.1.5 is installed",
         ):
             cx_oracle.OracleDialect_cx_oracle(dbapi=Mock(version="5.1.5"))
 
@@ -73,26 +80,44 @@ class OracleDbDialectTest(fixtures.TestBase):
     __only_on__ = "oracle+oracledb"
 
     def test_oracledb_version_parse(self):
-        dialect = oracledb.OracleDialect_oracledb()
-
         def check(version):
-            dbapi = Mock(version=version)
-            dialect._load_version(dbapi)
+            # a new dialect per version; dbapi_version is memoized
+            dialect = oracledb.OracleDialect_oracledb(
+                dbapi=Mock(version=version)
+            )
             return dialect.oracledb_ver
 
         eq_(check("7.2"), (7, 2))
         eq_(check("7.0.1"), (7, 0, 1))
-        eq_(check("9.0b1"), (9, 0))
+
+        # a pre-release sorts before the release it qualifies
+        beta = check("9.0b1")
+        eq_(tuple(beta), (9, 0))
+        is_true(beta < (9, 0))
 
     def test_minimum_version(self):
         with expect_raises_message(
             exc.InvalidRequestError,
-            r"oracledb version \(1,\) and above are supported",
+            r"Dialect oracle\+oracledb requires version 1 or greater of "
+            r"the oracledb DBAPI; version 0.1.5 is installed",
         ):
             oracledb.OracleDialect_oracledb(dbapi=Mock(version="0.1.5"))
 
         dialect = oracledb.OracleDialect_oracledb(dbapi=Mock(version="7.1.0"))
         eq_(dialect.oracledb_ver, (7, 1, 0))
+
+    def test_async_minimum_version(self):
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            r"Dialect oracle\+oracledb requires version 2.0.1 or greater "
+            r"of the oracledb DBAPI; version 2.0.0 is installed",
+        ):
+            oracledb.OracleDialectAsync_oracledb(dbapi=Mock(version="2.0.0"))
+
+        dialect = oracledb.OracleDialectAsync_oracledb(
+            dbapi=Mock(version="2.0.1")
+        )
+        eq_(dialect.oracledb_ver, (2, 0, 1))
 
     def test_get_dialect(self):
         u = url.URL.create("oracle://")
@@ -108,6 +133,34 @@ class OracleDbDialectTest(fixtures.TestBase):
     def test_async_version(self):
         e = create_engine("oracle+oracledb_async://")
         is_true(isinstance(e.dialect, oracledb.OracleDialectAsync_oracledb))
+
+    @async_test
+    async def test_async_cursor_enters_asynchronously(self):
+        """test #13420"""
+
+        adapt_connection = Mock()
+
+        underlying_cursor = Mock()
+
+        async def aenter(*arg, **kw):
+            return underlying_cursor
+
+        underlying_cursor.__aenter__ = Mock(side_effect=aenter)
+        underlying_cursor.__enter__ = Mock(
+            side_effect=AssertionError("sync __enter__ should not be called")
+        )
+
+        adapt_connection._connection.cursor = Mock(
+            return_value=underlying_cursor
+        )
+
+        cursor = await greenlet_spawn(
+            oracledb.AsyncAdapt_oracledb_cursor, adapt_connection
+        )
+
+        is_(cursor._cursor, underlying_cursor)
+        underlying_cursor.__aenter__.assert_called_once()
+        underlying_cursor.__enter__.assert_not_called()
 
 
 class OracledbMode(fixtures.TestBase):
@@ -671,7 +724,7 @@ class CompatFlagsTest(fixtures.TestBase, AssertsCompiledSQL):
 
         dialect = oracle.dialect(
             dbapi=Mock(
-                version="0.0.0",
+                version="2.4.0",
                 paramstyle="named",
             ),
             **kw,
@@ -737,6 +790,19 @@ class CompatFlagsTest(fixtures.TestBase, AssertsCompiledSQL):
         self.assert_compile(String(50), "VARCHAR2(50 CHAR)", dialect=dialect)
         self.assert_compile(Unicode(50), "NVARCHAR2(50)", dialect=dialect)
         self.assert_compile(UnicodeText(), "NCLOB", dialect=dialect)
+
+    def test_native_boolean_flag(self):
+        dialect = self._dialect((19, 0, 0))
+
+        # starts as true
+        assert dialect.supports_native_boolean
+
+        dialect.initialize(Mock())
+        assert not dialect.supports_native_boolean
+
+        dialect = self._dialect((23, 0, 0))
+        dialect.initialize(Mock())
+        assert dialect.supports_native_boolean
 
     def test_ident_length_in_13_is_30(self):
         from sqlalchemy import __version__
@@ -993,19 +1059,6 @@ class BaseConnectArgsTest:
         arg, kw = dialect.create_connect_args(url_obj)
         assert key not in kw
 
-    def _test_dialect_param_from_url(self, url_string, key, value):
-        url_obj = url.make_url(url_string)
-        dialect = self.dialect_cls(dbapi=self.dbapi)
-        with testing.expect_deprecated(
-            f"{self.name} dialect option %r should" % key
-        ):
-            arg, kw = dialect.create_connect_args(url_obj)
-        eq_(getattr(dialect, key), value)
-
-        # test setting it on the dialect normally
-        dialect = self.dialect_cls(dbapi=self.dbapi, **{key: value})
-        eq_(getattr(dialect, key), value)
-
     def test_mode(self):
         self._test_db_opt(
             f"oracle+{self.name}://scott:tiger@host/?mode=sYsDBA",
@@ -1056,30 +1109,6 @@ class BaseConnectArgsTest:
             f"oracle+{self.name}://scott:tiger@host/?events=true",
             "events",
             True,
-        )
-
-    def test_threaded_deprecated_at_dialect_level(self):
-        with testing.expect_deprecated(
-            "The 'threaded' parameter to the cx_oracle/oracledb dialect"
-        ):
-            dialect = self.dialect_cls(threaded=False)
-        arg, kw = dialect.create_connect_args(
-            url.make_url(f"oracle+{self.name}://scott:tiger@dsn")
-        )
-        eq_(kw["threaded"], False)
-
-    def test_deprecated_use_ansi(self):
-        self._test_dialect_param_from_url(
-            f"oracle+{self.name}://scott:tiger@host/?use_ansi=False",
-            "use_ansi",
-            False,
-        )
-
-    def test_deprecated_auto_convert_lobs(self):
-        self._test_dialect_param_from_url(
-            f"oracle+{self.name}://scott:tiger@host/?auto_convert_lobs=False",
-            "auto_convert_lobs",
-            False,
         )
 
 

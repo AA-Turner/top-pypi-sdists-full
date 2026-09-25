@@ -3,12 +3,12 @@ import tempfile
 import typing as t
 from pathlib import Path
 
-import numpy as np
-from numpy.typing import NDArray
-
 from dreadnode.core.types import DataType
 
-VideoDataType: t.TypeAlias = str | Path | NDArray[t.Any] | bytes | list[NDArray[t.Any]] | t.Any
+if t.TYPE_CHECKING:
+    from numpy.typing import NDArray
+
+VideoDataType: t.TypeAlias = "str | Path | NDArray[t.Any] | bytes | list[NDArray[t.Any]] | t.Any"
 
 _MOVIEPY_INSTALL_MESSAGE = (
     "MoviePy is required to serialize numpy-frame videos or MoviePy VideoClip objects. "
@@ -83,6 +83,7 @@ class Video(DataType):
         Returns:
             A tuple of (video_bytes, metadata_dict)
         """
+        import numpy as np
 
         if isinstance(self._data, str | Path) and Path(self._data).exists():
             return self._process_file_path()
@@ -131,6 +132,8 @@ class Video(DataType):
         Returns:
             A tuple of (video_bytes, metadata_dict)
         """
+        import numpy as np
+
         if not self._fps:
             raise ValueError("fps is required for numpy array video frames")
         if not isinstance(self._data, np.ndarray | list):
@@ -144,6 +147,8 @@ class Video(DataType):
 
     def _extract_frames_from_data(self) -> "list[NDArray[t.Any]]":
         """Extract frames from numpy array or list data."""
+        import numpy as np
+
         frames: list[NDArray[t.Any]] = []
         rgb_dim = 3
         rgba_dim = 4
@@ -165,6 +170,8 @@ class Video(DataType):
         self, frames: "list[NDArray[t.Any]]"
     ) -> tuple[bytes, dict[str, t.Any]]:
         """Create video file from frames."""
+        import numpy as np
+
         image_sequence_clip = _get_image_sequence_clip_type()
 
         frame_height, frame_width = frames[0].shape[:2]

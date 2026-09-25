@@ -10,6 +10,7 @@ from sqlalchemy import cast
 from sqlalchemy import Column
 from sqlalchemy import Date
 from sqlalchemy import DateTime
+from sqlalchemy import exc
 from sqlalchemy import extract
 from sqlalchemy import Float
 from sqlalchemy import func
@@ -17,6 +18,8 @@ from sqlalchemy import Integer
 from sqlalchemy import JSON
 from sqlalchemy import literal
 from sqlalchemy import literal_column
+from sqlalchemy import MetaData
+from sqlalchemy import not_
 from sqlalchemy import Numeric
 from sqlalchemy import select
 from sqlalchemy import Sequence
@@ -33,7 +36,9 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects import sqlite
 from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 from sqlalchemy.dialects.postgresql import array
+from sqlalchemy.engine import default
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql import aggregate_order_by
 from sqlalchemy.sql import column
 from sqlalchemy.sql import functions
 from sqlalchemy.sql import LABEL_STYLE_TABLENAME_PLUS_COL
@@ -41,7 +46,11 @@ from sqlalchemy.sql import operators
 from sqlalchemy.sql import quoted_name
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql import table
+from sqlalchemy.sql import util
+from sqlalchemy.sql.compiler import AggregateOrderByStyle
 from sqlalchemy.sql.compiler import BIND_TEMPLATES
+from sqlalchemy.sql.elements import FrameClause
+from sqlalchemy.sql.elements import FrameClauseType
 from sqlalchemy.sql.functions import FunctionElement
 from sqlalchemy.sql.functions import GenericFunction
 from sqlalchemy.testing import assert_raises
@@ -51,6 +60,8 @@ from sqlalchemy.testing import config
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
+from sqlalchemy.testing.assertions import expect_deprecated
+from sqlalchemy.testing.assertions import expect_raises_message
 from sqlalchemy.testing.assertions import expect_warnings
 from sqlalchemy.testing.engines import all_dialects
 from sqlalchemy.testing.provision import normalize_sequence
@@ -60,6 +71,7 @@ table1 = table(
     column("myid", Integer),
     column("name", String),
     column("description", String),
+    column("myfloat", Float),
 )
 
 
@@ -75,6 +87,8 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
     def test_compile(self):
         for dialect in all_dialects():
             bindtemplate = BIND_TEMPLATES[dialect.paramstyle]
+            if dialect.driver == "psycopg":
+                bindtemplate += "::VARCHAR"
             self.assert_compile(
                 func.current_timestamp(), "CURRENT_TIMESTAMP", dialect=dialect
             )
@@ -222,28 +236,26 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
 
     @testing.combinations(
         (
-            "SELECT group_concat(t.value, ?) AS aggregate_strings_1 FROM t",
+            "SELECT group_concat(t.value, ',') AS aggregate_strings_1 FROM t",
             "sqlite",
         ),
         (
-            "SELECT string_agg(t.value, %(aggregate_strings_2)s) AS "
-            "aggregate_strings_1 FROM t",
+            "SELECT string_agg(t.value, ',') AS " "aggregate_strings_1 FROM t",
             "postgresql",
         ),
         (
             "SELECT string_agg(t.value, "
-            "__[POSTCOMPILE_aggregate_strings_2]) AS "
+            "',') AS "
             "aggregate_strings_1 FROM t",
             "mssql",
         ),
         (
-            "SELECT group_concat(t.value SEPARATOR %s) "
+            "SELECT group_concat(t.value SEPARATOR ',') "
             "AS aggregate_strings_1 FROM t",
             "mysql",
         ),
         (
-            "SELECT LISTAGG(t.value, :aggregate_strings_2) AS"
-            " aggregate_strings_1 FROM t",
+            "SELECT LISTAGG(t.value, ',') AS" " aggregate_strings_1 FROM t",
             "oracle",
         ),
     )
@@ -251,7 +263,52 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         t = table("t", column("value", String))
         stmt = select(func.aggregate_strings(t.c.value, ","))
 
-        self.assert_compile(stmt, expected_sql, dialect=dialect)
+        self.assert_compile(
+            stmt, expected_sql, dialect=dialect, render_postcompile=True
+        )
+
+    @testing.combinations(
+        (
+            "SELECT group_concat(t.value, ',' ORDER BY t.ordering DESC) "
+            "AS aggregate_strings_1 FROM t",
+            "sqlite",
+        ),
+        (
+            "SELECT string_agg(t.value, ',' "
+            "ORDER BY t.ordering DESC) AS "
+            "aggregate_strings_1 FROM t",
+            "postgresql",
+        ),
+        (
+            "SELECT string_agg(t.value, ',') "
+            "WITHIN GROUP (ORDER BY t.ordering DESC) AS "
+            "aggregate_strings_1 FROM t",
+            "mssql",
+        ),
+        (
+            "SELECT group_concat(t.value "
+            "ORDER BY t.ordering DESC SEPARATOR ',') "
+            "AS aggregate_strings_1 FROM t",
+            "mysql",
+        ),
+        (
+            "SELECT LISTAGG(t.value, ',') "
+            "WITHIN GROUP (ORDER BY t.ordering DESC) AS"
+            " aggregate_strings_1 FROM t",
+            "oracle",
+        ),
+    )
+    def test_aggregate_strings_order_by(self, expected_sql, dialect):
+        t = table("t", column("value", String), column("ordering", String))
+        stmt = select(
+            func.aggregate_strings(t.c.value, ",").aggregate_order_by(
+                t.c.ordering.desc()
+            )
+        )
+
+        self.assert_compile(
+            stmt, expected_sql, dialect=dialect, render_postcompile=True
+        )
 
     def test_cube_operators(self):
         t = table(
@@ -602,11 +659,11 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         # this still relies upon a strategy for table metadata as we have
         # in serializer.
 
-        f1 = func.percentile_cont(literal(1)).within_group()
+        f1 = func.percentile_cont(literal(1)).within_group(column("q"))
 
         self.assert_compile(
             pickle.loads(pickle.dumps(f1)),
-            "percentile_cont(:param_1) WITHIN GROUP (ORDER BY )",
+            "percentile_cont(:param_1) WITHIN GROUP (ORDER BY q)",
         )
 
         f1 = func.percentile_cont(literal(1)).within_group(
@@ -637,12 +694,15 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
             "WHERE users.id > anon_1.z",
         )
 
-        s = select(users).where(
-            users.c.id.between(
-                calculate.alias("c1").unique_params(x=17, y=45).c.z,
-                calculate.alias("c2").unique_params(x=5, y=12).c.z,
-            ),
-        )
+        with expect_deprecated(
+            r"The params\(\) and unique_params\(\) methods on non-statement"
+        ):
+            s = select(users).where(
+                users.c.id.between(
+                    calculate.alias("c1").unique_params(x=17, y=45).c.z,
+                    calculate.alias("c2").unique_params(x=5, y=12).c.z,
+                ),
+            )
 
         self.assert_compile(
             s,
@@ -727,8 +787,8 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         num = column("q")
         self.assert_compile(
             func.array_agg(num).filter(num % 2 == 0)[1],
-            "(array_agg(q) FILTER (WHERE q %% %(q_1)s = "
-            "%(param_1)s))[%(param_2)s]",
+            "(array_agg(q) FILTER (WHERE q %% %(q_1)s::INTEGER = "
+            "%(param_1)s::INTEGER))[%(param_2)s::INTEGER]",
             dialect="postgresql",
         )
 
@@ -813,6 +873,27 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
             "FOLLOWING AND :param_2 FOLLOWING) "
             "AS anon_1 FROM mytable",
             checkparams={"name_1": "foo", "param_1": 1, "param_2": 5},
+        )
+
+        self.assert_compile(
+            select(
+                func.rank()
+                .filter(table1.c.name > "foo")
+                .over(
+                    range_=FrameClause(
+                        3.14,
+                        2.71,
+                        FrameClauseType.PRECEDING,
+                        FrameClauseType.FOLLOWING,
+                    ),
+                    partition_by=["myfloat"],
+                )
+            ),
+            "SELECT rank() FILTER (WHERE mytable.name > :name_1) "
+            "OVER (PARTITION BY mytable.myfloat RANGE BETWEEN :param_1 "
+            "PRECEDING AND :param_2 FOLLOWING) "
+            "AS anon_1 FROM mytable",
+            checkparams={"name_1": "foo", "param_1": 3.14, "param_2": 2.71},
         )
 
     def test_funcfilter_windowing_range_positional(self):
@@ -901,11 +982,11 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         )
         self.assert_compile(
             stmt,
-            "SELECT mytable.myid, percentile_cont(:percentile_cont_1) "
+            "SELECT mytable.myid, percentile_cont(:percentile_cont_2) "
             "WITHIN GROUP (ORDER BY mytable.name) "
-            "AS anon_1 "
+            "AS percentile_cont_1 "
             "FROM mytable",
-            {"percentile_cont_1": 0.5},
+            {"percentile_cont_2": 0.5},
         )
 
     def test_within_group_multi(self):
@@ -917,11 +998,11 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         )
         self.assert_compile(
             stmt,
-            "SELECT mytable.myid, percentile_cont(:percentile_cont_1) "
+            "SELECT mytable.myid, percentile_cont(:percentile_cont_2) "
             "WITHIN GROUP (ORDER BY mytable.name, mytable.description) "
-            "AS anon_1 "
+            "AS percentile_cont_1 "
             "FROM mytable",
-            {"percentile_cont_1": 0.5},
+            {"percentile_cont_2": 0.5},
         )
 
     def test_within_group_desc(self):
@@ -931,11 +1012,11 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
         )
         self.assert_compile(
             stmt,
-            "SELECT mytable.myid, percentile_cont(:percentile_cont_1) "
+            "SELECT mytable.myid, percentile_cont(:percentile_cont_2) "
             "WITHIN GROUP (ORDER BY mytable.name DESC) "
-            "AS anon_1 "
+            "AS percentile_cont_1 "
             "FROM mytable",
-            {"percentile_cont_1": 0.5},
+            {"percentile_cont_2": 0.5},
         )
 
     def test_within_group_w_over(self):
@@ -1061,6 +1142,192 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
                 "some_comparison_4": "p",
                 "some_comparison_5": "r",
             },
+        )
+
+    @testing.variation("style", ["none", "inline", "within_group"])
+    def test_aggregate_order_by_one(self, style):
+        table = Table(
+            "table1", MetaData(), Column("a", Integer), Column("b", Integer)
+        )
+        expr = func.array_agg(table.c.a).aggregate_order_by(table.c.b.desc())
+        stmt = select(expr)
+
+        if style.none:
+            dialect = default.DefaultDialect()
+            dialect.aggregate_order_by_style = AggregateOrderByStyle.NONE
+            with expect_raises_message(
+                exc.CompileError,
+                "this dialect does not support ORDER BY "
+                "within an aggregate function",
+            ):
+                stmt.compile(dialect=dialect)
+        elif style.within_group:
+            dialect = default.DefaultDialect()
+            dialect.aggregate_order_by_style = (
+                AggregateOrderByStyle.WITHIN_GROUP
+            )
+            self.assert_compile(
+                stmt,
+                "SELECT array_agg(table1.a) "
+                "WITHIN GROUP (ORDER BY table1.b DESC) "
+                "AS array_agg_1 FROM table1",
+                dialect=dialect,
+            )
+        else:
+            self.assert_compile(
+                stmt,
+                "SELECT array_agg(table1.a ORDER BY table1.b DESC) "
+                "AS array_agg_1 FROM table1",
+            )
+
+    @testing.variation("style", ["inline", "within_group"])
+    def test_aggregate_order_by_two(self, style):
+        table = Table(
+            "table1", MetaData(), Column("a", Integer), Column("b", Integer)
+        )
+        expr = func.string_agg(
+            table.c.a, literal_column("','")
+        ).aggregate_order_by(table.c.a)
+        stmt = select(expr)
+
+        if style.within_group:
+            dialect = default.DefaultDialect()
+            dialect.aggregate_order_by_style = (
+                AggregateOrderByStyle.WITHIN_GROUP
+            )
+            self.assert_compile(
+                stmt,
+                "SELECT string_agg(table1.a, ',') "
+                "WITHIN GROUP (ORDER BY table1.a) "
+                "AS string_agg_1 FROM table1",
+                dialect=dialect,
+            )
+        else:
+            self.assert_compile(
+                stmt,
+                "SELECT string_agg(table1.a, ',' ORDER BY table1.a) "
+                "AS string_agg_1 FROM table1",
+            )
+
+    def test_aggregate_order_by_multi_col(self):
+        table = Table(
+            "table1", MetaData(), Column("a", Integer), Column("b", Integer)
+        )
+        expr = func.string_agg(
+            table.c.a,
+            literal_column("','"),
+        ).aggregate_order_by(table.c.a, table.c.b.desc())
+        stmt = select(expr)
+
+        self.assert_compile(
+            stmt,
+            "SELECT string_agg(table1.a, "
+            "',' ORDER BY table1.a, table1.b DESC) "
+            "AS string_agg_1 FROM table1",
+        )
+
+    def test_aggregate_order_by_type_propagate(self):
+        table = Table(
+            "table1", MetaData(), Column("a", Integer), Column("b", String)
+        )
+        expr = func.foo_agg(table.c.a, type_=Integer).aggregate_order_by(
+            table.c.b.desc()
+        )
+
+        is_(expr.type._type_affinity, Integer)
+
+    def test_aggregate_order_by_no_arg(self):
+        assert_raises_message(
+            TypeError,
+            "at least one ORDER BY element is required",
+            aggregate_order_by,
+            literal_column("','"),
+        )
+
+    def test_aggregate_order_by_adapt(self):
+        table = Table(
+            "table1", MetaData(), Column("a", Integer), Column("b", Integer)
+        )
+        expr = aggregate_order_by(func.array_agg(table.c.a), table.c.b.desc())
+        stmt = select(expr)
+
+        a1 = table.alias("foo")
+        stmt2 = util.ClauseAdapter(a1).traverse(stmt)
+        self.assert_compile(
+            stmt2,
+            "SELECT array_agg(foo.a ORDER BY foo.b DESC) AS array_agg_1 "
+            "FROM table1 AS foo",
+        )
+
+
+class CollectionAggregateFunctionTest(fixtures.TestBase, AssertsCompiledSQL):
+    __dialect__ = "default"
+
+    @testing.combinations(
+        ("any", func.any),
+        ("all", func.all),
+        ("some", func.some),
+        id_="ia",
+    )
+    def test_is_collection_aggregate(self, fn):
+        c = column("x", Integer)
+        expr = fn(c)
+        is_(expr._is_collection_aggregate, True)
+
+    @testing.combinations(
+        ("any", func.any, "any"),
+        ("all", func.all, "all"),
+        ("some", func.some, "some"),
+        id_="iaa",
+    )
+    def test_negate_rhs(self, fn, name):
+        c = column("x", Integer)
+        arr = column("arr", Integer)
+        self.assert_compile(
+            ~(c == fn(arr)),
+            "NOT (x = %s(arr))" % name,
+        )
+
+    @testing.combinations(
+        ("any", func.any, "any"),
+        ("all", func.all, "all"),
+        ("some", func.some, "some"),
+        id_="iaa",
+    )
+    def test_negate_lhs(self, fn, name):
+        c = column("x", Integer)
+        arr = column("arr", Integer)
+        self.assert_compile(
+            ~(fn(arr) == c),
+            "NOT (%s(arr) = x)" % name,
+        )
+
+    @testing.combinations(
+        ("any", func.any, "any"),
+        ("all", func.all, "all"),
+        ("some", func.some, "some"),
+        id_="iaa",
+    )
+    def test_not_function(self, fn, name):
+        c = column("x", Integer)
+        arr = column("arr", Integer)
+        self.assert_compile(
+            not_(c == fn(arr)),
+            "NOT (x = %s(arr))" % name,
+        )
+
+    @testing.combinations(
+        ("any", func.any, "any"),
+        ("all", func.all, "all"),
+        ("some", func.some, "some"),
+        id_="iaa",
+    )
+    def test_ne_not_affected(self, fn, name):
+        c = column("x", Integer)
+        arr = column("arr", Integer)
+        self.assert_compile(
+            c != fn(arr),
+            "x != %s(arr)" % name,
         )
 
 
@@ -1265,8 +1532,19 @@ class ExecuteTest(fixtures.TestBase):
 
     @testing.variation("unicode_value", [True, False])
     @testing.variation("unicode_separator", [True, False])
+    @testing.variation(
+        "use_order_by", [(True, testing.requires.aggregate_order_by), False]
+    )
+    @testing.only_on(
+        ["postgresql", "sqlite", "mysql", "mariadb", "oracle", "mssql"]
+    )
     def test_aggregate_strings_execute(
-        self, connection, metadata, unicode_value, unicode_separator
+        self,
+        connection,
+        metadata,
+        unicode_value,
+        unicode_separator,
+        use_order_by,
     ):
         values_t = Table(
             "values",
@@ -1278,10 +1556,10 @@ class ExecuteTest(fixtures.TestBase):
         connection.execute(
             values_t.insert(),
             [
-                {"value": "a", "unicode_value": "測試"},
-                {"value": "b", "unicode_value": "téble2"},
+                {"value": "a", "unicode_value": "b 測試"},
+                {"value": "b", "unicode_value": "c téble2"},
                 {"value": None, "unicode_value": None},  # ignored
-                {"value": "c", "unicode_value": "🐍 su"},
+                {"value": "c", "unicode_value": "a 🐍 su"},
             ],
         )
 
@@ -1292,21 +1570,78 @@ class ExecuteTest(fixtures.TestBase):
 
         if unicode_value:
             col = values_t.c.unicode_value
-            expected = separator.join(["測試", "téble2", "🐍 su"])
+            if use_order_by:
+                expected = separator.join(["c téble2", "b 測試", "a 🐍 su"])
+            else:
+                expected = separator.join(["b 測試", "c téble2", "a 🐍 su"])
         else:
             col = values_t.c.value
-            expected = separator.join(["a", "b", "c"])
+            if use_order_by:
+                expected = separator.join(["c", "b", "a"])
+            else:
+                expected = separator.join(["a", "b", "c"])
 
             # to join on a unicode separator, source string has to be unicode,
             # so cast().  SQL Server will raise otherwise
             if unicode_separator:
                 col = cast(col, Unicode(42))
 
-        value = connection.execute(
-            select(func.aggregate_strings(col, separator))
-        ).scalar_one()
+        if use_order_by:
+            value = connection.execute(
+                select(
+                    func.aggregate_strings(col, separator).aggregate_order_by(
+                        col.desc()
+                    )
+                )
+            ).scalar_one()
+        else:
+            value = connection.execute(
+                select(func.aggregate_strings(col, separator))
+            ).scalar_one()
 
         eq_(value, expected)
+
+    @testing.requires.aggregate_order_by
+    def test_aggregate_order_by(
+        self,
+        connection,
+        metadata,
+    ):
+
+        values_t = Table(
+            "values",
+            metadata,
+            Column("value", String(2)),
+            Column("ordering", String(2)),
+        )
+        metadata.create_all(connection)
+        connection.execute(
+            values_t.insert(),
+            [
+                {"value": "a", "ordering": "1"},
+                {"value": "b", "ordering": "3"},
+                {"value": "c", "ordering": "2"},
+            ],
+        )
+
+        if testing.against("postgresql", "mssql"):
+            fn = lambda expr: func.string_agg(  # noqa: E731
+                expr, literal_column("''")
+            )
+            expected = "bca"
+        elif testing.against(["mysql", "mariadb", "sqlite"]):
+            fn = func.group_concat
+            expected = "b,c,a"
+        elif testing.against("oracle"):
+            fn = func.listagg
+            expected = "bca"
+        else:
+            assert False
+
+        stmt = select(
+            fn(values_t.c.value).aggregate_order_by(values_t.c.ordering.desc())
+        )
+        eq_(connection.scalar(stmt), expected)
 
     @testing.fails_on_everything_except("postgresql")
     def test_as_from(self, connection):

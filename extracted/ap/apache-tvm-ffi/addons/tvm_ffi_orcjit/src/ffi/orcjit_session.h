@@ -34,7 +34,6 @@
 #include <tvm/ffi/optional.h>
 #include <tvm/ffi/string.h>
 
-#include <atomic>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -79,9 +78,10 @@ class ORCJITExecutionSessionObj : public Object {
    * \brief Get the process-wide shared execution session.
    *
    * A leaked, never-destroyed singleton so multiple callers in one process
-   * share one LLVM ExecutionSession — hence process symbols, the slab arena,
-   * and cross-library linking. Never torn down (interpreter finalization could
-   * otherwise call back into the host language during teardown).
+   * share one LLVM ExecutionSession — hence process-symbol resolution, the slab
+   * pool, and synchronization infrastructure. Loaded modules remain isolated
+   * symbol namespaces. Never torn down (interpreter finalization could otherwise
+   * call back into the host language during teardown).
    *
    * Always uses the ORC runtime embedded in this extension; deliberately not
    * user-configurable (a shared process-wide singleton with a hidden runtime
@@ -95,9 +95,13 @@ class ORCJITExecutionSessionObj : public Object {
   /*!
    * \brief Create a new DynamicLibrary (JITDylib) in this session
    * \param name Optional name for the library (for debugging)
+   * \param cxx_runtime_path Compiler-selected shared C++ runtime, if any.
+   * \param libstdcxx_nonshared_path Compiler-selected nonshared archive, if any.
    * \return The created dynamic library instance
    */
-  ORCJITDynamicLibrary CreateDynamicLibrary(const String& name);
+  ORCJITDynamicLibrary CreateDynamicLibrary(
+      const String& name, const Optional<String>& cxx_runtime_path = std::nullopt,
+      const Optional<String>& libstdcxx_nonshared_path = std::nullopt);
 
   /*!
    * \brief Load a set of objects into one fresh dynamic library and return the
@@ -107,17 +111,21 @@ class ORCJITExecutionSessionObj : public Object {
    * \c String path or in-memory \c Bytes image), injects context symbols
    * eagerly, and — if the objects embed a library binary — reconstructs the
    * import tree so the result behaves like a normally-loaded tvm-ffi module.
-   * The whole sequence runs under one recursive session lock, and the dylib is
-   * never exposed in a partially-loaded state, so finalization happens exactly
-   * once and cannot be repeated or interleaved.
+   * The dylib is not exposed until finalization completes. Leaf operations are
+   * serialized by the session mutex, while JIT constructors run with that mutex
+   * released so they can safely re-enter the session.
    *
    * \param objects Array whose elements are each a \c String path or \c Bytes
    *        object-file image.
    * \param name Optional JITDylib name (auto-generated when empty).
+   * \param cxx_runtime_path Compiler-selected shared C++ runtime, if any.
+   * \param libstdcxx_nonshared_path Compiler-selected nonshared archive, if any.
    * \return The root module, with imports and library context fully wired (the
    *         dylib itself when there is no embedded library binary).
    */
-  Module LoadModule(const Array<Variant<String, Bytes>>& objects, const String& name);
+  Module LoadModule(const Array<Variant<String, Bytes>>& objects, const String& name,
+                    const Optional<String>& cxx_runtime_path = std::nullopt,
+                    const Optional<String>& libstdcxx_nonshared_path = std::nullopt);
 
   /*!
    * \brief Get the underlying LLVM ExecutionSession
@@ -187,9 +195,9 @@ class ORCJITExecutionSessionObj : public Object {
   /*!
    * \brief Release drained slabs (no live JIT allocations) back to the OS.
    *
-   *  Returns the number of slabs reclaimed.  No-op on macOS/Windows
-   *  where the slab pool is compiled out, or when the pool has been
-   *  disabled via `slab_size < 0`.
+   * Returns the number of slabs reclaimed. No-op on macOS/Windows, where the
+   * slab pool is compiled out, or when the pool has been disabled via
+   * `slab_size < 0`. Serialized with allocation and teardown by \ref mutex_.
    */
   int64_t ClearFreeSlabs();
 
@@ -205,7 +213,10 @@ class ORCJITExecutionSessionObj : public Object {
   std::unique_ptr<llvm::orc::LLJIT> jit_;
 
   /*! \brief Counter for auto-generating library names */
-  std::atomic<int> dylib_counter_{0};
+  int dylib_counter_{0};
+
+  /*! \brief Compiler-selected C++ runtime search JITDylibs, keyed by shared-library path. */
+  std::unordered_map<std::string, llvm::orc::JITDylib*> cxx_runtime_dylibs_;
 
   /*!
    * \brief Serializes compound JITDylib operations on this shared session

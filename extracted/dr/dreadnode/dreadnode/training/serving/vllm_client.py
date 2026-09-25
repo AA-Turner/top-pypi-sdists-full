@@ -5,6 +5,8 @@ from typing import Any, cast
 
 import httpx
 
+from dreadnode.core.tls import cached_platform_ssl_context
+
 
 @dataclass
 class VllmClient:
@@ -33,6 +35,7 @@ class VllmClient:
 
     async def __aenter__(self) -> "VllmClient":
         self._client = httpx.AsyncClient(
+            verify=cached_platform_ssl_context(),
             base_url=self.base_url,
             timeout=self.timeout,
         )

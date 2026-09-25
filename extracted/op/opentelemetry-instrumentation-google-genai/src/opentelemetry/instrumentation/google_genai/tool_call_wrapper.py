@@ -14,6 +14,7 @@ from google.genai.types import (
 )
 
 from opentelemetry.util.genai.handler import TelemetryHandler
+from opentelemetry.util.genai.utils import bind_arguments, get_signature
 
 ToolFunction = Callable[..., Any]
 
@@ -46,19 +47,40 @@ def _to_otel_value(python_value):
 def _get_function_args(wrapped_function, function_args, function_kwargs):
     """Records the details about a function invocation as span attributes."""
     function_arg_attr = {}
-    signature = inspect.signature(wrapped_function)
-    params = list(signature.parameters.values())
-    for index, entry in enumerate(function_args):
-        param_name = f"args[{index}]"
-        if index < len(params):
-            param_name = params[index].name
-        function_arg_attr[f"code.function.parameters.{param_name}.type"] = (
-            type(entry).__name__
+    try:
+        signature = get_signature(wrapped_function)
+        parameters = list(signature.parameters.values())
+        has_variadics = any(
+            parameter.kind
+            in (
+                inspect.Parameter.VAR_POSITIONAL,
+                inspect.Parameter.VAR_KEYWORD,
+            )
+            for parameter in parameters
         )
-        function_arg_attr[f"code.function.parameters.{param_name}.value"] = (
-            _to_otel_value(entry)
+    except (TypeError, ValueError):
+        has_variadics = False
+        parameters = []
+
+    if has_variadics:
+        bound = {
+            (
+                parameters[index].name
+                if index < len(parameters)
+                else f"args[{index}]"
+            ): value
+            for index, value in enumerate(function_args)
+        }
+        bound.update(function_kwargs)
+    else:
+        bound = bind_arguments(
+            wrapped_function,
+            function_args,
+            function_kwargs,
+            apply_defaults=False,
         )
-    for key, value in function_kwargs.items():
+
+    for key, value in bound.items():
         function_arg_attr[f"code.function.parameters.{key}.type"] = type(
             value
         ).__name__
@@ -81,15 +103,15 @@ def _wrap_tool_function(
             # In the future that could change (see https://github.com/open-telemetry/opentelemetry-specification/pull/4485), and we could possibly stop using json.dumps here.
             with telemetry_handler.tool(
                 tool_function.__name__,
-                tool_description=tool_function.__doc__,
             ) as tool_invocation:
+                tool_invocation.tool_description = tool_function.__doc__
                 # Do this before calling the tool in case that crashes.
-                if tool_invocation.should_capture_content_on_span:
+                if tool_invocation.should_capture_content:
                     tool_invocation.arguments = json.dumps(
                         _get_function_args(tool_function, args, kwargs)
                     )
                 result = await tool_function(*args, **kwargs)
-                if tool_invocation.should_capture_content_on_span:
+                if tool_invocation.should_capture_content:
                     tool_invocation.tool_result = json.dumps(
                         _to_otel_value(result)
                     )
@@ -100,15 +122,15 @@ def _wrap_tool_function(
         def wrapped_function(*args, **kwargs):
             with telemetry_handler.tool(
                 tool_function.__name__,
-                tool_description=tool_function.__doc__,
             ) as tool_invocation:
+                tool_invocation.tool_description = tool_function.__doc__
                 # Do this before calling the tool in case that crashes.
-                if tool_invocation.should_capture_content_on_span:
+                if tool_invocation.should_capture_content:
                     tool_invocation.arguments = json.dumps(
                         _get_function_args(tool_function, args, kwargs)
                     )
                 result = tool_function(*args, **kwargs)
-                if tool_invocation.should_capture_content_on_span:
+                if tool_invocation.should_capture_content:
                     tool_invocation.tool_result = json.dumps(
                         _to_otel_value(result)
                     )

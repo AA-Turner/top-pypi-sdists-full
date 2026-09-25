@@ -15,8 +15,10 @@ from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.forbidden_error import ForbiddenError
 from ..errors.not_found_error import NotFoundError
+from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.user import User
+from ..types.v1error_response import V1ErrorResponse
 from .types.check_access_users_response import CheckAccessUsersResponse
 from .types.list_users_response import ListUsersResponse
 from .types.me_users_request_interval import MeUsersRequestInterval
@@ -76,6 +78,7 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "users",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "query": query,
@@ -133,6 +136,7 @@ class RawUsersClient:
     def me(
         self,
         *,
+        include_trading: typing.Optional[bool] = None,
         account_id: typing.Optional[str] = None,
         include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
@@ -147,6 +151,9 @@ class RawUsersClient:
 
         Parameters
         ----------
+        include_trading : typing.Optional[bool]
+            Also retrieve live trading state under `trading`. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Provider failures return 503.
+
         account_id : typing.Optional[str]
             When set, returns your account-specific profile overrides for this account.
 
@@ -178,8 +185,10 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "users/me",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
+                "include_trading": include_trading,
                 "account_id": account_id,
                 "include_balance": include_balance,
                 "include_balance_history": include_balance_history,
@@ -207,6 +216,17 @@ class RawUsersClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -259,6 +279,7 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "users/me",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             params={
                 "account_id": account_id,
@@ -314,6 +335,7 @@ class RawUsersClient:
         self,
         id: str,
         *,
+        include_trading: typing.Optional[bool] = None,
         account_id: typing.Optional[str] = None,
         include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
@@ -330,6 +352,9 @@ class RawUsersClient:
         ----------
         id : str
             User ID (prefixed `user_`), username, or `me` for the authenticated user.
+
+        include_trading : typing.Optional[bool]
+            Also retrieve live trading state under `trading`. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Provider failures return 503.
 
         account_id : typing.Optional[str]
             When set, returns the user's account-specific profile overrides for this account.
@@ -362,8 +387,10 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
+                "include_trading": include_trading,
                 "account_id": account_id,
                 "include_balance": include_balance,
                 "include_balance_history": include_balance_history,
@@ -391,6 +418,17 @@ class RawUsersClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -447,6 +485,7 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             params={
                 "account_id": account_id,
@@ -511,6 +550,7 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}/access/{encode_path_param(resource_id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -554,6 +594,7 @@ class RawUsersClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}/recommend_actions",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -643,6 +684,7 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "users",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "query": query,
@@ -703,6 +745,7 @@ class AsyncRawUsersClient:
     async def me(
         self,
         *,
+        include_trading: typing.Optional[bool] = None,
         account_id: typing.Optional[str] = None,
         include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
@@ -717,6 +760,9 @@ class AsyncRawUsersClient:
 
         Parameters
         ----------
+        include_trading : typing.Optional[bool]
+            Also retrieve live trading state under `trading`. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Provider failures return 503.
+
         account_id : typing.Optional[str]
             When set, returns your account-specific profile overrides for this account.
 
@@ -748,8 +794,10 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "users/me",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
+                "include_trading": include_trading,
                 "account_id": account_id,
                 "include_balance": include_balance,
                 "include_balance_history": include_balance_history,
@@ -777,6 +825,17 @@ class AsyncRawUsersClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -829,6 +888,7 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "users/me",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             params={
                 "account_id": account_id,
@@ -884,6 +944,7 @@ class AsyncRawUsersClient:
         self,
         id: str,
         *,
+        include_trading: typing.Optional[bool] = None,
         account_id: typing.Optional[str] = None,
         include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
@@ -900,6 +961,9 @@ class AsyncRawUsersClient:
         ----------
         id : str
             User ID (prefixed `user_`), username, or `me` for the authenticated user.
+
+        include_trading : typing.Optional[bool]
+            Also retrieve live trading state under `trading`. Only honored on the self view (me) with crypto_wallet:trade:read, crypto_wallet:trade, or crypto_wallet:manage permission and an Ethereum wallet. Provider failures return 503.
 
         account_id : typing.Optional[str]
             When set, returns the user's account-specific profile overrides for this account.
@@ -932,8 +996,10 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
+                "include_trading": include_trading,
                 "account_id": account_id,
                 "include_balance": include_balance,
                 "include_balance_history": include_balance_history,
@@ -961,6 +1027,17 @@ class AsyncRawUsersClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -1017,6 +1094,7 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             params={
                 "account_id": account_id,
@@ -1081,6 +1159,7 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}/access/{encode_path_param(resource_id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -1124,6 +1203,7 @@ class AsyncRawUsersClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"users/{encode_path_param(id)}/recommend_actions",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )

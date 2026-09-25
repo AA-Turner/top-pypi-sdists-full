@@ -126,8 +126,13 @@ class HTTPClient(DownloadFromBase, HTTPService):
             self.as_dataframe = strtobool(self.as_dataframe)
         # Data:
         self._data: dict = kwargs.pop("data", {})
-        # Credentials:
-        self.credentials: dict = kwargs.pop("credentials", {})
+        # Credentials: left in kwargs (not popped) so HTTPService/
+        # CredentialsInterface's own __init__ (called below via
+        # DownloadFromBase/HTTPService) still sees it — popping it here
+        # caused CredentialsInterface to find nothing and reset
+        # self.credentials to None, silently dropping any auth for
+        # RESTClient/HTTPClient-based components.
+        self.credentials: dict = kwargs.get("credentials", {})
         self.method: str = kwargs.pop("method", "get")
         # calling parents
         DownloadFromBase.__init__(

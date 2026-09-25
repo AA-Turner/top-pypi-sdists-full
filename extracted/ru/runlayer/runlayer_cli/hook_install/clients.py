@@ -283,7 +283,7 @@ _CODEX_HOOK_MATCHERS = {
     "PostToolUse": "",
     "PostToolUseFailure": "",
     "PermissionRequest": "Bash",
-    "SessionStart": "startup|resume",
+    "SessionStart": "startup|resume|clear|compact",
 }
 
 _HERMES_ENFORCEMENT_HOOKS = (

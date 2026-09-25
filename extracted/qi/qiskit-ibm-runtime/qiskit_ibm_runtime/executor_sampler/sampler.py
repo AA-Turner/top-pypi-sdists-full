@@ -10,31 +10,33 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Executor-based SamplerV2 primitive."""
+"""Client-side Sampler primitive."""
 
 from __future__ import annotations
 
 import logging
-from copy import deepcopy
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, get_args
 
 from qiskit.primitives.base import BaseSamplerV2
 from qiskit.primitives.containers.sampler_pub import SamplerPub
 
 from ..base_primitive import get_mode_service_backend
 from ..executor import Executor
-from ..fake_provider.local_service import QiskitRuntimeLocalService
 from ..options_models.sampler import SamplerOptions
+from .finalize_options import finalize_sampler_options
 from .prepare import prepare
+from .utils import BoxType, find_box_type, find_unique_layers
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import Any
 
+    from qiskit.circuit import CircuitInstruction
     from qiskit.primitives.containers.sampler_pub import SamplerPubLike
     from qiskit.providers import BackendV2
 
     from ..batch import Batch
+    from ..fake_provider.local_runtime_job import LocalRuntimeJob
     from ..runtime_job_v2 import RuntimeJobV2
     from ..session import Session
 
@@ -42,10 +44,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SamplerV2(BaseSamplerV2):
-    """Executor-based Sampler primitive for IBM Quantum Compute (formerly Qiskit Runtime).
+class Sampler(BaseSamplerV2):
+    """Client-side Sampler primitive for IBM Quantum Compute (formerly Qiskit Runtime).
 
-    This is an implementation of SamplerV2 built on top of the Executor primitive,
+    This is an implementation of Sampler built on top of the Executor primitive,
     enabling transparent client-side processing with faster feedback loops and greater
     user control.
 
@@ -60,7 +62,7 @@ class SamplerV2(BaseSamplerV2):
 
             from qiskit import QuantumCircuit
             from qiskit_ibm_runtime import QiskitRuntimeService
-            from qiskit_ibm_runtime.executor_sampler import SamplerV2
+            from qiskit_ibm_runtime.executor_sampler import Sampler
 
             service = QiskitRuntimeService()
             backend = service.least_busy(operational=True, simulator=False)
@@ -72,7 +74,7 @@ class SamplerV2(BaseSamplerV2):
             circuit.measure_all()
 
             # Run the sampler with options
-            sampler = SamplerV2(mode=backend)
+            sampler = Sampler(mode=backend)
             sampler.options.default_shots = 2048
             sampler.options.execution.init_qubits = True
             job = sampler.run([circuit])
@@ -86,7 +88,7 @@ class SamplerV2(BaseSamplerV2):
             * A :class:`~qiskit_ibm_runtime.Batch` if you are using batch execution mode.
 
             Refer to the `IBM Quantum Compute documentation
-            <https://quantum.cloud.ibm.com/docs/guides/execution-modes>`_
+            <https://quantum.cloud.ibm.com/docs/guides/execution-modes>`__
             for more information about execution modes.
 
         options: Sampler options. See :class:`~qiskit_ibm_runtime.options_models.SamplerOptions`
@@ -124,7 +126,64 @@ class SamplerV2(BaseSamplerV2):
 
         super().__setattr__(name, value)
 
-    def run(self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None) -> RuntimeJobV2:
+    def backend(self) -> BackendV2:
+        """Return the backend the primitive query will be run on."""
+        return self._backend
+
+    @property
+    def mode(self) -> Session | Batch | None:
+        """Return the execution mode used by this primitive.
+
+        Returns:
+            Mode used by this primitive, or ``None`` if an execution mode is not used.
+        """
+        return self._mode
+
+    def find_unique_layers(
+        self, pubs: Iterable[SamplerPubLike], types: Literal["gates", "all"] = "gates"
+    ) -> list[CircuitInstruction]:
+        """Return the unique boxed layers found across the given PUBs of a given type.
+
+        The ``types`` of layers can be either ``"gates"`` or ``"all"``, corresponding to only
+        gate layers or all layers, respectively. The returned list then contains one instance of
+        each distinct boxed layer (represented as a :class:`~.CircuitInstruction`) appearing
+        in the input PUBs.
+
+        Args:
+            pubs: The list of PUBs to return a list of unique boxes for.
+            types: The types of layers to return. Can be either ``"gates"`` or ``"all"``.
+
+        Returns:
+            The unique boxed layers of a certain type found across the given PUBs.
+        """
+        coerced_pubs = [SamplerPub.coerce(pub, None) for pub in pubs]
+        options = self.finalize_options()
+        layers = find_unique_layers(
+            pubs=coerced_pubs,
+            twirling_options=options.twirling,
+            measure_noise_learning=None,
+            inject_noise=False,
+            add_tags=True,
+        )
+        box_types = get_args(BoxType) if types == "all" else ("gates",)
+        return [layer for layer in layers if find_box_type(layer) in box_types]
+
+    def finalize_options(self) -> SamplerOptions:
+        """Construct and finalize the Sampler options.
+
+        This method produces the final :class:`~qiskit_ibm_runtime.options_models.SamplerOptions`
+        instance used inside a call to :meth:`~.Sampler.run` by resolving the ``None`` in the
+        twirling options as documented in
+        :class:`~qiskit_ibm_runtime.options_models.TwirlingOptions`.
+
+        Returns:
+            The finalized :class:`~qiskit_ibm_runtime.options_models.SamplerOptions` object.
+        """
+        return finalize_sampler_options(self.options)
+
+    def run(
+        self, pubs: Iterable[SamplerPubLike], *, shots: int | None = None, dry_run: bool = False
+    ) -> RuntimeJobV2 | LocalRuntimeJob:
         """Submit a request to the sampler primitive.
 
         For moderate and complex workloads, the client-side processing done to map sampler inputs
@@ -132,7 +191,7 @@ class SamplerV2(BaseSamplerV2):
         between invoking the function and the ``job`` being submitted. In order to check the
         progress of the call, it is recommended to setup logging (with an ``INFO`` level) - see
         `IBM Quantum Compute documentation
-        <https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime/runtime-service#logging>`_
+        <https://quantum.cloud.ibm.com/docs/api/qiskit-ibm-runtime/runtime-service#logging>`__
         for more information.
 
         Args:
@@ -141,53 +200,36 @@ class SamplerV2(BaseSamplerV2):
             shots: The total number of shots to sample for each sampler pub that does
                    not specify its own shots. If ``None``, the value from
                    ``options.default_shots`` will be used.
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
 
         Returns:
             The submitted job.
         """
-        # Coerce pubs to SamplerPub objects
-        coerced_pubs = [SamplerPub.coerce(pub, shots) for pub in pubs]
-
-        # Finalize the options--namely, resolve the ``None`` in the twirling options
-        # as documented.
-        options = deepcopy(self.options)
-        options.twirling.enable_gates = options.twirling.enable_gates or False
-        options.twirling.enable_measure = options.twirling.enable_measure or False
-
-        # Determine default shots: run parameter takes precedence over options.default_shots
-        default_shots = shots if shots is not None else options.default_shots
-
-        # Legacy simulator path (no executor)
-        if not self.options.experimental.get("local_mode", False) and isinstance(
-            self._service, QiskitRuntimeLocalService
-        ):
-            logger.info("Running in local simulator mode")
-
-            options_dict = options.model_dump()
-            options_dict["default_shots"] = shots
-
-            return self._service._run(
-                program_id="sampler",
-                inputs={"pubs": coerced_pubs, "options": options_dict},
-                options={"backend": self._backend},
-                calibration_id=None,
-            )
-
-        # Convert pubs to QuantumProgram and map options using the prepare method
+        # Pre-process: Convert Sampler input into a QuantumProgram
         logger.info("Starting pre-processing")
         quantum_program, executor_options = prepare(
-            coerced_pubs, options, default_shots, backend=self._backend
+            pubs,
+            self.options,
+            shots,
+            add_tags=self._service.is_local,
+            backend=self._backend,
         )
 
-        # Initialize executor with settings
-        executor = Executor(mode=self._backend, options=executor_options)
+        # Set semantic role for post-processing dispatch
+        quantum_program._semantic_role = "sampler_v2"
 
-        # Submit to executor
+        executor = Executor(mode=self._mode or self._backend, options=executor_options)
+
         logger.info(
             "Submitting %d pub%s to executor with %d shots",
-            len(coerced_pubs),
-            "s" if len(coerced_pubs) > 1 else "",
+            len(quantum_program.items),
+            "s" if len(quantum_program.items) > 1 else "",
             quantum_program.shots,
         )
 
-        return executor.run(quantum_program)
+        return executor.run(quantum_program, dry_run=dry_run)

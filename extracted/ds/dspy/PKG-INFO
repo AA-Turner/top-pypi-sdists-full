@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dspy
-Version: 3.3.1
+Version: 3.4.0
 Summary: DSPy
 Author-email: Omar Khattab <okhattab@stanford.edu>
 License: MIT License
@@ -38,7 +38,7 @@ Requires-Dist: regex>=2023.10.3
 Requires-Dist: orjson>=3.9.0
 Requires-Dist: tqdm>=4.66.1
 Requires-Dist: requests>=2.31.0
-Requires-Dist: pydantic>=2.0
+Requires-Dist: pydantic>=2.11.0
 Requires-Dist: litellm>=1.65.8
 Requires-Dist: diskcache>=5.6.0
 Requires-Dist: json-repair>=0.54.2
@@ -49,6 +49,8 @@ Requires-Dist: cloudpickle>=3.1.2
 Requires-Dist: gepa[dspy]==0.1.4
 Provides-Extra: anthropic
 Requires-Dist: anthropic<1.0.0,>=0.18.0; extra == "anthropic"
+Provides-Extra: typesafe
+Requires-Dist: typesafe-sdk<1.0.0,>=0.6.0; extra == "typesafe"
 Provides-Extra: weaviate
 Requires-Dist: weaviate-client<4.22.0,>=4.5.4; extra == "weaviate"
 Provides-Extra: mcp

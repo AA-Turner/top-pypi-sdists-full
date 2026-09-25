@@ -2,6 +2,7 @@ import importlib
 from inspect import signature
 import itertools
 import random
+import re
 
 from sqlalchemy import and_
 from sqlalchemy import Boolean
@@ -9,6 +10,7 @@ from sqlalchemy import case
 from sqlalchemy import cast
 from sqlalchemy import Column
 from sqlalchemy import column
+from sqlalchemy import DateTime
 from sqlalchemy import dialects
 from sqlalchemy import exists
 from sqlalchemy import extract
@@ -30,9 +32,8 @@ from sqlalchemy import TypeDecorator
 from sqlalchemy import union
 from sqlalchemy import union_all
 from sqlalchemy import values
-from sqlalchemy.dialects import mysql
-from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import Sequence
+from sqlalchemy.sql import aggregate_order_by
 from sqlalchemy.sql import bindparam
 from sqlalchemy.sql import ColumnElement
 from sqlalchemy.sql import dml
@@ -48,15 +49,27 @@ from sqlalchemy.sql.annotation import Annotated
 from sqlalchemy.sql.base import DialectKWArgs
 from sqlalchemy.sql.base import HasCacheKey
 from sqlalchemy.sql.base import SingletonConstant
+from sqlalchemy.sql.base import SyntaxExtension
+from sqlalchemy.sql.cache_key import _cache_key_traversal_visitor
+from sqlalchemy.sql.cache_key import _CacheKeyTraversal
+from sqlalchemy.sql.cache_key import CacheKey
 from sqlalchemy.sql.elements import _label_reference
 from sqlalchemy.sql.elements import _textual_label_reference
 from sqlalchemy.sql.elements import BindParameter
 from sqlalchemy.sql.elements import ClauseElement
 from sqlalchemy.sql.elements import ClauseList
 from sqlalchemy.sql.elements import CollationClause
+from sqlalchemy.sql.elements import DMLTargetCopy
+from sqlalchemy.sql.elements import DQLDMLClauseElement
+from sqlalchemy.sql.elements import ElementList
+from sqlalchemy.sql.elements import FrameClause
+from sqlalchemy.sql.elements import FrameClauseType
 from sqlalchemy.sql.elements import Immutable
 from sqlalchemy.sql.elements import Null
+from sqlalchemy.sql.elements import OrderByList
 from sqlalchemy.sql.elements import Slice
+from sqlalchemy.sql.elements import TString
+from sqlalchemy.sql.elements import TypeClause
 from sqlalchemy.sql.elements import UnaryExpression
 from sqlalchemy.sql.functions import FunctionElement
 from sqlalchemy.sql.functions import GenericFunction
@@ -81,6 +94,7 @@ from sqlalchemy.testing import is_false
 from sqlalchemy.testing import is_not
 from sqlalchemy.testing import is_true
 from sqlalchemy.testing import ne_
+from sqlalchemy.testing.assertions import expect_raises_message
 from sqlalchemy.testing.assertions import expect_warnings
 from sqlalchemy.testing.util import random_choices
 from sqlalchemy.types import ARRAY
@@ -191,6 +205,22 @@ class CoreFixtures:
         lambda: (
             _label_reference(table_a.c.a.desc()),
             _label_reference(table_a.c.a.asc()),
+        ),
+        lambda: (
+            TypeClause(String(50)),
+            TypeClause(DateTime()),
+        ),
+        lambda: (
+            table_a.c.a,
+            ElementList([table_a.c.a]),
+            ElementList([table_a.c.a, table_a.c.b]),
+        ),
+        lambda: (
+            table_a.c.a,
+            OrderByList([table_a.c.a]),
+            OrderByList(
+                [table_a.c.a, OrderByList([table_a.c.b, table_b.c.a])]
+            ),
         ),
         lambda: (_textual_label_reference("a"), _textual_label_reference("b")),
         lambda: (
@@ -356,6 +386,10 @@ class CoreFixtures:
             bindparam("x", type_=String),
             bindparam(None),
         ),
+        lambda: (
+            DMLTargetCopy(table_a.c.a),
+            DMLTargetCopy(table_a.c.b),
+        ),
         lambda: (_OffsetLimitParam("x"), _OffsetLimitParam("y")),
         lambda: (func.foo(), func.foo(5), func.bar()),
         lambda: (
@@ -401,6 +435,24 @@ class CoreFixtures:
             func.json_to_recordset("{foo}").column_valued(),
             func.json_to_recordset("{foo}").scalar_table_valued("foo"),
         ),
+        lambda: (
+            aggregate_order_by(column("a"), column("a")),
+            aggregate_order_by(column("a"), column("b")),
+            aggregate_order_by(column("a"), column("a").desc()),
+            aggregate_order_by(column("a"), column("a").nulls_first()),
+            aggregate_order_by(column("a"), column("a").desc().nulls_first()),
+            aggregate_order_by(column("a", Integer), column("b")),
+            aggregate_order_by(column("a"), column("b"), column("c")),
+            aggregate_order_by(column("a"), column("c"), column("b")),
+            aggregate_order_by(column("a"), column("b").desc(), column("c")),
+            aggregate_order_by(
+                column("a"), column("b").nulls_first(), column("c")
+            ),
+            aggregate_order_by(
+                column("a"), column("b").desc().nulls_first(), column("c")
+            ),
+            aggregate_order_by(column("a", Integer), column("a"), column("b")),
+        ),
         lambda: (table_a.table_valued(), table_b.table_valued()),
         lambda: (True_(), False_()),
         lambda: (Null(),),
@@ -443,6 +495,33 @@ class CoreFixtures:
             func.row_number().over(order_by=table_a.c.a, range_=(None, 10)),
             func.row_number().over(order_by=table_a.c.a, rows=(None, 20)),
             func.row_number().over(order_by=table_a.c.a, groups=(None, 20)),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                range_=FrameClause(
+                    2,
+                    3,
+                    FrameClauseType.FOLLOWING,
+                    FrameClauseType.PRECEDING,
+                ),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                rows=FrameClause(
+                    2,
+                    3,
+                    FrameClauseType.FOLLOWING,
+                    FrameClauseType.PRECEDING,
+                ),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                groups=FrameClause(
+                    2,
+                    3,
+                    FrameClauseType.FOLLOWING,
+                    FrameClauseType.PRECEDING,
+                ),
+            ),
             func.row_number().over(order_by=table_a.c.b),
             func.row_number().over(
                 order_by=table_a.c.a, partition_by=table_a.c.b
@@ -694,6 +773,10 @@ class CoreFixtures:
             table_b.delete().with_dialect_options(sqlite_foo="some value"),
             table_b.delete().where(table_b.c.a == 5),
             table_b.delete().where(table_b.c.b == 5),
+            table_b.delete().using(table_a),
+            table_b.delete().using(
+                table_b.join(table_a, table_b.c.a == table_a.c.a)
+            ),
         ),
         lambda: (
             values(
@@ -887,6 +970,12 @@ class CoreFixtures:
             column("z", MyType1()) == column("x", MyType2()),
             column("z", MyType1()) == column("x", MyType3("x")),
             column("z", MyType1()) == column("x", MyType3("y")),
+            column("z", String(50, collation="x"))
+            == column("x", String(50, collation="x")),
+            column("z", String(50, collation="x"))
+            == column("x", String(50, collation="x", collation_schema="a")),
+            column("z", String(50, collation="x", collation_schema="a"))
+            == column("x", String(50, collation="x", collation_schema="b")),
         )
     ]
 
@@ -991,15 +1080,15 @@ class CoreFixtures:
 
     def _statements_w_context_options_fixtures():
         return [
-            select(table_a)._add_context_option(opt1, True),
-            select(table_a)._add_context_option(opt1, 5),
+            select(table_a)._add_compile_state_func(opt1, True),
+            select(table_a)._add_compile_state_func(opt1, 5),
             select(table_a)
-            ._add_context_option(opt1, True)
-            ._add_context_option(opt2, True),
+            ._add_compile_state_func(opt1, True)
+            ._add_compile_state_func(opt2, True),
             select(table_a)
-            ._add_context_option(opt1, True)
-            ._add_context_option(opt2, 5),
-            select(table_a)._add_context_option(opt3, True),
+            ._add_compile_state_func(opt1, True)
+            ._add_compile_state_func(opt2, 5),
+            select(table_a)._add_compile_state_func(opt3, True),
         ]
 
     fixtures.append(_statements_w_context_options_fixtures)
@@ -1172,6 +1261,40 @@ class CoreFixtures:
 
     dont_compare_values_fixtures.append(_lambda_fixtures)
 
+    def _numeric_agnostic_window_functions():
+        return (
+            func.row_number().over(
+                order_by=table_a.c.a,
+                range_=(random.randint(50, 60), random.randint(60, 70)),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                range_=(random.randint(-40, -20), random.randint(60, 70)),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                rows=(random.randint(-40, -20), random.randint(60, 70)),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                range_=(None, random.randint(60, 70)),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                range_=(random.randint(50, 60), None),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                groups=(random.randint(50, 60), random.randint(60, 70)),
+            ),
+            func.row_number().over(
+                order_by=table_a.c.a,
+                groups=(random.randint(-40, -20), random.randint(60, 70)),
+            ),
+        )
+
+    dont_compare_values_fixtures.append(_numeric_agnostic_window_functions)
+
     # like fixture but returns at least two objects that compare equally
     equal_fixtures = [
         lambda: (
@@ -1190,17 +1313,7 @@ class CoreFixtures:
 
 
 class CacheKeyTest(fixtures.CacheKeyFixture, CoreFixtures, fixtures.TestBase):
-    # we are slightly breaking the policy of not having external dialect
-    # stuff in here, but use pg/mysql as test cases to ensure that these
-    # objects don't report an inaccurate cache key, which is dependent
-    # on the base insert sending out _post_values_clause and the caching
-    # system properly recognizing these constructs as not cacheable
-
     @testing.combinations(
-        postgresql.insert(table_a).on_conflict_do_update(
-            index_elements=[table_a.c.a], set_={"name": "foo"}
-        ),
-        mysql.insert(table_a).on_duplicate_key_update(updated_once=None),
         table_a.insert().values(  # multivalues doesn't cache
             [
                 {"name": "some name"},
@@ -1267,7 +1380,7 @@ class CacheKeyTest(fixtures.CacheKeyFixture, CoreFixtures, fixtures.TestBase):
             # a typed column expression, so this is fine
             return (column("x", Integer).in_(elements),)
 
-        self._run_cache_key_fixture(fixture, False)
+        self._run_cache_key_fixture(fixture, compare_values=False)
 
     def test_cache_key(self):
         for fixtures_, compare_values in [
@@ -1276,7 +1389,9 @@ class CacheKeyTest(fixtures.CacheKeyFixture, CoreFixtures, fixtures.TestBase):
             (self.type_cache_key_fixtures, False),
         ]:
             for fixture in fixtures_:
-                self._run_cache_key_fixture(fixture, compare_values)
+                self._run_cache_key_fixture(
+                    fixture, compare_values=compare_values
+                )
 
     def test_cache_key_equal(self):
         for fixture in self.equal_fixtures:
@@ -1291,7 +1406,7 @@ class CacheKeyTest(fixtures.CacheKeyFixture, CoreFixtures, fixtures.TestBase):
 
         self._run_cache_key_fixture(
             fixture,
-            True,
+            compare_values=True,
         )
 
     def test_apply_params_to_element_maintains_type(self):
@@ -1336,7 +1451,7 @@ class CacheKeyTest(fixtures.CacheKeyFixture, CoreFixtures, fixtures.TestBase):
                 _literal_bindparam(None),
             )
 
-        self._run_cache_key_fixture(fixture, True)
+        self._run_cache_key_fixture(fixture, compare_values=True)
 
     def test_cache_key_unknown_traverse(self):
         class Foobar1(ClauseElement):
@@ -1418,6 +1533,42 @@ class CacheKeyTest(fixtures.CacheKeyFixture, CoreFixtures, fixtures.TestBase):
         ne_(ck1, ck2)
         is_not(ck1, None)
         is_not(ck2, None)
+
+    def test_generation_rule_for_every_dispatched_symbol(self):
+        """every symbol the cache key visitor dispatches on has a code
+        generation rule in _BaseCacheKeyTraversal._generate_class_attrs().
+
+        """
+        no_rule = []
+        for sym in InternalTraversal:
+            if _cache_key_traversal_visitor.dispatch(sym) is None:
+                continue
+            try:
+                _cache_key_traversal_visitor._generate_class_attrs(
+                    [("someattr", sym)]
+                )
+            except NotImplementedError:
+                no_rule.append(sym.name)
+
+        eq_(no_rule, [])
+
+    def test_generation_rule_missing(self):
+        """a symbol that's dispatched inline but has no generation rule
+        fails loudly at class setup time rather than silently.
+
+        """
+
+        class MyTraversal(_CacheKeyTraversal):
+            visit_string = InternalTraversal.dp_string
+
+        with expect_raises_message(
+            NotImplementedError,
+            "No cache key traversal generation rule for symbol "
+            ".*dp_string.*, used by attribute 'someattr'",
+        ):
+            MyTraversal()._generate_class_attrs(
+                [("someattr", InternalTraversal.dp_string)]
+            )
 
     def test_generative_cache_key_regen_w_del(self):
         t1 = table("t1", column("a"), column("b"))
@@ -1545,7 +1696,7 @@ class HasCacheKeySubclass(fixtures.TestBase):
         ),
         "FromStatement": (
             {"_raw_columns", "_with_options", "element"}
-            | {"_propagate_attrs", "_with_context_options"},
+            | {"_propagate_attrs", "_compile_state_funcs"},
             {"element", "entities"},
         ),
         "FunctionAsBinary": (
@@ -1601,7 +1752,7 @@ class HasCacheKeySubclass(fixtures.TestBase):
                 "_hints",
                 "_independent_ctes",
                 "_distinct_on",
-                "_with_context_options",
+                "_compile_state_funcs",
                 "_setup_joins",
                 "_suffixes",
                 "_memoized_select_entities",
@@ -1616,6 +1767,10 @@ class HasCacheKeySubclass(fixtures.TestBase):
                 "_annotations",
                 "_fetch_clause_options",
                 "_from_obj",
+                "_post_select_clause",
+                "_post_body_clause",
+                "_post_criteria_clause",
+                "_pre_columns_clause",
             },
             {"entities"},
         ),
@@ -1648,10 +1803,9 @@ class HasCacheKeySubclass(fixtures.TestBase):
             },
             {"columns", "name", "literal_binds"},
         ),
-        "_FrameClause": (
-            {"upper_integer_bind", "upper_type"}
-            | {"lower_type", "lower_integer_bind"},
-            {"range_"},
+        "FrameClause": (
+            {"upper_bind", "upper_type", "lower_type", "lower_bind"},
+            {"start", "end", "start_frame_type", "end_frame_type"},
         ),
         "_MemoizedSelectEntities": (
             {"_with_options", "_raw_columns", "_setup_joins"},
@@ -1667,8 +1821,10 @@ class HasCacheKeySubclass(fixtures.TestBase):
                 Annotated,
                 NoInit,
                 SingletonConstant,
+                SyntaxExtension,
                 DialectKWArgs,
                 Executable,
+                TString,
             ]
         )
     )
@@ -1711,12 +1867,25 @@ class CompareAndCopyTest(CoreFixtures, fixtures.TestBase):
         need = set(
             cls
             for cls in all_hascachekey_subclasses(
-                ignore_subclasses=[Annotated, NoInit, SingletonConstant]
+                ignore_subclasses=[
+                    Annotated,
+                    NoInit,
+                    SingletonConstant,
+                    TString,
+                ]
             )
             if "orm" not in cls.__module__
             and "compiler" not in cls.__module__
             and "dialects" not in cls.__module__
-            and issubclass(cls, (ColumnElement, Selectable, LambdaElement))
+            and issubclass(
+                cls,
+                (
+                    ColumnElement,
+                    Selectable,
+                    LambdaElement,
+                    DQLDMLClauseElement,
+                ),
+            )
         )
 
         for fixture in self.fixtures + self.dont_compare_values_fixtures:
@@ -2254,3 +2423,76 @@ class TypesTest(fixtures.TestBase):
 
         eq_(c1, c2)
         ne_(c1, c3)
+
+
+class TestCacheKeyUtil(fixtures.TestBase):
+
+    def test_str(self):
+        eq_(
+            re.compile(r"[\n\s]+", re.M).sub(
+                " ",
+                str(
+                    CacheKey(
+                        key=((1, (2, 7, 4), 5),), bindparams=[], params={}
+                    )
+                ),
+            ),
+            "CacheKey(key=( ( 1, ( 2, 7, 4, ), 5, ), ),)",
+        )
+
+    def test_nested_tuple_difference(self):
+        """Test difference detection in nested tuples"""
+        k1 = CacheKey(key=((1, (2, 3, 4), 5),), bindparams=[], params={})
+        k2 = CacheKey(key=((1, (2, 7, 4), 5),), bindparams=[], params={})
+
+        eq_(list(k1._whats_different(k2)), ["key[0][1][1]:  3 != 7"])
+
+    def test_deeply_nested_tuple_difference(self):
+        """Test difference detection in deeply nested tuples"""
+        k1 = CacheKey(
+            key=((1, (2, (3, 4, 5), 6), 7),), bindparams=[], params={}
+        )
+        k2 = CacheKey(
+            key=((1, (2, (3, 9, 5), 6), 7),), bindparams=[], params={}
+        )
+
+        eq_(list(k1._whats_different(k2)), ["key[0][1][1][1]:  4 != 9"])
+
+    def test_multiple_differences_nested(self):
+        """Test detection of multiple differences in nested structure"""
+        k1 = CacheKey(key=((1, (2, 3), 4),), bindparams=[], params={})
+        k2 = CacheKey(key=((1, (5, 7), 4),), bindparams=[], params={})
+
+        eq_(
+            list(k1._whats_different(k2)),
+            ["key[0][1][0]:  2 != 5", "key[0][1][1]:  3 != 7"],
+        )
+
+    def test_diff_method(self):
+        """Test the _diff() method that returns a comma-separated string"""
+        k1 = CacheKey(key=((1, (2, 3)),), bindparams=[], params={})
+        k2 = CacheKey(key=((1, (5, 7)),), bindparams=[], params={})
+
+        eq_(k1._diff(k2), "key[0][1][0]:  2 != 5, key[0][1][1]:  3 != 7")
+
+    def test_with_string_differences(self):
+        """Test detection of string differences"""
+        k1 = CacheKey(
+            key=(("name", ("x", "value")),), bindparams=[], params={}
+        )
+        k2 = CacheKey(
+            key=(("name", ("y", "value")),), bindparams=[], params={}
+        )
+
+        eq_(list(k1._whats_different(k2)), ["key[0][1][0]:  x != y"])
+
+    def test_with_mixed_types(self):
+        """Test detection of differences with mixed types"""
+        k1 = CacheKey(
+            key=(("id", 1, ("nested", 100)),), bindparams=[], params={}
+        )
+        k2 = CacheKey(
+            key=(("id", 1, ("nested", 200)),), bindparams=[], params={}
+        )
+
+        eq_(list(k1._whats_different(k2)), ["key[0][2][1]:  100 != 200"])

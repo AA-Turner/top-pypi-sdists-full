@@ -34,6 +34,8 @@ from dreadnode.app.client.transports import (
 from dreadnode.app.env import read_env_with_deprecation
 from dreadnode.app.server.runtime_credentials import read_runtime_token
 from dreadnode.app.server.runtime_events import RuntimeEventEnvelope
+from dreadnode.core.log import LogLevel
+from dreadnode.core.runtime_logs import RuntimeLogPage
 from dreadnode.core.tls import cached_platform_ssl_context, format_tls_error
 
 _SUBSCRIBE_RECONNECT_INITIAL_DELAY = 0.25
@@ -1329,6 +1331,25 @@ class RuntimeClient:
         response = await self._http_client.get("/api/files/read", params={"path": path})
         response.raise_for_status()
         return response.json().get("content", "")
+
+    async def query_logs(
+        self,
+        *,
+        after: int | None = None,
+        instance_id: str | None = None,
+        limit: int = 100,
+        level: LogLevel = "debug",
+        text: str = "",
+    ) -> RuntimeLogPage:
+        """Read runtime-owned diagnostics, including while startup is incomplete."""
+        params: dict[str, str | int] = {"limit": limit, "level": level, "text": text}
+        if after is not None:
+            params["after"] = after
+        if instance_id is not None:
+            params["instance_id"] = instance_id
+        response = await self._http_client.get("/api/logs", params=params, timeout=10.0)
+        response.raise_for_status()
+        return RuntimeLogPage.model_validate(response.json())
 
     async def execute_shell(
         self,

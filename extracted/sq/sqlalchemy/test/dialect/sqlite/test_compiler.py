@@ -2,12 +2,14 @@
 
 from collections import OrderedDict
 import contextlib
+import random
 
 from sqlalchemy import and_
 from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import column
 from sqlalchemy import create_engine
+from sqlalchemy import CreateView
 from sqlalchemy import event
 from sqlalchemy import exc
 from sqlalchemy import extract
@@ -499,18 +501,7 @@ class RegexpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             "mytable", column("myid", String), column("name", String)
         )
 
-    def _only_on_py38_w_sqlite_39():
-        """in python 3.9 and above you can actually do::
-
-            @(testing.requires.python38 + testing.only_on("sqlite > 3.9"))
-            def test_determinsitic_parameter(self): ...
-
-        that'll be cool.  until then...
-
-        """
-        return testing.requires.python38 + testing.only_on("sqlite >= 3.9")
-
-    @_only_on_py38_w_sqlite_39()
+    @testing.only_on("sqlite >= 3.9")
     def test_determinsitic_parameter(self):
         """for #9379, make sure that "deterministic=True" is used when we are
         on python 3.8 with modern SQLite version.
@@ -600,7 +591,9 @@ class RegexpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         )
 
 
-class OnConflictCompileTest(AssertsCompiledSQL, fixtures.TestBase):
+class OnConflictCompileTest(
+    AssertsCompiledSQL, fixtures.CacheKeySuite, fixtures.TestBase
+):
     __dialect__ = "sqlite"
 
     @testing.combinations(
@@ -659,6 +652,83 @@ class OnConflictCompileTest(AssertsCompiledSQL, fixtures.TestBase):
                 testing.resolve_lambda(case, stmt=stmt, users=users),
                 f"INSERT INTO users (id, name) VALUES (?, ?) {expected}",
             )
+
+    @fixtures.CacheKeySuite.run_suite_tests
+    def test_insert_on_conflict_cache_key(self):
+        table = Table(
+            "foos",
+            MetaData(),
+            Column("id", Integer, primary_key=True),
+            Column("bar", String(10)),
+            Column("baz", String(10)),
+        )
+        Index("foo_idx", table.c.id)
+
+        def stmt0():
+            # note a multivalues INSERT is not cacheable; use just one
+            # set of values
+            return insert(table).values(
+                {"id": 1, "bar": "ab"},
+            )
+
+        def stmt1():
+            stmt = stmt0()
+            return stmt.on_conflict_do_nothing()
+
+        def stmt2():
+            stmt = stmt0()
+            return stmt.on_conflict_do_nothing(index_elements=["id"])
+
+        def stmt21():
+            stmt = stmt0()
+            return stmt.on_conflict_do_nothing(index_elements=[table.c.id])
+
+        def stmt22():
+            stmt = stmt0()
+            return stmt.on_conflict_do_nothing(
+                index_elements=["id", table.c.bar]
+            )
+
+        def stmt23():
+            stmt = stmt0()
+            return stmt.on_conflict_do_nothing(index_elements=["id", "bar"])
+
+        def stmt24():
+            stmt = insert(table).values(
+                {"id": 1, "bar": "ab", "baz": "xy"},
+            )
+            return stmt.on_conflict_do_nothing(index_elements=["id", "bar"])
+
+        def stmt3():
+            stmt = stmt0()
+            return stmt.on_conflict_do_update(
+                index_elements=["id"],
+                set_={
+                    "bar": random.choice(["a", "b", "c"]),
+                    "baz": random.choice(["d", "e", "f"]),
+                },
+            )
+
+        def stmt31():
+            stmt = stmt0()
+            return stmt.on_conflict_do_update(
+                index_elements=["id"],
+                set_={
+                    "baz": random.choice(["d", "e", "f"]),
+                },
+            )
+
+        return lambda: [
+            stmt0(),
+            stmt1(),
+            stmt2(),
+            stmt21(),
+            stmt22(),
+            stmt23(),
+            stmt24(),
+            stmt3(),
+            stmt31(),
+        ]
 
     @testing.combinations("control", "excluded", "dict", argnames="scenario")
     def test_set_excluded(self, scenario, users, users_w_key):
@@ -862,4 +932,37 @@ class OnConflictCompileTest(AssertsCompiledSQL, fixtures.TestBase):
             Column("name", String(50)),
             Column("login_email", String(50)),
             Column("lets_index_this", String(50)),
+        )
+
+    def test_create_view_if_not_exists(self):
+        """Test SQLite if_not_exists dialect option for CREATE VIEW."""
+        src = table("src", column("id"), column("name"))
+        stmt = CreateView(
+            select(src.c.id, src.c.name),
+            "my_view",
+            sqlite_if_not_exists=True,
+        )
+
+        self.assert_compile(
+            stmt,
+            "CREATE VIEW IF NOT EXISTS my_view AS "
+            "SELECT src.id, src.name FROM src",
+            dialect=sqlite.dialect(),
+        )
+
+    def test_create_view_temporary_if_not_exists(self):
+        """Test SQLite TEMPORARY VIEW with if_not_exists."""
+        src = table("src", column("id"), column("name"))
+        stmt = CreateView(
+            select(src.c.id, src.c.name),
+            "temp_view",
+            temporary=True,
+            sqlite_if_not_exists=True,
+        )
+
+        self.assert_compile(
+            stmt,
+            "CREATE TEMPORARY VIEW IF NOT EXISTS temp_view AS "
+            "SELECT src.id, src.name FROM src",
+            dialect=sqlite.dialect(),
         )

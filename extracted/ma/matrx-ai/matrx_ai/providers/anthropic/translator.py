@@ -24,7 +24,7 @@ from matrx_ai.config.tool_result_guard import (
 from matrx_ai.config.message_config import MessageSanitizationError
 from matrx_ai.providers.base_translator import BaseTranslator
 from matrx_ai.providers.cache_guard import PROMPT_CACHING_ENABLED
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
 # ============================================================================
 # ANTHROPIC TRANSLATOR
@@ -309,12 +309,19 @@ class AnthropicTranslator(BaseTranslator):
         # exclusion + thinking-compatibility gates (all processor logic).
         anthropic_request.update(resolve_outbound_params(config, profile.controls))
 
-        if config.tool_choice:
-            if config.tool_choice == "auto":
+        # tool_choice is structural (this translator owns the wire shape), but the
+        # offering's control rule decides WHETHER a value may be sent: Opus 5.5 /
+        # Fable 5.1 reject forced tool use ({"type": "any"}), and their rule maps
+        # "required" away loudly instead of letting the request 400.
+        tool_choice = resolve_structural_setting(
+            config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+        )
+        if tool_choice:
+            if tool_choice == "auto":
                 anthropic_request["tool_choice"] = {"type": "auto"}
-            elif config.tool_choice == "required":
+            elif tool_choice == "required":
                 anthropic_request["tool_choice"] = {"type": "any"}
-            elif config.tool_choice == "none":
+            elif tool_choice == "none":
                 anthropic_request["tool_choice"] = {"type": "none"}
 
         # max_tokens / thinking / sampling-compatibility all landed above via

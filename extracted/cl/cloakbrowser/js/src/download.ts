@@ -49,7 +49,7 @@ export const WELCOME_FREE_INTERVAL_SEC = 1 * 24 * 60 * 60;
 // Pro Chromium major shown in the welcome banner. Bump at each Pro major release
 // (no local constant to derive it from — the live Pro version comes from the
 // network, which we don't call just to print a banner). Mirrors download.py.
-const PRO_MAJOR = "151";
+const PRO_MAJOR = "152";
 
 /**
  * A downloaded binary could not be authenticated (bad/missing signature,
@@ -1040,7 +1040,8 @@ async function extractArchive(
   if (archivePath.endsWith(".zip")) {
     await extractZip(archivePath, destDir);
   } else {
-    await extractTar(archivePath, destDir);
+    // Signature-verified before extraction, so unpack as-is.
+    await tarExtract({ file: archivePath, cwd: destDir, strip: 0 });
   }
 
   // Flatten single subdirectory if needed
@@ -1060,23 +1061,6 @@ async function extractArchive(
   if (fs.existsSync(bp)) {
     console.log(`[cloakbrowser] Binary ready: ${bp}`);
   }
-}
-
-async function extractTar(archivePath: string, destDir: string): Promise<void> {
-  await tarExtract({
-    file: archivePath,
-    cwd: destDir,
-    strip: 0,
-    filter: (entryPath: string) => {
-      if (path.isAbsolute(entryPath) || entryPath.includes("..")) {
-        console.warn(
-          `[cloakbrowser] Skipping suspicious archive entry: ${entryPath}`
-        );
-        return false;
-      }
-      return true;
-    },
-  });
 }
 
 async function extractZip(archivePath: string, destDir: string): Promise<void> {

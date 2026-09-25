@@ -19,6 +19,7 @@ from ..core.exceptions import MapFileParseError
 from .ldmap_parser import MapFileParser
 from .iarmap_parser import IARMapFileParser
 from .lldmap_parser import LLDMapFileParser
+from .mapfilter import OutputSectionFilter
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,7 @@ __all__ = [
     'IARMapFileParser',
     'LLDMapFileParser',
     'MapFileResolver',
+    'OutputSectionFilter',
 ]
 
 
@@ -87,13 +89,18 @@ class MapFileResolver:
             [r[0] for r in ranges] if ranges else None)
 
     @classmethod
-    def from_file(cls, map_path: str) -> 'MapFileResolver':
+    def from_file(cls, map_path: str,
+                  section_filter: Optional[OutputSectionFilter] = None
+                  ) -> 'MapFileResolver':
         """Create a resolver by parsing a map file (GNU LD, LLD, or IAR).
 
         The format is auto-detected from the file content.
 
         Args:
             map_path: Path to the .map file.
+            section_filter: Drops non-ALLOC output sections in GNU LD and
+                LLD maps (see :class:`OutputSectionFilter`). IAR placement
+                summaries never list them, so it is unused there.
 
         Returns:
             MapFileResolver with parsed mappings.
@@ -113,10 +120,10 @@ class MapFileResolver:
             ranges = IARMapFileParser().parse(content)
             logger.debug("Detected IAR map file format: %s", map_path)
         elif fmt == 'lld':
-            ranges = LLDMapFileParser().parse(content)
+            ranges = LLDMapFileParser().parse(content, section_filter)
             logger.debug("Detected LLD map file format: %s", map_path)
         else:
-            ranges = MapFileParser().parse(content)
+            ranges = MapFileParser().parse(content, section_filter)
             logger.debug("Detected GNU LD map file format: %s", map_path)
         count = len(ranges)
         resolver = cls(ranges=ranges)

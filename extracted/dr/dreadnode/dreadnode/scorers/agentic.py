@@ -33,12 +33,30 @@ Example:
     ```
 """
 
+import json
 import re
 import typing as t
 
 from dreadnode.agents.tools import FunctionCall, ToolCall
 from dreadnode.core.metric import Metric
 from dreadnode.core.scorer import Scorer
+
+
+def _arg_str(value: t.Any) -> str:
+    """Coerce tool-call arguments to a string for regex matching.
+
+    Agents vary: some return ``arguments`` as a JSON string, others as a dict.
+    Downstream scorers run ``re.search`` over the arguments, so a dict/list is
+    serialized rather than dropped.
+    """
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return ""
+    try:
+        return json.dumps(value)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def _extract_tool_calls(output: t.Any) -> list[ToolCall]:
@@ -79,19 +97,21 @@ def _extract_tool_calls(output: t.Any) -> list[ToolCall]:
                     ToolCall(
                         id=tc.get("id", ""),
                         function=FunctionCall(
-                            name=func_dict.get("name", ""),
-                            arguments=func_dict.get("arguments", ""),
+                            name=func_dict.get("name") or func_dict.get("tool") or "",
+                            arguments=_arg_str(
+                                func_dict.get("arguments", func_dict.get("args", ""))
+                            ),
                         ),
                     )
                 )
             else:
-                # Flat dict: {"name": "...", "arguments": "..."}
+                # Flat dict: {"name"|"tool": "...", "arguments"|"args": "..."|{...}}
                 normalized.append(
                     ToolCall(
                         id=tc.get("id", ""),
                         function=FunctionCall(
-                            name=tc.get("name", ""),
-                            arguments=tc.get("arguments", ""),
+                            name=tc.get("name") or tc.get("tool") or "",
+                            arguments=_arg_str(tc.get("arguments", tc.get("args", ""))),
                         ),
                     )
                 )

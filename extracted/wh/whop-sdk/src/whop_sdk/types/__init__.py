@@ -36,7 +36,21 @@ if typing.TYPE_CHECKING:
     from .account_company_formation_signature_request_status import AccountCompanyFormationSignatureRequestStatus
     from .account_company_formation_signatures import AccountCompanyFormationSignatures
     from .account_company_formation_status import AccountCompanyFormationStatus
+    from .account_covered_payout_fees import AccountCoveredPayoutFees
     from .account_dispute_alert_auto_refund_control import AccountDisputeAlertAutoRefundControl
+    from .account_fee import AccountFee
+    from .account_fee_category import AccountFeeCategory
+    from .account_fee_markup import AccountFeeMarkup
+    from .account_fee_markup_source import AccountFeeMarkupSource
+    from .account_fee_markup_unadjustable_reason import AccountFeeMarkupUnadjustableReason
+    from .account_fee_markups import AccountFeeMarkups
+    from .account_fee_rate import AccountFeeRate
+    from .account_fee_region import AccountFeeRegion
+    from .account_fee_regional_rate import AccountFeeRegionalRate
+    from .account_fee_regional_rate_source import AccountFeeRegionalRateSource
+    from .account_fee_source import AccountFeeSource
+    from .account_fee_unadjustable_reason import AccountFeeUnadjustableReason
+    from .account_fees import AccountFees
     from .account_home_preferences_item import AccountHomePreferencesItem
     from .account_link import AccountLink
     from .account_link_use_cases import AccountLinkUseCases
@@ -44,6 +58,10 @@ if typing.TYPE_CHECKING:
     from .account_opengraph_image_variant import AccountOpengraphImageVariant
     from .account_parent import AccountParent
     from .account_parent_fees_value import AccountParentFeesValue
+    from .account_partner import AccountPartner
+    from .account_partner_reward import AccountPartnerReward
+    from .account_partner_reward_qualification_type import AccountPartnerRewardQualificationType
+    from .account_partner_reward_status import AccountPartnerRewardStatus
     from .account_payment_controls import AccountPaymentControls
     from .account_payment_controls_restricted_payment_methods_item import (
         AccountPaymentControlsRestrictedPaymentMethodsItem,
@@ -90,6 +108,14 @@ if typing.TYPE_CHECKING:
     from .ad_campaign_result_event import AdCampaignResultEvent
     from .ad_campaign_special_ad_categories_item import AdCampaignSpecialAdCategoriesItem
     from .ad_campaign_status import AdCampaignStatus
+    from .ad_conversion_value_rule import AdConversionValueRule
+    from .ad_conversion_value_rule_adjustment_type import AdConversionValueRuleAdjustmentType
+    from .ad_conversion_value_rule_event import AdConversionValueRuleEvent
+    from .ad_conversion_value_rule_event_event_name import AdConversionValueRuleEventEventName
+    from .ad_conversion_value_rule_status import AdConversionValueRuleStatus
+    from .ad_conversion_value_rule_target import AdConversionValueRuleTarget
+    from .ad_conversion_value_rule_target_platform import AdConversionValueRuleTargetPlatform
+    from .ad_conversion_value_rule_target_scope import AdConversionValueRuleTargetScope
     from .ad_creative import AdCreative
     from .ad_creative_crop import AdCreativeCrop
     from .ad_creative_format import AdCreativeFormat
@@ -146,6 +172,7 @@ if typing.TYPE_CHECKING:
     from .ad_group_optimization_goal import AdGroupOptimizationGoal
     from .ad_group_placement import AdGroupPlacement
     from .ad_group_placement_platform import AdGroupPlacementPlatform
+    from .ad_group_platform import AdGroupPlatform
     from .ad_group_regions import AdGroupRegions
     from .ad_group_regions_body import AdGroupRegionsBody
     from .ad_group_result_event import AdGroupResultEvent
@@ -153,6 +180,7 @@ if typing.TYPE_CHECKING:
     from .ad_group_targeting_category import AdGroupTargetingCategory
     from .ad_lead_form import AdLeadForm
     from .ad_lead_form_completion import AdLeadFormCompletion
+    from .ad_lead_form_completion_button_type import AdLeadFormCompletionButtonType
     from .ad_lead_form_disclaimer import AdLeadFormDisclaimer
     from .ad_lead_form_disclaimer_checkbox import AdLeadFormDisclaimerCheckbox
     from .ad_lead_form_form_type import AdLeadFormFormType
@@ -164,6 +192,7 @@ if typing.TYPE_CHECKING:
     from .ad_lead_form_question_option import AdLeadFormQuestionOption
     from .ad_messaging_config import AdMessagingConfig
     from .ad_music import AdMusic
+    from .ad_platform import AdPlatform
     from .ad_platform_issue import AdPlatformIssue
     from .ad_platform_issue_resource_type import AdPlatformIssueResourceType
     from .ad_post_source import AdPostSource
@@ -397,7 +426,6 @@ if typing.TYPE_CHECKING:
     from .dispute_alert_list_item import DisputeAlertListItem
     from .dispute_alert_list_item_dispute import DisputeAlertListItemDispute
     from .dispute_alert_list_item_payment import DisputeAlertListItemPayment
-    from .dispute_alert_not_actionable_reason import DisputeAlertNotActionableReason
     from .dispute_alert_type import DisputeAlertType
     from .dispute_alert_types import DisputeAlertTypes
     from .dispute_attachment import DisputeAttachment
@@ -465,15 +493,12 @@ if typing.TYPE_CHECKING:
     from .domain_issue import DomainIssue
     from .domain_status import DomainStatus
     from .economic_intelligence import EconomicIntelligence
+    from .economic_intelligence_operation import EconomicIntelligenceOperation
+    from .economic_intelligence_sentiment import EconomicIntelligenceSentiment
     from .economic_intelligence_status import EconomicIntelligenceStatus
     from .embed_types import EmbedTypes
-    from .entries_sortable_columns import EntriesSortableColumns
     from .entry import Entry
     from .entry_custom_field_responses_item import EntryCustomFieldResponsesItem
-    from .entry_list_item import EntryListItem
-    from .entry_list_item_plan import EntryListItemPlan
-    from .entry_list_item_product import EntryListItemProduct
-    from .entry_list_item_user import EntryListItemUser
     from .entry_plan import EntryPlan
     from .entry_product import EntryProduct
     from .entry_status import EntryStatus
@@ -537,6 +562,10 @@ if typing.TYPE_CHECKING:
     from .forum_who_can_comment_types import ForumWhoCanCommentTypes
     from .forum_who_can_post_types import ForumWhoCanPostTypes
     from .friendly_receipt_status import FriendlyReceiptStatus
+    from .funnel_comparison import FunnelComparison
+    from .funnel_confidence_interval import FunnelConfidenceInterval
+    from .funnel_step import FunnelStep
+    from .funnel_step_result import FunnelStepResult
     from .future_usage_types import FutureUsageTypes
     from .global_affiliate_statuses import GlobalAffiliateStatuses
     from .grantable_authorized_user_roles import GrantableAuthorizedUserRoles
@@ -726,10 +755,12 @@ if typing.TYPE_CHECKING:
     from .partner_payout_rate_income_source import PartnerPayoutRateIncomeSource
     from .partner_payout_tier import PartnerPayoutTier
     from .partner_payout_tier_tier import PartnerPayoutTierTier
-    from .partner_reward_link import PartnerRewardLink
-    from .partner_reward_link_qualification_income_source import PartnerRewardLinkQualificationIncomeSource
-    from .partner_reward_link_reward_type import PartnerRewardLinkRewardType
-    from .partner_reward_link_status import PartnerRewardLinkStatus
+    from .partner_referral_request import PartnerReferralRequest
+    from .partner_referral_request_request_type import PartnerReferralRequestRequestType
+    from .partner_referral_request_status import PartnerReferralRequestStatus
+    from .partner_referral_reward import PartnerReferralReward
+    from .partner_referral_reward_bot_qualification_type import PartnerReferralRewardBotQualificationType
+    from .partner_referral_reward_recipient import PartnerReferralRewardRecipient
     from .passkey import Passkey
     from .payment import Payment
     from .payment_address import PaymentAddress
@@ -740,6 +771,8 @@ if typing.TYPE_CHECKING:
     from .payment_fee import PaymentFee
     from .payment_fee_origin import PaymentFeeOrigin
     from .payment_fee_type import PaymentFeeType
+    from .payment_hold import PaymentHold
+    from .payment_hold_type import PaymentHoldType
     from .payment_instructions import (
         PaymentInstructions,
         PaymentInstructions_BankTransfer,
@@ -1207,6 +1240,7 @@ if typing.TYPE_CHECKING:
     from .resolution_event_action import ResolutionEventAction
     from .resolution_event_reporter_type import ResolutionEventReporterType
     from .resolution_payment import ResolutionPayment
+    from .retrieve_stats_request_steps import RetrieveStatsRequestSteps
     from .review import Review
     from .review_attachments_item import ReviewAttachmentsItem
     from .review_company import ReviewCompany
@@ -1218,8 +1252,14 @@ if typing.TYPE_CHECKING:
     from .review_user import ReviewUser
     from .schedule_frequencies import ScheduleFrequencies
     from .setup_intent import SetupIntent
-    from .setup_intent_checkout_configuration import SetupIntentCheckoutConfiguration
-    from .setup_intent_company import SetupIntentCompany
+    from .setup_intent_legacy import SetupIntentLegacy
+    from .setup_intent_legacy_checkout_configuration import SetupIntentLegacyCheckoutConfiguration
+    from .setup_intent_legacy_company import SetupIntentLegacyCompany
+    from .setup_intent_legacy_member import SetupIntentLegacyMember
+    from .setup_intent_legacy_member_user import SetupIntentLegacyMemberUser
+    from .setup_intent_legacy_payment_method import SetupIntentLegacyPaymentMethod
+    from .setup_intent_legacy_payment_method_card import SetupIntentLegacyPaymentMethodCard
+    from .setup_intent_legacy_payment_method_mailing_address import SetupIntentLegacyPaymentMethodMailingAddress
     from .setup_intent_list_item import SetupIntentListItem
     from .setup_intent_list_item_checkout_configuration import SetupIntentListItemCheckoutConfiguration
     from .setup_intent_list_item_company import SetupIntentListItemCompany
@@ -1228,11 +1268,7 @@ if typing.TYPE_CHECKING:
     from .setup_intent_list_item_payment_method import SetupIntentListItemPaymentMethod
     from .setup_intent_list_item_payment_method_card import SetupIntentListItemPaymentMethodCard
     from .setup_intent_list_item_payment_method_mailing_address import SetupIntentListItemPaymentMethodMailingAddress
-    from .setup_intent_member import SetupIntentMember
-    from .setup_intent_member_user import SetupIntentMemberUser
-    from .setup_intent_payment_method import SetupIntentPaymentMethod
-    from .setup_intent_payment_method_card import SetupIntentPaymentMethodCard
-    from .setup_intent_payment_method_mailing_address import SetupIntentPaymentMethodMailingAddress
+    from .setup_intent_status import SetupIntentStatus
     from .setup_intent_statuses import SetupIntentStatuses
     from .setup_last_setup_error import SetupLastSetupError
     from .setup_status import SetupStatus
@@ -1289,6 +1325,27 @@ if typing.TYPE_CHECKING:
     from .too_many_requests_error_body import TooManyRequestsErrorBody
     from .too_many_requests_error_body_error import TooManyRequestsErrorBodyError
     from .topup import Topup
+    from .trading_account import TradingAccount
+    from .trading_account_object import TradingAccountObject
+    from .trading_account_provider import TradingAccountProvider
+    from .trading_cumulative_funding import TradingCumulativeFunding
+    from .trading_hyperliquid_account import TradingHyperliquidAccount
+    from .trading_hyperliquid_order import TradingHyperliquidOrder
+    from .trading_hyperliquid_position import TradingHyperliquidPosition
+    from .trading_margin_summary import TradingMarginSummary
+    from .trading_order import TradingOrder
+    from .trading_order_object import TradingOrderObject
+    from .trading_order_order_type import TradingOrderOrderType
+    from .trading_order_side import TradingOrderSide
+    from .trading_order_status import TradingOrderStatus
+    from .trading_order_time_in_force import TradingOrderTimeInForce
+    from .trading_position import TradingPosition
+    from .trading_position_leverage import TradingPositionLeverage
+    from .trading_position_leverage_type import TradingPositionLeverageType
+    from .trading_position_object import TradingPositionObject
+    from .trading_position_side import TradingPositionSide
+    from .trading_websocket_subscription import TradingWebsocketSubscription
+    from .trading_websocket_subscription_channel import TradingWebsocketSubscriptionChannel
     from .unauthorized_error_body import UnauthorizedErrorBody
     from .unauthorized_error_body_error import UnauthorizedErrorBodyError
     from .unprocessable_entity_error_body import UnprocessableEntityErrorBody
@@ -1322,6 +1379,10 @@ if typing.TYPE_CHECKING:
     from .verification_statuses import VerificationStatuses
     from .visibility import Visibility
     from .visibility_filter import VisibilityFilter
+    from .waitlist_entry import WaitlistEntry
+    from .waitlist_entry_approval_failure_reason import WaitlistEntryApprovalFailureReason
+    from .waitlist_entry_custom_field_response import WaitlistEntryCustomFieldResponse
+    from .waitlist_entry_status import WaitlistEntryStatus
     from .webhook import Webhook
     from .webhook_api_version import WebhookApiVersion
     from .webhook_delivery import WebhookDelivery
@@ -1368,7 +1429,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountCompanyFormationSignatureRequestStatus": ".account_company_formation_signature_request_status",
     "AccountCompanyFormationSignatures": ".account_company_formation_signatures",
     "AccountCompanyFormationStatus": ".account_company_formation_status",
+    "AccountCoveredPayoutFees": ".account_covered_payout_fees",
     "AccountDisputeAlertAutoRefundControl": ".account_dispute_alert_auto_refund_control",
+    "AccountFee": ".account_fee",
+    "AccountFeeCategory": ".account_fee_category",
+    "AccountFeeMarkup": ".account_fee_markup",
+    "AccountFeeMarkupSource": ".account_fee_markup_source",
+    "AccountFeeMarkupUnadjustableReason": ".account_fee_markup_unadjustable_reason",
+    "AccountFeeMarkups": ".account_fee_markups",
+    "AccountFeeRate": ".account_fee_rate",
+    "AccountFeeRegion": ".account_fee_region",
+    "AccountFeeRegionalRate": ".account_fee_regional_rate",
+    "AccountFeeRegionalRateSource": ".account_fee_regional_rate_source",
+    "AccountFeeSource": ".account_fee_source",
+    "AccountFeeUnadjustableReason": ".account_fee_unadjustable_reason",
+    "AccountFees": ".account_fees",
     "AccountHomePreferencesItem": ".account_home_preferences_item",
     "AccountLink": ".account_link",
     "AccountLinkUseCases": ".account_link_use_cases",
@@ -1376,6 +1451,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountOpengraphImageVariant": ".account_opengraph_image_variant",
     "AccountParent": ".account_parent",
     "AccountParentFeesValue": ".account_parent_fees_value",
+    "AccountPartner": ".account_partner",
+    "AccountPartnerReward": ".account_partner_reward",
+    "AccountPartnerRewardQualificationType": ".account_partner_reward_qualification_type",
+    "AccountPartnerRewardStatus": ".account_partner_reward_status",
     "AccountPaymentControls": ".account_payment_controls",
     "AccountPaymentControlsRestrictedPaymentMethodsItem": ".account_payment_controls_restricted_payment_methods_item",
     "AccountPaymentControlsUndatedPendingReason": ".account_payment_controls_undated_pending_reason",
@@ -1420,6 +1499,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdCampaignResultEvent": ".ad_campaign_result_event",
     "AdCampaignSpecialAdCategoriesItem": ".ad_campaign_special_ad_categories_item",
     "AdCampaignStatus": ".ad_campaign_status",
+    "AdConversionValueRule": ".ad_conversion_value_rule",
+    "AdConversionValueRuleAdjustmentType": ".ad_conversion_value_rule_adjustment_type",
+    "AdConversionValueRuleEvent": ".ad_conversion_value_rule_event",
+    "AdConversionValueRuleEventEventName": ".ad_conversion_value_rule_event_event_name",
+    "AdConversionValueRuleStatus": ".ad_conversion_value_rule_status",
+    "AdConversionValueRuleTarget": ".ad_conversion_value_rule_target",
+    "AdConversionValueRuleTargetPlatform": ".ad_conversion_value_rule_target_platform",
+    "AdConversionValueRuleTargetScope": ".ad_conversion_value_rule_target_scope",
     "AdCreative": ".ad_creative",
     "AdCreativeCrop": ".ad_creative_crop",
     "AdCreativeFormat": ".ad_creative_format",
@@ -1470,6 +1557,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdGroupOptimizationGoal": ".ad_group_optimization_goal",
     "AdGroupPlacement": ".ad_group_placement",
     "AdGroupPlacementPlatform": ".ad_group_placement_platform",
+    "AdGroupPlatform": ".ad_group_platform",
     "AdGroupRegions": ".ad_group_regions",
     "AdGroupRegionsBody": ".ad_group_regions_body",
     "AdGroupResultEvent": ".ad_group_result_event",
@@ -1477,6 +1565,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdGroupTargetingCategory": ".ad_group_targeting_category",
     "AdLeadForm": ".ad_lead_form",
     "AdLeadFormCompletion": ".ad_lead_form_completion",
+    "AdLeadFormCompletionButtonType": ".ad_lead_form_completion_button_type",
     "AdLeadFormDisclaimer": ".ad_lead_form_disclaimer",
     "AdLeadFormDisclaimerCheckbox": ".ad_lead_form_disclaimer_checkbox",
     "AdLeadFormFormType": ".ad_lead_form_form_type",
@@ -1488,6 +1577,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AdLeadFormQuestionOption": ".ad_lead_form_question_option",
     "AdMessagingConfig": ".ad_messaging_config",
     "AdMusic": ".ad_music",
+    "AdPlatform": ".ad_platform",
     "AdPlatformIssue": ".ad_platform_issue",
     "AdPlatformIssueResourceType": ".ad_platform_issue_resource_type",
     "AdPostSource": ".ad_post_source",
@@ -1717,7 +1807,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DisputeAlertListItem": ".dispute_alert_list_item",
     "DisputeAlertListItemDispute": ".dispute_alert_list_item_dispute",
     "DisputeAlertListItemPayment": ".dispute_alert_list_item_payment",
-    "DisputeAlertNotActionableReason": ".dispute_alert_not_actionable_reason",
     "DisputeAlertType": ".dispute_alert_type",
     "DisputeAlertTypes": ".dispute_alert_types",
     "DisputeAttachment": ".dispute_attachment",
@@ -1775,15 +1864,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DomainIssue": ".domain_issue",
     "DomainStatus": ".domain_status",
     "EconomicIntelligence": ".economic_intelligence",
+    "EconomicIntelligenceOperation": ".economic_intelligence_operation",
+    "EconomicIntelligenceSentiment": ".economic_intelligence_sentiment",
     "EconomicIntelligenceStatus": ".economic_intelligence_status",
     "EmbedTypes": ".embed_types",
-    "EntriesSortableColumns": ".entries_sortable_columns",
     "Entry": ".entry",
     "EntryCustomFieldResponsesItem": ".entry_custom_field_responses_item",
-    "EntryListItem": ".entry_list_item",
-    "EntryListItemPlan": ".entry_list_item_plan",
-    "EntryListItemProduct": ".entry_list_item_product",
-    "EntryListItemUser": ".entry_list_item_user",
     "EntryPlan": ".entry_plan",
     "EntryProduct": ".entry_product",
     "EntryStatus": ".entry_status",
@@ -1845,6 +1931,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ForumWhoCanCommentTypes": ".forum_who_can_comment_types",
     "ForumWhoCanPostTypes": ".forum_who_can_post_types",
     "FriendlyReceiptStatus": ".friendly_receipt_status",
+    "FunnelComparison": ".funnel_comparison",
+    "FunnelConfidenceInterval": ".funnel_confidence_interval",
+    "FunnelStep": ".funnel_step",
+    "FunnelStepResult": ".funnel_step_result",
     "FutureUsageTypes": ".future_usage_types",
     "GlobalAffiliateStatuses": ".global_affiliate_statuses",
     "GrantableAuthorizedUserRoles": ".grantable_authorized_user_roles",
@@ -2030,10 +2120,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PartnerPayoutRateIncomeSource": ".partner_payout_rate_income_source",
     "PartnerPayoutTier": ".partner_payout_tier",
     "PartnerPayoutTierTier": ".partner_payout_tier_tier",
-    "PartnerRewardLink": ".partner_reward_link",
-    "PartnerRewardLinkQualificationIncomeSource": ".partner_reward_link_qualification_income_source",
-    "PartnerRewardLinkRewardType": ".partner_reward_link_reward_type",
-    "PartnerRewardLinkStatus": ".partner_reward_link_status",
+    "PartnerReferralRequest": ".partner_referral_request",
+    "PartnerReferralRequestRequestType": ".partner_referral_request_request_type",
+    "PartnerReferralRequestStatus": ".partner_referral_request_status",
+    "PartnerReferralReward": ".partner_referral_reward",
+    "PartnerReferralRewardBotQualificationType": ".partner_referral_reward_bot_qualification_type",
+    "PartnerReferralRewardRecipient": ".partner_referral_reward_recipient",
     "Passkey": ".passkey",
     "Payment": ".payment",
     "PaymentAddress": ".payment_address",
@@ -2044,6 +2136,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentFee": ".payment_fee",
     "PaymentFeeOrigin": ".payment_fee_origin",
     "PaymentFeeType": ".payment_fee_type",
+    "PaymentHold": ".payment_hold",
+    "PaymentHoldType": ".payment_hold_type",
     "PaymentInstructions": ".payment_instructions",
     "PaymentInstructions_BankTransfer": ".payment_instructions",
     "PaymentInstructions_Qr": ".payment_instructions",
@@ -2397,6 +2491,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResolutionEventAction": ".resolution_event_action",
     "ResolutionEventReporterType": ".resolution_event_reporter_type",
     "ResolutionPayment": ".resolution_payment",
+    "RetrieveStatsRequestSteps": ".retrieve_stats_request_steps",
     "Review": ".review",
     "ReviewAttachmentsItem": ".review_attachments_item",
     "ReviewCompany": ".review_company",
@@ -2408,8 +2503,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ReviewUser": ".review_user",
     "ScheduleFrequencies": ".schedule_frequencies",
     "SetupIntent": ".setup_intent",
-    "SetupIntentCheckoutConfiguration": ".setup_intent_checkout_configuration",
-    "SetupIntentCompany": ".setup_intent_company",
+    "SetupIntentLegacy": ".setup_intent_legacy",
+    "SetupIntentLegacyCheckoutConfiguration": ".setup_intent_legacy_checkout_configuration",
+    "SetupIntentLegacyCompany": ".setup_intent_legacy_company",
+    "SetupIntentLegacyMember": ".setup_intent_legacy_member",
+    "SetupIntentLegacyMemberUser": ".setup_intent_legacy_member_user",
+    "SetupIntentLegacyPaymentMethod": ".setup_intent_legacy_payment_method",
+    "SetupIntentLegacyPaymentMethodCard": ".setup_intent_legacy_payment_method_card",
+    "SetupIntentLegacyPaymentMethodMailingAddress": ".setup_intent_legacy_payment_method_mailing_address",
     "SetupIntentListItem": ".setup_intent_list_item",
     "SetupIntentListItemCheckoutConfiguration": ".setup_intent_list_item_checkout_configuration",
     "SetupIntentListItemCompany": ".setup_intent_list_item_company",
@@ -2418,11 +2519,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SetupIntentListItemPaymentMethod": ".setup_intent_list_item_payment_method",
     "SetupIntentListItemPaymentMethodCard": ".setup_intent_list_item_payment_method_card",
     "SetupIntentListItemPaymentMethodMailingAddress": ".setup_intent_list_item_payment_method_mailing_address",
-    "SetupIntentMember": ".setup_intent_member",
-    "SetupIntentMemberUser": ".setup_intent_member_user",
-    "SetupIntentPaymentMethod": ".setup_intent_payment_method",
-    "SetupIntentPaymentMethodCard": ".setup_intent_payment_method_card",
-    "SetupIntentPaymentMethodMailingAddress": ".setup_intent_payment_method_mailing_address",
+    "SetupIntentStatus": ".setup_intent_status",
     "SetupIntentStatuses": ".setup_intent_statuses",
     "SetupLastSetupError": ".setup_last_setup_error",
     "SetupStatus": ".setup_status",
@@ -2477,6 +2574,27 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TooManyRequestsErrorBody": ".too_many_requests_error_body",
     "TooManyRequestsErrorBodyError": ".too_many_requests_error_body_error",
     "Topup": ".topup",
+    "TradingAccount": ".trading_account",
+    "TradingAccountObject": ".trading_account_object",
+    "TradingAccountProvider": ".trading_account_provider",
+    "TradingCumulativeFunding": ".trading_cumulative_funding",
+    "TradingHyperliquidAccount": ".trading_hyperliquid_account",
+    "TradingHyperliquidOrder": ".trading_hyperliquid_order",
+    "TradingHyperliquidPosition": ".trading_hyperliquid_position",
+    "TradingMarginSummary": ".trading_margin_summary",
+    "TradingOrder": ".trading_order",
+    "TradingOrderObject": ".trading_order_object",
+    "TradingOrderOrderType": ".trading_order_order_type",
+    "TradingOrderSide": ".trading_order_side",
+    "TradingOrderStatus": ".trading_order_status",
+    "TradingOrderTimeInForce": ".trading_order_time_in_force",
+    "TradingPosition": ".trading_position",
+    "TradingPositionLeverage": ".trading_position_leverage",
+    "TradingPositionLeverageType": ".trading_position_leverage_type",
+    "TradingPositionObject": ".trading_position_object",
+    "TradingPositionSide": ".trading_position_side",
+    "TradingWebsocketSubscription": ".trading_websocket_subscription",
+    "TradingWebsocketSubscriptionChannel": ".trading_websocket_subscription_channel",
     "UnauthorizedErrorBody": ".unauthorized_error_body",
     "UnauthorizedErrorBodyError": ".unauthorized_error_body_error",
     "UnprocessableEntityErrorBody": ".unprocessable_entity_error_body",
@@ -2510,6 +2628,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "VerificationStatuses": ".verification_statuses",
     "Visibility": ".visibility",
     "VisibilityFilter": ".visibility_filter",
+    "WaitlistEntry": ".waitlist_entry",
+    "WaitlistEntryApprovalFailureReason": ".waitlist_entry_approval_failure_reason",
+    "WaitlistEntryCustomFieldResponse": ".waitlist_entry_custom_field_response",
+    "WaitlistEntryStatus": ".waitlist_entry_status",
     "Webhook": ".webhook",
     "WebhookApiVersion": ".webhook_api_version",
     "WebhookDelivery": ".webhook_delivery",
@@ -2580,7 +2702,21 @@ __all__ = [
     "AccountCompanyFormationSignatureRequestStatus",
     "AccountCompanyFormationSignatures",
     "AccountCompanyFormationStatus",
+    "AccountCoveredPayoutFees",
     "AccountDisputeAlertAutoRefundControl",
+    "AccountFee",
+    "AccountFeeCategory",
+    "AccountFeeMarkup",
+    "AccountFeeMarkupSource",
+    "AccountFeeMarkupUnadjustableReason",
+    "AccountFeeMarkups",
+    "AccountFeeRate",
+    "AccountFeeRegion",
+    "AccountFeeRegionalRate",
+    "AccountFeeRegionalRateSource",
+    "AccountFeeSource",
+    "AccountFeeUnadjustableReason",
+    "AccountFees",
     "AccountHomePreferencesItem",
     "AccountLink",
     "AccountLinkUseCases",
@@ -2588,6 +2724,10 @@ __all__ = [
     "AccountOpengraphImageVariant",
     "AccountParent",
     "AccountParentFeesValue",
+    "AccountPartner",
+    "AccountPartnerReward",
+    "AccountPartnerRewardQualificationType",
+    "AccountPartnerRewardStatus",
     "AccountPaymentControls",
     "AccountPaymentControlsRestrictedPaymentMethodsItem",
     "AccountPaymentControlsUndatedPendingReason",
@@ -2632,6 +2772,14 @@ __all__ = [
     "AdCampaignResultEvent",
     "AdCampaignSpecialAdCategoriesItem",
     "AdCampaignStatus",
+    "AdConversionValueRule",
+    "AdConversionValueRuleAdjustmentType",
+    "AdConversionValueRuleEvent",
+    "AdConversionValueRuleEventEventName",
+    "AdConversionValueRuleStatus",
+    "AdConversionValueRuleTarget",
+    "AdConversionValueRuleTargetPlatform",
+    "AdConversionValueRuleTargetScope",
     "AdCreative",
     "AdCreativeCrop",
     "AdCreativeFormat",
@@ -2682,6 +2830,7 @@ __all__ = [
     "AdGroupOptimizationGoal",
     "AdGroupPlacement",
     "AdGroupPlacementPlatform",
+    "AdGroupPlatform",
     "AdGroupRegions",
     "AdGroupRegionsBody",
     "AdGroupResultEvent",
@@ -2689,6 +2838,7 @@ __all__ = [
     "AdGroupTargetingCategory",
     "AdLeadForm",
     "AdLeadFormCompletion",
+    "AdLeadFormCompletionButtonType",
     "AdLeadFormDisclaimer",
     "AdLeadFormDisclaimerCheckbox",
     "AdLeadFormFormType",
@@ -2700,6 +2850,7 @@ __all__ = [
     "AdLeadFormQuestionOption",
     "AdMessagingConfig",
     "AdMusic",
+    "AdPlatform",
     "AdPlatformIssue",
     "AdPlatformIssueResourceType",
     "AdPostSource",
@@ -2929,7 +3080,6 @@ __all__ = [
     "DisputeAlertListItem",
     "DisputeAlertListItemDispute",
     "DisputeAlertListItemPayment",
-    "DisputeAlertNotActionableReason",
     "DisputeAlertType",
     "DisputeAlertTypes",
     "DisputeAttachment",
@@ -2987,15 +3137,12 @@ __all__ = [
     "DomainIssue",
     "DomainStatus",
     "EconomicIntelligence",
+    "EconomicIntelligenceOperation",
+    "EconomicIntelligenceSentiment",
     "EconomicIntelligenceStatus",
     "EmbedTypes",
-    "EntriesSortableColumns",
     "Entry",
     "EntryCustomFieldResponsesItem",
-    "EntryListItem",
-    "EntryListItemPlan",
-    "EntryListItemProduct",
-    "EntryListItemUser",
     "EntryPlan",
     "EntryProduct",
     "EntryStatus",
@@ -3057,6 +3204,10 @@ __all__ = [
     "ForumWhoCanCommentTypes",
     "ForumWhoCanPostTypes",
     "FriendlyReceiptStatus",
+    "FunnelComparison",
+    "FunnelConfidenceInterval",
+    "FunnelStep",
+    "FunnelStepResult",
     "FutureUsageTypes",
     "GlobalAffiliateStatuses",
     "GrantableAuthorizedUserRoles",
@@ -3242,10 +3393,12 @@ __all__ = [
     "PartnerPayoutRateIncomeSource",
     "PartnerPayoutTier",
     "PartnerPayoutTierTier",
-    "PartnerRewardLink",
-    "PartnerRewardLinkQualificationIncomeSource",
-    "PartnerRewardLinkRewardType",
-    "PartnerRewardLinkStatus",
+    "PartnerReferralRequest",
+    "PartnerReferralRequestRequestType",
+    "PartnerReferralRequestStatus",
+    "PartnerReferralReward",
+    "PartnerReferralRewardBotQualificationType",
+    "PartnerReferralRewardRecipient",
     "Passkey",
     "Payment",
     "PaymentAddress",
@@ -3256,6 +3409,8 @@ __all__ = [
     "PaymentFee",
     "PaymentFeeOrigin",
     "PaymentFeeType",
+    "PaymentHold",
+    "PaymentHoldType",
     "PaymentInstructions",
     "PaymentInstructions_BankTransfer",
     "PaymentInstructions_Qr",
@@ -3609,6 +3764,7 @@ __all__ = [
     "ResolutionEventAction",
     "ResolutionEventReporterType",
     "ResolutionPayment",
+    "RetrieveStatsRequestSteps",
     "Review",
     "ReviewAttachmentsItem",
     "ReviewCompany",
@@ -3620,8 +3776,14 @@ __all__ = [
     "ReviewUser",
     "ScheduleFrequencies",
     "SetupIntent",
-    "SetupIntentCheckoutConfiguration",
-    "SetupIntentCompany",
+    "SetupIntentLegacy",
+    "SetupIntentLegacyCheckoutConfiguration",
+    "SetupIntentLegacyCompany",
+    "SetupIntentLegacyMember",
+    "SetupIntentLegacyMemberUser",
+    "SetupIntentLegacyPaymentMethod",
+    "SetupIntentLegacyPaymentMethodCard",
+    "SetupIntentLegacyPaymentMethodMailingAddress",
     "SetupIntentListItem",
     "SetupIntentListItemCheckoutConfiguration",
     "SetupIntentListItemCompany",
@@ -3630,11 +3792,7 @@ __all__ = [
     "SetupIntentListItemPaymentMethod",
     "SetupIntentListItemPaymentMethodCard",
     "SetupIntentListItemPaymentMethodMailingAddress",
-    "SetupIntentMember",
-    "SetupIntentMemberUser",
-    "SetupIntentPaymentMethod",
-    "SetupIntentPaymentMethodCard",
-    "SetupIntentPaymentMethodMailingAddress",
+    "SetupIntentStatus",
     "SetupIntentStatuses",
     "SetupLastSetupError",
     "SetupStatus",
@@ -3689,6 +3847,27 @@ __all__ = [
     "TooManyRequestsErrorBody",
     "TooManyRequestsErrorBodyError",
     "Topup",
+    "TradingAccount",
+    "TradingAccountObject",
+    "TradingAccountProvider",
+    "TradingCumulativeFunding",
+    "TradingHyperliquidAccount",
+    "TradingHyperliquidOrder",
+    "TradingHyperliquidPosition",
+    "TradingMarginSummary",
+    "TradingOrder",
+    "TradingOrderObject",
+    "TradingOrderOrderType",
+    "TradingOrderSide",
+    "TradingOrderStatus",
+    "TradingOrderTimeInForce",
+    "TradingPosition",
+    "TradingPositionLeverage",
+    "TradingPositionLeverageType",
+    "TradingPositionObject",
+    "TradingPositionSide",
+    "TradingWebsocketSubscription",
+    "TradingWebsocketSubscriptionChannel",
     "UnauthorizedErrorBody",
     "UnauthorizedErrorBodyError",
     "UnprocessableEntityErrorBody",
@@ -3722,6 +3901,10 @@ __all__ = [
     "VerificationStatuses",
     "Visibility",
     "VisibilityFilter",
+    "WaitlistEntry",
+    "WaitlistEntryApprovalFailureReason",
+    "WaitlistEntryCustomFieldResponse",
+    "WaitlistEntryStatus",
     "Webhook",
     "WebhookApiVersion",
     "WebhookDelivery",

@@ -71,10 +71,16 @@ def initialize_mlrun(
     serving_engine: mlrun_types.ServingEngine = mlrun_types.ServingEngine.NONE,
     run_workload_id: str | None = None,
     metrics_exporter_config: dict[str, Any] | None = None,
-    accelerator_orchestrator: mlrun_types.AcceleratorOrchestrator = mlrun_types.AcceleratorOrchestrator.NONE,
+    accelerator_orchestrator: mlrun_types.AcceleratorOrchestrator = (
+        mlrun_types.AcceleratorOrchestrator.NONE
+    ),
+    application_framework: mlrun_types.ApplicationFramework = (
+        mlrun_types.ApplicationFramework.NONE
+    ),
+    rl_orchestrator: mlrun_types.RlOrchestrator = (
+        mlrun_types.RlOrchestrator.NONE
+    ),
 ) -> mlrun_types.MLRun:
-
-
   """Initializes a new ML run.
 
   Args:
@@ -94,11 +100,15 @@ def initialize_mlrun(
       metrics_record_interval_sec: The metrics record interval in seconds.
       framework: The framework used for the run.
       serving_engine: The serving engine used for the run.
-      run_workload_id: Optional shared workload identifier for GCE/Custom
+      run_workload_id: Optional shared workload identifier for CUSTOM
         Orchestrator workloads.
       metrics_exporter_config: Optional configuration for metrics exporter.
       accelerator_orchestrator: The orchestrator managing the ML run workload.
         Default is NONE, but auto-detected if pathways is used.
+      application_framework: The application framework used for the ML run.
+        Default is NONE.
+      rl_orchestrator: The RL orchestrator used for the ML run.
+        Default is NONE.
 
   Returns:
       The initialized ML run object.
@@ -139,7 +149,7 @@ def initialize_mlrun(
 
   # Generate display name and name for the MLRun.
   display_name = name
-  if orchestrator == "GKE":
+  if orchestrator == mlrun_types.Orchestrator.GKE:
     if not workload_details:
       raise ValueError(
           "Detected GKE environment but GKE metadata is missing. This might"
@@ -151,16 +161,16 @@ def initialize_mlrun(
           " https://github.com/AI-Hypercomputer/google-cloud-mldiagnostics?tab=readme-ov-file#configure-gke-cluster."
       )
     name = host_utils.get_identifier(orchestrator, workload_details)
-  elif orchestrator == "SLURM":
+  elif orchestrator == mlrun_types.Orchestrator.SLURM:
     if not workload_details:
       raise ValueError(
           "Detected Slurm environment but Slurm workload details are missing."
       )
     name = host_utils.get_identifier(orchestrator, workload_details)
-  elif orchestrator == "GCE":
+  elif orchestrator == mlrun_types.Orchestrator.CUSTOM:
     if not workload_details:
       raise ValueError(
-          "Detected GCE environment but GCE workload details are missing."
+          "Detected CUSTOM environment but CUSTOM workload details are missing."
       )
     name = host_utils.get_identifier(orchestrator, workload_details)
   else:
@@ -194,9 +204,9 @@ def initialize_mlrun(
       serving_engine=serving_engine,
       metrics_exporter_config=metrics_exporter_config,
       accelerator_orchestrator=accelerator_orchestrator,
+      application_framework=application_framework,
+      rl_orchestrator=rl_orchestrator,
   )
-
-
 
   logger.debug("Initializing MLRun: %s", ml_run)
 
@@ -218,7 +228,7 @@ def initialize_mlrun(
       xprof_url,
   )
 
-  if orchestrator == "GKE":
+  if orchestrator == mlrun_types.Orchestrator.GKE:
     gke_url = create_gke_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
     logging.info(
         "GKE detail view URL: %s : %s",

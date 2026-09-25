@@ -49,6 +49,7 @@ from sqlalchemy.dialects.postgresql import array_agg
 from sqlalchemy.dialects.postgresql import asyncpg
 from sqlalchemy.dialects.postgresql import base
 from sqlalchemy.dialects.postgresql import BIT
+from sqlalchemy.dialects.postgresql import BitString
 from sqlalchemy.dialects.postgresql import BYTEA
 from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.dialects.postgresql import DATEMULTIRANGE
@@ -63,7 +64,6 @@ from sqlalchemy.dialects.postgresql import INT8MULTIRANGE
 from sqlalchemy.dialects.postgresql import INT8RANGE
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.dialects.postgresql import NamedType
 from sqlalchemy.dialects.postgresql import NUMMULTIRANGE
 from sqlalchemy.dialects.postgresql import NUMRANGE
 from sqlalchemy.dialects.postgresql import pg8000
@@ -84,6 +84,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import bindparam
 from sqlalchemy.sql import operators
 from sqlalchemy.sql import sqltypes
+from sqlalchemy.sql.ddl import CheckFirst
+from sqlalchemy.testing import expect_deprecated
 from sqlalchemy.testing import expect_raises
 from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import fixtures
@@ -103,6 +105,17 @@ from sqlalchemy.testing.suite import test_types as suite
 from sqlalchemy.testing.util import round_decimal
 from sqlalchemy.types import UserDefinedType
 from ...engine.test_ddlevents import DDLEventWCreateHarness
+
+
+def _array_any_deprecation():
+    return testing.expect_deprecated(
+        r"The ARRAY.Comparator.any\(\) and "
+        r"ARRAY.Comparator.all\(\) methods "
+        r"for arrays are deprecated for removal, along with the "
+        r"PG-specific Any\(\) "
+        r"and All\(\) functions. See any_\(\) and all_\(\) functions for "
+        "modern use. "
+    )
 
 
 class MiscTypesTest(AssertsCompiledSQL, fixtures.TestBase):
@@ -243,6 +256,12 @@ class NamedTypeTest(
 
     __only_on__ = "postgresql > 8.3"
 
+    def _enum_exists(self, name, connection):
+        return name in {d["name"] for d in inspect(connection).get_enums()}
+
+    def _domain_exists(self, name, connection):
+        return name in {d["name"] for d in inspect(connection).get_domains()}
+
     def test_native_enum_warnings(self):
         """test #6106"""
 
@@ -268,7 +287,6 @@ class NamedTypeTest(
         ("create_type", False, "create_type"),
         ("create_type", True, "create_type"),
         ("schema", "someschema", "schema"),
-        ("inherit_schema", True, "inherit_schema"),
         ("metadata", MetaData(), "metadata"),
         ("values_callable", lambda x: None, "values_callable"),
     )
@@ -280,17 +298,30 @@ class NamedTypeTest(
 
         eq_(getattr(e1_copy, attrname), value)
 
-    def test_enum_create_table(self, metadata, connection):
+    @testing.variation("type_exists", [True, False])
+    @testing.variation("type_meta", [True, False])
+    def test_enum_create_table(
+        self, metadata, connection, type_exists, type_meta
+    ):
         metadata = self.metadata
         t1 = Table(
             "table",
             metadata,
             Column("id", Integer, primary_key=True),
             Column(
-                "value", Enum("one", "two", "three", name="onetwothreetype")
+                "value",
+                Enum(
+                    "one",
+                    "two",
+                    "three",
+                    name="onetwothreetype",
+                    metadata=metadata if type_meta else None,
+                ),
             ),
         )
-        t1.create(connection)
+        if type_exists:
+            t1.c.value.type.create(connection)
+        t1.create(connection)  # defaults to check the type
         t1.create(connection, checkfirst=True)  # check the create
         connection.execute(t1.insert(), dict(value="two"))
         connection.execute(t1.insert(), dict(value="three"))
@@ -300,12 +331,14 @@ class NamedTypeTest(
             [(1, "two"), (2, "three"), (3, "three")],
         )
 
-    def test_domain_create_table(self, metadata, connection):
+    @testing.variation("type_exists", [True, False])
+    def test_domain_create_table(self, metadata, connection, type_exists):
         metadata = self.metadata
         Email = DOMAIN(
             name="email",
             data_type=Text,
             check=r"VALUE ~ '[^@]+@[^@]+\.[^@]+'",
+            metadata=metadata,
         )
         PosInt = DOMAIN(
             name="pos_int",
@@ -320,6 +353,9 @@ class NamedTypeTest(
             Column("email", Email),
             Column("number", PosInt),
         )
+        if type_exists:
+            Email.create(connection)
+            PosInt.create(connection)
         t1.create(connection)
         t1.create(connection, checkfirst=True)  # check the create
         connection.execute(
@@ -339,26 +375,110 @@ class NamedTypeTest(
         )
 
     @testing.combinations(
-        (ENUM("one", "two", "three", name="mytype"), "get_enums"),
+        CheckFirst.ALL, CheckFirst.TYPES, True, argnames="checkfirst"
+    )
+    def test_checkfirst(self, metadata, connection, checkfirst):
+        Value = Enum("a", "b", "c", name="value", metadata=metadata)
+        Value.create(connection)
+
+        # no error the second time
+        Table("t", metadata, Column("c", Value)).create(
+            connection, checkfirst=checkfirst
+        )
+
+    @testing.combinations(
+        CheckFirst.NONE,
+        CheckFirst.INDEXES,
+        CheckFirst.TABLES,
+        CheckFirst.SEQUENCES,
+        False,
+        argnames="checkfirst",
+    )
+    def test_no_checkfirst(self, metadata, connection, checkfirst):
+        Value = Enum("a", "b", "c", name="value", metadata=metadata)
+        Value.create(connection)
+
+        with expect_raises_message(exc.ProgrammingError, "value"):
+            Table("t", metadata, Column("c", Value)).create(
+                connection, checkfirst=checkfirst
+            )
+
+    @testing.variation("kind", ["enum", "domain"])
+    @testing.combinations(
+        {},
+        {"checkfirst": True},
+        {"checkfirst": False},
+        {"checkfirst": CheckFirst.TYPES},
+        {"checkfirst": CheckFirst.TABLES},
+        argnames="initial_checkfirst",
+    )
+    def test_create_behavior(
+        self, metadata, connection, kind: testing.Variation, initial_checkfirst
+    ):
+        metadata = self.metadata
+        Value = Enum("a", "b", "c", name="value", metadata=metadata)
+        PosInt = DOMAIN(
+            name="value",
+            data_type=Integer,
+            not_null=True,
+            check=r"VALUE > 0",
+        )
+        t1 = Table(
+            "tbl",
+            metadata,
+            Column("id", Integer, primary_key=True),
+        )
+        if kind.domain:
+            exists_fn = self._domain_exists
+            t1.append_column(Column("number", PosInt))
+        elif kind.enum:
+            exists_fn = self._enum_exists
+            t1.append_column(Column("value", Value))
+        else:
+            kind.fail()
+
+        t1.create(connection, **initial_checkfirst)
+
+        assert exists_fn("value", connection)
+        t1.drop(connection)
+        # drop did not remove named type
+        assert exists_fn("value", connection)
+        t1.create(connection)  # by default it checks for named types
+        with connection.begin_nested() as tr:
+            with expect_raises_message(exc.ProgrammingError, "tbl"):
+                t1.create(connection)  # but not for the table
+            tr.rollback()
+        t1.create(connection, checkfirst=True)  # check the create
+
+    @testing.combinations(
         (
-            DOMAIN(
+            lambda **kw: ENUM("one", "two", "three", name="mytype", **kw),
+            "get_enums",
+        ),
+        (
+            lambda **kw: DOMAIN(
                 name="mytype",
                 data_type=Text,
                 check=r"VALUE ~ '[^@]+@[^@]+\.[^@]+'",
+                **kw,
             ),
             "get_domains",
         ),
-        argnames="datatype, method",
+        argnames="datatype_fn, method",
     )
+    @testing.variation("type_meta", [True, False])
     def test_drops_on_table(
-        self, connection, metadata, datatype: "NamedType", method
+        self, connection, metadata, datatype_fn, method, type_meta
     ):
+        datatype = (
+            datatype_fn(metadata=metadata) if type_meta else datatype_fn()
+        )
         table = Table("e1", metadata, Column("e1", datatype))
 
         table.create(connection)
         table.drop(connection)
 
-        assert "mytype" not in [
+        assert "mytype" in [
             e["name"] for e in getattr(inspect(connection), method)()
         ]
         table.create(connection)
@@ -366,7 +486,7 @@ class NamedTypeTest(
             e["name"] for e in getattr(inspect(connection), method)()
         ]
         table.drop(connection)
-        assert "mytype" not in [
+        assert "mytype" in [
             e["name"] for e in getattr(inspect(connection), method)()
         ]
 
@@ -445,7 +565,7 @@ class NamedTypeTest(
 
         t1.drop(conn)
 
-        assert "schema_mytype" not in [
+        assert "schema_mytype" in [
             e["name"]
             for e in getattr(inspect(conn), method)(
                 schema=testing.config.test_schema
@@ -454,8 +574,10 @@ class NamedTypeTest(
         t1.drop(conn, checkfirst=True)
 
     @testing.combinations(
-        ("local_schema",),
-        ("metadata_schema_only",),
+        ("inherit_schema_false",),
+        ("inherit_schema_not_provided",),
+        ("metadata_only",),
+        ("schema_only",),
         ("inherit_table_schema",),
         ("override_metadata_schema",),
         argnames="test_case",
@@ -468,6 +590,7 @@ class NamedTypeTest(
         """test #6373"""
 
         metadata.schema = testing.config.test_schema
+        default_schema = testing.config.db.dialect.default_schema_name
 
         def make_type(**kw):
             if datatype == "enum":
@@ -482,9 +605,16 @@ class NamedTypeTest(
             else:
                 assert False
 
-        if test_case == "metadata_schema_only":
+        dep = expect_deprecated(
+            "the ``inherit_schema`` parameter is deprecated"
+        )
+
+        if test_case == "metadata_only":
             enum = make_type(metadata=metadata)
             assert_schema = testing.config.test_schema
+        elif test_case == "schema_only":
+            enum = make_type(schema=default_schema)
+            assert_schema = default_schema
         elif test_case == "override_metadata_schema":
             enum = make_type(
                 metadata=metadata,
@@ -492,14 +622,15 @@ class NamedTypeTest(
             )
             assert_schema = testing.config.test_schema_2
         elif test_case == "inherit_table_schema":
-            enum = make_type(
-                metadata=metadata,
-                inherit_schema=True,
-            )
+            with dep:
+                enum = make_type(metadata=metadata, inherit_schema=True)
             assert_schema = testing.config.test_schema_2
-        elif test_case == "local_schema":
+        elif test_case == "inherit_schema_not_provided":
             enum = make_type()
-            assert_schema = testing.config.db.dialect.default_schema_name
+            assert_schema = testing.config.test_schema
+        elif test_case == "inherit_schema_false":
+            enum = make_type(inherit_schema=False)
+            assert_schema = testing.config.test_schema
         else:
             assert False
 
@@ -520,13 +651,11 @@ class NamedTypeTest(
                         "labels": ["four", "five", "six"],
                         "name": "mytype",
                         "schema": assert_schema,
-                        "visible": assert_schema
-                        == testing.config.db.dialect.default_schema_name,
+                        "visible": assert_schema == default_schema,
                     }
                 ],
             )
         elif datatype == "domain":
-            def_schame = testing.config.db.dialect.default_schema_name
             eq_(
                 inspect(connection).get_domains(schema=assert_schema),
                 [
@@ -536,7 +665,7 @@ class NamedTypeTest(
                         "nullable": True,
                         "default": None,
                         "schema": assert_schema,
-                        "visible": assert_schema == def_schame,
+                        "visible": assert_schema == default_schema,
                         "constraints": [
                             {
                                 "name": "mytype_check",
@@ -544,6 +673,7 @@ class NamedTypeTest(
                             }
                         ],
                         "collation": "default",
+                        "collation_schema": None,
                     }
                 ],
             )
@@ -742,9 +872,11 @@ class NamedTypeTest(
             go,
             [
                 (
-                    "CREATE TABLE foo (\tbar "
-                    "VARCHAR(5), \tCONSTRAINT myenum CHECK "
-                    "(bar IN ('one', 'two', 'three')))",
+                    (
+                        "CREATE TABLE foo (\tbar "
+                        "VARCHAR(5), \tCONSTRAINT myenum CHECK "
+                        "(bar IN ('one', 'two', 'three')))"
+                    ),
                     {},
                 )
             ],
@@ -777,9 +909,11 @@ class NamedTypeTest(
             go,
             [
                 (
-                    "CREATE TABLE foo (\tbar "
-                    "VARCHAR(1), \tCONSTRAINT myenum CHECK "
-                    "(bar IN ('B', 'Ü')))",
+                    (
+                        "CREATE TABLE foo (\tbar "
+                        "VARCHAR(1), \tCONSTRAINT myenum CHECK "
+                        "(bar IN ('B', 'Ü')))"
+                    ),
                     {},
                 )
             ],
@@ -788,28 +922,102 @@ class NamedTypeTest(
         connection.execute(t1.insert(), {"bar": "Ü"})
         eq_(connection.scalar(select(t1.c.bar)), "Ü")
 
-    @testing.combinations(
-        (ENUM("one", "two", "three", name="mytype", create_type=False),),
-        (
-            DOMAIN(
+    @testing.variation("datatype", ["enum", "native_enum", "domain"])
+    @testing.variation("createtype", [True, False])
+    def test_create_type_parameter(
+        self, metadata, connection, datatype, createtype
+    ):
+
+        if datatype.enum:
+            dt = Enum(
+                "one",
+                "two",
+                "three",
+                name="mytype",
+                create_type=bool(createtype),
+            )
+        elif datatype.native_enum:
+            dt = ENUM(
+                "one",
+                "two",
+                "three",
+                name="mytype",
+                create_type=bool(createtype),
+            )
+        elif datatype.domain:
+            dt = DOMAIN(
                 name="mytype",
                 data_type=Text,
                 check=r"VALUE ~ '[^@]+@[^@]+\.[^@]+'",
-                create_type=False,
-            ),
-        ),
-        argnames="datatype",
-    )
-    def test_disable_create(self, metadata, connection, datatype):
-        metadata = self.metadata
+                create_type=bool(createtype),
+            )
 
-        t1 = Table("e1", metadata, Column("c1", datatype))
-        # table can be created separately
-        # without conflict
-        datatype.create(bind=connection)
-        t1.create(connection)
-        t1.drop(connection)
-        datatype.drop(bind=connection)
+        else:
+            assert False
+
+        expected_create = [
+            RegexSQL(
+                r"CREATE TABLE e1 \(c1 mytype\)",
+                dialect="postgresql",
+            )
+        ]
+
+        expected_drop = [RegexSQL("DROP TABLE e1", dialect="postgresql")]
+
+        if datatype.domain:
+            type_exists = functools.partial(
+                self._domain_exists, "mytype", connection
+            )
+            if createtype:
+                expected_create.insert(
+                    0,
+                    RegexSQL(
+                        r"CREATE DOMAIN mytype AS TEXT CHECK \(VALUE .*\)",
+                        dialect="postgresql",
+                    ),
+                )
+        else:
+            type_exists = functools.partial(
+                self._enum_exists, "mytype", connection
+            )
+
+            if createtype:
+                expected_create.insert(
+                    0,
+                    RegexSQL(
+                        r"CREATE TYPE mytype AS ENUM "
+                        r"\('one', 'two', 'three'\)",
+                        dialect="postgresql",
+                    ),
+                )
+
+        t1 = Table("e1", metadata, Column("c1", dt))
+
+        assert not type_exists()
+
+        if createtype:
+            with self.sql_execution_asserter(connection) as create_asserter:
+                t1.create(connection, checkfirst=False)
+
+            assert type_exists()
+
+        else:
+            dt.create(bind=connection, checkfirst=False)
+            assert type_exists()
+
+            with self.sql_execution_asserter(connection) as create_asserter:
+                t1.create(connection, checkfirst=False)
+
+        with self.sql_execution_asserter(connection) as drop_asserter:
+            t1.drop(connection, checkfirst=False)
+
+        assert type_exists()
+        dt.drop(bind=connection, checkfirst=False)
+
+        assert not type_exists()
+
+        create_asserter.assert_(*expected_create)
+        drop_asserter.assert_(*expected_drop)
 
     def test_enum_dont_keep_checking(self, metadata, connection):
         metadata = self.metadata
@@ -1007,31 +1215,6 @@ class NamedTypeTest(
 
         assert_raises(exc.ProgrammingError, e1.drop, conn, checkfirst=False)
 
-    def test_remain_on_table_metadata_wide(self, metadata, future_connection):
-        connection = future_connection
-
-        e1 = Enum("one", "two", "three", name="myenum", metadata=metadata)
-        table = Table("e1", metadata, Column("c1", e1))
-
-        # need checkfirst here, otherwise enum will not be created
-        assert_raises_message(
-            sa.exc.ProgrammingError,
-            '.*type "myenum" does not exist',
-            table.create,
-            connection,
-        )
-        connection.rollback()
-
-        table.create(connection, checkfirst=True)
-        table.drop(connection)
-        table.create(connection, checkfirst=True)
-        table.drop(connection)
-        assert "myenum" in [e["name"] for e in inspect(connection).get_enums()]
-        metadata.drop_all(connection)
-        assert "myenum" not in [
-            e["name"] for e in inspect(connection).get_enums()
-        ]
-
     def test_non_native_dialect(self, metadata, testing_engine):
         engine = testing_engine()
         engine.connect()
@@ -1059,9 +1242,11 @@ class NamedTypeTest(
             go,
             [
                 (
-                    "CREATE TABLE foo (bar "
-                    "VARCHAR(5), CONSTRAINT myenum CHECK "
-                    "(bar IN ('one', 'two', 'three')))",
+                    (
+                        "CREATE TABLE foo (bar "
+                        "VARCHAR(5), CONSTRAINT myenum CHECK "
+                        "(bar IN ('one', 'two', 'three')))"
+                    ),
                     {},
                 )
             ],
@@ -1241,6 +1426,65 @@ class NamedTypeTest(
             e["name"] for e in inspect(connection).get_enums()
         ]
 
+    @testing.variation("type_type", ["enum", "domain"])
+    @testing.variation("use_schema", ["none", "default", "explicit"])
+    def test_builtin_name_conflict(
+        self,
+        connection,
+        metadata,
+        type_type: testing.Variation,
+        use_schema: testing.Variation,
+    ):
+        """test #12761"""
+
+        if use_schema.none:
+            kw = {}
+        elif use_schema.default:
+            kw = {"schema": testing.db.dialect.default_schema_name}
+        elif use_schema.explicit:
+            kw = {"schema": testing.config.test_schema}
+        else:
+            use_schema.fail()
+
+        if type_type.enum:
+            type_ = ENUM("a", "b", "c", name="text", **kw)
+        elif type_type.domain:
+            type_ = DOMAIN(name="text", data_type=Integer, **kw)
+        else:
+            type_type.fail()
+
+        Table("t", metadata, Column("c", type_))
+
+        if use_schema.none:
+            with expect_raises_message(
+                exc.CompileError,
+                r"(ENUM.*|DOMAIN.*) has name 'text' that "
+                r"matches an existing type,",
+            ):
+                metadata.create_all(connection)
+            return
+
+        metadata.create_all(connection)
+
+        type_names = (
+            {elem["name"] for elem in inspect(connection).get_enums(**kw)}
+            if type_type.enum
+            else {
+                elem["name"] for elem in inspect(connection).get_domains(**kw)
+            }
+        )
+
+        assert "text" in type_names
+
+        cols = inspect(connection).get_columns("t")
+
+        if type_type.enum:
+            assert isinstance(cols[0]["type"], ENUM)
+        elif type_type.domain:
+            assert isinstance(cols[0]["type"], DOMAIN)
+        else:
+            type_type.fail()
+
 
 class DomainTest(
     AssertsCompiledSQL, fixtures.TestBase, AssertsExecutionResults
@@ -1324,53 +1568,6 @@ class DomainTest(
                 (3, "example@gmail.co.uk", 99),
             ],
         )
-
-    @testing.combinations(
-        tuple(
-            [
-                DOMAIN(
-                    name="mytype",
-                    data_type=Text,
-                    check=r"VALUE ~ '[^@]+@[^@]+\.[^@]+'",
-                    create_type=True,
-                ),
-            ]
-        ),
-        tuple(
-            [
-                DOMAIN(
-                    name="mytype",
-                    data_type=Text,
-                    check=r"VALUE ~ '[^@]+@[^@]+\.[^@]+'",
-                    create_type=False,
-                ),
-            ]
-        ),
-        argnames="domain",
-    )
-    def test_create_drop_domain_with_table(self, connection, metadata, domain):
-        table = Table("e1", metadata, Column("e1", domain))
-
-        def _domain_names():
-            return {d["name"] for d in inspect(connection).get_domains()}
-
-        assert "mytype" not in _domain_names()
-
-        if domain.create_type:
-            table.create(connection)
-            assert "mytype" in _domain_names()
-        else:
-            with expect_raises(exc.ProgrammingError):
-                table.create(connection)
-            connection.rollback()
-
-            domain.create(connection)
-            assert "mytype" in _domain_names()
-            table.create(connection)
-
-        table.drop(connection)
-        if domain.create_type:
-            assert "mytype" not in _domain_names()
 
     @testing.combinations(
         (Integer, "value > 0", 4),
@@ -1803,8 +2000,9 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
 
         self.assert_compile(
             obj,
-            "ARRAY[%(param_1)s, %(param_2)s] || "
-            "ARRAY[%(param_3)s, %(param_4)s, %(param_5)s]",
+            "ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER] ||"
+            " ARRAY[%(param_3)s::INTEGER, %(param_4)s::INTEGER,"
+            " %(param_5)s::INTEGER]",
             params={
                 "param_1": 1,
                 "param_2": 2,
@@ -1815,8 +2013,9 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         )
         self.assert_compile(
             obj[1],
-            "(ARRAY[%(param_1)s, %(param_2)s] || ARRAY[%(param_3)s, "
-            "%(param_4)s, %(param_5)s])[%(param_6)s]",
+            "(ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER] ||"
+            " ARRAY[%(param_3)s::INTEGER, %(param_4)s::INTEGER,"
+            " %(param_5)s::INTEGER])[%(param_6)s::INTEGER]",
             params={
                 "param_1": 1,
                 "param_2": 2,
@@ -1833,18 +2032,21 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
 
         self.assert_compile(
             obj,
-            "ARRAY[ARRAY[%(param_1)s, %(param_2)s], "
-            "ARRAY[%(param_3)s, %(param_4)s]]",
+            "ARRAY[ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER],"
+            " ARRAY[%(param_3)s::INTEGER, %(param_4)s::INTEGER]]",
         )
         self.assert_compile(
             obj[1],
-            "(ARRAY[ARRAY[%(param_1)s, %(param_2)s], "
-            "ARRAY[%(param_3)s, %(param_4)s]])[%(param_5)s]",
+            "(ARRAY[ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER],"
+            " ARRAY[%(param_3)s::INTEGER,"
+            " %(param_4)s::INTEGER]])[%(param_5)s::INTEGER]",
         )
         self.assert_compile(
             obj[1][0],
-            "(ARRAY[ARRAY[%(param_1)s, %(param_2)s], "
-            "ARRAY[%(param_3)s, %(param_4)s]])[%(param_5)s][%(param_6)s]",
+            "(ARRAY[ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER],"
+            " ARRAY[%(param_3)s::INTEGER,"
+            " %(param_4)s::INTEGER]])[%(param_5)s::INTEGER]"
+            "[%(param_6)s::INTEGER]",
         )
 
     def test_array_type_render_str(self):
@@ -1854,6 +2056,15 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         self.assert_compile(
             postgresql.ARRAY(Unicode(30, collation="en_US")),
             'VARCHAR(30)[] COLLATE "en_US"',
+        )
+
+    def test_array_type_render_str_collate_schema(self):
+        """test #9693"""
+        self.assert_compile(
+            postgresql.ARRAY(
+                Unicode(30, collation="en_US", collation_schema="pg_catalog")
+            ),
+            'VARCHAR(30)[] COLLATE pg_catalog."en_US"',
         )
 
     def test_array_type_render_str_multidim(self):
@@ -1937,32 +2148,36 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col[3]),
-            "SELECT x[%(x_1)s] AS anon_1",
+            "SELECT x[%(x_1)s::INTEGER] AS anon_1",
             checkparams={"x_1": 3},
         )
 
-    def test_array_any(self):
+    def test_array_deprecated_any(self):
         col = column("x", postgresql.ARRAY(Integer))
-        self.assert_compile(
-            select(col.any(7, operator=operators.lt)),
-            "SELECT %(x_1)s < ANY (x) AS anon_1",
-            checkparams={"x_1": 7},
-        )
 
-    def test_array_all(self):
+        with _array_any_deprecation():
+            self.assert_compile(
+                select(col.any(7, operator=operators.lt)),
+                "SELECT %(x_1)s::INTEGER < ANY (x) AS anon_1",
+                checkparams={"x_1": 7},
+            )
+
+    def test_array_deprecated_all(self):
         col = column("x", postgresql.ARRAY(Integer))
-        self.assert_compile(
-            select(col.all(7, operator=operators.lt)),
-            "SELECT %(x_1)s < ALL (x) AS anon_1",
-            checkparams={"x_1": 7},
-        )
+
+        with _array_any_deprecation():
+            self.assert_compile(
+                select(col.all(7, operator=operators.lt)),
+                "SELECT %(x_1)s::INTEGER < ALL (x) AS anon_1",
+                checkparams={"x_1": 7},
+            )
 
     def test_array_contains(self):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col.contains(array([4, 5, 6]))),
-            "SELECT x @> ARRAY[%(param_1)s, %(param_2)s, %(param_3)s] "
-            "AS anon_1",
+            "SELECT x @> ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER,"
+            " %(param_3)s::INTEGER] AS anon_1",
             checkparams={"param_1": 4, "param_3": 6, "param_2": 5},
         )
 
@@ -1979,8 +2194,8 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col.contained_by(array([4, 5, 6]))),
-            "SELECT x <@ ARRAY[%(param_1)s, %(param_2)s, %(param_3)s] "
-            "AS anon_1",
+            "SELECT x <@ ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER,"
+            " %(param_3)s::INTEGER] AS anon_1",
             checkparams={"param_1": 4, "param_3": 6, "param_2": 5},
         )
 
@@ -1988,8 +2203,8 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col.overlap(array([4, 5, 6]))),
-            "SELECT x && ARRAY[%(param_1)s, %(param_2)s, %(param_3)s] "
-            "AS anon_1",
+            "SELECT x && ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER,"
+            " %(param_3)s::INTEGER] AS anon_1",
             checkparams={"param_1": 4, "param_3": 6, "param_2": 5},
         )
 
@@ -1997,8 +2212,8 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col.overlap(any_(array([4, 5, 6])))),
-            "SELECT x && ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s]) "
-            "AS anon_1",
+            "SELECT x && ANY (ARRAY[%(param_1)s::INTEGER,"
+            " %(param_2)s::INTEGER, %(param_3)s::INTEGER]) AS anon_1",
             checkparams={"param_1": 4, "param_3": 6, "param_2": 5},
         )
 
@@ -2006,8 +2221,8 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col.contains(any_(array([4, 5, 6])))),
-            "SELECT x @> ANY (ARRAY[%(param_1)s, %(param_2)s, %(param_3)s]) "
-            "AS anon_1",
+            "SELECT x @> ANY (ARRAY[%(param_1)s::INTEGER,"
+            " %(param_2)s::INTEGER, %(param_3)s::INTEGER]) AS anon_1",
             checkparams={"param_1": 4, "param_3": 6, "param_2": 5},
         )
 
@@ -2015,7 +2230,7 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer))
         self.assert_compile(
             select(col[5:10]),
-            "SELECT x[%(x_1)s:%(x_2)s] AS anon_1",
+            "SELECT x[%(x_1)s::INTEGER:%(x_2)s::INTEGER] AS anon_1",
             checkparams={"x_2": 10, "x_1": 5},
         )
 
@@ -2023,7 +2238,7 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         col = column("x", postgresql.ARRAY(Integer, dimensions=2))
         self.assert_compile(
             select(col[3][5]),
-            "SELECT x[%(x_1)s][%(param_1)s] AS anon_1",
+            "SELECT x[%(x_1)s::INTEGER][%(param_1)s::INTEGER] AS anon_1",
             checkparams={"x_1": 3, "param_1": 5},
         )
 
@@ -2033,7 +2248,8 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
 
         self.assert_compile(
             select(col + literal),
-            "SELECT x || ARRAY[%(param_1)s, %(param_2)s] AS anon_1",
+            "SELECT x || ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER] AS"
+            " anon_1",
             checkparams={"param_1": 4, "param_2": 5},
         )
 
@@ -2089,9 +2305,12 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         )
         self.assert_compile(
             stmt,
-            "SELECT (array_cat(ARRAY[%(param_1)s, %(param_2)s, %(param_3)s], "
-            "ARRAY[%(param_4)s, %(param_5)s, %(param_6)s]))"
-            "[%(param_7)s:%(param_8)s] AS anon_1",
+            "SELECT (array_cat(ARRAY[%(param_1)s::INTEGER,"
+            " %(param_2)s::INTEGER, %(param_3)s::INTEGER],"
+            " ARRAY[%(param_4)s::INTEGER, %(param_5)s::INTEGER,"
+            " %(param_6)s::INTEGER]))"
+            "[%(param_7)s::INTEGER:%(param_8)s::INTEGER]"
+            " AS anon_1",
         )
 
         self.assert_compile(
@@ -2100,8 +2319,10 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
                 array([4, 5, 6]),
                 type_=postgresql.ARRAY(Integer),
             )[3],
-            "(array_cat(ARRAY[%(param_1)s, %(param_2)s, %(param_3)s], "
-            "ARRAY[%(param_4)s, %(param_5)s, %(param_6)s]))[%(array_cat_1)s]",
+            "(array_cat(ARRAY[%(param_1)s::INTEGER, %(param_2)s::INTEGER,"
+            " %(param_3)s::INTEGER], ARRAY[%(param_4)s::INTEGER,"
+            " %(param_5)s::INTEGER,"
+            " %(param_6)s::INTEGER]))[%(array_cat_1)s::INTEGER]",
         )
 
     def test_array_agg_generic(self):
@@ -2110,25 +2331,31 @@ class ArrayTest(AssertsCompiledSQL, fixtures.TestBase):
         is_(expr.type.item_type.__class__, Integer)
 
     @testing.combinations(
-        ("original", False, False),
-        ("just_enum", True, False),
-        ("just_order_by", False, True),
-        ("issue_5989", True, True),
-        id_="iaa",
-        argnames="with_enum, using_aggregate_order_by",
+        ("original", False),
+        ("just_enum", True),
+        ("just_order_by", False),
+        ("issue_5989", True),
+        id_="ia",
+        argnames="with_enum",
     )
-    def test_array_agg_specific(self, with_enum, using_aggregate_order_by):
+    @testing.variation("order_by_type", ["none", "legacy", "core"])
+    def test_array_agg_specific(self, with_enum, order_by_type):
         element = ENUM(name="pgenum") if with_enum else Integer()
         element_type = type(element)
-        expr = (
-            array_agg(
+
+        if order_by_type.none:
+            expr = array_agg(column("q", element))
+        elif order_by_type.legacy:
+            expr = array_agg(
                 aggregate_order_by(
                     column("q", element), column("idx", Integer)
                 )
             )
-            if using_aggregate_order_by
-            else array_agg(column("q", element))
-        )
+        elif order_by_type.core:
+            expr = array_agg(column("q", element)).aggregate_order_by(
+                column("idx", Integer)
+            )
+
         is_(expr.type.__class__, postgresql.ARRAY)
         is_(expr.type.item_type.__class__, element_type)
 
@@ -2555,9 +2782,7 @@ class ArrayRoundTripTest:
         connection.execute(arrtable.insert(), dict(intarr=[4, 5, 6]))
         eq_(
             connection.scalar(
-                select(arrtable.c.intarr).where(
-                    postgresql.Any(5, arrtable.c.intarr)
-                )
+                select(arrtable.c.intarr).where(5 == any_(arrtable.c.intarr))
             ),
             [4, 5, 6],
         )
@@ -2565,14 +2790,43 @@ class ArrayRoundTripTest:
     def test_array_all_exec(self, connection):
         arrtable = self.tables.arrtable
         connection.execute(arrtable.insert(), dict(intarr=[4, 5, 6]))
+
         eq_(
             connection.scalar(
-                select(arrtable.c.intarr).where(
-                    arrtable.c.intarr.all(4, operator=operators.le)
-                )
+                select(arrtable.c.intarr).where(4 <= all_(arrtable.c.intarr))
             ),
             [4, 5, 6],
         )
+
+    def test_array_any_deprecated_exec(self, connection):
+        arrtable = self.tables.arrtable
+        connection.execute(arrtable.insert(), dict(intarr=[4, 5, 6]))
+
+        with _array_any_deprecation():
+            eq_(
+                connection.scalar(
+                    select(arrtable.c.intarr).where(
+                        postgresql.Any(5, arrtable.c.intarr)
+                    )
+                ),
+                [4, 5, 6],
+            )
+
+    def test_array_all_deprecated_exec(self, connection):
+        arrtable = self.tables.arrtable
+        connection.execute(arrtable.insert(), dict(intarr=[4, 5, 6]))
+
+        with _array_any_deprecation():
+            eq_(
+                connection.scalar(
+                    select(arrtable.c.intarr).where(
+                        postgresql.All(
+                            4, arrtable.c.intarr, operator=operators.le
+                        )
+                    )
+                ),
+                [4, 5, 6],
+            )
 
     def test_tuple_flag(self, connection, metadata):
         t1 = Table(
@@ -2641,7 +2895,10 @@ class ArrayRoundTripTest:
             {"my_enum_1", "my_enum_2", "my_enum_3"},
         )
         t.drop(connection)
-        eq_(inspect(connection).get_enums(), [])
+        eq_(
+            {e["name"] for e in inspect(connection).get_enums()},
+            {"my_enum_1", "my_enum_2", "my_enum_3"},
+        )
 
     def _type_combinations(
         exclude_json=False,
@@ -3248,21 +3505,22 @@ class ArrayEnum(fixtures.TestBase):
 
     @_enum_combinations
     @testing.combinations("all", "any", argnames="fn")
-    def test_any_all_legacy_roundtrip(
+    def test_any_all_deprecated_roundtrip(
         self, array_of_enum_fixture, connection, array_cls, enum_cls, fn
     ):
         """test #6515"""
 
         tbl, MyEnum = array_of_enum_fixture(array_cls, enum_cls)
 
-        if fn == "all":
-            expr = tbl.c.pyenum_col.all(MyEnum.b)
-            result = [([MyEnum.b],)]
-        elif fn == "any":
-            expr = tbl.c.pyenum_col.any(MyEnum.b)
-            result = [([MyEnum.a, MyEnum.b],), ([MyEnum.b],)]
-        else:
-            assert False
+        with _array_any_deprecation():
+            if fn == "all":
+                expr = tbl.c.pyenum_col.all(MyEnum.b)
+                result = [([MyEnum.b],)]
+            elif fn == "any":
+                expr = tbl.c.pyenum_col.any(MyEnum.b)
+                result = [([MyEnum.a, MyEnum.b],), ([MyEnum.b],)]
+            else:
+                assert False
         sel = select(tbl.c.pyenum_col).where(expr).order_by(tbl.c.id)
         eq_(connection.execute(sel).fetchall(), result)
 
@@ -3487,8 +3745,8 @@ class TimestampTest(
         expr = column("bar", postgresql.INTERVAL) + column("foo", types.Date)
         eq_(expr.type._type_affinity, types.DateTime)
 
-        expr = column("bar", postgresql.INTERVAL) * column(
-            "foo", types.Numeric
+        expr = operators.null_op(
+            column("bar", postgresql.INTERVAL), column("foo", types.Numeric)
         )
         eq_(expr.type._type_affinity, types.Interval)
         assert isinstance(expr.type, postgresql.INTERVAL)
@@ -3520,13 +3778,13 @@ class TimestampTest(
             text("select :parameter").bindparams(
                 parameter=datetime.timedelta(days=2)
             ),
-            ("select make_interval(secs=>172800.0)"),
+            "select make_interval(secs=>172800.0)",
         ),
         (
             text("select :parameter").bindparams(
                 parameter=datetime.timedelta(days=730, seconds=2323213392),
             ),
-            ("select make_interval(secs=>2386285392.0)"),
+            "select make_interval(secs=>2386285392.0)",
         ),
     )
     def test_interval_literal_processor_compiled(self, type_, expected):
@@ -3612,7 +3870,9 @@ class SpecialTypesTest(fixtures.TablesTest, ComparesTables):
             metadata,
             Column("id", postgresql.UUID, primary_key=True),
             Column("flag", postgresql.BIT),
-            Column("bitstring", postgresql.BIT(4)),
+            Column("bitstring_varying", postgresql.BIT(varying=True)),
+            Column("bitstring_varying_6", postgresql.BIT(6, varying=True)),
+            Column("bitstring_4", postgresql.BIT(4)),
             Column("addr", postgresql.INET),
             Column("addr2", postgresql.MACADDR),
             Column("addr4", postgresql.MACADDR8),
@@ -3640,7 +3900,18 @@ class SpecialTypesTest(fixtures.TablesTest, ComparesTables):
         self.assert_tables_equal(special_types_table, t, strict_types=True)
         assert t.c.plain_interval.type.precision is None
         assert t.c.precision_interval.type.precision == 3
-        assert t.c.bitstring.type.length == 4
+
+        assert t.c.flag.type.varying is False
+        assert t.c.flag.type.length == 1
+
+        assert t.c.bitstring_varying.type.varying is True
+        assert t.c.bitstring_varying.type.length is None
+
+        assert t.c.bitstring_varying_6.type.varying is True
+        assert t.c.bitstring_varying_6.type.length == 6
+
+        assert t.c.bitstring_4.type.varying is False
+        assert t.c.bitstring_4.type.length == 4
 
     @testing.combinations(
         (postgresql.INET, "127.0.0.1"),
@@ -3669,6 +3940,41 @@ class SpecialTypesTest(fixtures.TablesTest, ComparesTables):
             connection.scalar(select(t.c.name).where(t.c.value == value)),
             "test",
         )
+
+    @testing.combinations(
+        (postgresql.BIT(varying=True), BitString("")),
+        (postgresql.BIT(varying=True), BitString("1101010101")),
+        (postgresql.BIT(6, varying=True), BitString("")),
+        (postgresql.BIT(6, varying=True), BitString("010101")),
+        (postgresql.BIT(1), BitString("0")),
+        (postgresql.BIT(4), BitString("0010")),
+        (postgresql.BIT(4), "0010"),
+        argnames="column_type, value",
+    )
+    def test_bitstring_round_trip(
+        self, connection, metadata, column_type, value
+    ):
+        t = Table(
+            "bits",
+            metadata,
+            Column("name", String),
+            Column("value", column_type),
+        )
+        t.create(connection)
+
+        connection.execute(t.insert(), {"name": "test", "value": value})
+        eq_(
+            connection.scalar(select(t.c.name).where(t.c.value == value)),
+            "test",
+        )
+
+        result_value = connection.scalar(
+            select(t.c.value).where(t.c.name == "test")
+        )
+        assert isinstance(result_value, BitString)
+        eq_(result_value, value)
+        eq_(result_value, str(value))
+        eq_(str(result_value), str(value))
 
     def test_tsvector_round_trip(self, connection, metadata):
         t = Table("t1", metadata, Column("data", postgresql.TSVECTOR))
@@ -3808,8 +4114,8 @@ class HStoreTest(AssertsCompiledSQL, fixtures.TestBase):
         stmt = select(self.test_table).where(whereclause)
         self.assert_compile(
             stmt,
-            "SELECT test_table.id, test_table.hash FROM test_table "
-            "WHERE %s" % expected,
+            "SELECT test_table.id, test_table.hash FROM test_table WHERE %s"
+            % expected,
         )
 
     def test_bind_serialize_default(self):
@@ -3918,25 +4224,27 @@ class HStoreTest(AssertsCompiledSQL, fixtures.TestBase):
     def test_where_has_key(self):
         self._test_where(
             self.hashcol.has_key("foo"),
-            "test_table.hash ? %(hash_1)s",
+            "test_table.hash ? %(hash_1)s::VARCHAR",
         )
 
     def test_where_has_all(self):
         self._test_where(
             self.hashcol.has_all(postgresql.array(["1", "2"])),
-            "test_table.hash ?& ARRAY[%(param_1)s, %(param_2)s]",
+            "test_table.hash ?& ARRAY[%(param_1)s::VARCHAR,"
+            " %(param_2)s::VARCHAR]",
         )
 
     def test_where_has_any(self):
         self._test_where(
             self.hashcol.has_any(postgresql.array(["1", "2"])),
-            "test_table.hash ?| ARRAY[%(param_1)s, %(param_2)s]",
+            "test_table.hash ?| ARRAY[%(param_1)s::VARCHAR,"
+            " %(param_2)s::VARCHAR]",
         )
 
     def test_where_defined(self):
         self._test_where(
             self.hashcol.defined("foo"),
-            "defined(test_table.hash, %(defined_1)s)",
+            "defined(test_table.hash, %(defined_1)s::VARCHAR)",
         )
 
     def test_where_contains(self):
@@ -3954,102 +4262,78 @@ class HStoreTest(AssertsCompiledSQL, fixtures.TestBase):
     def test_where_has_key_any(self):
         self._test_where(
             self.hashcol.has_key(any_(array(["foo"]))),
-            "test_table.hash ? ANY (ARRAY[%(param_1)s])",
+            "test_table.hash ? ANY (ARRAY[%(param_1)s::VARCHAR])",
         )
 
     def test_where_has_all_any(self):
         self._test_where(
             self.hashcol.has_all(any_(postgresql.array(["1", "2"]))),
-            "test_table.hash ?& ANY (ARRAY[%(param_1)s, %(param_2)s])",
+            "test_table.hash ?& ANY (ARRAY[%(param_1)s::VARCHAR,"
+            " %(param_2)s::VARCHAR])",
         )
 
     def test_where_has_any_any(self):
         self._test_where(
             self.hashcol.has_any(any_(postgresql.array(["1", "2"]))),
-            "test_table.hash ?| ANY (ARRAY[%(param_1)s, %(param_2)s])",
+            "test_table.hash ?| ANY (ARRAY[%(param_1)s::VARCHAR,"
+            " %(param_2)s::VARCHAR])",
         )
 
     def test_where_contains_any(self):
         self._test_where(
             self.hashcol.contains(any_(array(["foo"]))),
-            "test_table.hash @> ANY (ARRAY[%(param_1)s])",
+            "test_table.hash @> ANY (ARRAY[%(param_1)s::VARCHAR])",
         )
 
     def test_where_contained_by_any(self):
         self._test_where(
             self.hashcol.contained_by(any_(array(["foo"]))),
-            "test_table.hash <@ ANY (ARRAY[%(param_1)s])",
+            "test_table.hash <@ ANY (ARRAY[%(param_1)s::VARCHAR])",
         )
 
     def test_where_getitem(self):
         self._test_where(
             self.hashcol["bar"] == None,  # noqa
-            "(test_table.hash -> %(hash_1)s) IS NULL",
+            "test_table.hash[%(hash_1)s::VARCHAR] IS NULL",
         )
 
     def test_where_getitem_any(self):
         self._test_where(
             self.hashcol["bar"] == any_(array(["foo"])),  # noqa
-            "(test_table.hash -> %(hash_1)s) = ANY (ARRAY[%(param_1)s])",
+            "test_table.hash[%(hash_1)s::VARCHAR] = ANY"
+            " (ARRAY[%(param_1)s::VARCHAR])",
         )
 
+    # Test combinations that don't use subscript operator
     @testing.combinations(
         (
-            lambda self: self.hashcol["foo"],
-            "test_table.hash -> %(hash_1)s AS anon_1",
-            True,
-        ),
-        (
             lambda self: self.hashcol.delete("foo"),
-            "delete(test_table.hash, %(delete_2)s) AS delete_1",
+            "delete(test_table.hash, %(delete_2)s::VARCHAR) AS delete_1",
             True,
         ),
         (
             lambda self: self.hashcol.delete(postgresql.array(["foo", "bar"])),
             (
-                "delete(test_table.hash, ARRAY[%(param_1)s, %(param_2)s]) "
-                "AS delete_1"
+                "delete(test_table.hash, ARRAY[%(param_1)s::VARCHAR,"
+                " %(param_2)s::VARCHAR]) AS delete_1"
             ),
             True,
         ),
         (
             lambda self: self.hashcol.delete(hstore("1", "2")),
             (
-                "delete(test_table.hash, hstore(%(hstore_1)s, %(hstore_2)s)) "
-                "AS delete_1"
+                "delete(test_table.hash, hstore(%(hstore_1)s::VARCHAR,"
+                " %(hstore_2)s::VARCHAR)) AS delete_1"
             ),
             True,
         ),
         (
             lambda self: self.hashcol.slice(postgresql.array(["1", "2"])),
             (
-                "slice(test_table.hash, ARRAY[%(param_1)s, %(param_2)s]) "
-                "AS slice_1"
+                "slice(test_table.hash, ARRAY[%(param_1)s::VARCHAR,"
+                " %(param_2)s::VARCHAR]) AS slice_1"
             ),
             True,
-        ),
-        (
-            lambda self: hstore("foo", "3")["foo"],
-            "hstore(%(hstore_1)s, %(hstore_2)s) -> %(hstore_3)s AS anon_1",
-            False,
-        ),
-        (
-            lambda self: hstore(
-                postgresql.array(["1", "2"]), postgresql.array(["3", None])
-            )["1"],
-            (
-                "hstore(ARRAY[%(param_1)s, %(param_2)s], "
-                "ARRAY[%(param_3)s, NULL]) -> %(hstore_1)s AS anon_1"
-            ),
-            False,
-        ),
-        (
-            lambda self: hstore(postgresql.array(["1", "2", "3", None]))["3"],
-            (
-                "hstore(ARRAY[%(param_1)s, %(param_2)s, %(param_3)s, NULL]) "
-                "-> %(hstore_1)s AS anon_1"
-            ),
-            False,
         ),
         (
             lambda self: self.hashcol.concat(
@@ -4057,23 +4341,16 @@ class HStoreTest(AssertsCompiledSQL, fixtures.TestBase):
             ),
             (
                 "test_table.hash || hstore(CAST(test_table.id AS TEXT), "
-                "%(hstore_1)s) AS anon_1"
+                "%(hstore_1)s::VARCHAR) AS anon_1"
             ),
             True,
         ),
         (
             lambda self: hstore("foo", "bar") + self.hashcol,
-            "hstore(%(hstore_1)s, %(hstore_2)s) || test_table.hash AS anon_1",
-            True,
-        ),
-        (
-            lambda self: (self.hashcol + self.hashcol)["foo"],
-            "(test_table.hash || test_table.hash) -> %(param_1)s AS anon_1",
-            True,
-        ),
-        (
-            lambda self: self.hashcol["foo"] != None,  # noqa
-            "(test_table.hash -> %(hash_1)s) IS NOT NULL AS anon_1",
+            (
+                "hstore(%(hstore_1)s::VARCHAR, %(hstore_2)s::VARCHAR) ||"
+                " test_table.hash AS anon_1"
+            ),
             True,
         ),
         (
@@ -4099,6 +4376,63 @@ class HStoreTest(AssertsCompiledSQL, fixtures.TestBase):
         ),
     )
     def test_cols(self, colclause_fn, expected, from_):
+        colclause = colclause_fn(self)
+        stmt = select(colclause)
+        self.assert_compile(
+            stmt,
+            ("SELECT %s" + (" FROM test_table" if from_ else "")) % expected,
+        )
+
+    # Test combinations that use subscript operator (PG 14+ uses [] syntax)
+    @testing.combinations(
+        (
+            lambda self: self.hashcol["foo"],
+            "test_table.hash[%(hash_1)s::VARCHAR] AS anon_1",
+            True,
+        ),
+        (
+            lambda self: hstore("foo", "3")["foo"],
+            (
+                "(hstore(%(hstore_1)s::VARCHAR,"
+                " %(hstore_2)s::VARCHAR))[%(hstore_3)s::VARCHAR] AS anon_1"
+            ),
+            False,
+        ),
+        (
+            lambda self: hstore(
+                postgresql.array(["1", "2"]), postgresql.array(["3", None])
+            )["1"],
+            (
+                "(hstore(ARRAY[%(param_1)s::VARCHAR, %(param_2)s::VARCHAR],"
+                " ARRAY[%(param_3)s::VARCHAR, NULL]))[%(hstore_1)s::VARCHAR]"
+                " AS anon_1"
+            ),
+            False,
+        ),
+        (
+            lambda self: hstore(postgresql.array(["1", "2", "3", None]))["3"],
+            (
+                "(hstore(ARRAY[%(param_1)s::VARCHAR, %(param_2)s::VARCHAR,"
+                " %(param_3)s::VARCHAR, NULL]))[%(hstore_1)s::VARCHAR] AS"
+                " anon_1"
+            ),
+            False,
+        ),
+        (
+            lambda self: (self.hashcol + self.hashcol)["foo"],
+            (
+                "(test_table.hash || test_table.hash)[%(param_1)s::VARCHAR] AS"
+                " anon_1"
+            ),
+            True,
+        ),
+        (
+            lambda self: self.hashcol["foo"] != None,  # noqa
+            "test_table.hash[%(hash_1)s::VARCHAR] IS NOT NULL AS anon_1",
+            True,
+        ),
+    )
+    def test_cols_subscript(self, colclause_fn, expected, from_):
         colclause = colclause_fn(self)
         stmt = select(colclause)
         self.assert_compile(
@@ -4281,6 +4615,103 @@ class HStoreRoundTripTest(fixtures.TablesTest):
             eq_(s.query(Data.data, Data).all(), [(d.data, d)])
 
 
+class BitTests(fixtures.TestBase):
+    __backend__ = True
+    __only_on__ = "postgresql"
+
+    def test_concatenation(self, connection):
+        coltype = BIT(varying=True)
+
+        q = select(
+            literal(BitString("1111"), coltype).concat(BitString("0000"))
+        )
+        r = connection.execute(q).first()
+        eq_(r[0], BitString("11110000"))
+
+    def test_invert_operator(self, connection):
+        coltype = BIT(4)
+
+        q = select(literal(BitString("0010"), coltype).bitwise_not())
+        r = connection.execute(q).first()
+
+        eq_(r[0], BitString("1101"))
+
+    def test_and_operator(self, connection):
+        coltype = BIT(6)
+
+        q1 = select(
+            literal(BitString("001010"), coltype)
+            & literal(BitString("010111"), coltype)
+        )
+        r1 = connection.execute(q1).first()
+
+        eq_(r1[0], BitString("000010"))
+
+        q2 = select(
+            literal(BitString("010101"), coltype) & BitString("001011")
+        )
+        r2 = connection.execute(q2).first()
+        eq_(r2[0], BitString("000001"))
+
+    def test_or_operator(self, connection):
+        coltype = BIT(6)
+
+        q1 = select(
+            literal(BitString("001010"), coltype)
+            | literal(BitString("010111"), coltype)
+        )
+        r1 = connection.execute(q1).first()
+
+        eq_(r1[0], BitString("011111"))
+
+        q2 = select(
+            literal(BitString("010101"), coltype) | BitString("001011")
+        )
+        r2 = connection.execute(q2).first()
+        eq_(r2[0], BitString("011111"))
+
+    def test_xor_operator(self, connection):
+        coltype = BIT(6)
+
+        q1 = select(
+            literal(BitString("001010"), coltype).bitwise_xor(
+                literal(BitString("010111"), coltype)
+            )
+        )
+        r1 = connection.execute(q1).first()
+        eq_(r1[0], BitString("011101"))
+
+        q2 = select(
+            literal(BitString("010101"), coltype).bitwise_xor(
+                BitString("001011")
+            )
+        )
+        r2 = connection.execute(q2).first()
+        eq_(r2[0], BitString("011110"))
+
+    def test_lshift_operator(self, connection):
+        coltype = BIT(6)
+
+        q = select(
+            literal(BitString("001010"), coltype),
+            literal(BitString("001010"), coltype) << 1,
+        )
+
+        r = connection.execute(q).first()
+        eq_(tuple(r), (BitString("001010"), BitString("010100")))
+
+    def test_rshift_operator(self, connection):
+        coltype = BIT(6)
+
+        q = select(
+            literal(BitString("001010"), coltype),
+            literal(BitString("001010"), coltype) >> 1,
+        )
+
+        r = connection.execute(q).first()
+        eq_(tuple(r), (BitString("001010"), BitString("000101")))
+
+
 class RangeMiscTests(fixtures.TestBase):
     @testing.combinations(
         (Range(2, 7), INT4RANGE),
@@ -4407,7 +4838,7 @@ class _RangeTypeCompilation(
     def test_data_str(self, fn, op):
         self._test_clause(
             fn(self.col, self._data_str()),
-            f"data_table.range {op} %(range_1)s",
+            f"data_table.range {op} %(range_1)s::VARCHAR",
             (
                 self.col.type
                 if op in self._not_compare_op
@@ -4431,7 +4862,7 @@ class _RangeTypeCompilation(
     def test_data_str_any(self, fn, op):
         self._test_clause(
             fn(self.col, any_(array([self._data_str()]))),
-            f"data_table.range {op} ANY (ARRAY[%(param_1)s])",
+            f"data_table.range {op} ANY (ARRAY[%(param_1)s::VARCHAR])",
             (
                 self.col.type
                 if op in self._not_compare_op
@@ -4670,8 +5101,7 @@ class _RangeComparisonFixtures(_RangeTests):
         eq_(
             py_contains,
             pg_contains,
-            f"{r1}.contains({r2}): got {py_contains},"
-            f" expected {pg_contains}",
+            f"{r1}.contains({r2}): got {py_contains}, expected {pg_contains}",
         )
         r2_in_r1 = r2 in r1
         eq_(
@@ -5437,7 +5867,7 @@ class _MultiRangeTypeCompilation(AssertsCompiledSQL, fixtures.TestBase):
     def test_where_equal(self):
         self._test_clause(
             self.col == self._data_str(),
-            "data_table.multirange = %(multirange_1)s",
+            "data_table.multirange = %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
@@ -5451,7 +5881,7 @@ class _MultiRangeTypeCompilation(AssertsCompiledSQL, fixtures.TestBase):
     def test_where_not_equal(self):
         self._test_clause(
             self.col != self._data_str(),
-            "data_table.multirange != %(multirange_1)s",
+            "data_table.multirange != %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
@@ -5479,42 +5909,42 @@ class _MultiRangeTypeCompilation(AssertsCompiledSQL, fixtures.TestBase):
     def test_where_less_than(self):
         self._test_clause(
             self.col < self._data_str(),
-            "data_table.multirange < %(multirange_1)s",
+            "data_table.multirange < %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_where_greater_than(self):
         self._test_clause(
             self.col > self._data_str(),
-            "data_table.multirange > %(multirange_1)s",
+            "data_table.multirange > %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_where_less_than_or_equal(self):
         self._test_clause(
             self.col <= self._data_str(),
-            "data_table.multirange <= %(multirange_1)s",
+            "data_table.multirange <= %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_where_greater_than_or_equal(self):
         self._test_clause(
             self.col >= self._data_str(),
-            "data_table.multirange >= %(multirange_1)s",
+            "data_table.multirange >= %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_contains(self):
         self._test_clause(
             self.col.contains(self._data_str()),
-            "data_table.multirange @> %(multirange_1)s",
+            "data_table.multirange @> %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_contained_by(self):
         self._test_clause(
             self.col.contained_by(self._data_str()),
-            "data_table.multirange <@ %(multirange_1)s",
+            "data_table.multirange <@ %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
@@ -5528,52 +5958,52 @@ class _MultiRangeTypeCompilation(AssertsCompiledSQL, fixtures.TestBase):
     def test_overlaps(self):
         self._test_clause(
             self.col.overlaps(self._data_str()),
-            "data_table.multirange && %(multirange_1)s",
+            "data_table.multirange && %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_strictly_left_of(self):
         self._test_clause(
             self.col << self._data_str(),
-            "data_table.multirange << %(multirange_1)s",
+            "data_table.multirange << %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
         self._test_clause(
             self.col.strictly_left_of(self._data_str()),
-            "data_table.multirange << %(multirange_1)s",
+            "data_table.multirange << %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_strictly_right_of(self):
         self._test_clause(
             self.col >> self._data_str(),
-            "data_table.multirange >> %(multirange_1)s",
+            "data_table.multirange >> %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
         self._test_clause(
             self.col.strictly_right_of(self._data_str()),
-            "data_table.multirange >> %(multirange_1)s",
+            "data_table.multirange >> %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_not_extend_right_of(self):
         self._test_clause(
             self.col.not_extend_right_of(self._data_str()),
-            "data_table.multirange &< %(multirange_1)s",
+            "data_table.multirange &< %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_not_extend_left_of(self):
         self._test_clause(
             self.col.not_extend_left_of(self._data_str()),
-            "data_table.multirange &> %(multirange_1)s",
+            "data_table.multirange &> %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
     def test_adjacent_to(self):
         self._test_clause(
             self.col.adjacent_to(self._data_str()),
-            "data_table.multirange -|- %(multirange_1)s",
+            "data_table.multirange -|- %(multirange_1)s::VARCHAR",
             sqltypes.BOOLEANTYPE,
         )
 
@@ -5994,12 +6424,14 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
         ),
         (
             lambda self: self.jsoncol["bar"].astext == None,  # noqa
-            "(test_table.test_column ->> %(test_column_1)s) IS NULL",
+            "(test_table.test_column ->> %(test_column_1)s::TEXT) IS NULL",
         ),
         (
             lambda self: self.jsoncol["bar"].astext.cast(Integer) == 5,
-            "CAST((test_table.test_column ->> %(test_column_1)s) AS INTEGER) "
-            "= %(param_1)s",
+            (
+                "CAST((test_table.test_column ->> %(test_column_1)s::TEXT) AS"
+                " INTEGER) = %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol[("foo", 1)].astext == None,  # noqa
@@ -6007,23 +6439,31 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
         ),
         (
             lambda self: self.jsoncol["bar"].astext == self.any_,
-            "(test_table.test_column ->> %(test_column_1)s) = "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "(test_table.test_column ->> %(test_column_1)s::TEXT) = "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"].astext != self.any_,
-            "(test_table.test_column ->> %(test_column_1)s) != "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "(test_table.test_column ->> %(test_column_1)s::TEXT) != "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         (
             lambda self: self.jsoncol[("foo", 1)] == self.any_,
-            "(test_table.test_column #> %(test_column_1)s) = "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "(test_table.test_column #> %(test_column_1)s) = "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         (
             lambda self: self.jsoncol[("foo", 1)] != self.any_,
-            "(test_table.test_column #> %(test_column_1)s) != "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "(test_table.test_column #> %(test_column_1)s) != "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         id_="as",
     )
@@ -6041,34 +6481,46 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
     @testing.combinations(
         (
             lambda self: self.jsoncol["bar"] == None,  # noqa
-            "(test_table.test_column -> %(test_column_1)s) IS NULL",
+            "(test_table.test_column -> %(test_column_1)s::TEXT) IS NULL",
         ),
         (
             lambda self: self.jsoncol["bar"] != None,  # noqa
-            "(test_table.test_column -> %(test_column_1)s) IS NOT NULL",
+            "(test_table.test_column -> %(test_column_1)s::TEXT) IS NOT NULL",
         ),
         (
             lambda self: self.jsoncol["bar"].cast(Integer) == 5,
-            "CAST((test_table.test_column -> %(test_column_1)s) AS INTEGER) "
-            "= %(param_1)s",
+            (
+                "CAST((test_table.test_column -> %(test_column_1)s::TEXT) AS"
+                " INTEGER) = %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] == 42,
-            "(test_table.test_column -> %(test_column_1)s) = %(param_1)s",
+            (
+                "(test_table.test_column -> %(test_column_1)s::TEXT) ="
+                " %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] != 42,
-            "(test_table.test_column -> %(test_column_1)s) != %(param_1)s",
+            (
+                "(test_table.test_column -> %(test_column_1)s::TEXT) !="
+                " %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] == self.any_,
-            "(test_table.test_column -> %(test_column_1)s) = "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "(test_table.test_column -> %(test_column_1)s::TEXT) = "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] != self.any_,
-            "(test_table.test_column -> %(test_column_1)s) != "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "(test_table.test_column -> %(test_column_1)s::TEXT) != "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         id_="as",
     )
@@ -6105,7 +6557,7 @@ class JSONTest(AssertsCompiledSQL, fixtures.TestBase):
     @testing.combinations(
         (
             lambda self: self.jsoncol["foo"],
-            "test_table.test_column -> %(test_column_1)s AS anon_1",
+            "test_table.test_column -> %(test_column_1)s::TEXT AS anon_1",
             True,
         )
     )
@@ -6398,11 +6850,11 @@ class JSONBTest(JSONTest):
     @testing.combinations(
         (
             lambda self: self.jsoncol.has_key("data"),
-            "test_table.test_column ? %(test_column_1)s",
+            "test_table.test_column ? %(test_column_1)s::VARCHAR",
         ),
         (
             lambda self: self.jsoncol.has_key(self.any_),
-            "test_table.test_column ? ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column ? ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         (
             lambda self: self.jsoncol.has_all(
@@ -6412,17 +6864,20 @@ class JSONBTest(JSONTest):
         ),
         (
             lambda self: self.jsoncol.has_all(self.any_),
-            "test_table.test_column ?& ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column ?& ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         (
             lambda self: self.jsoncol.has_any(
                 postgresql.array(["name", "data"])
             ),
-            "test_table.test_column ?| ARRAY[%(param_1)s, %(param_2)s]",
+            (
+                "test_table.test_column ?| ARRAY[%(param_1)s::VARCHAR,"
+                " %(param_2)s::VARCHAR]"
+            ),
         ),
         (
             lambda self: self.jsoncol.has_any(self.any_),
-            "test_table.test_column ?| ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column ?| ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         (
             lambda self: self.jsoncol.contains({"k1": "r1v1"}),
@@ -6430,7 +6885,7 @@ class JSONBTest(JSONTest):
         ),
         (
             lambda self: self.jsoncol.contains(self.any_),
-            "test_table.test_column @> ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column @> ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         (
             lambda self: self.jsoncol.contained_by({"foo": "1", "bar": None}),
@@ -6438,17 +6893,21 @@ class JSONBTest(JSONTest):
         ),
         (
             lambda self: self.jsoncol.contained_by(self.any_),
-            "test_table.test_column <@ ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column <@ ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         (
             lambda self: self.jsoncol.delete_path(["a", "b"]),
-            "test_table.test_column #- CAST(ARRAY[%(param_1)s, "
-            "%(param_2)s] AS TEXT[])",
+            (
+                "test_table.test_column #- CAST(ARRAY[%(param_1)s::VARCHAR, "
+                "%(param_2)s::VARCHAR] AS TEXT[])"
+            ),
         ),
         (
             lambda self: self.jsoncol.delete_path(array(["a", "b"])),
-            "test_table.test_column #- CAST(ARRAY[%(param_1)s, "
-            "%(param_2)s] AS TEXT[])",
+            (
+                "test_table.test_column #- CAST(ARRAY[%(param_1)s::VARCHAR, "
+                "%(param_2)s::VARCHAR] AS TEXT[])"
+            ),
         ),
         (
             lambda self: self.jsoncol.path_exists("$.k1"),
@@ -6456,7 +6915,7 @@ class JSONBTest(JSONTest):
         ),
         (
             lambda self: self.jsoncol.path_exists(self.any_),
-            "test_table.test_column @? ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column @? ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         (
             lambda self: self.jsoncol.path_match("$.k1[0] > 2"),
@@ -6464,7 +6923,7 @@ class JSONBTest(JSONTest):
         ),
         (
             lambda self: self.jsoncol.path_match(self.any_),
-            "test_table.test_column @@ ANY (ARRAY[%(param_1)s])",
+            "test_table.test_column @@ ANY (ARRAY[%(param_1)s::INTEGER])",
         ),
         id_="as",
     )
@@ -6476,34 +6935,46 @@ class JSONBTest(JSONTest):
     @testing.combinations(
         (
             lambda self: self.jsoncol["bar"] == None,  # noqa
-            "test_table.test_column[%(test_column_1)s] IS NULL",
+            "test_table.test_column[%(test_column_1)s::TEXT] IS NULL",
         ),
         (
             lambda self: self.jsoncol["bar"] != None,  # noqa
-            "test_table.test_column[%(test_column_1)s] IS NOT NULL",
+            "test_table.test_column[%(test_column_1)s::TEXT] IS NOT NULL",
         ),
         (
             lambda self: self.jsoncol["bar"].cast(Integer) == 5,
-            "CAST(test_table.test_column[%(test_column_1)s] AS INTEGER) "
-            "= %(param_1)s",
+            (
+                "CAST(test_table.test_column[%(test_column_1)s::TEXT] AS"
+                " INTEGER) = %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] == 42,
-            "test_table.test_column[%(test_column_1)s] = %(param_1)s",
+            (
+                "test_table.test_column[%(test_column_1)s::TEXT] ="
+                " %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] != 42,
-            "test_table.test_column[%(test_column_1)s] != %(param_1)s",
+            (
+                "test_table.test_column[%(test_column_1)s::TEXT] !="
+                " %(param_1)s::INTEGER"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] == self.any_,
-            "test_table.test_column[%(test_column_1)s] = "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "test_table.test_column[%(test_column_1)s::TEXT] = "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         (
             lambda self: self.jsoncol["bar"] != self.any_,
-            "test_table.test_column[%(test_column_1)s] != "
-            "ANY (ARRAY[%(param_1)s])",
+            (
+                "test_table.test_column[%(test_column_1)s::TEXT] != "
+                "ANY (ARRAY[%(param_1)s::INTEGER])"
+            ),
         ),
         id_="as",
     )
@@ -6521,7 +6992,7 @@ class JSONBTest(JSONTest):
     @testing.combinations(
         (
             lambda self: self.jsoncol["foo"],
-            "test_table.test_column[%(test_column_1)s] AS anon_1",
+            "test_table.test_column[%(test_column_1)s::TEXT] AS anon_1",
             True,
         )
     )
@@ -6862,7 +7333,7 @@ class PGInsertManyValuesTest(fixtures.TestBase):
 
     @testing.combinations(
         ("BYTEA", BYTEA(), b"7\xe7\x9f"),
-        ("BIT", BIT(3), "011"),
+        ("BIT", BIT(3), BitString("011")),
         argnames="type_,value",
         id_="iaa",
     )
@@ -6894,11 +7365,6 @@ class PGInsertManyValuesTest(fixtures.TestBase):
         )
 
         t.create(connection)
-
-        if type_._type_affinity is BIT and testing.against("+asyncpg"):
-            import asyncpg
-
-            value = asyncpg.BitString(value)
 
         result = connection.execute(
             t.insert().returning(

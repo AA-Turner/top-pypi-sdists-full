@@ -750,7 +750,8 @@ def test_route_table_reconciles_with_the_endpoint_count_script():
     # The remainder, named so a change to it is deliberate:
     #   * HEAD /api/v1/public/health -- a `@router.head` the script's verb regex
     #     excludes on purpose, and the whole of the 227-vs-228 gap.
-    #   * five routes declared on the app rather than a router.
+    #   * seven routes declared on the app rather than a router, two of them the
+    #     /ui catch-all that 301s the old pages to innoday-ui.
     #   * four FastAPI built-ins (/openapi.json, /docs, /docs/oauth2-redirect,
     #     /redoc).
     extras = sorted(
@@ -764,6 +765,8 @@ def test_route_table_reconciles_with_the_endpoint_count_script():
         "GET /device",
         "GET /health",
         "GET /invite/accept",
+        "GET /ui",
+        "GET /ui/{rest:path}",
         "GET/HEAD /docs",
         "GET/HEAD /docs/oauth2-redirect",
         "GET/HEAD /openapi.json",

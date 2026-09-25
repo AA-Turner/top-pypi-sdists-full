@@ -18,7 +18,6 @@ from src.api.github_api import GitHubAPIError
 from src.domain.organization import Organization
 from src.domain.project import Project, ProjectRepository
 from src.domain.repository import Repository
-from src.routers.webui.data import project_cards
 from src.services.github_connect_service import (
     _UNEXPECTED_SYNC_ERROR,
     GitHubConnectService,
@@ -618,83 +617,6 @@ class TestSyncRecordsItsOwnOutcome:
         session.refresh(project)
         assert project.github_errored_at is not None
         assert "Refusing to sync" in (project.github_error_message or "")
-
-    @pytest.mark.asyncio
-    async def test_one_projects_failure_does_not_red_a_sibling(self, session, org):
-        """Why this is on `projects` and not on `github_org_registrations`.
-
-        The credential is org-level, but the *outcome* is not: a project whose
-        topic resolves to a renamed org fails while its siblings sync fine.
-        Recorded org-wide, one project's bad override would red every card in
-        the org and the icon would stop meaning anything per project.
-        """
-        failing = Project(
-            id=str(uuid4()),
-            organization_id=org.id,
-            alias="AAA",
-            name="Fails",
-            description="d",
-        )
-        healthy = Project(
-            id=str(uuid4()),
-            organization_id=org.id,
-            alias="BBB",
-            name="Syncs fine",
-            description="d",
-        )
-        session.add(failing)
-        session.add(healthy)
-        session.commit()
-
-        service = self._service(session, creds={"token": "tok", "github_org": "acme"})
-
-        # The two post-commit steps are stubbed because they reach GitHub for real
-        # with this fixture's fake token, and a failed open-PR read marks the
-        # *repository* errored -- which reds the healthy project's card through the
-        # per-repo half of `github_errored` and would mask what is asserted below.
-        with (
-            patch(
-                "src.api.github_api.GitHubAPI.search_organization_repositories",
-                new=AsyncMock(return_value=[_raw_repo("555", "repo-e")]),
-            ),
-            patch.object(
-                service, "_refresh_open_pr_counts", new=AsyncMock(return_value=(0, 0))
-            ),
-            patch.object(service, "_discover_releases", new=AsyncMock(return_value=0)),
-            _topics_gone(),
-        ):
-            await service.sync_project_repositories(org.id, healthy.id)
-
-        # `GitHubAPIError` for the same reason as above: a rejected token arrives
-        # as one, and discovery relabels only that type.
-        with (
-            patch(
-                "src.api.github_api.GitHubAPI.search_organization_repositories",
-                new=AsyncMock(side_effect=GitHubAPIError("401 Bad credentials")),
-            ),
-            _topics_gone(),
-        ):
-            with pytest.raises(ValueError):
-                await service.sync_project_repositories(org.id, failing.id)
-
-        session.refresh(failing)
-        session.refresh(healthy)
-        assert failing.github_errored_at is not None
-        assert healthy.github_errored_at is None, (
-            "a sibling project's sync outcome is its own -- the shared token "
-            "is not what this column records"
-        )
-
-        # And assert it through the render path, not only the column. Pinning
-        # storage alone does not guard the mistake this test exists for: a change
-        # that kept these columns on `Project` but *also* ORed
-        # `GitHubOrgRegistration.last_error` into `github_errored` would satisfy
-        # both assertions above while every sibling card in the org went red.
-        cards = {card.project.alias: card for card in project_cards(session, org.id)}
-        assert cards["AAA"].github_errored is True
-        assert cards["BBB"].github_errored is False, (
-            "the sibling's card must render green -- the icon is per project"
-        )
 
     @pytest.mark.asyncio
     async def test_writes_still_pending_when_a_sync_fails_are_discarded(

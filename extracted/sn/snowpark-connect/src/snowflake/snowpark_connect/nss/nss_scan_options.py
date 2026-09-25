@@ -37,6 +37,7 @@ from pyspark.sql.types import (
     ArrayType as PyArrayType,
     DataType as PyDataType,
     MapType as PyMapType,
+    NullType as PyNullType,
     StringType as PyStringType,
     StructField as PyStructField,
     StructType as PyStructType,
@@ -106,8 +107,15 @@ def nss_empty_schema_dummy_columns() -> list[NssColumn]:
 
 
 # Spark JSON *read* options (lowercased) the real JsonFileFormat accepts on read.
-# encoding/charset excluded: they route the reader through sun.nio.cs, which the
-# sandbox JVM cannot access without --add-opens.
+# ``encoding``/``charset`` are forwarded (SPARK-23723). The sandbox resolves any standard
+# charset through ``Charset.forName()`` on JDK 17, so no ``--add-opens`` is required; the
+# SCOS-injected ``encoding`` default is withheld -- see
+# :data:`_JSON_DEFAULTS_NOT_FOR_SANDBOX`. Known limitation, the same one CSV has carried
+# since #5249: the NSS JSON FILE FORMAT declares neither ``ENCODING`` nor
+# ``RECORD_DELIMITER`` (see nss_file_format), so GS chunks the raw bytes and a multi-byte
+# charset in per-line mode relies on Spark's own ``JSONOptionsInRead.checkedEncoding``
+# (JSONOptions.scala:231-239) to reject the unsafe combinations -- UTF-16/UTF-32 without
+# explicit endianness, and any non-UTF-8 charset without ``lineSep``.
 _SPARK_JSON_READ_OPTIONS = {
     "multiline",
     "mode",
@@ -135,6 +143,8 @@ _SPARK_JSON_READ_OPTIONS = {
     # JsonFileFormat option of its own. See the CSV list for why the per-read spelling
     # has to be forwarded alongside the session conf.
     "ignorecorruptfiles",
+    "encoding",
+    "charset",
 }
 
 # Spark CSV *read* options (lowercased) the real CSVFileFormat accepts on read.
@@ -179,9 +189,52 @@ _SPARK_CSV_READ_OPTIONS = {
     "ignorecorruptfiles",
 }
 
+# Spark XML *read* options (lowercased) the sandbox's spark-xml ``XmlOptions`` accepts.
+# Excludes compression (a FILE FORMAT concern, see ``nss_file_format.py``), pathGlobFilter
+# (resolved client-side), and inferSchema (``StaxXmlParser`` decodes into the requested
+# schema regardless of it), matching the JSON/CSV allow-lists.
+_SPARK_XML_READ_OPTIONS = {
+    "rowtag",
+    "samplingratio",
+    "excludeattribute",
+    "mode",
+    "columnnameofcorruptrecord",
+    "attributeprefix",
+    "valuetag",
+    "ignoresurroundingspaces",
+    "rowvalidationxsdpath",
+    "ignorenamespace",
+    "nullvalue",
+    "encoding",
+    "charset",
+}
+
+# Maps each lower-cased XML read option back to the exact-case key spark-xml looks up.
+# ``XmlOptions`` reads a plain case-SENSITIVE ``Map`` (``parameters.getOrElse("rowTag", ...)``)
+# and nothing in the sandbox wraps it in a ``CaseInsensitiveMap`` the way ``CSVOptions`` and
+# ``JSONOptions`` do, so a lowercased key silently loses to ``XmlOptions``' own default.
+# ``encoding`` -> ``charset`` is a name difference, not a casing one: SCOS's client-facing
+# option (``XmlReaderConfig``) vs spark-xml's ``XmlOptions.charset`` field.
+_XML_OPTION_KEY_CASING = {
+    "rowtag": "rowTag",
+    "samplingratio": "samplingRatio",
+    "excludeattribute": "excludeAttribute",
+    "mode": "mode",
+    "columnnameofcorruptrecord": "columnNameOfCorruptRecord",
+    "attributeprefix": "attributePrefix",
+    "valuetag": "valueTag",
+    "ignoresurroundingspaces": "ignoreSurroundingSpaces",
+    "rowvalidationxsdpath": "rowValidationXSDPath",
+    "ignorenamespace": "ignoreNamespace",
+    "nullvalue": "nullValue",
+    "encoding": "charset",
+    "charset": "charset",
+}
+
 _ALLOWED_READ_OPTIONS = {
     "json": _SPARK_JSON_READ_OPTIONS,
     "csv": _SPARK_CSV_READ_OPTIONS,
+    "xml": _SPARK_XML_READ_OPTIONS,
 }
 
 # spark.sql.* session confs that change how the sandbox Spark reader decodes files.
@@ -225,6 +278,11 @@ _RELEVANT_SPARK_CONF_KEYS = (
     # sandbox reader; a file Snowflake's own scanner cannot decompress fails earlier with
     # ``100076`` and is unaffected either way.
     "spark.sql.files.ignoreCorruptFiles",
+    # SNOW-3971957: SQLConf.LEGACY_ALLOW_EMPTY_STRING_IN_JSON. JacksonParser reads it off
+    # SQLConf.get at construction time (JacksonParser.scala:419), not from JSONOptions, so
+    # SPARK_CONF is the only channel -- no READER_OPTIONS equivalent exists. Same two-gate
+    # requirement as the pair above.
+    "spark.sql.legacy.json.allowEmptyString.enabled",
 )
 
 
@@ -799,20 +857,60 @@ def _reconcile_leaked_csv_defaults(
             ro.pop(key, None)
 
 
+# SCOS JSON charset defaults that must not reach the sandbox Spark reader unless the caller
+# actually set them (SNOW-4116187). ``JsonReaderConfig`` always seeds ``encoding: "utf-8"``
+# for the COPY-INTO path, so forwarding the bag verbatim turns "the caller said nothing"
+# into "the caller asked for UTF-8" — two different things to Spark:
+#   * ``encoding`` takes precedence over its ``charset`` alias
+#     (JSONOptions.scala:165-166, ``get(ENCODING).orElse(get(CHARSET)).map(checkedEncoding)``),
+#     so the injected default would *shadow* a caller's ``.option("charset", "UTF-16BE")``
+#     and the sandbox would decode those bytes as UTF-8;
+#   * an explicit charset goes through ``JSONOptionsInRead.checkedEncoding``
+#     (JSONOptions.scala:231-239), which ``require``s ``multiLine`` or an explicit
+#     ``lineSep`` for anything other than UTF-8 — a constraint an unspecified encoding
+#     never has to satisfy.
+# ``charset`` is not seeded today (it is not in JSON's ``supported_options`` either); it is
+# listed so a future default cannot leak in through the alias spelling.
+_JSON_DEFAULTS_NOT_FOR_SANDBOX = (
+    "encoding",
+    "charset",
+)
+
+
+def _reconcile_leaked_json_defaults(
+    ro: dict, user_option_keys: frozenset[str] | None
+) -> None:
+    """Drop SCOS JSON defaults that should not reach the sandbox unless the user set them.
+
+    ``user_option_keys`` carries the lowercased set of option keys the caller actually
+    supplied; when it is ``None`` (caller did not provide it), no reconciliation is
+    performed so the behaviour is identical to what it was before the guard existed.
+    """
+    if user_option_keys is None:
+        return
+    for key in _JSON_DEFAULTS_NOT_FOR_SANDBOX:
+        if key not in user_option_keys:
+            ro.pop(key, None)
+
+
 def filter_reader_options(
     fmt: str,
     reader_options: dict | None,
     user_option_keys: frozenset[str] | None = None,
 ) -> dict:
-    """Filter a SCOS options bag to the ``fmt`` (``json``/``csv``) Spark read allow-list.
+    """Filter a SCOS options bag to the ``fmt`` (``json``/``csv``/``xml``) Spark read
+    allow-list.
 
     For CSV, single-char options stored in their COPY/SQL-escaped spelling
     (``escape="\\\\"`` = the SQL literal for a lone backslash) are collapsed back to one
     character — Spark's ``CSVOptions.getChar`` rejects any >1-char char option.
 
-    ``user_option_keys`` (lowercased, from ``ReaderWriterConfig``) tells SCOS's own CSV
-    defaults apart from the caller's choices so the leaked ones can be dropped — see
-    :func:`_reconcile_leaked_csv_defaults`.
+    For XML, keys are re-cased to what ``XmlOptions`` looks up — see
+    :data:`_XML_OPTION_KEY_CASING`.
+
+    ``user_option_keys`` (lowercased, from ``ReaderWriterConfig``) tells SCOS's own defaults
+    apart from the caller's choices so leaked defaults can be dropped — see
+    :func:`_reconcile_leaked_csv_defaults` and :func:`_reconcile_leaked_json_defaults`.
     """
     allow = _ALLOWED_READ_OPTIONS.get(fmt.lower())
     ro = {
@@ -841,7 +939,40 @@ def filter_reader_options(
         for k, v in list(ro.items()):
             if k.lower() in ("escape", "quote", "comment") and v == "\\\\":
                 ro[k] = "\\"
+    elif fmt.lower() == "json":
+        _reconcile_leaked_json_defaults(ro, user_option_keys)
+    elif fmt.lower() == "xml":
+        # ``encoding`` is SCOS's historical spelling while spark-xml calls the option
+        # ``charset``. Do not let the seeded UTF-8 ``encoding`` default overwrite an
+        # explicit ``charset`` supplied by the caller.
+        if user_option_keys and "charset" in user_option_keys:
+            ro.pop("encoding", None)
+        ro = {_XML_OPTION_KEY_CASING.get(k.lower(), k): v for k, v in ro.items()}
     return ro
+
+
+def resolve_corrupt_record_column(
+    request_option_keys: Iterable[str], config: dict
+) -> str | None:
+    """Resolve an NSS read's corrupt-record column name (SNOW-3899671).
+
+    ``config`` is seeded with the ``_corrupt_record`` default, so an explicit
+    ``.option`` is told apart from that default by inspecting the raw request option
+    keys — otherwise the default masks ``spark.sql.columnNameOfCorruptRecord``. An
+    empty name (the caller disabling the column) resolves to ``None``.
+    """
+    from snowflake.snowpark_connect.config import get_string_session_config_param
+
+    set_explicitly = any(
+        key.lower() == "columnnameofcorruptrecord" for key in request_option_keys
+    )
+    name = (
+        config.get("columnnameofcorruptrecord", "_corrupt_record")
+        if set_explicitly
+        else get_string_session_config_param("spark.sql.columnNameOfCorruptRecord")
+        or "_corrupt_record"
+    )
+    return name or None
 
 
 def build_spark_conf() -> dict:
@@ -1123,14 +1254,63 @@ def py_schema_as_nullable(schema: PyStructType) -> PyStructType:
     return relax(schema)
 
 
+def _py_schema_without_null_types(schema: PyStructType) -> PyStructType:
+    """Recursively substitute ``StringType`` for every ``NullType`` in a pyspark schema.
+
+    Spark's ``NullType`` (``"void"`` in ``DataType.json()``) has no Snowflake counterpart:
+    ``_sf_data_type`` renders it as ``VARCHAR``, so a ``DATA_SCHEMA`` record that keeps
+    ``void`` in ``SPARK_DATA_TYPE`` tells the two halves of the read different things. The
+    sandbox maps ``NullType`` to a 1-byte Arrow ``fixed_size_binary`` and, inside a
+    container, degrades the *whole* container to a JSON string
+    (``ArrowTypeMapping.structuredConvOf`` treats it as an ineligible child), while GS has
+    materialized the ``VARCHAR`` / ``ARRAY(OBJECT(...))`` column SCOS declared. The read
+    then aborts mid-scan with ``210007 Vectorized arrow UDTF output column ... was produced
+    with Arrow type ... but the declared output schema expects ...`` (SNOW-4002054).
+
+    Substituting the type SCOS already declares keeps both halves in step, and matches what
+    the COPY path does with the same schema: it too reads such a field as ``VARCHAR`` and
+    reports ``StringType``, values included. Spark itself yields NULL for every ``NullType``
+    field regardless of the data — a pre-existing SCOS-wide difference this preserves rather
+    than widens.
+    """
+
+    def substitute(dt: PyDataType) -> PyDataType:
+        if isinstance(dt, PyNullType):
+            return PyStringType()
+        if isinstance(dt, PyStructType):
+            return PyStructType(
+                [
+                    PyStructField(f.name, substitute(f.dataType), f.nullable)
+                    for f in dt.fields
+                ]
+            )
+        if isinstance(dt, PyArrayType):
+            return PyArrayType(substitute(dt.elementType), dt.containsNull)
+        if isinstance(dt, PyMapType):
+            return PyMapType(
+                substitute(dt.keyType),
+                substitute(dt.valueType),
+                dt.valueContainsNull,
+            )
+        return dt
+
+    return substitute(schema)
+
+
 def columns_from_spark_schema(schema: PyStructType) -> list[NssColumn]:
     """Build :class:`NssColumn` list from the caller's explicit **pyspark** schema.
 
-    ``spark_type`` is each field's ``DataType.json()`` used verbatim — this is the client's
-    schema exactly as sent (parsed by ``map_read.parse_data_source_schema_to_spark``), with
-    no Snowpark round-trip, matching the JSON form ``INFER_STAGE_FILE_SCHEMA`` emits.
+    ``spark_type`` is each field's ``DataType.json()`` — the client's schema as sent (parsed
+    by ``map_read.parse_data_source_schema_to_spark``), with no Snowpark round-trip, matching
+    the JSON form ``INFER_STAGE_FILE_SCHEMA`` emits. The one substitution is
+    :func:`_py_schema_without_null_types`; ``INFER_STAGE_FILE_SCHEMA`` never returns ``void``
+    (Spark's own JSON/CSV inference canonicalizes an all-null field to ``StringType``), so
+    only an explicit schema can carry one.
     """
-    return [NssColumn(f.name, f.dataType.json(), f.nullable) for f in schema.fields]
+    return [
+        NssColumn(f.name, f.dataType.json(), f.nullable)
+        for f in _py_schema_without_null_types(schema).fields
+    ]
 
 
 # Spark ``DataType.json()`` for ``StringType`` — the JSON form ``NssColumn.spark_type`` holds.

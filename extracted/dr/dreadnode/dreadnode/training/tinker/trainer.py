@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import math
 import tempfile
-import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +27,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 import numpy as np
 from loguru import logger
+
+from dreadnode.core.tls import download_platform_file
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -538,7 +539,7 @@ class TinkerSFTTrainer:
 
             with tempfile.TemporaryDirectory() as tmpdir:
                 archive_path = Path(tmpdir) / f"{checkpoint_name}.tar"
-                urllib.request.urlretrieve(archive_url_response.url, archive_path)
+                download_platform_file(archive_url_response.url, archive_path)
 
                 from dreadnode.tracing.span import TaskSpan
                 from dreadnode.training.events import CheckpointSaved

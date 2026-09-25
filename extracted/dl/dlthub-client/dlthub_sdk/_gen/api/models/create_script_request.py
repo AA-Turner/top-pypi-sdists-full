@@ -10,7 +10,9 @@ from ..models.script_type import ScriptType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.t_job_definition import TJobDefinition
+    from ..models.create_script_request_job_definition import (
+        CreateScriptRequestJobDefinition,
+    )
 
 
 T = TypeVar("T", bound="CreateScriptRequest")
@@ -20,7 +22,7 @@ T = TypeVar("T", bound="CreateScriptRequest")
 class CreateScriptRequest:
     """
     Attributes:
-        job_definition (TJobDefinition):
+        job_definition (CreateScriptRequestJobDefinition): Full job definition from dlt deployment manifest
         job_definition_engine_version (int): Manifest engine version for future migration
         job_definition_hash (str): Hash of the job definition for change detection
         job_ref (str): Canonical job reference, unique per workspace
@@ -31,7 +33,7 @@ class CreateScriptRequest:
         profile (None | str | Unset): The name of the profile to use for the script
     """
 
-    job_definition: TJobDefinition
+    job_definition: CreateScriptRequestJobDefinition
     job_definition_engine_version: int
     job_definition_hash: str
     job_ref: str
@@ -101,10 +103,14 @@ class CreateScriptRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.t_job_definition import TJobDefinition
+        from ..models.create_script_request_job_definition import (
+            CreateScriptRequestJobDefinition,
+        )
 
         d = dict(src_dict)
-        job_definition = TJobDefinition.from_dict(d.pop("job_definition"))
+        job_definition = CreateScriptRequestJobDefinition.from_dict(
+            d.pop("job_definition")
+        )
 
         job_definition_engine_version = d.pop("job_definition_engine_version")
 

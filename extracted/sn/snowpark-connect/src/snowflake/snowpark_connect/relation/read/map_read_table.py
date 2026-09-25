@@ -4,6 +4,7 @@
 
 import datetime
 import json
+from collections.abc import Callable
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 from pyspark.errors.exceptions.base import AnalysisException
@@ -529,13 +530,14 @@ def _partition_field_sf_type(transform: str, source_iceberg_type: str | None) ->
     return _iceberg_source_type_to_sf(source_iceberg_type)
 
 
-def _partition_field_value_expr(name: str, transform: str, sf_type: str) -> str:
+def _partition_field_value_expr(name: str, sf_type: str) -> str:
     """SQL to extract one partition field's value from the manifest `partition`
     object and cast it to its Spark result type."""
     raw = f"partition:{quote_name_without_upper_casing(name)}"
-    if (transform or "").lower() == "day":
-        # Iceberg stores `day` partition values as INT days-from-epoch; Spark's
-        # `.partitions` surfaces them as DATE, so convert to match.
+    if sf_type == "DATE":
+        # Iceberg encodes every DATE partition value as INT days-from-epoch,
+        # whether it came from `day()` or identity on a DATE column, and a direct
+        # VARIANT -> DATE cast of that int fails at runtime (Snowflake 100071).
         return f"DATEADD('day', {raw}::INT, DATE '1970-01-01')"
     return f"{raw}::{sf_type}"
 
@@ -585,6 +587,272 @@ _PARTITIONS_AGG_COLS = """
             MAX_BY(committed_at, sequence_number)             AS last_updated_at,
             MAX_BY(snapshot_id, sequence_number)::NUMBER      AS last_updated_snapshot_id
 """
+
+
+# ---------------------------------------------------------------------------
+# `.files`/`.entries` readable_metrics (Spark parity).
+#
+# Spark appends a `readable_metrics` STRUCT (last column) to the metadata tables
+# backed by manifest entries. It is keyed by each primitive (leaf) column's dotted
+# name, sorted by name, and each value is a struct
+#   {column_size, value_count, null_value_count, nan_value_count,
+#    lower_bound (typed/decoded), upper_bound (typed/decoded)}.
+# The counts come straight from the id-keyed metric maps SCOS already projects;
+# the bounds are decoded from Iceberg's raw single-value binary
+# (Conversions.fromByteBuffer): little-endian for numeric/temporal types,
+# big-endian two's-complement for decimal, UTF-8 for string, etc.
+#
+# Routed dynamically (like `.partitions`) because the struct is derived from the
+# table schema at request time. Wrapping the existing static `.files`/`.entries`
+# projections adds NO new `?` bind (the schema is read out-of-band), so the base
+# projections and their bind counts are unchanged.
+# ---------------------------------------------------------------------------
+
+# suffix -> (base family, num_snapshots, optional content filter)
+_READABLE_METRICS_TABLES: dict[str, tuple[str, int, str | None]] = {
+    "files": ("files", _ICEBERG_CURRENT_SNAPSHOT, None),
+    "all_files": ("files", _ICEBERG_ALL_SNAPSHOTS, None),
+    "data_files": ("files", _ICEBERG_CURRENT_SNAPSHOT, "COALESCE(content, 0) = 0"),
+    "delete_files": ("files", _ICEBERG_CURRENT_SNAPSHOT, "COALESCE(content, 0) != 0"),
+    "all_data_files": ("files", _ICEBERG_ALL_SNAPSHOTS, "COALESCE(content, 0) = 0"),
+    "all_delete_files": ("files", _ICEBERG_ALL_SNAPSHOTS, "COALESCE(content, 0) != 0"),
+    "entries": ("entries", _ICEBERG_CURRENT_SNAPSHOT, None),
+    "all_entries": ("entries", _ICEBERG_ALL_SNAPSHOTS, None),
+}
+
+
+def _le_hex_to_be(hex_expr: str, nbytes: int) -> str:
+    """Reverse a little-endian hex string (2 chars per byte) to big-endian order."""
+    return " || ".join(
+        f"SUBSTR({hex_expr}, {i * 2 + 1}, 2)" for i in range(nbytes - 1, -1, -1)
+    )
+
+
+def _decode_signed_int_expr(hex_expr: str, nbytes: int) -> str:
+    """Decode an ``nbytes`` little-endian two's-complement integer hex string."""
+    unsigned = (
+        f"TO_NUMBER({_le_hex_to_be(hex_expr, nbytes)}, REPEAT('X', {nbytes * 2}))"
+    )
+    return f"IFF({unsigned} >= {2 ** (nbytes * 8 - 1)}, {unsigned} - {2 ** (nbytes * 8)}, {unsigned})"
+
+
+def _decode_ieee754_expr(hex_expr: str, nbytes: int) -> str:
+    """Decode an ``nbytes`` little-endian IEEE-754 float/double hex string."""
+    mant_bits = 52 if nbytes == 8 else 23
+    exp_bits = 11 if nbytes == 8 else 8
+    bias = 1023 if nbytes == 8 else 127
+    p_mant = 2**mant_bits
+    p_exp = 2**exp_bits
+    p_sign = 2 ** (nbytes * 8 - 1)
+    bits = f"TO_NUMBER({_le_hex_to_be(hex_expr, nbytes)}, REPEAT('X', {nbytes * 2}))"
+    sign = f"IFF({bits} >= {p_sign}, -1, 1)"
+    exp = f"MOD(FLOOR({bits} / {p_mant}), {p_exp})"
+    mant = f"MOD({bits}, {p_mant})"
+    return (
+        f"(CASE WHEN {bits} IS NULL THEN NULL "
+        f"WHEN {exp} = {p_exp - 1} THEN NULL "  # inf / NaN -> NULL
+        f"WHEN {bits} = 0 OR {bits} = {p_sign} THEN 0 "  # +/- zero
+        f"WHEN {exp} = 0 THEN {sign} * ({mant} / {p_mant}) * POW(2, {1 - bias}) "  # subnormal
+        f"ELSE {sign} * (1 + {mant} / {p_mant}) * POW(2, {exp} - {bias}) END)::DOUBLE"
+    )
+
+
+def _decode_decimal_expr(hex_expr: str, iceberg_type: str) -> str:
+    """Decode a big-endian two's-complement Iceberg decimal to its scaled value."""
+    scale = 0
+    if "(" in iceberg_type and "," in iceberg_type:
+        try:
+            scale = int(
+                iceberg_type[
+                    iceberg_type.index("(") + 1 : iceberg_type.index(")")
+                ].split(",")[1]
+            )
+        except (ValueError, IndexError):
+            logger.warning(
+                "Could not parse scale from Iceberg decimal type %r; "
+                "decoding readable_metrics bound as unscaled (scale=0).",
+                iceberg_type,
+            )
+            scale = 0
+    length = f"LENGTH({hex_expr})"
+    unsigned = f"TO_NUMBER({hex_expr}, REPEAT('X', {length}))"
+    signed = (
+        f"IFF({unsigned} >= POW(2, {length} * 4 - 1), "
+        f"{unsigned} - POW(2, {length} * 4), {unsigned})"
+    )
+    return f"(({signed}) / POW(10, {scale}))"
+
+
+def _decode_uuid_expr(hex_expr: str) -> str:
+    lower_hex = f"LOWER({hex_expr})"
+    return (
+        f"IFF({hex_expr} IS NULL, NULL, SUBSTR({lower_hex},1,8)||'-'||SUBSTR({lower_hex},9,4)||'-'"
+        f"||SUBSTR({lower_hex},13,4)||'-'||SUBSTR({lower_hex},17,4)||'-'||SUBSTR({lower_hex},21,12))"
+    )
+
+
+def _readable_bound_decode_expr(hex_expr: str, iceberg_type: str) -> str:
+    """SQL that decodes one raw-binary bound (hex string) to the column's typed
+    Spark value, per Iceberg ``Conversions.fromByteBuffer``. NULL-safe."""
+    normalized_type = (iceberg_type or "").lower()
+    if normalized_type == "boolean":
+        return f"IFF({hex_expr} IS NULL, NULL, {hex_expr} != '00')"
+    if normalized_type in ("int", "integer"):
+        return f"({_decode_signed_int_expr(hex_expr, 4)})::INT"
+    if normalized_type == "long":
+        return f"({_decode_signed_int_expr(hex_expr, 8)})::BIGINT"
+    if normalized_type == "date":
+        return (
+            f"DATEADD('day', {_decode_signed_int_expr(hex_expr, 4)}, DATE '1970-01-01')"
+        )
+    if normalized_type == "time":
+        return f"TIMEADD('microsecond', {_decode_signed_int_expr(hex_expr, 8)}, TIME '00:00:00')"
+    if normalized_type == "timestamp":
+        return f"TO_TIMESTAMP_NTZ({_decode_signed_int_expr(hex_expr, 8)}, 6)"
+    if normalized_type == "timestamptz":
+        return f"TO_TIMESTAMP_TZ({_decode_signed_int_expr(hex_expr, 8)}, 6)"
+    if normalized_type == "float":
+        return _decode_ieee754_expr(hex_expr, 4)
+    if normalized_type == "double":
+        return _decode_ieee754_expr(hex_expr, 8)
+    if normalized_type == "string":
+        return f"HEX_DECODE_STRING({hex_expr})"
+    if normalized_type == "uuid":
+        return _decode_uuid_expr(hex_expr)
+    if normalized_type.startswith("decimal"):
+        return _decode_decimal_expr(hex_expr, normalized_type)
+    # fixed / binary / unknown complex: surface the raw bytes.
+    return f"TO_BINARY({hex_expr}, 'HEX')"
+
+
+def _iceberg_leaf_columns(
+    schema_fields: list[dict], prefix: str = ""
+) -> list[tuple[str, int | None, str]]:
+    """Flatten an Iceberg schema to (dotted_name, field_id, type) leaves, recursing
+    into nested structs (Spark keys readable_metrics by dotted leaf name). list/map
+    containers are skipped (their element metrics are a separate gap)."""
+    leaves: list[tuple[str, int | None, str]] = []
+    for field in schema_fields or []:
+        name = field.get("name")
+        if name is None:
+            continue
+        dotted = f"{prefix}{name}"
+        ftype = field.get("type")
+        if isinstance(ftype, dict):
+            if ftype.get("type") == "struct":
+                leaves.extend(
+                    _iceberg_leaf_columns(ftype.get("fields", []), prefix=f"{dotted}.")
+                )
+            continue
+        leaves.append((dotted, field.get("id"), ftype))
+    return leaves
+
+
+def _build_readable_metrics_expr(
+    leaf_cols: list[tuple[str, int | None, str]],
+    field_accessor: Callable[[str], str],
+) -> str:
+    """Build the typed ``readable_metrics`` OBJECT column, keyed by sorted leaf
+    column name. ``field_accessor(map_name)`` yields SQL for the id-keyed metric map
+    (differs between the flat `.files` projection and the `.entries` data_file
+    struct)."""
+    pairs: list[str] = []
+    types: list[str] = []
+    for dotted, fid, itype in sorted(leaf_cols, key=lambda c: c[0]):
+        if fid is None:
+            continue
+        cs = f"GET({field_accessor('column_sizes')}, {fid})::BIGINT"
+        vc = f"GET({field_accessor('value_counts')}, {fid})::BIGINT"
+        nvc = f"GET({field_accessor('null_value_counts')}, {fid})::BIGINT"
+        nanvc = f"GET({field_accessor('nan_value_counts')}, {fid})::BIGINT"
+        lb_hex = f"HEX_ENCODE(GET({field_accessor('lower_bounds')}, {fid}))"
+        ub_hex = f"HEX_ENCODE(GET({field_accessor('upper_bounds')}, {fid}))"
+        lb = _readable_bound_decode_expr(lb_hex, itype)
+        ub = _readable_bound_decode_expr(ub_hex, itype)
+        key_literal = dotted.replace("'", "''")
+        pairs.append(
+            f"'{key_literal}', OBJECT_CONSTRUCT_KEEP_NULL("
+            f"'column_size', {cs}, 'value_count', {vc}, "
+            f"'null_value_count', {nvc}, 'nan_value_count', {nanvc}, "
+            f"'lower_bound', {lb}, 'upper_bound', {ub})"
+        )
+        sf = _iceberg_source_type_to_sf(itype)
+        types.append(
+            f"{quote_name_without_upper_casing(dotted)} OBJECT("
+            '"column_size" BIGINT, "value_count" BIGINT, '
+            '"null_value_count" BIGINT, "nan_value_count" BIGINT, '
+            f'"lower_bound" {sf}, "upper_bound" {sf})'
+        )
+    if not pairs:
+        return "NULL AS readable_metrics"
+    return (
+        "CAST(OBJECT_CONSTRUCT_KEEP_NULL(\n                "
+        + ",\n                ".join(pairs)
+        + "\n            )::VARIANT AS OBJECT(\n                "
+        + ",\n                ".join(types)
+        + "\n            )) AS readable_metrics"
+    )
+
+
+def _fetch_iceberg_leaf_columns(
+    session: snowpark.Session, base_table_name: str
+) -> list[tuple[str, int | None, str]]:
+    """Read the table's current schema and return its primitive leaf columns."""
+    meta_rows = session.sql(
+        "SELECT METADATA FROM TABLE(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA(?))",
+        params=[base_table_name],
+    ).collect()
+    metadata = meta_rows[0][0] if meta_rows else None
+    if isinstance(metadata, str):
+        metadata = json.loads(metadata)
+    if not metadata:
+        # A valid managed table always returns metadata here (a missing table
+        # would have failed the read above). An empty result means we cannot
+        # determine the schema; emitting `NULL AS readable_metrics` would
+        # silently drop the column (wrong vs Spark), so fail with an actionable
+        # error instead — matching `_build_partitions_query`.
+        exception = AnalysisException(
+            "Could not read Iceberg table metadata for "
+            f"`{base_table_name}` while building `readable_metrics` "
+            "(INFORMATION_SCHEMA.ICEBERG_TABLE_METADATA returned no rows). "
+            "Ensure the table is a managed-Iceberg table and its metadata "
+            "has been refreshed."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+        raise exception
+    schemas = metadata.get("schemas", []) or []
+    cur_schema_id = metadata.get("current-schema-id")
+    if cur_schema_id is None and schemas:
+        cur_schema_id = max((s.get("schema-id", 0) for s in schemas), default=None)
+    for schema in schemas:
+        if schema.get("schema-id") == cur_schema_id:
+            return _iceberg_leaf_columns(schema.get("fields", []) or [])
+    return []
+
+
+def _build_readable_metrics_query(
+    session: snowpark.Session, base_table_name: str, metadata_table_name: str
+) -> tuple[str, int]:
+    """Build a `.files`/`.entries`-family query with Spark's `readable_metrics`
+    column appended. Wraps the static projection so bind counts are unchanged."""
+    family, num_snapshots, content_filter = _READABLE_METRICS_TABLES[
+        metadata_table_name
+    ]
+    leaf_cols = _fetch_iceberg_leaf_columns(session, base_table_name)
+    if family == "files":
+        inner = _iceberg_files_query(num_snapshots)
+        rm_expr = _build_readable_metrics_expr(leaf_cols, lambda m: f"rm_src.{m}")
+    else:
+        inner = _iceberg_entries_query(num_snapshots)
+        rm_expr = _build_readable_metrics_expr(
+            leaf_cols, lambda m: f"rm_src.data_file:{m}"
+        )
+    wrapped = f"SELECT rm_src.*, {rm_expr}\n        FROM (\n{inner}\n        ) rm_src"
+    if content_filter:
+        wrapped = f"SELECT * FROM (\n{wrapped}\n        ) WHERE {content_filter}"
+    # `.files`/`.entries` each bind the base table name twice
+    # (ICEBERG_TABLE_MANIFEST_ENTRIES + ICEBERG_TABLE_MANIFESTS); the wrap adds none.
+    return wrapped, 2
 
 
 def _build_partitions_query(
@@ -661,7 +929,7 @@ def _build_partitions_query(
         # single quotes; the OBJECT-type field uses a double-quoted identifier via
         # `quote_name_without_upper_casing`. Both guard unusual-but-valid names.
         key_literal = fname.replace("'", "''")
-        value_expr = _partition_field_value_expr(fname, transform, sf_type)
+        value_expr = _partition_field_value_expr(fname, sf_type)
         value_exprs.append(value_expr)
         obj_pairs.append(f"'{key_literal}', {value_expr}")
         obj_types.append(f"{quote_name_without_upper_casing(fname)} {sf_type}")
@@ -756,6 +1024,9 @@ def _read_iceberg_metadata_table(
         metadata_table_name not in ICEBERG_METADATA_TABLE_QUERIES
         and metadata_table_name not in DYNAMIC_ICEBERG_METADATA_TABLES
     ):
+        telemetry.report_iceberg_unsupported_feature(
+            f"metadata_table_{metadata_table_name}"
+        )
         exception = SnowparkConnectNotImplementedError(
             f"Iceberg metadata table '{metadata_table_name}' is not supported"
         )
@@ -814,6 +1085,14 @@ def _read_iceberg_metadata_table(
             f", {_lit(changelog_end_timestamp_ms)}))"
         )
         df = session.sql(query)
+    elif metadata_table_name in _READABLE_METRICS_TABLES:
+        # `.files`/`.entries` (and their content/all-snapshot variants) carry Spark's
+        # `readable_metrics` struct, built per-table from the current schema.
+        query, n_binds = _build_readable_metrics_query(
+            session, base_table_name, metadata_table_name
+        )
+        params = [base_table_name] * n_binds
+        df = session.sql(query, params=params)
     else:
         query = ICEBERG_METADATA_TABLE_QUERIES[metadata_table_name]
         # Bind the base table name once per `?` placeholder (see BIND_COUNTS).
@@ -874,6 +1153,9 @@ def _read_iceberg_metadata_table(
         ) == 2004 and _looks_like_missing_iceberg_metadata_function(
             e, metadata_table_name
         ):
+            telemetry.report_iceberg_unsupported_feature(
+                "metadata_table_function_unavailable"
+            )
             exception = AnalysisException(
                 f"Iceberg metadata subtable '.{metadata_table_name}' "
                 "requires the Snowflake "
@@ -903,6 +1185,7 @@ def _iceberg_cld_unsupported_error(
     ``"procedure `system.ancestors_of`"``); ``workarounds`` is the
     operation-specific guidance appended after the shared explanation.
     """
+    telemetry.report_iceberg_unsupported_feature("cld_information_schema_unsupported")
     exception = AnalysisException(
         f"Iceberg {subject} is not supported on Snowflake catalog-linked "
         f"Iceberg tables (`{base_table_name}`). Snowflake's "
@@ -1901,6 +2184,34 @@ def get_table_from_name(
             raise exception
 
     base_table_parts, metadata_table_name = _split_iceberg_metadata_table_name(parts)
+
+    # Per-request telemetry for Iceberg time-travel reads (SNOW-3985865): one event
+    # per read pinned to a snapshot / timestamp / tag / ref / branch. Base-table reads
+    # honor all bound kinds. `.changes` (changelog) is the one metadata table that
+    # honors a bound: an as-of-timestamp becomes the scan's end bound (DELTA-003) and
+    # fires NO incremental event (that's gated on start/end snapshot-id), so count it
+    # here to avoid an untelemetered read; a snapshot-id `.changes` read already
+    # surfaces via report_iceberg_incremental_read, so it's left out to avoid
+    # double-counting. All other metadata tables silently ignore bounds and are
+    # excluded. set_time_travel holds at most one key (enforced above).
+    _time_travel_bound_kind = {
+        "snapshot-id": "snapshot",
+        "as-of-timestamp": "timestamp",
+        "tag": "tag",
+        "version-ref": "ref",
+        "branch": "branch",
+    }
+    _tt_key = set_time_travel[0] if set_time_travel else None
+    _tt_on_base = metadata_table_name is None
+    _tt_on_changes = metadata_table_name == "changes" and _tt_key == "as-of-timestamp"
+    if _tt_key and (_tt_on_base or _tt_on_changes):
+        from snowflake.snowpark_connect.utils.cld_context import is_in_cld_context
+
+        telemetry.report_iceberg_time_travel_read(
+            _time_travel_bound_kind.get(_tt_key, "unknown"),
+            catalog_kind="cld" if is_in_cld_context() else "managed",
+        )
+
     if metadata_table_name is not None:
         # SNOW-3471788: time travel options are silently ignored on
         # metadata tables — matching OSS Spark+Iceberg behaviour.
@@ -1915,6 +2226,13 @@ def get_table_from_name(
         changelog_kwargs: dict = {}
         if metadata_table_name == "changes":
             # Reject unsupported time-travel forms on .changes
+            if any(
+                x is not None
+                for x in (iceberg_version_tag, iceberg_version_ref, iceberg_branch)
+            ):
+                telemetry.report_iceberg_unsupported_feature(
+                    "changelog_time_travel_unsupported"
+                )
             if iceberg_version_tag is not None:
                 exception = AnalysisException(
                     "Iceberg changelog (.changes) does not support 'version-tag' time travel."
@@ -1994,6 +2312,23 @@ def get_table_from_name(
 
     temp_view = get_temp_view(quoted_name)
     if temp_view:
+        if any(
+            x is not None
+            for x in (
+                iceberg_snapshot_id,
+                iceberg_as_of_timestamp,
+                iceberg_version_tag,
+                iceberg_version_ref,
+                iceberg_branch,
+            )
+        ):
+            telemetry.report_iceberg_unsupported_feature("time_travel_on_temp_view")
+        elif (
+            iceberg_start_snapshot_id is not None or iceberg_end_snapshot_id is not None
+        ):
+            telemetry.report_iceberg_unsupported_feature(
+                "incremental_read_on_temp_view"
+            )
         if iceberg_snapshot_id is not None:
             exception = AnalysisException(
                 "Iceberg snapshot-id time travel is not supported on temporary views."
@@ -2156,6 +2491,7 @@ def map_read_table(
         and rel.read.data_source.format.lower() == "iceberg"
     ):
         if len(rel.read.data_source.paths) != 1:
+            telemetry.report_iceberg_unsupported_feature("iceberg_read_multiple_paths")
             exception = SnowparkConnectNotImplementedError(
                 f"Unexpected paths: {rel.read.data_source.paths}"
             )

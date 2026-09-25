@@ -482,6 +482,27 @@ def _looks_like_skills_dir(path: Path) -> bool:
     return path.name == "skills" and has_skill_md_folder
 
 
+def _git_ignored_dirs(root: Path) -> set[Path]:
+    """Directories git ignores under ``root`` when ``root`` is a repo root; else empty."""
+    if not (root / ".git").exists():
+        return set()
+    import subprocess
+
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "--others", "--ignored",
+             "--exclude-standard", "--directory", "-z"],
+            capture_output=True, timeout=30, check=True,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return {
+        (root / rel.rstrip("/")).resolve()
+        for rel in out.decode("utf-8", "replace").split("\0")
+        if rel.endswith("/")
+    }
+
+
 def discover_skill_roots(
     start: Path | str,
     *,
@@ -570,6 +591,13 @@ def discover_skill_roots(
     found: list[Path] = []
     seen: set[Path] = set()
 
+    # A repo root's GIT-IGNORED directories and nested checkouts are never the
+    # repo's skills: they are scratch copies of other checkouts (matrx-frontend
+    # work/lockfile-repair, work/aidream, ...) carrying STALE skill bodies. On
+    # 2026-09-24 the catalog ingest kept a stale work/ copy of `handoffs` over the
+    # freshly synced one, so the DB catalog never received the new skill.
+    ignored_dirs = _git_ignored_dirs(start_path)
+
     def _is_in_excluded_segment(p: Path) -> bool:
         s = str(p.resolve())
         # Normalise Windows separators to forward slashes for the check.
@@ -603,6 +631,11 @@ def discover_skill_roots(
             if not child.is_dir():
                 continue
             if child.name in excluded_names or child.name.startswith(".git"):
+                continue
+            if child.resolve() in ignored_dirs:
+                continue
+            # A nested checkout (its own .git dir or worktree file) is another repo.
+            if (child / ".git").exists():
                 continue
             # If the child IS one of our conventions, we already probed
             # for it above — skip the descent (we don't want to recurse

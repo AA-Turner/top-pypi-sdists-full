@@ -115,6 +115,7 @@ from .audience import Audience as Audience
 from .provider import Provider as Provider
 from .broadcast import Broadcast as Broadcast
 from .base_check import BaseCheck as BaseCheck
+from .device_set import DeviceSet as DeviceSet
 from .email_head import EmailHead as EmailHead
 from .logo_param import LogoParam as LogoParam
 from .audit_event import AuditEvent as AuditEvent
@@ -130,6 +131,7 @@ from .journey_state import JourneyState as JourneyState
 from .brand_settings import BrandSettings as BrandSettings
 from .brand_snippets import BrandSnippets as BrandSnippets
 from .brand_template import BrandTemplate as BrandTemplate
+from .preview_device import PreviewDevice as PreviewDevice
 from .digest_category import DigestCategory as DigestCategory
 from .digest_instance import DigestInstance as DigestInstance
 from .journey_ai_node import JourneyAINode as JourneyAINode
@@ -227,6 +229,7 @@ from .audience_update_response import AudienceUpdateResponse as AudienceUpdateRe
 from .automation_run_list_item import AutomationRunListItem as AutomationRunListItem
 from .bulk_create_job_response import BulkCreateJobResponse as BulkCreateJobResponse
 from .bulk_list_users_response import BulkListUsersResponse as BulkListUsersResponse
+from .device_set_list_response import DeviceSetListResponse as DeviceSetListResponse
 from .journey_conditions_field import JourneyConditionsField as JourneyConditionsField
 from .journey_delay_until_node import JourneyDelayUntilNode as JourneyDelayUntilNode
 from .journey_experiment_param import JourneyExperimentParam as JourneyExperimentParam
@@ -268,6 +271,8 @@ from .notification_publish_params import NotificationPublishParams as Notificati
 from .notification_replace_params import NotificationReplaceParams as NotificationReplaceParams
 from .notification_template_alias import NotificationTemplateAlias as NotificationTemplateAlias
 from .notification_template_state import NotificationTemplateState as NotificationTemplateState
+from .preference_change_log_entry import PreferenceChangeLogEntry as PreferenceChangeLogEntry
+from .preference_change_log_value import PreferenceChangeLogValue as PreferenceChangeLogValue
 from .tenant_template_input_param import TenantTemplateInputParam as TenantTemplateInputParam
 from .topic_digest_category_param import TopicDigestCategoryParam as TopicDigestCategoryParam
 from .audience_list_members_params import AudienceListMembersParams as AudienceListMembersParams
@@ -280,6 +285,7 @@ from .journey_segment_trigger_node import JourneySegmentTriggerNode as JourneySe
 from .journey_throttle_static_node import JourneyThrottleStaticNode as JourneyThrottleStaticNode
 from .journey_webhook_trigger_node import JourneyWebhookTriggerNode as JourneyWebhookTriggerNode
 from .notification_retrieve_params import NotificationRetrieveParams as NotificationRetrieveParams
+from .preview_device_list_response import PreviewDeviceListResponse as PreviewDeviceListResponse
 from .publish_preferences_response import PublishPreferencesResponse as PublishPreferencesResponse
 from .put_tenant_template_response import PutTenantTemplateResponse as PutTenantTemplateResponse
 from .routing_strategy_list_params import RoutingStrategyListParams as RoutingStrategyListParams
@@ -295,6 +301,7 @@ from .journey_throttle_dynamic_node import JourneyThrottleDynamicNode as Journey
 from .notification_metrics_response import NotificationMetricsResponse as NotificationMetricsResponse
 from .notification_template_payload import NotificationTemplatePayload as NotificationTemplatePayload
 from .notification_template_summary import NotificationTemplateSummary as NotificationTemplateSummary
+from .preference_logs_list_response import PreferenceLogsListResponse as PreferenceLogsListResponse
 from .routing_strategy_get_response import RoutingStrategyGetResponse as RoutingStrategyGetResponse
 from .translation_retrieve_response import TranslationRetrieveResponse as TranslationRetrieveResponse
 from .audience_list_members_response import AudienceListMembersResponse as AudienceListMembersResponse
@@ -318,6 +325,8 @@ from .base_template_tenant_association import BaseTemplateTenantAssociation as B
 from .journey_experiment_variant_param import JourneyExperimentVariantParam as JourneyExperimentVariantParam
 from .journey_send_node_to_slack_email import JourneySendNodeToSlackEmail as JourneySendNodeToSlackEmail
 from .journey_send_node_to_slack_param import JourneySendNodeToSlackParam as JourneySendNodeToSlackParam
+from .preview_create_device_set_params import PreviewCreateDeviceSetParams as PreviewCreateDeviceSetParams
+from .preview_update_device_set_params import PreviewUpdateDeviceSetParams as PreviewUpdateDeviceSetParams
 from .automation_template_list_response import AutomationTemplateListResponse as AutomationTemplateListResponse
 from .broadcast_retrieve_content_params import BroadcastRetrieveContentParams as BroadcastRetrieveContentParams
 from .journey_delay_duration_node_param import JourneyDelayDurationNodeParam as JourneyDelayDurationNodeParam
@@ -351,6 +360,9 @@ from .post_tenant_template_publish_response import (
     PostTenantTemplatePublishResponse as PostTenantTemplatePublishResponse,
 )
 from .subscribe_to_lists_request_item_param import SubscribeToListsRequestItemParam as SubscribeToListsRequestItemParam
+from .workspace_preference_list_logs_params import (
+    WorkspacePreferenceListLogsParams as WorkspacePreferenceListLogsParams,
+)
 from .journey_send_node_to_slack_email_param import JourneySendNodeToSlackEmailParam as JourneySendNodeToSlackEmailParam
 from .notification_content_mutation_response import (
     NotificationContentMutationResponse as NotificationContentMutationResponse,

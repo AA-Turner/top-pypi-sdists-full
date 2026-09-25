@@ -434,9 +434,12 @@ class VersioningTest(fixtures.MappedTest):
             else:
                 return self.context.rowcount
 
-        with patch.object(
-            config.db.dialect, "supports_sane_multi_rowcount", False
-        ), patch("sqlalchemy.engine.cursor.CursorResult.rowcount", rowcount):
+        with (
+            patch.object(
+                config.db.dialect, "supports_sane_multi_rowcount", False
+            ),
+            patch("sqlalchemy.engine.cursor.CursorResult.rowcount", rowcount),
+        ):
             Foo = self.classes.Foo
             s1 = self._fixture()
             f1s1 = Foo(value="f1 value")
@@ -449,10 +452,11 @@ class VersioningTest(fixtures.MappedTest):
             eq_(f1s1.version_id, 2)
 
     def test_update_delete_no_plain_rowcount(self):
-        with patch.object(
-            config.db.dialect, "supports_sane_rowcount", False
-        ), patch.object(
-            config.db.dialect, "supports_sane_multi_rowcount", False
+        with (
+            patch.object(config.db.dialect, "supports_sane_rowcount", False),
+            patch.object(
+                config.db.dialect, "supports_sane_multi_rowcount", False
+            ),
         ):
             Foo = self.classes.Foo
             s1 = self._fixture()
@@ -719,10 +723,11 @@ class VersionOnPostUpdateTest(fixtures.MappedTest):
 
         n1.related.append(n2)
 
-        with patch.object(
-            config.db.dialect, "supports_sane_rowcount", False
-        ), patch.object(
-            config.db.dialect, "supports_sane_multi_rowcount", False
+        with (
+            patch.object(config.db.dialect, "supports_sane_rowcount", False),
+            patch.object(
+                config.db.dialect, "supports_sane_multi_rowcount", False
+            ),
         ):
             s2 = Session(bind=s.connection(bind_arguments=dict(mapper=Node)))
             s2.query(Node).filter(Node.id == n2.id).update({"version_id": 3})
@@ -1420,7 +1425,6 @@ class ServerVersioningTest(fixtures.MappedTest):
             statements.append(
                 CompiledSQL(
                     "SELECT version_table.version_id "
-                    "AS version_table_version_id "
                     "FROM version_table WHERE version_table.id = :pk_1",
                     lambda ctx: [{"pk_1": 1}],
                 )
@@ -1478,7 +1482,6 @@ class ServerVersioningTest(fixtures.MappedTest):
                 ),
                 CompiledSQL(
                     "SELECT version_table.version_id "
-                    "AS version_table_version_id "
                     "FROM version_table WHERE version_table.id = :pk_1",
                     lambda ctx: [{"pk_1": 1}],
                 ),
@@ -1629,19 +1632,16 @@ class ServerVersioningTest(fixtures.MappedTest):
                 ),
                 CompiledSQL(
                     "SELECT version_table.version_id "
-                    "AS version_table_version_id "
                     "FROM version_table WHERE version_table.id = :pk_1",
                     lambda ctx: [{"pk_1": 1}],
                 ),
                 CompiledSQL(
                     "SELECT version_table.version_id "
-                    "AS version_table_version_id "
                     "FROM version_table WHERE version_table.id = :pk_1",
                     lambda ctx: [{"pk_1": 2}],
                 ),
                 CompiledSQL(
                     "SELECT version_table.version_id "
-                    "AS version_table_version_id "
                     "FROM version_table WHERE version_table.id = :pk_1",
                     lambda ctx: [{"pk_1": 3}],
                 ),

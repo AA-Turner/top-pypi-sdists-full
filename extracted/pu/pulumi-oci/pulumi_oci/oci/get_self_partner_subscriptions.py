@@ -94,13 +94,13 @@ class AwaitableGetSelfPartnerSubscriptionsResult(GetSelfPartnerSubscriptionsResu
 
 
 def get_self_partner_subscriptions(display_name: Optional[_builtins.str] = None,
-                                   filters: Optional[Sequence[Union['GetSelfPartnerSubscriptionsFilterArgs', 'GetSelfPartnerSubscriptionsFilterArgsDict']]] = None,
+                                   filters: Optional[Sequence[Union['GetSelfPartnerSubscriptionsFilterArgs', 'GetSelfPartnerSubscriptionsFilterArgsDict', 'outputs.GetSelfPartnerSubscriptionsFilterResult']]] = None,
                                    listing_id: Optional[_builtins.str] = None,
                                    opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetSelfPartnerSubscriptionsResult:
     """
     This data source provides the list of Partner Subscriptions in Oracle Cloud Infrastructure Self service.
 
-    Gets information about a Subscription.
+    Deprecated. This endpoint has moved permanently to `/partners/subscriptions`.
 
     ## Example Usage
 
@@ -130,13 +130,13 @@ def get_self_partner_subscriptions(display_name: Optional[_builtins.str] = None,
         listing_id=pulumi.get(__ret__, 'listing_id'),
         listing_subscriptions_collections=pulumi.get(__ret__, 'listing_subscriptions_collections'))
 def get_self_partner_subscriptions_output(display_name: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                                          filters: pulumi.Input[Optional[Optional[Sequence[Union['GetSelfPartnerSubscriptionsFilterArgs', 'GetSelfPartnerSubscriptionsFilterArgsDict']]]]] = None,
+                                          filters: pulumi.Input[Optional[Optional[Sequence[Union['GetSelfPartnerSubscriptionsFilterArgs', 'GetSelfPartnerSubscriptionsFilterArgsDict', 'outputs.GetSelfPartnerSubscriptionsFilterResult']]]]] = None,
                                           listing_id: pulumi.Input[Optional[_builtins.str]] = None,
                                           opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetSelfPartnerSubscriptionsResult]:
     """
     This data source provides the list of Partner Subscriptions in Oracle Cloud Infrastructure Self service.
 
-    Gets information about a Subscription.
+    Deprecated. This endpoint has moved permanently to `/partners/subscriptions`.
 
     ## Example Usage
 

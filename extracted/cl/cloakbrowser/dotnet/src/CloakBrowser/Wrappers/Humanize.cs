@@ -76,6 +76,10 @@ public static class Humanize
     /// <summary>Recover the raw Playwright <see cref="IElementHandle"/> behind any CloakBrowser wrapper.</summary>
     public static IElementHandle Unwrap(IElementHandle handle) => (IElementHandle)LicenseGuard.Unwrap(handle);
 
+    /// <summary>Recover the raw Playwright <see cref="ILocator"/> behind a CloakBrowser wrapper
+    /// (for APIs that down-cast their locator arg, e.g. <c>page.AddLocatorHandlerAsync</c>).</summary>
+    public static ILocator Unwrap(ILocator locator) => (ILocator)LicenseGuard.Unwrap(locator);
+
     // -----------------------------------------------------------------------
     // Internal re-wrap helpers (shared by the wrappers).
     // -----------------------------------------------------------------------

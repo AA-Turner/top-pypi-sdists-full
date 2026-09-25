@@ -1374,7 +1374,15 @@ pub fn author_consent_embedded(
         Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Unbound { refusal })) => {
             tracing::warn!(%refusal, "the owner's registration record is UNBOUND and could not be rebound (#606)")
         }
-        Ok(_) => {}
+        Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Bound)) => {
+            tracing::info!("the owner's registration record already binds its subject (#606)")
+        }
+        Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Absent)) => {
+            tracing::warn!("the owner resolved but this node holds no registration record for them — nothing to heal (#606)")
+        }
+        Ok(None) => {
+            tracing::info!("no owner pen on this node yet — owner record heal skipped (#606)")
+        }
         Err(e) => tracing::warn!(error = %e, "owner key record heal failed (non-fatal)"),
     }
     match rt.block_on(crate::node_key::anchor_agent_to_owner(&engine)) {
@@ -1669,6 +1677,15 @@ async fn prime_canonicals(
              quiet, healthy-looking zeroes"
         );
     }
+    // THE FIRST-CONTACT CARRY (CIRISServer#632 / CIRISEdge#671): a canonical's own
+    // allegiance facts — its owner-binding and root acceptance(s) — are what
+    // this node's Rooted walk reads about it, and edge's send-set gate withholds
+    // them from any peer the canonical has not consented to (production's
+    // canonical consents to nobody). So this node carries them itself, over the
+    // canonical's read API, the moment the canonical is primed. Signed rows,
+    // admitted through persist's doors; standing, never authority.
+    crate::mesh_genesis::carry_allegiance_from_canonicals(engine, &admitted_targets).await;
+
     Ok(admitted_targets)
 }
 

@@ -4,7 +4,7 @@ flask_security.username_util
 
 Utility class providing methods for validating and normalizing usernames.
 
-:copyright: (c) 2020-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2020-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 """
@@ -12,11 +12,11 @@ Utility class providing methods for validating and normalizing usernames.
 from __future__ import annotations
 
 import typing as t
-import unicodedata
 
 from .utils import (
-    config_value as cv,
+    _config_value as cv,
     get_message,
+    input_svn,
 )
 
 if t.TYPE_CHECKING:  # pragma: no cover
@@ -40,39 +40,18 @@ class UsernameUtil:
         """
         pass
 
-    def check_username(self, username: str) -> str | None:
+    def normalize(self, username: str) -> str | None:
         """
-        Given a username - check for allowable character categories.
-        This is broken out so applications can easily override this method only.
-
-        By default, allow letters and numbers (using unicodedata.category).
-
-        Returns None if allowed, error message if not allowed.
-        """
-        cats = [unicodedata.category(c)[0] for c in username]
-        if any([cat not in ["L", "N"] for cat in cats]):
-            return get_message("USERNAME_DISALLOWED_CHARACTERS")[0]
-        return None
-
-    def normalize(self, username: str) -> str:
-        """
-        Given an input username - return a clean (using bleach) and normalized
+        Given an input username - return a clean (using nh3) and normalized
         (using Python's unicodedata.normalize()) version.
         Must be called in app context and uses
-        :py:data:`SECURITY_USERNAME_NORMALIZE_FORM` config variable.
+        :py:data:`SECURITY_INPUT_NORMALIZE_FORM` and
+        :py:data:`SECURITY_USERNAME_ALLOWED_CHARS` config variables.
         """
-        import bleach
-
-        if not username:
-            return ""
-
-        username = bleach.clean(username.strip(), strip=True)
-        if not username:
-            return ""
-        cf = cv("USERNAME_NORMALIZE_FORM")
-        if cf:
-            return unicodedata.normalize(cf, username)
-        return username
+        reason, clean_input = input_svn(
+            username, cv("USERNAME_ALLOWED_CHARS"), cv("INPUT_NORMALIZE_FORM")
+        )
+        return clean_input
 
     def validate(self, username: str) -> tuple[str | None, str | None]:
         """
@@ -80,28 +59,29 @@ class UsernameUtil:
         Called in app/request context.
 
         The username is first validated then normalized.
-        Input is restricted/validated via a call to check_username.
         Return value is a tuple (msg, normalized_username). msg will be None if
         properly validated.
 
         It is important that None be returned if data is an empty string since
         otherwise DBs will complain since the field is unique/nullable.
         """
-        import bleach
-
         if not username:
             return None, None
-        uclean = bleach.clean(username.strip(), strip=True)
-        if uclean != username:
-            return get_message("USERNAME_ILLEGAL_CHARACTERS")[0], None
-
-        msg = self.check_username(uclean)
-        if msg:
-            return msg, None
-
-        unorm = self.normalize(username)
+        reason, clean_input = input_svn(
+            username, cv("USERNAME_ALLOWED_CHARS"), cv("INPUT_NORMALIZE_FORM")
+        )
+        if clean_input is None:
+            msg = (
+                "USERNAME_DISALLOWED_CHARACTERS"
+                if reason == "unallowed"
+                else "INVALID_INPUT"
+            )
+            return get_message(msg)[0], None
         umin = cv("USERNAME_MIN_LENGTH")
         umax = cv("USERNAME_MAX_LENGTH")
-        if len(unorm) < umin or len(unorm) > umax:
-            return get_message("USERNAME_INVALID_LENGTH", min=umin, max=umax)[0], unorm
-        return None, unorm
+        if len(clean_input) < umin or len(clean_input) > umax:
+            return (
+                get_message("USERNAME_INVALID_LENGTH", min=umin, max=umax)[0],
+                clean_input,
+            )
+        return None, clean_input

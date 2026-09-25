@@ -116,6 +116,32 @@ def snowflake_branch_dml_table_sql(base_table_sql: str, *, branch: str) -> str:
     return f"{base_table_sql} AT (BRANCH => {quote_branch_name_sql(normalized)})"
 
 
+def snowflake_cherrypick_sql(base_table_sql: str, snapshot_id: int) -> str:
+    """Build ``ALTER ICEBERG TABLE <t> CHERRYPICK <snapshot_id>``.
+
+    SNOW-3866418: Snowflake applies one existing snapshot onto ``main``
+    (Iceberg ``cherrypick_snapshot``). The statement is gated by the
+    account parameter ``ENABLE_ICEBERG_CHERRY_PICK``; SCOS does not set
+    it. ``snapshot_id`` is validated as a non-negative int so it can be
+    inlined without quoting.
+    """
+    if isinstance(snapshot_id, bool) or not isinstance(snapshot_id, int):
+        exception = AnalysisException(
+            "Iceberg procedure `system.cherrypick_snapshot` `snapshot_id` "
+            f"must be an integer; got `{snapshot_id!r}`."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    if snapshot_id < 0:
+        exception = AnalysisException(
+            "Iceberg procedure `system.cherrypick_snapshot` `snapshot_id` "
+            f"must be non-negative; got `{snapshot_id}`."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    return f"ALTER ICEBERG TABLE {base_table_sql} CHERRYPICK {snapshot_id}"
+
+
 def snowflake_fast_forward_sql(
     base_table_sql: str,
     *,
@@ -394,6 +420,7 @@ def reject_ref_dml_table_creation(target: IcebergRefDmlTarget, operation: str) -
     """Branch DML targets must write to an existing base table."""
     if not target.has_ref:
         return
+    telemetry.report_iceberg_unsupported_feature("branch_suffix_table_creation")
     exception = AnalysisException(
         f"Cannot {operation} Iceberg table {target.spark_table_name!r}: "
         f"'branch_{target.ref_name}' is a branch ref suffix, "

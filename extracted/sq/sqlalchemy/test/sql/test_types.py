@@ -3,6 +3,7 @@ import decimal
 import importlib
 import operator
 import os
+import uuid
 
 import sqlalchemy as sa
 from sqlalchemy import and_
@@ -99,6 +100,7 @@ from sqlalchemy.testing.schema import pep435_enum
 from sqlalchemy.testing.schema import Table
 from sqlalchemy.testing.util import picklers
 from sqlalchemy.types import UserDefinedType
+from sqlalchemy.util import GenericRepr
 
 
 def _all_dialect_modules():
@@ -390,6 +392,7 @@ class AdaptTest(fixtures.TestBase):
                     "metadata",
                     "name",
                     "dispatch",
+                    "_schema_provided",
                 ):
                     continue
                 # assert each value was copied, or that
@@ -403,22 +406,27 @@ class AdaptTest(fixtures.TestBase):
         eq_(t1.evaluates_none().should_evaluate_none, True)
 
     def test_python_type(self):
-        eq_(types.Integer().python_type, int)
-        eq_(types.Numeric().python_type, decimal.Decimal)
-        eq_(types.Numeric(asdecimal=False).python_type, float)
-        eq_(types.LargeBinary().python_type, bytes)
-        eq_(types.Float().python_type, float)
-        eq_(types.Double().python_type, float)
-        eq_(types.Interval().python_type, datetime.timedelta)
+        eq_(types.ARRAY(types.Integer).python_type, list)
+        eq_(types.Boolean().python_type, bool)
         eq_(types.Date().python_type, datetime.date)
         eq_(types.DateTime().python_type, datetime.datetime)
-        eq_(types.String().python_type, str)
-        eq_(types.Unicode().python_type, str)
+        eq_(types.Double().python_type, float)
         eq_(types.Enum("one", "two", "three").python_type, str)
-
-        assert_raises(
-            NotImplementedError, lambda: types.TypeEngine().python_type
-        )
+        eq_(types.Float().python_type, float)
+        eq_(types.Integer().python_type, int)
+        eq_(types.Interval().python_type, datetime.timedelta)
+        eq_(types.JSON().python_type, object)
+        eq_(types.LargeBinary().python_type, bytes)
+        eq_(types.NullType().python_type, object)
+        eq_(types.Numeric().python_type, decimal.Decimal)
+        eq_(types.Numeric(asdecimal=False).python_type, float)
+        eq_(types.PickleType().python_type, object)
+        eq_(types.String().python_type, str)
+        eq_(types.Time().python_type, datetime.time)
+        eq_(types.Unicode().python_type, str)
+        eq_(types.Uuid().python_type, uuid.UUID)
+        eq_(types.Uuid(as_uuid=False).python_type, str)
+        eq_(types.TypeEngine().python_type, object)
 
     @testing.uses_deprecated()
     @testing.combinations(*[(t,) for t in _all_types(omit_special_types=True)])
@@ -502,7 +510,7 @@ class LiteralExecuteTest(fixtures.TestBase):
     # rendering); both variants of each such type must be tested.
     _variant_bases = [
         (sqltypes.Uuid, "as_uuid"),
-        (sqltypes.Numeric, "asdecimal"),
+        (sqltypes.NumericCommon, "asdecimal"),
     ]
 
     @testing.combinations(
@@ -973,13 +981,20 @@ class UserDefinedRoundTripTest(_UserDefinedTypeFixture, fixtures.TablesTest):
             ),
         )
 
-    def test_processing(self, connection):
+    @testing.variation("use_driver_cols", [True, False])
+    def test_processing(self, connection, use_driver_cols):
         users = self.tables.users
         self._data_fixture(connection)
 
-        result = connection.execute(
-            users.select().order_by(users.c.user_id)
-        ).fetchall()
+        if use_driver_cols:
+            result = connection.execute(
+                users.select().order_by(users.c.user_id),
+                execution_options={"driver_column_names": True},
+            ).fetchall()
+        else:
+            result = connection.execute(
+                users.select().order_by(users.c.user_id)
+            ).fetchall()
         eq_(
             result,
             [
@@ -1156,13 +1171,15 @@ class TypeDecoratorSpecialCasesTest(AssertsCompiledSQL, fixtures.TestBase):
         eq_(expr2.right.type._type_affinity, Integer)
 
         self.assert_compile(
-            column("q", ArrayDec).any(7, operator=operators.lt),
-            "%(q_1)s < ANY (q)",
+            7 < column("q", ArrayDec).any_(),
+            "%(param_1)s::INTEGER < ANY (q)",
             dialect="postgresql",
         )
 
         self.assert_compile(
-            column("q", ArrayDec)[5], "q[%(q_1)s]", dialect="postgresql"
+            column("q", ArrayDec)[5],
+            "q[%(q_1)s::INTEGER]",
+            dialect="postgresql",
         )
 
     def test_typedec_of_json_ops(self):
@@ -1172,12 +1189,14 @@ class TypeDecoratorSpecialCasesTest(AssertsCompiledSQL, fixtures.TestBase):
             cache_ok = True
 
         self.assert_compile(
-            column("q", JsonDec)["q"], "q -> %(q_1)s", dialect="postgresql"
+            column("q", JsonDec)["q"],
+            "q -> %(q_1)s::TEXT",
+            dialect="postgresql",
         )
 
         self.assert_compile(
             column("q", JsonDec)["q"].as_integer(),
-            "CAST(q ->> %(q_1)s AS INTEGER)",
+            "CAST(q ->> %(q_1)s::TEXT AS INTEGER)",
             dialect="postgresql",
         )
 
@@ -1221,7 +1240,9 @@ class TypeDecoratorSpecialCasesTest(AssertsCompiledSQL, fixtures.TestBase):
         t = Table(
             "t",
             metadata,
-            Column("id", Integer, primary_key=True),
+            Column(
+                "id", Integer, primary_key=True, test_needs_autoincrement=True
+            ),
             Column("data", JsonDec),
         )
         t.create(connection)
@@ -2962,13 +2983,11 @@ class EnumTest(AssertsCompiledSQL, fixtures.TablesTest):
             "y",
             name="somename",
             quote=True,
-            inherit_schema=True,
             native_enum=False,
         )
         eq_(
             repr(e),
-            "Enum('x', 'y', name='somename', "
-            "inherit_schema=True, native_enum=False)",
+            "Enum('x', 'y', name='somename', native_enum=False)",
         )
 
     def test_repr_two(self):
@@ -2991,6 +3010,12 @@ class EnumTest(AssertsCompiledSQL, fixtures.TablesTest):
             repr(e),
             "Enum('x', 'y', length=255)",
         )
+
+    def test_repr_five(self):
+        # this tests that alembic autogenerate renders the enum correctly
+        # without the metadata since that isn't needed.
+        e = Enum("x", "y", length=42, metadata=MetaData(), schema="foo")
+        eq_(repr(e), "Enum('x', 'y', length=42, schema='foo')")
 
     def test_length_native(self):
         e = Enum("x", "y", "long", length=42)
@@ -3022,7 +3047,10 @@ class EnumTest(AssertsCompiledSQL, fixtures.TablesTest):
     def test_none_length_non_native(self):
         e = Enum("x", "y", native_enum=False, length=None)
         eq_(e.length, None)
-        eq_(repr(e), "Enum('x', 'y', native_enum=False, length=None)")
+        eq_(
+            repr(e),
+            "Enum('x', 'y', native_enum=False, length=None)",
+        )
         self.assert_compile(e, "VARCHAR", dialect="default")
 
     def test_omit_aliases(self, connection):
@@ -3236,10 +3264,9 @@ class BinaryTest(fixtures.TablesTest, AssertsExecutionResults):
 
     @testing.requires.binary_literals
     def test_literal_roundtrip(self, connection):
-        compiled = select(cast(literal(util.b("foo")), LargeBinary)).compile(
-            dialect=testing.db.dialect, compile_kwargs={"literal_binds": True}
+        result = connection.execute(
+            select(cast(literal(b"foo", literal_execute=True), LargeBinary))
         )
-        result = connection.execute(compiled)
         eq_(result.scalar(), util.b("foo"))
 
     def test_bind_processor_no_dbapi(self):
@@ -3604,7 +3631,7 @@ class ExpressionTest(
         (lambda c1: c1.like("qpr"), "q LIKE :q_1->BINDCAST->[TEXT]"),
         (
             lambda c2: c2.like("qpr"),
-            'q LIKE :q_1->BINDCAST->[TEXT COLLATE "xyz"]',
+            "q LIKE :q_1->BINDCAST->[TEXT COLLATE xyz]",
         ),
         (
             # new behavior, a type with no collation passed into collate()
@@ -3612,11 +3639,11 @@ class ExpressionTest(
             # on the right side bind-cast. previous to #11576 we'd only
             # get TEXT for the bindcast.
             lambda c1: collate(c1, "abc").like("qpr"),
-            '(q COLLATE abc) LIKE :param_1->BINDCAST->[TEXT COLLATE "abc"]',
+            "(q COLLATE abc) LIKE :param_1->BINDCAST->[TEXT COLLATE abc]",
         ),
         (
             lambda c2: collate(c2, "abc").like("qpr"),
-            '(q COLLATE abc) LIKE :param_1->BINDCAST->[TEXT COLLATE "abc"]',
+            "(q COLLATE abc) LIKE :param_1->BINDCAST->[TEXT COLLATE abc]",
         ),
         argnames="testcase,expected",
     )
@@ -3661,7 +3688,7 @@ class ExpressionTest(
         )
         self.assert_compile(
             c2.like("qpr"),
-            'q LIKE :q_1->BINDCAST->[TEXT COLLATE "xyz"]',
+            "q LIKE :q_1->BINDCAST->[TEXT COLLATE xyz]",
             dialect=renders_bind_cast,
         )
 
@@ -3820,7 +3847,7 @@ class ExpressionTest(
 
     @testing.combinations(
         (5, Integer),
-        (2.65, Float),
+        (2.65, Double),
         (True, Boolean),
         (decimal.Decimal("2.65"), Numeric),
         (datetime.date(2015, 7, 20), Date),
@@ -3999,7 +4026,7 @@ class ExpressionTest(
         expr = column("bar", types.Interval) + column("foo", types.Date)
         eq_(expr.type._type_affinity, types.DateTime)
 
-        expr = column("bar", types.Interval) * column("foo", types.Numeric)
+        expr = column("bar", types.Interval) - column("foo", types.Numeric)
         eq_(expr.type._type_affinity, types.Interval)
 
     @testing.combinations(
@@ -4057,11 +4084,13 @@ class ExpressionTest(
 
     def test_distinct(self, connection):
         test_table = self.tables.test
-
-        s = select(distinct(test_table.c.avalue))
+        s = select(test_table.c.avalue).distinct()
         eq_(connection.execute(s).scalar(), 25)
 
-        s = select(test_table.c.avalue.distinct())
+        s = select(func.sum(test_table.c.avalue.distinct()))
+        eq_(connection.execute(s).scalar(), 25)
+
+        s = select(func.sum(distinct(test_table.c.avalue)))
         eq_(connection.execute(s).scalar(), 25)
 
         assert distinct(test_table.c.data).type == test_table.c.data.type
@@ -4121,6 +4150,31 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
     def test_string_collation(self):
         self.assert_compile(
             String(50, collation="FOO"), 'VARCHAR(50) COLLATE "FOO"'
+        )
+
+    def test_string_collation_lowercase_unquoted(self):
+        """simple lowercase collation names no longer render with
+        unconditional quoting now that this renders via
+        format_collation(). #9693"""
+        self.assert_compile(
+            String(50, collation="foo"), "VARCHAR(50) COLLATE foo"
+        )
+
+    def test_string_collation_schema(self):
+        self.assert_compile(
+            String(50, collation="foo", collation_schema="MySchema"),
+            'VARCHAR(50) COLLATE "MySchema".foo',
+            dialect="postgresql",
+        )
+
+    def test_string_collation_schema_requires_collation(self):
+        assert_raises_message(
+            exc.ArgumentError,
+            "the 'collation_schema' parameter of String requires "
+            "the 'collation' parameter to also be present",
+            String,
+            50,
+            collation_schema="myschema",
         )
 
     def test_char_plain(self):
@@ -4868,3 +4922,102 @@ class ResolveForLiteralTest(fixtures.TestBase):
     )
     def test_resolve(self, value, expected):
         is_(literal(value).type, expected)
+
+
+class ReprTest(fixtures.TestBase):
+    """test suite for TypeEngine repr_struct() and GenericRepr"""
+
+    def test_generic_repr_basic(self):
+        """Test GenericRepr basic functionality."""
+        t = String(50)
+        gr = GenericRepr(t)
+        eq_(str(gr), "String(length=50)")
+
+    def test_generic_repr_set_class_name(self):
+        """Test GenericRepr.set_class_name() method."""
+        t = String(50)
+        gr = GenericRepr(t)
+        gr.set_class_name("CustomString")
+        eq_(str(gr), "CustomString(length=50)")
+
+    def test_type_engine_repr_struct(self):
+        """Test TypeEngine.repr_struct() returns GenericRepr."""
+        t = String(50)
+        gr = t.repr_struct()
+        assert isinstance(gr, GenericRepr)
+        eq_(str(gr), "String(length=50)")
+
+    @testing.combinations(
+        (Integer(), "Integer()"),
+        (String(50), "String(length=50)"),
+        (VARCHAR(100), "VARCHAR(length=100)"),
+        (NUMERIC(10, 2), "NUMERIC(precision=10, scale=2)"),
+        (
+            Enum("a", "b", "c", name="myenum"),
+            "Enum('a', 'b', 'c', name='myenum')",
+        ),
+        (
+            mysql.NUMERIC(10, 2, unsigned=True),
+            "NUMERIC(unsigned=True, precision=10, scale=2)",
+        ),
+        (
+            mysql.VARCHAR(50, charset="utf8"),
+            "VARCHAR(charset='utf8', length=50)",
+        ),
+        (mysql.ENUM("a", "b", "c"), "ENUM('a', 'b', 'c')"),
+        (mysql.SET("a", "b", "c"), "SET('a', 'b', 'c')"),
+        argnames="type_,expected",
+    )
+    def test_type_repr(self, type_, expected):
+        """Test repr for various type objects."""
+        eq_(repr(type_), expected)
+
+    @testing.variation("impl_type", ["enum", "boolean", "string"])
+    @testing.variation("has_name", [True, False])
+    def test_type_decorator_repr(self, impl_type, has_name):
+        """Test TypeDecorator wrapping various SchemaType objects."""
+
+        if impl_type.enum:
+
+            class MyType(TypeDecorator):
+                impl = Enum
+                cache_ok = True
+
+            if has_name:
+                t = MyType("a", "b", "c", name="myenum")
+                eq_(repr(t), "MyType('a', 'b', 'c', name='myenum')")
+            else:
+                t = MyType("x", "y", "z")
+                eq_(repr(t), "MyType('x', 'y', 'z')")
+
+        elif impl_type.boolean:
+
+            class MyType(TypeDecorator):
+                impl = Boolean
+                cache_ok = True
+
+            if has_name:
+                t = MyType(create_constraint=True, name="mybool")
+                eq_(
+                    repr(t),
+                    "MyType(create_constraint=True, name='mybool')",
+                )
+            else:
+                t = MyType()
+                eq_(repr(t), "MyType()")
+
+        elif impl_type.string:
+
+            class MyType(TypeDecorator):
+                impl = String
+                cache_ok = True
+
+            if has_name:
+                # String doesn't have a name parameter, use length
+                t = MyType(100)
+                eq_(repr(t), "MyType(length=100)")
+            else:
+                t = MyType()
+                eq_(repr(t), "MyType()")
+        else:
+            impl_type.fail()

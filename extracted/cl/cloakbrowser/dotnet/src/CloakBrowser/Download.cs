@@ -82,7 +82,7 @@ public static class Download
     // Pro Chromium major shown in the free-tier welcome banner. Bump at each Pro
     // major release (there is no local constant to derive it from - the live Pro
     // version comes from the network, which we don't call just to print a banner).
-    private const string ProMajor = "151";
+    private const string ProMajor = "152";
 
     /// <summary>
     /// Whether the welcome banner should be shown now. Pro: once ever (only when
@@ -989,79 +989,18 @@ public static class Download
             CloakLog.Info("Binary ready: {0}", bp);
     }
 
-    /// <summary>
-    /// Resolves an archive entry to an absolute path under <paramref name="destinationDir"/>,
-    /// guarding against path-traversal / zip-slip. The combined path is normalized via
-    /// <see cref="Path.GetFullPath(string)"/> and must stay within the (also normalized)
-    /// destination directory - comparison accounts for a trailing directory separator and
-    /// uses <see cref="StringComparison.Ordinal"/>. Throws <see cref="InvalidOperationException"/>
-    /// (naming the offending entry) when the entry escapes the destination.
-    /// </summary>
-    internal static string ResolveSafeEntryPath(string destinationDir, string entryName)
-    {
-        var destFull = Path.GetFullPath(destinationDir);
-        // Ensure a trailing separator so a sibling like "<dest>foo" can't masquerade as
-        // being inside "<dest>".
-        var destPrefix = destFull.EndsWith(Path.DirectorySeparatorChar)
-            ? destFull
-            : destFull + Path.DirectorySeparatorChar;
-
-        var memberPath = Path.GetFullPath(Path.Combine(destFull, entryName));
-
-        if (!string.Equals(memberPath, destFull, StringComparison.Ordinal) &&
-            !memberPath.StartsWith(destPrefix, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException($"Archive contains path traversal: {entryName}");
-        }
-
-        return memberPath;
-    }
-
     private static void ExtractTar(string archivePath, string destDir)
     {
+        // Signature-verified before extraction, so unpack as-is (symlinks included:
+        // macOS .app bundles need them for the Framework layout).
         using var fileStream = File.OpenRead(archivePath);
         using var gzip = new GZipStream(fileStream, CompressionMode.Decompress);
-        using var reader = new TarReader(gzip);
-
-        TarEntry? entry;
-        while ((entry = reader.GetNextEntry()) != null)
-        {
-            // Allow symlinks - macOS .app bundles require them (Framework layout).
-            if (entry.EntryType is TarEntryType.SymbolicLink or TarEntryType.HardLink)
-            {
-                var linkTarget = entry.LinkName;
-                if (Path.IsPathRooted(linkTarget) || linkTarget.Split('/').Contains(".."))
-                {
-                    CloakLog.Warning("Skipping suspicious symlink: {0} -> {1}", entry.Name, linkTarget);
-                    continue;
-                }
-                var linkPath = Path.Combine(destDir, entry.Name);
-                Directory.CreateDirectory(Path.GetDirectoryName(linkPath)!);
-                entry.ExtractToFile(linkPath, overwrite: true);
-                continue;
-            }
-
-            var memberPath = ResolveSafeEntryPath(destDir, entry.Name);
-
-            if (entry.EntryType == TarEntryType.Directory)
-            {
-                Directory.CreateDirectory(memberPath);
-                continue;
-            }
-
-            Directory.CreateDirectory(Path.GetDirectoryName(memberPath)!);
-            entry.ExtractToFile(memberPath, overwrite: true);
-        }
+        TarFile.ExtractToDirectory(gzip, destDir, overwriteFiles: true);
     }
 
     private static void ExtractZip(string archivePath, string destDir)
     {
-        using var zf = ZipFile.OpenRead(archivePath);
-        foreach (var info in zf.Entries)
-        {
-            // Validate every entry up-front; throws on any zip-slip attempt.
-            ResolveSafeEntryPath(destDir, info.FullName);
-        }
+        // Signature-verified before extraction, so unpack as-is.
         ZipFile.ExtractToDirectory(archivePath, destDir, overwriteFiles: true);
     }
 

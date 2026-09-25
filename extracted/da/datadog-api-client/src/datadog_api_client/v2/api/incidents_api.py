@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import collections
 from typing import Any, Dict, List, Union
+import warnings
 
 from datadog_api_client.api_client import ApiClient, Endpoint as _Endpoint
 from datadog_api_client.configuration import Configuration
@@ -141,7 +142,7 @@ class IncidentsApi:
         self._create_global_incident_handle_endpoint = _Endpoint(
             settings={
                 "response_type": (IncidentHandleResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/global/incident-handles",
                 "operation_id": "create_global_incident_handle",
                 "http_method": "POST",
@@ -401,7 +402,7 @@ class IncidentsApi:
         self._create_incident_postmortem_attachment_endpoint = _Endpoint(
             settings={
                 "response_type": (Attachment,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/{incident_id}/attachments/postmortems",
                 "operation_id": "create_incident_postmortem_attachment",
                 "http_method": "POST",
@@ -427,7 +428,7 @@ class IncidentsApi:
         self._create_incident_postmortem_template_endpoint = _Endpoint(
             settings={
                 "response_type": (PostmortemTemplateResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/postmortem-templates",
                 "operation_id": "create_incident_postmortem_template",
                 "http_method": "POST",
@@ -693,7 +694,7 @@ class IncidentsApi:
         self._delete_global_incident_handle_endpoint = _Endpoint(
             settings={
                 "response_type": None,
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/global/incident-handles",
                 "operation_id": "delete_global_incident_handle",
                 "http_method": "DELETE",
@@ -898,7 +899,7 @@ class IncidentsApi:
         self._delete_incident_postmortem_template_endpoint = _Endpoint(
             settings={
                 "response_type": None,
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/postmortem-templates/{template_id}",
                 "operation_id": "delete_incident_postmortem_template",
                 "http_method": "DELETE",
@@ -1100,7 +1101,7 @@ class IncidentsApi:
         self._get_global_incident_settings_endpoint = _Endpoint(
             settings={
                 "response_type": (GlobalIncidentSettingsResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/global/settings",
                 "operation_id": "get_global_incident_settings",
                 "http_method": "GET",
@@ -1253,7 +1254,7 @@ class IncidentsApi:
         self._get_incident_postmortem_template_endpoint = _Endpoint(
             settings={
                 "response_type": (PostmortemTemplateResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/postmortem-templates/{template_id}",
                 "operation_id": "get_incident_postmortem_template",
                 "http_method": "GET",
@@ -1516,7 +1517,7 @@ class IncidentsApi:
         self._list_global_incident_handles_endpoint = _Endpoint(
             settings={
                 "response_type": (IncidentHandlesResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/global/incident-handles",
                 "operation_id": "list_global_incident_handles",
                 "http_method": "GET",
@@ -1538,7 +1539,7 @@ class IncidentsApi:
         self._list_incident_attachments_endpoint = _Endpoint(
             settings={
                 "response_type": (AttachmentArray,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/{incident_id}/attachments",
                 "operation_id": "list_incident_attachments",
                 "http_method": "GET",
@@ -1688,7 +1689,7 @@ class IncidentsApi:
         self._list_incident_postmortem_templates_endpoint = _Endpoint(
             settings={
                 "response_type": (PostmortemTemplatesResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/postmortem-templates",
                 "operation_id": "list_incident_postmortem_templates",
                 "http_method": "GET",
@@ -2065,7 +2066,7 @@ class IncidentsApi:
         self._update_global_incident_handle_endpoint = _Endpoint(
             settings={
                 "response_type": (IncidentHandleResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/global/incident-handles",
                 "operation_id": "update_global_incident_handle",
                 "http_method": "PUT",
@@ -2090,7 +2091,7 @@ class IncidentsApi:
         self._update_global_incident_settings_endpoint = _Endpoint(
             settings={
                 "response_type": (GlobalIncidentSettingsResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/global/settings",
                 "operation_id": "update_global_incident_settings",
                 "http_method": "PATCH",
@@ -2377,7 +2378,7 @@ class IncidentsApi:
         self._update_incident_postmortem_template_endpoint = _Endpoint(
             settings={
                 "response_type": (PostmortemTemplateResponse,),
-                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/incidents/config/postmortem-templates/{template_id}",
                 "operation_id": "update_incident_postmortem_template",
                 "http_method": "PATCH",
@@ -3017,9 +3018,12 @@ class IncidentsApi:
         incident_id: str,
         body: IncidentCreatePageFromIncidentRequest,
     ) -> IncidentPageUUIDResponse:
-        """Create a page from an incident.
+        """Create a page from an incident. **Deprecated**.
 
         Create a page from an incident using the Cases service.
+
+        **Deprecated** : This endpoint is deprecated. Use
+        `Create an on-call page from an incident <#create-an-on-call-page-from-an-incident>`_ instead.
 
         :param incident_id: The UUID of the incident.
         :type incident_id: str
@@ -3032,6 +3036,7 @@ class IncidentsApi:
 
         kwargs["body"] = body
 
+        warnings.warn("create_page_from_incident is deprecated", DeprecationWarning, stacklevel=2)
         return self._create_page_from_incident_endpoint.call_with_http_info(**kwargs)
 
     def create_timestamp_override(

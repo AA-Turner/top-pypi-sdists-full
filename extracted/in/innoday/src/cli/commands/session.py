@@ -58,12 +58,10 @@ async def _fetch_me(
 ) -> Optional[Dict[str, Any]]:
     """Return the /auth/me payload for a token, or None if it isn't valid.
 
-    On a team-secret-gated deployment (dev/prod with ``TEAM_ACCESS_SECRET``
-    set) every non-exempt route — including ``/api/v1/auth/me`` — is behind
-    ``TeamSecretMiddleware``, which rejects the request *before* auth runs when
-    the ``X-Team-Secret`` header is absent. So we attach it (same convention as
-    ``InnoDayAPIClient``) whenever the CLI has one configured; otherwise the
-    server would 401 a perfectly valid token and login would look "rejected".
+    ``/auth/me`` needs only the token. The team secret is attached when one is
+    configured -- same convention as ``InnoDayAPIClient`` -- which is harmless:
+    only platform-admin routes read it (PF-455). Before that, a global gate
+    401'd a valid token here and login looked "rejected".
     """
     headers = {"Authorization": f"Bearer {token}"}
     if team_secret:
@@ -196,8 +194,7 @@ class SessionCommands:
             console.print(
                 format_error(
                     "Token rejected by the server (/auth/me returned no user).\n"
-                    "If this API is team-secret gated, set the team secret first:\n"
-                    "  innoday config set team-secret <value>"
+                    "Check the token is current, or sign in again with `innoday login`."
                 )
             )
             return 1

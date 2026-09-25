@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbos
-Version: 3.0.0
+Version: 3.1.0
 Summary: Ultra-lightweight durable execution in Python
 Author-Email: "DBOS, Inc." <contact@dbos.dev>
 License: MIT

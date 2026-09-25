@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import warnings
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
@@ -192,13 +193,16 @@ class QiskitRuntimeService:
         IBMInputValueError: If an input is invalid.
     """
 
-    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
+    is_local: bool = False
+    """Whether the service is local or remote."""
+
+    def __new__(cls, *args: Any, **kwargs: Any) -> QiskitRuntimeService:
         """Construct a ``QiskitRuntimeService`` instance."""
         channel = kwargs.get("channel", None)
         if channel == "local":
             from .fake_provider.local_service import QiskitRuntimeLocalService
 
-            return super().__new__(QiskitRuntimeLocalService)
+            return super().__new__(QiskitRuntimeLocalService)  # type: ignore[return-value]
         else:
             return super().__new__(cls)
 
@@ -428,7 +432,7 @@ class QiskitRuntimeService:
             account = AccountManager.get(filename=filename, name=name)
         elif channel:
             if channel and channel not in ["ibm_cloud", "ibm_quantum_platform"]:
-                raise ValueError("'channel' can only be 'ibm_cloud', or 'ibm_quantum_platform")
+                raise ValueError("'channel' can only be 'ibm_cloud', or 'ibm_quantum_platform'")
             if token:
                 account = Account.create_account(
                     channel=channel,
@@ -637,13 +641,16 @@ class QiskitRuntimeService:
                             )
                 unique_backends.add(backend_name)
                 self._get_or_create_cloud_client(inst)
-                if backend := self._create_backend_obj(
-                    backend_name,
-                    instance=inst,
-                    use_fractional_gates=use_fractional_gates,
-                    calibration_id=calibration_id,
-                ):
-                    backends.append(backend)
+                try:
+                    if backend := self._create_backend_obj(
+                        backend_name,
+                        instance=inst,
+                        use_fractional_gates=use_fractional_gates,
+                        calibration_id=calibration_id,
+                    ):
+                        backends.append(backend)
+                except QiskitBackendNotFoundError as e:
+                    logger.warning("Backend %s creation failed: %s", backend_name, str(e))
         if name:
             kwargs["backend_name"] = name
         if min_num_qubits:
@@ -723,6 +730,7 @@ class QiskitRuntimeService:
         instance: str,
         use_fractional_gates: bool | None,
         calibration_id: str | None = None,
+        cache: bool = True,
     ) -> IBMBackend:
         """Given a backend configuration return the backend object.
 
@@ -735,39 +743,16 @@ class QiskitRuntimeService:
                 operations.  See :meth:`~.QiskitRuntimeService.backends` for
                 further details.
             calibration_id: The calibration id to use for the IBM backend.
+            cache: If ``False``, do not cache the backend in `self._backend_configs`.
 
         Returns:
             A backend object.
+
+        Raises:
+            ``QiskitBackendNotFoundError`` if the backend cannot be created.
         """
         try:
-            if backend_name in self._backend_configs:
-                config = self._backend_configs[backend_name]
-
-                fractional_gates = {"rzz", "rx"}
-
-                # if cached config does not match use_fractional_gates
-                # or calibration_id is passed in
-                if (
-                    (
-                        use_fractional_gates
-                        and not any(fg in config.basis_gates for fg in fractional_gates)
-                    )
-                    or (
-                        not use_fractional_gates
-                        and any(fg in config.basis_gates for fg in fractional_gates)
-                    )
-                    or calibration_id
-                ):
-                    config = configuration_from_server_data(
-                        raw_config=self._active_api_client.backend_configuration(
-                            backend_name=backend_name, calibration_id=calibration_id
-                        ),
-                        instance=instance,
-                        use_fractional_gates=use_fractional_gates,
-                    )
-                    self._backend_configs[backend_name] = config
-
-            else:
+            if calibration_id is not None:
                 config = configuration_from_server_data(
                     raw_config=self._active_api_client.backend_configuration(
                         backend_name=backend_name, calibration_id=calibration_id
@@ -775,13 +760,48 @@ class QiskitRuntimeService:
                     instance=instance,
                     use_fractional_gates=use_fractional_gates,
                 )
+            elif backend_name in self._backend_configs:
+                config = self._backend_configs[backend_name]
+
+                fractional_gates = {"rzz", "rx"}
+
+                # if cached config does not match use_fractional_gates
+                if (
+                    use_fractional_gates
+                    and not any(fg in config.basis_gates for fg in fractional_gates)
+                ) or (
+                    not use_fractional_gates
+                    and any(fg in config.basis_gates for fg in fractional_gates)
+                ):
+                    config = configuration_from_server_data(
+                        raw_config=self._active_api_client.backend_configuration(
+                            backend_name=backend_name
+                        ),
+                        instance=instance,
+                        use_fractional_gates=use_fractional_gates,
+                    )
+                    if cache:
+                        self._backend_configs[backend_name] = config
+
+            else:
+                config = configuration_from_server_data(
+                    raw_config=self._active_api_client.backend_configuration(
+                        backend_name=backend_name
+                    ),
+                    instance=instance,
+                    use_fractional_gates=use_fractional_gates,
+                )
                 # I know we have a configuration_registry in the api client
                 # but that doesn't work with new IQP since we different api clients are being used
 
-                self._backend_configs[backend_name] = config
+                if cache:
+                    self._backend_configs[backend_name] = config
         except Exception as ex:
             logger.warning("Unable to create configuration for %s. %s ", backend_name, ex)
-            return None
+            raise QiskitBackendNotFoundError(
+                f"Unable to create configuration for {backend_name}. "
+                "This might happen for example when a backend is retired."
+            ) from ex
 
         # Retrieve `physical_qubits` from the stored `/backends` responses.
         backend_infos_for_instance: list[dict[str, Any]] = self._backends_info_per_instance.get(
@@ -802,7 +822,11 @@ class QiskitRuntimeService:
                 calibration_id=calibration_id,
                 physical_qubits=physical_qubits,
             )
-        return None
+
+        raise QiskitBackendNotFoundError(
+            f"Unable to create configuration for {backend_name}. "
+            "This might happen for example when a backend is retired."
+        )
 
     def active_account(self) -> dict[str, str] | None:
         """Return the IBM Quantum account currently in use for the session.
@@ -948,7 +972,7 @@ class QiskitRuntimeService:
             from qiskit_ibm_runtime import QiskitRuntimeService
 
             service = QiskitRuntimeService()
-            backend = service.backend()
+            backend = service.backend("ibm_kingston")
 
             status = backend.status()
             assert status.operational and status.status_msg == "active"
@@ -976,6 +1000,34 @@ class QiskitRuntimeService:
             use_fractional_gates=use_fractional_gates,
             calibration_id=calibration_id,
         )
+
+        # `self.backends()` might not include all the backends by default. If no backend was
+        # returned, make a one-time uncached attempt to retrieve the backend based on its name.
+        if not backends:
+            # Use the specified instance crns, or traverse instances in sensible order.
+            instances = [data[0] for data in self._resolve_cloud_instances(instance)]
+
+            for instance_ in instances:
+                try:
+                    self._get_or_create_cloud_client(instance_)
+                    backends = [
+                        self._create_backend_obj(
+                            name, instance_, use_fractional_gates, calibration_id, cache=False
+                        )
+                    ]
+                    # Show a warning only if the instance is guessed.
+                    if not instance and not self._instance_auto:
+                        for inst_details in self._backend_instance_groups:
+                            if instance_ == inst_details["crn"]:
+                                logger.warning(
+                                    "Using instance: %s, plan: %s",
+                                    inst_details["name"],
+                                    inst_details["plan"],
+                                )
+                    break
+                except QiskitBackendNotFoundError:
+                    pass
+
         if not backends:
             cloud_msg_url = ""
             if self._channel in ["ibm_cloud", "ibm_quantum_platform"]:
@@ -1005,6 +1057,7 @@ class QiskitRuntimeService:
         session_id: str | None = None,
         start_session: bool | None = False,
         calibration_id: str | None = None,
+        dry_run: bool = False,
     ) -> RuntimeJobV2:
         """Execute the runtime program.
 
@@ -1021,6 +1074,8 @@ class QiskitRuntimeService:
             session_id: Job ID of the first job in a IBM Quantum Compute session.
             start_session: Set to True to explicitly start a IBM Quantum Compute session.
             calibration_id: The calibration id to use for the IBM backend.
+            dry_run: if ``True``, execute the job against the equivalent ``mock`` device instead
+                of the specified device.
 
         Returns:
             A ``RuntimeJobV2`` instance representing the execution.
@@ -1029,6 +1084,8 @@ class QiskitRuntimeService:
             IBMInputValueError: If input is invalid.
             RuntimeProgramNotFound: If the program cannot be found.
             IBMRuntimeError: An error occurred running the program.
+            QiskitBackendNotFoundError: If the backend specified for running the program cannot be
+                found.
         """
         qrt_options: RuntimeOptions = options  # type: ignore[assignment]
         if options is None:
@@ -1041,6 +1098,17 @@ class QiskitRuntimeService:
         backend = qrt_options.backend
         if isinstance(backend, str):
             backend = self.backend(name=qrt_options.get_backend_name())
+
+        # Take into account `dry_run`, replacing the backend with its mock counterpart.
+        if dry_run:
+            backend_name = re.sub(r"^[^_]+", "mock", backend.name)
+
+            try:
+                backend = self.backend(name=backend_name)
+            except QiskitBackendNotFoundError as ex:
+                raise QiskitBackendNotFoundError(
+                    f"Unable to use `dry_run` mode: backend '{backend_name}' was not found"
+                ) from ex
 
         # Set the active client to match the backend.
         try:
@@ -1064,7 +1132,7 @@ class QiskitRuntimeService:
         try:
             response = self._active_api_client.program_run(
                 program_id=program_id,
-                backend_name=qrt_options.get_backend_name(),
+                backend_name=backend.name,
                 params=inputs,
                 image=qrt_options.image,
                 log_level=qrt_options.log_level,
@@ -1156,7 +1224,8 @@ class QiskitRuntimeService:
                 jobs are included. If ``False``, 'DONE', 'CANCELLED' and 'ERROR' jobs
                 are included.
             program_id: Filter by Program ID.
-            instance: Filter by IBM Cloud instance crn.
+            instance: Filter by IBM Cloud instance crn. If not specified, the jobs returned will be
+                the ones of the active instance.
             job_tags: Filter by tags assigned to jobs. Matched jobs are associated with all tags.
             session_id: Filter by session id. All jobs in the session will be
                 returned in desceding order of the job creation date.

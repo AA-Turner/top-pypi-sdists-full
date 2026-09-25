@@ -129,6 +129,24 @@ class ExecutionTest(_fixtures.FixtureTest):
             ):
                 sess.scalar("select id from users where id=:id", {"id": 7})
 
+    @testing.skip_if(
+        "oracle", "missing SELECT keyword [SQL: INSERT INTO tbl () VALUES ()]"
+    )
+    def test_empty_list_execute(self, metadata, connection):
+        t = Table("tbl", metadata, Column("col", sa.Integer))
+        t.create(connection)
+        sess = Session(bind=connection)
+        sess.execute(t.insert(), {"col": 42})
+
+        with assertions.expect_deprecated(
+            r"Empty parameter sequence passed to execute\(\). "
+            "This use is deprecated and will raise an exception in a "
+            "future SQLAlchemy release"
+        ):
+            sess.execute(t.insert(), [])
+
+        eq_(len(sess.execute(sa.select(t.c.col)).all()), 2)
+
 
 class TransScopingTest(_fixtures.FixtureTest):
     run_inserts = None
@@ -447,11 +465,7 @@ class SessionUtilTest(_fixtures.FixtureTest):
         assert u1 in s1
         assert u2 in s2
 
-        with assertions.expect_deprecated(
-            r"The Session.close_all\(\) method is deprecated and will "
-            "be removed in a future release. "
-        ):
-            Session.close_all()
+        close_all_sessions()
 
         assert u1 not in s1
         assert u2 not in s2
@@ -705,6 +719,23 @@ class SessionUtilTest(_fixtures.FixtureTest):
         ):
             sess.get_one(User, 2)
 
+    def test_delete_all(self):
+        users, User = self.tables.users, self.classes.User
+        self.mapper_registry.map_imperatively(User, users)
+
+        sess = fixture_session()
+
+        sess.add_all([User(id=1, name="u1"), User(id=2, name="u2")])
+        sess.commit()
+        sess.close()
+
+        ua, ub = sess.scalars(select(User)).all()
+        eq_([ua in sess, ub in sess], [True, True])
+        sess.delete_all([ua, ub])
+        sess.flush()
+        eq_([ua in sess, ub in sess], [False, False])
+        eq_(sess.scalars(select(User)).all(), [])
+
 
 class SessionStateTest(_fixtures.FixtureTest):
     run_inserts = None
@@ -765,6 +796,292 @@ class SessionStateTest(_fixtures.FixtureTest):
         s.bulk_update_mappings(User, [{"id": 1, "name": "updated"}])
         s.commit()
         eq_(s.get(User, 1).name, "updated")
+
+    @testing.variation("session_type", ["plain", "sessionmaker"])
+    @testing.variation("merge", [True, False])
+    @testing.variation(
+        "method", ["scalar", "execute", "scalars", "get", "query"]
+    )
+    @testing.variation("add_statement_options", [True, False])
+    def test_execution_options(
+        self,
+        session_type: testing.Variation,
+        merge: testing.Variation,
+        method: testing.Variation,
+        add_statement_options: testing.Variation,
+    ):
+        users, User = self.tables.users, self.classes.User
+        self.mapper_registry.map_imperatively(User, users)
+
+        session_execution_options = {
+            "populate_existing": True,
+            "autoflush": False,
+            "opt1": "z",
+            "opt5": "q",
+        }
+
+        expected_opts = session_execution_options
+
+        if add_statement_options:
+            statement_options = {"opt2": "w", "opt4": "y", "opt5": "w"}
+            expected_opts = {**expected_opts, **statement_options}
+        else:
+            statement_options = {}
+
+        if merge:
+            query_opts = {
+                "compiled_cache": {},
+                "opt1": "q",
+                "opt2": "p",
+                "opt3": "r",
+                "populate_existing": False,
+            }
+            expected_opts = {**expected_opts, **query_opts}
+        else:
+            query_opts = {}
+
+        if session_type.plain:
+            sess = Session(
+                testing.db, execution_options=session_execution_options
+            )
+        elif session_type.sessionmaker:
+            maker = sessionmaker(
+                testing.db, execution_options=session_execution_options
+            )
+            sess = maker()
+        else:
+            session_type.fail()
+
+        gather_options = {}
+
+        @event.listens_for(sess, "do_orm_execute")
+        def check(ctx: ORMExecuteState) -> None:
+            assert not gather_options
+            gather_options.update(ctx.execution_options)
+
+        if method.scalar:
+            statement = select(User).limit(1)
+            if add_statement_options:
+                statement = statement.execution_options(**statement_options)
+            sess.scalar(statement, execution_options=query_opts)
+        elif method.execute:
+            statement = select(User).limit(1)
+            if add_statement_options:
+                statement = statement.execution_options(**statement_options)
+            sess.execute(statement, execution_options=query_opts)
+        elif method.scalars:
+            statement = select(User).limit(1)
+            if add_statement_options:
+                statement = statement.execution_options(**statement_options)
+            sess.scalars(statement, execution_options=query_opts)
+        elif method.get:
+            if add_statement_options:
+                sess.get(
+                    User,
+                    1,
+                    execution_options={**statement_options, **query_opts},
+                )
+            else:
+                sess.get(User, 1, execution_options=query_opts)
+        elif method.query:
+            q = sess.query(User).limit(1)
+            if add_statement_options:
+                q = q.execution_options(**statement_options)
+            q = q.execution_options(**query_opts)
+            q.all()
+        else:
+            method.fail()
+
+        sess.close()
+
+        for key, value in expected_opts.items():
+            eq_(gather_options[key], value)
+
+    @testing.variation("operation", ["insert", "update", "delete"])
+    def test_execution_options_flush_before_cursor_execute(
+        self,
+        operation: testing.Variation,
+    ):
+        """test #13346 - custom session execution options are visible
+        in before_cursor_execute during flush operations"""
+
+        users, User = self.tables.users, self.classes.User
+        self.mapper_registry.map_imperatively(User, users)
+
+        sess = Session(
+            testing.db,
+            execution_options={
+                "my_custom_opt": "my_value",
+                "my_other_opt": 42,
+            },
+        )
+
+        gather_options = []
+
+        @event.listens_for(sess.get_bind(), "before_cursor_execute")
+        def before_cursor_execute(
+            conn, cursor, statement, parameters, context, executemany
+        ):
+            gather_options.append(
+                {
+                    k: v
+                    for k, v in context.execution_options.items()
+                    if k in ("my_custom_opt", "my_other_opt")
+                }
+            )
+
+        expected = {
+            "my_custom_opt": "my_value",
+            "my_other_opt": 42,
+        }
+
+        if operation.insert:
+            sess.add(User(name="u1"))
+            sess.flush()
+        elif operation.update:
+            sess.add(User(name="u1"))
+            sess.flush()
+            gather_options.clear()
+            u1 = sess.scalars(select(User)).first()
+            gather_options.clear()
+            u1.name = "u1modified"
+            sess.flush()
+        elif operation.delete:
+            sess.add(User(name="u1"))
+            sess.flush()
+            gather_options.clear()
+            u1 = sess.scalars(select(User)).first()
+            gather_options.clear()
+            sess.delete(u1)
+            sess.flush()
+        else:
+            operation.fail()
+
+        sess.close()
+
+        eq_(gather_options, [expected])
+
+    def test_execution_options_flush_and_execute(self):
+        """test #13346 - session execution options are visible in both
+        do_orm_execute (explicit queries) and before_cursor_execute
+        (flush and queries) for the same session"""
+
+        users, User = self.tables.users, self.classes.User
+        self.mapper_registry.map_imperatively(User, users)
+
+        sess = Session(
+            testing.db,
+            execution_options={
+                "my_custom_opt": "my_value",
+            },
+        )
+
+        cursor_options = []
+        orm_options = []
+
+        @event.listens_for(sess.get_bind(), "before_cursor_execute")
+        def before_cursor_execute(
+            conn, cursor, statement, parameters, context, executemany
+        ):
+            cursor_options.append(
+                context.execution_options.get("my_custom_opt")
+            )
+
+        @event.listens_for(sess, "do_orm_execute")
+        def do_orm_execute(ctx: ORMExecuteState) -> None:
+            orm_options.append(ctx.execution_options.get("my_custom_opt"))
+
+        sess.add(User(name="u1"))
+        sess.flush()
+
+        # flush fires before_cursor_execute but not do_orm_execute
+        is_true(len(cursor_options) > 0)
+        eq_(cursor_options, ["my_value"] * len(cursor_options))
+        eq_(orm_options, [])
+
+        cursor_options.clear()
+
+        # explicit execute fires both
+        sess.execute(select(User))
+        is_true(len(cursor_options) > 0)
+        eq_(cursor_options, ["my_value"] * len(cursor_options))
+        eq_(orm_options, ["my_value"])
+
+        sess.close()
+
+    @testing.combinations(
+        ("default", None, {}, None),
+        ("arg_true", True, {}, True),
+        ("arg_false", False, {}, False),
+        ("arg_true_exe_false", True, {"populate_existing": False}, True),
+        ("arg_false_exe_true", False, {"populate_existing": True}, False),
+        (
+            "exe_true",
+            None,
+            {"populate_existing": True},
+            True,
+        ),
+        (
+            "exe_false",
+            None,
+            {"populate_existing": False},
+            False,
+        ),
+        argnames="session_parameter,execution_opt,expected_pe",
+        id_="iaaa",
+    )
+    @testing.variation("object_in_session", [True, False])
+    def test_get_populate_existing(
+        self,
+        session_parameter,
+        execution_opt,
+        expected_pe,
+        object_in_session,
+    ):
+        users, User = self.tables.users, self.classes.User
+        self.mapper_registry.map_imperatively(User, users)
+
+        s = fixture_session()
+
+        s.add(User(id=1, name="name"))
+        s.commit()
+        s.close()
+        if object_in_session:
+            # prevent GC of the object
+            _ = s.get(User, 1)
+        s.connection().execute(
+            update(User).where(User.id == 1).values(name="newname")
+        )
+
+        gather_options = []
+
+        @event.listens_for(s, "do_orm_execute")
+        def check(ctx: ORMExecuteState) -> None:
+            gather_options.append(ctx.execution_options)
+
+        res = s.get(
+            User,
+            1,
+            populate_existing=session_parameter,
+            execution_options=execution_opt,
+        )
+
+        if not object_in_session or expected_pe:
+            # object not in session (so we load) or we expected
+            # populate_existing to be set (so we load), ensure newer value and
+            # gather_options is present
+            eq_(res.name, "newname")
+
+            if expected_pe is None:
+                assert "populate_existing" not in gather_options[0]
+            else:
+                eq_(gather_options[0]["populate_existing"], expected_pe)
+
+        else:
+            # object was in the session and no populate_existing, so
+            # do_orm_execute never called
+            eq_(gather_options, [])
+            eq_(res.name, "name")
 
     def test_autocommit_kw_accepted_but_must_be_false(self):
         Session(autocommit=False)
@@ -1434,6 +1751,122 @@ class SessionStateTest(_fixtures.FixtureTest):
         else:
             s.add(u2)
             assertions.in_(u2, s)
+
+
+class SessionSchemaTranslateTest(
+    fixtures.MappedTest, testing.AssertsExecutionResults
+):
+    __requires__ = ("schemas",)
+    __sparse_driver_backend__ = True
+    run_inserts = None
+    run_setup_mappers = "each"
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "users",
+            metadata,
+            Column(
+                "id",
+                Integer,
+                primary_key=True,
+                test_needs_autoincrement=True,
+            ),
+            Column("name", String(30), nullable=False),
+            schema=config.test_schema,
+        )
+
+    @classmethod
+    def setup_classes(cls):
+        class User(cls.Basic):
+            pass
+
+    @classmethod
+    def setup_mappers(cls):
+        User = cls.classes.User
+        user_table = Table(
+            "users",
+            sa.MetaData(),
+            Column(
+                "id",
+                Integer,
+                primary_key=True,
+                test_needs_autoincrement=True,
+            ),
+            Column("name", String(30), nullable=False),
+            schema="placeholder",
+        )
+        cls.mapper_registry.map_imperatively(User, user_table)
+
+    @testing.variation("operation", ["insert", "update", "delete"])
+    def test_schema_translate_map_flush(
+        self,
+        operation: testing.Variation,
+        connection,
+    ):
+        """test #13346 - schema_translate_map on Session
+        execution_options works for flush operations"""
+
+        User = self.classes.User
+
+        sess = Session(
+            connection,
+            execution_options={
+                "schema_translate_map": {"placeholder": config.test_schema},
+            },
+        )
+
+        if operation.insert:
+            sess.add(User(name="u1"))
+            sess.flush()
+            eq_(
+                sess.connection()
+                .execute(
+                    sa.text(f"SELECT name FROM {config.test_schema}.users")
+                )
+                .fetchall(),
+                [("u1",)],
+            )
+        elif operation.update:
+            sess.add(User(name="u1"))
+            sess.flush()
+            u1 = sess.scalars(
+                select(User).execution_options(
+                    schema_translate_map={"placeholder": config.test_schema}
+                )
+            ).first()
+            u1.name = "u1modified"
+            sess.flush()
+            eq_(
+                sess.connection()
+                .execute(
+                    sa.text(f"SELECT name FROM {config.test_schema}.users")
+                )
+                .fetchall(),
+                [("u1modified",)],
+            )
+        elif operation.delete:
+            sess.add(User(name="u1"))
+            sess.flush()
+            u1 = sess.scalars(
+                select(User).execution_options(
+                    schema_translate_map={"placeholder": config.test_schema}
+                )
+            ).first()
+            sess.delete(u1)
+            sess.flush()
+            eq_(
+                sess.connection()
+                .execute(
+                    sa.text(f"SELECT name FROM {config.test_schema}.users")
+                )
+                .fetchall(),
+                [],
+            )
+        else:
+            operation.fail()
+
+        sess.close()
 
 
 class DeferredRelationshipExpressionTest(_fixtures.FixtureTest):
@@ -2167,7 +2600,8 @@ class SessionInterface(fixtures.MappedTest):
         ]:
             raises_(name, user_arg)
 
-        raises_("add_all", (user_arg,))
+        for name in ["add_all", "merge_all", "delete_all"]:
+            raises_(name, (user_arg,))
 
         # flush will no-op without something in the unit of work
         def _():
@@ -2178,7 +2612,10 @@ class SessionInterface(fixtures.MappedTest):
 
             s = fixture_session()
             s.add(OK())
-            x_raises_(s, "flush", objects=(user_arg,))
+            with assertions.expect_deprecated(
+                "The `objects` parameter of `Session.flush` is deprecated"
+            ):
+                x_raises_(s, "flush", objects=(user_arg,))
 
         _()
 
@@ -2303,7 +2740,7 @@ class SessionInterface(fixtures.MappedTest):
             )
 
             with mock.patch(
-                "sqlalchemy.orm.session.loading.load_on_ident"
+                "sqlalchemy.orm.session.loading._load_on_ident"
             ) as load_on_ident:
                 s.refresh(m1, with_for_update={"read": True})
                 s.refresh(m1, with_for_update=True)

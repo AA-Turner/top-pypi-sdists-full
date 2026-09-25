@@ -10,14 +10,14 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Tests for Executor-based SamplerV2."""
+"""Tests for client-side Sampler."""
 
 import numpy as np
-from ddt import data, ddt, unpack
+from ddt import data, ddt
 from qiskit.primitives import PrimitiveResult
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 
-from qiskit_ibm_runtime.executor_sampler import SamplerV2
+from qiskit_ibm_runtime.executor_sampler import Sampler
 from qiskit_ibm_runtime.options_models import SamplerOptions
 
 from ..ibm_test_case import IBMIntegrationTestCase
@@ -26,7 +26,7 @@ from ..utils import make_mirror_circuit_with_phases
 
 @ddt
 class TestSampler(IBMIntegrationTestCase):
-    """Test SamplerV2."""
+    """Test client-side Sampler."""
 
     def setUp(self):
         """Test level setup."""
@@ -36,8 +36,8 @@ class TestSampler(IBMIntegrationTestCase):
         self.pm = generate_preset_pass_manager(optimization_level=1, target=self.backend.target)
 
     @data(True, False)
-    def test_sampler_with_parametric_circuits(self, twirling):
-        """Test sampler with parametric circuits."""
+    def test_sampler(self, twirling):
+        """Test sampler by submitting a couple of parametric circuits."""
         circuit = make_mirror_circuit_with_phases(self.backend)
         isa_circuit = self.pm.run(circuit)
 
@@ -54,7 +54,7 @@ class TestSampler(IBMIntegrationTestCase):
         options.twirling.enable_gates = twirling
         options.default_shots = 1000
 
-        sampler = SamplerV2(self.backend, options)
+        sampler = Sampler(self.backend, options)
         job = sampler.run(pubs)
 
         results = job.result()
@@ -68,25 +68,3 @@ class TestSampler(IBMIntegrationTestCase):
 
         self.assertEqual(results[0].metadata["circuit_metadata"], {"list": [1, 2, 3]})
         self.assertEqual(results[1].metadata["circuit_metadata"], {"tuple": [1, 2, 3]})
-
-    @data([1000, "auto", "auto", 1024], [1000, 5, "auto", 1000], [1000, 5, 3, 15])
-    @unpack
-    def test_sampler_num_shots(
-        self, default_shots, num_randomizations, shots_per_randomization, num_shots
-    ):
-        """Test result's num_shots with different twirling options."""
-        circuit = make_mirror_circuit_with_phases(self.backend)
-        isa_circuit = self.pm.run(circuit)
-        parameter_values = np.zeros(isa_circuit.num_parameters)
-
-        options = SamplerOptions()
-        options.twirling.enable_gates = True
-        options.default_shots = default_shots
-        options.twirling.num_randomizations = num_randomizations
-        options.twirling.shots_per_randomization = shots_per_randomization
-
-        sampler = SamplerV2(self.backend, options)
-        job = sampler.run([(isa_circuit, parameter_values)])
-
-        results = job.result()
-        self.assertEqual(results[0].data.meas.num_shots, num_shots)

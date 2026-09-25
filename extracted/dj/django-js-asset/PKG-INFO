@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-js-asset
-Version: 4.1.0
+Version: 4.2.0
 Summary: script tag with additional attributes for django.forms.Media
 Project-URL: Homepage, https://github.com/feincms/django-js-asset/
 Author-email: Matthias Kestenholz <mk@feinheit.ch>
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
@@ -189,6 +190,12 @@ many media objects were added together to get there:
         ImportMap({"imports": {"my-library": static_lazy("my-library.js")}}),
         JS("code.js", {"type": "module"}),
     ])
+
+Put import maps at the start of their ``js`` lists. Import maps are merged in
+the order produced by ``Media.merge``; for import maps listed first that's the
+order media has been added together, so an import map added later (e.g. the
+project's) overrides entries of earlier ones (e.g. of apps). Import maps listed
+after other assets may end up in a different order.
 
 See `CSP nonces`_ below for per-request nonces.
 

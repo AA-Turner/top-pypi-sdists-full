@@ -19,9 +19,9 @@ from cpi.errors import CPIObjectDoesNotExist
 LATEST_YEAR = 2025
 LATEST_YEAR_1950_ALL_ITEMS = 1335.863070539419
 LATEST_YEAR_1950_CUSR0000SA0 = 1335.863070539419
-LATEST_MONTH = date(2025, 12, 1)
-LATEST_MONTH_1950_ALL_ITEMS = 1378.9531914893616
-LATEST_MONTH_1950_CUSR0000SA0 = 1386.771586558911
+LATEST_MONTH = date(2026, 8, 1)
+LATEST_MONTH_1950_ALL_ITEMS = 1425.4468085106382
+LATEST_MONTH_1950_CUSR0000SA0 = 1421.2292641429178
 
 
 def test_latest_year():
@@ -87,6 +87,20 @@ def test_get_by_series_id():
 
 def test_series_list():
     cpi.series.get_by_id("CUSR0000SA0")
+
+
+def test_series_list_get_uses_cached_series(monkeypatch):
+    cached_series = cpi.DEFAULT_SERIES
+    monkeypatch.setattr(cpi.series, "_dict", {cached_series.id: cached_series})
+
+    def fail_if_database_lookup(cls, value):
+        pytest.fail("SeriesList.get() bypassed the series cache")
+
+    monkeypatch.setattr(
+        cpi.models.Series, "get_by_id", classmethod(fail_if_database_lookup)
+    )
+
+    assert cpi.series.get() is cached_series
 
 
 def test_metadata_lists():

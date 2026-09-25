@@ -28,18 +28,18 @@ from .utils.converters import hms_to_seconds
 from .utils.default_session import set_cm_session
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from types import TracebackType
 
     from .decoders.result_decoder import ResultDecoder
     from .runtime_job_v2 import RuntimeJobV2
 
 
-def _active_session(func):  # type: ignore
+def _active_session(func: Callable) -> Callable:
     """Decorator used to ensure the session is active."""
 
     @wraps(func)
-    def _wrapper(self, *args, **kwargs):  # type: ignore
+    def _wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
         if not self._active:
             raise IBMRuntimeError("The session is closed.")
         return func(self, *args, **kwargs)
@@ -108,7 +108,7 @@ class Session:
         create_new: bool | None = True,
     ):
         self._service: QiskitRuntimeService | QiskitRuntimeLocalService | None = None
-        self._backend: BackendV2 | None = None
+        self._backend: BackendV2
         self._instance = None
         self._active = True
         self._session_id = None
@@ -150,6 +150,7 @@ class Session:
         options: dict | None = None,
         result_decoder: type[ResultDecoder] | Sequence[type[ResultDecoder]] | None = None,
         calibration_id: str | None = None,
+        dry_run: bool = False,
     ) -> RuntimeJobV2:
         """Run a program in the session.
 
@@ -164,6 +165,12 @@ class Session:
                 decoder. If not specified, a program-specific decoder or the default
                 ``ResultDecoder`` is used.
             calibration_id: The calibration id to use with the program execution
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
 
         Returns:
             Submitted job.
@@ -184,6 +191,7 @@ class Session:
                 start_session=False,
                 result_decoder=result_decoder,
                 calibration_id=calibration_id,
+                dry_run=dry_run,
             )
 
             if self._backend is None:
@@ -194,6 +202,7 @@ class Session:
                 options=options,
                 inputs=inputs,
                 calibration_id=calibration_id,
+                dry_run=dry_run,
             )
 
         return job

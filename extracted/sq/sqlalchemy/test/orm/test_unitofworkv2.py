@@ -381,25 +381,23 @@ class RudimentaryFlushTest(UOWTest):
                 # the User row might be handled before or the addresses
                 # are loaded so need to use AllOf
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses "
+                    "SELECT addresses.id, addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.id = "
                     ":pk_1",
                     lambda ctx: {"pk_1": c1id},
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses "
+                    "SELECT addresses.id, addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.id = "
                     ":pk_1",
                     lambda ctx: {"pk_1": c2id},
                 ),
                 CompiledSQL(
-                    "SELECT users.id AS users_id, users.name AS users_name "
+                    "SELECT users.id, users.name "
                     "FROM users WHERE users.id = :pk_1",
                     lambda ctx: {"pk_1": pid},
                 ),
@@ -457,19 +455,17 @@ class RudimentaryFlushTest(UOWTest):
                 # relationship is simple m2o, no SELECT should be emitted for
                 # it.
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses "
+                    "SELECT addresses.id, addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.id = "
                     ":pk_1",
                     lambda ctx: {"pk_1": c1id},
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses "
+                    "SELECT addresses.id, addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.id = "
                     ":pk_1",
                     lambda ctx: {"pk_1": c2id},
@@ -523,19 +519,17 @@ class RudimentaryFlushTest(UOWTest):
             AllOf(
                 # the parent User is expired, so it gets loaded here.
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses "
+                    "SELECT addresses.id, addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.id = "
                     ":pk_1",
                     lambda ctx: {"pk_1": c1id},
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses "
+                    "SELECT addresses.id, addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.id = "
                     ":pk_1",
                     lambda ctx: {"pk_1": c2id},
@@ -854,8 +848,7 @@ class RaiseLoadIgnoredTest(
             sess.flush,
             # for the flush process, lazy="raise" is ignored
             CompiledSQL(
-                "SELECT b.id AS b_id, b.a_id AS b_a_id FROM b "
-                "WHERE :param_1 = b.a_id",
+                "SELECT b.id, b.a_id FROM b WHERE :param_1 = b.a_id",
                 [{"param_1": 1}],
             ),
             CompiledSQL(
@@ -1313,23 +1306,20 @@ class SingleCycleTest(UOWTest):
                 # the selects here are in fact unexpiring
                 # each row - the m2o comes from the identity map.
                 CompiledSQL(
-                    "SELECT nodes.id AS nodes_id, nodes.parent_id AS "
-                    "nodes_parent_id, "
-                    "nodes.data AS nodes_data FROM nodes "
+                    "SELECT nodes.id, nodes.parent_id, nodes.data "
+                    "FROM nodes "
                     "WHERE nodes.id = :pk_1",
                     lambda ctx: {"pk_1": pid},
                 ),
                 CompiledSQL(
-                    "SELECT nodes.id AS nodes_id, nodes.parent_id AS "
-                    "nodes_parent_id, "
-                    "nodes.data AS nodes_data FROM nodes "
+                    "SELECT nodes.id, nodes.parent_id, nodes.data "
+                    "FROM nodes "
                     "WHERE nodes.id = :pk_1",
                     lambda ctx: {"pk_1": c1id},
                 ),
                 CompiledSQL(
-                    "SELECT nodes.id AS nodes_id, nodes.parent_id AS "
-                    "nodes_parent_id, "
-                    "nodes.data AS nodes_data FROM nodes "
+                    "SELECT nodes.id, nodes.parent_id, nodes.data "
+                    "FROM nodes "
                     "WHERE nodes.id = :pk_1",
                     lambda ctx: {"pk_1": c2id},
                 ),
@@ -1510,8 +1500,8 @@ class SingleCycleM2MTest(
                 # this is n1.parents firing off, as it should, since
                 # passive_deletes is False for n1.parents
                 CompiledSQL(
-                    "SELECT nodes.id AS nodes_id, nodes.data AS nodes_data, "
-                    "nodes.favorite_node_id AS nodes_favorite_node_id FROM "
+                    "SELECT nodes.id, nodes.data, "
+                    "nodes.favorite_node_id FROM "
                     "nodes, node_to_nodes WHERE :param_1 = "
                     "node_to_nodes.right_node_id AND nodes.id = "
                     "node_to_nodes.left_node_id",
@@ -2122,7 +2112,7 @@ class BatchInsertsTest(fixtures.MappedTest, testing.AssertsExecutionResults):
                 testing.db.dialect.insert_executemany_returning,
                 [
                     CompiledSQL(
-                        f"INSERT INTO t (data) VALUES (:data) "
+                        "INSERT INTO t (data) VALUES (:data) "
                         f"RETURNING t.id{tdef_col}",
                         [{"data": "t1"}, {"data": "t2"}],
                     ),
@@ -2137,7 +2127,7 @@ class BatchInsertsTest(fixtures.MappedTest, testing.AssertsExecutionResults):
                 ],
             ),
             CompiledSQL(
-                f"INSERT INTO t (id, data) "
+                "INSERT INTO t (id, data) "
                 f"VALUES (:id, :data){tdef_returning}",
                 [
                     {"data": "t3", "id": 3},
@@ -2146,12 +2136,12 @@ class BatchInsertsTest(fixtures.MappedTest, testing.AssertsExecutionResults):
                 ],
             ),
             CompiledSQL(
-                f"INSERT INTO t (id, data) "
+                "INSERT INTO t (id, data) "
                 f"VALUES (:id, lower(:lower_1)){tdef_returning}",
                 {"lower_1": "t6", "id": 6},
             ),
             CompiledSQL(
-                f"INSERT INTO t (id, data) "
+                "INSERT INTO t (id, data) "
                 f"VALUES (:id, :data){tdef_returning}",
                 [{"data": "t7", "id": 7}, {"data": "t8", "id": 8}],
             ),
@@ -2163,7 +2153,7 @@ class BatchInsertsTest(fixtures.MappedTest, testing.AssertsExecutionResults):
                 ],
             ),
             CompiledSQL(
-                f"INSERT INTO t (id, data) "
+                "INSERT INTO t (id, data) "
                 f"VALUES (:id, :data){tdef_returning}",
                 {"data": "t11", "id": 11},
             ),
@@ -2477,14 +2467,14 @@ class EagerDefaultsTest(fixtures.MappedTest):
                 s.flush,
                 CompiledSQL(
                     "INSERT INTO test (id, foo) "
-                    "VALUES (%(id)s, 2 + 5) "
+                    "VALUES (%(id)s::INTEGER, 2 + 5) "
                     "RETURNING test.foo",
                     [{"id": 1}],
                     dialect="postgresql",
                 ),
                 CompiledSQL(
                     "INSERT INTO test (id, foo) "
-                    "VALUES (%(id)s, 5 + 5) "
+                    "VALUES (%(id)s::INTEGER, 5 + 5) "
                     "RETURNING test.foo",
                     [{"id": 2}],
                     dialect="postgresql",
@@ -2506,14 +2496,12 @@ class EagerDefaultsTest(fixtures.MappedTest):
                     enable_returning=False,
                 ),
                 CompiledSQL(
-                    "SELECT test.foo AS test_foo FROM test "
-                    "WHERE test.id = :pk_1",
+                    "SELECT test.foo FROM test WHERE test.id = :pk_1",
                     [{"pk_1": 1}],
                     enable_returning=False,
                 ),
                 CompiledSQL(
-                    "SELECT test.foo AS test_foo FROM test "
-                    "WHERE test.id = :pk_1",
+                    "SELECT test.foo FROM test WHERE test.id = :pk_1",
                     [{"pk_1": 2}],
                     enable_returning=False,
                 ),
@@ -2574,13 +2562,11 @@ class EagerDefaultsTest(fixtures.MappedTest):
                         [{"id": 1}, {"id": 2}],
                     ),
                     CompiledSQL(
-                        "SELECT test.foo AS test_foo FROM test "
-                        "WHERE test.id = :pk_1",
+                        "SELECT test.foo FROM test WHERE test.id = :pk_1",
                         [{"pk_1": 1}],
                     ),
                     CompiledSQL(
-                        "SELECT test.foo AS test_foo FROM test "
-                        "WHERE test.id = :pk_1",
+                        "SELECT test.foo FROM test WHERE test.id = :pk_1",
                         [{"pk_1": 2}],
                     ),
                 ],
@@ -2640,13 +2626,11 @@ class EagerDefaultsTest(fixtures.MappedTest):
                         ],
                     ),
                     CompiledSQL(
-                        "SELECT test3.foo AS test3_foo "
-                        "FROM test3 WHERE test3.id = :pk_1",
+                        "SELECT test3.foo FROM test3 WHERE test3.id = :pk_1",
                         [{"pk_1": 1}],
                     ),
                     CompiledSQL(
-                        "SELECT test3.foo AS test3_foo "
-                        "FROM test3 WHERE test3.id = :pk_1",
+                        "SELECT test3.foo FROM test3 WHERE test3.id = :pk_1",
                         [{"pk_1": 2}],
                     ),
                 ],
@@ -2681,28 +2665,30 @@ class EagerDefaultsTest(fixtures.MappedTest):
                 testing.db.dialect.update_returning,
                 [
                     CompiledSQL(
-                        "UPDATE test2 SET foo=%(foo)s "
-                        "WHERE test2.id = %(test2_id)s "
+                        "UPDATE test2 SET foo=%(foo)s::INTEGER "
+                        "WHERE test2.id = %(test2_id)s::INTEGER "
                         "RETURNING test2.bar",
                         [{"foo": 5, "test2_id": 1}],
                         dialect="postgresql",
                     ),
                     CompiledSQL(
-                        "UPDATE test2 SET foo=%(foo)s, bar=%(bar)s "
-                        "WHERE test2.id = %(test2_id)s",
+                        "UPDATE test2 SET foo=%(foo)s::INTEGER,"
+                        " bar=%(bar)s::INTEGER WHERE test2.id ="
+                        " %(test2_id)s::INTEGER",
                         [{"foo": 6, "bar": 10, "test2_id": 2}],
                         dialect="postgresql",
                     ),
                     CompiledSQL(
-                        "UPDATE test2 SET foo=%(foo)s "
-                        "WHERE test2.id = %(test2_id)s "
+                        "UPDATE test2 SET foo=%(foo)s::INTEGER "
+                        "WHERE test2.id = %(test2_id)s::INTEGER "
                         "RETURNING test2.bar",
                         [{"foo": 7, "test2_id": 3}],
                         dialect="postgresql",
                     ),
                     CompiledSQL(
-                        "UPDATE test2 SET foo=%(foo)s, bar=%(bar)s "
-                        "WHERE test2.id = %(test2_id)s",
+                        "UPDATE test2 SET foo=%(foo)s::INTEGER,"
+                        " bar=%(bar)s::INTEGER WHERE test2.id ="
+                        " %(test2_id)s::INTEGER",
                         [{"foo": 8, "bar": 12, "test2_id": 4}],
                         dialect="postgresql",
                     ),
@@ -2731,13 +2717,11 @@ class EagerDefaultsTest(fixtures.MappedTest):
                         enable_returning=False,
                     ),
                     CompiledSQL(
-                        "SELECT test2.bar AS test2_bar FROM test2 "
-                        "WHERE test2.id = :pk_1",
+                        "SELECT test2.bar FROM test2 WHERE test2.id = :pk_1",
                         [{"pk_1": 1}],
                     ),
                     CompiledSQL(
-                        "SELECT test2.bar AS test2_bar FROM test2 "
-                        "WHERE test2.id = :pk_1",
+                        "SELECT test2.bar FROM test2 WHERE test2.id = :pk_1",
                         [{"pk_1": 3}],
                     ),
                 ],
@@ -2780,26 +2764,30 @@ class EagerDefaultsTest(fixtures.MappedTest):
                 testing.db.dialect.update_returning,
                 [
                     CompiledSQL(
-                        "UPDATE test4 SET foo=%(foo)s, bar=5 + 3 "
-                        "WHERE test4.id = %(test4_id)s RETURNING test4.bar",
+                        "UPDATE test4 SET foo=%(foo)s::INTEGER, bar=5 + 3"
+                        " WHERE test4.id = %(test4_id)s::INTEGER RETURNING"
+                        " test4.bar",
                         [{"foo": 5, "test4_id": 1}],
                         dialect="postgresql",
                     ),
                     CompiledSQL(
-                        "UPDATE test4 SET foo=%(foo)s, bar=%(bar)s "
-                        "WHERE test4.id = %(test4_id)s",
+                        "UPDATE test4 SET foo=%(foo)s::INTEGER,"
+                        " bar=%(bar)s::INTEGER WHERE test4.id ="
+                        " %(test4_id)s::INTEGER",
                         [{"foo": 6, "bar": 10, "test4_id": 2}],
                         dialect="postgresql",
                     ),
                     CompiledSQL(
-                        "UPDATE test4 SET foo=%(foo)s, bar=5 + 3 WHERE "
-                        "test4.id = %(test4_id)s RETURNING test4.bar",
+                        "UPDATE test4 SET foo=%(foo)s::INTEGER, bar=5 + 3"
+                        " WHERE test4.id = %(test4_id)s::INTEGER RETURNING"
+                        " test4.bar",
                         [{"foo": 7, "test4_id": 3}],
                         dialect="postgresql",
                     ),
                     CompiledSQL(
-                        "UPDATE test4 SET foo=%(foo)s, bar=%(bar)s WHERE "
-                        "test4.id = %(test4_id)s",
+                        "UPDATE test4 SET foo=%(foo)s::INTEGER,"
+                        " bar=%(bar)s::INTEGER WHERE test4.id ="
+                        " %(test4_id)s::INTEGER",
                         [{"foo": 8, "bar": 12, "test4_id": 4}],
                         dialect="postgresql",
                     ),
@@ -2830,14 +2818,12 @@ class EagerDefaultsTest(fixtures.MappedTest):
                         enable_returning=False,
                     ),
                     CompiledSQL(
-                        "SELECT test4.bar AS test4_bar FROM test4 "
-                        "WHERE test4.id = :pk_1",
+                        "SELECT test4.bar FROM test4 WHERE test4.id = :pk_1",
                         [{"pk_1": 1}],
                         enable_returning=False,
                     ),
                     CompiledSQL(
-                        "SELECT test4.bar AS test4_bar FROM test4 "
-                        "WHERE test4.id = :pk_1",
+                        "SELECT test4.bar FROM test4 WHERE test4.id = :pk_1",
                         [{"pk_1": 3}],
                         enable_returning=False,
                     ),
@@ -2880,28 +2866,29 @@ class EagerDefaultsTest(fixtures.MappedTest):
                 testing.db,
                 s.flush,
                 CompiledSQL(
-                    "UPDATE test2 SET foo=%(foo)s, bar=1 + 1 "
-                    "WHERE test2.id = %(test2_id)s "
+                    "UPDATE test2 SET foo=%(foo)s::INTEGER, bar=1 + 1 "
+                    "WHERE test2.id = %(test2_id)s::INTEGER "
                     "RETURNING test2.bar",
                     [{"foo": 5, "test2_id": 1}],
                     dialect="postgresql",
                 ),
                 CompiledSQL(
-                    "UPDATE test2 SET foo=%(foo)s, bar=%(bar)s "
-                    "WHERE test2.id = %(test2_id)s",
+                    "UPDATE test2 SET foo=%(foo)s::INTEGER,"
+                    " bar=%(bar)s::INTEGER WHERE test2.id ="
+                    " %(test2_id)s::INTEGER",
                     [{"foo": 6, "bar": 10, "test2_id": 2}],
                     dialect="postgresql",
                 ),
                 CompiledSQL(
-                    "UPDATE test2 SET foo=%(foo)s "
-                    "WHERE test2.id = %(test2_id)s "
+                    "UPDATE test2 SET foo=%(foo)s::INTEGER "
+                    "WHERE test2.id = %(test2_id)s::INTEGER "
                     "RETURNING test2.bar",
                     [{"foo": 7, "test2_id": 3}],
                     dialect="postgresql",
                 ),
                 CompiledSQL(
-                    "UPDATE test2 SET foo=%(foo)s, bar=5 + 7 "
-                    "WHERE test2.id = %(test2_id)s RETURNING test2.bar",
+                    "UPDATE test2 SET foo=%(foo)s::INTEGER, bar=5 + 7 WHERE"
+                    " test2.id = %(test2_id)s::INTEGER RETURNING test2.bar",
                     [{"foo": 8, "test2_id": 4}],
                     dialect="postgresql",
                 ),
@@ -2934,18 +2921,15 @@ class EagerDefaultsTest(fixtures.MappedTest):
                     enable_returning=False,
                 ),
                 CompiledSQL(
-                    "SELECT test2.bar AS test2_bar FROM test2 "
-                    "WHERE test2.id = :pk_1",
+                    "SELECT test2.bar FROM test2 WHERE test2.id = :pk_1",
                     [{"pk_1": 1}],
                 ),
                 CompiledSQL(
-                    "SELECT test2.bar AS test2_bar FROM test2 "
-                    "WHERE test2.id = :pk_1",
+                    "SELECT test2.bar FROM test2 WHERE test2.id = :pk_1",
                     [{"pk_1": 3}],
                 ),
                 CompiledSQL(
-                    "SELECT test2.bar AS test2_bar FROM test2 "
-                    "WHERE test2.id = :pk_1",
+                    "SELECT test2.bar FROM test2 WHERE test2.id = :pk_1",
                     [{"pk_1": 4}],
                 ),
             )
@@ -3027,7 +3011,8 @@ class EagerDefaultsTest(fixtures.MappedTest):
             testing.db,
             s.commit,
             CompiledSQL(
-                "UPDATE test2 SET bar=%(bar)s WHERE test2.id = %(test2_id)s",
+                "UPDATE test2 SET bar=%(bar)s::INTEGER WHERE test2.id ="
+                " %(test2_id)s::INTEGER",
                 [{"bar": 5, "test2_id": 1}, {"bar": 10, "test2_id": 2}],
                 dialect="postgresql",
             ),
@@ -3124,7 +3109,7 @@ class EagerDefaultsTest(fixtures.MappedTest):
                         [{"id": 1, "bar": 5}],
                     ),
                     CompiledSQL(
-                        "SELECT anon_1.foo AS anon_1_foo FROM "
+                        "SELECT anon_1.foo FROM "
                         "(SELECT test.id AS id, test.foo AS foo, "
                         "test2.id AS id2, test2.bar AS bar FROM test "
                         "JOIN test2 ON test.foo = test2.foo) AS anon_1 "
@@ -3268,12 +3253,12 @@ class EagerDefaultsSettingTest(
                         expected_eager_defaults and not expect_returning,
                         [
                             CompiledSQL(
-                                "SELECT test.foo AS test_foo "
+                                "SELECT test.foo "
                                 "FROM test WHERE test.id = :pk_1",
                                 [{"pk_1": 1}],
                             ),
                             CompiledSQL(
-                                "SELECT test.foo AS test_foo "
+                                "SELECT test.foo "
                                 "FROM test WHERE test.id = :pk_1",
                                 [{"pk_1": 2}],
                             ),
@@ -3388,12 +3373,12 @@ class EagerDefaultsSettingTest(
                         expected_eager_defaults and not expect_returning,
                         [
                             CompiledSQL(
-                                "SELECT test.foo AS test_foo "
+                                "SELECT test.foo "
                                 "FROM test WHERE test.id = :pk_1",
                                 [{"pk_1": 1}],
                             ),
                             CompiledSQL(
-                                "SELECT test.foo AS test_foo "
+                                "SELECT test.foo "
                                 "FROM test WHERE test.id = :pk_1",
                                 [{"pk_1": 2}],
                             ),
@@ -3464,12 +3449,12 @@ class EagerDefaultsSettingTest(
                                 ],
                             ),
                             CompiledSQL(
-                                "SELECT test.bar AS test_bar "
+                                "SELECT test.bar "
                                 "FROM test WHERE test.id = :pk_1",
                                 [{"pk_1": 1}],
                             ),
                             CompiledSQL(
-                                "SELECT test.bar AS test_bar "
+                                "SELECT test.bar "
                                 "FROM test WHERE test.id = :pk_1",
                                 [{"pk_1": 2}],
                             ),

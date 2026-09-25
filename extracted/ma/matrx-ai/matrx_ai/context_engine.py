@@ -216,6 +216,21 @@ def _apply_ambient(
 _merge_producer: Callable[..., Any] | None = None
 
 
+#: WHICH RESOLVER ANSWERS THIS TURN (lane SC-2'). The host may wire ONE chooser that, for a
+#: turn, returns the record store's answer (``custom.resolve_context``, the same shape as
+#: ``public.resolve_full_context``) when the turn's organization has chosen the new path, or
+#: ``None`` for the old path. Unwired — and for every organization that has not chosen — the old
+#: resolver answers exactly as it always has. The per-organization knob behind it defaults to the
+#: OLD path until the owner validates the copy (SCOPES-CONTEXT rev 2: nothing flips until then).
+_path_chooser: Callable[..., Any] | None = None
+
+
+def configure_context_path(chooser: Callable[..., Any] | None) -> None:
+    """Wire (or unwire) the chooser that may answer a turn from the record store instead."""
+    global _path_chooser
+    _path_chooser = chooser
+
+
 def configure_context_resolver(producer: Callable[..., Any] | None) -> None:
     """Wire (or unwire) the ONE merge-field resolver this engine consumes."""
     global _merge_producer
@@ -252,8 +267,14 @@ async def build_agent_context(
     scope_ids: list[str] | None = None,
     *,
     entity_is_new: bool = False,
+    use_cache: bool = True,
+    path: str = "chosen",
 ) -> AgentContext:
     """Resolve all context variables for ``user_id`` and return an AgentContext.
+
+    ``path`` — ``"chosen"`` (default) lets the host's path chooser answer from the record store
+    when the turn's organization has chosen the new path; ``"old"`` always asks the current
+    context system (the compare's old side).
 
     Parameters
     ----------
@@ -284,8 +305,39 @@ async def build_agent_context(
         user_id, entity_type, entity_id, scope_ids, entity_is_new=entity_is_new
     )
     now = time.monotonic()
-    cached = _context_cache.get(cache_key)
-    if cached is not None and (now - cached[0]) < _CONTEXT_TTL_SECONDS:
+    # ``use_cache=False`` is for a caller that must see THIS instant's answer — the agent-context
+    # compare (lane SC-3'), where a thirty-second-old cached value on one side and a fresh read on
+    # the other would read as a difference between the two resolvers that is really the cache's.
+    cached = _context_cache.get(cache_key) if use_cache else None
+    from_the_store: dict[str, Any] | None = None
+    if _path_chooser is not None and path != "old":
+        try:
+            from_the_store = await _path_chooser(
+                user_id=user_id, entity_type=entity_type, entity_id=entity_id, scope_ids=list(scope_ids or [])
+            )
+        except Exception as exc:  # noqa: BLE001 — announced, then the old path answers
+            logger.error(
+                "[context_engine] the record store's context path failed for this turn (%r); the "
+                "current context system answered instead. This is a degraded answer and it is "
+                "being reported as one.",
+                exc,
+                exc_info=True,
+            )
+            from matrx_connect.streaming.error_capture import capture_error
+
+            await capture_error(
+                exc,
+                kind=CONTEXT_RESOLVER_FAILURE_KIND,
+                route="build_agent_context.context_path",
+                error_type=type(exc).__name__,
+                error_text="The record store's context path failed; the current context system answered.",
+                user_id=user_id,
+                context={"entity_type": entity_type},
+            )
+            from_the_store = None
+    if from_the_store is not None:
+        resolved = from_the_store
+    elif cached is not None and (now - cached[0]) < _CONTEXT_TTL_SECONDS:
         _context_cache.move_to_end(cache_key)
         resolved: dict[str, Any] = copy.deepcopy(cached[1])
     else:
@@ -327,6 +379,26 @@ async def build_agent_context(
         _context_cache.move_to_end(cache_key)
         while len(_context_cache) > _CONTEXT_CACHE_MAX:
             _context_cache.popitem(last=False)
+    return await agent_context_from_resolved(
+        user_id, resolved, entity_type=entity_type, entity_id=entity_id
+    )
+
+
+async def agent_context_from_resolved(
+    user_id: str,
+    resolved: dict[str, Any],
+    *,
+    entity_type: str,
+    entity_id: str,
+) -> AgentContext:
+    """Everything that happens to a resolver's answer after it comes back — ONE body.
+
+    ``resolved`` is ``public.resolve_full_context``'s answer, or the record store's twin of
+    it (``custom.resolve_context``, the same shape — lane SC-3'). The ambient refresh, the
+    injected merge-field producer and the tier split all run HERE and only here, so the two
+    resolvers can be compared with exactly one difference between them: which resolver
+    answered. Mutates ``resolved`` in place; pass a copy when it must be kept.
+    """
     variables: dict[str, Any] = resolved.get("variables", {})
     context_scope: dict[str, Any] = resolved.get("context", {})
     scope_labels: dict[str, Any] = resolved.get("scope_labels", {})

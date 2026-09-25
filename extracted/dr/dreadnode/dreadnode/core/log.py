@@ -113,6 +113,33 @@ log_buffer = LogBuffer()
 _tui_capture_level: str | None = None
 _tui_capture_sink_id: int | None = None
 _tui_file_sink_id: int | None = None
+_runtime_capture_enabled = False
+_runtime_capture_sink_id: int | None = None
+
+
+def enable_runtime_capture() -> None:
+    """Install runtime diagnostics without changing the process's other sinks."""
+    from dreadnode.core.runtime_logs import runtime_log_buffer
+
+    global _runtime_capture_enabled, _runtime_capture_sink_id  # noqa: PLW0603 - process logging state
+    _runtime_capture_enabled = True
+    if _runtime_capture_sink_id is not None:
+        with contextlib.suppress(ValueError):
+            logger.remove(_runtime_capture_sink_id)
+    # Enablement belongs to the sink owners (configure_* / enable_tui_capture):
+    # a library process that never configured logging must stay silent.
+    _runtime_capture_sink_id = logger.add(
+        runtime_log_buffer.capture,
+        level="DEBUG",
+        filter=lambda record: (
+            record["name"] != "uvicorn.access"
+            and (_tui_filter(record) or record["name"] == "uvicorn.error")
+        ),
+        format="{message}",
+        backtrace=False,
+        diagnose=False,
+    )
+
 
 _TUI_LOG_MAX_SIZE = "2 MB"
 _TUI_LOG_RETENTION = 2
@@ -211,6 +238,8 @@ def enable_tui_capture(level: str = "trace") -> int:
     logger.remove()
     logger.enable("dreadnode")
     _tui_capture_sink_id, _tui_file_sink_id = _add_tui_sinks(level)
+    if _runtime_capture_enabled:
+        enable_runtime_capture()
     return _tui_capture_sink_id
 
 
@@ -323,6 +352,8 @@ def configure_logging(
     if log_file is not None:
         logger.add(log_file, level=log_file_level.upper())
         logger.info(f"Logging to {log_file}")
+    if _runtime_capture_enabled:
+        enable_runtime_capture()
 
 
 def configure_server_logging(
@@ -377,6 +408,8 @@ def configure_server_logging(
             colorize=False,
         )
         logger.info(f"Logging to {resolved_log_file}")
+
+    enable_runtime_capture()
 
 
 def confirm(action: str) -> bool:

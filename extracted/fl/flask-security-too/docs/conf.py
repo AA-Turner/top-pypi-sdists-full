@@ -109,6 +109,7 @@ nitpick_ignore = [
     ("py:class", "t.Callable"),
     ("py:class", "t.Any"),
     ("py:class", "timedelta"),
+    ("py:class", "wtforms.fields.core.Field"),
 ]
 autodoc_typehints = "description"
 # autodoc_mock_imports = ["flask_sqlalchemy"]

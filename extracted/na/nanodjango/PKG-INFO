@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nanodjango
-Version: 0.16.3
+Version: 0.16.4
 Summary: Run Django models and views from a single file, and convert it to a full project.
 Author-email: Richard Terry <code@radiac.net>
 Project-URL: Homepage, https://radiac.net/projects/nanodjango/

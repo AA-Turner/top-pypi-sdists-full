@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: bacpypes3
-Version: 0.0.108
+Version: 0.0.110
 Summary: BACnet Communications Library
 Project-URL: Homepage, https://github.com/JoelBender/bacpypes3
 Project-URL: Repository, https://github.com/JoelBender/bacpypes3
@@ -22,7 +22,7 @@ Requires-Python: >=3.8
 Provides-Extra: ifaddr
 Requires-Dist: ifaddr; extra == 'ifaddr'
 Provides-Extra: mcp
-Requires-Dist: mcp>=2; (python_version >= '3.10') and extra == 'mcp'
+Requires-Dist: mcp; (python_version >= '3.10') and extra == 'mcp'
 Requires-Dist: pydantic; (python_version >= '3.10') and extra == 'mcp'
 Provides-Extra: pylibpcap
 Requires-Dist: python-libpcap; extra == 'pylibpcap'
@@ -53,12 +53,11 @@ The `bacpypes3.mcp` module exposes the BACpypes3 CLI commands (`whois`,
    tools directly.
 2. **Stand-alone MCP server.** `python -m bacpypes3.mcp <BACpypes flags>`
    builds an `Application` via `SimpleArgumentParser` and serves the tools
-   over stdio using `mcp.server.mcpserver.MCPServer` (renamed from
-   `FastMCP` in the mcp 2.x SDK; BACpypes3 requires `mcp>=2`).
+   over stdio using FastMCP.
 3. **Embedded server.** A long-running BACnet server can inject its own
    `Application` and start `mcp.serve_http(...)` as a concurrent asyncio
    task, so an LLM agent can drive it over HTTP without fighting the host
-   application's stdout. See `samples/mini-device-with-mcp.py` for the
+   application's stdout. See `samples/mini-device-mcp.py` for the
    reference pattern.
 
 The `mcp` and `pydantic` packages are declared as an optional extra and are

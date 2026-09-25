@@ -21,11 +21,6 @@ class TestCase(unittest.TestCase):
     def setUp(self):
         self._otel = otel_mocker.OTelMocker()
         self._otel.install()
-        self._otel_wrapper = TelemetryHandler(
-            tracer_provider=get_tracer_provider(),
-            logger_provider=get_logger_provider(),
-            meter_provider=get_meter_provider(),
-        )
 
     @property
     def otel(self):
@@ -33,7 +28,11 @@ class TestCase(unittest.TestCase):
 
     @property
     def otel_wrapper(self):
-        return self._otel_wrapper
+        return TelemetryHandler(
+            tracer_provider=get_tracer_provider(),
+            logger_provider=get_logger_provider(),
+            meter_provider=get_meter_provider(),
+        )
 
     def wrap(self, tool_or_tools):
         return tool_call_wrapper.wrapped_tool(tool_or_tools, self.otel_wrapper)
@@ -219,3 +218,55 @@ class TestCase(unittest.TestCase):
         except Exception:
             span = self.otel.get_span_named("execute_tool somefunction")
             self.assertEqual(span.attributes["error.type"], "Exception")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_AND_EVENT",
+        },
+    )
+    def test_variadic_keyword_arguments(self):
+        def weather(**kwargs):
+            return "sunny"
+
+        wrapped = self.wrap(weather)
+        wrapped(city="Boston", units="celsius")
+        span = self.otel.get_span_named("execute_tool weather")
+        arguments = json.loads(span.attributes["gen_ai.tool.call.arguments"])
+        self.assertEqual(
+            arguments["code.function.parameters.city.type"], "str"
+        )
+        self.assertEqual(
+            arguments["code.function.parameters.city.value"], "Boston"
+        )
+        self.assertEqual(
+            arguments["code.function.parameters.units.type"], "str"
+        )
+        self.assertEqual(
+            arguments["code.function.parameters.units.value"], "celsius"
+        )
+
+    @patch.dict(
+        "os.environ",
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_AND_EVENT",
+        },
+    )
+    def test_variadic_positional_arguments(self):
+        def calculate(*args):
+            return sum(args)
+
+        wrapped = self.wrap(calculate)
+        wrapped(10, 20)
+        span = self.otel.get_span_named("execute_tool calculate")
+        arguments = json.loads(span.attributes["gen_ai.tool.call.arguments"])
+        self.assertEqual(
+            arguments["code.function.parameters.args.type"], "int"
+        )
+        self.assertEqual(arguments["code.function.parameters.args.value"], 10)
+        self.assertEqual(
+            arguments["code.function.parameters.args[1].type"], "int"
+        )
+        self.assertEqual(
+            arguments["code.function.parameters.args[1].value"], 20
+        )

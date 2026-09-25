@@ -157,8 +157,17 @@ def _convert_func_to_task(
     return tasks
 
 
+def _sql_str(s: str) -> str:
+    # Snowflake string literals treat "\" as an escape character, so it must be escaped
+    # before doubling "'", otherwise a trailing "\" can consume one quote of a doubled
+    # pair and let the rest of the value close the literal early.
+    return s.replace("\\", "\\\\").replace("'", "''")
+
+
 def _add_condition(full_name: str, successor: "DAGTask") -> None:
-    validate_branch = f"SYSTEM$GET_PREDECESSOR_RETURN_VALUE('{normalize_name(full_name)}') = '{successor.name}'"
+    validate_branch = (
+        f"SYSTEM$GET_PREDECESSOR_RETURN_VALUE('{_sql_str(normalize_name(full_name))}') = '{_sql_str(successor.name)}'"
+    )
     if successor.condition:
         successor.condition = f"{validate_branch} and {successor.condition}"
     else:

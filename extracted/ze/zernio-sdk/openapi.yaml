@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.63.0"
+  version: "1.72.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -482,6 +482,8 @@ tags:
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
       Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
+
+      Profile and account filters. A subscription can also carry `profileIds`, an allowlist of profiles, and `accountIds`, an allowlist of connected accounts with the same semantics keyed on the account; each non-empty list narrows delivery and a subscription with both must be satisfied on both. A scoped subscription is only sent events it can attribute to one of those profiles: the profile of the connected account behind the event, or for an aggregate `post.*` event the profile of every account the post targets (a post spanning two scoped endpoints' profiles reaches both). So an integrator can route the profile holding test accounts to a staging endpoint while a second subscription, scoped to the production profiles, keeps production traffic. Events that belong to no profile (`verification.*`, `phone_number.*`, and a legacy post whose accounts were deleted) reach only unscoped subscriptions. The filter runs when an event is emitted; redelivery replays a delivery already made to that endpoint and test fires ignore it. Absent or empty means every profile (or every account).
   - name: Webhook Events
     description: |
       Incoming webhook deliveries sent by Zernio to your configured endpoint URL.
@@ -774,15 +776,35 @@ components:
         budget spent.
 
         Google Ads: writes and reports run on one developer token shared by
-        every Google Ads account on Zernio, and Google refills its daily
-        operations quota once a day (around 14:03 UTC). When it is exhausted
-        the envelope has `code: rate_limited`, `platform: google`,
-        `details.quotaScope: DEVELOPER` (`ACCOUNT` when it is your own ad
-        account's quota), `details.resetsAt` (ISO instant of the refill) and
-        `Retry-After` counting down to it. Retrying earlier cannot succeed.
+        every Google Ads account on Zernio. The token holds Standard access
+        (no daily operations cap), so this only happens when Google throttles
+        the token or your ad account. The envelope has `code: rate_limited`,
+        `platform: google`, `details.quotaScope: DEVELOPER` (`ACCOUNT` when it
+        is your own ad account's quota), `details.resetsAt` (ISO instant when
+        Google accepts requests again) and `Retry-After` counting down to it.
+        Retrying earlier cannot succeed.
       headers:
         Retry-After:
           description: 'Seconds remaining until the upstream quota resets.'
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    MetaAdAccountWriteLimited:
+      description: |
+        Meta only (code `rate_limited`). Meta places a security hold lasting
+        days (code 31, subcode 3858385, "Please authenticate your account") on
+        ad accounts that receive bursts of ad writes, and it counts
+        `validateOnly` checks as writes. To keep integrations out of that hold,
+        Zernio runs creates for one Meta ad account one at a time (a parallel
+        request waits up to 60 seconds for its turn) and allows at most 30
+        creates per ad account in any rolling 5 minutes, `validateOnly`
+        included. A 429 here means one of the two was hit: wait `Retry-After`
+        seconds and send creates for that ad account sequentially. Other ad
+        accounts are not affected.
+      headers:
+        Retry-After:
+          description: 'Seconds to wait before retrying a create on this ad account.'
           schema: { type: integer }
       content:
         application/json:
@@ -3083,6 +3105,37 @@ components:
             every event emitted afterwards; events already queued when the edit
             landed can still be delivered for up to five minutes after they
             were enqueued.
+        profileIds:
+          type: array
+          items:
+            type: string
+          description: >-
+            Profiles this subscription receives events for (allowlist).
+            Absent or empty means every profile, which is how every
+            subscription created before this field existed behaves. A scoped
+            subscription is only sent events attributable to a listed profile.
+            An aggregate `post.*` event is attributed to the profile of every
+            account the post targets, so a post spanning two scoped endpoints'
+            profiles reaches both. Events with no profile behind them
+            (`verification.*`, `phone_number.*`, a legacy post whose accounts
+            were deleted) are not delivered to it. Applied when the event
+            is emitted: a redelivery replays a delivery already made to this
+            endpoint, and a test fire ignores the list.
+        accountIds:
+          type: array
+          items:
+            type: string
+          description: >-
+            Connected accounts this subscription receives events for
+            (allowlist). Absent or empty means every account. Same semantics
+            as `profileIds`, keyed on the account: an aggregate `post.*` event
+            is attributed to every account the post targets. Events that name
+            no connected account (`verification.*`, `phone_number.*`, and
+            `whatsapp.number.*`, which carry the phone number) are not
+            delivered to an account-scoped subscription. A subscription with
+            both lists must be satisfied on both. Applied when the event
+            is emitted; a redelivery replays a delivery already made to this
+            endpoint and a test fire ignores the list.
     WebhookLog:
       type: object
       description: A single webhook delivery attempt recorded by Zernio (30-day retention).
@@ -4345,7 +4398,15 @@ components:
                 properties:
                   type:
                     type: string
-                    description: Attachment type (image, video, file, sticker, audio, share)
+                    description: |
+                      Attachment type (image, video, file, sticker, audio, share).
+
+                      Instagram and Facebook deliver a shared reel, post or ad with no
+                      type of its own (Meta's `unsupported_type`). Zernio resolves it
+                      from the media's Content-Type at ingest, so it arrives as `image`,
+                      `video`, `audio` or `file` with `originalType: "unsupported_type"`.
+                      `type: "unsupported_type"` itself is emitted only when the CDN
+                      could not be classified in time; the `url` still works.
                   originalType:
                     type: string
                     description: |
@@ -4359,6 +4420,18 @@ components:
                       `type: "share"` with `originalType: "story_mention"`; treating an
                       unrecognized type as a generic document shows your agent
                       "document received" for what is usually a lead.
+
+                      `originalType: "unsupported_type"` marks a share Meta did not
+                      classify, resolved by content type. **Download it on receipt**:
+                      Meta answers `is_unsupported` with no attachments when the
+                      message node is read back, so the attachment-resolve endpoint
+                      cannot re-mint this url once it expires.
+                  mimeType:
+                    type: string
+                    description: |
+                      MIME type of the media when Zernio knows it. On Instagram and
+                      Facebook it is set for shares resolved by content type
+                      (`originalType: "unsupported_type"`).
                   url:
                     type: string
                     description: |
@@ -19574,7 +19647,9 @@ paths:
         token can be perfectly valid while Meta refuses to serve the phone-number object (for
         example after a phone-side coexistence disconnect), so `tokenStatus` alone is not a
         liveness signal for WhatsApp. When the Meta link is dead, `platformConnection.status` is
-        `disconnected` and the overall `status` is `error`.
+        `disconnected` and the overall `status` is `error`. When Meta reports that the number's
+        inbound message webhook does not reach Zernio, `platformConnection.inboundWebhookSubscribed`
+        is `false`, an entry is added to `issues`, and the overall `status` is at least `warning`.
       parameters:
         - name: accountId
           in: path
@@ -19676,6 +19751,9 @@ paths:
                           code: { type: integer, description: 'Meta Graph error code (100)' }
                           subcode: { type: integer, description: 'Meta Graph error subcode (33)' }
                           message: { type: string }
+                      inboundWebhookSubscribed:
+                        type: [boolean, "null"]
+                        description: 'From the phone number''s Meta health_status. `false` = Meta says Zernio is not subscribed to the message webhook for this number, so inbound messages are not delivered even though the number is CONNECTED and can still send. Fix by re-subscribing (reconnect the number); if it stays `false`, the number is routed to a different WhatsApp Business Account (typically after linking it to a Facebook Page). `true` = Meta reports no such problem. `null` = Meta did not report it (read failed or no health_status), not evidence either way.'
               example:
                 accountId: "abc123"
                 platform: "instagram"
@@ -20493,7 +20571,7 @@ paths:
               oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
               internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
               missing_google_permissions, missing_tiktok_permissions, platform_requires_destination,
-              reconnect_account_mismatch, invalid_request
+              reconnect_account_mismatch, instagram_login_method_mismatch, invalid_request
 
             Access and limits:
               profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
@@ -20537,6 +20615,11 @@ paths:
             3. `missing_tiktok_permissions` means the TikTok authorization left out a permission the
             already-connected account needs, so nothing was changed and it keeps working as before.
             It is user-fixable: connect again and accept every permission on TikTok's screen.
+
+            4. `instagram_login_method_mismatch` means an Instagram Login authorization landed on a
+            profile whose Instagram account is connected through Facebook Login, so nothing was
+            changed and it keeps working as before. To refresh it, connect again with
+            `loginMethod=facebook_login`. To move it to Instagram Login, disconnect it first.
         - name: headless
           in: query
           schema: { type: boolean, default: false }
@@ -20831,7 +20914,12 @@ paths:
             gives one, `details.disableReason`. Unsettled and in-grace accounts
             are accepted, matching the `selectable` flag of `GET /v1/ads/accounts`.
             Setting a scope also removes already synced ads from de-scoped ad
-            accounts. For multiple accounts use `adAccountIds` instead.
+            accounts. On Meta the scope also decides which ad accounts Zernio
+            subscribes to ad-account webhooks: only the scoped ones, instead of
+            every ad account the login can reach. The scope is kept when this
+            call returns an `authUrl`, so the Meta Ads account created after
+            OAuth is scoped (and only its scoped ad accounts synced and
+            subscribed) from the start. For multiple accounts use `adAccountIds` instead.
           example: act_1330190928038136
         - name: adAccountIds
           in: query
@@ -20846,8 +20934,10 @@ paths:
             (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate
             (`?adAccountIds=act_1,act_2`). Persisted server-side; latest call
             wins, and de-scoped ad accounts have their synced ads removed.
+            On Meta only the scoped ad accounts get webhook subscriptions,
+            including when the call starts a fresh OAuth.
             Omitting both `adAccountId` and `adAccountIds` keeps any previously
-            persisted scope unchanged.
+            persisted scope unchanged (no scope means every reachable ad account).
       security:
         - bearerAuth: []
       responses:
@@ -29063,6 +29153,8 @@ paths:
                     url: "https://example.com/webhook"
                     events: ["post.published", "post.failed"]
                     isActive: true
+                    profileIds: []
+                    accountIds: []
                     lastFiredAt: "2024-01-15T10:30:00Z"
                     failureCount: 0
                   - _id: "507f1f77bcf86cd799439012"
@@ -29096,6 +29188,13 @@ paths:
         `events`. Omit it to receive everything in `events`, which is how existing
         subscriptions behave. A restricted key's own disabled groups are always
         unioned in.
+
+        `profileIds` pins the subscription to a set of profiles and `accountIds`
+        to a set of connected accounts: only events attributable to one of the
+        listed ids are delivered, and a subscription with both lists must match
+        on both. Use them to send test accounts to a staging endpoint. Ids
+        outside your team are rejected with 404 (`profile_not_found`,
+        `account_not_found`).
       security:
         - bearerAuth: []
       requestBody:
@@ -29154,6 +29253,29 @@ paths:
                     is a restricted (zrk_) key, that key's own disabled groups
                     are unioned into whatever you send here, so a restricted
                     key can never create a subscription wider than itself.
+                profileIds:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                  description: >-
+                    Profiles this subscription receives events for. Omit or
+                    send an empty array to receive every profile. Every id
+                    must be a profile in your team, otherwise the request
+                    fails with 404 `profile_not_found` and nothing is created.
+                    Typical use is routing the profile that holds test
+                    accounts to a staging endpoint.
+                accountIds:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                  description: >-
+                    Connected accounts this subscription receives events for.
+                    Omit or send an empty array to receive every account. Every
+                    id must be an account in your team, otherwise the request
+                    fails with 404 `account_not_found` and nothing is created.
+                    Combine with `profileIds` to narrow further; both must match.
             examples:
               createWebhook:
                 summary: Create webhook with all events
@@ -29171,6 +29293,14 @@ paths:
                   events: ["post.published", "post.failed", "comment.received"]
                   disabledResourceGroups: ["messages", "contacts"]
                   isActive: true
+              createStagingWebhook:
+                summary: Subscription that only receives one profile's events
+                value:
+                  name: "Staging Webhook"
+                  url: "https://staging.example.com/webhook"
+                  events: ["post.published", "post.failed", "message.received"]
+                  profileIds: ["66a1f0c2a4b9d3e8f1a2b3c4"]
+                  isActive: true
       responses:
         '200':
           description: Webhook created successfully
@@ -29185,6 +29315,7 @@ paths:
         '400': { description: Validation error or maximum webhooks reached }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
+        '404': { description: 'A profile in `profileIds` (`profile_not_found`) or an account in `accountIds` (`account_not_found`) is not in your team' }
     put:
       x-resource-group: "webhooks"
       operationId: updateWebhookSettings
@@ -29214,6 +29345,10 @@ paths:
         trusts a five-minute enqueue-time snapshot before re-checking the
         subscription. Retries beyond that window, dead-letter replays, test fires,
         and redeliveries are all checked against the current denylist.
+
+        `profileIds` and `accountIds` replace the subscription's allowlists; an
+        empty array clears one. Ids outside your team are rejected with 404
+        (`profile_not_found`, `account_not_found`).
       security:
         - bearerAuth: []
       requestBody:
@@ -29272,6 +29407,33 @@ paths:
                     that key's own disabled groups are unioned back in either
                     way, so a restricted key can neither clear nor widen a
                     subscription past its own groups.
+                profileIds:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                  description: >-
+                    Replaces the subscription's profile allowlist. Send an
+                    empty array to receive every profile again. Omitting the
+                    field leaves the current list untouched. Every id must be
+                    a profile in your team, otherwise the request fails with
+                    404 `profile_not_found` and nothing changes. Applies to
+                    events emitted after the update. Sending the stored list
+                    back unchanged is accepted without re-validation, so an
+                    endpoint stays editable after a listed profile is deleted.
+                accountIds:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: string
+                  description: >-
+                    Replaces the subscription's account allowlist. Send an
+                    empty array to receive every account again. Omitting the
+                    field leaves the current list untouched. Every id must be
+                    an account in your team, otherwise the request fails with
+                    404 `account_not_found` and nothing changes. Sending the
+                    stored list back unchanged is accepted without
+                    re-validation.
             examples:
               updateWebhook:
                 summary: Update webhook URL and events
@@ -29298,7 +29460,7 @@ paths:
         '400': { description: Validation error or missing webhook ID }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/ResourceGroupForbidden' }
-        '404': { description: Webhook not found }
+        '404': { description: 'Webhook not found, or a profile in `profileIds` (`profile_not_found`) / an account in `accountIds` (`account_not_found`) is not in your team' }
     delete:
       x-resource-group: "webhooks"
       operationId: deleteWebhookSettings
@@ -30788,16 +30950,22 @@ paths:
                             type: object
                             properties:
                               id: { type: string }
-                              type: { type: string, enum: [image, video, audio, file, sticker, share, template] }
+                              type:
+                                type: string
+                                enum: [image, video, audio, file, sticker, share, template, unsupported_type]
+                                description: 'On Instagram and Facebook a shared reel, post or ad reaches Zernio with no type of its own (Meta''s `unsupported_type`) and is resolved from the media''s Content-Type at ingest into `image`, `video`, `audio` or `file` with `originalType: "unsupported_type"`. `unsupported_type` is returned only when the CDN could not be classified in time.'
                               originalType:
                                 type: string
-                                description: 'Instagram and Facebook only, and present only when it differs from `type`. Meta''s own type before normalization: `ig_reel` and `reel` become `video`, while `ig_post`, `post`, `ig_story` and `story_mention` become `share`. A story mention is `type: "share"` with `originalType: "story_mention"`; render on this field, since `share` alone is ambiguous.'
+                                description: 'Instagram and Facebook only, and present only when it differs from `type`. Meta''s own type before normalization: `ig_reel` and `reel` become `video`, while `ig_post`, `post`, `ig_story` and `story_mention` become `share`. A story mention is `type: "share"` with `originalType: "story_mention"`; render on this field, since `share` alone is ambiguous. `originalType: "unsupported_type"` marks a share Meta did not classify, resolved by content type: `refreshUrl` cannot re-mint it (Meta answers `is_unsupported` with no attachments for the message node), so download it when the `message.received` webhook arrives.'
+                              mimeType:
+                                type: string
+                                description: 'MIME type of the media when Zernio knows it. On Instagram and Facebook it is set for shares resolved by content type (`originalType: "unsupported_type"`).'
                               url:
                                 type: string
                                 description: 'Direct media link. On Instagram and Facebook this is a signed Meta CDN url that EXPIRES: use it now, do not store it. Persist `refreshUrl` instead.'
                               refreshUrl:
                                 type: [string, "null"]
-                                description: 'Instagram and Facebook only. Endpoint that resolves this attachment to a working url every time, re-minting it from Meta when the stored one has expired. Safe to store and render indefinitely.'
+                                description: 'Instagram and Facebook only. Endpoint that resolves this attachment to a working url every time, re-minting it from Meta when the stored one has expired. Safe to store and render indefinitely, except for an attachment with `originalType: "unsupported_type"`: Meta cannot re-serve those, so the endpoint answers 404 once the url has expired.'
                               filename: { type: [string, "null"] }
                               previewUrl: { type: [string, "null"] }
                               payload:
@@ -30805,8 +30973,18 @@ paths:
                                 additionalProperties: true
                                 description: 'Template content (title, subtitle, image, buttons) when type is template'
                         subject: { type: [string, "null"], description: Reddit message subject }
-                        storyReply: { type: [boolean, "null"], description: Instagram story reply }
-                        isStoryMention: { type: [boolean, "null"], description: Instagram story mention }
+                        storyReply:
+                          type: object
+                          description: 'Instagram only. Present when the message replies to one of the account''s stories. Also set on history imported after connecting, read off Meta''s `story.reply_to`.'
+                          properties:
+                            storyId: { type: string, description: The Instagram story ID the user replied to. }
+                            storyUrl: { type: string, description: 'Meta CDN URL for the story media. Expires roughly 24 hours after the story posted; fetch promptly or treat 404s as expected.' }
+                        isStoryMention:
+                          type: boolean
+                          description: 'Instagram only. True when the message is the user mentioning the account in their own story. The story itself is the `share` attachment with `originalType: "story_mention"`. Also set on imported history, read off Meta''s `story.mention`.'
+                        noRenderableContent:
+                          type: boolean
+                          description: 'Instagram and Facebook Messenger only. True when Meta withholds the content of this message from the API (its `is_unsupported` flag): `message` is empty, `attachments` is empty, and there is nothing to fetch, now or later. Distinguishes such a message from an ordinary empty one such as a story reply with no text. Absent on other platforms.'
                         # ─── Lifecycle state (edits, deletes, delivery) ──────────────
                         # Populated by webhook events from the platforms that support
                         # them. See the support matrix in the Webhooks description
@@ -45020,6 +45198,15 @@ paths:
         When someone comments a matching keyword (or, with `trigger: story_reply`, replies
         to your Instagram story with one), they automatically receive a DM.
 
+        To continue into a specific workflow after the recipient taps a button, use
+        `{"type":"postback","title":"Send it","payload":"zernio:workflow:<workflowId>"}`.
+        The target must be active and belong to the same account and profile. This also
+        works for product-card buttons. The tap starts that workflow directly, without
+        matching its keyword or first-message condition. A different live workflow in
+        the conversation is exited; tapping the same live workflow does not restart it
+        or consume a pending reply. Stale or invalid targets do nothing. The initial
+        comment DM alone does not start the workflow: the recipient must tap.
+
         Triggers (`trigger`):
           * `comment` (default): fires on keyword comments on a post or reel.
           * `story_reply`: fires when someone replies to your Instagram story with a keyword,
@@ -49630,7 +49817,6 @@ paths:
         Unified read of the platform's native click-URL tracking params.
         - Meta (facebook/instagram): the creative's `url_tags` (and template_url_spec).
         - Google (googleads): the campaign's `trackingUrlTemplate` + `finalUrlSuffix`.
-          Subject to the Google Ads API access-tier daily quota; bulk audits need Standard access.
         - LinkedIn (linkedinads): the campaign's Dynamic UTM `dynamicValueParameters` + `customValueParameters`.
         Returns 405 for platforms without a click-URL tracking surface (TikTok, X, Pinterest).
 
@@ -50376,6 +50562,70 @@ paths:
                         username: { type: [string, "null"] }
                         profileImage: { type: [string, "null"] }
                         identityAuthorizedBcId: { type: [string, "null"], description: "Business Center that authorized a BC_AUTH_TT identity" }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+  /v1/ads/tiktok-smart-plus-materials:
+    get:
+      x-resource-group: "ads"
+      operationId: getTikTokSmartPlusMaterialReport
+      tags: ["Ad Insights"]
+      x-platforms: ["tiktok"]
+      summary: Per-creative performance inside TikTok Smart+ ads
+      description: "Breaks a Smart+ ad (or ad group) down by creative material, one row per Spark post, video or image, from TikTok's Smart+ material report. For a Spark post `tiktokItemId` is the TikTok post id. Conversion metrics are TikTok web (pixel) events. TikTok allows two dimensions per report, so rows are keyed by the Smart+ ad (`level=ad`) or by the ad group (`level=adGroup`), not both. Metrics TikTok returns empty come back as null."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A tiktok or tiktokads account ID" }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "TikTok advertiser ID" }
+        - { name: startDate, in: query, required: true, schema: { type: string, format: date }, description: "YYYY-MM-DD, in the advertiser's time zone" }
+        - { name: endDate, in: query, required: true, schema: { type: string, format: date }, description: "YYYY-MM-DD, on or after startDate" }
+        - { name: level, in: query, required: false, schema: { type: string, enum: [ad, adGroup], default: ad }, description: "Key each row by Smart+ ad or by ad group" }
+        - { name: smartPlusAdIds, in: query, required: false, schema: { type: string }, description: "Comma-separated Smart+ ad ids to filter by (up to 100)" }
+        - { name: adGroupIds, in: query, required: false, schema: { type: string }, description: "Comma-separated ad group ids to filter by (up to 100)" }
+        - { name: page, in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 1000, default: 100 } }
+      responses:
+        '200':
+          description: Material rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  level: { type: string, enum: [ad, adGroup] }
+                  startDate: { type: string }
+                  endDate: { type: string }
+                  page: { type: integer }
+                  pageSize: { type: integer }
+                  totalRows: { type: integer }
+                  totalPages: { type: integer }
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        materialId: { type: string, description: "TikTok main material id" }
+                        materialType: { type: [string, "null"], description: "e.g. VIDEO_SPARK_ADS, VIDEO, IMAGE" }
+                        tiktokItemId: { type: [string, "null"], description: "The TikTok post id when the material is a Spark post" }
+                        name: { type: [string, "null"], description: "Material name or post caption" }
+                        smartPlusAdId: { type: [string, "null"], description: "Set when level=ad" }
+                        adGroupId: { type: [string, "null"], description: "Set when level=adGroup" }
+                        metrics:
+                          type: object
+                          properties:
+                            spend: { type: [number, "null"] }
+                            impressions: { type: [number, "null"] }
+                            clicks: { type: [number, "null"] }
+                            cpc: { type: [number, "null"] }
+                            addToCart: { type: [number, "null"] }
+                            initiateCheckout: { type: [number, "null"] }
+                            addPaymentInfo: { type: [number, "null"] }
+                            purchases: { type: [number, "null"] }
+                            purchaseValue: { type: [number, "null"] }
+                            roas: { type: [number, "null"] }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -53922,6 +54172,7 @@ paths:
         '400':
           description: Missing required fields or invalid values
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/MetaAdAccountWriteLimited' }
         '403':
           description: 'Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans. Also returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
         '409':
@@ -55182,6 +55433,7 @@ paths:
         '400':
           description: 'Missing required fields, invalid values, non-Meta platform used with creatives[] / adSetId, or a Meta validateOnly validation failure (verbatim)'
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/MetaAdAccountWriteLimited' }
         '403':
           description: 'Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans. Also returned with code `ads_allowance_exceeded` when the team has no payment method on file and has reached the 500 free live ads: add a card to resume.'
         '422':

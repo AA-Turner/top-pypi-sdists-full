@@ -35,7 +35,7 @@ extras_require["all"] = sorted({pkg for group in extras_require.values() for pkg
 
 setuptools.setup(
     name="abstract_utilities",
-    version='0.2.2.788',
+    version='0.2.2.791',
     author="putkoff",
     author_email="partners@abstractendeavors.com",
     description="Utility modules for data comparison, JSON handling, string manipulation, math operations, and general automation tasks.",

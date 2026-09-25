@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 
 from sqlalchemy import and_
 from sqlalchemy import cast
@@ -29,6 +30,7 @@ from sqlalchemy import tuple_
 from sqlalchemy import Uuid
 from sqlalchemy import values
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.dialects.postgresql import HSTORE
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import REGCONFIG
 from sqlalchemy.sql.expression import type_coerce
@@ -39,6 +41,7 @@ from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
+from sqlalchemy.testing import mock
 from sqlalchemy.testing.assertsql import CursorSQL
 from sqlalchemy.testing.assertsql import DialectSQL
 
@@ -161,7 +164,22 @@ class InsertTest(fixtures.TestBase, AssertsExecutionResults):
         metadata.create_all(connection)
         self._assert_data_noautoincrement(connection, table)
 
-    def test_full_cursor_insertmanyvalues_sql(self, metadata, connection):
+    @testing.variation(
+        "default_type",
+        [
+            "ss_sequence",
+            ("sd_uuidv7", testing.only_on("postgresql>=18")),
+            ("cd_uuidv7", testing.only_on("postgresql>=18")),
+        ],
+    )
+    @testing.variation("set_sentinel", [True, False])
+    def test_full_cursor_insertmanyvalues_sql(
+        self,
+        metadata,
+        connection,
+        default_type: testing.Variation,
+        set_sentinel: testing.Variation,
+    ):
         """test compilation/ execution of the subquery form including
         the fix for #13015
 
@@ -173,22 +191,49 @@ class InsertTest(fixtures.TestBase, AssertsExecutionResults):
 
         """
 
-        my_table = Table(
-            "my_table",
-            metadata,
-            Column("data1", String(50)),
-            Column(
+        if set_sentinel:
+            col_kw: dict[str, Any] = {"insert_sentinel": True}
+        else:
+            col_kw = {}
+
+        if default_type.ss_sequence:
+            col = Column(
                 "id",
                 Integer,
                 Sequence("foo_id_seq", start=1, data_type=Integer),
                 primary_key=True,
-            ),
+                **col_kw,
+            )
+        elif default_type.sd_uuidv7:
+            col = Column(
+                "id",
+                Uuid(),
+                server_default=func.uuidv7(monotonic=True),
+                primary_key=True,
+                **col_kw,
+            )
+        elif default_type.cd_uuidv7:
+            col = Column(
+                "id",
+                Uuid(),
+                default=func.uuidv7(monotonic=True),
+                primary_key=True,
+                **col_kw,
+            )
+        else:
+            default_type.fail()
+
+        my_table = Table(
+            "my_table",
+            metadata,
+            Column("data1", String(50)),
+            col,
             Column("data2", String(50)),
         )
 
         my_table.create(connection)
         with self.sql_execution_asserter(connection) as assert_:
-            connection.execute(
+            result = connection.execute(
                 my_table.insert().returning(
                     my_table.c.data1,
                     my_table.c.id,
@@ -198,6 +243,16 @@ class InsertTest(fixtures.TestBase, AssertsExecutionResults):
                     {"data1": f"d1 row {i}", "data2": f"d2 row {i}"}
                     for i in range(10)
                 ],
+            )
+
+        rows = result.all()
+        if default_type.ss_sequence:
+            eq_(rows, [(f"d1 row {i}", i + 1) for i in range(10)])
+        else:
+            # monotonic UUIDs are sorted
+            eq_(
+                list(sorted(rows, key=lambda row: row.id)),
+                [(f"d1 row {i}", mock.ANY) for i in range(10)],
             )
 
         render_bind_casts = (
@@ -248,12 +303,27 @@ class InsertTest(fixtures.TestBase, AssertsExecutionResults):
         else:
             assert False
 
+        if default_type.ss_sequence:
+            sqlfunc_sql = "nextval('foo_id_seq'), "
+            ins_cols = "id, "
+            p2 = "p2"
+        elif default_type.sd_uuidv7:
+            sqlfunc_sql = ""
+            ins_cols = ""
+            p2 = "p1"
+        elif default_type.cd_uuidv7:
+            sqlfunc_sql = "uuidv7(), "
+            ins_cols = "id, "
+            p2 = "p2"
+        else:
+            default_type.fail()
+
         assert_.assert_(
             CursorSQL(
-                "INSERT INTO my_table (data1, id, data2) "
-                f"SELECT p0::VARCHAR, nextval('foo_id_seq'), p2::VARCHAR "
+                f"INSERT INTO my_table (data1, {ins_cols}data2) "
+                f"SELECT p0::VARCHAR, {sqlfunc_sql}{p2}::VARCHAR "
                 f"FROM (VALUES {params}) "
-                "AS imp_sen(p0, p2, sen_counter) ORDER BY sen_counter "
+                f"AS imp_sen(p0, {p2}, sen_counter) ORDER BY sen_counter "
                 "RETURNING my_table.data1, my_table.id, my_table.id AS id__1",
                 parameters,
             )
@@ -2101,7 +2171,7 @@ class JSONQueryTest(fixtures.TablesTest):
         )
 
     @testing.combinations(
-        (cast({"foo": "bar"}, JSONB)["foo"], "bar"),
+        (lambda: cast({"foo": "bar"}, JSONB)["foo"], "bar"),
         (
             cast({"user": {"name": "Alice", "age": 30}}, JSONB)["user"][
                 "name"
@@ -2147,3 +2217,150 @@ class JSONQueryTest(fixtures.TablesTest):
         stmt = select(expr)
         result = connection.scalar(stmt)
         eq_(result, expected)
+
+
+class HstoreUpdateTest(fixtures.TablesTest):
+    """round trip tests related to using HSTORE in UPDATE statements
+    with PG-specific features
+
+    """
+
+    __only_on__ = "postgresql"
+    __backend__ = True
+    __requires__ = ("native_hstore",)
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "t",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("h", HSTORE),
+        )
+
+    @classmethod
+    def insert_data(cls, connection):
+        connection.execute(
+            cls.tables["t"].insert(),
+            [
+                {"id": 1, "h": {"k1": "v1", "k2": "v2"}},
+                {"id": 2, "h": {"k3": "v3", "k4": "v4"}},
+            ],
+        )
+
+    @testing.only_on("postgresql>=14")
+    def test_hstore_element_update_basic(self, connection):
+        """Test updating individual HSTORE elements with subscript syntax
+
+        test #12948
+
+        """
+        t = self.tables["t"]
+
+        # Insert test data with HSTORE
+        connection.execute(
+            t.insert(),
+            [
+                {
+                    "id": 10,
+                    "h": {"name": "Alice", "status": "active"},
+                },
+                {
+                    "id": 11,
+                    "h": {"name": "Bob", "status": "inactive"},
+                },
+            ],
+        )
+
+        # Update specific elements using HSTORE subscript syntax
+        # This tests the new HSTORE subscripting feature from issue #12948
+        connection.execute(
+            t.update()
+            .values({t.c.h["name"]: "Alice Updated"})
+            .where(t.c.id == 10)
+        )
+
+        connection.execute(
+            t.update().values({t.c.h["status"]: "active"}).where(t.c.id == 11)
+        )
+
+        results = connection.execute(
+            t.select().where(t.c.id.in_([10, 11])).order_by(t.c.id)
+        )
+
+        eq_(
+            [row.h for row in results],
+            [
+                {"name": "Alice Updated", "status": "active"},
+                {"name": "Bob", "status": "active"},
+            ],
+        )
+
+    @testing.only_on("postgresql>=14")
+    def test_hstore_element_update_multiple_keys(self, connection):
+        """Test updating multiple HSTORE elements in a single statement
+
+        test #12948
+
+        """
+        t = self.tables["t"]
+
+        connection.execute(
+            t.insert(),
+            {
+                "id": 20,
+                "h": {
+                    "config_theme": "dark",
+                    "config_lang": "en",
+                    "version": "1",
+                },
+            },
+        )
+
+        # Update multiple elements at once
+        connection.execute(
+            t.update()
+            .values({t.c.h["config_theme"]: "light", t.c.h["version"]: "2"})
+            .where(t.c.id == 20)
+        )
+
+        # Verify the updates
+        row = connection.execute(t.select().where(t.c.id == 20)).one()
+
+        eq_(
+            row.h,
+            {"config_theme": "light", "config_lang": "en", "version": "2"},
+        )
+
+    @testing.only_on("postgresql>=14")
+    def test_hstore_element_update_new_key(self, connection):
+        """Test adding new keys to HSTORE using subscript syntax
+
+        test #12948
+
+        """
+        t = self.tables["t"]
+
+        # Insert test data
+        connection.execute(
+            t.insert(),
+            {
+                "id": 30,
+                "h": {"existing_key": "existing_value"},
+            },
+        )
+
+        # Add a new key using subscript syntax
+        connection.execute(
+            t.update()
+            .values({t.c.h["new_key"]: "new_value"})
+            .where(t.c.id == 30)
+        )
+
+        # Verify the update
+        row = connection.execute(t.select().where(t.c.id == 30)).fetchone()
+
+        eq_(
+            row.h,
+            {"existing_key": "existing_value", "new_key": "new_value"},
+        )

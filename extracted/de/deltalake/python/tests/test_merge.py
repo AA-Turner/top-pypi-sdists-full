@@ -2972,37 +2972,6 @@ def _merge_with_type_mismatch_actions(merger, action_style: str):
 
 
 @pytest.mark.pyarrow
-def test_merge_from_without_files_table_preserves_state(tmp_path: pathlib.Path):
-    import pyarrow as pa
-
-    target = pa.table({"id": [1, 2], "value": ["a", "b"]})
-    source = pa.table({"id": [2, 3], "value": ["bb", "c"]})
-    write_deltalake(tmp_path, target)
-
-    dt = DeltaTable(tmp_path, without_files=True)
-    metrics = (
-        dt.merge(
-            source=source,
-            predicate="target.id = source.id",
-            source_alias="source",
-            target_alias="target",
-        )
-        .when_matched_update({"value": "source.value"})
-        .when_not_matched_insert({"id": "source.id", "value": "source.value"})
-        .execute()
-    )
-
-    assert int(metrics["num_target_rows_updated"]) == 1
-    assert int(metrics["num_target_rows_inserted"]) == 1
-
-    result = DeltaTable(tmp_path).to_pyarrow_table().sort_by("id")
-    assert result["value"].to_pylist() == ["a", "bb", "c"]
-
-    with pytest.raises(DeltaError, match="Table is instantiated without files\\."):
-        dt.get_add_actions(flatten=True)
-
-
-@pytest.mark.pyarrow
 @pytest.mark.parametrize("action_style", ("all", "explicit"))
 def test_merge_type_mismatch_default_castable_value_succeeds(
     tmp_path: pathlib.Path, action_style: str
@@ -3788,3 +3757,42 @@ def test_merge_file_pruning_regression_3636(tmp_path: pathlib.Path):
     assert files_scanned <= 1, (
         f"The number of target files scanned was too large! {files_scanned}"
     )
+
+
+@pytest.mark.pyarrow
+@pytest.mark.parametrize("cdf", (False, True))
+def test_merge_insert_predicate_skips_rejected_rows_4784(
+    tmp_path: pathlib.Path, cdf: bool
+):
+    # Regression test for https://github.com/delta-io/delta-rs/issues/4784
+    import pyarrow as pa
+
+    write_deltalake(
+        tmp_path,
+        pa.table({"id": pa.array([1], pa.int64()), "v": pa.array([10.0])}),
+        configuration={"delta.enableChangeDataFeed": "true"} if cdf else None,
+    )
+    # id 2 should be inserted; id 99 fails the insert predicate and must be ignored
+    source = pa.table(
+        {
+            "id": pa.array([2, 99], pa.int64()),
+            "v": pa.array([20.0, None]),
+            "op": pa.array(["insert", "skip"]),
+        }
+    )
+    (
+        DeltaTable(tmp_path)
+        .merge(
+            source=source,
+            predicate="t.id = s.id",
+            source_alias="s",
+            target_alias="t",
+        )
+        .when_not_matched_insert(
+            updates={"id": "s.id", "v": "s.v"}, predicate="s.op = 'insert'"
+        )
+        .execute()
+    )
+
+    result = DeltaTable(tmp_path).to_pyarrow_table().sort_by("id").to_pylist()
+    assert result == [{"id": 1, "v": 10.0}, {"id": 2, "v": 20.0}]

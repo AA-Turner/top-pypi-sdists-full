@@ -68,7 +68,7 @@ def fix(x):
 
 def qnwcheb(n, a=1, b=1):
     """
-    Computes multivariate Guass-Checbychev quadrature nodes and weights.
+    Computes multivariate Gauss-Chebyshev quadrature nodes and weights.
 
     Parameters
     ----------
@@ -137,7 +137,9 @@ def qnwequi(n, a, b, kind="N", equidist_pp=None, random_state=None):
         - R - pseudo Random
 
     equidist_pp : array_like, optional(default=None)
-        TODO: I don't know what this does
+        Array of generators used by the Weyl ('W') and Haber ('H')
+        sequences. If None, defaults to the square roots of the primes
+        below 7920. Only the first d entries are used.
 
     random_state : int or np.random.RandomState/Generator, optional
         Random seed (integer) or np.random.RandomState or Generator
@@ -168,8 +170,7 @@ def qnwequi(n, a, b, kind="N", equidist_pp=None, random_state=None):
     random_state = check_random_state(random_state)
 
     if equidist_pp is None:
-        import sympy as sym
-        equidist_pp = np.sqrt(np.array(list(sym.primerange(0, 7920))))
+        equidist_pp = np.sqrt(_primes_below(7920))
 
     n, a, b = list(map(np.atleast_1d, list(map(np.asarray, [n, a, b]))))
 
@@ -210,9 +211,23 @@ def qnwequi(n, a, b, kind="N", equidist_pp=None, random_state=None):
     return nodes, weights
 
 
+def _primes_below(n):
+    """
+    Return all primes strictly less than n, by the Sieve of
+    Eratosthenes.
+
+    """
+    sieve = np.ones(n, dtype=bool)
+    sieve[:2] = False
+    for i in range(2, math.isqrt(n) + 1):
+        if sieve[i]:
+            sieve[i*i::i] = False
+    return np.flatnonzero(sieve)
+
+
 def qnwlege(n, a, b):
     """
-    Computes multivariate Guass-Legendre  quadrature nodes and weights.
+    Computes multivariate Gauss-Legendre  quadrature nodes and weights.
 
     Parameters
     ----------
@@ -590,11 +605,10 @@ def qnwbeta(n, a=1.0, b=1.0):
         A length-d iterable of the number of nodes in each dimension
 
     a : scalar or array_like(float), optional(default=1.0)
-        A length-d
+        A length-d iterable of first Beta distribution parameters
 
-    b : array_like(float), optional(default=1.0)
-        A d x d array representing the variance-covariance matrix of the
-        multivariate normal distribution.
+    b : scalar or array_like(float), optional(default=1.0)
+        A length-d iterable of second Beta distribution parameters
 
     Returns
     -------
@@ -687,8 +701,11 @@ def _make_multidim_func(one_d_func, n, *args):
 
     Returns
     -------
-    func : function
-        The multi-dimensional version of the parameter ``one_d_func``
+    nodes : np.ndarray(dtype=float)
+        Quadrature nodes
+
+    weights : np.ndarray(dtype=float)
+        Weights for quadrature nodes
 
 
     """
@@ -723,7 +740,7 @@ def _make_multidim_func(one_d_func, n, *args):
 @jit(nopython=True)
 def _qnwcheb1(n, a, b):
     """
-    Compute univariate Guass-Checbychev quadrature nodes and weights
+    Compute univariate Gauss-Chebyshev quadrature nodes and weights
 
     Parameters
     ----------
@@ -741,7 +758,7 @@ def _qnwcheb1(n, a, b):
     nodes : np.ndarray(dtype=float)
         An n element array of nodes
 
-    nodes : np.ndarray(dtype=float)
+    weights : np.ndarray(dtype=float)
         An n element array of weights
 
     Notes
@@ -772,7 +789,7 @@ def _qnwcheb1(n, a, b):
 @jit(nopython=True)
 def _qnwlege1(n, a, b):
     """
-    Compute univariate Guass-Legendre quadrature nodes and weights
+    Compute univariate Gauss-Legendre quadrature nodes and weights
 
     Parameters
     ----------
@@ -790,7 +807,7 @@ def _qnwlege1(n, a, b):
     nodes : np.ndarray(dtype=float)
         An n element array of nodes
 
-    nodes : np.ndarray(dtype=float)
+    weights : np.ndarray(dtype=float)
         An n element array of weights
 
     Notes
@@ -862,7 +879,7 @@ def _qnwnorm1(n):
     nodes : np.ndarray(dtype=float)
         An n element array of nodes
 
-    nodes : np.ndarray(dtype=float)
+    weights : np.ndarray(dtype=float)
         An n element array of weights
 
     Notes
@@ -946,7 +963,7 @@ def _qnwsimp1(n, a, b):
     nodes : np.ndarray(dtype=float)
         An n element array of nodes
 
-    nodes : np.ndarray(dtype=float)
+    weights : np.ndarray(dtype=float)
         An n element array of weights
 
     Notes
@@ -995,7 +1012,7 @@ def _qnwtrap1(n, a, b):
     nodes : np.ndarray(dtype=float)
         An n element array of nodes
 
-    nodes : np.ndarray(dtype=float)
+    weights : np.ndarray(dtype=float)
         An n element array of weights
 
     Notes

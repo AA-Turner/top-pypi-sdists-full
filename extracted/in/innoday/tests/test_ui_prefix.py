@@ -1,20 +1,15 @@
-"""The `/ui` page prefix and the 301s from the addresses those pages used to have.
+"""The browser pages' addresses, now that innoday-ui serves them.
 
-The API half of the app is `/api/v1/*`; the browser pages are `/ui/*`. Both are
-served by one process on one host -- `inno.day`'s DNS is at GoDaddy, which cannot
-point an apex domain at Railway, so everything consolidated onto `www.inno.day`
-and the two halves segment by path instead of by hostname.
+The pages moved out of this app into innoday-ui, at ``APP_URL``, at the same
+``/ui`` paths. What needs guarding is that no address anybody already holds stops
+working -- ``/ui/auth/callback`` is where Supabase lands every invite and magic
+link, so a broken one locks invitees out the way #414 did:
 
-What actually needs guarding here is the migration, not the prefix. `/auth/callback`
-is where Supabase lands every invite and magic link, so three things must hold or
-invitees get locked out the way they were in #414:
-
-  1. the pages answer at their `/ui` addresses;
-  2. the pre-`/ui` addresses still answer, as redirects that keep the query string
-     (invite emails already delivered carry those paths, and Supabase's allowlist
-     still lists them);
-  3. *both* sets bypass the team-secret gate -- that middleware runs before
-     routing, so an un-exempt legacy path would 401 rather than redirect.
+  1. every ``/ui`` address here 301s to the same path on ``APP_URL``;
+  2. the pre-``/ui`` addresses 301 there too, keeping the query string (invite
+     emails already delivered carry them, and Supabase's allowlist lists them);
+  3. both work without the team secret -- a browser from an email has none;
+  4. an ``APP_URL`` pointing back at this host refuses rather than looping.
 """
 
 import pytest
@@ -30,63 +25,64 @@ from src.page_paths import (
 PAGE_PATHS = [AUTH_CALLBACK_PATH, INVITE_ACCEPT_PATH, DEVICE_PATH]
 
 
-class TestPagesLiveUnderUi:
-    @pytest.mark.parametrize("path", PAGE_PATHS)
-    def test_page_is_served_and_is_html(self, client, path):
-        resp = client.get(path)
-        assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith("text/html")
+UI = "https://ui.example"
 
+
+@pytest.fixture
+def ui_url(monkeypatch):
+    monkeypatch.setenv("APP_URL", UI)
+
+
+class TestPagePathsCarryTheUiPrefix:
     @pytest.mark.parametrize("path", PAGE_PATHS)
     def test_path_carries_the_ui_prefix(self, path):
         assert path.startswith(f"{UI_PREFIX}/")
 
 
-class TestLegacyPathsStillRedirect:
+class TestOldAddressesRedirectToTheNewUi:
     """Old addresses must keep working: they are in emails we already sent."""
 
+    @pytest.mark.parametrize(
+        "path", PAGE_PATHS + [UI_PREFIX, f"{UI_PREFIX}/hs/projects/pf/releases"]
+    )
+    def test_ui_paths_move_to_the_same_path(self, client, ui_url, path):
+        resp = client.get(path, follow_redirects=False)
+        assert resp.status_code == 301
+        assert resp.headers["location"] == f"{UI}{path}"
+
     @pytest.mark.parametrize("legacy,target", sorted(LEGACY_REDIRECTS.items()))
-    def test_redirects_permanently_to_the_ui_path(self, client, legacy, target):
+    def test_legacy_paths_move_to_the_ui_path(self, client, ui_url, legacy, target):
         resp = client.get(legacy, follow_redirects=False)
         assert resp.status_code == 301
-        assert resp.headers["location"] == target
+        assert resp.headers["location"] == f"{UI}{target}"
 
-    @pytest.mark.parametrize("legacy,target", sorted(LEGACY_REDIRECTS.items()))
-    def test_query_string_survives_the_redirect(self, client, legacy, target):
+    @pytest.mark.parametrize("path", sorted(LEGACY_REDIRECTS) + [DEVICE_PATH])
+    def test_query_string_survives_the_redirect(self, client, ui_url, path):
         # The invite token and the device user_code both ride in the query
         # string; dropping it turns a working link into a blank page.
-        resp = client.get(f"{legacy}?token=abc123&x=1", follow_redirects=False)
+        resp = client.get(f"{path}?token=abc123&x=1", follow_redirects=False)
         assert resp.status_code == 301
-        assert resp.headers["location"] == f"{target}?token=abc123&x=1"
+        assert resp.headers["location"].endswith("?token=abc123&x=1")
 
-    @pytest.mark.parametrize("legacy", sorted(LEGACY_REDIRECTS))
-    def test_following_the_redirect_reaches_the_page(self, client, legacy):
-        resp = client.get(legacy)
-        assert resp.status_code == 200
-        assert resp.headers["content-type"].startswith("text/html")
+    def test_app_url_naming_this_host_refuses_instead_of_looping(
+        self, client, monkeypatch
+    ):
+        monkeypatch.setenv("APP_URL", "http://testserver")
+        resp = client.get(DEVICE_PATH, follow_redirects=False)
+        assert resp.status_code == 404
+        assert "innoday-ui" in resp.text
 
 
-class TestTeamSecretExemptions:
-    """Both path sets must be exempt, for different reasons.
-
-    The `/ui` pages because a browser arriving from an email cannot send the
-    header; the legacy paths because the middleware short-circuits before the
-    router, so a 401 would replace the redirect.
-    """
-
-    @pytest.mark.parametrize("path", PAGE_PATHS + sorted(LEGACY_REDIRECTS))
-    def test_path_is_exempt(self, path):
-        from src.api.middleware.team_secret import EXEMPT_PATHS
-
-        assert path in EXEMPT_PATHS
+class TestRedirectsNeedNoSecret:
+    """A browser arriving from an email cannot send the header."""
 
     @pytest.mark.parametrize("path", PAGE_PATHS + sorted(LEGACY_REDIRECTS))
     def test_reachable_without_the_header_when_the_gate_is_on(
-        self, client, monkeypatch, path
+        self, client, monkeypatch, ui_url, path
     ):
         monkeypatch.setenv("TEAM_ACCESS_SECRET", "a-secret-no-browser-has")
-        resp = client.get(path)
-        assert resp.status_code == 200, f"{path} was gated: {resp.status_code}"
+        resp = client.get(path, follow_redirects=False)
+        assert resp.status_code == 301, f"{path} was gated: {resp.status_code}"
 
 
 class TestOutboundLinksUseTheUiPaths:
@@ -142,3 +138,11 @@ class TestApiHalfIsUntouched:
 
     def test_health_is_not_behind_the_ui_prefix(self, client):
         assert client.get("/health").status_code == 200
+
+
+class TestEncodedPathsStayUnderUi:
+    def test_an_encoded_traversal_is_passed_through_undecoded(self, client, ui_url):
+        """Decoded, `..%2f` would climb out of /ui on APP_URL."""
+        resp = client.get("/ui/..%2f..%2fx", follow_redirects=False)
+        assert resp.status_code == 301
+        assert resp.headers["location"] == f"{UI}/ui/..%2f..%2fx"

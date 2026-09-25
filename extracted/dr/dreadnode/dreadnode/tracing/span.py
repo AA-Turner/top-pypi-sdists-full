@@ -1,16 +1,27 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import hashlib
+import json
 import time
 import typing as t
+from collections import deque
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextvars import ContextVar, Token
-from datetime import UTC, datetime
-from pathlib import Path
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
+from decimal import Decimal
+from enum import Enum
+from pathlib import Path, PurePath
+from re import Pattern
+from threading import BoundedSemaphore
 from uuid import UUID, uuid4
 
+import pydantic
 import typing_extensions as te
 from logfire._internal.json_encoder import logfire_json_dumps as json_dumps
+from logfire._internal.json_encoder import to_json_value
 from logfire._internal.json_schema import (
     JsonSchemaProperties,
     attributes_json_schema,
@@ -65,6 +76,28 @@ from dreadnode.tracing.constants import (
 from dreadnode.version import VERSION
 
 R = t.TypeVar("R")
+
+# Bound queued uploads as well as worker threads. Saturation keeps values inline
+# instead of blocking application work or growing an unbounded upload queue.
+# This pool serves all SDK instances and runtime lifespans in the process.
+# Leave shutdown to the interpreter; closing it with one server would disable
+# uploads for subsequent or concurrently running instances.
+_OBJECT_UPLOAD_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="dn-trace-object")
+_OBJECT_UPLOAD_SLOTS = BoundedSemaphore(32)
+_object_storage_timing: ContextVar[t.Callable[[str], None] | None] = ContextVar(
+    "object_storage_timing", default=None
+)
+
+
+@contextlib.contextmanager
+def bind_object_storage_timing(callback: t.Callable[[str], None]) -> t.Iterator[None]:
+    """Attribute background storage stages to the turn that queued the object."""
+    token = _object_storage_timing.set(callback)
+    try:
+        yield
+    finally:
+        _object_storage_timing.reset(token)
+
 
 if t.TYPE_CHECKING:
     import types
@@ -429,6 +462,8 @@ class TaskSpan(Span, t.Generic[R]):
         # Object storage
         self._storage = storage
         self._objects: dict[str, Object] = {}
+        self._object_uploads: dict[str, Future[ObjectUri | None]] = {}
+        self._objects_finalized = False
         self._object_schemas: dict[str, JsonDict] = {}
 
         # Data tracking
@@ -527,6 +562,11 @@ class TaskSpan(Span, t.Generic[R]):
     ) -> None:
         if self._remote_context is not None:
             super().__enter__()  # Open actual span for remote continuation
+
+        # Never wait on storage, including when the task fails or is cancelled.
+        # Ended OTEL spans are immutable: unfinished uploads retain inline data.
+        self._objects_finalized = True
+        self._resolve_object_uploads(finalize=True)
 
         # Store final state as attributes
         self.set_attribute(SPAN_ATTRIBUTE_PARAMS, self._params, schema=False)
@@ -663,10 +703,14 @@ class TaskSpan(Span, t.Generic[R]):
 
     def _store_file_by_hash(self, data_bytes: bytes, full_path: str) -> str:
         """Store file to remote storage."""
+        from fsspec.implementations.local import LocalFileSystem
+
         if self._storage is None:
             raise RuntimeError("Storage is not configured for file storage.")
 
         filesystem = self._storage._get_filesystem()
+        if isinstance(filesystem, LocalFileSystem):
+            raise TypeError("Remote storage is unavailable.")
         logger.debug(
             "Storing object by hash: path={}, fs_type={}",
             full_path,
@@ -680,43 +724,81 @@ class TaskSpan(Span, t.Generic[R]):
         return str(filesystem.unstrip_protocol(full_path))
 
     def _create_object_by_hash(self, serialized: Serialized, object_hash: str) -> Object:
-        """Create an ObjectVal or ObjectUri depending on size."""
-        data = serialized.data
-        data_bytes = serialized.data_bytes
-        data_len = serialized.data_len
-        data_hash = serialized.data_hash
-        schema_hash = serialized.schema_hash
+        """Keep data inline until its background upload has succeeded."""
+        obj = ObjectVal(hash=object_hash, value=serialized.data, schema_hash=serialized.schema_hash)
+        if (
+            self._storage is None
+            or not self._storage.can_sync
+            or serialized.data is None
+            or serialized.data_bytes is None
+            or serialized.data_len <= 10 * 1024
+        ):
+            return obj
 
-        # Keep small objects inline
-        if self._storage is None or data is None or data_bytes is None or data_len <= 10 * 1024:
-            return ObjectVal(
-                hash=object_hash,
-                value=data,
-                schema_hash=schema_hash,
-            )
-
-        # Offload large objects to remote storage if available, otherwise keep inline
+        slots = _OBJECT_UPLOAD_SLOTS
+        if not slots.acquire(blocking=False):
+            return obj
         try:
+            future = _OBJECT_UPLOAD_EXECUTOR.submit(
+                self._upload_object, serialized, object_hash, _object_storage_timing.get()
+            )
+        except RuntimeError:
+            slots.release()
+            return obj
+        future.add_done_callback(lambda _future: slots.release())
+        self._object_uploads[object_hash] = future
+        return obj
+
+    def _upload_object(
+        self,
+        serialized: Serialized,
+        object_hash: str,
+        timing: t.Callable[[str], None] | None,
+    ) -> ObjectUri | None:
+        """Resolve credentials and write bytes entirely on an upload worker."""
+        try:
+            if self._objects_finalized or self._storage is None or serialized.data_bytes is None:
+                return None
+            # Refresh before resolving bucket/prefix, and never publish a local
+            # fallback URI as though it were accessible to the platform.
+            if self._storage._is_local_filesystem():
+                return None
             bucket = self._storage.remote_bucket
             prefix = self._storage.remote_prefix
-            full_path = f"{bucket}/{prefix.rstrip('/')}/{data_hash}"
-            object_uri = self._store_file_by_hash(data_bytes, full_path)
+            if timing is not None:
+                timing("storage_ready")
+            full_path = f"{bucket}/{prefix.rstrip('/')}/{serialized.data_hash}"
+            object_uri = self._store_file_by_hash(serialized.data_bytes, full_path)
+            if timing is not None:
+                timing("object_stored")
             return ObjectUri(
                 hash=object_hash,
                 uri=object_uri,
-                schema_hash=schema_hash,
-                size=data_len,
+                schema_hash=serialized.schema_hash,
+                size=serialized.data_len,
             )
         except Exception:
             logger.debug("Remote object storage failed, keeping object inline", exc_info=True)
-            return ObjectVal(
-                hash=object_hash,
-                value=data,
-                schema_hash=schema_hash,
-            )
+            return None
+
+    def _resolve_object_uploads(self, *, finalize: bool = False) -> None:
+        for object_hash, future in list(self._object_uploads.items()):
+            if future.done() and not future.cancelled():
+                obj = future.result()
+                if obj is not None:
+                    obj.runtime_value = self._objects[object_hash].runtime_value
+                    self._objects[object_hash] = obj
+                del self._object_uploads[object_hash]
+            elif finalize:
+                # Do not cancel: the done callback would release the slot while
+                # the executor still retains the queued arguments. Let a worker
+                # dequeue the upload and skip this finalized span before the
+                # callback releases capacity. Running uploads finish normally.
+                del self._object_uploads[object_hash]
 
     def get_object(self, hash_: str) -> Object:
         """Get an object by its hash."""
+        self._resolve_object_uploads()
         return self._objects[hash_]
 
     def link_objects(
@@ -993,10 +1075,51 @@ def prepare_otlp_attributes(
     return {key: prepare_otlp_attribute(value) for key, value in attributes.items()}
 
 
+def _otlp_json_default(value: t.Any) -> t.Any:
+    """Encode the attribute values we produce ourselves the way logfire would.
+
+    Logfire's encoder builds its type table on first use by importing pandas
+    and numpy when they are installed, which on a runtime lands on the first
+    chat turn, before the first model call (ENG-8647). Metrics, timestamps and
+    the other values this module sets as attributes need none of that, so they
+    are encoded here with the same rules logfire applies to them; anything else
+    still goes through logfire's encoder.
+    """
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return {f.name: getattr(value, f.name) for f in dataclasses.fields(value) if f.repr}
+    if isinstance(value, pydantic.BaseModel):
+        return value.model_dump()
+    if isinstance(value, datetime | date | dt_time):
+        return value.isoformat()
+    if isinstance(value, timedelta):
+        return value.total_seconds()
+    if isinstance(value, set | frozenset | tuple | deque):
+        return list(value)
+    if isinstance(
+        value,
+        Decimal
+        | UUID
+        | PurePath
+        | Exception
+        | pydantic.AnyUrl
+        | pydantic.SecretStr
+        | pydantic.SecretBytes,
+    ):
+        return str(value)
+    if isinstance(value, Pattern):
+        return value.pattern
+    if isinstance(value, Enum):
+        return value.value
+    return to_json_value(value, set())
+
+
 def prepare_otlp_attribute(value: t.Any) -> otel_types.AttributeValue:
     if isinstance(value, str | int | bool | float):
         return value
-    return json_dumps(value)
+    try:
+        return json.dumps(value, default=_otlp_json_default, separators=(",", ":"))
+    except (TypeError, ValueError):
+        return json_dumps(value)
 
 
 def get_default_tracer() -> Tracer:

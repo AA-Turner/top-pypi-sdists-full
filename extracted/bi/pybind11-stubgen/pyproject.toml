@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pybind11-stubgen"
+description = "PEP 561 type stubs generator for pybind11 modules"
+version = "3.0.0"
+requires-python = ">=3.10"
+authors = [
+    {name = "Sergei Izmailov", email = "sergei.a.izmailov@gmail.com"},
+]
+maintainers = [
+    {name = "Axel Huebl"},
+    {name = "Skarn"},
+    {name = "Dustin Spicuzza"},
+]
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
+dynamic = ["readme"]
+
+[project.urls]
+Repository = "https://github.com/pybind/pybind11-stubgen"
+Issues = "https://github.com/pybind/pybind11-stubgen/issues"
+
+[dependency-groups]
+dev = [
+    "cmeel==0.59.0",
+    "cmeel-eigen==3.4.0.2",
+    "numpy~=1.20",
+    "pip",
+    "pre-commit>=4,<5",
+    "scipy~=1.0",
+    "typing_extensions>=4,<5",
+    "mypy>=1.19.1",
+]
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.md"], content-type = "text/markdown"}
+
+[project.entry-points.console_scripts]
+pybind11-stubgen = "pybind11_stubgen.__init__:main"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+exclude = ["tests/stubs"]
+
+[tool.ruff.lint]
+ignore = ["F403"]  # undefined names imported (triggered by native extensions)
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 88

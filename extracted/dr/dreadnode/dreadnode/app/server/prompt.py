@@ -32,44 +32,17 @@ _CONCEPTS_SKILL_NAME = "dreadnode-concepts"
 
 
 def _get_cli_commands() -> str:
-    """Extract CLI commands dynamically from cyclopts registry.
+    """List the shared command catalog without importing CLI implementations."""
+    from dreadnode.app.command_catalog import BUILTIN_COMMAND_SUMMARIES, LAZY_COMMANDS
 
-    Note: Accesses cyclopts internal `_commands` dict. If cyclopts changes
-    its internals, the CLI section will be omitted from the system prompt.
-    """
-    try:
-        from dreadnode.app.cli.main import cli, register_all_commands
-
-        # Subcommands import on demand (ENG-8259), and this listing is built
-        # once per process behind a cache. Under `dreadnode serve` nothing else
-        # would have registered them, so the agent's system prompt would name
-        # only the handful of commands defined in main.py, permanently.
-        register_all_commands()
-
-        # Access internal command registry — guarded by try/except
-        command_registry = getattr(cli, "_commands", None)
-        if command_registry is None:
-            return ""
-
-        commands: list[str] = []
-        for name, sub_app in command_registry.items():
-            # Skip flags like --help, --version
-            if name.startswith("-"):
-                continue
-
-            help_text = getattr(sub_app, "help", "") or ""
-            if not help_text:
-                default_cmd = getattr(sub_app, "default_command", None)
-                if default_cmd and hasattr(default_cmd, "__doc__") and default_cmd.__doc__:
-                    help_text = default_cmd.__doc__.strip().split("\n")[0]
-
-            if help_text:
-                commands.append(f"- `dreadnode {name}` — {help_text}")
-
-        return "\n".join(sorted(commands)) if commands else ""
-    except Exception:
-        logger.debug("CLI command introspection failed", exc_info=True)
-        return ""
+    commands = dict(BUILTIN_COMMAND_SUMMARIES)
+    for name, (_, alias, summary) in LAZY_COMMANDS.items():
+        commands[name] = summary
+        if alias:
+            commands[alias] = summary
+    return "\n".join(
+        sorted(f"- `dreadnode {name}` — {summary}" for name, summary in commands.items())
+    )
 
 
 def _get_slash_commands() -> str:

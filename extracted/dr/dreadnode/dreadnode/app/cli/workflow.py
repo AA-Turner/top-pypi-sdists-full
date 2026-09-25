@@ -206,7 +206,7 @@ def run(
             when possible, so `max_steps=200` is an int.
         local: Execute here, in this process, shipping facts to the platform as
             it goes. Without it the selected runtime executes the workflow.
-        model: Default model for agents using inherit. Requires --local;
+        model: Default model for agents using inherit. Requires `--local`;
             pinned agent models and explicit step models take precedence.
         runtime_id: Runtime that owns remote execution. Required unless `--local`.
         runtime_url: Runtime to run agents against when using `--local`.

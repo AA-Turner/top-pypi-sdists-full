@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Mapping
 from typing import Any, TypeVar, cast
+from uuid import UUID
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -28,8 +29,10 @@ class DatasetOverviewResponse:
         avg_duration_ms (int | None | Unset):
         latest_destination_name (None | str | Unset):
         latest_pipeline_name (None | str | Unset):
+        latest_pipeline_run_id (None | Unset | UUID):
         latest_run_at (datetime.datetime | None | Unset):
         latest_status (None | str | Unset):
+        table_count (int | Unset):  Default: 0.
     """
 
     dataset_name: str
@@ -43,8 +46,10 @@ class DatasetOverviewResponse:
     avg_duration_ms: int | None | Unset = UNSET
     latest_destination_name: None | str | Unset = UNSET
     latest_pipeline_name: None | str | Unset = UNSET
+    latest_pipeline_run_id: None | Unset | UUID = UNSET
     latest_run_at: datetime.datetime | None | Unset = UNSET
     latest_status: None | str | Unset = UNSET
+    table_count: int | Unset = 0
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -82,6 +87,14 @@ class DatasetOverviewResponse:
         else:
             latest_pipeline_name = self.latest_pipeline_name
 
+        latest_pipeline_run_id: None | str | Unset
+        if isinstance(self.latest_pipeline_run_id, Unset):
+            latest_pipeline_run_id = UNSET
+        elif isinstance(self.latest_pipeline_run_id, UUID):
+            latest_pipeline_run_id = str(self.latest_pipeline_run_id)
+        else:
+            latest_pipeline_run_id = self.latest_pipeline_run_id
+
         latest_run_at: None | str | Unset
         if isinstance(self.latest_run_at, Unset):
             latest_run_at = UNSET
@@ -95,6 +108,8 @@ class DatasetOverviewResponse:
             latest_status = UNSET
         else:
             latest_status = self.latest_status
+
+        table_count = self.table_count
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -116,10 +131,14 @@ class DatasetOverviewResponse:
             field_dict["latest_destination_name"] = latest_destination_name
         if latest_pipeline_name is not UNSET:
             field_dict["latest_pipeline_name"] = latest_pipeline_name
+        if latest_pipeline_run_id is not UNSET:
+            field_dict["latest_pipeline_run_id"] = latest_pipeline_run_id
         if latest_run_at is not UNSET:
             field_dict["latest_run_at"] = latest_run_at
         if latest_status is not UNSET:
             field_dict["latest_status"] = latest_status
+        if table_count is not UNSET:
+            field_dict["table_count"] = table_count
 
         return field_dict
 
@@ -173,6 +192,25 @@ class DatasetOverviewResponse:
             d.pop("latest_pipeline_name", UNSET)
         )
 
+        def _parse_latest_pipeline_run_id(data: object) -> None | Unset | UUID:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                latest_pipeline_run_id_type_0 = UUID(data)
+
+                return latest_pipeline_run_id_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | Unset | UUID, data)
+
+        latest_pipeline_run_id = _parse_latest_pipeline_run_id(
+            d.pop("latest_pipeline_run_id", UNSET)
+        )
+
         def _parse_latest_run_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -199,6 +237,8 @@ class DatasetOverviewResponse:
 
         latest_status = _parse_latest_status(d.pop("latest_status", UNSET))
 
+        table_count = d.pop("table_count", UNSET)
+
         dataset_overview_response = cls(
             dataset_name=dataset_name,
             distinct_pipeline_count=distinct_pipeline_count,
@@ -211,8 +251,10 @@ class DatasetOverviewResponse:
             avg_duration_ms=avg_duration_ms,
             latest_destination_name=latest_destination_name,
             latest_pipeline_name=latest_pipeline_name,
+            latest_pipeline_run_id=latest_pipeline_run_id,
             latest_run_at=latest_run_at,
             latest_status=latest_status,
+            table_count=table_count,
         )
 
         dataset_overview_response.additional_properties = d

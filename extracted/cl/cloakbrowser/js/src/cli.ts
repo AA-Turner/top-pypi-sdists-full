@@ -24,7 +24,7 @@ import {
   CHROMIUM_VERSION,
   WRAPPER_VERSION,
 } from "./config.js";
-import { countFontsPresent, WINDOWS_FONT_TELLS, OFFICE_FONT_TELLS } from "./fonts.js";
+import { countFontsPresent, WINDOWS_FONT_TELLS, OFFICE_FONT_TELLS, MACOS_FONT_TELLS } from "./fonts.js";
 import { resolveProxyGeo } from "./geoip.js";
 import { resolveLicenseKey, validateLicense, getProLatestRelease, getSessionSeats, type LicenseInfo } from "./license.js";
 import { execFileSync, spawn } from "node:child_process";
@@ -268,16 +268,20 @@ export async function collectDiagnostics(
     if (!ok) diag.launch.missing_libs = missingSharedLibs(binPath);
   }
 
-  // Windows-font probe — only meaningful on a Linux host spoofing Windows.
-  // Omitted entirely off Linux, where it carries no signal.
+  // Windows/macOS-font probe — only meaningful on a Linux host spoofing another
+  // OS. Omitted entirely off Linux, where it carries no signal.
   if (os.platform() === "linux") {
     // Strict count, not "any one present" — real font installs are atomic
     // (you have the whole pack or none), so report how complete the set is.
+    // Both sets are counted unconditionally: `info` has no persona flag, so we
+    // report each raw count and let the user read the one for the persona they spoof.
     const winN = countFontsPresent(WINDOWS_FONT_TELLS);
     const officeN = countFontsPresent(OFFICE_FONT_TELLS);
+    const macN = countFontsPresent(MACOS_FONT_TELLS);
     diag.fonts = {
       windows: winN === null ? null : [winN, WINDOWS_FONT_TELLS.length],
       office: officeN === null ? null : [officeN, OFFICE_FONT_TELLS.length],
+      macos: macN === null ? null : [macN, MACOS_FONT_TELLS.length],
     };
   }
 
@@ -435,6 +439,19 @@ function printDiagnostics(diag: Record<string, any>): void {
       // persona (~53% of real machines have none), so no install nudge.
       const verdict = n === total ? "ok" : n === 0 ? "absent" : "partial";
       console.log(`Office fonts: ${verdict} (${n}/${total})`);
+    }
+    const mac = diag.fonts.macos;
+    if (mac === undefined || mac === null) {
+      console.log("Mac fonts: unknown (fc-list unavailable)");
+    } else {
+      const [n, total] = mac;
+      const verdict = n === total ? "ok" : n === 0 ? "missing" : "partial";
+      console.log(`Mac fonts: ${verdict} (${n}/${total})`);
+      if (n < total) {
+        // Phrased conditionally: some Mac fonts also ship on a Windows box, so a
+        // partial count is expected unless macOS is the intended persona.
+        console.log("           → if spoofing macOS on this host, copy the real Mac fonts (Helvetica Neue, Menlo, SF/Apple system fonts)");
+      }
     }
   }
 

@@ -9,7 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.t_job_definition import TJobDefinition
+    from ..models.deploy_manifest_request_jobs_item import DeployManifestRequestJobsItem
 
 
 T = TypeVar("T", bound="DeployManifestRequest")
@@ -21,7 +21,7 @@ class DeployManifestRequest:
     Attributes:
         job_definition_engine_version (int): Manifest engine version.
         job_definition_hash (str): Content hash of the deployment manifest for change detection.
-        jobs (list[TJobDefinition]): Job definitions from the deployment manifest.
+        jobs (list[DeployManifestRequestJobsItem]): Job definitions from the deployment manifest.
         deployment_module (None | str | Unset): Deployment module name. None = ad-hoc (no archival). '__deployment__' =
             standard deploy.
         description (None | str | Unset): Workspace description (from __deployment__ docstring). Only applied when
@@ -31,7 +31,7 @@ class DeployManifestRequest:
 
     job_definition_engine_version: int
     job_definition_hash: str
-    jobs: list[TJobDefinition]
+    jobs: list[DeployManifestRequestJobsItem]
     deployment_module: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     dry_run: bool | Unset = False
@@ -81,7 +81,9 @@ class DeployManifestRequest:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.t_job_definition import TJobDefinition
+        from ..models.deploy_manifest_request_jobs_item import (
+            DeployManifestRequestJobsItem,
+        )
 
         d = dict(src_dict)
         job_definition_engine_version = d.pop("job_definition_engine_version")
@@ -91,7 +93,7 @@ class DeployManifestRequest:
         jobs = []
         _jobs = d.pop("jobs")
         for jobs_item_data in _jobs:
-            jobs_item = TJobDefinition.from_dict(jobs_item_data)
+            jobs_item = DeployManifestRequestJobsItem.from_dict(jobs_item_data)
 
             jobs.append(jobs_item)
 

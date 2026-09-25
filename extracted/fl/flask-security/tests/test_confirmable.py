@@ -139,6 +139,10 @@ def test_confirmable_flag(app, clients, get_message):
 
 
 @pytest.mark.registerable()
+@pytest.mark.settings(
+    email_template_confirm="security/email/confirmation_instructions_test",
+    email_html=False,
+)
 def test_confirmation_template(app, client, get_message, outbox):
     # Check contents of email template - this uses a test template
     # in order to check all context vars since the default template
@@ -159,10 +163,7 @@ def test_confirmation_template(app, client, get_message, outbox):
         )
         # Register - this will use the welcome template
         client.post("/register", data=data, follow_redirects=True)
-        # Explicitly ask for confirmation -
-        # this will use the confirmation_instructions template
-        client.post("/confirm", data=dict(email="mary@lp.com"))
-        assert len(outbox) == 2
+        assert len(outbox) == 1
         # check registration email
         matcher = re.findall(r"\w+:.*", outbox[0].body, re.IGNORECASE)
         # should be 4 - link, email, token, config item
@@ -171,19 +172,26 @@ def test_confirmation_template(app, client, get_message, outbox):
         assert matcher[2].split(":")[1] == registrations[0]["confirmation_token"]
         assert matcher[3].split(":")[1] == "True"  # register_blueprint
 
+        # Explicitly ask for confirmation -
+        # this will use the confirmation_instructions template
+        client.post("/confirm", data=dict(email="mary@lp.com"))
         # check confirmation email
         matcher = re.findall(r"\w+:.*", outbox[1].body, re.IGNORECASE)
-        # should be 4 - link, email, token, config item
+        # should be 5 - link, email, token, config item, within
         assert matcher[1].split(":")[1] == "mary@lp.com"
         assert matcher[2].split(":")[1] == recorded_tokens_sent[0]
         token = matcher[2].split(":")[1]
         assert token == recorded_tokens_sent[0]
         assert matcher[3].split(":")[1] == "True"  # register_blueprint
+        assert matcher[4].split(":")[1] == "2 days"  # within
 
         # check link
         _, link = matcher[0].split(":", 1)
         response = client.get(link, follow_redirects=True)
         assert get_message("EMAIL_CONFIRMED") in response.data
+
+        # regular text template is included in the test template
+        assert "This link will expire in 2 days." in outbox[1].body
 
 
 @pytest.mark.registerable()
@@ -202,7 +210,8 @@ def test_requires_confirmation_error_redirect(app, clients):
 
 
 @pytest.mark.registerable()
-@pytest.mark.settings(confirm_email_within="1 milliseconds")
+@pytest.mark.settings(confirm_email_within="1 minutes")
+@pytest.mark.filterwarnings("ignore:.*Non timedelta")
 def test_expired_confirmation_token(client, get_message):
     # Note that we need relatively new-ish date since session cookies also expire.
     with freeze_time(date.today() + timedelta(days=-1)):
@@ -219,7 +228,7 @@ def test_expired_confirmation_token(client, get_message):
         token = registrations[0]["confirm_token"]
 
     response = client.get("/confirm/" + token, follow_redirects=True)
-    msg = get_message("CONFIRMATION_EXPIRED", within="1 milliseconds", email=email)
+    msg = get_message("CONFIRMATION_EXPIRED", within="1 minute", email=email)
     assert msg in response.data
 
 
@@ -453,7 +462,7 @@ def test_spa_get(app, client, get_message):
 
 @pytest.mark.registerable()
 @pytest.mark.settings(
-    confirm_email_within="1 milliseconds",
+    confirm_email_within=timedelta(minutes=300),
     redirect_host="localhost:8081",
     redirect_behavior="spa",
     confirm_error_view="/confirm-error",
@@ -482,7 +491,7 @@ def test_spa_get_bad_token(app, client, get_message):
         assert "email" not in qparams
         assert "identity" not in qparams
 
-        msg = get_message("CONFIRMATION_EXPIRED", within="1 milliseconds")
+        msg = get_message("CONFIRMATION_EXPIRED", within="5 hours")
         assert msg == qparams["error"].encode("utf-8")
 
         # Test mangled token

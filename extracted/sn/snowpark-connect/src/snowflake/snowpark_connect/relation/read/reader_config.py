@@ -25,7 +25,7 @@ DEFAULT_ROWS_TO_INFER_SCHEMA = 20000
 DEFAULT_REPLACE_INVALID_CHARACTERS = "true"
 
 
-def validate_json_charset_name(encoding: str) -> str:
+def validate_charset_name(encoding: str) -> str:
     """Validate that ``encoding`` is a recognized charset and return its
     canonical uppercase name (e.g. ``"utf-8"`` → ``"UTF-8"``) — the form
     Snowflake's COPY INTO command expects.
@@ -36,8 +36,9 @@ def validate_json_charset_name(encoding: str) -> str:
     read-only multiLine denyList — that restriction applies only when Spark
     is parsing files line-by-line and is meaningless on the write path.
 
-    Used by :class:`JsonReaderConfig._validate_encoding` for reads and by the
-    JSON write-options path in
+    Used by :meth:`CsvReaderConfig._validate_encoding` and
+    :meth:`JsonReaderConfig._validate_encoding` for reads, and by the JSON
+    write-options path in
     :mod:`snowflake.snowpark_connect.relation.write.map_write`.
 
     Args:
@@ -134,6 +135,26 @@ class ReaderWriterConfig:
             return float(self.config[key])
         else:
             return self.config[key]
+
+    def _validate_sampling_ratio(self) -> None:
+        """Reject non-positive samplingRatio, matching Spark for both JSON and CSV.
+
+        Spark validates in ``JsonUtils.sample`` / ``CSVUtils.sample`` with
+        ``require(samplingRatio > 0, "samplingRatio (X) should be greater than 0")``.
+        There is deliberately **no** upper bound: a ratio above 0.99 means "sample
+        everything", so values like ``5`` are legal in Spark. See
+        ``nss_infer_schema.infer_via_stage_file_schema`` for the clamp that keeps such
+        values acceptable to ``INFER_STAGE_FILE_SCHEMA`` (SNOW-3964811).
+        """
+        if "samplingratio" not in self.user_option_keys:
+            return
+        ratio = self._get_config_setting("samplingratio")
+        if ratio <= 0:
+            exception = IllegalArgumentException(
+                f"samplingRatio ({ratio}) should be greater than 0"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
+            raise exception
 
     # TODO: When we convert into args, we cannot only convert the key, we need to adjust the value also.
     # For example, for differences in timestamp format.
@@ -655,6 +676,46 @@ class CsvReaderConfig(ReaderWriterConfig):
             ),
             options,
         )
+        self._validate_encoding()
+        self._validate_sampling_ratio()
+
+    def _validate_encoding(self) -> None:
+        """Reject an unrecognized CSV charset name (SPARK-23723).
+
+        Spark resolves ``encoding`` ahead of its ``charset`` alias
+        (``CSVOptions``: ``getOrElse(ENCODING, getOrElse(CHARSET, UTF_8))``) and
+        only the winner ever reaches ``Charset.forName``, so a bogus ``charset``
+        alongside a good ``encoding`` must stay ignored here too. Only
+        caller-supplied keys are considered: ``CSV_READ_DEFAULT_CONFIG`` seeds
+        ``charset`` itself, and a SCOS default must never be what fails a read.
+
+        Validating during config construction keeps the check
+        engine-independent -- ``map_read`` builds this config before
+        ``map_read_csv`` dispatches to either the COPY or the NSS path.
+
+        The canonical name is deliberately discarded because *both* execution
+        paths need the user's original spelling, for symmetric reasons:
+
+        - COPY: ``to_snowflake_file_format_encoding`` only uppercases and strips
+          non-alphanumerics, so it maps ``windows-1252`` onto the Snowflake
+          ``ENCODING`` enum value ``WINDOWS1252``. Python's ``codecs.lookup``
+          would first rename it to ``cp1252``, which is not a Snowflake enum
+          value at all.
+        - NSS: ``filter_reader_options`` forwards ``encoding``/``charset``
+          verbatim to the sandbox reader -- both are in
+          ``_SPARK_CSV_READ_OPTIONS`` (added by #5249) -- and that reader calls
+          Java's ``Charset.forName``, which likewise does not accept Python's
+          canonical spellings (e.g. ``UTF-16-BE`` for ``UTF-16BE``).
+
+        Do not "simplify" this to the COPY reason alone: the stale comments on
+        ``_SPARK_JSON_READ_OPTIONS`` / ``_EXCLUDED_CSV`` still claim these
+        options are dropped before the sandbox, which stopped being true in
+        #5249. ``filter_reader_options`` is the authority; grep it.
+        """
+        for key in ("encoding", "charset"):
+            if key in self.user_option_keys:
+                validate_charset_name(self.config[key])
+                return
 
     def convert_to_snowpark_args(self) -> dict[str, Any]:
         snowpark_config = {}
@@ -845,18 +906,6 @@ class JsonReaderConfig(ReaderWriterConfig):
         self._validate_sampling_ratio()
         self._validate_rows_to_infer_schema_under_nss()
 
-    def _validate_sampling_ratio(self) -> None:
-        """Reject non-positive samplingRatio (Spark JsonUtils.sample / SPARK-32621)."""
-        if "samplingratio" not in self.user_option_keys:
-            return
-        ratio = self._get_config_setting("samplingratio")
-        if ratio <= 0:
-            exception = IllegalArgumentException(
-                f"samplingRatio ({ratio}) should be greater than 0"
-            )
-            attach_custom_error_code(exception, ErrorCodes.INVALID_FUNCTION_ARGUMENT)
-            raise exception
-
     def _validate_rows_to_infer_schema_under_nss(self) -> None:
         """Reject rowsToInferSchema under NSS; nudge users to samplingRatio.
 
@@ -891,15 +940,28 @@ class JsonReaderConfig(ReaderWriterConfig):
         user-supplied spelling is left in ``self.config["encoding"]``. Python's
         codec name (e.g. ``UTF-16-BE``) is not a Java ``Charset.forName``
         name; NSS forwards this bag to the sandbox Spark reader.
+
+        ``charset`` is Spark's alias for ``encoding`` and NSS forwards it too, so it
+        gets the same three validations — otherwise the sandbox's own ``require`` is
+        what surfaces, as a raw backend error.
         """
         # Preserve the user-supplied spelling for error messages (Spark uses ``enc``
         # as provided, e.g. ``UTF-16LE``, not the codecs canonical ``UTF-16-LE``).
-        encoding = self.config.get("encoding", "utf-8")
+        # Spark resolves the alias as ``get(ENCODING).orElse(get(CHARSET))``
+        # (JSONOptions.scala:165-166); ``encoding`` is always seeded here, so a caller's
+        # ``charset`` only wins when they did not also pass ``encoding``.
+        charset_is_the_users_spelling = (
+            "charset" in self.user_option_keys
+            and "encoding" not in self.user_option_keys
+        )
+        encoding = self.config.get(
+            "charset" if charset_is_the_users_spelling else "encoding", "utf-8"
+        )
 
         # SPARK-23723: Validate the charset; ``canonical`` is only used for
         # denyList / UTF-8 checks below (do not write it back — NSS needs the
         # Java-facing spelling).
-        canonical = validate_json_charset_name(encoding)
+        canonical = validate_charset_name(encoding)
 
         # SPARK-24190 / SNOW-3246417: Check encoding denyList for non-multiLine
         # mode. Use _get_config_setting to get the properly typed boolean value
@@ -1068,6 +1130,7 @@ class XmlReaderConfig(ReaderWriterConfig):
                     "attributePrefix",
                     "valueTag",
                     "encoding",
+                    "charset",
                     "ignoreSurroundingSpaces",
                     "rowValidationXSDPath",
                     "ignoreNamespace",
@@ -1103,6 +1166,11 @@ class XmlReaderConfig(ReaderWriterConfig):
 
     def convert_to_snowpark_args(self) -> dict[str, Any]:
         snowpark_config = super().convert_to_snowpark_args()
+
+        # SNOW-3853389: an explicit ``charset`` wins over the seeded
+        # ``encoding="UTF-8"`` default, matching ``filter_reader_options``.
+        if "charset" in self.user_option_keys:
+            snowpark_config.pop("encoding", None)
 
         # Rename Spark options to Snowpark equivalents
         renamed_args = {

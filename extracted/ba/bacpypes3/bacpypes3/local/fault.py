@@ -1,20 +1,11 @@
 """
 Fault
 """
-
 from __future__ import annotations
 
 from typing import Callable, List, Optional, Tuple, Union
 
-from ..basetypes import (
-    FaultParameterOutOfRangeValue,
-    OptionalCharacterString,
-    Reliability,
-    SequenceOfFaultParameterExtendedParameters,
-)
-from ..constructeddata import ListOf
-from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
-from ..object import EventEnrollmentObject, Object
+from ..debugging import bacpypes_debugging, ModuleLogger, DebugContents
 from ..primitivedata import (
     Boolean,
     CharacterString,
@@ -23,6 +14,14 @@ from ..primitivedata import (
     Real,
     Unsigned,
 )
+from ..constructeddata import ListOf
+from ..basetypes import (
+    FaultParameterOutOfRangeValue,
+    OptionalCharacterString,
+    Reliability,
+    SequenceOfFaultParameterExtendedParameters,
+)
+from ..object import Object, EventEnrollmentObject
 from .object import Algorithm
 
 # some debugging
@@ -432,7 +431,9 @@ class OutOfRangeFaultAlgorithm(FaultAlgorithm, DebugContents):
             return Reliability.underRange
         elif (current_reliability == Reliability.noFaultDetected) and (
             self.pMonitoredValue > self.pMaximumNormalValue
-        ) or (current_reliability == Reliability.underRange) and (
+        ):
+            return Reliability.overRange
+        elif (current_reliability == Reliability.underRange) and (
             self.pMonitoredValue > self.pMaximumNormalValue
         ):
             return Reliability.overRange
@@ -444,7 +445,9 @@ class OutOfRangeFaultAlgorithm(FaultAlgorithm, DebugContents):
             (current_reliability == Reliability.underRange)
             and (self.pMonitoredValue >= self.pMinimumNormalValue)
             and (self.pMonitoredValue <= self.pMaximumNormalValue)
-        ) or (
+        ):
+            return Reliability.noFaultDetected
+        elif (
             (current_reliability == Reliability.overRange)
             and (self.pMonitoredValue >= self.pMinimumNormalValue)
             and (self.pMonitoredValue <= self.pMaximumNormalValue)

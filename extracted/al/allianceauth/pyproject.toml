@@ -51,7 +51,7 @@ dependencies = [
     "django-registration>=5.2,<6",
     "django-solo",
     "django-sortedm2m",
-    "django-sri",
+    "django-sri<1",
     "dnspython",
     "mysqlclient>=2.1",
     "openfire-restapi",

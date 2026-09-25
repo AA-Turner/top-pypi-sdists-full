@@ -18,6 +18,11 @@
 
 from __future__ import annotations
 
+import functools
+import os
+import shlex
+import subprocess
+import sys
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,6 +34,48 @@ from . import _ffi_api
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+
+def _query_compiler_file(command: tuple[str, ...], filename: str) -> Path | None:
+    """Ask a GCC-compatible driver which runtime file it would link."""
+    try:
+        result = subprocess.run(
+            [*command, f"-print-file-name={filename}"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    output = result.stdout.strip()
+    if not output or output == filename:
+        return None
+    path = Path(output)
+    return path.resolve() if path.is_file() else None
+
+
+@functools.cache
+def _discover_linux_cxx_runtime(cxx: str) -> tuple[str | None, str | None]:
+    """Discover the runtime selected by one C++ driver command."""
+    command = tuple(shlex.split(cxx))
+    if not command:
+        raise ValueError("CXX must name a C++ compiler command")
+
+    shared = _query_compiler_file(command, "libstdc++.so.6")
+    nonshared = _query_compiler_file(command, "libstdc++_nonshared.a")
+    return (
+        str(shared) if shared is not None else None,
+        str(nonshared) if nonshared is not None else None,
+    )
+
+
+def _discover_cxx_runtime(cxx: str | None) -> tuple[str | None, str | None]:
+    """Follow tvm_ffi.cpp's $CXX-or-c++ default for Linux JIT objects."""
+    if not sys.platform.startswith("linux"):
+        return (None, None)
+    return _discover_linux_cxx_runtime(cxx if cxx is not None else os.environ.get("CXX", "c++"))
 
 
 @register_object("tvm_ffi_orcjit.ExecutionSession")
@@ -72,10 +119,11 @@ class ExecutionSession(Object):
         slab_size : int
             Per-slab capacity in bytes for the JIT memory manager. Linux only —
             ignored on macOS and Windows, where the slab allocator is compiled
-            out. 0 = arch default (64 MB; initial slab halves on mmap failure
-            down to 8 MB under RLIMIT_AS / container limits), >0 = custom size,
-            <0 = disable slab allocator (LLJIT uses its default scattered-mmap
-            allocator).
+            out. 0 = 64 MB default (the initial slab halves on mmap failure
+            down to 8 MB under RLIMIT_AS / container limits), >=4 MB = custom
+            size, <0 = disable the slab allocator (LLJIT uses its default
+            scattered-mmap allocator). Positive values below 4 MB are rejected
+            because both allocation pools need a 2 MB commit chunk.
 
             The session holds a growable pool of slabs: a fresh slab is mmap'd
             on demand when no existing one can fit a graph. Graphs that don't
@@ -107,6 +155,7 @@ class ExecutionSession(Object):
         objects: str | Path | bytes | bytearray | Sequence[str | Path | bytes | bytearray],
         name: str = "",
         keep_module_alive: bool = False,
+        cxx: str | None = None,
     ) -> Module:
         """Load one or more object files into a fresh module.
 
@@ -124,6 +173,12 @@ class ExecutionSession(Object):
         keep_module_alive : bool
             If True, pin the module in the runtime's process-global registry
             (see Notes). Defaults to False.
+        cxx : str or None
+            C++ compiler command whose runtime should resolve symbols in these
+            objects on Linux. Defaults to ``$CXX``, or ``c++`` when unset,
+            matching :func:`tvm_ffi.cpp.build`. The compiler is queried once
+            for its shared libstdc++ and optional ``libstdc++_nonshared.a``;
+            no runtime path needs to be supplied. Ignored on other platforms.
 
         Returns
         -------
@@ -136,8 +191,8 @@ class ExecutionSession(Object):
         ``keep_module_alive`` mirrors :func:`tvm_ffi.load_module`'s option of
         the same name. When True, the module is inserted into the runtime's
         process-global module registry, so its JITDylib — and every function
-        pointer, deleter, and static allocation it owns — stays mapped until
-        the interpreter unloads ``libtvm_ffi``. Use this when Objects produced
+        pointer, deleter, and static allocation it owns — stays mapped for the
+        duration of the process. Use this when Objects produced
         by the module may outlive the local ``mod`` reference (e.g., a
         JIT-allocated ``String`` or ``Array`` returned to Python and held past
         ``del mod``). When False (default), the caller owns the module's
@@ -170,7 +225,14 @@ class ExecutionSession(Object):
                     "load_module objects must be a path (str or Path) or object-file "
                     f"bytes, but got {type(obj).__name__}"
                 )
-        mod = _ffi_api.SessionLoadModule(self, normalized, name)  # type: ignore
+        cxx_runtime_path, libstdcxx_nonshared_path = _discover_cxx_runtime(cxx)
+        mod = _ffi_api.SessionLoadModule(  # type: ignore
+            self,
+            normalized,
+            name,
+            cxx_runtime_path,
+            libstdcxx_nonshared_path,
+        )
         if keep_module_alive:
             tvm_ffi._ffi_api.ModuleGlobalsAdd(mod)  # type: ignore
         return mod
@@ -182,10 +244,9 @@ class ExecutionSession(Object):
         Fresh slabs that have never been allocated on are preserved, so
         the session remains ready to accept new work.
 
-        Safety: call when no JIT work is in flight on another thread. From
-        single-threaded Python this is always safe; once ``del lib`` has
-        returned, the C++ destructor has finished and the slab's live count
-        reflects the drop.
+        The operation is serialized with JIT allocation and module teardown,
+        so it is safe to call while other host threads use the same session.
+        Only fully drained slabs are reclaimed.
 
         Returns
         -------
@@ -206,9 +267,10 @@ def default_session() -> ExecutionSession:
     """Return the process-wide shared execution session.
 
     A single leaked, never-destroyed session shared by all callers in the
-    process, so they share one LLVM ``ExecutionSession`` — hence process
-    symbols, the slab arena, and cross-library linking. Created on first call
-    and cached for the lifetime of the process.
+    process, so they share one LLVM ``ExecutionSession`` — hence process-symbol
+    resolution, the slab pool, and synchronization infrastructure. Separate
+    loaded modules remain isolated symbol namespaces. Created on first call and
+    cached for the lifetime of the process.
 
     The session uses the ORC runtime embedded in the extension (no on-disk path
     lookup). For an isolated session or a tuned arena, construct an

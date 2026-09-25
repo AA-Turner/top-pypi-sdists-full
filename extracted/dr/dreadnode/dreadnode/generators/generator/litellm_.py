@@ -12,7 +12,7 @@ import httpx
 from loguru import logger
 
 from dreadnode.agents.tools import FunctionDefinition, ToolDefinition
-from dreadnode.app.model_catalog import infer_provider
+from dreadnode.app.model_catalog import infer_provider, load_gateway_model_info, resolve_model_info
 from dreadnode.core.tls import create_platform_ssl_context
 from dreadnode.generators.exceptions import GeneratorWarning, ProcessingError
 from dreadnode.generators.generator.base import (
@@ -67,8 +67,36 @@ async def _platform_proxy_client(
         )
 
 
+# One retry after the first transient mid-stream drop. Retrying re-runs the whole
+# generation (no partial is persisted), so keep this bounded - it recovers the
+# stochastic tail that the gateway/edge keepalives don't fully eliminate.
+_MAX_STREAM_ATTEMPTS = 2
+_STREAM_RETRY_BACKOFF_S = 1.0
+
+# Transport-level failures that are safe to retry from scratch: idle-timeout reaps
+# and mid-stream socket closes on the agent<->gateway<->provider path (AWS ALB 60s
+# idle, NAT Gateway 350s idle, provider closing a stalled stream). These are NOT
+# model/content errors - those must surface so a Fixup or the caller can handle them.
+_TRANSIENT_STREAM_MARKERS = (
+    "incomplete chunked read",
+    "peer closed connection",
+    "stream stalled",
+    "server disconnected",
+    "connection reset",
+)
+
+
+def _is_transient_stream_drop(exc: BaseException) -> bool:
+    # Every observed drop surfaces wrapped as litellm.MidStreamFallbackError; the
+    # string markers also catch the raw APIConnectionError/RemoteProtocolError when
+    # the fallback wrapper is absent. Matched by name to stay litellm-version-robust.
+    if type(exc).__name__ == "MidStreamFallbackError":
+        return True
+    return any(marker in str(exc).lower() for marker in _TRANSIENT_STREAM_MARKERS)
+
+
 async def _consume_platform_stream(
-    request: t.Awaitable[t.Any],
+    make_request: t.Callable[[], t.Awaitable[t.Any]],
     *,
     call_id: str,
     model: str,
@@ -78,62 +106,91 @@ async def _consume_platform_stream(
 
     import dreadnode
 
-    started_at = time.monotonic()
-    first_chunk_at: float | None = None
-    outcome = "failed"
-    cancelled = False
+    last_exc: BaseException | None = None
+    for attempt in range(1, _MAX_STREAM_ATTEMPTS + 1):
+        started_at = time.monotonic()
+        first_chunk_at: float | None = None
+        outcome = "failed"
+        cancelled = False
 
-    with dreadnode.span(
-        "platform_proxy_generation",
-        tags=["llm", "platform_proxy"],
-        attributes={
-            "dreadnode.inference.call_id": call_id,
-            "dreadnode.inference.model": model,
-            "dreadnode.inference.attempt": 1,
-        },
-    ) as span:
-        try:
-            stream = await request
-            chunks: list[t.Any] = []
-            async with contextlib.aclosing(stream):
-                async for chunk in stream:
-                    if first_chunk_at is None:
-                        first_chunk_at = time.monotonic()
-                    chunks.append(chunk)
+        with dreadnode.span(
+            "platform_proxy_generation",
+            tags=["llm", "platform_proxy"],
+            attributes={
+                "dreadnode.inference.call_id": call_id,
+                "dreadnode.inference.model": model,
+                "dreadnode.inference.attempt": attempt,
+            },
+        ) as span:
+            try:
+                stream = await make_request()
+                chunks: list[t.Any] = []
+                async with contextlib.aclosing(stream):
+                    async for chunk in stream:
+                        if first_chunk_at is None:
+                            first_chunk_at = time.monotonic()
+                        chunks.append(chunk)
 
-            response = litellm.stream_chunk_builder(chunks, messages=messages)
-            if response is None:
-                raise ProcessingError("LiteLLM returned an empty stream")
-        except asyncio.CancelledError:
-            outcome = "cancelled"
-            cancelled = True
-            raise
-        else:
-            outcome = "completed"
-            return response
-        finally:
-            completed_at = time.monotonic()
-            duration_ms = (completed_at - started_at) * 1000
-            time_to_first_chunk_ms = (
-                (first_chunk_at - started_at) * 1000 if first_chunk_at is not None else -1.0
-            )
-            span.set_attribute("dreadnode.inference.duration_ms", duration_ms)
-            span.set_attribute(
-                "dreadnode.inference.time_to_first_chunk_ms",
-                time_to_first_chunk_ms,
-            )
-            span.set_attribute("dreadnode.inference.outcome", outcome)
-            span.set_attribute("dreadnode.inference.cancelled", cancelled)
-            logger.info(
-                "Platform inference | call_id={} | model={} | duration_ms={:.0f} | "
-                "time_to_first_chunk_ms={:.0f} | outcome={} | attempt=1 | cancelled={}",
-                call_id,
-                model,
-                duration_ms,
-                time_to_first_chunk_ms,
-                outcome,
-                cancelled,
-            )
+                response = litellm.stream_chunk_builder(chunks, messages=messages)
+            except asyncio.CancelledError:
+                outcome = "cancelled"
+                cancelled = True
+                raise
+            except Exception as exc:  # re-raised below unless transient and retryable
+                last_exc = exc
+                retryable = _is_transient_stream_drop(exc) and attempt < _MAX_STREAM_ATTEMPTS
+                outcome = "retrying" if retryable else "failed"
+                if retryable:
+                    span.set_attribute("dreadnode.inference.retry_reason", type(exc).__name__)
+                else:
+                    raise
+            else:
+                # An empty build is not a transport drop - surface it, no retry.
+                if response is None:
+                    outcome = "failed"
+                    raise ProcessingError("LiteLLM returned an empty stream")
+                outcome = "completed"
+                return response
+            finally:
+                completed_at = time.monotonic()
+                duration_ms = (completed_at - started_at) * 1000
+                time_to_first_chunk_ms = (
+                    (first_chunk_at - started_at) * 1000 if first_chunk_at is not None else -1.0
+                )
+                span.set_attribute("dreadnode.inference.duration_ms", duration_ms)
+                span.set_attribute(
+                    "dreadnode.inference.time_to_first_chunk_ms",
+                    time_to_first_chunk_ms,
+                )
+                span.set_attribute("dreadnode.inference.outcome", outcome)
+                span.set_attribute("dreadnode.inference.cancelled", cancelled)
+                logger.info(
+                    "Platform inference | call_id={} | model={} | duration_ms={:.0f} | "
+                    "time_to_first_chunk_ms={:.0f} | outcome={} | attempt={} | cancelled={}",
+                    call_id,
+                    model,
+                    duration_ms,
+                    time_to_first_chunk_ms,
+                    outcome,
+                    attempt,
+                    cancelled,
+                )
+
+        logger.warning(
+            "Platform inference stream dropped (transient) | call_id={} | model={} | "
+            "attempt={}/{} | error={} - retrying",
+            call_id,
+            model,
+            attempt,
+            _MAX_STREAM_ATTEMPTS,
+            type(last_exc).__name__ if last_exc else "unknown",
+        )
+        await asyncio.sleep(_STREAM_RETRY_BACKOFF_S * attempt)
+
+    # Attempts exhausted on transient drops - surface the last error.
+    if last_exc is not None:
+        raise last_exc
+    raise ProcessingError("LiteLLM returned an empty stream")
 
 
 class OpenAIToolsWithImageURLsFixup(Fixup):
@@ -704,23 +761,6 @@ class LiteLLMGenerator(Generator):
     _supports_function_calling: bool | None = None
     _supports_prompt_caching: bool | None = None
 
-    def __post_model_init__(self, _: t.Any) -> None:
-        import litellm
-
-        # We should probably let people configure
-        # this independently, but for now we'll
-        # fix it to prevent confusion
-        litellm.drop_params = True
-
-        # Allow litellm to automatically handle thinking/tool-calling
-        # incompatibilities (e.g. dropping thinking params when
-        # thinking_blocks are missing from prior assistant messages).
-        litellm.modify_params = True
-
-        # Prevent the small debug statements
-        # from being printed to the console
-        litellm.suppress_debug_info = True  # ty: ignore[invalid-assignment]
-
     @property
     def semaphore(self) -> asyncio.Semaphore:
         if self._semaphore is None:
@@ -753,10 +793,47 @@ class LiteLLMGenerator(Generator):
             candidates.append("/".join(self.model.split("/")[1:]))
         return candidates
 
+    async def _load_gateway_model_info(self) -> None:
+        extra = self.params.extra if self.params is not None else {}
+        api_base = self.params.api_base if self.params is not None else None
+        if (
+            isinstance(extra, dict)
+            and extra.get("custom_llm_provider") == "litellm_proxy"
+            and isinstance(api_base, str)
+            and api_base
+        ):
+            await load_gateway_model_info(api_base=api_base, api_key=self.api_key)
+
+    def _gateway_capability(self, name: str) -> bool | None:
+        """What the Dreadnode gateway says about ``name`` for this model.
+
+        ``None`` when this generator isn't routed through a gateway, or the
+        gateway can't be reached, or it has no opinion — callers then fall back
+        to litellm's static tables and, for function calling, the live probe.
+        """
+        extra = self.params.extra if self.params is not None else {}
+        if not isinstance(extra, dict) or extra.get("custom_llm_provider") != "litellm_proxy":
+            return None
+
+        api_base = self.params.api_base if self.params is not None else None
+        if not isinstance(api_base, str) or not api_base:
+            return None
+
+        value = resolve_model_info(self.model, api_base=api_base, api_key=self.api_key).get(name)
+        return value if isinstance(value, bool) else None
+
     async def supports_function_calling(self) -> bool | None:
         import litellm.utils
 
         import dreadnode as dn
+
+        await self._load_gateway_model_info()
+
+        # Gateway metadata is authoritative, including explicit False values.
+        # Re-read it before cached fallback results so an outage can recover.
+        gateway = self._gateway_capability("supports_function_calling")
+        if gateway is not None:
+            return gateway
 
         if self._supports_function_calling is not None:
             return self._supports_function_calling
@@ -809,20 +886,26 @@ class LiteLLMGenerator(Generator):
 
         return self._supports_function_calling
 
-    def supports_prompt_caching(self) -> bool:
+    async def supports_prompt_caching(self) -> bool:
         import litellm.utils
 
-        if self._supports_prompt_caching is not None:
-            return self._supports_prompt_caching
+        await self._load_gateway_model_info()
 
-        self._supports_prompt_caching = False
-        for candidate in self._capability_lookup_models():
-            try:
-                if litellm.utils.supports_prompt_caching(candidate):
-                    self._supports_prompt_caching = True
-                    break
-            except Exception as e:
-                logger.debug("Failed to check prompt caching support for '{}': {}", candidate, e)
+        gateway = self._gateway_capability("supports_prompt_caching")
+        if gateway is not None:
+            return gateway
+
+        if self._supports_prompt_caching is None:
+            self._supports_prompt_caching = False
+            for candidate in self._capability_lookup_models():
+                try:
+                    if litellm.utils.supports_prompt_caching(candidate):
+                        self._supports_prompt_caching = True
+                        break
+                except Exception as e:
+                    logger.debug(
+                        "Failed to check prompt caching support for '{}': {}", candidate, e
+                    )
 
         return self._supports_prompt_caching
 
@@ -1137,7 +1220,7 @@ class LiteLLMGenerator(Generator):
                     merged["stream"] = True
                     merged["stream_options"] = {"include_usage": True}
                     response = await _consume_platform_stream(
-                        acompletion(
+                        lambda: acompletion(
                             model=self.model,
                             messages=openai_messages,
                             api_key=self.api_key,
@@ -1209,7 +1292,7 @@ class LiteLLMGenerator(Generator):
                     merged["stream"] = True
                     merged["stream_options"] = {"include_usage": True}
                     response = await _consume_platform_stream(
-                        atext_completion(
+                        lambda: atext_completion(
                             prompt=text,
                             model=self.model,
                             api_key=self.api_key,
@@ -1232,6 +1315,7 @@ class LiteLLMGenerator(Generator):
         messages: t.Sequence[t.Sequence[Message]],
         params: t.Sequence[GenerateParams],
     ) -> t.Sequence[GeneratedMessage | BaseException]:
+        await self._load_gateway_model_info()
         coros = [
             self._generate_message(_messages, _params)
             for _messages, _params in zip(messages, params, strict=True)
@@ -1252,6 +1336,7 @@ class LiteLLMGenerator(Generator):
         texts: t.Sequence[str],
         params: t.Sequence[GenerateParams],
     ) -> t.Sequence[GeneratedText | BaseException]:
+        await self._load_gateway_model_info()
         coros = [
             self._generate_text(text, _params) for text, _params in zip(texts, params, strict=True)
         ]
@@ -1274,11 +1359,4 @@ def get_max_tokens_for_model(model: str) -> int | None:
     Returns:
         The maximum number of tokens.
     """
-    import litellm
-
-    while model not in litellm.model_cost:
-        if "/" not in model:
-            return None
-        model = "/".join(model.split("/")[1:])
-
-    return litellm.model_cost[model].get("max_tokens")
+    return resolve_model_info(model).get("max_tokens")

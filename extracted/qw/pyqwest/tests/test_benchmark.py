@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING
 import aiohttp
 import httpx
 import niquests
-import pytest_asyncio
+from anyio import to_thread
 
 from pyqwest import Client, HTTPTransport, HTTPVersion, SyncClient, SyncHTTPTransport
 from pyqwest.httpx import AsyncPyqwestTransport, PyqwestTransport
@@ -37,6 +37,8 @@ if TYPE_CHECKING:
     from .conftest import Certs
 
 pytestmark = [
+    # Benchmarks drive their own asyncio.Runner.
+    pytest.mark.asyncio_only,
     pytest.mark.parametrize("http_scheme", ["http"], indirect=True),
     pytest.mark.parametrize("http_version", ["h1", "h2", "h3"], indirect=True),
 ]
@@ -64,8 +66,9 @@ def sync_runner() -> Iterator[ThreadPoolExecutor]:
         yield executor
 
 
-@pytest_asyncio.fixture(scope="module")
+@pytest.fixture(scope="module")
 async def benchmark_client_async(
+    anyio_backend: object,  # noqa: ARG001  # runs this fixture on the test's backend
     async_client: Client,
     async_transport: HTTPTransport,
     certs: Certs,
@@ -87,11 +90,11 @@ async def benchmark_client_async(
                     connector=aiohttp.TCPConnector(ssl=ssl_ctx), timeout=None
                 )
 
-            session = await asyncio.to_thread(async_runner.run, _create_session())
+            session = await to_thread.run_sync(async_runner.run, _create_session())
             try:
                 yield session
             finally:
-                await asyncio.to_thread(async_runner.run, session.close())
+                await to_thread.run_sync(async_runner.run, session.close())
         case "httpx":
             if http_version == HTTPVersion.HTTP3:
                 pytest.skip("httpx does not support HTTP/3")

@@ -58,6 +58,7 @@ from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import Iterable
+from typing import List
 from typing import TextIO
 from typing import Tuple
 from typing import Type
@@ -130,22 +131,66 @@ def create_proxy_methods(
     return decorate
 
 
+_source_lines_cache: Dict[str, List[str]] = {}
+
+
+def _source_lines(filename: str) -> List[str]:
+    """Return the lines of a source file, snapshotting it on first access.
+
+    The line numbers we work with come from ``co_firstlineno`` on code
+    objects that were established when the module was imported.  As
+    :func:`.run_module` rewrites the files it generates, a file that's
+    already been written out earlier in this same run no longer agrees with
+    the line numbers of the code objects loaded from it, which would have us
+    reading arbitrary lines from the middle of a function.  Snapshotting each
+    file before it's modified keeps the two in agreement.
+
+    """
+    try:
+        return _source_lines_cache[filename]
+    except KeyError:
+        with open(filename) as f:
+            lines = _source_lines_cache[filename] = list(f)
+        return lines
+
+
 def _grab_overloads(fn):
     """grab @overload entries for a function, assuming black-formatted
     code ;) so that we can do a simple regex
 
     """
 
-    # functions that use @util.deprecated and whatnot will have a string
-    # generated fn.  we can look at __wrapped__ but these functions don't
+    # functions that use @util.deprecated and whatnot will have a runtime
+    # generated fn, whose co_filename is a synthetic <...> name rather than
+    # a file on disk.  we can look at __wrapped__ but these functions don't
     # have any overloads in any case right now so skip
-    if fn.__code__.co_filename == "<string>":
+    filename = fn.__code__.co_filename
+    if filename.startswith("<") and filename.endswith(">"):
         return []
 
-    with open(fn.__code__.co_filename) as f:
-        lines = [l for i, l in zip(range(fn.__code__.co_firstlineno), f)]
+    all_lines = _source_lines(filename)
 
-        lines.reverse()
+    # co_firstlineno points at the first decorator line for a decorated
+    # function, so step past any decorators to reach the "def" itself
+    def_index = fn.__code__.co_firstlineno - 1
+    while def_index < len(all_lines) and re.match(
+        r"^\s*@\w", all_lines[def_index]
+    ):
+        def_index += 1
+
+    # the whole scheme here relies on co_firstlineno agreeing with the file
+    # we just read; if it doesn't we'd silently emit fragments of unrelated
+    # code as though they were overloads, so check it up front
+    if def_index >= len(all_lines) or not re.match(
+        rf"^\s*(?:async )?def {re.escape(fn.__name__)}\(", all_lines[def_index]
+    ):
+        raise Exception(
+            f"Could not find the definition of {fn.__name__}() at line "
+            f"{fn.__code__.co_firstlineno} of {filename}; source file and "
+            f"loaded code object are out of sync"
+        )
+
+    lines = list(reversed(all_lines[: fn.__code__.co_firstlineno]))
 
     output = []
 
@@ -334,13 +379,26 @@ def process_class(
 
         return_type = _get_return_type(target_cls, name, attr)
 
+        existing_doc = None
+
         if attr is not None:
             if isinstance(attr, property):
                 readonly = attr.fset is None
+                existing_doc = attr.__doc__
             elif isinstance(attr, langhelpers.generic_fn_descriptor):
                 readonly = True
-            else:
+                existing_doc = attr.__doc__
+            elif hasattr(attr, "__get__"):
                 readonly = not hasattr(attr, "__set__")
+                existing_doc = attr.__doc__
+            else:
+                # not a descriptor
+                readonly = False
+
+        else:
+            readonly = False
+
+        if existing_doc:
             doc = textwrap.indent(
                 inject_docstring_text(
                     attr.__doc__,
@@ -357,7 +415,6 @@ def process_class(
                 "    ",
             ).lstrip()
         else:
-            readonly = False
             doc = (
                 f"Proxy for the :attr:`{sphinx_symbol}.{name}` "
                 "attribute \n"
@@ -438,6 +495,11 @@ def run_module(modname: str, cmd: code_writer_cmd) -> None:
     mod = importlib.import_module(modname)
     destination_path = mod.__file__
     assert destination_path is not None
+
+    # snapshot this module's source before we rewrite it below; modules
+    # generated later in this same run may proxy classes declared here, and
+    # their code objects will still refer to the line numbers we have now
+    _source_lines(destination_path)
 
     tempfile = process_module(modname, destination_path, cmd)
 

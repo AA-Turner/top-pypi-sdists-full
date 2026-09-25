@@ -33,12 +33,14 @@ from qiskit_ibm_runtime.exceptions import RuntimeInvalidStateError
 from qiskit_ibm_runtime.fake_provider import FakeManilaV2
 from qiskit_ibm_runtime.ibm_backend import IBMBackend
 from qiskit_ibm_runtime.models import BackendConfiguration, BackendProperties, BackendStatus
-from qiskit_ibm_runtime.runtime_job_v2 import RuntimeJobV2
 
 if TYPE_CHECKING:
     import logging
+    from collections.abc import Callable, Iterable
 
     from qiskit.providers.backend import Backend, BackendV2
+
+    from qiskit_ibm_runtime.runtime_job_v2 import RuntimeJobV2
 
 
 def most_busy_backend(
@@ -102,15 +104,6 @@ def get_real_device(service):
         return service.least_busy(simulator=False).name
     except QiskitBackendNotFoundError:
         raise unittest.SkipTest("No real device")  # cloud has no real device
-
-
-def mock_wait_for_final_state(service, job):
-    """Replace `wait_for_final_state` with a mock function."""
-    return mock.patch.object(
-        RuntimeJobV2,
-        "wait_for_final_state",
-        side_effect=service._get_api_client().wait_for_final_state(job.job_id()),
-    )
 
 
 def create_faulty_backend(
@@ -179,7 +172,7 @@ def get_mocked_backend(
     properties: dict | None = None,
 ) -> IBMBackend:
     """Return a mock backend."""
-    mock_service = mock.MagicMock(spec=QiskitRuntimeService)
+    mock_service = mock.MagicMock(spec=QiskitRuntimeService, is_local=False)
     mock_api_client = mock.MagicMock()
     mock_api_client._instance = "mock_instance"
     mock_service._active_api_client = mock_api_client
@@ -212,8 +205,8 @@ def get_mocked_session(backend: Any = None) -> mock.MagicMock:
     session = mock.MagicMock(spec=Session)
     session._instance = None
     session._backend = backend or get_mocked_backend()
-    session._service = getattr(backend, "service", None) or mock.MagicMock(
-        spec=QiskitRuntimeService
+    session.service = getattr(backend, "service", None) or mock.MagicMock(
+        spec=QiskitRuntimeService, is_local=False
     )
     return session
 
@@ -248,7 +241,9 @@ class Case(dict):
     """<no description>."""
 
 
-def generate_cases(docstring, dsc=None, name=None, **kwargs):
+def generate_cases(
+    docstring: str, dsc: str | None = None, name: str | None = None, **kwargs: Any
+) -> list[Case]:
     """Combines kwargs in Cartesian product and creates Case with them."""
     ret = []
     keys = kwargs.keys()
@@ -265,7 +260,7 @@ def generate_cases(docstring, dsc=None, name=None, **kwargs):
     return ret
 
 
-def combine(**kwargs):
+def combine(**kwargs: Any) -> Callable[[Callable], Callable]:
     """Decorator to create combinations and tests.
 
     @combine(level=[0, 1, 2, 3],
@@ -274,13 +269,13 @@ def combine(**kwargs):
              name='{circuit.__name__}_level{level}').
     """
 
-    def deco(func):
+    def deco(func: Callable) -> Callable:
         return data(*generate_cases(docstring=func.__doc__, **kwargs))(unpack(func))
 
     return deco
 
 
-def bell():
+def bell() -> QuantumCircuit:
     """Return a Bell circuit."""
     quantum_register = QuantumRegister(2, name="qr")
     classical_register = ClassicalRegister(2, name="cr")
@@ -293,7 +288,13 @@ def bell():
 
 
 def make_mirror_circuit_with_phases(
-    backend: BackendV2, num_qubits: int = 2, layers: int = 4, *, seed: int | None = 7
+    backend: BackendV2,
+    num_qubits: int = 2,
+    layers: int = 4,
+    *,
+    seed: int | None = 7,
+    add_measurement: bool = True,
+    add_rx: bool = True,
 ) -> QuantumCircuit:
     """Make a circuit that composes a mirror circuit with a final layer of RX gates.
 
@@ -347,9 +348,11 @@ def make_mirror_circuit_with_phases(
     circuit.compose(mirror.inverse(), inplace=True)
 
     circuit.barrier()
-    for qubit in range(num_qubits):
-        circuit.rx(Parameter(f"theta_{qubit}"), qubit)
-    circuit.measure_all()
+    if add_rx:
+        for qubit in range(num_qubits):
+            circuit.rx(Parameter(f"theta_{qubit}"), qubit)
+    if add_measurement:
+        circuit.measure_all()
     return circuit
 
 
@@ -387,7 +390,7 @@ def get_primitive_inputs(primitive, backend=None, num_sets=1):
         raise ValueError(f"Invalid primitive type {type(primitive)}")
 
 
-def transpile_pubs(in_pubs, backend, program):
+def transpile_pubs(in_pubs: Iterable[Any], backend: Backend, program: str) -> list[tuple[Any, ...]]:
     """Return pubs with transformed circuits and observables."""
     t_pubs = []
     for pub in in_pubs:
@@ -406,10 +409,12 @@ def transpile_pubs(in_pubs, backend, program):
     return t_pubs
 
 
-def remap_observables(observables, isa_circuit):
+def remap_observables(
+    observables: Iterable[str | SparsePauliOp | dict], isa_circuit: QuantumCircuit
+) -> list[str | SparsePauliOp | dict]:
     """Remap observables based on input circuit."""
 
-    def _convert_paul_or_str(_obs):
+    def _convert_paul_or_str(_obs: str | Pauli) -> str | Pauli:
         if isinstance(_obs, str):
             return _obs + "I" * (len(layout.input_qubit_mapping) - len(_obs))
         return Pauli("X" * (len(layout.input_qubit_mapping)))

@@ -2,4 +2,6 @@
 #   Services
 #
 
-from . import cov, device, object
+from . import device
+from . import object
+from . import cov

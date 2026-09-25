@@ -12,7 +12,7 @@ requires = [
 [project]
 name = "Adafruit_PureIO"
 description = "Pure python (i.e. no native extensions) access to Linux IO    including I2C and SPI. Drop in replacement for smbus and spidev modules."
-version = "1.1.11"
+version = "1.1.12"
 readme = "README.rst"
 authors = [
     {name = "Adafruit Industries", email = "circuitpython@adafruit.com"}

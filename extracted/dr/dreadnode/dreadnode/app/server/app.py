@@ -13,6 +13,7 @@ import time
 import typing as t
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -29,6 +30,7 @@ from dreadnode.app.api.models import (
     HumanInputResponse,
     HumanPrompt,
     RuntimeInfoResponse,
+    RuntimeReloadProgress,
     SessionCreateRequest,
     SessionEventPublishRequest,
     SessionGroupCreateRequest,
@@ -84,7 +86,9 @@ from dreadnode.app.server.websocket import (
     serve_runtime_websocket,
 )
 from dreadnode.core import startup_clock
-from dreadnode.tracing.span import bind_session_id, bind_workflow
+from dreadnode.core.log import LogLevel, enable_runtime_capture
+from dreadnode.core.runtime_logs import RuntimeLogPage, runtime_log_buffer
+from dreadnode.tracing.span import bind_object_storage_timing, bind_session_id, bind_workflow
 
 if t.TYPE_CHECKING:
     from dreadnode.agents import Agent
@@ -95,7 +99,7 @@ if t.TYPE_CHECKING:
     from dreadnode.generators.generator import Generator
     from dreadnode.generators.message import Message
     from dreadnode.policies import SessionPolicy
-    from dreadnode.storage import SessionRecord, SessionStore
+    from dreadnode.storage import SessionRecord, SessionStore, Storage
 
 EventPayload = dict[str, t.Any]
 DEFAULT_MODEL = "anthropic/claude-sonnet-4-20250514"
@@ -811,9 +815,8 @@ async def server_lifecycle() -> t.AsyncIterator[None]:
     # this runs it is usually in flight and this call just returns that future.
     #
     # The flags this block used to import litellm to set are covered by the
-    # environment above. Note that LiteLLMGenerator.__post_model_init__ looks
-    # like it sets them too, but that is not a pydantic hook and never runs —
-    # see ENG-8259. Do not rely on it.
+    # environment above, which is the only mechanism that configures litellm —
+    # `LiteLLMGenerator` no longer pretends to (ENG-8382).
     warm_future = _start_litellm_warm(state)
 
     # Ready has to mean "can serve a chat turn", so nobody marks ready until the
@@ -886,6 +889,20 @@ async def _stop_started_managers() -> None:
             await manager.stop()
 
 
+# Shared across in-process server lifespans. Lifespan cleanup cancels its queued
+# warm, but must not shut down the pool needed by subsequent starts.
+_STORAGE_WARM_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dn-storage-warm")
+
+
+def _warm_storage(storage: Storage, startup: StartupState) -> None:
+    """Best-effort credential/client prefetch, never a readiness prerequisite."""
+    try:
+        if not storage._is_local_filesystem():
+            startup.mark("storage_ready")
+    except Exception:
+        logger.debug("Storage startup warm failed; trace objects will remain inline", exc_info=True)
+
+
 async def _deferred_startup(stack: AsyncExitStack, startup: StartupState) -> None:
     """Configure, discover capabilities and start MCP/workers, off the bind path.
 
@@ -915,6 +932,11 @@ async def _deferred_startup(stack: AsyncExitStack, startup: StartupState) -> Non
         elif not instance._initialized:
             await asyncio.to_thread(instance.configure)
         startup.mark("configured")
+
+        storage = instance.storage
+        if storage.can_sync:
+            storage_warm = _STORAGE_WARM_EXECUTOR.submit(_warm_storage, storage, startup)
+            stack.callback(storage_warm.cancel)
 
         startup.advance(StartupStage.INSTALLING)
         if state.capability_registry is None:
@@ -954,6 +976,7 @@ async def _lifespan(_app_instance: t.Any) -> t.AsyncIterator[None]:
     keeps every existing caller of health working while giving the platform a
     signal that can tell "still installing" from "startup failed".
     """
+    enable_runtime_capture()
     state = get_state()
     state.startup.mark("lifespan_started")
     # Before the deferred task, not inside it: this is the earliest point in the
@@ -1101,6 +1124,78 @@ class StartupStage(StrEnum):
     """Deferred startup raised. Public detail carries only a stable code."""
 
 
+@dataclass(frozen=True)
+class RuntimeStep:
+    """One piece of work a runtime is doing, reported while it runs.
+
+    Frozen and replaced wholesale rather than mutated field by field. The work
+    that reports steps runs in a worker thread (``_populate_registry`` is
+    synchronous), while the health endpoints read from the event loop; swapping
+    a single immutable object means a reader sees either the previous step or
+    the next one, never a half-written mixture of the two.
+    """
+
+    name: str
+    index: int | None = None
+    total: int | None = None
+    item: str | None = None
+
+
+class ReloadState:
+    """Whether a capability reload is running, and how the last one ended.
+
+    Kept apart from ``StartupStage`` on purpose. A reload leaves the runtime
+    ready and serving, so folding it into the startup stage would make
+    ``/api/ready`` answer 503 for a runtime that is fine, and stall every
+    caller that waits on readiness before it connects.
+    """
+
+    def __init__(self) -> None:
+        self.started_sec: float | None = None
+        self.finished_sec: float | None = None
+        self.error: str | None = None
+        # Reloads are not serialized, so two can overlap — two browser tabs
+        # changing bindings at once is enough. Counting them keeps ``active``
+        # true until the last one is done; flipping it on the first to finish
+        # would tell a client watching the other one that it had ended.
+        self._in_flight: int = 0
+        self._failed: bool = False
+
+    @property
+    def active(self) -> bool:
+        return self._in_flight > 0
+
+    def _now_sec(self) -> float:
+        return round(time.monotonic() - startup_clock.process_start_monotonic(), 3)
+
+    def begin(self) -> None:
+        if self._in_flight == 0:
+            self.started_sec = self._now_sec()
+            self.finished_sec = None
+            self.error = None
+            self._failed = False
+        self._in_flight += 1
+
+    def finish(self, error: BaseException | None = None) -> None:
+        if error is not None:
+            self._failed = True
+        self._in_flight = max(0, self._in_flight - 1)
+        if self._in_flight == 0:
+            # Settled only once nothing is left running, so the outcome
+            # describes every overlapping reload rather than whichever one
+            # happened to finish last.
+            self.finished_sec = self._now_sec()
+            self.error = "reload_failed" if self._failed else None
+
+    def snapshot(self) -> RuntimeReloadProgress:
+        return RuntimeReloadProgress(
+            active=self.active,
+            started_sec=self.started_sec,
+            finished_sec=self.finished_sec,
+            error=self.error,
+        )
+
+
 class StartupState:
     """Progress of the initialization that runs after the port is bound.
 
@@ -1115,6 +1210,7 @@ class StartupState:
         self.detail: str | None = None
         self.started_at: float = time.monotonic()
         self.finished_at: float | None = None
+        self.step: RuntimeStep | None = None
         # Marks live in ``startup_clock`` so code that runs before this object
         # exists, or that must not import the server, can still record where
         # its time went. Every mark is seconds since the process started.
@@ -1149,8 +1245,32 @@ class StartupState:
         end = self.finished_at if self.finished_at is not None else time.monotonic()
         return round(end - self.started_at, 3)
 
+    def begin_step(
+        self,
+        name: str,
+        *,
+        index: int | None = None,
+        total: int | None = None,
+        item: str | None = None,
+    ) -> None:
+        """Report the piece of work starting now.
+
+        Reported as it begins rather than when it ends, which is the whole
+        point: the marks in ``startup_clock`` already say what a finished step
+        cost, and a caller watching a runtime come up needs to know where the
+        time is going while it is still going there.
+
+        ``index``/``total`` are for work with a genuine count, such as the
+        capabilities being downloaded. Steps without one leave them unset.
+        """
+        self.step = RuntimeStep(name=name, index=index, total=total, item=item)
+
+    def clear_step(self) -> None:
+        self.step = None
+
     def advance(self, stage: StartupStage) -> None:
         self.stage = stage
+        self.step = None
         self.mark(stage.value)
         logger.info("Runtime startup | stage={} | elapsed={}s", stage.value, self.elapsed_sec)
 
@@ -1158,6 +1278,7 @@ class StartupState:
         self.finished_at = time.monotonic()
         self.stage = StartupStage.READY
         self.detail = None
+        self.step = None
         self.mark(StartupStage.READY.value)
         logger.info(
             "Runtime startup complete | elapsed={}s | since_process_start={}s | anchor={} "
@@ -1173,6 +1294,7 @@ class StartupState:
         self.finished_at = time.monotonic()
         self.stage = StartupStage.FAILED
         self.detail = "startup_failed"
+        self.step = None
         logger.opt(exception=error).error(
             "Runtime startup failed | stage={} | elapsed={}s | error_type={} | error={}",
             self.stage.value,
@@ -1217,6 +1339,7 @@ class ServerState:
         # discovery must never rediscover the module singleton independently.
         self.instance: t.Any | None = None
         self.startup = StartupState()
+        self.reload = ReloadState()
         # The litellm import, in flight. Owned here rather than by
         # `server_lifecycle` so startup can begin it earlier and every path that
         # marks ready waits on the same handle. See `_start_litellm_warm`.
@@ -2205,6 +2328,7 @@ class SessionRuntime:
         self._message_count: int = 0
         self._agent_name_override: str | None = None
         self._last_turn_agent: str | None = None
+        self._active_turn_agent: str | None = None
         # Session owns the trajectory — agents are ephemeral
         from dreadnode.agents.trajectory import Trajectory as TrajectoryModel
 
@@ -2218,7 +2342,7 @@ class SessionRuntime:
             get_platform_registered=lambda: self._platform_registered,
             get_model=lambda: self.model,
             get_title=lambda: self.title,
-            get_agent_name=lambda: self.agent_name,
+            get_agent_name=lambda: self._active_turn_agent or self.agent_name,
             get_trajectory=lambda: self._trajectory,
             resolve_agent_system_prompt=lambda agent_name: (
                 agent_def.system_prompt
@@ -2301,6 +2425,7 @@ class SessionRuntime:
             active_turn_id=self.active_turn_id,
             turn_phase=self._prompt_registry.turn_phase(self.active_turn_id),
             pending_prompt=self._prompt_registry.pending_prompt,
+            pending_prompts=self._prompt_registry.pending_prompts,
             sync_status=self._sync_status_snapshot(),
         )
 
@@ -3380,6 +3505,9 @@ class SessionRuntime:
 
             turn_status = "failed"
             emitted_event_count = 0
+            # Transcript flushes during this turn attribute its messages to
+            # the agent running it, not the one that ran the previous turn.
+            self._active_turn_agent = request.agent or self.agent_name
             # Anchor for terminal-envelope synthesis (CAP-WEVT-007..009): the
             # slice of trajectory events and the wall-clock duration belong to
             # this turn alone.
@@ -3524,8 +3652,7 @@ class SessionRuntime:
                     # Tool-approval prompts from the guard judge must
                     # reach the operator even in autonomous mode — the
                     # whole point of ASK is human-in-the-loop gating.
-                    is_tool_approval = any(q.header == "Tool approval" for q in prompt.questions)
-                    if self._policy.is_autonomous and not is_tool_approval:
+                    if self._policy.is_autonomous and prompt.tool_approval is None:
                         # No human is in the loop. Resolve instantly with
                         # ``cancel`` so the agent's ``ask_user()`` raises
                         # ``UserCancelled`` without touching any transport.
@@ -3550,8 +3677,9 @@ class SessionRuntime:
                 self.persistence.begin_turn()
                 # Local import to match the existing lazy-import style in
                 # this module and avoid eager event-module import at startup.
-                from dreadnode.agents.events import AgentEnd, GenerationStep
+                from dreadnode.agents.events import AgentEnd, GenerationStart, GenerationStep
 
+                generation_started_logged = False
                 try:
                     # Workflow attribution rides on the agent's own spans rather
                     # than a separate span tree — see the constants for why. The
@@ -3559,6 +3687,14 @@ class SessionRuntime:
                     with (
                         bind_session_id(self.session_id),
                         bind_workflow(*self._workflow_attribution()),
+                        bind_object_storage_timing(
+                            functools.partial(
+                                _log_chat_timing,
+                                self.session_id,
+                                request.turn_id,
+                                started_at=request.queued_at_monotonic,
+                            )
+                        ),
                     ):
                         # Session owns the trajectory — agent operates on it directly
                         async with agent.stream(
@@ -3574,6 +3710,19 @@ class SessionRuntime:
                                 request.queued_at_monotonic,
                             )
                             async for event in stream:
+                                # The first GenerationStart is the last thing logged
+                                # before the model call, so the gap between it and the
+                                # generator's request line is the generator's own setup.
+                                if not generation_started_logged and isinstance(
+                                    event, GenerationStart
+                                ):
+                                    generation_started_logged = True
+                                    _log_chat_timing(
+                                        self.session_id,
+                                        request.turn_id,
+                                        "generation_started",
+                                        request.queued_at_monotonic,
+                                    )
                                 event_dict = event.as_dict()
                                 # Detect auto-compaction: a ReactStep whose Retry
                                 # carries a message with compaction metadata.
@@ -3783,6 +3932,7 @@ class SessionRuntime:
                     terminal=True,
                 )
             finally:
+                self._active_turn_agent = None
                 self._turns.finish_turn(context, status=turn_status)
                 logger.debug(
                     "Session {} turn={}: chat turn complete status={} emitted_events={}",
@@ -4505,6 +4655,24 @@ async def list_files(
     return JSONResponse({"path": str(base), "entries": entries})
 
 
+@app.get("/api/logs", response_model=RuntimeLogPage)
+async def query_runtime_logs(
+    after: t.Annotated[int | None, Query(ge=0)] = None,
+    instance_id: t.Annotated[str | None, Query(max_length=64)] = None,
+    limit: t.Annotated[int, Query(ge=1, le=200)] = 100,
+    level: LogLevel = "debug",
+    text: t.Annotated[str, Query(max_length=256)] = "",
+) -> RuntimeLogPage:
+    """Query bounded process diagnostics; no filesystem paths are accepted."""
+    return runtime_log_buffer.query(
+        after=after,
+        instance_id=instance_id,
+        limit=limit,
+        level=level,
+        text=text,
+    )
+
+
 @app.get("/api/files/read")
 async def read_file(path: str) -> JSONResponse:
     """Read a file's content."""
@@ -4559,6 +4727,32 @@ async def execute_shell(
         return JSONResponse({"error": str(exc), "command": command}, status_code=500)
 
 
+def _health_payload(status_text: str) -> HealthResponse:
+    """Build the body both health endpoints return.
+
+    One builder so the two cannot drift: a caller polling either of them for
+    progress has to see the same step, and the only difference between them is
+    what ``status`` and the HTTP code mean.
+    """
+    state = get_state()
+    startup = state.startup
+    step = startup.step
+    return HealthResponse(
+        status=status_text,
+        stage=startup.stage.value,
+        detail=startup.detail,
+        elapsed_sec=startup.elapsed_sec,
+        timings=dict(startup.marks),
+        durations=dict(startup.durations),
+        timing_anchor=startup.anchor,
+        step=step.name if step else None,
+        step_index=step.index if step else None,
+        step_total=step.total if step else None,
+        item=step.item if step else None,
+        reload=state.reload.snapshot(),
+    )
+
+
 @app.get("/api/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
     """Liveness: the process is up and serving.
@@ -4569,16 +4763,7 @@ async def health_check() -> HealthResponse:
     `stage` and `detail` ride along so a caller can see startup progress without
     a second request.
     """
-    startup = get_state().startup
-    return HealthResponse(
-        status="ok",
-        stage=startup.stage.value,
-        detail=startup.detail,
-        elapsed_sec=startup.elapsed_sec,
-        timings=dict(startup.marks),
-        durations=dict(startup.durations),
-        timing_anchor=startup.anchor,
-    )
+    return _health_payload("ok")
 
 
 @app.get("/api/ready", response_model=HealthResponse)
@@ -4593,15 +4778,7 @@ async def readiness_check(response: Response) -> HealthResponse:
     startup = get_state().startup
     if not startup.is_ready:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    return HealthResponse(
-        status="ok" if startup.is_ready else "starting",
-        stage=startup.stage.value,
-        detail=startup.detail,
-        elapsed_sec=startup.elapsed_sec,
-        timings=dict(startup.marks),
-        durations=dict(startup.durations),
-        timing_anchor=startup.anchor,
-    )
+    return _health_payload("ok" if startup.is_ready else "starting")
 
 
 @app.get("/api/runtime", response_model=RuntimeInfoResponse)
@@ -4790,51 +4967,72 @@ async def reload_capabilities() -> RuntimeInfoResponse:
 
     Active sessions detect the change on their next turn and recreate
     agents with the updated tool/skill set.
+
+    Progress is reported on ``/api/health`` for the whole of it. A reload runs
+    the same capability sync and dependency install that startup does, so it is
+    bounded by the same install budget rather than by anything a caller could
+    reasonably guess — a client that waits on this response alone has no way to
+    tell a slow install from a wedged runtime.
     """
     from dreadnode import _get_default_instance
 
+    state = get_state()
+    startup = state.startup
+    state.reload.begin()
     reload_started_at = time.perf_counter()
     stop_ms = 0
     populate_ms = 0
     start_ms = 0
+    registry: capability_manager.CapabilityRegistry | None = None
 
-    # Stop old workers first (CAP-WLIF-005: cold restart on reload)
-    old_registry = get_state().capability_registry
-    if old_registry and old_registry.worker_manager:
-        await old_registry.worker_manager.stop()
+    try:
+        # Stop old workers first (CAP-WLIF-005: cold restart on reload)
+        old_registry = state.capability_registry
+        if old_registry and old_registry.worker_manager:
+            startup.begin_step("stopping_workers")
+            await old_registry.worker_manager.stop()
 
-    # Stop old MCP servers before replacing the registry
-    if old_registry and old_registry.mcp_manager:
-        stop_started_at = time.perf_counter()
-        await old_registry.mcp_manager.stop()
-        stop_ms = round((time.perf_counter() - stop_started_at) * 1000)
+        # Stop old MCP servers before replacing the registry
+        if old_registry and old_registry.mcp_manager:
+            startup.begin_step("stopping_tool_servers")
+            stop_started_at = time.perf_counter()
+            await old_registry.mcp_manager.stop()
+            stop_ms = round((time.perf_counter() - stop_started_at) * 1000)
 
-    instance = _get_default_instance()
-    populate_started_at = time.perf_counter()
-    await asyncio.to_thread(_populate_registry, instance)
-    populate_ms = round((time.perf_counter() - populate_started_at) * 1000)
+        instance = _get_default_instance()
+        populate_started_at = time.perf_counter()
+        await asyncio.to_thread(_populate_registry, instance)
+        populate_ms = round((time.perf_counter() - populate_started_at) * 1000)
 
-    # Start MCP servers for the new registry. ``start()`` is non-blocking
-    # (CAP-MCP-009); under DREADNODE_SYNCHRONOUS_STARTUP, the reload also
-    # waits for connects to settle so the response reflects the post-reload
-    # toolset, matching the eval-orchestrator contract.
-    registry = get_state().capability_registry
-    if registry:
-        registry.mcp_manager = capability_manager.MCPLifecycleManager(
-            event_bus=get_state().event_bus,
-        )
-        start_started_at = time.perf_counter()
-        await registry.mcp_manager.start(registry)
-        if _is_synchronous_startup():
-            await registry.mcp_manager.wait_for_connects()
-        start_ms = round((time.perf_counter() - start_started_at) * 1000)
+        # Start MCP servers for the new registry. ``start()`` is non-blocking
+        # (CAP-MCP-009); under DREADNODE_SYNCHRONOUS_STARTUP, the reload also
+        # waits for connects to settle so the response reflects the post-reload
+        # toolset, matching the eval-orchestrator contract.
+        registry = state.capability_registry
+        if registry:
+            startup.begin_step("starting_tool_servers")
+            registry.mcp_manager = capability_manager.MCPLifecycleManager(
+                event_bus=state.event_bus,
+            )
+            start_started_at = time.perf_counter()
+            await registry.mcp_manager.start(registry)
+            if _is_synchronous_startup():
+                await registry.mcp_manager.wait_for_connects()
+            start_ms = round((time.perf_counter() - start_started_at) * 1000)
 
-    # Start new workers AFTER MCP (CAP-WLIF-002)
-    if registry:
-        from dreadnode.app.server.worker_manager import WorkerLifecycleManager
+        # Start new workers AFTER MCP (CAP-WLIF-002)
+        if registry:
+            from dreadnode.app.server.worker_manager import WorkerLifecycleManager
 
-        registry.worker_manager = WorkerLifecycleManager(get_state().event_bus, app)
-        await registry.worker_manager.start(registry)
+            startup.begin_step("starting_workers")
+            registry.worker_manager = WorkerLifecycleManager(state.event_bus, app)
+            await registry.worker_manager.start(registry)
+    except BaseException as exc:
+        state.reload.finish(error=exc)
+        startup.clear_step()
+        raise
+    state.reload.finish()
+    startup.clear_step()
 
     capability_count = len(registry.capabilities) if registry else 0
     logger.info(
@@ -4846,12 +5044,12 @@ async def reload_capabilities() -> RuntimeInfoResponse:
         capability_count,
     )
 
-    await get_state().event_bus.publish(
+    await state.event_bus.publish(
         kind=runtime_events.EVENT_CAPABILITIES_RELOADED,
         payload={"capability_count": capability_count},
     )
 
-    working_dir = get_state().ensure_working_directory()
+    working_dir = state.ensure_working_directory()
     if registry is None:
         return RuntimeInfoResponse(working_dir=str(working_dir))
     return registry.to_runtime_info(working_dir=working_dir)
@@ -5005,6 +5203,7 @@ def _read_capability_system_prompt(path: Path) -> str:
 
 def _sync_runtime_capabilities_if_available(
     instance: t.Any,
+    on_progress: t.Callable[[str, int, int], None] | None = None,
 ) -> tuple[Path | None, list[dict[str, t.Any]]]:
     """Sync runtime-scoped capabilities if platform credentials are available.
 
@@ -5032,6 +5231,7 @@ def _sync_runtime_capabilities_if_available(
             workspace=instance.profile.workspace_key,
             runtime_id=runtime_id,
             cache_dir=cache_dir,
+            on_progress=on_progress,
         )
         result = asyncio.run(client.sync())
         if result.synced:
@@ -5118,6 +5318,26 @@ def _check_capability_updates(
     return updates
 
 
+# The install pipeline names its steps for the timing record it writes:
+# ``packages.<cap>``, ``python``, ``scripts.<cap>``. These translate that into
+# the step vocabulary a client reports, keeping the capability name separate
+# from the kind of work so a reader does not have to split the string.
+_INSTALL_STEP_NAMES = {
+    "packages": "installing_packages",
+    "python": "installing_python",
+    "scripts": "running_setup_scripts",
+}
+
+
+def _install_step_name(step: str) -> str:
+    return _INSTALL_STEP_NAMES.get(step.split(".", 1)[0], "installing_dependencies")
+
+
+def _install_step_item(step: str) -> str | None:
+    _, _, capability = step.partition(".")
+    return capability or None
+
+
 def _populate_registry(instance: t.Any) -> None:
     """Discover capabilities and install them into app state."""
     from dreadnode.builtin_capabilities import load_builtin_capabilities
@@ -5130,6 +5350,7 @@ def _populate_registry(instance: t.Any) -> None:
     state = get_state()
     startup = state.startup
     startup.mark("registry_started")
+    startup.begin_step("loading_builtins")
     working_dir = state.ensure_working_directory()
     registry = capability_manager.CapabilityRegistry()
 
@@ -5143,7 +5364,13 @@ def _populate_registry(instance: t.Any) -> None:
     startup.mark("builtins_loaded")
 
     # 1. Sync runtime capabilities if platform credentials are available
-    workspace_dir, runtime_bindings = _sync_runtime_capabilities_if_available(instance)
+    startup.begin_step("downloading_capabilities")
+    workspace_dir, runtime_bindings = _sync_runtime_capabilities_if_available(
+        instance,
+        on_progress=lambda name, index, total: startup.begin_step(
+            "downloading_capabilities", index=index, total=total, item=name
+        ),
+    )
     registry.runtime_bindings = runtime_bindings
     startup.mark("capabilities_synced")
     # 2. Determine host type: sandbox if runtime binding env is set, local otherwise
@@ -5159,7 +5386,13 @@ def _populate_registry(instance: t.Any) -> None:
             from dreadnode.capabilities.loader import preload_dependency_specs
 
             install_specs = preload_dependency_specs(workspace_dir)
-            install_report = install_dependencies(install_specs)
+            startup.begin_step("installing_dependencies")
+            install_report = install_dependencies(
+                install_specs,
+                on_step=lambda step: startup.begin_step(
+                    _install_step_name(step), item=_install_step_item(step)
+                ),
+            )
             for step, seconds in install_report.durations.items():
                 startup.record_duration(f"install.{step}", seconds)
             if install_report.installed:
@@ -5180,6 +5413,7 @@ def _populate_registry(instance: t.Any) -> None:
     startup.mark("dependencies_installed")
 
     # 4. Discover with host-exclusive source (CAP-LOAD-014)
+    startup.begin_step("loading_agents_and_tools")
     shadowed_names: set[str] = set()
     try:
         result = Capability.discover(

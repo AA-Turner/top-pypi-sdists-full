@@ -3,13 +3,14 @@ import typing as t
 from pathlib import Path
 from typing import ClassVar
 
-import numpy as np
-import pandas as pd
-
 from dreadnode.core.types import DataType
 
-TableDataType = (
-    pd.DataFrame | dict[t.Any, t.Any] | list[t.Any] | str | Path | np.ndarray[t.Any, t.Any]
+if t.TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
+
+TableDataType: t.TypeAlias = (
+    "pd.DataFrame | dict[t.Any, t.Any] | list[t.Any] | str | Path | np.ndarray[t.Any, t.Any]"
 )
 
 
@@ -77,6 +78,9 @@ class Table(DataType):
         Returns:
             A pandas DataFrame representation of the input data
         """
+        import numpy as np
+        import pandas as pd
+
         if isinstance(self._data, pd.DataFrame):
             return self._data
         if isinstance(self._data, str | Path) and Path(self._data).exists():
@@ -130,6 +134,9 @@ class Table(DataType):
         Returns:
             A dictionary of metadata
         """
+        import numpy as np
+        import pandas as pd
+
         metadata = {
             "extension": self._format,
             "x-python-datatype": "dreadnode.Table.bytes",

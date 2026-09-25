@@ -14,12 +14,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any
 
 from qiskit.primitives import PrimitiveResult
 
 from .converters import quantum_program_item_result_to_sampler_pub_result
-from .utils import executor_metadata_to_sampler_metadata, flatten_twirling_axes, undo_twirling
+from .utils import flatten_twirling_axes, undo_twirling
 
 if TYPE_CHECKING:
     from ...results.quantum_program import QuantumProgramResult
@@ -29,18 +29,19 @@ def sampler_v2_post_processor_v0_1(result: QuantumProgramResult) -> PrimitiveRes
     """Convert a quantum program result to a primitives result, for a V2 sampler.
 
     Convert :class:`~.QuantumProgramResult` to a :class:`~qiskit.primitives.PrimitiveResult`,
-    for :class:`~qiskit_ibm_runtime.executor_sampler.SamplerV2`.
+    for :class:`~qiskit_ibm_runtime.executor_sampler.Sampler`.
 
     This function transforms the raw quantum program execution results into the
-    format expected by :class:`~qiskit_ibm_runtime.executor_sampler.SamplerV2`,
+    format expected by :class:`~qiskit_ibm_runtime.executor_sampler.Sampler`,
     creating :class:`~qiskit.primitives.containers.BitArray` objects and
     :class:`~qiskit.primitives.containers.SamplerPubResult` containers for each pub.
 
     Args:
         result: The raw quantum program result containing measurement data.
+            **Consumed by this call** — do not use this object afterwards.
 
     Returns:
-        Primitive result for :class:`~qiskit_ibm_runtime.executor_sampler.SamplerV2`.
+        Primitive result for :class:`~qiskit_ibm_runtime.executor_sampler.Sampler`.
     """
     if len(result) == 0:
         return PrimitiveResult([])
@@ -51,7 +52,7 @@ def sampler_v2_post_processor_v0_1(result: QuantumProgramResult) -> PrimitiveRes
             f"'{type(result.passthrough_data)}'."
         )
 
-    passthrough = cast("dict", result.passthrough_data or {})
+    passthrough: dict[str, Any] = result.passthrough_data
     if (post_processor_data := passthrough.get("post_processor", None)) is None:
         raise ValueError("Missing 'post_processor' in passthrough data.")
     if (twirling := post_processor_data.get("twirling", None)) is None:
@@ -60,6 +61,8 @@ def sampler_v2_post_processor_v0_1(result: QuantumProgramResult) -> PrimitiveRes
         raise ValueError("Missing 'meas_type' in passthrough data.")
     if (shots := post_processor_data.get("shots", None)) is None:
         raise ValueError("Missing 'shots' in passthrough data.")
+    if (options := post_processor_data.get("options", None)) is None:
+        raise ValueError("Missing 'options' in passthrough data.")
 
     # Compute the ``num_randomizations`` from the left-most axis of the result arrays
     if twirling:
@@ -102,8 +105,5 @@ def sampler_v2_post_processor_v0_1(result: QuantumProgramResult) -> PrimitiveRes
         )
         pub_results.append(pub_result)
 
-    metadata = executor_metadata_to_sampler_metadata(
-        result.metadata, num_randomizations, shots, pub_shapes
-    )
-
-    return PrimitiveResult(pub_results, metadata=metadata or {})
+    metadata = {"executor": result.metadata, "options": options, "shots": shots}
+    return PrimitiveResult(pub_results, metadata=metadata)

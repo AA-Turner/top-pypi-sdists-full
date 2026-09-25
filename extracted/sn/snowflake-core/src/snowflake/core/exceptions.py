@@ -116,7 +116,6 @@ class APIError(_OpenAPIError):
             except Exception:
                 self.request_id = "missing"
                 logger.error("Failed to extract request_id from the response body for an Error")
-                logger.debug("The response body is: %r", self.body)
         super().__init__(str(self))
 
     def get_request_info(self) -> dict[str, typing.Any]:

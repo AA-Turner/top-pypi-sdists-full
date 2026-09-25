@@ -18,7 +18,6 @@ import os
 import tempfile
 import time
 import typing as t
-from datetime import datetime
 import sys
 from urllib.parse import urlsplit
 
@@ -39,7 +38,6 @@ from flask_security import (
     FSQLALiteUserDatastore,
     MongoEngineUserDatastore,
     PeeweeUserDatastore,
-    PonyUserDatastore,
     RoleMixin,
     Security,
     SQLAlchemySessionUserDatastore,
@@ -55,22 +53,21 @@ from flask_security import (
     permissions_accepted,
     permissions_required,
     uia_email_mapper,
+    RefreshTrackerMixin,
 )
 from flask_security.utils import localize_callback
 
 from tests.test_utils import convert_bool_option, populate_data
-
-NO_BABEL = False
-try:
-    from flask_babel import Babel
-except ImportError:
-    NO_BABEL = True
 
 # enable testing both register form options
 v2_param = [
     pytest.param(dict(use_register_v2=True), id="use_register_v2-True"),
     pytest.param(dict(use_register_v2=False), id="use_register_v2-False"),
 ]
+
+
+class Nomixin:
+    pass
 
 
 class FastHash(PasswordHash):
@@ -111,7 +108,7 @@ def find_sqlite_connections():
 
 
 @pytest.fixture()
-def app(request):
+def app(request, pytestconfig):
     # assert not find_sqlite_connections()  # hopefully find tests that don't clean up
     app = Flask(__name__)
     app.response_class = Response
@@ -151,6 +148,7 @@ def app(request):
         "passwordless",
         "recoverable",
         "registerable",
+        "refresh_token",
         "trackable",
         "two_factor",
         "unified_signin",
@@ -205,8 +203,16 @@ def app(request):
     # use babel marker to signify tests that need babel extension.
     babel = marker_getter("babel")
     if babel:
-        if NO_BABEL:
-            raise pytest.skip("Requires Babel")
+        pytest.importorskip("flask_babel")
+        from flask_babel import Babel
+
+        if locale := babel.kwargs.get("babel_default_locale", None):
+            app.config["BABEL_DEFAULT_LOCALE"] = locale
+        if babel.kwargs.get("test_xlations", None):
+            i18n_dirname = [
+                os.path.join(pytestconfig.rootdir, "tests/translations"),
+            ]
+            app.config["SECURITY_I18N_DIRNAME"] = i18n_dirname
         Babel(app)
 
     csrf = marker_getter("csrf")
@@ -214,7 +220,9 @@ def app(request):
         # without any keys/arguments - this is the default config
         # Note that WTF_CSRF_CHECK_DEFAULT = True means Flask_wtf will
         # run a CSRF check as part of @before_request - before we see it.
-        app.config["WTF_CSRF_ENABLED"] = True
+        # Above we set WTF_CSRF_ENABLED to False. With this marker
+        # we want the 'default' config.
+        del app.config["WTF_CSRF_ENABLED"]
         if "ignore_unauth" in csrf.kwargs.keys():
             app.config["WTF_CSRF_CHECK_DEFAULT"] = False
             app.config["SECURITY_CSRF_IGNORE_UNAUTH_ENDPOINTS"] = True
@@ -376,9 +384,6 @@ def app(request):
 
     request.addfinalizer(revert_forms)
     yield app
-    # help find tests that don't clean up - note that pony leaves a connection so
-    # we can't use this in 'production'...
-    # assert not find_sqlite_connections()
 
 
 @pytest.fixture()
@@ -443,7 +448,6 @@ def mongoengine_setup(app, tmpdir, realmongodburl):
         usage = StringField(max_length=64, required=True)
         # we need to be able to look up a user from a credential_id
         user = ReferenceField("User")
-        # user_id = ObjectIdField(required=True)
         meta = {"db_alias": db_name}
 
         def get_user_mapping(self) -> dict[str, str]:
@@ -451,6 +455,19 @@ def mongoengine_setup(app, tmpdir, realmongodburl):
             Return the mapping from webauthn back to User
             """
             return dict(id=self.user.id)
+
+    class FsRefreshTracker(Document, RefreshTrackerMixin):
+        """Refresh Token Tracker"""
+
+        refresh_family = StringField(max_length=64, required=True)
+        gen = IntField(default=1)
+        expires_at = DateTimeField(required=True)
+        revoked_at = DateTimeField(required=False)
+        last_used_at = DateTimeField(required=True)
+        name = StringField(max_length=64)
+        user = ReferenceField("User")
+
+        meta = {"db_alias": db_name}
 
     class User(Document, UserMixin):
         email = StringField(unique=True, max_length=255)
@@ -478,12 +495,16 @@ def mongoengine_setup(app, tmpdir, realmongodburl):
         webauthn = ListField(
             ReferenceField(WebAuthn, reverse_delete_rule=PULL), default=[]
         )
+        refresh_trackers = ListField(
+            ReferenceField(FsRefreshTracker, reverse_delete_rule=PULL), default=[]
+        )
         meta = {"db_alias": db_name}
 
         def get_security_payload(self):
             return {"email": str(self.email)}
 
     User.register_delete_rule(WebAuthn, "user", CASCADE)
+    User.register_delete_rule(FsRefreshTracker, "user", CASCADE)
 
     def tear_down():
         with app.app_context():
@@ -493,7 +514,10 @@ def mongoengine_setup(app, tmpdir, realmongodburl):
             db.drop_database(db_name)
             disconnect_all()
 
-    return MongoEngineUserDatastore(db, User, Role, WebAuthn), tear_down
+    return (
+        MongoEngineUserDatastore(db, User, Role, WebAuthn, FsRefreshTracker),
+        tear_down,
+    )
 
 
 @pytest.fixture()
@@ -507,7 +531,7 @@ def sqlalchemy_setup(app, tmpdir, realdburl):
     pytest.importorskip("flask_sqlalchemy")
     from flask_sqlalchemy import SQLAlchemy
     from sqlalchemy import Column, Integer
-    from flask_security.models import fsqla_v3 as fsqla
+    from flask_security.models import fsqla_v4 as fsqla
 
     if realdburl:
         db_url, db_info = _setup_realdb(realdburl)
@@ -529,7 +553,12 @@ def sqlalchemy_setup(app, tmpdir, realdburl):
     class WebAuthn(db.Model, fsqla.FsWebAuthnMixin):
         pass
 
-    class User(db.Model, fsqla.FsUserMixin):
+    class FsRefreshTracker(db.Model, fsqla.FsRefreshTrackerMixin):
+        pass
+
+    class User(
+        db.Model, fsqla.FsUserMixin, app.config.get("TESTING_USER_MIXIN", Nomixin)
+    ):
         security_number = Column(Integer, unique=True)
 
         def __init__(self, *args, **kwargs):
@@ -564,7 +593,10 @@ def sqlalchemy_setup(app, tmpdir, realdburl):
             engine = db.engine
             engine.dispose()
 
-    return SQLAlchemyUserDatastore(db, User, Role, WebAuthn), tear_down
+    return (
+        SQLAlchemyUserDatastore(db, User, Role, WebAuthn, FsRefreshTracker),
+        tear_down,
+    )
 
 
 @pytest.fixture()
@@ -600,17 +632,24 @@ def fsqlalite_min_datastore(app, tmpdir, realdburl):
             )
 
     ds, td = fsqlalite_setup(
-        app, tmpdir, realdburl, usermixin=FsMinUserMixin, use_webauthn=False
+        app,
+        tmpdir,
+        realdburl,
+        usermixin=FsMinUserMixin,
+        use_webauthn=False,
+        use_fs_tracker=False,
     )
     yield ds
     td()
 
 
-def fsqlalite_setup(app, tmpdir, realdburl, usermixin=None, use_webauthn=True):
+def fsqlalite_setup(
+    app, tmpdir, realdburl, usermixin=None, use_webauthn=True, use_fs_tracker=True
+):
     pytest.importorskip("flask_sqlalchemy_lite")
     from flask_sqlalchemy_lite import SQLAlchemy
     from sqlalchemy.orm import DeclarativeBase, mapped_column
-    from flask_security.models import sqla as sqla
+    from flask_security.models import sqla_v2 as sqla
 
     if not usermixin:
         usermixin = sqla.FsUserMixin
@@ -638,7 +677,12 @@ def fsqlalite_setup(app, tmpdir, realdburl, usermixin=None, use_webauthn=True):
         class WebAuthn(Model, sqla.FsWebAuthnMixin):
             __tablename__ = "webauthn"
 
-    class User(Model, usermixin):
+    if use_fs_tracker:
+
+        class FsRefreshTracker(Model, sqla.FsRefreshTrackerMixin):
+            __tablename__ = "fs_refresh_tracker"
+
+    class User(Model, usermixin, app.config.get("TESTING_USER_MIXIN", Nomixin)):
         __tablename__ = "user"
         security_number: Mapped[t.Optional[int]] = mapped_column(  # type: ignore
             unique=True
@@ -661,7 +705,13 @@ def fsqlalite_setup(app, tmpdir, realdburl, usermixin=None, use_webauthn=True):
                 _teardown_realdb(db_info)
 
     return (
-        FSQLALiteUserDatastore(db, User, Role, WebAuthn if use_webauthn else None),
+        FSQLALiteUserDatastore(
+            db,
+            User,
+            Role,
+            WebAuthn if use_webauthn else None,
+            FsRefreshTracker if use_fs_tracker else None,
+        ),
         tear_down,
     )
 
@@ -693,7 +743,7 @@ def sqlalchemy_session_setup(app, tmpdir, realdburl, **engine_kwargs):
         Integer,
         ForeignKey,
     )
-    from flask_security.models import sqla as sqla
+    from flask_security.models import sqla_v2 as sqla
 
     if realdburl:
         db_url, db_info = _setup_realdb(realdburl)
@@ -725,6 +775,13 @@ def sqlalchemy_session_setup(app, tmpdir, realdburl, **engine_kwargs):
             """
             return dict(myuserid=self.user_id)
 
+    class FsRefreshTracker(Base, sqla.FsRefreshTrackerMixin):
+        __tablename__ = "fs_refresh_tracker"
+
+        @declared_attr
+        def user_id(self) -> Mapped[int]:
+            return mapped_column(ForeignKey("user.myuserid", ondelete="CASCADE"))
+
     class RolesUsers(Base):
         __tablename__ = "roles_users"
         id = Column(Integer(), primary_key=True)
@@ -736,7 +793,7 @@ def sqlalchemy_session_setup(app, tmpdir, realdburl, **engine_kwargs):
         myroleid: Mapped[int] = mapped_column(primary_key=True)  # type: ignore
         id: Mapped[int] = mapped_column(nullable=True)  # type: ignore
 
-    class User(Base, sqla.FsUserMixin):
+    class User(Base, sqla.FsUserMixin, app.config.get("TESTING_USER_MIXIN", Nomixin)):
         __tablename__ = "user"
         myuserid: Mapped[int] = mapped_column(primary_key=True)  # type: ignore
         id: Mapped[int] = mapped_column(nullable=True)  # type: ignore
@@ -759,7 +816,12 @@ def sqlalchemy_session_setup(app, tmpdir, realdburl, **engine_kwargs):
             if realdburl:
                 _teardown_realdb(db_info)
 
-    return SQLAlchemySessionUserDatastore(db_session, User, Role, WebAuthn), tear_down
+    return (
+        SQLAlchemySessionUserDatastore(
+            db_session, User, Role, WebAuthn, FsRefreshTracker
+        ),
+        tear_down,
+    )
 
 
 @pytest.fixture()
@@ -869,6 +931,17 @@ def peewee_setup(app, tmpdir, realdburl):
         # This creates a real column called user_id
         user = ForeignKeyField(User, backref="webauthn")
 
+    class FsRefreshTracker(RefreshTrackerMixin, db.Model):
+        """Refresh Token Tracker"""
+
+        refresh_family = TextField(unique=True, null=False)
+        gen = IntegerField(default=1)
+        expires_at = DateTimeField(null=False)
+        revoked_at = DateTimeField(null=True)
+        last_used_at = DateTimeField(null=False)
+        name = TextField(null=False)
+        user = ForeignKeyField(User, backref="refresh_trackers")
+
     class UserRoles(db.Model):
         """Peewee does not have built-in many-to-many support, so we have to
         create this mapping class to link users to roles."""
@@ -882,7 +955,7 @@ def peewee_setup(app, tmpdir, realdburl):
             return self.role.get_permissions()
 
     with app.app_context():
-        for Model in (Role, User, UserRoles, WebAuthn):
+        for Model in (Role, User, UserRoles, WebAuthn, FsRefreshTracker):
             Model.drop_table()
             Model.create_table()
 
@@ -895,77 +968,10 @@ def peewee_setup(app, tmpdir, realdburl):
             os.close(f)
             os.remove(path)
 
-    return PeeweeUserDatastore(db, User, Role, UserRoles, WebAuthn), tear_down
-
-
-@pytest.fixture()
-def pony_datastore(app, tmpdir, realdburl):
-    ds, td = pony_setup(app, tmpdir, realdburl)
-    yield ds
-    td()
-
-
-def pony_setup(app, tmpdir, realdburl):
-    pytest.importorskip("pony")
-    from pony.orm import Database, Optional, Required, Set
-    from pony.orm.core import SetInstance
-
-    SetInstance.append = SetInstance.add
-    db = Database()
-
-    class Role(db.Entity):
-        name = Required(str, unique=True)
-        description = Optional(str, nullable=True)
-        users = Set(lambda: User)  # type: ignore
-
-    class User(db.Entity):
-        email = Required(str)
-        fs_uniquifier = Required(str, nullable=False)
-        username = Optional(str)
-        security_number = Optional(int)
-        password = Optional(str, nullable=True)
-        last_login_at = Optional(datetime)
-        current_login_at = Optional(datetime)
-        tf_primary_method = Optional(str, nullable=True)
-        tf_totp_secret = Optional(str, nullable=True)
-        tf_phone_number = Optional(str, nullable=True)
-        us_totp_secrets = Optional(str, nullable=True)
-        us_phone_number = Optional(str, nullable=True)
-        last_login_ip = Optional(str)
-        current_login_ip = Optional(str)
-        login_count = Optional(int)
-        active = Required(bool, default=True)
-        confirmed_at = Optional(datetime)
-        roles = Set(lambda: Role)
-
-        def has_role(self, name):
-            return name in {r.name for r in self.roles.copy()}
-
-    if realdburl:
-        db_url, db_info = _setup_realdb(realdburl)
-        pieces = urlsplit(db_url)
-        provider = pieces.scheme.split("+")[0]
-        provider = "postgres" if provider == "postgresql" else provider
-        db.bind(
-            provider=provider,
-            user=pieces.username,
-            password=pieces.password,
-            host=pieces.hostname,
-            port=pieces.port,
-            database=pieces.path[1:],
-        )
-    else:
-        app.config["DATABASE"] = {"name": ":memory:", "engine": "pony.SqliteDatabase"}
-        db.bind("sqlite", ":memory:", create_db=True)
-
-    db.generate_mapping(create_tables=True)
-
-    def tear_down():
-        db.disconnect()
-        if realdburl:
-            _teardown_realdb(db_info)
-
-    return PonyUserDatastore(db, User, Role), tear_down
+    return (
+        PeeweeUserDatastore(db, User, Role, UserRoles, WebAuthn, FsRefreshTracker),
+        tear_down,
+    )
 
 
 @pytest.fixture()
@@ -974,7 +980,7 @@ def client(request, app, sqlalchemy_datastore):
         app, datastore=sqlalchemy_datastore, **app.fs_constructor_args
     )
     populate_data(app)
-    return app.test_client()
+    return app.test_client(use_cookies=not app.config.get("TESTING_NO_COOKIES", False))
 
 
 @pytest.fixture()
@@ -1041,9 +1047,6 @@ def clients(request, app, tmpdir, realdburl, realmongodburl):
         ds, td = mongoengine_setup(app, tmpdir, realmongodburl)
     elif request.param == "cl-peewee":
         ds, td = peewee_setup(app, tmpdir, realdburl)
-    elif request.param == "cl-pony":
-        # Not working yet.
-        ds, td = pony_setup(app, tmpdir, realdburl)
     elif request.param == "cl-fsqlalite":
         ds, td = fsqlalite_setup(app, tmpdir, realdburl)
 
@@ -1052,7 +1055,7 @@ def clients(request, app, tmpdir, realdburl, realmongodburl):
     if request.param == "cl-peewee":
         # peewee is insistent on a single connection?
         ds.db.close_db(None)
-    yield app.test_client()
+    yield app.test_client(use_cookies=not app.config.get("TESTING_NO_COOKIES", False))
     td()
 
 
@@ -1088,7 +1091,6 @@ def get_message_local(app):
         "sqlalchemy-session",
         "mongoengine",
         "peewee",
-        "pony",
         "fsqlalite",
     ]
 )
@@ -1101,10 +1103,6 @@ def datastore(request, app, tmpdir, realdburl, realmongodburl):
         ds, td = mongoengine_setup(app, tmpdir, realmongodburl)
     elif request.param == "peewee":
         ds, td = peewee_setup(app, tmpdir, realdburl)
-    elif request.param == "pony":
-        if sys.version_info >= (3, 13):
-            pytest.skip("pony requires python3.12 or lower")
-        ds, td = pony_setup(app, tmpdir, realdburl)
     elif request.param == "fsqlalite":
         ds, td = fsqlalite_setup(app, tmpdir, realdburl)
     yield ds
@@ -1112,8 +1110,7 @@ def datastore(request, app, tmpdir, realdburl, realmongodburl):
 
 
 @pytest.fixture()
-# def script_info(app, datastore): # Fix me when pony works
-def script_info(app, sqlalchemy_datastore):
+def script_info(app, datastore):
     from flask.cli import ScriptInfo
 
     def create_app():
@@ -1123,7 +1120,7 @@ def script_info(app, sqlalchemy_datastore):
         ]
 
         app.config.update(**{"SECURITY_USER_IDENTITY_ATTRIBUTES": uia})
-        app.security = Security(app, datastore=sqlalchemy_datastore)
+        app.security = Security(app, datastore=datastore)
         return app
 
     return ScriptInfo(create_app=create_app)
@@ -1212,3 +1209,16 @@ def _teardown_realdb(db_info):
     from sqlalchemy_utils import drop_database
 
     drop_database(db_info["engine"].url)
+
+
+@pytest.fixture()
+def humanizer(request):
+    pytest.importorskip("humanize")
+    import humanize
+
+    if getattr(request, "param", None):
+        humanize.i18n.activate(request.param)
+        yield 1
+        humanize.i18n.deactivate()
+    else:
+        yield 0

@@ -56,6 +56,12 @@ class RichifyHtmlTest(unittest.TestCase):
             "<p><tg-spoiler>secret</tg-spoiler> <code>a&lt;b</code></p>",
         )
 
+    def test_prices_and_approximations_stay_text(self):
+        rich = richify("$10.49 (**~$11.20**), ~700 JPY (~$4.50)")
+        self.assertEqual(
+            rich.html, "<p>$10.49 (<b>~$11.20</b>), ~700 JPY (~$4.50)</p>"
+        )
+
     def test_blockquote_code_and_math(self):
         rich = richify("> quote\n\n```python\nprint(1)\n```\n\n$$x^2$$")
         self.assertEqual(
@@ -155,17 +161,12 @@ class WalkBlocksTest(unittest.TestCase):
     def test_walk_blocks_matches_walk(self):
         """walk_blocks 的 join 结果应与 walk 完全一致。"""
         md = "# H\n\nText **b**\n\n- a\n- b\n\n> q\n\n```\ncode\n```"
-        import pyromark
         from telegramify_markdown.rich import RICH_OPTIONS
-        from telegramify_markdown.converter import _preprocess_spoilers
+        from telegramify_markdown.converter import _parse
 
-        preprocessed = _preprocess_spoilers(md)
-        events = pyromark.events_with_range(preprocessed, options=RICH_OPTIONS)
+        _, events = _parse(md, RICH_OPTIONS, latex_escape=False)
         walk_result = _RichHtmlWalker().walk(events)
-
-        # 重新解析（events 是 tuple, 消费后需要重新获取）
-        events2 = pyromark.events_with_range(preprocessed, options=RICH_OPTIONS)
-        blocks = _RichHtmlWalker().walk_blocks(events2)
+        blocks = _RichHtmlWalker().walk_blocks(events)
         joined = "".join(b.html for b in blocks)
 
         self.assertEqual(joined, walk_result)
@@ -359,6 +360,224 @@ class TelegramifyRichTest(unittest.TestCase):
         rich = richify("# Hello\n\nWorld")
         self.assertIsInstance(rich, InputRichMessage)
         self.assertIsNotNone(rich.html)
+
+
+class HtmlBlockBoundaryTest(unittest.TestCase):
+    """HtmlBlock must leave the block scope it entered.
+
+    Without _leave_block, _block_depth never returns to 0 and everything after
+    an HTML block merges into a single RichBlock, defeating the byte and block
+    budgets.
+    """
+
+    def test_blocks_after_html_block_stay_separate(self):
+        blocks = _walk_blocks_from_markdown("para1\n\n<div>raw</div>\n\npara2\n\npara3")
+        self.assertEqual(len(blocks), 4)
+        self.assertEqual(blocks[-1].html, "<p>para3</p>")
+
+    def test_paragraph_after_html_block_is_not_glued(self):
+        html = richify("<div>raw</div>\n\npara2").html
+        self.assertIn("<p>para2</p>", html)
+
+
+class OversizedContainerSplitTest(unittest.TestCase):
+    """Oversized container blocks split by child instead of going out whole
+    for Telegram to reject."""
+
+    LIMIT = 4096
+
+    def _chunks(self, markdown: str):
+        from telegramify_markdown.rich import _bin_blocks
+
+        blocks = _walk_blocks_from_markdown(markdown)
+        return _bin_blocks(
+            blocks,
+            byte_limit=self.LIMIT,
+            block_limit=500,
+            is_rtl=None,
+            skip_entity_detection=None,
+            mode="html",
+        )
+
+    def _assert_within_limit(self, chunks):
+        self.assertGreater(len(chunks), 1)
+        for chunk in chunks:
+            self.assertLessEqual(len(chunk.html.encode("utf-8")), self.LIMIT)
+
+    def test_oversized_blockquote(self):
+        self._assert_within_limit(self._chunks("> " + "x" * 10000))
+
+    def test_oversized_table_splits_by_row(self):
+        rows = "\n".join(f"| {'y' * 100} | {'z' * 100} |" for _ in range(60))
+        chunks = self._chunks("| a | b |\n|---|---|\n" + rows)
+        self._assert_within_limit(chunks)
+        for chunk in chunks:
+            self.assertTrue(chunk.html.startswith("<table>"))
+            self.assertTrue(chunk.html.endswith("</table>"))
+
+    def test_oversized_unordered_list_splits_by_item(self):
+        chunks = self._chunks("\n".join(f"- {'i' * 200}" for _ in range(60)))
+        self._assert_within_limit(chunks)
+        for chunk in chunks:
+            self.assertTrue(chunk.html.startswith("<ul>"))
+
+    def test_oversized_ordered_list_continues_numbering(self):
+        chunks = self._chunks("\n".join(f"{i + 1}. {'i' * 200}" for i in range(60)))
+        self._assert_within_limit(chunks)
+        self.assertTrue(chunks[0].html.startswith('<ol start="1">'))
+        first_items = chunks[0].html.count("<li>")
+        self.assertTrue(chunks[1].html.startswith(f'<ol start="{1 + first_items}">'))
+
+    def test_content_within_limit_is_untouched(self):
+        chunks = self._chunks("# t\n\npara\n\n- a\n- b\n")
+        self.assertEqual(len(chunks), 1)
+
+    def test_ordered_list_renumbering_never_overflows_the_limit(self):
+        # A continued <ol start="N"> is a longer opening tag than the original
+        # once N gains a digit. Budgeting against the original tag let the last
+        # parts overflow by exactly those extra bytes.
+        for limit in (60, 80, 120, 200):
+            with self.subTest(limit=limit):
+                from telegramify_markdown.rich import _bin_blocks
+
+                blocks = _walk_blocks_from_markdown(
+                    "\n".join(f"1. {'B' * 20}" for _ in range(30))
+                )
+                chunks = _bin_blocks(
+                    blocks,
+                    byte_limit=limit,
+                    block_limit=500,
+                    is_rtl=None,
+                    skip_entity_detection=None,
+                    mode="html",
+                )
+                self.assertGreater(len(chunks), 1)
+                for chunk in chunks:
+                    self.assertLessEqual(len(chunk.html.encode("utf-8")), limit)
+                # numbering still continues rather than restarting
+                self.assertTrue(chunks[0].html.startswith('<ol start="1">'))
+                self.assertNotIn('<ol start="1">', chunks[-1].html)
+
+    def test_unsplittable_oversized_child_still_warns(self):
+        # A single 40KB list item cannot be split further, so splitting the
+        # surrounding <ul> only partly succeeds
+        from telegramify_markdown.rich import RICH_BYTE_LIMIT
+
+        with self.assertLogs("telegramify_markdown.rich", level="WARNING") as logs:
+            items = telegramify_rich("- " + "A" * 40000 + "\n- b")
+
+        oversized = [
+            item
+            for item in items
+            if len(item.rich_message.html.encode("utf-8")) > RICH_BYTE_LIMIT
+        ]
+        self.assertEqual(len(oversized), 1)
+        self.assertTrue(any("cannot be split further" in line for line in logs.output))
+
+    def test_deep_nesting_goes_out_unsplit(self):
+        with self.assertLogs("telegramify_markdown.rich", level="WARNING"):
+            items = telegramify_rich(">" * 1400 + " x")
+        self.assertEqual(len(items), 1)
+
+
+class CallerAuthoredHtmlSplitTest(unittest.TestCase):
+    """split_rich() is public, so it also receives HTML the caller wrote.
+
+    richify() escapes every attribute and only ever emits `<ol start="N">`, so
+    none of these shapes come out of the library itself — but rewriting the
+    open tag must not invent invalid HTML for them either.
+    """
+
+    def _split(self, html: str, byte_limit: int) -> list[str]:
+        return [chunk.html for chunk in split_rich(InputRichMessage(html=html), byte_limit=byte_limit)]
+
+    def test_single_quoted_start_is_continued_not_duplicated(self):
+        parts = self._split(
+            "<ol start='98'><li>AAAAAAAAAA</li><li>BBBBBBBBBB</li></ol>", 45
+        )
+        self.assertEqual(len(parts), 2)
+        self.assertIn("start='99'", parts[1])
+        self.assertEqual(parts[1].count("start="), 1)
+
+    def test_similarly_named_attribute_is_not_rewritten(self):
+        parts = self._split(
+            '<ol data-start="98" start="7"><li>AAAAAAAAAA</li><li>BBBBBBBBBB</li></ol>', 45
+        )
+        self.assertIn('data-start="98"', parts[1])
+        self.assertIn('start="8"', parts[1])
+
+    def test_unparsable_start_leaves_the_tag_alone(self):
+        parts = self._split(
+            '<ol start="abc"><li>AAAAAAAAAA</li><li>BBBBBBBBBB</li></ol>', 45
+        )
+        for part in parts:
+            self.assertEqual(part.count("start="), 1)
+            self.assertIn('start="abc"', part)
+
+    def test_quoted_attribute_containing_gt_keeps_the_open_tag_intact(self):
+        html = (
+            "<ol start='98' data-x='a>b'>"
+            + "".join(f"<li>{'A' * 10}</li>" for _ in range(3))
+            + "</ol>"
+        )
+        parts = self._split(html, 60)
+        self.assertGreater(len(parts), 1)
+        for part in parts:
+            self.assertIn("data-x='a>b'", part)
+            self.assertTrue(part.endswith("</ol>"))
+            self.assertLessEqual(len(part.encode("utf-8")), 60)
+
+    def test_bare_text_inside_a_split_container_is_kept(self):
+        text = "1" * 3000 + "<b>" + "2" * 2500 + "</b>" + "3" * 3000
+        parts = self._split(f"<blockquote>{text}</blockquote>", 4096)
+        self.assertGreater(len(parts), 1)
+        self.assertEqual(
+            "".join(parts).replace("<blockquote>", "").replace("</blockquote>", ""),
+            text,
+        )
+
+
+class OversizedParagraphFormattingTest(unittest.TestCase):
+    """An oversized paragraph splits without losing its inline formatting."""
+
+    @classmethod
+    def setUpClass(cls):
+        markdown = "\n".join(
+            f"> line {i} has **bold{i}** and [link](https://e.com/{i})" for i in range(3000)
+        )
+        cls.whole = richify(markdown).html
+        cls.parts = [item.rich_message.html for item in telegramify_rich(markdown)]
+
+    def test_quoted_lines_keep_text_breaks_bold_and_links(self):
+        from telegramify_markdown.rich import RICH_BYTE_LIMIT, _html_fragment_to_text
+
+        self.assertGreater(len(self.parts), 1)
+        for part in self.parts:
+            self.assertLessEqual(len(part.encode("utf-8")), RICH_BYTE_LIMIT)
+        joined = "".join(self.parts)
+        self.assertEqual(_html_fragment_to_text(joined), _html_fragment_to_text(self.whole))
+        for tag in ("<br/>", "<b>", "</b>", "<a ", "</a>"):
+            self.assertEqual(joined.count(tag), self.whole.count(tag), tag)
+
+    def test_cuts_fall_on_line_breaks(self):
+        for part in self.parts[:-1]:
+            self.assertTrue(part.endswith("<br/></p></blockquote>"), part[-40:])
+
+    def test_formatting_open_at_a_cut_is_closed_and_reopened(self):
+        whole = richify("**bold _" + "it " * 12000 + "end_ tail**").html
+        parts = [chunk.html for chunk in split_rich(InputRichMessage(html=whole))]
+        self.assertEqual(len(parts), 2)
+        self.assertTrue(parts[0].startswith("<p><b>bold <i>"))
+        self.assertTrue(parts[0].endswith("</i></b></p>"))
+        self.assertTrue(parts[1].startswith("<p><b><i>"))
+        self.assertTrue(parts[1].endswith("end</i> tail</b></p>"))
+
+    def test_unsplittable_tag_falls_back_to_plain_text_with_a_warning(self):
+        html = '<p><a href="https://e.com/' + "x" * 40000 + '">t</a></p>'
+        with self.assertLogs("telegramify_markdown.rich", level="WARNING") as logs:
+            parts = [chunk.html for chunk in split_rich(InputRichMessage(html=html))]
+        self.assertEqual(parts, ["<p>t</p>"])
+        self.assertTrue(any("drops its formatting" in line for line in logs.output))
 
 
 if __name__ == "__main__":

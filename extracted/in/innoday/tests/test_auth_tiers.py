@@ -65,9 +65,7 @@ PUBLIC_ROUTES = {
     # reads nothing back: there is no GET beside it, and adding one would need a
     # token, because an applicant list is exactly the thing this must not expose.
     "/api/v1/public/applications",
-    "/api/v1/ai/health",
     "/api/v1/platform/health",
-    "/device",
     "/api/v1/device/code",
     "/api/v1/device/token",
     "/api/v1/device/approve",
@@ -81,46 +79,9 @@ PUBLIC_ROUTES = {
     # for who has an account), and returns nothing but a status. It is still
     # behind the team secret -- the Next.js UI calls it from its server.
     "/api/v1/auth/sign-in-link",
-    "/invite/accept",
-    "/api/v1/invite/accept",
-    # Landing page for a Supabase invite / magic link. Serves HTML only; the
-    # session arrives in the URL fragment, which never reaches the server. The
-    # one call it makes, POST /api/v1/auth/confirm-email, is NOT public — it
-    # requires a JWKS-verified Supabase JWT and is tier B. That route is exempt
-    # from the *team secret* only, because a browser from an email can't send it.
-    #
-    # Listed under both spellings because the scanner below takes the prefix from
-    # the first `APIRouter(...)` in a file, and invites.py declares two routers:
-    # the /api/v1 one and an unprefixed `page_router` for browser pages. So a
-    # page route gets reported with a spurious /api/v1. Same reason
-    # /invite/accept appears twice above.
-    "/auth/callback",
-    "/api/v1/auth/callback",
     "/license-info",
     "/tiers",
     "/tiers/{tier_name}",
-    # The three pre-auth steps of browser sign-in. Requiring a session to sign in
-    # is a contradiction, so each carries its own boundary instead:
-    #   /ui/login   sends a magic link and reveals nothing -- the response is
-    #               identical for an address with an account and one without, and
-    #               it is throttled per address (Supabase's mailer is capped at
-    #               2/hour project-wide, so an unthrottled send is a real DoS).
-    #   /ui/session accepts only a JWKS-verified Supabase JWT, the same check
-    #               /api/v1/auth/confirm-email makes; an unverified one is a 401.
-    #   /ui/logout  acts solely on the cookie the caller already presents, so it
-    #               can end no session but the caller's own.
-    # GET /ui/login is deliberately absent from this reasoning -- it resolves the
-    # session to bounce an already-signed-in visitor, so it is caught as Tier B.
-    "/ui/login",
-    "/ui/session",
-    "/ui/logout",
-    # Request-for-access. Requiring a session to ask for one is circular. Its
-    # boundary is the deployment's team secret, checked in the handler with
-    # hmac.compare_digest -- and, crucially, treated as CLOSED when the secret is
-    # unset, so a deployment without one does not silently open the page. The
-    # POST creates no account: it either re-invites someone who already has one,
-    # or queues a request for a platform member to decide.
-    "/ui/join",
 }
 
 
@@ -242,7 +203,15 @@ def test_public_route_list_is_pinned():
     # rather than replacing the first. It returns nothing but an id -- there is
     # no GET beside it, and one would need a token, because the applicant list
     # is precisely what must not be public.
-    assert len(declared) == 23, sorted(declared)
+    #
+    # 16 with the old Python /ui removed: its seven pre-auth pages (/ui/device,
+    # /ui/invite/accept, /ui/auth/callback, /ui/login, /ui/session, /ui/logout,
+    # /ui/join) are innoday-ui's now, and the /ui addresses here only redirect.
+    #
+    # 15 with /api/v1/ai/health removed: it makes a live, paid Claude call, and
+    # without the global team-secret gate (PF-455) anyone could loop on it. It
+    # now needs a platform admin.
+    assert len(declared) == 15, sorted(declared)
 
 
 def test_no_optional_user_auth_remains():
@@ -270,6 +239,10 @@ TIER_C = {
     ("POST", "/api/v1/platform/setup"),
     ("POST", "/api/v1/platform/init"),
     ("POST", "/api/v1/admin/platform/setup"),
+    # Not platform lifecycle, and the one deliberate exception to the entity
+    # rule: an unauthenticated route that sends email. Only innoday-ui's server
+    # calls it, and it already holds the secret (PF-455).
+    ("POST", "/api/v1/auth/sign-in-link"),
 }
 
 

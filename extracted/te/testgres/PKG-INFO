@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testgres
-Version: 1.16.2
+Version: 1.16.3
 Summary: Testing utility for PostgreSQL and its extensions
 Author-email: Postgres Professional <testgres@postgrespro.ru>
 License: PostgreSQL
@@ -24,7 +24,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pg8000
 Requires-Dist: port-for>=0.4
-Requires-Dist: six>=1.9.0
 Requires-Dist: psutil
 Requires-Dist: packaging
 Requires-Dist: testgres.os_ops<4.0.0,>=3.3.3

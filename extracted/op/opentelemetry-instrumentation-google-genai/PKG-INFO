@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: opentelemetry-instrumentation-google-genai
-Version: 1.1b1
+Version: 1.2b0
 Summary: OpenTelemetry
 Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-genai/tree/main/instrumentation/opentelemetry-instrumentation-google-genai
 Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-genai
@@ -21,7 +21,7 @@ Requires-Python: >=3.10
 Requires-Dist: opentelemetry-api~=1.43
 Requires-Dist: opentelemetry-instrumentation<1,>=0.64b0
 Requires-Dist: opentelemetry-semantic-conventions<1,>=0.64b0
-Requires-Dist: opentelemetry-util-genai<2,>=1.1b0
+Requires-Dist: opentelemetry-util-genai<2,>=1.2b0
 Requires-Dist: wrapt<3.0.0,>=1.17.0
 Provides-Extra: instruments
 Requires-Dist: google-genai<3,>=1.32.0; extra == 'instruments'
@@ -50,6 +50,8 @@ Please treat the telemetry produced by these methods as experimental.
 The ``interactions`` API currently does not support automatic function calling, so no ``execute_tool`` spans
 are generated.
 
+``interactions.get`` emits a ``fetch_response`` span. A fetch performs no inference, so the token
+counts carried by the fetched interaction describe its original generation and are not recorded.
 
 Installation
 ------------
@@ -75,7 +77,7 @@ Check out the `manual example <examples/manual>`_ for more details.
 Instrumenting all clients
 *************************
 
-When using the instrumentor, all clients will automatically trace GenAI ``generate_content``, ``embed_content`` and ``interactions.create`` operations.
+When using the instrumentor, all clients will automatically trace GenAI ``generate_content``, ``embed_content``, ``interactions.create`` and ``interactions.get`` operations.
 You can also optionally capture prompts and responses as log events.
 
 Make sure to configure OpenTelemetry tracing, logging, and metrics to capture all telemetry emitted by the instrumentation.
@@ -143,6 +145,7 @@ captured using the following environment variables:
 
 If both variables are set, the includes list is applied first, then the
 excludes list filters the result further.
+
 
 Uninstrument
 ************

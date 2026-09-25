@@ -2,11 +2,11 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.8.11.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.8.11.0',
+    'passagemath-conf ~= 10.8.12.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.12.0',
     'pkgconfig',
-    'passagemath-environment ~= 10.8.11.0',
-    'passagemath-categories ~= 10.8.11.0',
+    'passagemath-environment ~= 10.8.12.0',
+    'passagemath-categories ~= 10.8.12.0',
     'cython >=3.1.0,<3.4.0',
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
@@ -21,8 +21,8 @@ dependencies = [
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
-    'passagemath-categories ~= 10.8.11.0',
-    'passagemath-environment ~= 10.8.11.0',
+    'passagemath-categories ~= 10.8.12.0',
+    'passagemath-environment ~= 10.8.12.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
@@ -64,19 +64,19 @@ file = "README.rst"
 content-type = "text/x-rst"
 
 [project.optional-dependencies]
-test            = ['passagemath-repl ~= 10.8.11.0',]
+test            = ['passagemath-repl ~= 10.8.12.0',]
 
 # by library
-gap3            = ['passagemath-gap3 ~= 10.8.11.0',]
-glucose         = ['passagemath-glucose ~= 10.8.11.0',]
-kissat          = ['passagemath-kissat ~= 10.8.11.0',]
+gap3            = ['passagemath-gap3 ~= 10.8.12.0',]
+glucose         = ['passagemath-glucose ~= 10.8.12.0',]
+kissat          = ['passagemath-kissat ~= 10.8.12.0',]
 lrcalc          = ['lrcalc ~=2.1',]
 symmetrica      = []
 
 # by feature
-graphs          = ['passagemath-graphs ~= 10.8.11.0',]
-modules         = ['passagemath-modules ~= 10.8.11.0',]
-species         = ['passagemath-gap ~= 10.8.11.0',]
+graphs          = ['passagemath-graphs ~= 10.8.12.0',]
+modules         = ['passagemath-modules ~= 10.8.12.0',]
+species         = ['passagemath-gap ~= 10.8.12.0',]
 findstat        = ['requests >=2.13.0',]
 
 # everything

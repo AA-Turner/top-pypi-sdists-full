@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whop_sdk
-Version: 1.1.5
+Version: 2.0.0
 Summary: 
 License: Apache-2.0
 License-File: LICENSE
@@ -154,7 +154,7 @@ from whop_sdk import Whop
 from whop_sdk.environment import WhopEnvironment
 
 client = Whop(
-    environment=WhopEnvironment.DEFAULT,
+    environment=WhopEnvironment.PRODUCTION,
 )
 ```
 

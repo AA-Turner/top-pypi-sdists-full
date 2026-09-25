@@ -220,13 +220,13 @@ std::optional<JSONFormat> JSONFormatFromString(const std::string& format);
 class GenerateCacheManager {
  public:
   /*! \brief Add a key-value pair to the cache. */
-  void AddCache(const std::string& key, bool is_inner_layer, int32_t rule_id) {
-    cache_[{key, is_inner_layer}] = rule_id;
+  void AddCache(const std::string& key, int context, int32_t rule_id) {
+    cache_[{key, context}] = rule_id;
   }
 
   /*! \brief Get cached rule id by key. Returns std::nullopt if not found. */
-  std::optional<int32_t> GetCache(const std::string& key, bool is_inner_layer) const {
-    auto it = cache_.find({key, is_inner_layer});
+  std::optional<int32_t> GetCache(const std::string& key, int context) const {
+    auto it = cache_.find({key, context});
     if (it != cache_.end()) {
       return it->second;
     }
@@ -234,7 +234,7 @@ class GenerateCacheManager {
   }
 
  private:
-  std::unordered_map<std::pair<std::string, bool>, int32_t> cache_;
+  std::unordered_map<std::pair<std::string, int>, int32_t> cache_;
 };
 
 /*!
@@ -286,7 +286,8 @@ class JSONSchemaConverter {
       bool any_whitespace,
       std::optional<int> max_whitespace_cnt,
       RefResolver ref_resolver = nullptr,
-      bool any_order = false
+      bool any_order = false,
+      std::vector<std::string> excludes = {}
   );
 
   virtual ~JSONSchemaConverter() = default;
@@ -297,6 +298,11 @@ class JSONSchemaConverter {
    * \return The grammar AST.
    */
   Grammar Convert(const SchemaSpecPtr& spec);
+
+  /*! \brief Whether \p format is compiled to a regex, which shadows minLength/maxLength. */
+  static bool IsBuiltinFormat(const std::string& format) {
+    return JSONFormatToRegexPattern(format).has_value();
+  }
 
  protected:
   using CharacterClassElement = GrammarBuilder::CharacterClassElement;
@@ -317,6 +323,8 @@ class JSONSchemaConverter {
   virtual int32_t GenerateConst(const ConstSpec& spec, const std::string& rule_name);
   virtual int32_t GenerateEnum(const EnumSpec& spec, const std::string& rule_name);
   virtual int32_t GenerateRef(const RefSpec& spec, const std::string& rule_name);
+  /*! \brief Key reference rules by their output encoding context. */
+  virtual std::string RefCacheKey(const std::string& uri) const;
   virtual int32_t GenerateAnyOf(const AnyOfSpec& spec, const std::string& rule_name);
   virtual int32_t GenerateOneOf(const OneOfSpec& spec, const std::string& rule_name);
   virtual int32_t GenerateAllOf(const AllOfSpec& spec, const std::string& rule_name);
@@ -392,6 +400,8 @@ class JSONSchemaConverter {
   std::string GetWhitespacePattern() const;
 
   int32_t Empty();
+  /*! \brief An expression that matches nothing, for alternatives ruled out by excludes_. */
+  int32_t Unsatisfiable();
   int32_t ByteString(const std::string& value);
   int32_t TagDispatch(bool loop_after_dispatch, std::vector<std::string> excludes);
   int32_t RuleRef(int32_t rule_id);
@@ -411,6 +421,24 @@ class JSONSchemaConverter {
   int32_t RegexExpression(
       const std::string& regex, bool json_string = false, bool force_cfg_expansion = false
   );
+  /*!
+   * \brief Rules matching the regex (one of the converter's own ASCII string bodies) minus
+   * every string containing one of excludes_, and minus excluded_keys as whole strings. With
+   * close_json_string the closing quote is appended after the filtering, so it is never part of
+   * an exclusion.
+   */
+  int32_t ExcludingString(
+      const std::string& regex,
+      const std::string& rule_name,
+      bool close_json_string,
+      const std::vector<std::string>& excluded_keys = {}
+  );
+  bool IsAllowedString(const std::string& text) const;
+  bool IsAllowedLiteral(const picojson::value& value, bool raw_string = false) const;
+  /*! \brief Whether the JSON literal contains none of excludes_ (see IsAllowedLiteral). */
+  bool IsAllowedJSONLiteral(const std::string& json_value, bool raw_string = false) const;
+  /*! \brief Log that the string's minLength/maxLength are ignored because excludes_ is set. */
+  void WarnDroppedLengthConstraints(const StringSpec& spec, const std::string& rule_name) const;
 
   /*! \brief Helper to create rule with repetition constraints. */
   int32_t GetPropertyWithNumberConstraints(
@@ -463,6 +491,7 @@ class JSONSchemaConverter {
   // Applies to all objects (including nested ones). Default false preserves the fixed-order
   // behavior.
   bool any_order_ = false;
+  std::vector<std::string> excludes_;
 
  public:
   // Basic rule names
@@ -495,6 +524,7 @@ class JSONSchemaConverter {
 
   // Reused grammar expression ids
   std::optional<int32_t> empty_expr_id_;
+  std::optional<int32_t> unsatisfiable_expr_id_;
   std::unordered_map<std::string, int32_t> byte_string_expr_ids_;
   std::unordered_map<int32_t, int32_t> rule_ref_expr_ids_;
   std::optional<int32_t> whitespace_expr_id_;
@@ -537,7 +567,8 @@ Grammar JSONSchemaToGrammar(
     bool strict_mode = true,
     std::optional<int> max_whitespace_cnt = std::nullopt,
     bool any_order = false,
-    JSONFormat json_format = JSONFormat::kJSON
+    JSONFormat json_format = JSONFormat::kJSON,
+    std::vector<std::string> excludes = {}
 );
 
 // ==================== Public API functions (backward compatible) ====================

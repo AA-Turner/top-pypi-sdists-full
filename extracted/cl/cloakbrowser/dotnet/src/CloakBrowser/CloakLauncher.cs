@@ -480,6 +480,20 @@ public static class CloakLauncher
         "Monotype Corsiva", "Bookman Old Style",
     };
 
+    // macOS OS fonts — the core set present on essentially every real Mac. Their
+    // absence on a macOS-spoofing Linux host degrades results, just as a Windows-
+    // spoofing host needs the Windows set above. Several entries (Arial, Georgia,
+    // Times New Roman, Courier New, Tahoma) also ship on a Windows box, so a
+    // partial count off-Mac is normal.
+    internal static readonly string[] MacFontTells =
+    {
+        "Apple Color Emoji", "Arial", "Arial Narrow", "Arial Unicode MS",
+        "Comic Sans MS", "Courier", "Courier New", "Georgia", "Gill Sans",
+        "Helvetica", "Helvetica Neue", "Impact", "Menlo", "Microsoft Sans Serif",
+        "Monaco", "Tahoma", "Times New Roman", "Trebuchet MS", "Webdings",
+        "Wingdings",
+    };
+
     internal static bool _fontWarningChecked;
 
     /// <summary>

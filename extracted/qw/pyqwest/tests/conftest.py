@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import pytest
-import pytest_asyncio
+import sniffio
 import trustme
 from opentelemetry.test.test_base import TestBase
 from pyvoy import PyvoyServer
@@ -28,44 +28,51 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
 
 
-_ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION = False
+# anyio's asyncio runner installs its own loop exception handler and re-raises
+# what callbacks, tasks and futures left unhandled into the running test, so no
+# tracking of loop exceptions is needed here.
 
 
-def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
-    if not _ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION:
-        return
-
-    if session.exitstatus == 0:
-        pytest.exit(
-            "Tests failed due to unhandled asyncio loop exceptions.",
-            returncode=pytest.ExitCode.TESTS_FAILED,
-        )
+# The backends async tests run on, each with one runner for the whole session.
+@pytest.fixture(scope="session", params=["asyncio", "trio"])
+def anyio_backend(request: pytest.FixtureRequest) -> str:
+    return request.param
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def track_asyncio_loop_exceptions() -> AsyncIterator[None]:
-    loop = asyncio.get_running_loop()
-    previous_handler = loop.get_exception_handler()
-
-    def handler(loop: asyncio.AbstractEventLoop, context: dict[str, object]) -> None:
-        global _ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION  # noqa: PLW0603
-        _ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION = True
-        if previous_handler is not None:
-            previous_handler(loop, context)
-        else:
-            loop.default_exception_handler(context)
-
-    loop.set_exception_handler(handler)
-    yield
-
-
+# anyio keeps one runner and hands it to any backend while a fixture from the
+# previous backend is still alive, which would silently run the following tests
+# on that backend. So session async fixtures depend on `anyio_backend`, which
+# tears them down at a backend switch, and this checks that nothing outlived it.
 @pytest.fixture(autouse=True)
-def fail_on_asyncio_loop_exception() -> Iterator[None]:
-    yield
-    global _ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION  # noqa: PLW0603
-    if _ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION:
-        _ENCOUNTERED_ASYNCIO_LOOP_EXCEPTION = False
-        pytest.fail("Unhandled asyncio loop exception encountered.", pytrace=False)
+def no_stale_runner(request: pytest.FixtureRequest) -> None:
+    callspec = getattr(request.node, "callspec", None)
+    expected = callspec.params.get("anyio_backend") if callspec is not None else None
+    if expected is None:
+        return
+    try:
+        running = sniffio.current_async_library()
+    except sniffio.AsyncLibraryNotFoundError:  # no runner alive; anyio starts one
+        return
+    if running != expected:
+        pytest.fail(f"a {running} runner is still alive for this {expected} test")
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Deselects `asyncio_only` tests on the other backends."""
+    kept: list[pytest.Item] = []
+    dropped: list[pytest.Item] = []
+    for item in items:
+        callspec = getattr(item, "callspec", None)
+        backend = callspec.params.get("anyio_backend") if callspec is not None else None
+        if backend not in (None, "asyncio") and item.get_closest_marker("asyncio_only"):
+            dropped.append(item)
+        else:
+            kept.append(item)
+    if dropped:
+        config.hook.pytest_deselected(items=dropped)
+        items[:] = kept
 
 
 @dataclass
@@ -91,9 +98,9 @@ def certs(ca: trustme.CA) -> Certs:
     )
 
 
-@pytest_asyncio.fixture(scope="session")
-async def server(certs: Certs) -> AsyncIterator[PyvoyServer]:
-    async with PyvoyServer(
+@pytest.fixture(scope="session")
+def server(certs: Certs) -> Iterator[PyvoyServer]:
+    server = PyvoyServer(
         "tests.apps.asgi.kitchensink",
         tls_port=0,
         tls_key=certs.server_key,
@@ -103,8 +110,18 @@ async def server(certs: Certs) -> AsyncIterator[PyvoyServer]:
         lifespan=False,
         stdout=None,
         stderr=None,
-    ) as server:
-        yield server
+    )
+    # pyvoy drives its Envoy subprocess with asyncio. A private loop keeps the
+    # server independent of the backend the async tests run on.
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(server.start())
+        try:
+            yield server
+        finally:
+            loop.run_until_complete(server.stop())
+    finally:
+        loop.close()
 
 
 @pytest.fixture(scope="session")
@@ -165,8 +182,9 @@ def otel_test_base() -> Iterator[TestBase]:
         test_base.tearDown()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def async_transport(
+    anyio_backend: object,  # noqa: ARG001  # torn down when the backend changes
     certs: Certs,
     http_version: HTTPVersion | None,
     otel_test_base: TestBase,  # noqa: ARG001
@@ -181,10 +199,16 @@ async def async_transport(
         yield transport
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest.fixture(scope="session")
 async def async_asgi_transport(
-    http_version: HTTPVersion | None, http_scheme: str
-) -> AsyncIterator[Transport]:
+    anyio_backend: str, http_version: HTTPVersion | None, http_scheme: str
+) -> AsyncIterator[Transport | None]:
+    if anyio_backend != "asyncio":
+        # asyncio-only; every test that would use it is deselected. It stays a
+        # regular dependency of the client fixtures so they are torn down with
+        # it, which a `getfixturevalue` would not arrange.
+        yield None
+        return
     if not http_version:
         match http_scheme:
             case "https":
@@ -197,17 +221,26 @@ async def async_asgi_transport(
         yield transport
 
 
-@pytest.fixture(scope="session", params=["async", "async_asgi"])
+def asgi_transport(transport: Transport | None) -> Transport:
+    if transport is None:
+        pytest.fail("the ASGI testing transport runs only on asyncio")
+    return transport
+
+
+@pytest.fixture(
+    scope="session",
+    params=["async", pytest.param("async_asgi", marks=pytest.mark.asyncio_only)],
+)
 def async_client(
     request: pytest.FixtureRequest,
     async_transport: HTTPTransport,
-    async_asgi_transport: Transport,
+    async_asgi_transport: Transport | None,
 ) -> Client:
     match request.param:
         case "async":
             return Client(async_transport)
         case "async_asgi":
-            return Client(async_asgi_transport)
+            return Client(asgi_transport(async_asgi_transport))
         case _:
             msg = "Invalid client type"
             raise ValueError(msg)
@@ -242,7 +275,10 @@ def sync_wsgi_transport(
     return WSGITransport(kitchensink_app_wsgi, http_version=http_version)
 
 
-@pytest.fixture(scope="session", params=["sync", "sync_wsgi"])
+@pytest.fixture(
+    scope="session",
+    params=["sync", pytest.param("sync_wsgi", marks=pytest.mark.asyncio_only)],
+)
 def sync_client(
     request: pytest.FixtureRequest,
     sync_transport: SyncHTTPTransport,
@@ -258,7 +294,14 @@ def sync_client(
             raise ValueError(msg)
 
 
-@pytest.fixture(params=["async", "sync", "async_asgi", "sync_wsgi"])
+@pytest.fixture(
+    params=[
+        "async",
+        "sync",
+        pytest.param("async_asgi", marks=pytest.mark.asyncio_only),
+        pytest.param("sync_wsgi", marks=pytest.mark.asyncio_only),
+    ]
+)
 def client_type(request: pytest.FixtureRequest) -> str:
     return request.param
 
@@ -267,7 +310,7 @@ def client_type(request: pytest.FixtureRequest) -> str:
 def transport(
     async_transport: HTTPTransport,
     sync_transport: SyncHTTPTransport,
-    async_asgi_transport: Transport,
+    async_asgi_transport: Transport | None,
     sync_wsgi_transport: SyncTransport,
     client_type: str,
 ) -> HTTPTransport | SyncHTTPTransport | Transport | SyncTransport:
@@ -277,7 +320,7 @@ def transport(
         case "sync":
             return sync_transport
         case "async_asgi":
-            return async_asgi_transport
+            return asgi_transport(async_asgi_transport)
         case "sync_wsgi":
             return sync_wsgi_transport
         case _:
@@ -289,7 +332,7 @@ def transport(
 def client(
     async_transport: HTTPTransport,
     sync_transport: SyncHTTPTransport,
-    async_asgi_transport: Transport,
+    async_asgi_transport: Transport | None,
     sync_wsgi_transport: SyncTransport,
     client_type: str,
 ) -> Client | SyncClient:
@@ -299,7 +342,7 @@ def client(
         case "sync":
             return SyncClient(sync_transport)
         case "async_asgi":
-            return Client(async_asgi_transport)
+            return Client(asgi_transport(async_asgi_transport))
         case "sync_wsgi":
             return SyncClient(sync_wsgi_transport)
         case _:

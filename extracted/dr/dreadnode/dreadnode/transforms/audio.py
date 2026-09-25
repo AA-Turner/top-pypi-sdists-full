@@ -1,17 +1,22 @@
-import numpy as np
+import typing as t
 
 from dreadnode.core.exceptions import catch_import_error
 from dreadnode.core.transforms import Transform
 from dreadnode.core.types import Audio
 
+if t.TYPE_CHECKING:
+    import numpy as np
 
-def _audio_to_numpy(audio: Audio) -> tuple[np.ndarray, int]:
+
+def _audio_to_numpy(audio: Audio) -> "tuple[np.ndarray, int]":
     """
     Convert Audio object to numpy array and sample rate.
 
     Returns:
         Tuple of (audio_array, sample_rate) where audio_array is float64 in [-1, 1].
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         import soundfile as sf
 
@@ -45,7 +50,7 @@ def _audio_to_numpy(audio: Audio) -> tuple[np.ndarray, int]:
 
 
 def _numpy_to_audio(
-    data: np.ndarray,
+    data: "np.ndarray",
     sample_rate: int,
     *,
     caption: str | None = None,
@@ -60,6 +65,8 @@ def _numpy_to_audio(
         caption: Optional caption.
         format: Optional format (default: wav).
     """
+    import numpy as np
+
     # Clip to valid range
     data = np.clip(data, -1.0, 1.0)
     return Audio(data, sample_rate=sample_rate, caption=caption, format=format or "wav")
@@ -96,6 +103,8 @@ def add_white_noise(
         Standard audio augmentation technique used in SpecAugment and
         other ASR robustness methods.
     """
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, snr_db: float = snr_db) -> Audio:
@@ -143,6 +152,8 @@ def add_pink_noise(
         Pink noise is used in audio testing and masking studies.
         See: Voss & Clarke, "1/f noise in music and speech" (1975).
     """
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, snr_db: float = snr_db) -> Audio:
@@ -238,6 +249,7 @@ def normalize_volume(
     Returns:
         Transform that normalizes Audio to target level.
     """
+    import numpy as np
 
     def transform(audio: Audio, *, target_db: float = target_db) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -287,6 +299,8 @@ def change_speed(
         Speed perturbation is a standard augmentation technique.
         See: Ko et al., "Audio Augmentation for Speech Recognition" (2015).
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -343,6 +357,8 @@ def time_stretch(
         Phase vocoder technique. See: Laroche & Dolson,
         "Improved Phase Vocoder Time-Scale Modification of Audio" (1999).
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -358,7 +374,7 @@ def time_stretch(
         n_fft = 2048
         hop_length = n_fft // 4
 
-        def _phase_vocoder(y: np.ndarray, rate: float) -> np.ndarray:
+        def _phase_vocoder(y: "np.ndarray", rate: float) -> "np.ndarray":
             """Apply phase vocoder time stretching to mono signal."""
             # STFT
             _, _, stft = signal.stft(y, fs=sample_rate, nperseg=n_fft, noverlap=n_fft - hop_length)
@@ -423,6 +439,8 @@ def pitch_shift(
         Yakura & Sakuma, "Robust Audio Adversarial Example for a
         Physical Attack" (2019) - pitch shifting as perturbation.
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -491,6 +509,8 @@ def apply_low_pass_filter(
     Reference:
         Common audio perturbation for robustness testing.
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -540,6 +560,8 @@ def apply_high_pass_filter(
     Returns:
         Transform that applies high-pass filter to Audio.
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -592,6 +614,8 @@ def apply_band_pass_filter(
         PSTN telephone bandwidth is 300-3400 Hz, commonly used to
         simulate real-world telephony conditions.
     """
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -659,6 +683,8 @@ def add_reverb(
         Room acoustics simulation is used in physical adversarial
         attack research. See: Yakura & Sakuma (2019).
     """
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(
@@ -740,6 +766,7 @@ def add_echo(
     Returns:
         Transform that adds echo to Audio.
     """
+    import numpy as np
 
     def transform(
         audio: Audio,
@@ -807,6 +834,7 @@ def apply_dynamic_range_compression(
         Dynamic range compression is ubiquitous in audio systems and
         affects how audio is perceived by both humans and machines.
     """
+    import numpy as np
 
     def transform(
         audio: Audio,
@@ -880,6 +908,7 @@ def add_clipping(
         Clipping distortion is common in overdriven systems and can
         significantly affect ASR performance.
     """
+    import numpy as np
 
     def transform(audio: Audio, *, threshold: float = threshold) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -909,6 +938,7 @@ def trim_silence(
     Returns:
         Transform that trims silence from Audio.
     """
+    import numpy as np
 
     def transform(
         audio: Audio,
@@ -961,6 +991,7 @@ def add_fade(
     Returns:
         Transform that adds fades to Audio.
     """
+    import numpy as np
 
     def transform(
         audio: Audio, *, fade_in_ms: float = fade_in_ms, fade_out_ms: float = fade_out_ms
@@ -1017,6 +1048,7 @@ def ultrasonic_shift(
     Reference:
         Zhang et al., "DolphinAttack: Inaudible Voice Commands" (CCS 2017).
     """
+    import numpy as np
 
     def transform(audio: Audio, *, carrier_ratio: float = carrier_ratio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1044,6 +1076,7 @@ def spectral_inversion() -> Transform[Audio, Audio]:
     Returns:
         Transform that spectrally inverts Audio.
     """
+    import numpy as np
 
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1077,6 +1110,8 @@ def bit_crush(
     Returns:
         Transform that bit-crushes Audio.
     """
+    import numpy as np
+
     if bits < 1 or bits > 16:
         raise ValueError("bits must be between 1 and 16")
     if downsample < 1:
@@ -1115,6 +1150,7 @@ def add_tone(
     Returns:
         Transform that mixes a tone into Audio.
     """
+    import numpy as np
 
     def transform(audio: Audio, *, freq_hz: float = freq_hz, gain_db: float = gain_db) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1151,6 +1187,8 @@ def audio_steganography(
     Returns:
         Transform that embeds the payload in Audio's LSBs.
     """
+    import numpy as np
+
     full_payload = payload + terminator
     payload_bits = np.array(
         [int(b) for byte in full_payload.encode("utf-8") for b in format(byte, "08b")],
@@ -1178,8 +1216,10 @@ def audio_steganography(
 # =============================================================================
 
 
-def _broadcast(vec: np.ndarray, data: np.ndarray) -> np.ndarray:
+def _broadcast(vec: "np.ndarray", data: "np.ndarray") -> "np.ndarray":
     """Broadcast a 1-D per-sample vector across mono or stereo ``data``."""
+    import numpy as np
+
     return vec if data.ndim == 1 else vec[:, np.newaxis]
 
 
@@ -1189,6 +1229,8 @@ def add_brown_noise(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Add brown (1/f^2, "red") noise — deeper rumble than pink noise."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, snr_db: float = snr_db) -> Audio:
@@ -1217,6 +1259,8 @@ def add_babble_noise(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Add multi-talker babble (syllable-rate modulated, speech-band noise)."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1251,6 +1295,8 @@ def add_clicks(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Add impulsive clicks/crackle (vinyl/scratch artifacts)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, rate_per_sec: float = rate_per_sec) -> Audio:
@@ -1276,6 +1322,8 @@ def time_masking(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Zero out random time spans (SpecAugment time masking)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, max_ms: float = max_ms, n_masks: int = n_masks) -> Audio:
@@ -1299,6 +1347,8 @@ def frequency_masking(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Zero out random frequency bands via STFT (SpecAugment frequency masking)."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1307,7 +1357,7 @@ def frequency_masking(
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
 
-        def mask(y: np.ndarray) -> np.ndarray:
+        def mask(y: "np.ndarray") -> "np.ndarray":
             _, _, stft = signal.stft(y, fs=sample_rate, nperseg=512)
             n_freq = stft.shape[0]
             for _ in range(n_bands):
@@ -1342,6 +1392,7 @@ def tremolo(
     depth: float = 0.5,
 ) -> Transform[Audio, Audio]:
     """Modulate amplitude with a low-frequency oscillator (tremolo)."""
+    import numpy as np
 
     def transform(audio: Audio, *, rate_hz: float = rate_hz, depth: float = depth) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1358,6 +1409,7 @@ def vibrato(
     depth_ms: float = 2.0,
 ) -> Transform[Audio, Audio]:
     """Modulate pitch with a low-frequency oscillator via fractional delay (vibrato)."""
+    import numpy as np
 
     def transform(audio: Audio, *, rate_hz: float = rate_hz, depth_ms: float = depth_ms) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1382,6 +1434,7 @@ def wow_flutter(
     depth_ms: float = 3.0,
 ) -> Transform[Audio, Audio]:
     """Add tape-style pitch drift combining slow "wow" and fast "flutter"."""
+    import numpy as np
 
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1406,6 +1459,8 @@ def granular_shuffle(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Chop into short grains and randomly reorder them (granular scrambling)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, grain_ms: float = grain_ms) -> Audio:
@@ -1436,6 +1491,8 @@ def sample_dropout(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Zero random short segments to simulate packet loss / VoIP dropout."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, loss_ratio: float = loss_ratio) -> Audio:
@@ -1456,6 +1513,7 @@ def pre_emphasis(
     coeff: float = 0.97,
 ) -> Transform[Audio, Audio]:
     """Apply a pre-emphasis high-shelf (``y[n] = x[n] - coeff*x[n-1]``)."""
+    import numpy as np
 
     def transform(audio: Audio, *, coeff: float = coeff) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1474,6 +1532,8 @@ def notch_filter(
     quality: float = 30.0,
 ) -> Transform[Audio, Audio]:
     """Remove a narrow frequency band with an IIR notch filter."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1499,6 +1559,8 @@ def peaking_equalizer(
     q: float = 1.0,
 ) -> Transform[Audio, Audio]:
     """Boost or cut a frequency band with an RBJ peaking-EQ biquad."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1522,6 +1584,7 @@ def soft_clip(
     gain: float = 3.0,
 ) -> Transform[Audio, Audio]:
     """Apply smooth (tanh) overdrive saturation instead of hard clipping."""
+    import numpy as np
 
     def transform(audio: Audio, *, gain: float = gain) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1537,6 +1600,7 @@ def ring_modulation(
     mix: float = 1.0,
 ) -> Transform[Audio, Audio]:
     """Multiply by an audible carrier tone (ring modulation / metallic timbre)."""
+    import numpy as np
 
     def transform(audio: Audio, *, freq_hz: float = freq_hz, mix: float = mix) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1575,6 +1639,8 @@ def loop_audio(
     count: int = 2,
 ) -> Transform[Audio, Audio]:
     """Repeat the clip ``count`` times end-to-end."""
+    import numpy as np
+
     if count < 1:
         raise ValueError("count must be >= 1")
 
@@ -1602,6 +1668,7 @@ def time_shift(
     rollover: bool = True,
 ) -> Transform[Audio, Audio]:
     """Shift the signal in time, wrapping around (rollover) or padding with silence."""
+    import numpy as np
 
     def transform(audio: Audio, *, shift_ms: float = shift_ms, rollover: bool = rollover) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1625,6 +1692,7 @@ def gain_transition(
     end_gain_db: float = 0.0,
 ) -> Transform[Audio, Audio]:
     """Ramp the gain linearly from ``start_gain_db`` to ``end_gain_db`` across the clip."""
+    import numpy as np
 
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1640,6 +1708,8 @@ def air_absorption(
     distance_m: float = 10.0,
 ) -> Transform[Audio, Audio]:
     """Attenuate high frequencies with distance (atmospheric air absorption)."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1661,6 +1731,8 @@ def air_absorption(
 
 def _shelf_coeffs(kind: str, sample_rate: int, freq_hz: float, gain_db: float, q: float) -> tuple:
     """RBJ low/high-shelf biquad coefficients (normalized)."""
+    import numpy as np
+
     big_a = 10 ** (gain_db / 40)
     w0 = 2 * np.pi * freq_hz / sample_rate
     cw, sw = np.cos(w0), np.sin(w0)
@@ -1721,6 +1793,8 @@ def band_stop_filter(
     *, low_hz: float = 800.0, high_hz: float = 1200.0, order: int = 4
 ) -> Transform[Audio, Audio]:
     """Attenuate a frequency band (Butterworth band-stop / band-reject)."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1746,6 +1820,8 @@ def seven_band_parametric_eq(
     q: float = 1.0,
 ) -> Transform[Audio, Audio]:
     """Apply a 7-band parametric EQ (cascaded peaking biquads across the spectrum)."""
+    import numpy as np
+
     with catch_import_error("dreadnode"):
         from scipy import signal
 
@@ -1775,6 +1851,8 @@ def aliasing(
     factor: int = 3,
 ) -> Transform[Audio, Audio]:
     """Decimate without an anti-alias filter, then upsample — foldover/aliasing artifacts."""
+    import numpy as np
+
     if factor < 2:
         raise ValueError("factor must be >= 2")
 
@@ -1799,6 +1877,7 @@ def limiter(
     release_ms: float = 50.0,
 ) -> Transform[Audio, Audio]:
     """Peak-limit the signal with a smoothed envelope (softer than hard clipping)."""
+    import numpy as np
 
     def transform(audio: Audio, *, threshold_db: float = threshold_db) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1826,6 +1905,8 @@ def add_short_noises(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Add sparse short noise bursts at random offsets (transient interference)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio, *, n_bursts: int = n_bursts) -> Audio:
@@ -1853,6 +1934,7 @@ def repeat_part(
     repeats: int = 2,
 ) -> Transform[Audio, Audio]:
     """Duplicate a sub-segment inline (stutter / repeated-frame artifact)."""
+    import numpy as np
 
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1898,6 +1980,7 @@ def chorus(
     voices: int = 3,
 ) -> Transform[Audio, Audio]:
     """Layer LFO-modulated delayed voices for a chorus/ensemble effect."""
+    import numpy as np
 
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1932,6 +2015,7 @@ def flanger(
     mix: float = 0.5,
 ) -> Transform[Audio, Audio]:
     """Sweep a short modulated delay to create a flanging comb filter."""
+    import numpy as np
 
     def transform(audio: Audio) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -1985,6 +2069,7 @@ def adjust_duration(
     target_seconds: float = 2.0,
 ) -> Transform[Audio, Audio]:
     """Pad with silence or crop to a fixed duration."""
+    import numpy as np
 
     def transform(audio: Audio, *, target_seconds: float = target_seconds) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)
@@ -2007,6 +2092,8 @@ def apply_impulse_response(
     seed: int | None = None,
 ) -> Transform[Audio, Audio]:
     """Convolve with a synthetic room impulse response (over-the-air playback simulation)."""
+    import numpy as np
+
     rng = np.random.default_rng(seed)
 
     def transform(audio: Audio) -> Audio:
@@ -2037,6 +2124,8 @@ def dtmf_tone(
     gain_db: float = -12.0,
 ) -> Transform[Audio, Audio]:
     """Mix a DTMF (touch-tone) dual-frequency tone over the audio."""
+    import numpy as np
+
     dtmf = {
         "1": (697, 1209),
         "2": (697, 1336),
@@ -2086,6 +2175,7 @@ def loudness_normalize(
     target_db: float = -20.0,
 ) -> Transform[Audio, Audio]:
     """Normalize to a target RMS loudness (perceptual level, not peak)."""
+    import numpy as np
 
     def transform(audio: Audio, *, target_db: float = target_db) -> Audio:
         data, sample_rate = _audio_to_numpy(audio)

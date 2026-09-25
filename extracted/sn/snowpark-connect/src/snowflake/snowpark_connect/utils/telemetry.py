@@ -535,6 +535,108 @@ def iceberg_wap_unsupported_proc_detail(proc: str | None) -> str:
     return "other_unsupported_proc"
 
 
+# Known Iceberg / Snowflake table-property keys we record by name. TBLPROPERTIES
+# keys (and values) are customer-supplied, so anything outside this set is
+# bucketed as "other" and values are never recorded (SNOW-4077136). Matched
+# after stripping a leading "iceberg." prefix and lower-casing -- deliberately
+# more permissive than Iceberg's own case-sensitive key matching (so
+# "WRITE.FORMAT.DEFAULT" is tagged as the known key); this only affects the
+# telemetry tag, never behavior, so the small over-count is acceptable.
+ICEBERG_KNOWN_TABLE_PROPERTY_KEYS = frozenset(
+    {
+        "format-version",
+        "write.format.default",
+        "write.target-file-size-bytes",
+        "write.target-file-size",
+        "target_file_size",
+        "write.distribution-mode",
+        "write.parquet.compression-codec",
+        "write.metadata.compression-codec",
+        "write.metadata.delete-after-commit.enabled",
+        "write.metadata.previous-versions-max",
+        "write.merge.mode",
+        "write.update.mode",
+        "write.delete.mode",
+        "commit.retry.num-retries",
+        "commit.retry.min-wait-ms",
+        "commit.manifest.min-count-to-merge",
+        "commit.manifest-merge.enabled",
+        "history.expire.max-snapshot-age-ms",
+        "history.expire.min-snapshots-to-keep",
+        "max-snapshot-age.ms",
+        "read.split.target-size",
+        "gc.enabled",
+        "external_volume",
+        "base_location",
+        "location",
+        "catalog",
+        "catalog_sync",
+        "storage_serialization_policy",
+        "merge-schema",
+        "comment",
+    }
+)
+
+
+def iceberg_table_property_key(key: str | None) -> str:
+    """Map a customer-supplied table-property key to a stable telemetry tag.
+
+    Known Iceberg/Snowflake keys are returned normalized (``iceberg.`` prefix
+    stripped, lower-cased); everything else collapses to ``"other"`` so no
+    customer-defined key reaches telemetry.
+    """
+    if not key:
+        return "other"
+    normalized = str(key).lower()
+    if normalized.startswith("iceberg."):
+        normalized = normalized[len("iceberg.") :]
+    return normalized if normalized in ICEBERG_KNOWN_TABLE_PROPERTY_KEYS else "other"
+
+
+# Iceberg write-time options set via ``df.write.option(k, v)`` / ``.options({...})``
+# worth tracking for adoption (SNOW-4141266). Distinct from table properties
+# (``iceberg_table_properties``, SNOW-4077136) and the DataFrameWriterV2 API surface
+# (SNOW-3985862): these are the write-path ``.option(...)`` bag. Keys are
+# customer-supplied, so anything outside this set is bucketed as "other" and values
+# are never recorded. Matched after stripping a leading "iceberg." prefix and
+# lower-casing -- telemetry-tag only, never affects behavior.
+ICEBERG_KNOWN_WRITE_OPTION_KEYS = frozenset(
+    {
+        "write-format",
+        "write.format.default",
+        "target-file-size-bytes",
+        "write.target-file-size-bytes",
+        "fanout-enabled",
+        "distribution-mode",
+        "write.distribution-mode",
+        "use-table-distribution-and-ordering",
+        "overwrite-mode",
+        "merge-schema",
+        "check-ordering",
+        "check-nullability",
+        "compression-codec",
+        "write.parquet.compression-codec",
+        "compression-level",
+        "compression-strategy",
+    }
+)
+
+
+def iceberg_write_option_key(key: str | None) -> str:
+    """Map a customer-supplied write-option key to a stable telemetry tag.
+
+    Mirrors :func:`iceberg_table_property_key`: known keys are returned normalized
+    (``iceberg.`` prefix stripped, lower-cased); everything else collapses to
+    ``"other"`` so no customer-defined key reaches telemetry.
+    """
+    if not key:
+        return "other"
+    normalized = str(key).lower()
+    if normalized.startswith("iceberg."):
+        normalized = normalized[len("iceberg.") :]
+    return normalized if normalized in ICEBERG_KNOWN_WRITE_OPTION_KEYS else "other"
+
+
 class Telemetry:
     def __init__(self, is_enabled=True) -> None:
         self._sink = NoOpTelemetrySink()  # use no-op sink until initialized
@@ -882,6 +984,33 @@ class Telemetry:
         summary["iceberg_metadata_tables"][metadata_table_name] += 1
 
     @safe
+    def report_iceberg_unsupported_feature(self, feature: str) -> None:
+        """Record an unimplemented Iceberg feature a customer hit (SNOW-4000818).
+
+        Counter of ``feature -> count`` on ``summary["iceberg_unsupported_features"]``,
+        emitted on the *rejection* path right before SCOS raises the "not implemented /
+        unsupported" error. This is the Tier-A "adoption blockers" signal: because a
+        rejected request never executes, it carries no engine/stats counters and is
+        otherwise findable only by fragile ``error_message`` string-matching -- so an
+        explicit structured tag is the only reliable way to count which not-yet-supported
+        Iceberg features customers are asking for.
+
+        Args:
+            feature: a stable snake_case identifier for the unimplemented feature (e.g.
+                ``"metadata_table_partitions"``, ``"write_mode_overwrite_dynamic"``,
+                ``"partition_transform_bucket"``). Never a customer identifier.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_unsupported_features" not in summary:
+            summary["iceberg_unsupported_features"] = defaultdict(int)
+
+        summary["iceberg_unsupported_features"][feature] += 1
+
+    @safe
     def report_iceberg_wap(
         self,
         op: str,
@@ -935,12 +1064,14 @@ class Telemetry:
                 ``"UNSUPPORTED_OPERATION"``).
             detail: Short reason tag from a small stable vocabulary; never a
                 customer identifier. Rejections use e.g. ``"reserved_main"``,
-                ``"snapshot_pinned_branch"``, ``"replace_branch"``,
+                ``"snapshot_pinned_branch"``, ``"replace_branch"`` (retired --
+                emitted before bare REPLACE BRANCH was translated; historical
+                rows only),
                 ``"replace_tag_no_version"``, ``"tag_retain_days"``, ``"tag_dml"``,
                 ``"wap_branch_conflict"``, ``"invalid_branch_name"``,
                 ``"cherrypick_snapshot"`` / ``"other_unsupported_proc"`` (see
                 ``iceberg_wap_unsupported_proc_detail``); publish uses
-                ``"fast_forward"``.
+                ``"fast_forward"`` / ``"cherrypick_snapshot"``.
 
         Note:
             Hooks fire at *translate* time, so ``outcome`` captures SCOS-side rejections
@@ -1014,6 +1145,300 @@ class Telemetry:
             "catalog_kind": catalog_kind,
         }
         summary["iceberg_incremental_read"].append(
+            {k: v for k, v in event.items() if v is not None}
+        )
+
+    @safe
+    def report_iceberg_table_properties(
+        self,
+        op: str,
+        keys: Iterable[str] | None,
+        *,
+        outcome: str = "emitted",
+        catalog_kind: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        """Record Iceberg ``TABLE_PROPERTIES`` usage per request (SNOW-4077136).
+
+        Appends events to ``summary["iceberg_table_properties"]`` -- one per
+        *distinct* allowlisted property key (unknown keys collapse to ``"other"``
+        via :func:`iceberg_table_property_key`), so no customer-defined key or
+        value ever reaches telemetry. Mirrors the ``report_iceberg_wap`` pattern.
+
+        Args:
+            op: ``"create"`` / ``"ctas"`` / ``"rtas"`` / ``"alter_set"`` /
+                ``"alter_unset"``.
+            keys: iterable of the raw customer-supplied property keys for this op.
+            outcome: ``"emitted"`` (the key was honored -- as ``TABLE_PROPERTIES``
+                or, with ``detail="consumed_by_clause"``, via a dedicated clause),
+                ``"dropped"`` (not honored: gate off / managed target), or
+                ``"rejected"`` (SCOS refused it, e.g. max-snapshot-age on CLD).
+            catalog_kind: ``"managed"`` / ``"cld"`` when known at the call site.
+            detail: reason tag. ``"consumed_by_clause"`` pairs with
+                ``outcome="emitted"`` (honored via a dedicated clause e.g.
+                ``ICEBERG_VERSION`` instead of ``TABLE_PROPERTIES``); the
+                not-honored tags ``"ddl_gate_off"`` / ``"managed_target"`` /
+                ``"non_iceberg_fallback"`` pair with ``"dropped"``, and
+                ``"max_snapshot_age"`` with ``"rejected"``.
+
+        Emits one event per distinct allowlisted key; all unknown keys collapse to
+        a single ``"other"`` event with an ``other_distinct_keys`` count (raw keys
+        are never stored), so "known vs other" adoption queries stay unbiased.
+
+        Note:
+            Emitted at translate time, so ``outcome`` reflects SCOS's decision, not
+            execution success -- join the request-level ``was_successful`` for that.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_table_properties" not in summary:
+            summary["iceberg_table_properties"] = []
+
+        # Distinct allowlisted keys get one event each; all unknown keys collapse
+        # to a single ``other`` event carrying the distinct-count so downstream
+        # "known vs other" queries can weight it (the raw keys are never stored).
+        known: set[str] = set()
+        unknown: set[str] = set()
+        for raw in keys or ():
+            property_key = iceberg_table_property_key(raw)
+            if property_key == "other":
+                unknown.add(str(raw).lower())
+            else:
+                known.add(property_key)
+
+        def _append(property_key: str, extra: dict | None = None) -> None:
+            event = {
+                "op": op,
+                "property_key": property_key,
+                "outcome": outcome,
+                "catalog_kind": catalog_kind,
+                "detail": detail,
+            }
+            if extra:
+                event.update(extra)
+            summary["iceberg_table_properties"].append(
+                {k: v for k, v in event.items() if v is not None}
+            )
+
+        for property_key in sorted(known):
+            _append(property_key)
+        if unknown:
+            _append("other", {"other_distinct_keys": len(unknown)})
+
+    @safe
+    def report_iceberg_write_v2(
+        self,
+        op: str,
+        *,
+        catalog_kind: str | None = None,
+        partitioned_by: bool = False,
+        table_property: bool = False,
+    ) -> None:
+        """Record a DataFrameWriterV2 (``df.writeTo(...)``) call on an Iceberg target
+        per request (SNOW-3985862).
+
+        Appends one event per ``writeTo`` call to ``summary["iceberg_write_v2"]``:
+        ``{op, catalog_kind, partitioned_by, table_property}`` (None dropped). Captures
+        the V2 API surface -- which write verb customers use and whether they attach a
+        partition spec / table property -- distinct from the ``.option(...)`` write bag
+        and from DDL ``TABLE_PROPERTIES`` (``iceberg_table_properties``, SNOW-4077136).
+        No customer identifier (table/column name, property key/value) is recorded.
+
+        Args:
+            op: the V2 write verb -- ``"create"`` / ``"replace"`` /
+                ``"create_or_replace"`` / ``"append"`` / ``"overwrite"`` /
+                ``"overwrite_partitions"``.
+            catalog_kind: ``"cld"`` / ``"managed"`` from the session CLD hint
+                (``is_in_cld_context()``); ``"managed"`` means "non-CLD session".
+            partitioned_by: whether the call carried a ``partitionedBy`` spec.
+            table_property: whether the call carried any ``.tableProperty(...)``.
+
+        Note:
+            Emitted at translate time (per ``writeTo`` dispatch), not execution
+            success -- join the request-level ``was_successful`` for that.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_write_v2" not in summary:
+            summary["iceberg_write_v2"] = []
+
+        event = {
+            "op": op,
+            "catalog_kind": catalog_kind,
+            "partitioned_by": partitioned_by,
+            "table_property": table_property,
+        }
+        summary["iceberg_write_v2"].append(
+            {k: v for k, v in event.items() if v is not None}
+        )
+
+    @safe
+    def report_iceberg_ddl(
+        self,
+        op: str,
+        *,
+        catalog_kind: str | None = None,
+        outcome: str = "attempted",
+        detail: str | None = None,
+    ) -> None:
+        """Record an Iceberg DDL operation per request (SNOW-3985860).
+
+        Appends one event per DDL statement to ``summary["iceberg_ddl"]``:
+        ``{op, catalog_kind, outcome, detail}`` (None fields dropped). Covers schema
+        evolution and namespace DDL. Distinct from branch/tag DDL (recorded on
+        ``iceberg_wap`` -- ``report_iceberg_wap``) and ``TABLE_PROPERTIES`` DDL
+        (recorded on ``iceberg_table_properties`` -- SNOW-4077136); no customer
+        identifier (table/column/schema name) is ever recorded.
+
+        Args:
+            op: the DDL kind -- ``"add_columns"`` / ``"alter_column"`` /
+                ``"rename_column"`` (schema evolution), ``"drop_table"`` (table
+                lifecycle), or ``"create_namespace"`` / ``"drop_namespace"``
+                (namespace DDL).
+            catalog_kind: ``"cld"`` / ``"managed"`` from the session CLD hint
+                (``is_in_cld_context()``); ``"managed"`` means "non-CLD session".
+            outcome: ``"attempted"`` (SCOS dispatched it -- default) or
+                ``"rejected"`` (SCOS refused it at translate time).
+            detail: short reason tag from a small stable vocabulary (never a
+                customer identifier).
+
+        Note:
+            Emitted at translate time, so ``outcome`` reflects SCOS's decision, not
+            execution success -- join the request-level ``was_successful`` for that.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_ddl" not in summary:
+            summary["iceberg_ddl"] = []
+
+        event = {
+            "op": op,
+            "catalog_kind": catalog_kind,
+            "outcome": outcome,
+            "detail": detail,
+        }
+        summary["iceberg_ddl"].append({k: v for k, v in event.items() if v is not None})
+
+    @safe
+    def report_iceberg_write_options(
+        self,
+        op: str,
+        keys: Iterable[str] | None,
+        *,
+        catalog_kind: str | None = None,
+    ) -> None:
+        """Record Iceberg write-time ``.option(...)`` usage per request (SNOW-4141266).
+
+        Appends events to ``summary["iceberg_write_options"]`` -- one per *distinct*
+        allowlisted option key (unknown keys collapse to a single ``"other"`` event
+        with an ``other_distinct_keys`` count via :func:`iceberg_write_option_key`),
+        so no customer-defined key or value ever reaches telemetry. Mirrors
+        ``report_iceberg_table_properties``. This is the write-path ``.option(...)``
+        bag -- distinct from DDL ``TBLPROPERTIES`` (``iceberg_table_properties``,
+        SNOW-4077136) and the DataFrameWriterV2 API surface (SNOW-3985862).
+
+        Args:
+            op: the write mode -- ``"create"`` / ``"replace"`` /
+                ``"create_or_replace"`` / ``"append"`` / ``"overwrite"`` /
+                ``"overwrite_partitions"``.
+            keys: iterable of the raw customer-supplied write-option keys for this op.
+            catalog_kind: ``"managed"`` / ``"cld"`` from the session CLD hint
+                (``is_in_cld_context()``) -- same vocabulary as
+                ``report_iceberg_table_properties`` / ``report_iceberg_incremental_read``.
+
+        Note:
+            Emitted at translate time. SCOS is a pure transport layer for write
+            options (GS validates and silently ignores unrecognized keys), so there
+            is no translate-time ``outcome`` to record -- join the request-level
+            ``was_successful`` for execution success.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_write_options" not in summary:
+            summary["iceberg_write_options"] = []
+
+        # Distinct allowlisted keys get one event each; all unknown keys collapse to
+        # a single ``other`` event carrying the distinct-count (raw keys never stored).
+        known: set[str] = set()
+        unknown: set[str] = set()
+        for raw in keys or ():
+            option_key = iceberg_write_option_key(raw)
+            if option_key == "other":
+                unknown.add(str(raw).lower())
+            else:
+                known.add(option_key)
+
+        def _append(option_key: str, extra: dict | None = None) -> None:
+            event = {
+                "op": op,
+                "option_key": option_key,
+                "catalog_kind": catalog_kind,
+            }
+            if extra:
+                event.update(extra)
+            summary["iceberg_write_options"].append(
+                {k: v for k, v in event.items() if v is not None}
+            )
+
+        for option_key in sorted(known):
+            _append(option_key)
+        if unknown:
+            _append("other", {"other_distinct_keys": len(unknown)})
+
+    @safe
+    def report_iceberg_time_travel_read(
+        self,
+        bound_kind: str,
+        *,
+        catalog_kind: str | None = None,
+    ) -> None:
+        """Record an Iceberg time-travel read per request (SNOW-3985865).
+
+        Appends one event per time-travel read to ``summary["iceberg_time_travel_read"]``:
+        ``{bound_kind, catalog_kind}`` (None dropped). A unified view of reading an
+        Iceberg table at a historical point, across both the DataFrame read options and
+        the SQL ``VERSION AS OF`` / ``TIMESTAMP AS OF`` surface (which re-enters the same
+        read path). No customer identifier (table name, snapshot id, timestamp) is
+        recorded.
+
+        Args:
+            bound_kind: how the read is pinned -- ``"snapshot"`` (snapshot-id /
+                ``VERSION AS OF <id>``) / ``"timestamp"`` (``as-of-timestamp`` /
+                ``TIMESTAMP AS OF``) / ``"tag"`` / ``"ref"`` / ``"branch"``.
+            catalog_kind: ``"cld"`` / ``"managed"`` from the session CLD hint
+                (``is_in_cld_context()``); ``"managed"`` means "non-CLD session".
+
+        Note:
+            ``tag`` / ``ref`` / ``branch`` reads also emit a ``report_iceberg_wap``
+            ``op="read"`` event for WAP-specific analysis; this surface is the unified
+            time-travel adoption view. Emitted at translate time -- join the
+            request-level ``was_successful`` for execution success.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_time_travel_read" not in summary:
+            summary["iceberg_time_travel_read"] = []
+
+        event = {
+            "bound_kind": bound_kind,
+            "catalog_kind": catalog_kind,
+        }
+        summary["iceberg_time_travel_read"].append(
             {k: v for k, v in event.items() if v is not None}
         )
 

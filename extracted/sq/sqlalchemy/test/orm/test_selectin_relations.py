@@ -1,5 +1,7 @@
 import sqlalchemy as sa
+from sqlalchemy import and_
 from sqlalchemy import bindparam
+from sqlalchemy import Boolean
 from sqlalchemy import ForeignKey
 from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import Integer
@@ -20,6 +22,7 @@ from sqlalchemy.orm import undefer
 from sqlalchemy.orm import with_polymorphic
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import assert_warns
+from sqlalchemy.testing import AssertsExecutionResults
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
@@ -1873,9 +1876,9 @@ class BaseRelationFromJoinedSubclassTest(_Polymorphic):
                 {"primary_language_1": "java"},
             ),
             CompiledSQL(
-                "SELECT paperwork.person_id AS paperwork_person_id, "
-                "paperwork.paperwork_id AS paperwork_paperwork_id, "
-                "paperwork.description AS paperwork_description "
+                "SELECT paperwork.person_id, "
+                "paperwork.paperwork_id, "
+                "paperwork.description "
                 "FROM paperwork WHERE paperwork.person_id "
                 "IN (__[POSTCOMPILE_primary_keys]) "
                 "ORDER BY paperwork.paperwork_id",
@@ -1923,9 +1926,9 @@ class BaseRelationFromJoinedSubclassTest(_Polymorphic):
                 },
             ),
             CompiledSQL(
-                "SELECT paperwork.person_id AS paperwork_person_id, "
-                "paperwork.paperwork_id AS paperwork_paperwork_id, "
-                "paperwork.description AS paperwork_description "
+                "SELECT paperwork.person_id, "
+                "paperwork.paperwork_id, "
+                "paperwork.description "
                 "FROM paperwork WHERE paperwork.person_id "
                 "IN (__[POSTCOMPILE_primary_keys]) "
                 "ORDER BY paperwork.paperwork_id",
@@ -1969,9 +1972,9 @@ class BaseRelationFromJoinedSubclassTest(_Polymorphic):
                 "DESC LIMIT :param_1"
             ),
             CompiledSQL(
-                "SELECT paperwork.person_id AS paperwork_person_id, "
-                "paperwork.paperwork_id AS paperwork_paperwork_id, "
-                "paperwork.description AS paperwork_description "
+                "SELECT paperwork.person_id, "
+                "paperwork.paperwork_id, "
+                "paperwork.description "
                 "FROM paperwork WHERE paperwork.person_id "
                 "IN (__[POSTCOMPILE_primary_keys]) "
                 "ORDER BY paperwork.paperwork_id",
@@ -2023,9 +2026,9 @@ class BaseRelationFromJoinedSubclassTest(_Polymorphic):
                 "LIMIT :param_1"
             ),
             CompiledSQL(
-                "SELECT paperwork.person_id AS paperwork_person_id, "
-                "paperwork.paperwork_id AS paperwork_paperwork_id, "
-                "paperwork.description AS paperwork_description "
+                "SELECT paperwork.person_id, "
+                "paperwork.paperwork_id, "
+                "paperwork.description "
                 "FROM paperwork WHERE paperwork.person_id "
                 "IN (__[POSTCOMPILE_primary_keys]) "
                 "ORDER BY paperwork.paperwork_id",
@@ -2071,9 +2074,9 @@ class BaseRelationFromJoinedSubclassTest(_Polymorphic):
                 "ORDER BY engineers_1.primary_language DESC LIMIT :param_1"
             ),
             CompiledSQL(
-                "SELECT paperwork.person_id AS paperwork_person_id, "
-                "paperwork.paperwork_id AS paperwork_paperwork_id, "
-                "paperwork.description AS paperwork_description "
+                "SELECT paperwork.person_id, "
+                "paperwork.paperwork_id, "
+                "paperwork.description "
                 "FROM paperwork WHERE paperwork.person_id "
                 "IN (__[POSTCOMPILE_primary_keys]) "
                 "ORDER BY paperwork.paperwork_id",
@@ -2293,7 +2296,7 @@ class TupleTest(fixtures.DeclarativeMappedTest):
                 {},
             ),
             CompiledSQL(
-                "SELECT b.a_id1 AS b_a_id1, b.a_id2 AS b_a_id2, b.id AS b_id "
+                "SELECT b.a_id1, b.a_id2, b.id "
                 "FROM b WHERE (b.a_id1, b.a_id2) IN "
                 "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
                 [{"primary_keys": [(i, i + 2) for i in range(1, 20)]}],
@@ -2325,7 +2328,7 @@ class TupleTest(fixtures.DeclarativeMappedTest):
                 {},
             ),
             CompiledSQL(
-                "SELECT a.id1 AS a_id1, a.id2 AS a_id2 FROM a "
+                "SELECT a.id1, a.id2 FROM a "
                 "WHERE (a.id1, a.id2) IN (__[POSTCOMPILE_primary_keys])",
                 [{"primary_keys": [(i, i + 2) for i in range(1, 20)]}],
             ),
@@ -2379,43 +2382,80 @@ class ChunkingTest(fixtures.DeclarativeMappedTest):
         )
         session.commit()
 
-    def test_odd_number_chunks(self):
+    @testing.combinations(
+        (None, (1, 101)),
+        (47, (1, 48, 95, 101)),
+        (50, (1, 51, 101)),
+        (99, (1, 100, 101)),
+        (108, (1, 101)),
+        argnames="chunksize, expected_range",
+    )
+    @testing.variation("chunksize_spec", ["monkeypatch", "parameter"])
+    def test_odd_number_chunks(
+        self, chunksize, expected_range, chunksize_spec
+    ):
         A, B = self.classes("A", "B")
 
         session = fixture_session()
 
         def go():
-            with mock.patch(
-                "sqlalchemy.orm.strategies.SelectInLoader._chunksize", 47
-            ):
-                q = session.query(A).options(selectinload(A.bs)).order_by(A.id)
+            if chunksize_spec.monkeypatch:
+                if chunksize is None:
+                    statement = (
+                        select(A).options(selectinload(A.bs)).order_by(A.id)
+                    )
 
-                for a in q:
-                    a.bs
+                    session.scalars(statement).all()
+                else:
+                    with mock.patch(
+                        "sqlalchemy.orm.strategies._SelectInLoader._chunksize",
+                        chunksize,
+                    ):
+
+                        statement = (
+                            select(A)
+                            .options(selectinload(A.bs))
+                            .order_by(A.id)
+                        )
+
+                        session.scalars(statement).all()
+            else:
+
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs, chunksize=chunksize))
+                    .order_by(A.id)
+                )
+
+                session.scalars(statement).all()
 
         self.assert_sql_execution(
             testing.db,
             go,
-            CompiledSQL("SELECT a.id AS a_id FROM a ORDER BY a.id", {}),
-            CompiledSQL(
-                "SELECT b.a_id AS b_a_id, b.id AS b_id "
-                "FROM b WHERE b.a_id IN "
-                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
-                {"primary_keys": list(range(1, 48))},
-            ),
-            CompiledSQL(
-                "SELECT b.a_id AS b_a_id, b.id AS b_id "
-                "FROM b WHERE b.a_id IN "
-                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
-                {"primary_keys": list(range(48, 95))},
-            ),
-            CompiledSQL(
-                "SELECT b.a_id AS b_a_id, b.id AS b_id "
-                "FROM b WHERE b.a_id IN "
-                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
-                {"primary_keys": list(range(95, 101))},
-            ),
+            CompiledSQL("SELECT a.id FROM a ORDER BY a.id", {}),
+            *[
+                CompiledSQL(
+                    "SELECT b.a_id, b.id "
+                    "FROM b WHERE b.a_id IN "
+                    "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
+                    {"primary_keys": list(range(a, b))},
+                )
+                for a, b in zip(expected_range, expected_range[1:])
+            ],
         )
+
+    @testing.combinations(-250, "a", 0)
+    def test_chunksize_value_error(self, chunksize):
+        A, B = self.classes("A", "B")
+
+        def go():
+            with testing.expect_raises_message(
+                sa.exc.ArgumentError,
+                ".*please use a positive non-zero integer.*",
+            ):
+                select(A).options(
+                    selectinload(A.bs, chunksize=chunksize)
+                ).order_by(A.id)
 
     @testing.requires.independent_cursors
     def test_yield_per(self):
@@ -2458,7 +2498,7 @@ class ChunkingTest(fixtures.DeclarativeMappedTest):
 
         def go():
             with mock.patch(
-                "sqlalchemy.orm.strategies.SelectInLoader._chunksize", 47
+                "sqlalchemy.orm.strategies._SelectInLoader._chunksize", 47
             ):
                 q = session.query(B).options(selectinload(B.a)).order_by(B.id)
 
@@ -2474,21 +2514,168 @@ class ChunkingTest(fixtures.DeclarativeMappedTest):
             ),
             # chunk size is 47.  so first chunk are a 1->47...
             CompiledSQL(
-                "SELECT a.id AS a_id FROM a WHERE a.id IN "
+                "SELECT a.id FROM a WHERE a.id IN "
                 "(__[POSTCOMPILE_primary_keys])",
                 {"primary_keys": list(range(1, 48))},
             ),
             # second chunk is a 48-94
             CompiledSQL(
-                "SELECT a.id AS a_id FROM a WHERE a.id IN "
+                "SELECT a.id FROM a WHERE a.id IN "
                 "(__[POSTCOMPILE_primary_keys])",
                 {"primary_keys": list(range(48, 95))},
             ),
             # third and final chunk 95-100.
             CompiledSQL(
-                "SELECT a.id AS a_id FROM a WHERE a.id IN "
+                "SELECT a.id FROM a WHERE a.id IN "
                 "(__[POSTCOMPILE_primary_keys])",
                 {"primary_keys": list(range(95, 101))},
+            ),
+        )
+
+
+class ChainedChunkingTest(fixtures.DeclarativeMappedTest):
+    @classmethod
+    def setup_mappers(cls):
+        Base = cls.DeclarativeBasic
+
+        class A(ComparableEntity, Base):
+            __tablename__ = "a"
+            id = Column(Integer, primary_key=True)
+            bs = relationship("B", order_by="B.id", back_populates="a")
+
+        class B(ComparableEntity, Base):
+            __tablename__ = "b"
+            id = Column(Integer, primary_key=True)
+            a_id = Column(ForeignKey("a.id"))
+            a = relationship("A", back_populates="bs")
+            cs = relationship("C", order_by="C.id", back_populates="b")
+
+        class C(ComparableEntity, Base):
+            __tablename__ = "c"
+            id = Column(Integer, primary_key=True)
+            b_id = Column(ForeignKey("b.id"))
+            b = relationship("B", back_populates="cs")
+
+    @classmethod
+    def insert_data(cls, connection):
+        A, B, C = cls.classes("A", "B", "C")
+
+        session = Session(connection)
+
+        for i in range(1, 6):
+            b_list = []
+            for j in range(1, 4):
+                b_id = (i * 6) + j
+                c_id = b_id + 1
+
+                b_list.append(B(id=b_id, cs=[C(id=c_id)]))
+            session.add(A(id=i, bs=b_list))
+        session.commit()
+
+    def test_chained_selectinload_with_two_custom_chunksize(self):
+        A, B, C = self.classes("A", "B", "C")
+
+        b_list = [7, 8, 9, 13, 14, 15, 19, 20, 21, 25, 26, 27, 31, 32, 33]
+
+        session = fixture_session()
+
+        def go():
+            statement = (
+                select(A)
+                .options(
+                    selectinload(A.bs, chunksize=3).selectinload(
+                        B.cs, chunksize=4
+                    )
+                )
+                .order_by(A.id)
+            )
+
+            session.scalars(statement).all()
+
+        self.assert_sql_execution(
+            testing.db,
+            go,
+            CompiledSQL("SELECT a.id FROM a ORDER BY a.id", {}),
+            CompiledSQL(
+                "SELECT b.a_id, b.id "
+                "FROM b WHERE b.a_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
+                {"primary_keys": list(range(1, 4))},
+            ),
+            CompiledSQL(
+                "SELECT b.a_id, b.id "
+                "FROM b WHERE b.a_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
+                {"primary_keys": list(range(4, 6))},
+            ),
+            CompiledSQL(
+                "SELECT c.b_id, c.id "
+                "FROM c WHERE c.b_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY c.id",
+                {"primary_keys": b_list[0:4]},
+            ),
+            CompiledSQL(
+                "SELECT c.b_id, c.id "
+                "FROM c WHERE c.b_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY c.id",
+                {"primary_keys": b_list[4:8]},
+            ),
+            CompiledSQL(
+                "SELECT c.b_id, c.id "
+                "FROM c WHERE c.b_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY c.id",
+                {"primary_keys": b_list[8:12]},
+            ),
+            CompiledSQL(
+                "SELECT c.b_id, c.id "
+                "FROM c WHERE c.b_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY c.id",
+                {"primary_keys": b_list[12:]},
+            ),
+        )
+
+    def test_chained_selectinload_with_one_chunksize(self):
+        """
+        This test is to make sure that a previous custom chunksize doesn't
+        effect chunksize in remaining selectinload
+        """
+
+        A, B, C = self.classes("A", "B", "C")
+
+        b_list = [7, 8, 9, 13, 14, 15, 19, 20, 21, 25, 26, 27, 31, 32, 33]
+
+        session = fixture_session()
+
+        def go():
+            statement = (
+                select(A)
+                .options(selectinload(A.bs, chunksize=3).selectinload(B.cs))
+                .order_by(A.id)
+            )
+
+            session.scalars(statement).all()
+
+        self.assert_sql_execution(
+            testing.db,
+            go,
+            CompiledSQL("SELECT a.id FROM a ORDER BY a.id", {}),
+            CompiledSQL(
+                "SELECT b.a_id, b.id "
+                "FROM b WHERE b.a_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
+                {"primary_keys": list(range(1, 4))},
+            ),
+            CompiledSQL(
+                "SELECT b.a_id, b.id "
+                "FROM b WHERE b.a_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY b.id",
+                {"primary_keys": list(range(4, 6))},
+            ),
+            CompiledSQL(
+                "SELECT c.b_id, c.id "
+                "FROM c WHERE c.b_id IN "
+                "(__[POSTCOMPILE_primary_keys]) ORDER BY c.id",
+                {"primary_keys": b_list},
             ),
         )
 
@@ -3011,15 +3198,14 @@ class SelfRefInheritanceAliasedTest(
                     [{"id_1": 2}],
                 ),
                 CompiledSQL(
-                    "SELECT foo_1.id AS foo_1_id, "
-                    "foo_1.type AS foo_1_type, foo_1.foo_id AS foo_1_foo_id "
+                    "SELECT foo_1.id, foo_1.type, foo_1.foo_id "
                     "FROM foo AS foo_1 "
                     "WHERE foo_1.id IN (__[POSTCOMPILE_primary_keys])",
                     {"primary_keys": [3]},
                 ),
                 CompiledSQL(
-                    "SELECT foo.id AS foo_id_1, foo.type AS foo_type, "
-                    "foo.foo_id AS foo_foo_id FROM foo "
+                    "SELECT foo.id, foo.type, "
+                    "foo.foo_id FROM foo "
                     "WHERE foo.id IN (__[POSTCOMPILE_primary_keys])",
                     {"primary_keys": [1]},
                 ),
@@ -3188,7 +3374,7 @@ class SingleInhSubclassTest(
                 {"type_1": ["employer"]},
             ),
             CompiledSQL(
-                "SELECT role.user_id AS role_user_id, role.id AS role_id "
+                "SELECT role.user_id, role.id "
                 "FROM role WHERE role.user_id "
                 "IN (__[POSTCOMPILE_primary_keys])",
                 {"primary_keys": [1]},
@@ -3312,7 +3498,7 @@ class M2OWDegradeTest(
                 [{"id_1": [1, 3]}],
             ),
             CompiledSQL(
-                "SELECT b.id AS b_id, b.x AS b_x, b.y AS b_y "
+                "SELECT b.id, b.x, b.y "
                 "FROM b WHERE b.id IN (__[POSTCOMPILE_primary_keys])",
                 [{"primary_keys": [1, 2]}],
             ),
@@ -3345,8 +3531,7 @@ class M2OWDegradeTest(
             # emit either for each parent object individually, or as a second
             # query for them.
             CompiledSQL(
-                "SELECT a_1.id AS a_1_id, b.id AS b_id, b.x AS b_x, "
-                "b.y AS b_y "
+                "SELECT a_1.id, b.id, b.x, b.y "
                 "FROM a AS a_1 JOIN b ON b.id = a_1.b_id "
                 "WHERE a_1.id IN (__[POSTCOMPILE_primary_keys])",
                 [{"primary_keys": [1, 3]}],
@@ -3371,7 +3556,7 @@ class M2OWDegradeTest(
                 [{}],
             ),
             CompiledSQL(
-                "SELECT b.id AS b_id, b.x AS b_x, b.y AS b_y "
+                "SELECT b.id, b.x, b.y "
                 "FROM b WHERE b.id IN (__[POSTCOMPILE_primary_keys])",
                 [{"primary_keys": [1, 2]}],
             ),
@@ -3402,8 +3587,8 @@ class M2OWDegradeTest(
                 [{}],
             ),
             CompiledSQL(
-                "SELECT a_1.id AS a_1_id, b.id AS b_id, b.x AS b_x, "
-                "b.y AS b_y FROM a AS a_1 JOIN b ON b.id = a_1.b_id "
+                "SELECT a_1.id, b.id, b.x, b.y "
+                "FROM a AS a_1 JOIN b ON b.id = a_1.b_id "
                 "WHERE a_1.id IN (__[POSTCOMPILE_primary_keys])",
                 [{"primary_keys": [1, 2, 3, 4, 5]}],
             ),
@@ -3436,8 +3621,7 @@ class M2OWDegradeTest(
             # emit either for each parent object individually, or as a second
             # query for them.
             CompiledSQL(
-                "SELECT a_1.id AS a_1_id, b.id AS b_id, b.x AS b_x, "
-                "b.y AS b_y "
+                "SELECT a_1.id, b.id, b.x, b.y "
                 "FROM a AS a_1 JOIN b ON b.id = a_1.b_id "
                 "WHERE a_1.id IN (__[POSTCOMPILE_primary_keys])",
                 [{"primary_keys": [1, 2, 3, 4, 5]}],
@@ -3455,6 +3639,632 @@ class M2OWDegradeTest(
                 A(id=5, b=b1),
             ],
         )
+
+
+class M2MOmitJoinTest(fixtures.TestBase, AssertsExecutionResults):
+    __sparse_backend__ = True
+    __only_on__ = ("sqlite", "mysql", "postgresql", "mariadb")
+
+    @testing.fixture
+    def simple_m2m(self, decl_base, connection):
+        association_table = Table(
+            "a_b",
+            decl_base.metadata,
+            Column("a_id", Integer, ForeignKey("a.id")),
+            Column("b_id", Integer, ForeignKey("b.id")),
+        )
+
+        class A(decl_base):
+            __tablename__ = "a"
+            id = Column(Integer, primary_key=True)
+            bs = relationship("B", secondary=association_table)
+            bs_no_omit_join = relationship(
+                "B",
+                secondary=association_table,
+                omit_join=False,
+                overlaps="bs",
+            )
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id = Column(Integer, primary_key=True)
+
+        decl_base.metadata.create_all(connection)
+
+        with Session(connection) as session:
+            a1 = A(id=1)
+            a2 = A(id=2)
+            b1 = B(id=1)
+            b2 = B(id=2)
+            a1.bs = [b1, b2]
+            a2.bs = [b1]
+            session.add_all([a1, a2, b1, b2])
+            session.commit()
+
+        return A
+
+    @testing.fixture
+    def symmetric_composite_m2m(self, decl_base, connection):
+        association_table = Table(
+            "a_b",
+            decl_base.metadata,
+            Column("a_id1", Integer),
+            Column("a_id2", Integer),
+            Column("b_id1", Integer),
+            Column("b_id2", Integer),
+            ForeignKeyConstraint(["a_id1", "a_id2"], ["a.id1", "a.id2"]),
+            ForeignKeyConstraint(["b_id1", "b_id2"], ["b.id1", "b.id2"]),
+        )
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id1 = Column(Integer, primary_key=True)
+            id2 = Column(Integer, primary_key=True)
+
+        class A(decl_base):
+            __tablename__ = "a"
+            id1 = Column(Integer, primary_key=True)
+            id2 = Column(Integer, primary_key=True)
+            bs = relationship(
+                "B",
+                secondary=association_table,
+                primaryjoin=lambda: and_(
+                    A.id1 == association_table.c.a_id1,
+                    A.id2 == association_table.c.a_id2,
+                ),
+                secondaryjoin=lambda: and_(
+                    B.id1 == association_table.c.b_id1,
+                    B.id2 == association_table.c.b_id2,
+                ),
+            )
+            bs_no_omit_join = relationship(
+                "B",
+                secondary=association_table,
+                omit_join=False,
+                overlaps="bs",
+                primaryjoin=lambda: and_(
+                    A.id1 == association_table.c.a_id1,
+                    A.id2 == association_table.c.a_id2,
+                ),
+                secondaryjoin=lambda: and_(
+                    B.id1 == association_table.c.b_id1,
+                    B.id2 == association_table.c.b_id2,
+                ),
+            )
+
+        decl_base.metadata.create_all(connection)
+
+        with Session(connection) as session:
+            a1 = A(id1=1, id2=1)
+            a2 = A(id1=1, id2=2)
+            b1 = B(id1=1, id2=1)
+            b2 = B(id1=1, id2=2)
+            a1.bs = [b1, b2]
+            a2.bs = [b1]
+            session.add_all([a1, a2, b1, b2])
+            session.commit()
+
+        return A
+
+    @testing.fixture
+    def asymmetric_composite_m2m(self, decl_base, connection):
+        association_table = Table(
+            "a_b",
+            decl_base.metadata,
+            Column("a_id1", Integer),
+            Column("a_id2", Integer),
+            Column("b_id", Integer, ForeignKey("b.id")),
+            ForeignKeyConstraint(["a_id1", "a_id2"], ["a.id1", "a.id2"]),
+        )
+
+        class A(decl_base):
+            __tablename__ = "a"
+            id1 = Column(Integer, primary_key=True)
+            id2 = Column(Integer, primary_key=True)
+            bs = relationship(
+                "B",
+                secondary=association_table,
+                primaryjoin=lambda: and_(
+                    A.id1 == association_table.c.a_id1,
+                    A.id2 == association_table.c.a_id2,
+                ),
+                secondaryjoin=(lambda: B.id == association_table.c.b_id),
+            )
+            bs_no_omit_join = relationship(
+                "B",
+                secondary=association_table,
+                omit_join=False,
+                overlaps="bs",
+                primaryjoin=lambda: and_(
+                    A.id1 == association_table.c.a_id1,
+                    A.id2 == association_table.c.a_id2,
+                ),
+                secondaryjoin=(lambda: B.id == association_table.c.b_id),
+            )
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id = Column(Integer, primary_key=True)
+
+        decl_base.metadata.create_all(connection)
+
+        with Session(connection) as session:
+            a1 = A(id1=1, id2=1)
+            a2 = A(id1=1, id2=2)
+            b1 = B(id=1)
+            b2 = B(id=2)
+            b3 = B(id=3)
+            a1.bs = [b1, b2, b3]
+            a2.bs = [b2, b3]
+            session.add_all([a1, a2, b1, b2, b3])
+            session.commit()
+
+        return A
+
+    @testing.fixture
+    def reverse_asymmetric_composite_m2m(self, decl_base, connection):
+        association_table = Table(
+            "a_b",
+            decl_base.metadata,
+            Column("a_id", Integer, ForeignKey("a.id")),
+            Column("b_id1", Integer),
+            Column("b_id2", Integer),
+            ForeignKeyConstraint(["b_id1", "b_id2"], ["b.id1", "b.id2"]),
+        )
+
+        class A(decl_base):
+            __tablename__ = "a"
+            id = Column(Integer, primary_key=True)
+            bs = relationship(
+                "B",
+                secondary=association_table,
+                primaryjoin=(lambda: A.id == association_table.c.a_id),
+                secondaryjoin=lambda: and_(
+                    B.id1 == association_table.c.b_id1,
+                    B.id2 == association_table.c.b_id2,
+                ),
+            )
+            bs_no_omit_join = relationship(
+                "B",
+                secondary=association_table,
+                omit_join=False,
+                overlaps="bs",
+                primaryjoin=(lambda: A.id == association_table.c.a_id),
+                secondaryjoin=lambda: and_(
+                    B.id1 == association_table.c.b_id1,
+                    B.id2 == association_table.c.b_id2,
+                ),
+            )
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id1 = Column(Integer, primary_key=True)
+            id2 = Column(Integer, primary_key=True)
+
+        decl_base.metadata.create_all(connection)
+
+        with Session(connection) as session:
+            a1 = A(id=1)
+            a2 = A(id=2)
+            b1 = B(id1=1, id2=1)
+            b2 = B(id1=1, id2=2)
+            b3 = B(id1=2, id2=1)
+            a1.bs = [b1, b2, b3]
+            a2.bs = [b2, b3]
+            session.add_all([a1, a2, b1, b2, b3])
+            session.commit()
+
+        return A
+
+    @testing.fixture
+    def filtered_secondaryjoin_m2m(self, decl_base, connection):
+        association_table = Table(
+            "a_b",
+            decl_base.metadata,
+            Column("a_id", Integer, ForeignKey("a.id")),
+            Column("b_id", Integer, ForeignKey("b.id")),
+        )
+
+        class A(decl_base):
+            __tablename__ = "a"
+            id = Column(Integer, primary_key=True)
+            bs = relationship(
+                "B",
+                secondary=association_table,
+                primaryjoin=(lambda: A.id == association_table.c.a_id),
+                secondaryjoin=lambda: and_(
+                    B.id == association_table.c.b_id,
+                    B.active == True,  # noqa: E712
+                ),
+            )
+            bs_no_omit_join = relationship(
+                "B",
+                secondary=association_table,
+                omit_join=False,
+                overlaps="bs",
+                primaryjoin=(lambda: A.id == association_table.c.a_id),
+                secondaryjoin=lambda: and_(
+                    B.id == association_table.c.b_id,
+                    B.active == True,  # noqa: E712
+                ),
+            )
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id = Column(Integer, primary_key=True)
+            active = Column(Boolean, default=True)
+
+        decl_base.metadata.create_all(connection)
+
+        with Session(connection) as session:
+            a1 = A(id=1)
+            a2 = A(id=2)
+            b1 = B(id=1, active=True)
+            b2 = B(id=2, active=False)
+            b3 = B(id=3, active=True)
+            a1.bs = [b1, b2, b3]
+            a2.bs = [b2, b3]
+            session.add_all([a1, a2, b1, b2, b3])
+            session.commit()
+
+        return A
+
+    def test_simple_optimized(self, simple_m2m, connection):
+        A = simple_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A).options(selectinload(A.bs)).order_by(A.id)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL("SELECT a.id FROM a ORDER BY a.id", {}),
+                CompiledSQL(
+                    "SELECT a_b.a_id, b.id "
+                    "FROM a_b JOIN b ON b.id = a_b.b_id "
+                    "WHERE a_b.a_id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+    def test_simple_unoptimized(self, simple_m2m, connection):
+        A = simple_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs_no_omit_join))
+                    .order_by(A.id)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL("SELECT a.id FROM a ORDER BY a.id", {}),
+                CompiledSQL(
+                    "SELECT a_1.id, b.id "
+                    "FROM a AS a_1 "
+                    "JOIN a_b AS a_b_1 ON a_1.id = a_b_1.a_id "
+                    "JOIN b ON b.id = a_b_1.b_id "
+                    "WHERE a_1.id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+    def test_symmetric_composite(self, symmetric_composite_m2m, connection):
+        A = symmetric_composite_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs))
+                    .order_by(A.id1, A.id2)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id1, a.id2 " "FROM a ORDER BY a.id1, a.id2",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_b.a_id1, a_b.a_id2, b.id1, b.id2 "
+                    "FROM a_b "
+                    "JOIN b ON b.id1 = a_b.b_id1 "
+                    "AND b.id2 = a_b.b_id2 "
+                    "WHERE (a_b.a_id1, a_b.a_id2) IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [(1, 1), (1, 2)]},
+                ),
+            )
+
+    def test_symmetric_composite_unoptimized(
+        self, symmetric_composite_m2m, connection
+    ):
+        A = symmetric_composite_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs_no_omit_join))
+                    .order_by(A.id1, A.id2)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id1, a.id2 " "FROM a ORDER BY a.id1, a.id2",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_1.id1, a_1.id2, b.id1, b.id2 "
+                    "FROM a AS a_1 JOIN a_b AS a_b_1 ON "
+                    "a_1.id1 = a_b_1.a_id1 "
+                    "AND a_1.id2 = a_b_1.a_id2 "
+                    "JOIN b ON b.id1 = a_b_1.b_id1 "
+                    "AND b.id2 = a_b_1.b_id2 "
+                    "WHERE (a_1.id1, a_1.id2) IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [(1, 1), (1, 2)]},
+                ),
+            )
+
+    def test_asymmetric_composite(self, asymmetric_composite_m2m, connection):
+        A = asymmetric_composite_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs))
+                    .order_by(A.id1, A.id2)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id1, a.id2 FROM a ORDER BY a.id1, a.id2",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_b.a_id1, a_b.a_id2, b.id "
+                    "FROM a_b JOIN b ON b.id = a_b.b_id "
+                    "WHERE (a_b.a_id1, a_b.a_id2) IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [(1, 1), (1, 2)]},
+                ),
+            )
+
+    def test_asymmetric_composite_unoptimized(
+        self, asymmetric_composite_m2m, connection
+    ):
+        A = asymmetric_composite_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs_no_omit_join))
+                    .order_by(A.id1, A.id2)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id1, a.id2 FROM a ORDER BY a.id1, a.id2",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_1.id1, a_1.id2, b.id "
+                    "FROM a AS a_1 JOIN a_b AS a_b_1 "
+                    "ON a_1.id1 = a_b_1.a_id1 "
+                    "AND a_1.id2 = a_b_1.a_id2 "
+                    "JOIN b ON b.id = a_b_1.b_id "
+                    "WHERE (a_1.id1, a_1.id2) IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [(1, 1), (1, 2)]},
+                ),
+            )
+
+    def test_reverse_asymmetric_composite(
+        self, reverse_asymmetric_composite_m2m, connection
+    ):
+        A = reverse_asymmetric_composite_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A).options(selectinload(A.bs)).order_by(A.id)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id FROM a ORDER BY a.id",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_b.a_id, b.id1, b.id2 "
+                    "FROM a_b "
+                    "JOIN b ON b.id1 = a_b.b_id1 "
+                    "AND b.id2 = a_b.b_id2 "
+                    "WHERE a_b.a_id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+    def test_reverse_asymmetric_composite_unoptimized(
+        self, reverse_asymmetric_composite_m2m, connection
+    ):
+        A = reverse_asymmetric_composite_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs_no_omit_join))
+                    .order_by(A.id)
+                )
+                session.execute(statement).scalars().all()
+
+            self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id FROM a ORDER BY a.id",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_1.id, b.id1, b.id2 "
+                    "FROM a AS a_1 "
+                    "JOIN a_b AS a_b_1 ON a_1.id = a_b_1.a_id "
+                    "JOIN b ON b.id1 = a_b_1.b_id1 "
+                    "AND b.id2 = a_b_1.b_id2 "
+                    "WHERE a_1.id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+    def test_filtered_secondaryjoin(
+        self, filtered_secondaryjoin_m2m, connection
+    ):
+        A = filtered_secondaryjoin_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A).options(selectinload(A.bs)).order_by(A.id)
+                )
+                return session.execute(statement).scalars().all()
+
+            results = self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id FROM a ORDER BY a.id",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_b.a_id, b.id, b.active "
+                    "FROM a_b "
+                    "JOIN b ON b.id = a_b.b_id AND b.active = 1 "
+                    "WHERE a_b.a_id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+            eq_(sorted(b.id for b in results[0].bs), [1, 3])
+            eq_(sorted(b.id for b in results[1].bs), [3])
+
+    def test_filtered_secondaryjoin_unoptimized(
+        self, filtered_secondaryjoin_m2m, connection
+    ):
+        A = filtered_secondaryjoin_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A)
+                    .options(selectinload(A.bs_no_omit_join))
+                    .order_by(A.id)
+                )
+                return session.execute(statement).scalars().all()
+
+            results = self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL(
+                    "SELECT a.id FROM a ORDER BY a.id",
+                    {},
+                ),
+                CompiledSQL(
+                    "SELECT a_1.id, b.id, b.active "
+                    "FROM a AS a_1 "
+                    "JOIN a_b AS a_b_1 ON a_1.id = a_b_1.a_id "
+                    "JOIN b ON b.id = a_b_1.b_id AND b.active = 1 "
+                    "WHERE a_1.id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+            eq_(
+                sorted(b.id for b in results[0].bs_no_omit_join),
+                [1, 3],
+            )
+            eq_(
+                sorted(b.id for b in results[1].bs_no_omit_join),
+                [3],
+            )
+
+    def test_m2m_selectin_no_duplicate_children(self, simple_m2m, connection):
+        """selectinload over m2m (omit_join fast path) must load the correct
+        collection members and must not produce duplicate items.
+
+        The simple_m2m fixture has a1.bs=[b1,b2] and a2.bs=[b1].
+        """
+        A = simple_m2m
+
+        with Session(connection) as session:
+
+            def go():
+                statement = (
+                    select(A).options(selectinload(A.bs)).order_by(A.id)
+                )
+                return session.execute(statement).scalars().all()
+
+            results = self.assert_sql_execution(
+                connection,
+                go,
+                CompiledSQL("SELECT a.id FROM a ORDER BY a.id", {}),
+                CompiledSQL(
+                    "SELECT a_b.a_id, b.id "
+                    "FROM a_b JOIN b ON b.id = a_b.b_id "
+                    "WHERE a_b.a_id IN "
+                    "(__[POSTCOMPILE_primary_keys])",
+                    {"primary_keys": [1, 2]},
+                ),
+            )
+
+        eq_(sorted(b.id for b in results[0].bs), [1, 2])
+        eq_(sorted(b.id for b in results[1].bs), [1])
+
+        for a in results:
+            b_ids = [b.id for b in a.bs]
+            eq_(len(b_ids), len(set(b_ids)))
 
 
 class SameNamePolymorphicTest(fixtures.DeclarativeMappedTest):
@@ -3549,15 +4359,15 @@ class SameNamePolymorphicTest(fixtures.DeclarativeMappedTest):
             ),
             AllOf(
                 CompiledSQL(
-                    "SELECT child_a.parent_id AS child_a_parent_id, "
-                    "child_a.id AS child_a_id FROM child_a "
+                    "SELECT child_a.parent_id, "
+                    "child_a.id FROM child_a "
                     "WHERE child_a.parent_id IN "
                     "(__[POSTCOMPILE_primary_keys])",
                     [{"primary_keys": [1]}],
                 ),
                 CompiledSQL(
-                    "SELECT child_b.parent_id AS child_b_parent_id, "
-                    "child_b.id AS child_b_id FROM child_b "
+                    "SELECT child_b.parent_id, "
+                    "child_b.id FROM child_b "
                     "WHERE child_b.parent_id IN "
                     "(__[POSTCOMPILE_primary_keys])",
                     [{"primary_keys": [2]}],
@@ -3641,6 +4451,150 @@ class TestBakedCancelsCorrectly(fixtures.DeclarativeMappedTest):
         self.assert_sql_count(testing.db, go, 2)
 
 
+class TestSelectinWithNestedJoinedCollectionDedup(
+    fixtures.DeclarativeMappedTest
+):
+    """Regression guard for selectinload(...).joinedload/selectinload(...) on a
+    collection.
+
+    When the inner selectin query uses joinedload on a collection, the result
+    rows are multiplied (one row per grandchild).  The .unique() call in
+    _load_via_parent must deduplicate those rows so that each parent row ends
+    up with exactly one copy of each child object.
+
+    Also verifies that the joinedload is folded into the selectin query rather
+    than issuing a separate third query — the total SQL count must be 2 for
+    joinedload and 3 for nested selectinload.
+    """
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class User(ComparableEntity, Base):
+            __tablename__ = "sel_dedup_user"
+            id = Column(Integer, primary_key=True)
+            name = Column(String(50))
+            addresses = relationship(
+                "Address", back_populates="user", order_by="Address.id"
+            )
+
+        class Address(ComparableEntity, Base):
+            __tablename__ = "sel_dedup_address"
+            id = Column(Integer, primary_key=True)
+            user_id = Column(ForeignKey("sel_dedup_user.id"))
+            email = Column(String(50))
+            user = relationship("User", back_populates="addresses")
+            dingalings = relationship(
+                "Dingaling", back_populates="address", order_by="Dingaling.id"
+            )
+
+        class Dingaling(ComparableEntity, Base):
+            __tablename__ = "sel_dedup_dingaling"
+            id = Column(Integer, primary_key=True)
+            address_id = Column(ForeignKey("sel_dedup_address.id"))
+            data = Column(String(50))
+            address = relationship("Address", back_populates="dingalings")
+
+    @classmethod
+    def insert_data(cls, connection):
+        User, Address, Dingaling = cls.classes("User", "Address", "Dingaling")
+        sess = Session(connection)
+        # user 1: one address with TWO dingalings — this is the key fixture.
+        # When selectinload(User.addresses).joinedload(Address.dingalings) runs
+        # the inner selectin query, address 1 will appear in 2 result rows
+        # (one per dingaling).  Without .unique(), loading.require_unique would
+        # raise InvalidRequestError: "The unique() method must be invoked on
+        # this Result".
+        sess.add(
+            User(
+                id=1,
+                name="u1",
+                addresses=[
+                    Address(
+                        id=1,
+                        email="a1@example.com",
+                        dingalings=[
+                            Dingaling(id=1, data="d1"),
+                            Dingaling(id=2, data="d2"),
+                        ],
+                    ),
+                    Address(id=2, email="a2@example.com"),
+                ],
+            )
+        )
+        # user 2: one address, one dingaling — control case
+        sess.add(
+            User(
+                id=2,
+                name="u2",
+                addresses=[
+                    Address(
+                        id=3,
+                        email="a3@example.com",
+                        dingalings=[Dingaling(id=3, data="d3")],
+                    )
+                ],
+            )
+        )
+        sess.commit()
+
+    @testing.combinations(
+        ("joinedload", 2),
+        ("selectinload", 3),
+        id_="sa",
+        argnames="inner_loader_name,expected_sql_count",
+    )
+    def test_selectin_with_nested_joined_collection_still_dedupes(
+        self, inner_loader_name, expected_sql_count
+    ):
+        """Regression: selectinload(...).joinedload/selectinload(...) on a
+        collection must continue to dedupe inner rows after the
+        conditional-unique optimization.
+        """
+        User, Address, Dingaling = self.classes("User", "Address", "Dingaling")
+        sess = fixture_session()
+
+        if inner_loader_name == "joinedload":
+            inner_opt = selectinload(User.addresses).joinedload(
+                Address.dingalings
+            )
+        else:
+            inner_opt = selectinload(User.addresses).selectinload(
+                Address.dingalings
+            )
+
+        def go():
+            # expunge so we get fresh queries on each call
+            sess.expunge_all()
+            return sess.query(User).options(inner_opt).order_by(User.id).all()
+
+        users = self.assert_sql_count(testing.db, go, expected_sql_count)
+
+        eq_(len(users), 2)
+
+        u1 = users[0]
+        # Address 1 has 2 dingalings; without .unique() the selectin result
+        # would produce 2 rows for address 1 and loading.require_unique would
+        # raise InvalidRequestError.  The assertions below are belt-and-
+        # suspenders for if the conditional logic changes.
+        address_ids = [a.id for a in u1.addresses]
+        eq_(len(address_ids), len(set(address_ids)))
+        eq_(len(u1.addresses), 2)
+
+        # Also verify the grandchildren loaded correctly
+        target_address = next(a for a in u1.addresses if a.id == 1)
+        eq_(len(target_address.dingalings), 2)
+
+        u2 = users[1]
+        address_ids2 = [a.id for a in u2.addresses]
+        assert len(address_ids2) == len(
+            set(address_ids2)
+        ), f"user {u2.id} has duplicate addresses: {address_ids2}"
+        eq_(len(u2.addresses), 1)
+        eq_(len(u2.addresses[0].dingalings), 1)
+
+
 class TestCompositePlusNonComposite(fixtures.DeclarativeMappedTest):
     __requires__ = ("tuple_in",)
 
@@ -3703,3 +4657,88 @@ class TestCompositePlusNonComposite(fixtures.DeclarativeMappedTest):
 
         eq_(a2.bs, [B2()])
         eq_(a1.bs, [B()])
+
+
+class UselistFalseMultipleRowsTest(fixtures.DeclarativeMappedTest):
+    """test the warning emitted by the selectin loader for a
+    uselist=False relationship that matches more than one row"""
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class A(ComparableEntity, Base):
+            __tablename__ = "a"
+            id = Column(Integer, primary_key=True)
+            b = relationship("B", uselist=False)
+
+        class B(ComparableEntity, Base):
+            __tablename__ = "b"
+            id = Column(Integer, primary_key=True)
+            a_id = Column(ForeignKey("a.id"))
+
+    @classmethod
+    def insert_data(cls, connection):
+        A, B = cls.classes("A", "B")
+        s = Session(connection)
+        s.add(A(id=1))
+        s.add_all([B(id=1, a_id=1), B(id=2, a_id=1)])
+        s.commit()
+
+    def test_multiple_rows_uselist_false_warns(self):
+        A = self.classes.A
+        s = fixture_session()
+        with testing.expect_warnings(
+            "Multiple rows returned with uselist=False for "
+            "eagerly-loaded attribute 'A.b'"
+        ):
+            a1 = s.query(A).options(selectinload(A.b)).one()
+        assert a1.b is not None
+        assert a1.b.id in (1, 2)
+
+
+class SelectinM2ONoRelatedRowTest(fixtures.DeclarativeMappedTest):
+    """test many-to-one selectinload where the candidate foreign key
+    value matches no related row, or is NULL"""
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class A(ComparableEntity, Base):
+            __tablename__ = "a"
+            id = Column(Integer, primary_key=True)
+
+        class B(ComparableEntity, Base):
+            __tablename__ = "b"
+            id = Column(Integer, primary_key=True)
+            a_id = Column(Integer)
+            a = relationship("A", primaryjoin="foreign(B.a_id) == A.id")
+
+    @classmethod
+    def insert_data(cls, connection):
+        A, B = cls.classes("A", "B")
+        s = Session(connection)
+        s.add(A(id=1))
+        s.add_all(
+            [
+                B(id=1, a_id=1),
+                B(id=2, a_id=42),
+                B(id=3, a_id=None),
+            ]
+        )
+        s.commit()
+
+    def test_missing_and_null_fk(self):
+        A, B = self.classes("A", "B")
+        s = fixture_session()
+        bs = s.query(B).order_by(B.id).options(selectinload(B.a)).all()
+
+        with self.assert_statement_count(testing.db, 0):
+            eq_(bs[0].a, A(id=1))
+
+            # a_id value with no matching A row
+            is_(bs[1].a, None)
+
+            # NULL a_id
+            is_(bs[2].a, None)

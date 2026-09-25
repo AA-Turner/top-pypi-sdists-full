@@ -2628,10 +2628,16 @@ class TypeDelegator(System.Reflection.TypeInfo):
     def get_nullable_underlying_type(self) -> typing.Type:
         ...
 
+    def get_optional_custom_modifiers(self) -> typing.List[typing.Type]:
+        ...
+
     def get_properties(self, binding_attr: System.Reflection.BindingFlags) -> typing.List[System.Reflection.PropertyInfo]:
         ...
 
     def get_property_impl(self, name: str, binding_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, return_type: typing.Type, types: typing.List[typing.Type], modifiers: typing.List[System.Reflection.ParameterModifier]) -> System.Reflection.PropertyInfo:
+        ...
+
+    def get_required_custom_modifiers(self) -> typing.List[typing.Type]:
         ...
 
     def has_element_type_impl(self) -> bool:

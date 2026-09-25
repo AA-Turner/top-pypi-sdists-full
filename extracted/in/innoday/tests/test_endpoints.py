@@ -192,45 +192,20 @@ class TestFastAPIEndpoints:
         assert response.status_code == 404
 
     def test_public_status_endpoint_structure(self, client):
-        """Test /api/v1/public/status returns the new port/env_file/db_host fields"""
+        """Anonymous /api/v1/public/status carries no port/env_file/db_host/metrics.
+
+        Those are platform-admin only since PF-459; the admin shape is pinned in
+        tests/test_anonymous_routes_pf459.py.
+        """
         response = client.get("/api/v1/public/status")
 
         assert response.status_code == 200
         data = response.json()
 
-        required_fields = ["port", "env_file", "db_host"]
-        for field in required_fields:
+        for field in ("status", "version", "environment", "components"):
             assert field in data, f"Missing required field: {field}"
-        assert isinstance(data["port"], int)
-        assert isinstance(data["env_file"], str)
-        assert isinstance(data["db_host"], str)
-
-    def test_public_status_db_host_has_no_credentials(self, client, monkeypatch):
-        """Test db_host is a bare hostname with no username/password/path leaked"""
-        monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@myhost:5432/db")
-        response = client.get("/api/v1/public/status")
-        data = response.json()
-
-        assert data["db_host"] == "myhost"
-        assert "@" not in data["db_host"]
-        assert ":" not in data["db_host"]
-        assert "/" not in data["db_host"]
-
-    def test_public_status_db_host_fallback_on_empty_url(self, client, monkeypatch):
-        """Test db_host degrades gracefully when DATABASE_URL is unset"""
-        monkeypatch.delenv("DATABASE_URL", raising=False)
-
-        response = client.get("/api/v1/public/status")
-        data = response.json()
-
-        assert data["db_host"] == "(unknown)"
-
-    def test_public_status_port_default_without_run_api(self, client):
-        """Test /status returns a sane default port when app.state.port was never set"""
-        response = client.get("/api/v1/public/status")
-        data = response.json()
-
-        assert isinstance(data["port"], int)
+        for field in ("port", "env_file", "db_host", "metrics"):
+            assert field not in data, f"Anonymous response leaks {field}"
 
     @pytest.mark.asyncio
     async def test_async_endpoint_behavior(self, client):

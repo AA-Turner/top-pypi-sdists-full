@@ -37,6 +37,8 @@ from .paginator import (
 )
 from .type_defs import (
     AssociateDatasetKmsKeyInputTypeDef,
+    CreateResourceMetricsConfigurationInputTypeDef,
+    CreateResourceMetricsConfigurationOutputTypeDef,
     DeleteAlarmMuteRuleInputTypeDef,
     DeleteAlarmsInputTypeDef,
     DeleteAnomalyDetectorInputTypeDef,
@@ -44,6 +46,7 @@ from .type_defs import (
     DeleteInsightRulesInputTypeDef,
     DeleteInsightRulesOutputTypeDef,
     DeleteMetricStreamInputTypeDef,
+    DeleteResourceMetricsConfigurationInputTypeDef,
     DescribeAlarmContributorsInputTypeDef,
     DescribeAlarmContributorsOutputTypeDef,
     DescribeAlarmHistoryInputTypeDef,
@@ -81,6 +84,8 @@ from .type_defs import (
     GetMetricWidgetImageInputTypeDef,
     GetMetricWidgetImageOutputTypeDef,
     GetOTelEnrichmentOutputTypeDef,
+    GetResourceMetricsConfigurationInputTypeDef,
+    GetResourceMetricsConfigurationOutputTypeDef,
     ListAlarmMuteRulesInputTypeDef,
     ListAlarmMuteRulesOutputTypeDef,
     ListDashboardsInputTypeDef,
@@ -109,9 +114,15 @@ from .type_defs import (
     PutMetricStreamOutputTypeDef,
     SetAlarmStateInputTypeDef,
     StartMetricStreamsInputTypeDef,
+    StartOTelEnrichmentInputTypeDef,
+    StartOTelEnrichmentOutputTypeDef,
     StopMetricStreamsInputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
+    UpdateOTelEnrichmentInputTypeDef,
+    UpdateOTelEnrichmentOutputTypeDef,
+    UpdateResourceMetricsConfigurationInputTypeDef,
+    UpdateResourceMetricsConfigurationOutputTypeDef,
 )
 from .waiter import (
     AlarmExistsWaiter,
@@ -149,6 +160,7 @@ class Exceptions(BaseClientExceptions):
     ResourceConflict: type[BotocoreClientError]
     ResourceNotFound: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CloudWatchClient(BaseClient):
@@ -195,6 +207,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/associate_dataset_kms_key.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#associate_dataset_kms_key)
+        """
+
+    def create_resource_metrics_configuration(
+        self, **kwargs: Unpack[CreateResourceMetricsConfigurationInputTypeDef]
+    ) -> CreateResourceMetricsConfigurationOutputTypeDef:
+        """
+        Creates a resource metrics configuration for an Amazon Web Services resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/create_resource_metrics_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#create_resource_metrics_configuration)
         """
 
     def delete_alarm_mute_rule(
@@ -253,6 +275,16 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_metric_stream.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#delete_metric_stream)
+        """
+
+    def delete_resource_metrics_configuration(
+        self, **kwargs: Unpack[DeleteResourceMetricsConfigurationInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the resource metrics configuration for an Amazon Web Services resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_resource_metrics_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#delete_resource_metrics_configuration)
         """
 
     def describe_alarm_contributors(
@@ -458,6 +490,17 @@ class CloudWatchClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#get_otel_enrichment)
         """
 
+    def get_resource_metrics_configuration(
+        self, **kwargs: Unpack[GetResourceMetricsConfigurationInputTypeDef]
+    ) -> GetResourceMetricsConfigurationOutputTypeDef:
+        """
+        Retrieves the current resource metrics configuration for an Amazon Web Services
+        resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/get_resource_metrics_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#get_resource_metrics_configuration)
+        """
+
     def list_alarm_mute_rules(
         self, **kwargs: Unpack[ListAlarmMuteRulesInputTypeDef]
     ) -> ListAlarmMuteRulesOutputTypeDef:
@@ -639,7 +682,9 @@ class CloudWatchClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#start_metric_streams)
         """
 
-    def start_otel_enrichment(self) -> dict[str, Any]:
+    def start_otel_enrichment(
+        self, **kwargs: Unpack[StartOTelEnrichmentInputTypeDef]
+    ) -> StartOTelEnrichmentOutputTypeDef:
         """
         Enables enrichment and PromQL access for CloudWatch vended metrics for <a
         href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/UsingResourceTagsForTelemetry.html">supported
@@ -683,6 +728,27 @@ class CloudWatchClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/untag_resource.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#untag_resource)
+        """
+
+    def update_otel_enrichment(
+        self, **kwargs: Unpack[UpdateOTelEnrichmentInputTypeDef]
+    ) -> UpdateOTelEnrichmentOutputTypeDef:
+        """
+        Replaces the filters that determine which CloudWatch vended metrics are
+        enriched with resource ARN and resource tag labels for the account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/update_otel_enrichment.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#update_otel_enrichment)
+        """
+
+    def update_resource_metrics_configuration(
+        self, **kwargs: Unpack[UpdateResourceMetricsConfigurationInputTypeDef]
+    ) -> UpdateResourceMetricsConfigurationOutputTypeDef:
+        """
+        Updates the resource metrics configuration for an Amazon Web Services resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/update_resource_metrics_configuration.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudwatch/client/#update_resource_metrics_configuration)
         """
 
     @overload  # type: ignore[override]

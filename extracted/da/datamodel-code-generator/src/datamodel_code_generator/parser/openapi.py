@@ -206,6 +206,7 @@ class OpenAPIParser(JsonSchemaParser):
     SCHEMA_PATHS: ClassVar[list[str]] = ["#/components/schemas"]
     _input_file_type: ClassVar[InputFileType] = InputFileType.OpenAPI
     _non_dict_source_is_invalid: ClassVar[bool] = True
+    _component_schemas_are_resources: ClassVar[bool] = True
     config: OpenAPIParserConfig
 
     @cached_property
@@ -225,6 +226,7 @@ class OpenAPIParser(JsonSchemaParser):
         return OpenAPISchemaFeatures.from_openapi_version(version)
 
     _config_class_name: ClassVar[str] = "OpenAPIParserConfig"
+    _supports_api_scope: ClassVar[bool] = False
 
     def __init__(
         self,
@@ -238,12 +240,19 @@ class OpenAPIParser(JsonSchemaParser):
             options["wrap_string_literal"] = False
         super().__init__(source=source, config=config, **options)
         self.open_api_scopes: list[OpenAPIScope] = self.config.openapi_scopes or [OpenAPIScope.Schemas]
+        if OpenAPIScope.Api in self.open_api_scopes and not self._supports_api_scope:
+            msg = "OpenAPIScope.Api requires ApiOpenAPIParser"
+            raise Error(msg)
         self.include_path_parameters: bool = self.config.include_path_parameters
         self.use_status_code_in_response_name: bool = self.config.use_status_code_in_response_name
         self.openapi_include_paths: list[str] | None = self.config.openapi_include_paths
         self.openapi_include_info_version: bool = self.config.openapi_include_info_version
         self.openapi_info_version: str | None = None
-        if self.openapi_include_paths and OpenAPIScope.Paths not in self.open_api_scopes:
+        if (
+            self.openapi_include_paths
+            and OpenAPIScope.Paths not in self.open_api_scopes
+            and OpenAPIScope.Api not in self.open_api_scopes
+        ):
             warn(
                 "--openapi-include-paths has no effect without --openapi-scopes paths",
                 stacklevel=2,
@@ -995,7 +1004,11 @@ class OpenAPIParser(JsonSchemaParser):
             )
 
     def parse_raw(self) -> None:
-        """Parse OpenAPI specification including schemas, paths, and operations."""
+        """Parse OpenAPI specification including schemas, paths, and operations.
+
+        Operations resolve references outside schema parsing, so models specialized for a dynamic scope
+        there are parsed once every specification has been read.
+        """
         self._discriminator_documents.clear()
         self._discriminator_schemas.clear()
         self._discriminator_subtypes.clear()
@@ -1031,9 +1044,11 @@ class OpenAPIParser(JsonSchemaParser):
                 specification = self._load_source_dict(source)
                 self._cache_source_ref_body(source, specification)
                 self.raw_obj = specification
+                self.raw_obj = specification = self._prepare_schema_resources(specification, path_parts)
                 with self.openapi_self_context(specification):
                     self._parse_specification(specification, path_parts)
 
+            self._parse_dynamic_specializations()
             self._resolve_unparsed_json_pointer()
             self._generate_forced_base_models()
         finally:

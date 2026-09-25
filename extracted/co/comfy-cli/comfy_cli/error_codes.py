@@ -356,6 +356,12 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "`--relative-path` instead",
     ),
     ErrorCode(
+        "model_listing_too_large",
+        "A local model folder listing was over the response size cap, so `templates check` or "
+        "`knowledge pick --check-local` could not check which model files are installed.",
+        "check that the server on this host:port is ComfyUI",
+    ),
+    ErrorCode(
         "folder_not_found",
         "Cloud or local server returned 404 for the requested model folder.",
         "list available folders via `comfy models list-folders`",
@@ -548,6 +554,42 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "grammar: dot path `a.b.c`, array index `a.0.b`, wildcard `items.#.name`, comma multi-select "
         "`name,inputs`",
     ),
+    # --- agent ---------------------------------------------------------------
+    ErrorCode(
+        "agent_state_unreadable",
+        "A file in the local agent's data dir (agent.json, permissions.json, "
+        "egress-allow.json) could not be read, or is not the shape the agent writes.",
+        "fix or remove the file named in the message and try again",
+    ),
+    ErrorCode(
+        "agent_state_unwritable",
+        "The local agent's data dir could not be written (permissions, a read-only location, a full disk).",
+        "check the data dir's permissions, or pass --data-dir for the dir the agent uses",
+    ),
+    ErrorCode(
+        "agent_bad_args",
+        "The command was given nothing to act on, or --approve together with --path/--host (comfy agent allow "
+        "needs --approve <id> on its own, or --path and/or --host).",
+        "pass --approve <id> for a pending request, or --path <folder> and/or --host <host>",
+    ),
+    ErrorCode(
+        "agent_refused",
+        "The folder or host cannot be allowed: relative or missing folder, the whole disk, a credential "
+        "store or a folder containing one (the home folder), a .env name, the agent's own data dir; "
+        "a wildcard, bare or multi-host value, a loopback/link-local address, or a host the agent never opens. "
+        "For --approve, the pending request named such a target: nothing was approved and it stays pending.",
+        "allow a narrower folder that holds only what is needed, or give the full host name; "
+        "credential stores, the home folder, the whole disk and telemetry endpoints never are; "
+        "`comfy agent deny <id>` clears a refused request",
+    ),
+    ErrorCode(
+        "agent_unknown_request",
+        "No pending request in the agent's permissions.json carries the id given to `comfy agent allow --approve` "
+        "or `comfy agent deny`: it was already approved or denied, the agent never recorded it, or the data dir "
+        "is not the one the agent uses.",
+        "run `comfy agent permissions` to see the requests waiting and their ids; pass --data-dir if the agent "
+        "uses another data dir",
+    ),
     # --- skills --------------------------------------------------------------
     ErrorCode(
         "unknown_skill",
@@ -599,6 +641,12 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "whole document to the empty baseline and erases its replay history, so it is standalone-only "
         "(docs/op-vocabulary-v1.md: batchable = no) and the batch was rejected atomically — nothing was applied.",
         "run the standalone `comfy workflow reset-doc <file> --confirm` first, then apply the remaining ops as a batch",
+    ),
+    ErrorCode(
+        "workflow_insert_workflow_not_batchable",
+        "A batch contained an `insert_workflow` op. A complete workflow insertion is one standalone atomic op, "
+        "so nesting it in the spec batch protocol is rejected and nothing is applied.",
+        "run `comfy workflow insert-workflow <file> <template>` instead",
     ),
     ErrorCode(
         "workflow_reset_doc_unconfirmed",
@@ -743,7 +791,8 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "node_deprecated",
         "`workflow add-node` (or an `add_node` op in a batch) named a class the catalog marks deprecated. "
         "Nothing was added. `details.replacement` names the live class with the same display name when "
-        "one exists.",
+        "one exists. `generate --emit-workflow --emit-ops` raises it too, when the node a model maps to "
+        "has gone stale; there `details.model` names the model alias and nothing is written.",
         "add `details.replacement` instead, or pass --allow-deprecated "
         '(`"allow_deprecated": true` on the op) when the user asked for that exact node',
     ),
@@ -1193,6 +1242,53 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "edit the spec to name a published registry version or normalized repository, or remove the node",
     ),
     ErrorCode(
+        "build_release_held",
+        "`comfy build push --release` saved the build, but the save warned about a model link a deployment "
+        "could not download, so no release was cut. `details` carries the saved `id`, `syncedRevision` and "
+        "every `warnings` entry; a warning at `models[<n>].sourceUri` is the one that holds a release.",
+        "fix the model links and push again, or push with --release --release-despite-warnings to cut anyway",
+    ),
+    ErrorCode(
+        "build_release_limit",
+        "The builder refused the release cut because the workspace already holds as many releases as its "
+        "limit allows, counting every status. `message` is the builder's own wording. `comfy build release "
+        "create` and `comfy build push --release` both post to this route and both answer this code, and "
+        "each attaches `details.buildId` naming the Build the cut was for. No release was cut and retrying "
+        "unchanged is refused again -- but only the cut was refused: under `comfy build push --release` the "
+        "push already landed, so the build was created or updated, its blobs were stored, and its id was "
+        "written into the spec on disk before the refusal.",
+        "delete a release with `comfy build release delete`, or delete a whole build to give up every "
+        "release it holds, then cut again",
+    ),
+    ErrorCode(
+        "build_release_in_use",
+        "The builder refused `comfy build release delete` because a deployment still references the "
+        "release. `message` is the builder's own wording and names the blocking deployments, though on a "
+        "long list it may name only the first several and say so. `comfy build release delete` is the "
+        "route that answers this code, and it attaches `details.releaseId` naming the release. A "
+        "deployment blocks whatever its state -- serving, stopped or failed -- and stops blocking only "
+        "once it has been deleted and its teardown has released its compute.",
+        "delete each deployment the message names (stopping one is not enough), wait for its teardown, then retry",
+    ),
+    ErrorCode(
+        "build_in_use",
+        "The builder refused `comfy build delete` because a deployment still references one of the "
+        "build's releases. `message` is the builder's own wording and names the blocking deployments, "
+        "though on a long list it may name only the first several and say so. `comfy build delete` is "
+        "the route that answers this code, and it attaches `details.buildId` naming the build. A "
+        "deployment blocks whatever its state -- serving, stopped or failed -- and stops blocking only "
+        "once it has been deleted and its teardown has released its compute.",
+        "delete each deployment the message names (stopping one is not enough), wait for its teardown, then retry",
+    ),
+    ErrorCode(
+        "build_release_delete_needs_confirm",
+        "`comfy build release delete` was run without `--yes` in a non-interactive context (JSON output, "
+        "an agent, or a pipe) where nothing can answer a confirmation. Delete is refused rather than "
+        "blocking on a prompt. `details.releaseId` names the release, and `details.question` carries the "
+        "confirmation.",
+        "pass `--yes` to confirm the delete when running non-interactively",
+    ),
+    ErrorCode(
         "build_delete_needs_confirm",
         "`comfy build delete` was run without `--yes` in a non-interactive context (JSON output, an agent, "
         "or a pipe) where nothing can answer a confirmation. Delete is refused rather than blocking on a "
@@ -1344,9 +1440,11 @@ REGISTRY: tuple[ErrorCode, ...] = (
         "`details.status` names the state. The two commands differ, deliberately: `comfy deploy status` "
         "reports only `failed` and `stop_failed`, since a `stopped` deployment is a normal thing to be "
         "asked about; `comfy deploy up` adds `stopped` (with or without `--watch`), because a deployment it was "
-        "asked to bring up and that is stopped did not come up.",
+        "asked to bring up and that is stopped did not come up, and `unhealthy`, because one that came up and "
+        "then degraded is billing without serving and `up` does not change it.",
         "for `failed`, inspect `comfy deploy logs` and redeploy with `comfy deploy up`; for `stop_failed`, "
-        "re-run `comfy deploy stop` -- it may still be billing; for `stopped`, `comfy deploy start`",
+        "re-run `comfy deploy stop` -- it may still be billing; for `stopped`, `comfy deploy start`; for "
+        "`unhealthy`, inspect `comfy deploy logs`, or `comfy deploy stop` to stop billing",
     ),
     ErrorCode(
         "deploy_delete_needs_confirm",

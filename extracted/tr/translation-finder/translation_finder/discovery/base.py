@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
+from functools import partial
 from itertools import chain
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -33,6 +34,11 @@ TOKEN_SPLIT = re.compile(r"([_.-])")
 LOCALES = {"latn", "cyrl", "hant", "hans"}
 
 FORMAT_SNIFF_MAX_BYTES = 1024 * 1024
+
+
+def _replace_with_wildcard(found: re.Match[str], *, wildcard: str) -> str:
+    """Replace a match while treating the wildcard as literal text."""
+    return f"{found.group(1)}{wildcard}{found.group(2)}"
 
 
 def _trim_incomplete_unicode_tail(content: bytes) -> bytes:
@@ -361,7 +367,10 @@ class BaseDiscovery:
         """
         if hint:
             for mask in self.masks_list:
-                if fnmatch.fnmatch(hint, mask):
+                if (
+                    fnmatch.fnmatch(hint, mask)
+                    and next(self.finder.mask_matches(hint), None) is not None
+                ):
                     yield {"filemask": hint}
         for path in self.filter_files():
             parts = list(path.parts)
@@ -387,7 +396,8 @@ class BaseDiscovery:
                         if match.findall(current):
                             skip.add(i)
                             mask_parts[i] = match.sub(
-                                f"\\g<1>{wildcard}\\g<2>", current
+                                partial(_replace_with_wildcard, wildcard=wildcard),
+                                current,
                             )
                     mask_parts[pos] = wildcard
                     yield {"filemask": "/".join(mask_parts)}
@@ -469,8 +479,11 @@ class EncodingDiscovery(BaseDiscovery):
             if not isinstance(path, Path):
                 # PurePath only
                 continue
-            with self.finder.open(path, "rb") as handle:
-                content = handle.read(FORMAT_SNIFF_MAX_BYTES + 1)
+            try:
+                with self.finder.open(path, "rb") as handle:
+                    content = handle.read(FORMAT_SNIFF_MAX_BYTES + 1)
+            except OSError:
+                continue
             if len(content) > FORMAT_SNIFF_MAX_BYTES:
                 content = _trim_incomplete_unicode_tail(
                     content[:FORMAT_SNIFF_MAX_BYTES]

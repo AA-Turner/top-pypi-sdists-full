@@ -5,6 +5,7 @@ Single source of truth for authentication and authorization in InnoDay.
 All routers import get_current_user and verify_org_membership from here.
 """
 
+import logging
 import re
 from functools import wraps
 from typing import Callable, Optional
@@ -40,6 +41,8 @@ _TICKET_PARAMS = ("ticket_id",)
 _UUID = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I
 )
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_path_refs(request: Request, org: Organization, session: Session) -> None:
@@ -275,6 +278,33 @@ async def get_optional_user(
         # Optional-auth callers treat "no user" as anonymous; an unverified
         # credential must not be more privileged than none.
         return None
+
+
+def is_platform_admin_request(request: Request, session: Session) -> bool:
+    """True only when the request carries a valid token for a platform member.
+
+    For the two anonymous health/status routes that show extra detail to a
+    platform admin (PF-459). Never raises: no token, a bad token or an
+    unverified one all read as "not an admin", so anonymous callers still get
+    the short answer instead of a 401. Returns a bool, not a User, so it cannot
+    be used as the optional-user identity that `get_optional_user` was.
+    """
+    try:
+        user = resolve_user_from_request(request, session)
+        return bool(user and user.is_platform_member)
+    except UnverifiedEmailError:
+        return False
+    except Exception:  # noqa: BLE001 -- a health route must report, not 500
+        # During an outage the lookup fails too; the caller is about to say
+        # "unhealthy", and a 500 here would hide that from the admin polling it.
+        logger.warning(
+            "platform-admin check failed; treating as anonymous", exc_info=True
+        )
+        try:
+            session.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        return False
 
 
 def verify_org_membership(

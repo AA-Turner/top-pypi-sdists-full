@@ -32,6 +32,8 @@ clear, actionable error (``_ensure_pd_table``) rather than silently falling back
 from __future__ import annotations
 
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import TYPE_CHECKING
 
 import snowflake.snowpark as snowpark
@@ -66,6 +68,31 @@ from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 # the user's external stage (PARQUET_DIRECT_EXTERNAL_STAGE) — there is no external volume, catalog
 # integration, bucket, or upload stage to configure.
 PD_TABLE_PREFIX = "SCOS_PD_"
+
+# ---------------------------------------------------------------------------
+# Join-aware NDV sampling control
+# ---------------------------------------------------------------------------
+# NDV sampling runs hidden child queries during CREATE ICEBERG TABLE to estimate
+# column cardinality.  This is only needed when the PD table participates in a
+# JOIN (the optimizer uses cardinality to choose broadcast vs hash join).  For
+# non-join queries (scan, filter, aggregate, identity), the temp table is consumed
+# once and dropped — its NDV stats are never read.
+#
+# The depth counter is incremented by map_join / map_co_group_map before
+# they recursively process their children.  _ensure_pd_table checks it:
+#   depth == 0 → no join ancestor → disable NDV via statement_params
+#   depth >  0 → inside a join   → keep NDV enabled (default)
+_pd_join_depth: ContextVar[int] = ContextVar("_pd_join_depth", default=0)
+
+
+@contextmanager
+def _join_context():
+    """Mark child-relation processing as inside a JOIN so PD tables keep NDV."""
+    token = _pd_join_depth.set(_pd_join_depth.get() + 1)
+    try:
+        yield
+    finally:
+        _pd_join_depth.reset(token)
 
 
 def _esc_sql_literal(s: str) -> str:
@@ -639,6 +666,13 @@ def _ensure_pd_table(
     """
     if ctx.table is not None:
         return ctx.table
+    # NOTE on plan-cache safety: map_relation's analyze_memo reuses cached containers
+    # only when (a) is_analyze_plan_request() or (b) plan_id == execute_root_plan_id.
+    # A Read inside a Join is never the execute root, so the memo falls through and
+    # map_read_parquet creates a FRESH PdDirectContext (ctx.table is None) — this
+    # function runs with the correct _pd_join_depth.  The only cross-request cache
+    # that bypasses _ensure_pd_table entirely is df_cache_map (explicit .cache()),
+    # which is a deliberate user freeze of the DataFrame.
     # Current session schema (no hardcoded db/schema); random name. The table is created as a
     # session-scoped TEMPORARY iceberg table (SNOW-3748552, auto-on for SCOS sessions), so it is
     # auto-reclaimed when the session ends — no manual drop/cleanup needed.
@@ -714,8 +748,22 @@ def _ensure_pd_table(
             f"ENABLE_SCHEMA_INFERENCE=TRUE "
             f"REPLACE_INVALID_CHARACTERS={replace_invalid} REFRESH_ON_CREATE=TRUE"
         )
+    # Skip NDV sampling when the PD table is NOT inside a JOIN context.  NDV
+    # runs hidden child queries that are unnecessary for non-join patterns
+    # (scan, filter, aggregate, identity) where the temp table is consumed once
+    # and dropped.  For JOINs we keep it because the optimizer needs cardinality
+    # estimates to choose the right join strategy (broadcast vs hash).
+    #
+    # Uses Snowpark's per-query statement_params (passed through to the Snowflake
+    # REST API parameters field) so the override is atomic to this DDL — no session
+    # state mutation, no extra round-trips.
+    cit_params = (
+        {"ENABLE_ICEBERG_TABLE_STAT_SAMPLING": "Disable"}
+        if _pd_join_depth.get(0) == 0
+        else None
+    )
     try:
-        session.sql(ddl).collect()
+        session.sql(ddl).collect(statement_params=cit_params)
     except Exception as e:
         # A stage that cannot back Parquet Direct (not storage-integration-backed / unsupported
         # encryption / no resolvable location — server 099219-099222): surface a clear,

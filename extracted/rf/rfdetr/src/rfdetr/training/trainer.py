@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import warnings
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Literal
 
@@ -27,7 +28,7 @@ try:
 except ImportError:  # pragma: no cover - exercised in unit tests via monkeypatch
     _MultiProcessingLauncher = None  # type: ignore[assignment,misc]
 
-from rfdetr.config import KeypointTrainConfig, ModelConfig, TrainConfig
+from rfdetr.config import KeypointTrainConfig, ModelConfig, TrainConfig, _resolve_amp_dtype
 from rfdetr.training.callbacks import (
     BestModelCallback,
     DropPathCallback,
@@ -213,6 +214,41 @@ def _accelerator_resolves_to_xla(accelerator: str | None) -> bool:
     return XLAAccelerator.is_available()
 
 
+def _xla_resolves_to_single_device(devices: int | str | Sequence[int], num_nodes: int = 1) -> bool:
+    """Return whether an XLA/TPU run provably executes on exactly one device.
+
+    :func:`_requests_multiple_devices` answers the neighbouring question for CUDA and cannot be
+    reused here: its ``"auto"``/``-1`` branch delegates to
+    :func:`_accelerator_has_multiple_auto_devices`, which only ever counts CUDA devices and reports
+    ``False`` for ``"xla"``/``"tpu"``. An ``"auto"`` request on a multi-chip TPU host would then read
+    as single-device, which is the one case the EMA guard must keep disabled.
+
+    ``num_nodes > 1`` is never one device: a single device per host across several hosts is still a
+    multi-replica run, and that topology has no runtime validation here.
+
+    Any ``int | str`` value (the forms ``TrainConfig.devices`` takes) that cannot be proven to be
+    exactly one device answers ``False``, so an unrecognised value keeps the conservative
+    multi-device behaviour instead of enabling EMA on a host this has not been validated on. A
+    device-index sequence such as the ``devices=[N]`` that ``RFDETR.train(device="xla:N")`` forwards
+    is outside the count forms validated on one chip and answers ``False`` too, rather than raising.
+    """
+    if num_nodes > 1 or not isinstance(devices, (int, str)):
+        return False
+    if isinstance(devices, int):
+        if devices != -1:
+            return devices == 1
+    else:
+        devices_name = devices.strip().lower()
+        if devices_name.isdigit():
+            return int(devices_name) == 1
+        if devices_name not in ("auto", "-1"):
+            return False
+
+    from pytorch_lightning.accelerators import XLAAccelerator
+
+    return XLAAccelerator.auto_device_count() == 1
+
+
 def _requests_multiple_devices(devices: int | str, accelerator: str | None = None) -> bool:
     """Return whether the configured devices value explicitly requests multiple devices."""
     if isinstance(devices, int):
@@ -319,6 +355,11 @@ def _append_training_callbacks(
 
     # Latest resume checkpoint — overwritten every epoch.
     # Skip when checkpoint_interval == 1 to avoid duplicate ModelCheckpoint state_key.
+    # ``save_on_train_epoch_end=True`` on both callbacks: left at its ``None`` default, ModelCheckpoint saves from
+    # ``on_validation_end`` whenever ``check_val_every_n_epoch != 1``, i.e. only on the epochs ``eval_interval``
+    # validates, so ``last.ckpt`` went stale between validations and the interval archives skipped every epoch that
+    # was not also an evaluation epoch. Validation runs inside the training epoch, before ``on_train_epoch_end``, so
+    # the saved callback state still includes that epoch's validation results.
     if tc.checkpoint_interval != 1:
         callbacks.append(
             ModelCheckpoint(
@@ -326,6 +367,7 @@ def _append_training_callbacks(
                 filename="last",
                 every_n_epochs=1,
                 save_top_k=1,
+                save_on_train_epoch_end=True,
                 enable_version_counter=False,
                 auto_insert_metric_name=False,
                 verbose=False,
@@ -339,6 +381,7 @@ def _append_training_callbacks(
             filename="checkpoint_{epoch}",
             every_n_epochs=tc.checkpoint_interval,
             save_top_k=-1,
+            save_on_train_epoch_end=True,
             enable_version_counter=False,
             auto_insert_metric_name=False,
             verbose=False,
@@ -487,14 +530,15 @@ def build_trainer(
 ) -> Trainer:
     """Assemble a PTL ``Trainer`` with the full RF-DETR callback and logger stack.
 
-    Resolves training precision from ``model_config.amp`` and device capability, guards EMA against sharded strategies,
-    wires conditional loggers, and applies promoted training knobs (sync_batchnorm, strategy).
+    Resolves training precision from ``train_config.amp_dtype`` and device capability, guards EMA against sharded
+    strategies, wires conditional loggers, and applies promoted training knobs (sync_batchnorm, strategy).
 
     Args:
-        train_config: Training hyperparameter configuration.
-        model_config: Architecture configuration. Used for precision resolution
-            (``model_config.amp``) and to guard against unsupported distributed
-            configurations for keypoint models.
+        train_config: Training hyperparameter configuration. ``amp_dtype`` is the authority for
+            precision resolution.
+        model_config: Architecture configuration. Read for the deprecated ``amp`` toggle (a fallback
+            only when ``amp_dtype`` is left at its default) and to guard against unsupported
+            distributed configurations for keypoint models.
         accelerator: PTL accelerator string (e.g. ``"auto"``, ``"cpu"``, ``"gpu"``).
             Defaults to ``None`` which reads from ``train_config.accelerator`` (itself defaulting to ``"auto"``). Pass
             ``"cpu"`` to override auto-detection (e.g. when the caller explicitly requests CPU training via
@@ -545,6 +589,10 @@ def build_trainer(
     # accelerator="auto" -- this repo's own default -- is covered too; see that helper's
     # docstring for why the strategy guard below needs this same resolution.
     xla_accelerator = _accelerator_resolves_to_xla(accelerator)
+    accelerator_name = str(accelerator).lower()
+    # Lightning reports XLA availability for its TPU accelerator, so auto retains the documented
+    # TPU behavior. Explicit ``xla`` can target CPU/GPU PJRT without equivalent BF16 evidence.
+    tpu_accelerator = accelerator_name == "tpu" or (accelerator_name == "auto" and xla_accelerator)
 
     # TF32 matmul for fp32 residual matmuls on Ampere+.  ``rfdetr.detr`` sets this at import
     # time for the python API path, but the Lightning CLI path (``rfdetr fit``) never imports
@@ -555,25 +603,36 @@ def build_trainer(
         _logger.debug("torch.set_float32_matmul_precision('high') failed", exc_info=True)
 
     # --- Precision resolution ---
+    # amp_dtype is the live authority; the deprecated model_config.amp only folds in when amp_dtype
+    # was left at its default (see _resolve_amp_dtype). Resolved once here rather than inside
+    # _resolve_precision, which is called more than once — the deprecation warning must fire once.
+    amp_dtype = _resolve_amp_dtype(model_config, tc)
+    if amp_dtype == "fp8" and (xla_accelerator or accelerator not in {"auto", "cuda", "gpu"}):
+        # Reject before XLA plugin construction: CPU-only CI has no torch_xla, and the
+        # plugin's dependency error would otherwise mask this unsupported FP8 request.
+        raise ValueError("FP8 training requires an NVIDIA CUDA GPU supported by Transformer Engine.")
+
     def _resolve_precision() -> str:
-        if not model_config.amp:
-            if tc.amp_dtype != "auto":
-                warnings.warn(
-                    f"amp_dtype={tc.amp_dtype!r} has no effect when model_config.amp=False.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        if amp_dtype is None:
             return "32-true"
+        if tpu_accelerator and amp_dtype in {"bf16", "auto"}:
+            # Real TPU hardware (the case this fix targets and is verified against, issue #1058)
+            # supports bf16 natively, so "auto" resolves to it the same way an explicit "bf16"
+            # request does, instead of falling through to the CUDA/MPS probes below and landing
+            # on the CPU-only "32-true" default. Explicit ``xla`` stays on the conservative
+            # path because CPU/GPU PJRT has no equivalent execution evidence.
+            return "bf16-true"
         # CPU accelerator: bf16 autocast on macOS CPU (Apple Silicon) is ~13x slower
         # than fp32 due to missing native bfloat16 kernels — no benefit, high cost.
         if accelerator == "cpu":
             return "32-true"
         # ``train_config.amp_dtype`` (a train() kwarg) lets callers pin the autocast dtype (see issue #1132):
+        #   None   — disable autocast entirely (handled above);
         #   "auto" — bf16 on bf16-capable CUDA, fp16 otherwise (historical default);
         #   "fp16" — force "16-mixed" (e.g. deployment targets without bf16 support);
-        #   "bf16" — force "bf16-mixed", falling back to fp16 with a warning when unsupported.
+        #   "bf16" — force "bf16-mixed", falling back to fp16 with a warning when unsupported;
+        #   "fp8" — use Lightning's Transformer Engine precision plugin.
         # Unrecognised values are coerced to "auto" (with a warning) by TrainConfig validation.
-        amp_dtype = tc.amp_dtype
         # Ampere+ GPUs support bf16-mixed which is scaler-free —
         # no GradScaler.scale/unscale/update overhead per optimizer step.
         # BF16 is safe for fine-tuning (pretrained weights loaded by default).
@@ -589,6 +648,27 @@ def build_trainer(
         # parent has initialised. If a fork-based path is ever added, this
         # precision check must be moved into the child process.
         if torch.cuda.is_available():
+            if amp_dtype == "fp8":
+                # Transformer Engine's FP8 tensor-core path requires Ada (compute capability 8.9),
+                # Hopper (9.0), or newer (e.g. Blackwell) — older CUDA GPUs such as A100/T4 are
+                # CUDA-visible but not FP8-capable and would otherwise reach TE's plugin/kernel
+                # initialization and fail there instead of at this clear rejection.
+                _min_fp8_capability = (8, 9)
+                unsupported_devices = [
+                    index
+                    for index in range(torch.cuda.device_count())
+                    if torch.cuda.get_device_capability(index) < _min_fp8_capability
+                ]
+                if unsupported_devices:
+                    names = ", ".join(
+                        f"cuda:{index} ({torch.cuda.get_device_name(index)})" for index in unsupported_devices
+                    )
+                    raise ValueError(
+                        "amp_dtype='fp8' requires a Transformer Engine-supported NVIDIA GPU "
+                        "(Ada, Hopper, or newer; compute capability >= 8.9). "
+                        f"Unsupported visible device(s): {names}."
+                    )
+                return "transformer-engine"
             if amp_dtype == "fp16":
                 return "16-mixed"
             if amp_dtype == "bf16":
@@ -608,6 +688,8 @@ def build_trainer(
             # amp_dtype == "auto"
             return "bf16-mixed" if torch.cuda.is_bf16_supported() else "16-mixed"
         if torch.backends.mps.is_available():
+            if amp_dtype == "fp8":
+                raise ValueError("FP8 training requires an NVIDIA CUDA GPU supported by Transformer Engine.")
             if amp_dtype == "bf16":
                 _logger.warning(
                     "amp_dtype='bf16' is not applied on MPS; RF-DETR uses fp16 ('16-mixed') for MPS autocast."
@@ -618,6 +700,8 @@ def build_trainer(
                     stacklevel=2,
                 )
             return "16-mixed"
+        if amp_dtype == "fp8":
+            raise ValueError("FP8 training requires an NVIDIA CUDA GPU supported by Transformer Engine.")
         return "32-true"
 
     # --- Strategy + EMA sharding guard ---
@@ -625,6 +709,12 @@ def build_trainer(
     devices = trainer_kwargs.get("devices", tc.devices)
     num_nodes = trainer_kwargs.get("num_nodes", tc.num_nodes)
     has_keypoints = bool(model_config.use_grouppose_keypoints)
+    if amp_dtype == "fp8" and _is_sharded_strategy(strategy):
+        raise ValueError(
+            "amp_dtype='fp8' is not compatible with FSDP or DeepSpeed strategies because Lightning's "
+            "Transformer Engine precision plugin cannot replace their strategy-owned precision plugin. "
+            "Use strategy='ddp' or 'auto', or select bf16/fp16 for sharded training."
+        )
     if (
         xla_accelerator
         and not has_keypoints
@@ -680,21 +770,49 @@ def build_trainer(
                 )
         _logger.info(
             "Keypoint model + distributed execution (strategy=%r, devices=%r, num_nodes=%r) → "
-            "DDP with manual optimization. For best throughput on multi-GPU keep grad_accum_steps=1: "
-            "the manual-optimization path synchronizes gradients on every microbatch, so "
-            "grad_accum_steps>1 is correct but performs redundant all-reduces.",
+            "DDP with manual optimization. Accumulated gradients synchronize only when the optimizer steps.",
             strategy,
             devices,
             num_nodes,
         )
 
+    # static_graph=True lets DDP learn the set of unused parameters once (first two iterations)
+    # instead of re-searching the autograd graph every step -- measured -10.6% median full training
+    # step on 2x L4/NCCL (5 runs, real detection model, find_unused_parameters=True kept alongside
+    # it as PyTorch's docs specify). gradient_as_bucket_view=True is bundled in: same measurement,
+    # avoids the allreduce-bucket copy. Both require the set of possibly-unused parameters to stay
+    # fixed across the run (PyTorch's own precondition for static_graph); keypoint's manual
+    # optimization and grad_accum_steps > 1 (both use DDP's no_sync() across multiple backward calls
+    # per optimizer step) were not exercised by that measurement, so both are excluded here rather
+    # than assumed safe. Checked with a CPU forward+backward probe against real SetCriterion/
+    # SegmentationCriterion loss graphs (RFDETRNano with two_stage True and False, RFDETRSegNano
+    # with and without mask targets -- the three branches the find_unused_parameters comment above
+    # names): across all-empty, partial-empty and normal target batches the only parameter that is
+    # ever unused is the always-unused backbone.0.encoder.encoder.embeddings.mask_token, so the
+    # group_detr/aux-loss/sparse-segmentation-head branches above do not actually make the unused
+    # set vary run to run for the configs probed. If that invariant does not hold for a config
+    # outside this probe, DDP's reducer fails the step immediately with "Your training graph has
+    # changed in this iteration" instead of silently dropping a gradient.
+    # Read the effective value the same way "accumulate_grad_batches" is resolved later in this
+    # function (a caller's trainer_kwargs override wins over tc.grad_accum_steps) -- tc.grad_accum_steps
+    # alone missed a real gradient-accumulation call and crashed DDP (RuntimeError:
+    # expect_autograd_hooks_ INTERNAL ASSERT FAILED in reducer.cpp) until this was fixed.
+    _effective_grad_accum_steps = trainer_kwargs.get("accumulate_grad_batches", tc.grad_accum_steps)
+    _static_graph_eligible = not has_keypoints and _effective_grad_accum_steps <= 1
+
     # Transparently replace fork-based DDP with spawn-based DDP — see the
     # module-level comment block above _InteractiveSpawnLauncher for rationale.
     if strategy_name in ("ddp_notebook", "ddp_spawn"):
-        strategy = _NotebookSpawnDDPStrategy(start_method="spawn", find_unused_parameters=True)
+        strategy = _NotebookSpawnDDPStrategy(
+            start_method="spawn",
+            find_unused_parameters=True,
+            static_graph=_static_graph_eligible,
+            gradient_as_bucket_view=_static_graph_eligible,
+        )
         _logger.info(
-            "%s → spawn-based DDP to avoid OpenMP thread pool corruption after fork.",
+            "%s → spawn-based DDP to avoid OpenMP thread pool corruption after fork (static_graph=%s).",
             strategy_name,
+            _static_graph_eligible,
         )
     elif strategy_name == "ddp" or (strategy_name == "auto" and distributed_requested):
         # DETR-family architectures can leave parameters unused on certain forward
@@ -709,21 +827,37 @@ def build_trainer(
         # each backward pass to identify which parameters contributed to the loss.
         # To opt out (e.g. configs with two_stage=False that never hit unused params),
         # pass strategy=DDPStrategy(find_unused_parameters=False) via trainer_kwargs.
-        strategy = _DDPStrategy(find_unused_parameters=True)
+        strategy = _DDPStrategy(
+            find_unused_parameters=True,
+            static_graph=_static_graph_eligible,
+            gradient_as_bucket_view=_static_graph_eligible,
+        )
         if strategy_name == "auto":
             _logger.info(
-                "strategy='auto' with distributed execution → DDPStrategy(find_unused_parameters=True).",
+                "strategy='auto' with distributed execution → "
+                "DDPStrategy(find_unused_parameters=True, static_graph=%s).",
+                _static_graph_eligible,
             )
         else:
             _logger.info(
-                "strategy='ddp' → DDPStrategy(find_unused_parameters=True).",
+                "strategy='ddp' → DDPStrategy(find_unused_parameters=True, static_graph=%s).",
+                _static_graph_eligible,
             )
     sharded = _is_sharded_strategy(strategy)
-    enable_ema = bool(tc.use_ema) and not sharded
+    xla_multi_device = xla_accelerator and not _xla_resolves_to_single_device(devices, num_nodes)
+    enable_ema = bool(tc.use_ema) and not sharded and not xla_multi_device
     if tc.use_ema and sharded:
         warnings.warn(
             f"EMA disabled: RFDETREMACallback is not compatible with sharded strategies "
             f"(strategy={strategy!r}). Set use_ema=False to suppress this warning.",
+            UserWarning,
+            stacklevel=2,
+        )
+    elif include_training_callbacks and tc.use_ema and xla_multi_device:
+        warnings.warn(
+            "EMA disabled on multi-device XLA because per-step weight reads can corrupt subsequent "
+            "optimizer updates there. One-device XLA keeps EMA. Training will continue with the live "
+            "model weights. Set use_ema=False to suppress this warning.",
             UserWarning,
             stacklevel=2,
         )
@@ -761,6 +895,7 @@ def build_trainer(
             segmentation=model_config.segmentation_head,
             eval_interval=tc.eval_interval,
             log_per_class_metrics=tc.log_per_class_metrics,
+            eval_backend=tc.eval_backend,
             keypoint_oks_sigmas=tc.keypoint_oks_sigmas,
             eval_base_model=tc.eval_base_model,
         )
@@ -825,7 +960,13 @@ def build_trainer(
         elif not isinstance(plugins, (list, tuple)):
             plugins = [plugins]
         trainer_config.pop("precision", None)
-        xla_precision = _normalize_xla_precision(_resolve_precision().replace("-mixed", "-true"))
+        # CPU/GPU PJRT is an XLA strategy but lacks the TPU BF16 execution evidence required
+        # to translate generic mixed precision into a true-precision XLA plugin.
+        xla_precision = (
+            "32-true"
+            if not tpu_accelerator
+            else _normalize_xla_precision(_resolve_precision().replace("-mixed", "-true"))
+        )
         trainer_config["plugins"] = [*plugins, XLAPrecision(xla_precision)]
     trainer_config["strategy"] = strategy
     if manual_optimization:

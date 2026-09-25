@@ -138,6 +138,13 @@ class TaskEnvironment(Environment):
         model_overrides: dict[str, str] | None = None,
         timeout_sec: int | None = None,
     ) -> None:
+        # Accept either an ApiClient or a configured Dreadnode instance. `dn.configure()`
+        # returns a Dreadnode (whose `.api` is the ApiClient); the environment endpoints
+        # (create_environment, ...) live on the ApiClient, so resolve `.api` when a
+        # Dreadnode-like object is passed. This is what the cookbook notebooks do
+        # (`api = dn.configure(...); TaskEnvironment(api, ...)`).
+        if not hasattr(api_client, "create_environment") and hasattr(api_client, "api"):
+            api_client = api_client.api
         self.api_client = api_client
         self.org = org
         self.workspace = workspace

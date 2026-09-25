@@ -3,8 +3,6 @@
 import random
 import typing as t
 
-import numpy as np
-
 from dreadnode.core.types import Image
 from dreadnode.optimization.sampler import Sample, Sampler
 from dreadnode.optimization.search import (
@@ -126,6 +124,8 @@ class RandomImageSampler(Sampler[Image]):
         *,
         seed: int | None = None,
     ):
+        import numpy as np
+
         if not shape:
             raise ValueError("Shape cannot be empty")
 
@@ -135,6 +135,8 @@ class RandomImageSampler(Sampler[Image]):
 
     def sample(self, history: list[Trial[Image]]) -> list[Sample[Image]]:  # noqa: ARG002
         """Return a random noise image."""
+        import numpy as np
+
         noise = self._rng.random(self.shape).astype(np.float32)
         return [Sample(Image(noise))]
 
@@ -145,4 +147,6 @@ class RandomImageSampler(Sampler[Image]):
 
     def reset(self) -> None:
         """Reset the random number generator."""
+        import numpy as np
+
         self._rng = np.random.default_rng(self.seed)

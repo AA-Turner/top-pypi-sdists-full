@@ -908,14 +908,12 @@ class TransactionContextLoggingTest(fixtures.TestBase):
             ]
         )
 
-    @testing.requires.python38
     def test_log_messages_have_correct_metadata_plain(
         self, plain_logging_engine
     ):
         """test #7612"""
         self._test_log_messages_have_correct_metadata(plain_logging_engine)
 
-    @testing.requires.python38
     def test_log_messages_have_correct_metadata_echo(self, logging_engine):
         """test #7612"""
         self._test_log_messages_have_correct_metadata(logging_engine)
@@ -1138,3 +1136,91 @@ class EchoTest(fixtures.TestBase):
 
         assert self.buf.buffer[5].getMessage().startswith("SELECT 6")
         assert len(self.buf.buffer) == 8
+
+
+class RowLoggingTest(fixtures.TablesTest):
+    __only_on__ = "sqlite+pysqlite"
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "data",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("val", String(50)),
+        )
+
+    @classmethod
+    def insert_data(cls, connection):
+        connection.execute(
+            cls.tables.data.insert(),
+            [
+                {"id": 1, "val": "v1"},
+                {"id": 2, "val": "v2"},
+                {"id": 3, "val": "v3"},
+            ],
+        )
+
+    @testing.fixture(params=["echo_debug", "plain_logging"])
+    def debug_engine(self, debug_logging_engine, request):
+        testing_engine, buf = debug_logging_engine
+        if request.param == "echo_debug":
+            yield testing_engine(echo="debug"), buf
+        elif request.param == "plain_logging":
+            yield testing_engine(log_level=logging.DEBUG), buf
+
+    def _get_row_messages(self, buf):
+        return [
+            rec.getMessage()
+            for rec in buf.buffer
+            if rec.getMessage().startswith("Row ")
+        ]
+
+    @testing.combinations(
+        ("all", lambda result: result.all(), 3),
+        ("first", lambda result: result.first(), 1),
+        ("fetchone", lambda result: result.fetchone(), 1),
+        ("fetchmany", lambda result: result.fetchmany(2), 2),
+        ("scalar", lambda result: result.scalar(), 1),
+        ("partitions", lambda result: list(result.partitions(2)), 3),
+        ("_raw_all_tuples", lambda result: result._raw_all_tuples(), 3),
+        id_="iaa",
+        argnames="consume,expected_rows",
+    )
+    def test_row_logging(self, debug_engine, consume, expected_rows):
+        t = self.tables.data
+
+        engine, buf = debug_engine
+        with engine.connect() as conn:
+            result = conn.execute(select(t).order_by(t.c.id))
+            consume(result)
+
+        eq_(
+            self._get_row_messages(buf),
+            ["Row (%d, 'v%d')" % (i, i) for i in range(1, expected_rows + 1)],
+        )
+
+    @testing.combinations(
+        ("echo_false", False),
+        ("echo_true", True),
+        ("echo_debug", "debug"),
+        id_="ia",
+        argnames="echo",
+    )
+    def test_row_logging_flag(self, debug_logging_engine, echo):
+        t = self.tables.data
+
+        testing_engine, buf = debug_logging_engine
+        eng = testing_engine(echo=echo)
+
+        with eng.connect() as conn:
+            result = conn.execute(select(t).order_by(t.c.id))
+            result.all()
+
+        if echo == "debug":
+            eq_(
+                self._get_row_messages(buf),
+                ["Row (%d, 'v%d')" % (i, i) for i in range(1, 4)],
+            )
+        else:
+            eq_(self._get_row_messages(buf), [])

@@ -10,13 +10,29 @@ from typing import Optional, Tuple
 import click
 from click import Context
 
-from tinybird.datafile.common import get_name_version
+from tinybird.datafile.common import CopyParameters, PipeNodeTypes, get_name_version
 from tinybird.tb.client import AuthNoTokenException, TinyB
 from tinybird.tb.modules.cli import cli
 from tinybird.tb.modules.common import echo_safe_humanfriendly_tables_format_smart_table, wait_job
 from tinybird.tb.modules.exceptions import CLIPipeException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
 from tinybird.tb.modules.job_common import echo_job_url
+from tinybird.tb.modules.project import Project
+from tinybird.utils.bools import parse_optional_bool
+
+
+def local_copy_node_uses_on_demand_compute(project: Project, pipe_name: str) -> Optional[bool]:
+    """Reads ON_DEMAND_COMPUTE from the local datafile. Returns None when there is no parseable copy pipe to compare"""
+    pipe_path = project.get_resource_path(pipe_name, "pipe")
+    if not pipe_path:
+        return None
+    datafile = project.get_pipe_datafile(str(project.path / pipe_path))
+    if datafile is None:
+        return None
+    copy_node = next((node for node in datafile.nodes if node.get("type", "").lower() == PipeNodeTypes.COPY), None)
+    if copy_node is None:
+        return None
+    return parse_optional_bool(copy_node.get(CopyParameters.ON_DEMAND_COMPUTE))
 
 
 @cli.group()
@@ -89,6 +105,7 @@ def copy_ls(ctx: Context, match: str, format_: str):
     default=False,
     help="Use on-demand compute instances for the copy job.",
 )
+@click.option("--yes", is_flag=True, default=False, help="Do not ask for confirmation")
 @click.pass_context
 def copy_run(
     ctx: click.Context,
@@ -97,8 +114,23 @@ def copy_run(
     mode: str,
     param: Optional[Tuple[str]],
     on_demand_compute: bool,
+    yes: bool,
 ):
     """Run an on-demand copy pipe"""
+
+    project: Optional[Project] = ctx.ensure_object(dict).get("project")
+    if (
+        on_demand_compute
+        and not yes
+        and project
+        and local_copy_node_uses_on_demand_compute(project, pipe_name_or_id) is False
+        and not click.confirm(
+            FeedbackManager.warning_confirm_on_demand_compute_differs_from_datafile(pipe=pipe_name_or_id),
+            default=False,
+        )
+    ):
+        click.echo(FeedbackManager.info_cancelled_by_user())
+        return
 
     params = dict(key_value.split("=") for key_value in param) if param else {}
     click.echo(FeedbackManager.highlight(message=f"\n» Running on-demand copy '{pipe_name_or_id}'"))

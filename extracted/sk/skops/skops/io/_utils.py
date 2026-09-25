@@ -7,15 +7,21 @@ import warnings
 from dataclasses import dataclass, field
 from functools import singledispatch
 from types import ModuleType
-from typing import Any, Type
+from typing import Any, Sequence, Type, Union
 from zipfile import ZipFile
 
 from ._protocol import PROTOCOL
 
+# Types the user trusts to be loaded, given either by their fully qualified
+# name, e.g. "sklearn.linear_model._logistic.LogisticRegression" as returned by
+# ``get_untrusted_types``, or as the type object itself.
+TrustedTypes = Sequence[Union[str, Type[Any]]]
+
 
 # The following two functions are copied from cpython's pickle.py file.
 # ---------------------------------------------------------------------
-def _getattribute(obj, name):
+def _getattribute(obj, name):  # pragma: no cover
+    parent = obj
     for subpath in name.split("."):
         if subpath == "<locals>":
             raise AttributeError(
@@ -38,23 +44,34 @@ def whichmodule(obj: Any, name: str) -> str:
     module_name = getattr(obj, "__module__", None)
     if module_name is not None:
         return module_name
-    # Protect the iteration by using a list copy of sys.modules against dynamic
-    # modules that trigger imports of other modules upon calls to getattr.
-    for module_name, module in sys.modules.copy().items():
-        if (
-            module_name == "__main__"
-            or module_name == "__mp_main__"  # bpo-42406
-            or module is None
-        ):
-            continue
-        try:
-            with warnings.catch_warnings():
-                # this is to silence numpy.core import warnings
-                warnings.simplefilter("ignore", DeprecationWarning)
-                if _getattribute(module, name)[0] is obj:
-                    return module_name
-        except (AttributeError, ImportError):
-            pass
+    # Objects without ``__module__`` (e.g. scipy ufuncs) are searched for in
+    # every loaded module, in import order, until the first match. A ``getattr``
+    # with a default avoids raising and catching an exception for every module
+    # that lacks the attribute, which keeps this loop cheap in processes with
+    # many loaded modules. Dotted names keep going through ``_getattribute``
+    # for its ``<locals>`` handling; skops itself only passes ``__name__``.
+    with warnings.catch_warnings():
+        # this is to silence numpy.core import warnings
+        warnings.simplefilter("ignore", DeprecationWarning)
+        # Protect the iteration by using a list copy of sys.modules against
+        # dynamic modules that trigger imports of other modules upon calls to
+        # getattr.
+        for module_name, module in sys.modules.copy().items():
+            if (
+                module_name == "__main__"
+                or module_name == "__mp_main__"  # bpo-42406
+                or module is None
+            ):
+                continue
+            try:
+                if "." in name:  # pragma: no cover
+                    found = _getattribute(module, name)[0]
+                else:
+                    found = getattr(module, name, None)
+            except (AttributeError, ImportError):
+                continue
+            if found is obj:
+                return module_name
     return "__main__"
 
 
@@ -69,7 +86,7 @@ def gettype(module_name: str, cls_or_func: str) -> Type[Any]:
     if module_name and cls_or_func:
         return _import_obj(module_name, cls_or_func)
 
-    raise ValueError(f"Object {cls_or_func} of module {module_name} is unknown")
+    raise ValueError(f"Object {cls_or_func!r} of module {module_name!r} is unknown")
 
 
 def get_module(obj: Any) -> str:
@@ -231,13 +248,13 @@ def get_type_name(t: Any) -> str:
     return f"{get_module(t)}.{t.__name__}"
 
 
-def get_type_paths(types: Any) -> list[str]:
+def get_type_paths(types: str | type[Any] | TrustedTypes | None) -> list[str]:
     """Helper function that takes in a types,
     and converts any the types found to a list of strings.
 
     Parameters
     ----------
-    types: Any
+    types: str, type, list of str and types, or None
         Types to get. Can be either a string, a single type, or a list of strings
         and types.
 
@@ -249,10 +266,8 @@ def get_type_paths(types: Any) -> list[str]:
     """
     if not types:
         return []
-    if not isinstance(types, (list, tuple)):
-        types = [types]
-
-    return [get_type_name(t) if not isinstance(t, str) else t for t in types]
+    items: TrustedTypes = [types] if isinstance(types, (str, type)) else types
+    return [t if isinstance(t, str) else get_type_name(t) for t in items]
 
 
 def get_public_type_names(module: ModuleType, oftype: Type) -> list[str]:

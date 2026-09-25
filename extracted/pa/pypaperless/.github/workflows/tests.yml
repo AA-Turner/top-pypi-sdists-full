@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: 🏗 Set up uv
-        uses: astral-sh/setup-uv@v9.0.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
           cache-dependency-glob: "uv.lock"
@@ -47,7 +47,7 @@ jobs:
         run: uv run pytest -v --cov-report xml:coverage.xml --cov pypaperless tests
       - name: 🚀 Upload coverage report
         if: matrix.python == env.COVERAGE_PYTHON
-        uses: codecov/codecov-action@v7.0.0
+        uses: codecov/codecov-action@v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml

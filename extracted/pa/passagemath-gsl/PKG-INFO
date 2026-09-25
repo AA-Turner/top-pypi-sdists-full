@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-gsl
-Version: 10.8.11
+Version: 10.8.12
 Summary: passagemath: Numerics with the GNU Scientific Library
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -34,11 +34,11 @@ Requires-Dist: cysignals>=1.12.6; python_version >= "3.14"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator<0.2
 Requires-Dist: numpy>=2.1
-Requires-Dist: passagemath-categories~=10.8.11.0
-Requires-Dist: passagemath-environment~=10.8.11.0
-Requires-Dist: passagemath-modules~=10.8.11.0
+Requires-Dist: passagemath-categories~=10.8.12.0
+Requires-Dist: passagemath-environment~=10.8.12.0
+Requires-Dist: passagemath-modules~=10.8.12.0
 Provides-Extra: test
-Requires-Dist: passagemath-repl~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.8.12.0; extra == "test"
 
 =======================================================
  passagemath: Numerics with the GNU Scientific Library

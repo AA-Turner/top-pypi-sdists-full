@@ -13,6 +13,7 @@ from sqlalchemy import String
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy.dialects.mssql import base
+from sqlalchemy.dialects.mssql import mssqlpython
 from sqlalchemy.dialects.mssql import pymssql
 from sqlalchemy.dialects.mssql import pyodbc
 from sqlalchemy.engine import url
@@ -216,6 +217,55 @@ class ParseConnectTest(fixtures.TestBase):
             connection,
         )
 
+    @testing.combinations(
+        (
+            "quoted_plus",
+            (
+                "mssql+pyodbc:///?odbc_connect=DSN%3Dmydsn%3B"
+                "UID%3Ded%3BPWD%3Dpass%2Bword"
+            ),
+            "DSN=mydsn;UID=ed;PWD=pass+word",
+            ("DSN=mydsn;UID=ed;PWD=pass+word",),
+            "",
+        ),
+        (
+            "plus_for_space",
+            (
+                "mssql+pyodbc:///?odbc_connect=DSN%3Dmydsn%3B"
+                "UID%3Ded%3BPWD%3Dpass+word"
+            ),
+            "DSN=mydsn;UID=ed;PWD=pass word",
+            ("DSN=mydsn;UID=ed;PWD=pass word",),
+            "",
+        ),
+        (
+            "issue_11250_breaking_change",
+            (
+                "mssql+pyodbc:///?odbc_connect=DSN%3Dmydsn%3B"
+                "UID%3Ded%3BPWD%3Dpass%252Bword"
+            ),
+            "DSN=mydsn;UID=ed;PWD=pass%2Bword",
+            ("DSN=mydsn;UID=ed;PWD=pass%2Bword",),
+            "pre-11250 would unquote_plus() to PWD=pass+word",
+        ),
+        argnames="quoted_url, value_in_url_object, connection_string",
+        id_="iaaai",
+    )
+    def test_pyodbc_odbc_connect_with_pwd_plus(
+        self, quoted_url, value_in_url_object, connection_string
+    ):
+        dialect = pyodbc.dialect()
+        u = url.make_url(quoted_url)
+        eq_(value_in_url_object, u.query["odbc_connect"])
+        connection = dialect.create_connect_args(u)
+        eq_(
+            (
+                (connection_string),
+                {},
+            ),
+            connection,
+        )
+
     def test_pyodbc_odbc_connect_ignores_other_values(self):
         dialect = pyodbc.dialect()
         u = url.make_url(
@@ -238,6 +288,7 @@ class ParseConnectTest(fixtures.TestBase):
 
     @testing.combinations(
         ("pyodbc", pyodbc, "mssql+pyodbc"),
+        ("mssqlpython", mssqlpython, "mssql+mssqlpython"),
         argnames="dialect_mod, url_prefix",
         id_="iaa",
     )
@@ -254,9 +305,16 @@ class ParseConnectTest(fixtures.TestBase):
             {
                 "pyodbc": (
                     "DRIVER={foob};Server=somehost%3BPORT%3D50001;"
-                    "Database=somedb%3BPORT%3D50001;"
+                    "Database={somedb;PORT=50001};"
                     "UID={someuser;PORT=50001};"
                     "PWD={some{strange}}pw;PORT=50001}",
+                ),
+                "mssqlpython": (
+                    "Server=somehost%3BPORT%3D50001;"
+                    "Database={somedb;PORT=50001};"
+                    "UID={someuser;PORT=50001};"
+                    "PWD={some{strange}}pw;PORT=50001};"
+                    "driver=foob",
                 ),
             },
         ),
@@ -274,6 +332,12 @@ class ParseConnectTest(fixtures.TestBase):
                     "DRIVER={foob};Server=localhost;"
                     "Database=mydb;UID=larry;"
                     "PWD={{moe}",
+                ),
+                "mssqlpython": (
+                    "Server=localhost;"
+                    "Database=mydb;UID=larry;"
+                    "PWD={{moe};"
+                    "driver=foob",
                 ),
             },
         ),
@@ -297,6 +361,11 @@ class ParseConnectTest(fixtures.TestBase):
                     "Server=hostspec;Database=database;"
                     "UID=username;PWD=password",
                 ),
+                "mssqlpython": (
+                    "Server=hostspec;Database=database;"
+                    "UID=username;PWD=password;"
+                    "driver={{UID=evil}}}",
+                ),
             },
         ),
         (
@@ -318,6 +387,11 @@ class ParseConnectTest(fixtures.TestBase):
                     "Server=hostspec;Database=database;"
                     "UID=username;PWD=password",
                 ),
+                "mssqlpython": (
+                    "Server=hostspec;Database=database;"
+                    "UID=username;PWD=password;"
+                    "driver={foob}}UID=evil}",
+                ),
             },
         ),
         (
@@ -336,6 +410,11 @@ class ParseConnectTest(fixtures.TestBase):
                 "pyodbc": (
                     "DRIVER={foob};Server=hostspec;Database=database;"
                     "UID=username;PWD=password;{foo;UID}=evil",
+                ),
+                "mssqlpython": (
+                    "Server=hostspec;Database=database;"
+                    "UID=username;PWD=password;"
+                    "driver=foob;{foo;UID}=evil",
                 ),
             },
         ),
@@ -451,6 +530,93 @@ class ParseConnectTest(fixtures.TestBase):
                 None,
                 None,
             ),
+            False,
+        )
+
+    @testing.fixture
+    def mssqlpython_dialect(self):
+        """dialect with a mocked out mssql_python DBAPI.
+
+        the exception hierarchy mirrors that of mssql_python, where every
+        error carries the driver level and DDBC level messages both as
+        attributes and within the string form of the exception.
+
+        """
+
+        class Error(Exception):
+            def __init__(self, driver_error, ddbc_error=""):
+                self.driver_error = driver_error
+                self.ddbc_error = ddbc_error
+                super().__init__(
+                    f"Driver Error: {driver_error}; "
+                    f"DDBC Error: {ddbc_error}"
+                )
+
+        dbapi = mock.Mock()
+        dbapi.Error = Error
+        dbapi.OperationalError = type("OperationalError", (Error,), {})
+        dbapi.ProgrammingError = type("ProgrammingError", (Error,), {})
+        dbapi.InterfaceError = type("InterfaceError", (Error,), {})
+
+        return mssqlpython.dialect(dbapi=dbapi)
+
+    @testing.combinations(
+        ("OperationalError", "Disconnect error", True),
+        ("OperationalError", "Client unable to establish connection", True),
+        ("OperationalError", "Connection not open", True),
+        ("OperationalError", "Connection failure during transaction", True),
+        ("OperationalError", "Communication link failure", True),
+        (
+            "OperationalError",
+            "An error occurred with SQLSTATE code: 08S02",
+            True,
+        ),
+        (
+            "OperationalError",
+            "An error occurred with SQLSTATE code: 10054",
+            True,
+        ),
+        ("OperationalError", "Connection timeout expired", True),
+        ("OperationalError", "Function sequence error", True),
+        ("OperationalError", "Timeout expired", False),
+        ("OperationalError", "Syntax error or access violation", False),
+        ("ProgrammingError", "The cursor's connection has been closed.", True),
+        ("ProgrammingError", "Attempt to use a closed connection.", True),
+        ("ProgrammingError", "Operation cannot be performed", True),
+        ("ProgrammingError", "Invalid object name 'foo'", False),
+        ("InterfaceError", "Cannot rollback on a closed connection", True),
+        ("InterfaceError", "Cannot commit on closed connection", True),
+        ("InterfaceError", "Invalid connection attribute", False),
+        argnames="exc_cls_name,driver_error,expected",
+    )
+    def test_mssqlpython_disconnect(
+        self, mssqlpython_dialect, exc_cls_name, driver_error, expected
+    ):
+        dialect = mssqlpython_dialect
+        error = getattr(dialect.loaded_dbapi, exc_cls_name)(driver_error)
+
+        eq_(dialect.is_disconnect(error, None, None), expected)
+
+    def test_mssqlpython_disconnect_ddbc_message_only(
+        self, mssqlpython_dialect
+    ):
+        """a disconnect phrase that occurs only in the DDBC level message of
+        an otherwise unrelated error is not a disconnect.
+
+        """
+        dialect = mssqlpython_dialect
+        error = dialect.loaded_dbapi.OperationalError(
+            "Syntax error or access violation",
+            "Communication link failure in query text",
+        )
+
+        eq_(dialect.is_disconnect(error, None, None), False)
+
+    def test_mssqlpython_disconnect_not_dbapi_error(self, mssqlpython_dialect):
+        dialect = mssqlpython_dialect
+
+        eq_(
+            dialect.is_disconnect(Exception("Disconnect error"), None, None),
             False,
         )
 
@@ -645,6 +811,28 @@ class VersionDetectionTest(fixtures.TestBase):
             exec_driver_sql=Mock(
                 return_value=Mock(scalar=Mock(return_value=text))
             )
+        )
+
+    @testing.combinations(
+        ("1.9.0", (1, 9, 0), True),
+        ("1.14.0", (1, 14, 0), True),
+        ("1.15.0", (1, 15, 0), False),
+        ("2.0.1", (2, 0, 1), False),
+        argnames="version_string,expected_version,expected_decimal_fix",
+    )
+    def test_mssqlpython_dbapi_version(
+        self, version_string, expected_version, expected_decimal_fix
+    ):
+        dbapi = mock.Mock()
+        dbapi.__version__ = version_string
+
+        # mssql_python publishes no "version" attribute
+        del dbapi.version
+        dialect = mssqlpython.dialect(dbapi=dbapi)
+
+        eq_(
+            (dialect.dbapi_version, dialect._need_decimal_fix),
+            (expected_version, expected_decimal_fix),
         )
 
     def test_pymssql_version(self, mock_conn_scalar):

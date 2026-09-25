@@ -21,7 +21,9 @@ import torch.distributed as dist
 import torch.nn.functional as F  # noqa: N812
 from pytorch_lightning import Callback
 from torch import Tensor
+from torch.utils.data import DistributedSampler
 
+from rfdetr.config import CocoEvalBackend
 from rfdetr.datasets import get_coco_api_from_dataset
 from rfdetr.evaluation.f1_sweep import sweep_confidence_thresholds
 from rfdetr.evaluation.keypoint_oks import (
@@ -131,8 +133,7 @@ class COCOEvalCallback(Callback):
     Args:
         max_dets: Maximum detections per image passed to
             ``MeanAveragePrecision``. Defaults to :data:`~rfdetr.evaluation.keypoint_oks.DEFAULT_KEYPOINT_MAX_DETS`.
-        segmentation: When ``True``, evaluate both bbox and segm IoU using
-            ``backend="faster_coco_eval"``. Defaults to ``False``.
+        segmentation: When ``True``, evaluate both bbox and segm IoU. Defaults to ``False``.
         eval_interval: Run validation metrics every N epochs. Test metrics are
             always computed when ``trainer.test()`` is called.
         log_per_class_metrics: When ``False``, skip per-class AP computation
@@ -146,6 +147,12 @@ class COCOEvalCallback(Callback):
             is skipped and its predictions are routed to the EMA track. When ``True``,
             ``validation_step`` forwards the base model and this callback runs the second, EMA
             forward pass, so both models are evaluated from independent predictions.
+        eval_backend: COCO evaluation backend, mirroring :attr:`~rfdetr.config.TrainConfig.eval_backend`.
+            ``"vernier"`` is the default and computes fastest, ``"faster_coco_eval"`` is the previous
+            evaluator and ``"ufcoco"`` selects ultrafast-pycocotools; all four ship with ``rfdetr[train]`` and return
+            identical metrics.
+            Appended after the existing parameters rather than grouped with the other evaluation knobs, so that
+            positional callers keep binding the arguments they always did.
     """
 
     def __init__(
@@ -158,12 +165,14 @@ class COCOEvalCallback(Callback):
         in_notebook: bool | None = None,
         eval_ema_only: bool | None = None,
         eval_base_model: bool | None = None,
+        eval_backend: CocoEvalBackend = "vernier",
     ) -> None:
         super().__init__()
         self._max_dets = max_dets
         self._segmentation = segmentation
         self._eval_interval = max(1, int(eval_interval))
         self._log_per_class_metrics = bool(log_per_class_metrics)
+        self._eval_backend = eval_backend
         if eval_ema_only is not None:
             warnings.warn(
                 "COCOEvalCallback.eval_ema_only is deprecated; use eval_base_model to opt into base-model evaluation.",
@@ -187,6 +196,10 @@ class COCOEvalCallback(Callback):
         self._train_segm_skip_warned: bool = False
         self._keypoint_oks_metrics: dict[str, MetricKeypointOKS] = {}
         self._keypoint_oks_sigmas = keypoint_oks_sigmas
+        # Each evaluation loader may have a distinct padded DistributedSampler. Keep its rule and local position
+        # separate so Lightning's interleaved multi-loader hooks never apply loader 0's state to another split.
+        self._eval_padding: dict[int, tuple[int, int, int]] = {}
+        self._eval_samples_seen: dict[int, int] = {}
         self._in_notebook: bool
         if in_notebook is None:
             self._in_notebook = _is_running_in_notebook()
@@ -227,7 +240,7 @@ class COCOEvalCallback(Callback):
             # `all_gather`, then compute() runs locally on the full set.
             sync_on_compute=False,
         )
-        kwargs["backend"] = "faster_coco_eval"
+        kwargs["backend"] = self._eval_backend
         self.map_metric = OnePassCocoMeanAveragePrecision(iou_type=iou_type, **kwargs)
         self.map_metric_train = OnePassCocoMeanAveragePrecision(iou_type=iou_type, **kwargs)
         # Separate metric for the EMA model.  Created deterministically on EVERY rank in
@@ -327,6 +340,7 @@ class COCOEvalCallback(Callback):
         self._f1_local = init_matching_accumulator()
         self._reset_keypoint_split("val")
         self._reset_keypoint_split("val_ema")
+        self._reset_padding_filter(getattr(trainer, "val_dataloaders", None))
         self._prepare_ema_metric(trainer)
 
     def on_test_epoch_start(self, trainer: Any, pl_module: Any) -> None:
@@ -345,6 +359,7 @@ class COCOEvalCallback(Callback):
         self.map_metric.reset()
         self._f1_local = init_matching_accumulator()
         self._reset_keypoint_split("test")
+        self._reset_padding_filter(getattr(trainer, "test_dataloaders", None))
         self._prepare_ema_metric(trainer)
 
     def on_train_batch_end(
@@ -371,6 +386,7 @@ class COCOEvalCallback(Callback):
         if not isinstance(outputs, dict) or "results" not in outputs or "targets" not in outputs:
             return
 
+        self._sync_xla_metric_inputs(pl_module)
         preds: list[dict[str, Tensor]] = self._convert_preds(outputs["results"])
         # preds omitted: training pred_masks is a sparse dict lacking "masks", so passing it here is inert.
         targets = self._convert_targets(outputs["targets"])
@@ -464,10 +480,21 @@ class COCOEvalCallback(Callback):
             outputs: Return value of ``validation_step``.
             batch: The device-transferred batch ``(samples, targets)``.
             batch_idx: Batch index within the validation epoch.
-            dataloader_idx: Index of the validation dataloader (unused here).
+            dataloader_idx: Index selecting the validation loader's padding rule.
         """
         if not isinstance(outputs, Mapping):
             return
+        batch_targets = outputs["targets"]
+        keep = self._next_real_sample_mask(len(batch_targets), dataloader_idx)
+        if not all(keep):
+            # A batch that is padding through and through (a split smaller than world_size) still flows on as
+            # empty lists: the accumulators record the update, so this rank votes like every other in the
+            # epoch-end collectives instead of sitting them out and stalling or vetoing the ranks that have data.
+            outputs = {
+                "results": [item for item, real in zip(outputs["results"], keep) if real],
+                "targets": [item for item, real in zip(batch_targets, keep) if real],
+            }
+        self._sync_xla_metric_inputs(pl_module)
         preds: list[dict[str, Tensor]] = self._convert_preds(outputs["results"])
         targets = self._convert_targets(outputs["targets"], preds if self._use_segm_metrics else None)
         # ema_cb._average_model availability is rank-invariant (EMA updates fire on the same
@@ -498,12 +525,17 @@ class COCOEvalCallback(Callback):
         # pass would be pure duplicate compute (#416) — the ~3-3.5%-of-epoch saving PR12 claims.
         if self._eval_base_model and ema_cb is not None and ema_inner is not None and self.map_metric_ema is not None:
             samples, _ = batch
-            orig_sizes = torch.stack([t["orig_size"] for t in outputs["targets"]]).to(pl_module.device)
+            # The forward runs on the whole batch (padding included) so the orig_size row count matches; the
+            # postprocessed results are then trimmed with the same mask as the primary track.
+            orig_sizes = torch.stack([t["orig_size"] for t in batch_targets]).to(pl_module.device)
             ema_underlying = ema_inner.model
             with torch.no_grad():
                 ema_underlying.eval()  # AveragedModel deepcopy is not managed by PTL
                 ema_outputs = ema_underlying(samples)
                 ema_results = pl_module.postprocess(ema_outputs, orig_sizes)
+            if not all(keep):
+                ema_results = [item for item, real in zip(ema_results, keep) if real]
+            self._sync_xla_metric_inputs(pl_module)
             ema_preds = self._convert_preds(ema_results)
             # Outside segmentation the conversion has no prediction-dependent input, so redoing it here would
             # recompute the same boxes and repeat the same orig_size host transfer for every validation batch.
@@ -560,10 +592,19 @@ class COCOEvalCallback(Callback):
             outputs: Return value of ``test_step``.
             batch: Raw batch (unused here).
             batch_idx: Batch index within the test epoch.
-            dataloader_idx: Index of the test dataloader (unused here).
+            dataloader_idx: Index selecting the test loader's padding rule.
         """
         if not isinstance(outputs, Mapping):
             return
+        keep = self._next_real_sample_mask(len(outputs["targets"]), dataloader_idx)
+        if not all(keep):
+            # Same as the validation hook: an all-padding batch flows on as empty lists so every rank stays a
+            # participant in the epoch-end collectives.
+            outputs = {
+                "results": [item for item, real in zip(outputs["results"], keep) if real],
+                "targets": [item for item, real in zip(outputs["targets"], keep) if real],
+            }
+        self._sync_xla_metric_inputs(pl_module)
         preds: list[dict[str, Tensor]] = self._convert_preds(outputs["results"])
         targets = self._convert_targets(outputs["targets"], preds if self._use_segm_metrics else None)
 
@@ -588,6 +629,66 @@ class COCOEvalCallback(Callback):
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _reset_padding_filter(self, dataloaders: Any) -> None:
+        """Derive this epoch's DistributedSampler padding rule from the evaluation loader and reset the counter.
+
+        Lightning replaces the evaluation loader's ``SequentialSampler`` with a ``DistributedSampler`` that pads the
+        index list to a multiple of ``world_size`` by repeating the leading indices, so up to ``world_size - 1``
+        images are forwarded twice per epoch. Rank ``r`` receives global positions ``r, r + W, r + 2W, ...`` in order
+        (``shuffle=False``), and a position at or past the dataset length is such a repeat. The forward still runs
+        on those samples (keeping every rank's batch count equal, which the epoch-end collectives rely on); only the
+        metric accumulators skip them, so each image is scored exactly once across ranks.
+
+        Args:
+            dataloaders: ``trainer.val_dataloaders`` or ``trainer.test_dataloaders`` (a loader or a list of them).
+        """
+        self._eval_samples_seen = {}
+        self._eval_padding = {}
+        loaders = dataloaders if isinstance(dataloaders, (list, tuple)) else [dataloaders]
+        for dataloader_idx, loader in enumerate(loaders):
+            sampler = getattr(loader, "sampler", None)
+            if not isinstance(sampler, DistributedSampler) or sampler.shuffle or sampler.drop_last:
+                continue
+            dataset_len = len(sampler.dataset)  # type: ignore[arg-type]
+            if sampler.total_size > dataset_len:
+                self._eval_padding[dataloader_idx] = (sampler.rank, sampler.num_replicas, dataset_len)
+
+    def _next_real_sample_mask(self, count: int, dataloader_idx: int) -> list[bool]:
+        """Return, for the next ``count`` samples on this rank, whether each is a real image rather than padding.
+
+        Args:
+            count: Number of samples in the batch being accumulated.
+            dataloader_idx: Index selecting the evaluation loader's independent sample position and sampler rule.
+
+        Returns:
+            One flag per sample, in batch order; all ``True`` when the split is not padded.
+        """
+        first = self._eval_samples_seen.get(dataloader_idx, 0)
+        self._eval_samples_seen[dataloader_idx] = first + count
+        padding = self._eval_padding.get(dataloader_idx)
+        if padding is None:
+            return [True] * count
+        rank, num_replicas, dataset_len = padding
+        return [rank + (first + offset) * num_replicas < dataset_len for offset in range(count)]
+
+    @staticmethod
+    def _sync_xla_metric_inputs(pl_module: Any) -> None:
+        """Materialize all live XLA outputs before metric code starts reading individual tensors on the host.
+
+        COCO accumulation keeps CPU-owned state, and target conversion, mAP, F1, and keypoint paths each read
+        different leaves from the same lazy evaluation graph. Without one shared boundary, the first ``.tolist()``
+        or ``.cpu()`` compiles only the requested leaf; later reads then compile overlapping graph fragments. A
+        single XLA step boundary makes those reads transfers from one materialized result instead.
+
+        Args:
+            pl_module: Lightning module supplying the active device.
+        """
+        if getattr(getattr(pl_module, "device", None), "type", None) != "xla":
+            return
+        import torch_xla  # type: ignore[import-not-found]
+
+        torch_xla.sync(wait=True)
 
     def _compute_and_log_ema_metrics(
         self, trainer: Any, pl_module: Any, split: str, pfx: str, mar_key: str
@@ -975,7 +1076,7 @@ class COCOEvalCallback(Callback):
                 iou_type=ema_iou_type,
                 class_metrics=self._log_per_class_metrics,
                 max_detection_thresholds=[1, 10, self._max_dets],
-                backend="faster_coco_eval",
+                backend=self._eval_backend,
                 sync_on_compute=False,  # we merge state across ranks ourselves (see map_metric in setup)
             )
         else:
@@ -1092,7 +1193,9 @@ class COCOEvalCallback(Callback):
                 "keypoints": result["keypoints"].detach().cpu(),
             }
 
-        if not predictions:
+        # An all-padding batch (see the DistributedSampler filter) arrives with empty results: register the empty
+        # update so this rank's metric reports updates and its epoch-end vote does not silence the other ranks.
+        if not predictions and results:
             return
         metric.update(predictions)
 

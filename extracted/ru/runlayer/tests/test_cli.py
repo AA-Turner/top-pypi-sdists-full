@@ -393,7 +393,7 @@ def test_run_skips_login_when_secret_is_passed(tmp_path: Path):
     proxy_class.return_value.add_middleware.assert_called_once()
 
 
-def test_run_stdio_inherits_parent_env_when_transport_env_missing(tmp_path: Path):
+def test_run_stdio_child_env_is_minimal_when_transport_env_missing(tmp_path: Path):
     server_details = SimpleNamespace(
         name="Test Server",
         transport_type="stdio",
@@ -405,50 +405,9 @@ def test_run_stdio_inherits_parent_env_when_transport_env_missing(tmp_path: Path
     )
 
     with (
-        patch.dict(os.environ, {"TEST_FOO": "from-shell"}, clear=False),
-        patch("runlayer_cli.config.load_config", return_value=Config()),
-        patch("runlayer_cli.main.setup_logging", return_value=tmp_path / "run.log"),
-        patch("runlayer_cli.main.RunlayerClient") as client_class,
-        patch("runlayer_cli.main.StdioTransport") as stdio_transport,
-        patch("runlayer_cli.main.ProxyClient"),
-        patch("runlayer_cli.main.FastMCPProxy"),
-        patch("runlayer_cli.main.anyio.run"),
-    ):
-        client_class.return_value.get_server_details.return_value = server_details
-
-        result = runner.invoke(
-            app,
-            [
-                "run",
-                "test-uuid",
-                "--host",
-                "https://target.runlayer.com",
-                "--secret",
-                "rl_direct_secret",
-            ],
-        )
-
-    assert result.exit_code == 0
-    assert stdio_transport.call_args.kwargs["env"]["TEST_FOO"] == "from-shell"
-
-
-def test_run_stdio_transport_env_overrides_parent_env(tmp_path: Path):
-    server_details = SimpleNamespace(
-        name="Test Server",
-        transport_type="stdio",
-        url="echo",
-        transport_config={
-            "env": {"TEST_BAR": "from-config", "TEST_BAZ": "config-only"}
-        },
-        sync_required=False,
-        catalog_entry_name=None,
-        identity_forward=None,
-    )
-
-    with (
         patch.dict(
             os.environ,
-            {"TEST_FOO": "from-shell", "TEST_BAR": "from-shell"},
+            {"TEST_FOO": "from-shell", "HTTPS_PROXY": "http://proxy.corp:3128"},
             clear=False,
         ),
         patch("runlayer_cli.config.load_config", return_value=Config()),
@@ -475,8 +434,57 @@ def test_run_stdio_transport_env_overrides_parent_env(tmp_path: Path):
 
     assert result.exit_code == 0
     env = stdio_transport.call_args.kwargs["env"]
-    assert env["TEST_FOO"] == "from-shell"
-    assert env["TEST_BAR"] == "from-config"
+    # Only the proxy/TLS/locale allowlist is inherited; arbitrary parent vars
+    # (which is where the AI client's cloud credentials live) are not.
+    assert env["HTTPS_PROXY"] == "http://proxy.corp:3128"
+    assert "TEST_FOO" not in env
+
+
+def test_run_stdio_transport_env_overrides_inherited_env(tmp_path: Path):
+    server_details = SimpleNamespace(
+        name="Test Server",
+        transport_type="stdio",
+        url="echo",
+        transport_config={
+            "env": {"HTTPS_PROXY": "http://from-config:8080", "TEST_BAZ": "config-only"}
+        },
+        sync_required=False,
+        catalog_entry_name=None,
+        identity_forward=None,
+    )
+
+    with (
+        patch.dict(
+            os.environ,
+            {"TEST_FOO": "from-shell", "HTTPS_PROXY": "http://from-shell:3128"},
+            clear=False,
+        ),
+        patch("runlayer_cli.config.load_config", return_value=Config()),
+        patch("runlayer_cli.main.setup_logging", return_value=tmp_path / "run.log"),
+        patch("runlayer_cli.main.RunlayerClient") as client_class,
+        patch("runlayer_cli.main.StdioTransport") as stdio_transport,
+        patch("runlayer_cli.main.ProxyClient"),
+        patch("runlayer_cli.main.FastMCPProxy"),
+        patch("runlayer_cli.main.anyio.run"),
+    ):
+        client_class.return_value.get_server_details.return_value = server_details
+
+        result = runner.invoke(
+            app,
+            [
+                "run",
+                "test-uuid",
+                "--host",
+                "https://target.runlayer.com",
+                "--secret",
+                "rl_direct_secret",
+            ],
+        )
+
+    assert result.exit_code == 0
+    env = stdio_transport.call_args.kwargs["env"]
+    assert "TEST_FOO" not in env
+    assert env["HTTPS_PROXY"] == "http://from-config:8080"
     assert env["TEST_BAZ"] == "config-only"
 
 
@@ -1279,6 +1287,9 @@ def test_scan_with_servers_finishes_with_container_health_detect_checkin(
             unsupported=[],
             failed_submissions=[],
             backend_incomplete=[],
+            manifest_superseded=[],
+            manifest_regressed=[],
+            positives_superseded=[],
             exit_code=0,
         )
 
@@ -1309,6 +1320,153 @@ def test_scan_with_servers_finishes_with_container_health_detect_checkin(
     assert "Scan complete" in strip_ansi(result.output)
     _assert_detect_checkin_built_for(mock_detect, client, scan_result)
     assert calls == ["mcp", "detect"]
+
+
+def test_scan_reports_superseded_manifest_without_failing(tmp_path: Path):
+    scan_result = _scan_result(servers=1)
+    client = _scan_submission_client()
+    submission = SimpleNamespace(
+        response={
+            "servers_processed": 1,
+            "shadow_servers_found": 0,
+            "managed_servers_matched": 0,
+        },
+        unsupported=[],
+        failed_submissions=[],
+        backend_incomplete=[],
+        manifest_superseded=[("plugin/device", "2026-09-23T10:00:00+00:00")],
+        manifest_regressed=[],
+        positives_superseded=[],
+        exit_code=0,
+    )
+
+    with (
+        patch(
+            "runlayer_cli.commands.scan.resolve_credentials",
+            return_value={"secret": "rl_org_test", "host": "http://localhost:3000"},
+        ),
+        patch(
+            "runlayer_cli.commands.scan.setup_logging",
+            return_value=tmp_path / "scan.log",
+        ),
+        patch("runlayer_cli.commands.scan.scan_all_clients", return_value=scan_result),
+        patch("runlayer_cli.commands.scan.RunlayerClient", return_value=client),
+        patch(
+            "runlayer_cli.commands.scan.submit_scan_results", return_value=submission
+        ),
+        patch("runlayer_cli.aiwatch_checkin.submit_detect_checkin"),
+        patch("runlayer_cli.aiwatch_checkin.submit_enforce_validation_checkin"),
+        patch("runlayer_cli.aiwatch_checkin.submit_sessions_validation_checkin"),
+    ):
+        result = runner.invoke(app, ["scan", "--no-projects"])
+
+    output = strip_ansi(result.output)
+    assert result.exit_code == 0, result.output
+    assert (
+        "Manifest superseded by a newer scan (started 2026-09-23T10:00:00+00:00) "
+        "for plugin/device" in output
+    )
+    assert "findings were accepted" not in output
+    assert "not recorded" not in output
+    assert "Submitted;" not in output
+
+
+@pytest.mark.parametrize("quiet", [False, True], ids=["default", "quiet"])
+def test_scan_warns_about_superseded_findings_without_failing(
+    tmp_path: Path, quiet: bool
+):
+    scan_result = _scan_result(servers=1)
+    client = _scan_submission_client()
+    submission = SimpleNamespace(
+        response={
+            "servers_processed": 1,
+            "shadow_servers_found": 0,
+            "managed_servers_matched": 0,
+        },
+        unsupported=[],
+        failed_submissions=[],
+        backend_incomplete=[],
+        manifest_superseded=[],
+        manifest_regressed=[],
+        positives_superseded=[("plugin", "github.copilot"), ("plugin", "ms.python")],
+        exit_code=0,
+    )
+
+    with (
+        patch(
+            "runlayer_cli.commands.scan.resolve_credentials",
+            return_value={"secret": "rl_org_test", "host": "http://localhost:3000"},
+        ),
+        patch(
+            "runlayer_cli.commands.scan.setup_logging",
+            return_value=tmp_path / "scan.log",
+        ),
+        patch("runlayer_cli.commands.scan.scan_all_clients", return_value=scan_result),
+        patch("runlayer_cli.commands.scan.RunlayerClient", return_value=client),
+        patch(
+            "runlayer_cli.commands.scan.submit_scan_results", return_value=submission
+        ),
+        patch("runlayer_cli.aiwatch_checkin.submit_detect_checkin"),
+        patch("runlayer_cli.aiwatch_checkin.submit_enforce_validation_checkin"),
+        patch("runlayer_cli.aiwatch_checkin.submit_sessions_validation_checkin"),
+    ):
+        args = ["scan", "--no-projects"] + (["--quiet"] if quiet else [])
+        result = runner.invoke(app, args)
+
+    output = strip_ansi(result.output)
+    assert result.exit_code == 0, result.output
+    warning = (
+        "2 device-scoped findings superseded by a newer scan on this device "
+        "and not recorded: github.copilot, ms.python"
+    )
+    assert (warning in output) is (not quiet)
+
+
+def test_scan_warns_and_fails_on_regressed_manifest(tmp_path: Path):
+    scan_result = _scan_result(servers=1)
+    client = _scan_submission_client()
+    submission = SimpleNamespace(
+        response={
+            "servers_processed": 1,
+            "shadow_servers_found": 0,
+            "managed_servers_matched": 0,
+        },
+        unsupported=[],
+        failed_submissions=["scan manifest"],
+        backend_incomplete=[],
+        manifest_superseded=[],
+        manifest_regressed=[("plugin/device", "2026-09-23T10:00:00+00:00")],
+        positives_superseded=[],
+        exit_code=3,
+    )
+
+    with (
+        patch(
+            "runlayer_cli.commands.scan.resolve_credentials",
+            return_value={"secret": "rl_org_test", "host": "http://localhost:3000"},
+        ),
+        patch(
+            "runlayer_cli.commands.scan.setup_logging",
+            return_value=tmp_path / "scan.log",
+        ),
+        patch("runlayer_cli.commands.scan.scan_all_clients", return_value=scan_result),
+        patch("runlayer_cli.commands.scan.RunlayerClient", return_value=client),
+        patch(
+            "runlayer_cli.commands.scan.submit_scan_results", return_value=submission
+        ),
+        patch("runlayer_cli.aiwatch_checkin.submit_detect_checkin"),
+        patch("runlayer_cli.aiwatch_checkin.submit_enforce_validation_checkin"),
+        patch("runlayer_cli.aiwatch_checkin.submit_sessions_validation_checkin"),
+    ):
+        result = runner.invoke(app, ["scan", "--no-projects"])
+
+    output = strip_ansi(result.output)
+    assert result.exit_code == 3, result.output
+    assert (
+        "Scan manifest rejected: plugin/device predate the last accepted scan "
+        "(started 2026-09-23T10:00:00+00:00)" in output
+    )
+    assert "Manifest superseded" not in output
 
 
 def test_scan_empty_submission_uses_detect_checkin_for_liveness(tmp_path: Path):
@@ -1427,6 +1585,7 @@ def test_scan_continues_when_enforce_validation_checkin_fails(tmp_path: Path):
         scan_result,
         artifact_cache=None,
         failed_surfaces=ANY,
+        superseded=ANY,
     )
 
 
@@ -1481,6 +1640,7 @@ def test_scan_continues_when_detect_checkin_fails(tmp_path: Path):
         scan_result,
         artifact_cache=None,
         failed_surfaces=ANY,
+        superseded=ANY,
     )
 
 

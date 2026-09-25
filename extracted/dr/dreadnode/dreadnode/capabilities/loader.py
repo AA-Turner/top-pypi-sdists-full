@@ -9,10 +9,13 @@ See specs/capabilities/ for the canonical spec.
 
 from __future__ import annotations
 
+import importlib.abc
+import importlib.machinery
 import importlib.util
 import os
 import re
 import sys
+import threading
 import typing as t
 from pathlib import Path
 
@@ -34,6 +37,9 @@ from dreadnode.core.util import valid_version
 from dreadnode.packaging.manifest import CapabilityManifest
 from dreadnode.storage.storage import Storage
 
+if t.TYPE_CHECKING:
+    from types import CodeType, ModuleType
+
 MANIFEST_FILE = "capability.yaml"
 PROJECT_CAPABILITIES_RELATIVE_DIR = Path(".dreadnode") / "capabilities"
 CAPABILITY_DIRS_ENV = "DREADNODE_CAPABILITY_DIRS"
@@ -53,6 +59,8 @@ _RESERVED_WORKER_ENV_KEYS: frozenset[str] = frozenset(
         "DREADNODE_RUNTIME_ID",
     }
 )
+
+_PYTHON_MODULE_LOCK = threading.RLock()
 
 
 # ============================================================================
@@ -1173,25 +1181,159 @@ def _python_export_paths(
     return files
 
 
+class _CapabilitySourceLoader(importlib.machinery.SourceFileLoader):
+    def get_code(self, fullname: str) -> CodeType:
+        # Capability reload must see same-size edits even when mtime is unchanged.
+        filename = self.get_filename(fullname)
+        return self.source_to_code(self.get_data(filename), filename)
+
+
+class _CapabilityModuleFinder(importlib.abc.MetaPathFinder):
+    def find_spec(
+        self,
+        fullname: str,
+        path: t.Sequence[str] | None,
+        target: ModuleType | None = None,
+    ) -> importlib.machinery.ModuleSpec | None:
+        if not fullname.startswith(
+            tuple(
+                f"dreadnode.capabilities.{kind}." for kind in ("tool", "hook", "policy", "worker")
+            )
+        ):
+            return None
+        spec = importlib.machinery.PathFinder.find_spec(fullname, path, target)
+        if spec is not None and isinstance(spec.loader, importlib.machinery.SourceFileLoader):
+            spec.loader = _CapabilitySourceLoader(fullname, spec.loader.path)
+        return spec
+
+
+_CAPABILITY_MODULE_FINDER = _CapabilityModuleFinder()
+
+
 def _load_python_module(
     file_path: Path,
     capability_path: Path,
     capability_name: str,
     kind: str,
+    *,
+    reload_module: bool = False,
 ) -> t.Any:
+    # All discovery and worker-loading callers hold _PYTHON_MODULE_LOCK.
+    if _CAPABILITY_MODULE_FINDER not in sys.meta_path:
+        sys.meta_path.insert(0, _CAPABILITY_MODULE_FINDER)
     relative = file_path.resolve().relative_to(capability_path.resolve())
-    module_name = (
-        f"dreadnode.capabilities.{kind}."
-        f"{capability_name.replace('-', '_')}."
-        f"{str(relative.with_suffix('')).replace('/', '_').replace('-', '_')}"
-    )
+    namespace = f"dreadnode.capabilities.{kind}.{capability_name.replace('-', '_')}"
+    created_modules: list[str] = []
+    resolved_path = str(capability_path.resolve())
+    existing_package = sys.modules.get(namespace)
+    if (
+        existing_package is not None
+        and getattr(existing_package, "__dreadnode_capability_path__", None) != resolved_path
+    ):
+        _clear_python_namespace(capability_name, kind)
+
+    try:
+        _ensure_python_namespace(f"dreadnode.capabilities.{kind}", created_modules)
+        package = _ensure_python_namespace(namespace, created_modules)
+        package.__dict__["__dreadnode_capability_path__"] = resolved_path
+
+        package_name = namespace
+        package_path = capability_path
+        for part in relative.parent.parts:
+            package_path /= part
+            package_name = f"{package_name}.{part.replace('-', '_')}"
+            _ensure_python_package(package_name, package_path, created_modules)
+
+        module_name = f"{package_name}.{relative.stem.replace('-', '_')}"
+        existing = sys.modules.get(module_name)
+        if existing is not None and not reload_module:
+            return existing
+
+        module = _exec_python_module(module_name, file_path)
+        created_modules.append(module_name)
+    except Exception:
+        for module_name in reversed(created_modules):
+            sys.modules.pop(module_name, None)
+        raise
+    else:
+        return module
+
+
+def _exec_python_module(module_name: str, file_path: Path) -> t.Any:
     spec = importlib.util.spec_from_file_location(module_name, file_path)
     if spec is None or spec.loader is None:
         raise ImportError(f"Could not load module spec for {file_path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
-    spec.loader.exec_module(module)
+    try:
+        # Preserve the capability source's annotation semantics, not this module's future flags.
+        exec(  # noqa: S102 -- capability exports are executable Python modules.
+            compile(file_path.read_bytes(), str(file_path), "exec", dont_inherit=True),
+            module.__dict__,
+        )
+    except Exception:
+        sys.modules.pop(module_name, None)
+        raise
     return module
+
+
+def _ensure_python_package(
+    module_name: str,
+    package_path: Path,
+    created_modules: list[str],
+) -> t.Any:
+    existing = sys.modules.get(module_name)
+    if existing is not None:
+        return existing
+
+    init_path = package_path / "__init__.py"
+    if init_path.is_file():
+        spec = importlib.util.spec_from_file_location(
+            module_name,
+            init_path,
+            submodule_search_locations=[str(package_path)],
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load package spec for {init_path}")
+        package = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = package
+        created_modules.append(module_name)
+        exec(  # noqa: S102 -- capability packages are executable Python modules.
+            compile(init_path.read_bytes(), str(init_path), "exec", dont_inherit=True),
+            package.__dict__,
+        )
+        return package
+
+    spec = importlib.util.spec_from_loader(module_name, loader=None, is_package=True)
+    if spec is None:
+        raise ImportError(f"Could not create namespace package spec for {module_name}")
+    package = importlib.util.module_from_spec(spec)
+    package.__path__ = [str(package_path)]
+    sys.modules[module_name] = package
+    created_modules.append(module_name)
+    return package
+
+
+def _ensure_python_namespace(module_name: str, created_modules: list[str]) -> t.Any:
+    existing = sys.modules.get(module_name)
+    if existing is not None:
+        return existing
+
+    spec = importlib.util.spec_from_loader(module_name, loader=None, is_package=True)
+    if spec is None:
+        raise ImportError(f"Could not create namespace package spec for {module_name}")
+    package = importlib.util.module_from_spec(spec)
+    package.__path__ = []
+    sys.modules[module_name] = package
+    created_modules.append(module_name)
+    return package
+
+
+def _clear_python_namespace(capability_name: str, kind: str) -> None:
+    namespace = f"dreadnode.capabilities.{kind}.{capability_name.replace('-', '_')}"
+    for loaded_name in list(sys.modules):
+        if loaded_name == namespace or loaded_name.startswith(f"{namespace}."):
+            sys.modules.pop(loaded_name, None)
 
 
 def _instantiate_toolset(toolset_cls: type[t.Any]) -> t.Any | None:
@@ -1290,6 +1432,16 @@ def _collect_toolset_tools(
 
 
 def _discover_python_tools(
+    capability_path: Path,
+    manifest: CapabilityManifest,
+    component_health: list[dict[str, t.Any]],
+) -> list[t.Any]:
+    with _PYTHON_MODULE_LOCK:
+        _clear_python_namespace(manifest.name, "tool")
+        return _discover_python_tools_unlocked(capability_path, manifest, component_health)
+
+
+def _discover_python_tools_unlocked(
     capability_path: Path,
     manifest: CapabilityManifest,
     component_health: list[dict[str, t.Any]],
@@ -1436,6 +1588,16 @@ def _discover_python_hooks(
     manifest: CapabilityManifest,
     component_health: list[dict[str, t.Any]],
 ) -> list[t.Any]:
+    with _PYTHON_MODULE_LOCK:
+        _clear_python_namespace(manifest.name, "hook")
+        return _discover_python_hooks_unlocked(capability_path, manifest, component_health)
+
+
+def _discover_python_hooks_unlocked(
+    capability_path: Path,
+    manifest: CapabilityManifest,
+    component_health: list[dict[str, t.Any]],
+) -> list[t.Any]:
     """Discover Python hooks from exported hook files."""
     from dreadnode.core.hook import Hook
 
@@ -1524,6 +1686,16 @@ def _discover_python_hooks(
 
 
 def _discover_python_policies(
+    capability_path: Path,
+    manifest: CapabilityManifest,
+    component_health: list[dict[str, t.Any]],
+) -> list[t.Any]:
+    with _PYTHON_MODULE_LOCK:
+        _clear_python_namespace(manifest.name, "policy")
+        return _discover_python_policies_unlocked(capability_path, manifest, component_health)
+
+
+def _discover_python_policies_unlocked(
     capability_path: Path,
     manifest: CapabilityManifest,
     component_health: list[dict[str, t.Any]],
@@ -1702,6 +1874,12 @@ def _count_python_hook_files(
     return count
 
 
+def reset_worker_modules(capability_name: str) -> None:
+    """Reset shared worker imports before starting a new capability worker group."""
+    with _PYTHON_MODULE_LOCK:
+        _clear_python_namespace(capability_name, "worker")
+
+
 def load_worker_from_def(
     worker_def: WorkerDef,
     capability_path: Path,
@@ -1719,7 +1897,12 @@ def load_worker_from_def(
     """
     from dreadnode.capabilities.worker import Worker
 
-    module = _load_python_module(worker_def.path, capability_path, capability_name, "worker")
+    with _PYTHON_MODULE_LOCK:
+        # An individual restart must not invalidate imports held by live siblings.
+        # The lifecycle manager resets shared helpers once before starting the group.
+        module = _load_python_module(
+            worker_def.path, capability_path, capability_name, "worker", reload_module=True
+        )
 
     instances = [value for value in vars(module).values() if isinstance(value, Worker)]
     if len(instances) == 0:

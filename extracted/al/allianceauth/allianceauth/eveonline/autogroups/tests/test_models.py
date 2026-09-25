@@ -105,25 +105,28 @@ class AutogroupsConfigTestCase(TestCase):
 
         self.assertNotIn(group, self.member.groups.all())
 
-    # todo: this test case currently does not work, because it forces
-    # an exception during a transaction, which is not easily testable
-    # the production code itself should be fine though
-    # I therefore commented out the test case for now
-    """
     @patch('.models.EveAllianceInfo.objects.create_alliance')
-    def test_update_alliance_group_membership_no_alliance_model(
+    def test_update_alliance_group_membership_creates_missing_alliance(
         self,
         mock_create_alliance
     ):
-        def mock_create_alliance_side_effect(*args, **kwargs):
-            return EveAllianceInfo.objects.create(
-                alliance_id='3459',
-                alliance_name='alliance name',
-                alliance_ticker='alliance_ticker',
-                executor_corp_id='2345'
-            )
+        # The character's alliance is not yet in the database, so accessing the
+        # alliance property raises DoesNotExist and the membership update must
+        # create it via the race-safe get_or_create_esi() helper before
+        # assigning the group. This previously could not be tested because the
+        # create happened outside a savepoint; get_or_create_esi() fixes that.
+        created_alliance = EveAllianceInfo(
+            alliance_id='3459',
+            alliance_name='created alliance',
+            alliance_ticker='NEW',
+            executor_corp_id='2345',
+        )
 
-        mock_create_alliance.side_effect = mock_create_alliance_side_effect
+        def create_side_effect(*args, **kwargs):
+            created_alliance.save()
+            return created_alliance
+
+        mock_create_alliance.side_effect = create_side_effect
 
         obj = AutogroupsConfig.objects.create(alliance_groups=True)
         obj.states.add(AuthUtils.get_member_state())
@@ -134,7 +137,7 @@ class AutogroupsConfigTestCase(TestCase):
             corporation_name='test corp',
             corporation_ticker='tickr',
             alliance_id='3459',
-            alliance_name='alliance name',
+            alliance_name='created alliance',
         )
         self.member.profile.main_character = char
         self.member.profile.save()
@@ -142,10 +145,10 @@ class AutogroupsConfigTestCase(TestCase):
         # Act
         obj.update_alliance_group_membership(self.member)
 
-        group = obj.get_alliance_group(self.alliance)
-
-        self.assertNotIn(group, self.member.groups.all())
-    """
+        # The missing alliance was created and the group assigned.
+        mock_create_alliance.assert_called_once()
+        group = obj.get_alliance_group(created_alliance)
+        self.assertIn(group, self.member.groups.all())
 
     def test_update_corp_group_membership(self):
         obj = AutogroupsConfig.objects.create(corp_groups=True)

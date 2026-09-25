@@ -91,6 +91,7 @@ from . import (  # noqa: F401
     event_log,
     full_names,
     handlers,
+    handler_annotation,
     image_binding,
     resource_cache,
     load_object,
@@ -137,6 +138,8 @@ from . import captured_local_write  # noqa: F401
 from . import missing_return  # noqa: F401
 
 from . import platform_translation_shadow  # noqa: F401
+
+from . import sequential_calls  # noqa: F401
 
 from . import procedure_value  # noqa: F401
 

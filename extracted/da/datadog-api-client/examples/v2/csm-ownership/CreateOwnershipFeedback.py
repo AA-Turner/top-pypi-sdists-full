@@ -2,6 +2,7 @@
 Submit feedback on an ownership inference returns "Created" response
 """
 
+from os import environ
 from datadog_api_client import ApiClient, Configuration
 from datadog_api_client.v2.api.csm_ownership_api import CSMOwnershipApi
 from datadog_api_client.v2.model.ownership_feedback_action import OwnershipFeedbackAction
@@ -15,8 +16,6 @@ body = OwnershipFeedbackRequest(
     data=OwnershipFeedbackRequestData(
         attributes=OwnershipFeedbackRequestAttributes(
             action=OwnershipFeedbackAction.CONFIRM,
-            actor_handle="user@example.com",
-            actor_type="user",
             corrected_owner_handle="team-b",
             corrected_owner_type="team",
             inference_checksum="abc123",
@@ -27,6 +26,7 @@ body = OwnershipFeedbackRequest(
 )
 
 configuration = Configuration()
+configuration.access_token = environ["DD_BEARER_TOKEN"]
 configuration.unstable_operations["create_ownership_feedback"] = True
 with ApiClient(configuration) as api_client:
     api_instance = CSMOwnershipApi(api_client)

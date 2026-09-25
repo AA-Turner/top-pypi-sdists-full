@@ -1206,6 +1206,39 @@ class TestGzipBackendFallback:
         monkeypatch.delenv("RUNLAYER_HOOK_GZIP", raising=False)
         return calls
 
+    def test_recovered_gzip_rejection_keeps_the_flow_ok(self, monkeypatch):
+        """The 422 is recovered by the identity retry, so the hook flow must
+        not be marked errored: HookClientFailures alerts count status!="ok"
+        flows as denies the user experienced."""
+        self._client(monkeypatch, [422, 200])
+        summaries: list[dict] = []
+        flow_trace.enable_flow_tracing(summaries.append)
+        body = json.dumps({"transcript": "x" * (32 * 1024)})
+
+        with flow_trace.flow("cli.hook_pre_tool"):
+            relay._post("https://example.invalid", "sk", body, target="tool-pre")
+
+        (summary,) = summaries
+        assert summary["status"] == "ok"
+        assert summary.get("error_category") is None
+
+    def test_swallowed_event_post_failure_keeps_the_flow_ok(self, monkeypatch):
+        """``forward_event`` is fire-and-forget: a 503 on it is swallowed and
+        the allowed tool call's flow stays ok."""
+        self._client(monkeypatch, [503])
+        monkeypatch.setattr(
+            relay, "_load_credentials", lambda: ("https://example.invalid", "sk")
+        )
+        summaries: list[dict] = []
+        flow_trace.enable_flow_tracing(summaries.append)
+
+        with flow_trace.flow("cli.hook_post_tool"):
+            relay.forward_event("claude_code", "PostToolUse", {"tool_name": "Bash"})
+
+        (summary,) = summaries
+        assert summary["status"] == "ok"
+        assert summary.get("error_category") is None
+
     def test_gzip_rejection_falls_back_to_identity_and_succeeds(self, monkeypatch):
         calls = self._client(monkeypatch, [422, 200])
         body = json.dumps({"transcript": "x" * (32 * 1024)})

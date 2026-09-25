@@ -59,6 +59,9 @@ test = [
     'sybil',
     'protobuf'
 ]
+universal-core = [
+    'snowflake-connector-python>=5.0.0a0,!=5.0.0',
+]
 
 # [project.urls]
 # 'Home Page' = 'https://docs.snowflake.com/en/developer-guide/snowpark/index'
@@ -116,7 +119,7 @@ features = ["test"]
 [tool.hatch.envs.ud.scripts]
 check = [
     'pip uninstall --yes snowflake-connector-python',
-    'pip install "git+https://github.com/snowflakedb/universal-driver@{env:UD_BRANCH:main}#subdirectory=python"',
+    'pip install "git+https://github.com/snowflakedb/drivers@{env:UD_BRANCH:main}#subdirectory=python"',
     'pytest -n 16 -m "not snowpark and not flaky" {args:tests}',
 ]
 

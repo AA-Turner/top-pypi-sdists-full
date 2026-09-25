@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-graphs
-Version: 10.8.11
+Version: 10.8.12
 Summary: passagemath: Graphs, posets, hypergraphs, designs, abstract complexes, combinatorial polyhedra, abelian sandpiles, quivers
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -35,71 +35,71 @@ Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals>=1.12.6; python_version >= "3.14"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator<0.2
-Requires-Dist: passagemath-categories~=10.8.11.0
-Requires-Dist: passagemath-conf~=10.8.11.0; sys_platform != "win32"
-Requires-Dist: passagemath-environment~=10.8.11.0
+Requires-Dist: passagemath-categories~=10.8.12.0
+Requires-Dist: passagemath-conf~=10.8.12.0; sys_platform != "win32"
+Requires-Dist: passagemath-environment~=10.8.12.0
 Provides-Extra: test
-Requires-Dist: passagemath-repl~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.8.12.0; extra == "test"
 Provides-Extra: benzene
-Requires-Dist: passagemath-benzene~=10.8.11.0; extra == "benzene"
+Requires-Dist: passagemath-benzene~=10.8.12.0; extra == "benzene"
 Provides-Extra: bliss
-Requires-Dist: passagemath-bliss~=10.8.11.0; extra == "bliss"
+Requires-Dist: passagemath-bliss~=10.8.12.0; extra == "bliss"
 Provides-Extra: buckygen
-Requires-Dist: passagemath-buckygen~=10.8.11.0; extra == "buckygen"
+Requires-Dist: passagemath-buckygen~=10.8.12.0; extra == "buckygen"
 Provides-Extra: cliquer
-Requires-Dist: passagemath-cliquer~=10.8.11.0; extra == "cliquer"
+Requires-Dist: passagemath-cliquer~=10.8.12.0; extra == "cliquer"
 Provides-Extra: cmr
-Requires-Dist: passagemath-cmr~=10.8.11.0; extra == "cmr"
+Requires-Dist: passagemath-cmr~=10.8.12.0; extra == "cmr"
 Provides-Extra: gap
-Requires-Dist: passagemath-gap~=10.8.11.0; extra == "gap"
+Requires-Dist: passagemath-gap~=10.8.12.0; extra == "gap"
 Provides-Extra: graphviz
-Requires-Dist: passagemath-graphviz~=10.8.11.0; extra == "graphviz"
+Requires-Dist: passagemath-graphviz~=10.8.12.0; extra == "graphviz"
 Provides-Extra: igraph
 Requires-Dist: igraph; extra == "igraph"
 Provides-Extra: khoca
 Requires-Dist: khoca; extra == "khoca"
 Provides-Extra: mcqd
-Requires-Dist: passagemath-mcqd~=10.8.11.0; extra == "mcqd"
+Requires-Dist: passagemath-mcqd~=10.8.12.0; extra == "mcqd"
 Provides-Extra: nauty
-Requires-Dist: passagemath-nauty~=10.8.11.0; extra == "nauty"
+Requires-Dist: passagemath-nauty~=10.8.12.0; extra == "nauty"
 Provides-Extra: networkx
 Requires-Dist: networkx>=3.1; extra == "networkx"
 Provides-Extra: pari
-Requires-Dist: passagemath-pari~=10.8.11.0; extra == "pari"
+Requires-Dist: passagemath-pari~=10.8.12.0; extra == "pari"
 Provides-Extra: planarity
-Requires-Dist: passagemath-planarity~=10.8.11.0; extra == "planarity"
+Requires-Dist: passagemath-planarity~=10.8.12.0; extra == "planarity"
 Provides-Extra: plantri
-Requires-Dist: passagemath-plantri~=10.8.11.0; extra == "plantri"
+Requires-Dist: passagemath-plantri~=10.8.12.0; extra == "plantri"
 Provides-Extra: rankwidth
-Requires-Dist: passagemath-rankwidth~=10.8.11.0; extra == "rankwidth"
+Requires-Dist: passagemath-rankwidth~=10.8.12.0; extra == "rankwidth"
 Provides-Extra: regina
 Requires-Dist: regina; extra == "regina"
 Provides-Extra: rw
 Requires-Dist: passagemath-graphs[rankwidth]; extra == "rw"
 Provides-Extra: tdlib
-Requires-Dist: passagemath-tdlib~=10.8.11.0; extra == "tdlib"
+Requires-Dist: passagemath-tdlib~=10.8.12.0; extra == "tdlib"
 Provides-Extra: combinat
-Requires-Dist: passagemath-combinat~=10.8.11.0; extra == "combinat"
+Requires-Dist: passagemath-combinat~=10.8.12.0; extra == "combinat"
 Provides-Extra: databases
 Provides-Extra: editor
 Requires-Dist: phitigra>=0.2.6; extra == "editor"
 Provides-Extra: groups
-Requires-Dist: passagemath-groups~=10.8.11.0; extra == "groups"
+Requires-Dist: passagemath-groups~=10.8.12.0; extra == "groups"
 Requires-Dist: passagemath-graphs[nauty]; extra == "groups"
 Provides-Extra: homology
-Requires-Dist: passagemath-modules~=10.8.11.0; extra == "homology"
+Requires-Dist: passagemath-modules~=10.8.12.0; extra == "homology"
 Provides-Extra: mip
-Requires-Dist: passagemath-polyhedra~=10.8.11.0; extra == "mip"
+Requires-Dist: passagemath-polyhedra~=10.8.12.0; extra == "mip"
 Provides-Extra: modules
-Requires-Dist: passagemath-modules~=10.8.11.0; extra == "modules"
+Requires-Dist: passagemath-modules~=10.8.12.0; extra == "modules"
 Provides-Extra: plot
-Requires-Dist: passagemath-plot~=10.8.11.0; extra == "plot"
+Requires-Dist: passagemath-plot~=10.8.12.0; extra == "plot"
 Provides-Extra: polyhedra
-Requires-Dist: passagemath-polyhedra~=10.8.11.0; extra == "polyhedra"
+Requires-Dist: passagemath-polyhedra~=10.8.12.0; extra == "polyhedra"
 Provides-Extra: repl
-Requires-Dist: passagemath-repl~=10.8.11.0; extra == "repl"
+Requires-Dist: passagemath-repl~=10.8.12.0; extra == "repl"
 Provides-Extra: sat
-Requires-Dist: passagemath-combinat~=10.8.11.0; extra == "sat"
+Requires-Dist: passagemath-combinat~=10.8.12.0; extra == "sat"
 Provides-Extra: standard
 Requires-Dist: passagemath-graphs[cliquer,combinat,databases,groups,mip,modules,planarity,polyhedra,rankwidth,repl]; extra == "standard"
 Requires-Dist: passagemath-plot[tachyon]; extra == "standard"

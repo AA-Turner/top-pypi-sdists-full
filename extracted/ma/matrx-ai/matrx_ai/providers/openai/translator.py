@@ -25,7 +25,7 @@ from matrx_ai.config.tools_config import ToolCallContent
 from matrx_ai.config.unified_content import TextContent, ThinkingContent
 from matrx_ai.providers.base_translator import BaseTranslator
 from matrx_ai.providers.cache_guard import normalize_openai_prompt_cache_key
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
 # ============================================================================
 # OPENAI TRANSLATOR
@@ -108,8 +108,11 @@ class OpenAITranslator(BaseTranslator):
                 text_obj["format"] = text_format
 
         # Tool choice
-        if config.tool_choice:
-            openai_request["tool_choice"] = config.tool_choice
+        tool_choice = resolve_structural_setting(
+            config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+        )
+        if tool_choice:
+            openai_request["tool_choice"] = tool_choice
 
         # Parallel tool calls
         if not config.parallel_tool_calls:

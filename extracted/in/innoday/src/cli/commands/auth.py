@@ -231,9 +231,8 @@ class AuthCommands:
 
         **Through `InnoDayAPIClient`, like every other command.** This handler
         used to build its own `httpx` client carrying only the Bearer header, so
-        against a deployment with `TEAM_ACCESS_SECRET` set -- which is the
-        deployed API, and therefore in practice always -- every call answered
-        `401 Missing or invalid X-Team-Secret header`. Listing and revoking your
+        while the team secret was a global gate (until PF-455) every call
+        answered `401 Missing or invalid X-Team-Secret header`. Listing and revoking your
         own tokens could not be done from the CLI at all. Its sibling
         `_handle_identity` attaches the secret by hand a few lines below; the
         client attaches it for you, which is the difference between a rule to

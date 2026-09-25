@@ -24,6 +24,34 @@ RETRYABLE_INFRA_GUARDRAILS = (
 
 DEFAULT_USER_MSG = "Action blocked by organization security policy"
 
+# One copy of the policy-deny framing for every builder below: the words
+# "security policy (enforced by Runlayer)" are only true when Runlayer (or the
+# organization's policy it applies) made the decision. Network rejections use
+# _NETWORK_BLOCK_HEADER instead.
+_SECURITY_VIOLATION_HEADER = (
+    "# Security Violation Detected\n"
+    "\nYour organization's security policy (enforced by Runlayer) has blocked this operation.\n"
+)
+
+# A 401/403 answered by something in front of Runlayer (WAF IP allowlist,
+# ALB, corporate proxy). Runlayer never saw the request, so the framing must
+# not claim a policy decision, and the remedy is the device's network path.
+_NETWORK_BLOCK_HEADER = (
+    "# Runlayer Verification Blocked by Network\n"
+    "\nRunlayer could not verify this action: a network device between this "
+    "machine and Runlayer rejected the verification request before it "
+    "reached Runlayer. This is not a Runlayer policy decision.\n"
+)
+
+_NETWORK_AGENT_GUARDRAILS = (
+    "**If you are an AI Agent:**\n"
+    "- Tell the user this action was not checked because the verification request was rejected by their network, not by a Runlayer policy.\n"
+    "- Do not suggest modifying, bypassing, or disabling the Runlayer hook or security configuration.\n"
+    "- Do not suggest checking or editing hook files, settings.json, or any security configuration.\n"
+    "- Do not retry this action or attempt alternative approaches to achieve the same result until the user has fixed their network path."
+)
+
+
 # Monitor-mode one-liner (hourly, per device) when the API rejects this
 # device's credentials: says what stopped (monitoring), what did not (the
 # user's work), and who owns the fix.
@@ -211,6 +239,63 @@ def _credential_rejected_message(
     )
 
 
+def _runlayer_response_lines(failure: "FailureContext") -> str:
+    """Support-facing lines for a response classified as Runlayer's own: the
+    backend's ``detail`` (quoted — it is server text placed in front of an
+    agent) and the request id that finds the server log line. Empty when the
+    response is an intermediary's or unclassified."""
+    lines = []
+    if failure.origin == "runlayer":
+        if failure.detail:
+            lines.append(f'- Detail: "{failure.detail}"')
+        if failure.request_id:
+            lines.append(f"- Request ID: {failure.request_id}")
+    return "\n".join(lines)
+
+
+def _network_rejection_message(
+    verification_phrase: str,
+    *,
+    failure: "FailureContext",
+    tool_name: str,
+    hostname: str | None,
+) -> tuple[str, str]:
+    status = failure.status_code
+    parts = [
+        _NETWORK_BLOCK_HEADER,
+        "\n**What happened:**",
+        "\n- Block type: Network",
+    ]
+    if tool_name:
+        parts.append(f"\n- Tool: {tool_name}")
+    if hostname:
+        parts.append(f"\n- Device hostname: {hostname}")
+    parts.append(
+        f"\n- Reason: The {verification_phrase} request was answered with HTTP "
+        f"{status} by a network device on this machine's path to Runlayer "
+        "(a firewall, IP allowlist, VPN or zero-trust gateway, or proxy), not "
+        "by the Runlayer API — the response carried none of Runlayer's "
+        "response markers. Runlayer never received the request, so the "
+        "action could not be verified. Unverified actions are blocked "
+        "(fail-closed)."
+    )
+    parts.append(f"\n\n{_NETWORK_AGENT_GUARDRAILS}\n")
+    parts.append(
+        "\n**What to do:**\n"
+        "Check that this machine's VPN or zero-trust client is connected and "
+        "that the Runlayer host is routed through it (a source-IP allowlist "
+        "rejects traffic from home, mobile, or other non-approved networks). "
+        "Then retry. If it keeps happening on an approved network, contact "
+        "your IT team and quote this machine's hostname; your Runlayer "
+        "administrator can confirm which network ranges are allowed."
+    )
+    user = (
+        f"Runlayer verification blocked by your network (HTTP {status}) — "
+        "check your VPN or zero-trust client and retry"
+    )
+    return user, "".join(parts)
+
+
 def _unreachable_message(
     verification_phrase: str,
     *,
@@ -222,11 +307,19 @@ def _unreachable_message(
     """Shared assembly for the two unreachable-API builders (single source so
     wording/field changes cannot drift between the MCP and local-tool paths)."""
     if failure is not None and failure.kind == "http":
-        # Any HTTP response means something answered — an unreachable framing
-        # would misdirect. 401 is a credential answer from the API itself,
-        # 407 comes from a proxy on the path, 5xx/429 mean the service could
-        # not process the request right now (retryable), and any other 4xx
-        # (403 = key lacks a role or a proxy/WAF said no) is a rejection.
+        # Any HTTP response means something answered — an unreachable/outage
+        # framing would misdirect (403 = key lacks a role or a proxy/WAF said
+        # no, 429 = throttled, 5xx = server error). A 401/403 the relay
+        # attributed to an intermediary is a network rejection; only
+        # Runlayer's own 401 is a credential answer and gets credential
+        # wording (origin None = unclassified, treated as Runlayer).
+        if failure.is_network_rejection:
+            return _network_rejection_message(
+                verification_phrase,
+                failure=failure,
+                tool_name=tool_name,
+                hostname=hostname,
+            )
         if failure.status_code == CREDENTIAL_REJECTED_STATUS:
             return _credential_rejected_message(
                 verification_phrase,
@@ -278,6 +371,7 @@ def _unreachable_message(
                 "this is not a connectivity problem. Unverified actions are "
                 "blocked (fail-closed).",
                 tool_name=tool_name,
+                extra_lines=_runlayer_response_lines(failure),
                 footer="If this keeps happening, contact your Runlayer administrator.",
             ),
         )
@@ -313,8 +407,7 @@ def _violation(
     extra_lines: str = "",
 ) -> str:
     parts = [
-        "# Security Violation Detected\n",
-        "\nYour organization's security policy (enforced by Runlayer) has blocked this operation.\n",
+        _SECURITY_VIOLATION_HEADER,
         "\n**What happened:**",
         f"\n- Violation type: {violation_type}",
         f"\n- Reason: {reason}",
@@ -534,9 +627,7 @@ def file_access_claude_settings(file_path: str) -> tuple[str, str]:
 
 def _file_violation(file_path: str, reason: str) -> str:
     return (
-        "# Security Violation Detected\n"
-        "\nYour organization's security policy (enforced by Runlayer) has blocked this operation.\n"
-        "\n**What happened:**"
+        _SECURITY_VIOLATION_HEADER + "\n**What happened:**"
         "\n- Violation type: File Access Policy"
         f"\n- File: {file_path}"
         f"\n- Reason: {reason}"
@@ -556,8 +647,7 @@ def _violation_with_tool(
     footer: str = "",
 ) -> str:
     parts = [
-        "# Security Violation Detected\n",
-        "\nYour organization's security policy (enforced by Runlayer) has blocked this operation.\n",
+        _SECURITY_VIOLATION_HEADER,
         "\n**What happened:**",
         f"\n- Violation type: {violation_type}",
     ]

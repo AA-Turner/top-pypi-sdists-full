@@ -3,7 +3,7 @@
 
 """Work-Event Kind Enum (OMN-16177).
 
-The five work-event kinds that make the rolling work ledger a projection over
+The work-event kinds that make the rolling work ledger a projection over
 the ordinary hook-captured event stream rather than a hand-appended markdown
 file. These are ordinary event types in the existing ``onex.evt.omniclaude.*``
 producer namespace — not a new topic family.
@@ -21,8 +21,8 @@ class EnumWorkEventKind(StrEnum):
     """Work-event kinds, split across two partition-key domains.
 
     ``CLAIM_REQUESTED`` / ``CLAIM_RELEASED`` are the arbitration domain and
-    partition on ``ticket_id``. The remaining three are the narrative domain
-    and partition on ``actor_key``. See
+    partition on ``ticket_id``. Every other kind is the narrative domain and
+    partitions on ``actor_key``. See
     ``omnibase_core.models.events.work.WORK_EVENT_PARTITION_KEY_FIELDS``.
     """
 
@@ -40,6 +40,30 @@ class EnumWorkEventKind(StrEnum):
 
     CORRECTION_RECORDED = "work.correction.recorded"
     """A correction to an earlier record. Append-only; never an edit in place."""
+
+    HOLD_PLACED = "work.hold.placed"
+    """A typed hold on PRs, repos, surfaces or lanes. Lifted only by a typed release."""
+
+    HOLD_RELEASED = "work.hold.released"
+    """Releases one hold, wholly or in part, naming it by its event_id."""
+
+    MESSAGE_SENT = "work.message.sent"
+    """A message to named lanes, every lane or the operator. Never consent."""
+
+    MESSAGE_ACKED = "work.message.acked"
+    """Acknowledges one message, hold or ruling, naming it by its event_id."""
+
+    STATUS_RECORDED = "work.status.recorded"
+    """A progress or verification note, with structured PR citations."""
+
+    FRICTION_RECORDED = "work.friction.recorded"
+    """Process friction, with its ticket and a measured or estimated cost."""
+
+    CONSENT_RECORDED = "work.consent.recorded"
+    """Operator consent: the verbatim words, the approved scope and what is out of it."""
+
+    LEDGER_EPOCH_OPENED = "work.ledger.epoch.opened"
+    """Tool-written: a cutover or a roll opened a new ledger epoch."""
 
 
 __all__: list[str] = ["EnumWorkEventKind"]

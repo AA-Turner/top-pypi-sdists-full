@@ -18,7 +18,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from .base_primitive import get_mode_service_backend
-from .fake_provider.local_service import QiskitRuntimeLocalService
 from .options_models.calibrator import CalibratorOptions
 from .options_models.converters import to_runtime_options
 from .utils.default_session import get_cm_session
@@ -67,8 +66,8 @@ class Calibrator:
         # Coerced to `CalibratorOptions` via `__setattr__()`.Expand comment
         self.options = options if options is not None else CalibratorOptions()  # type: ignore[assignment]
 
-        self._session, self._service, self._backend = get_mode_service_backend(mode)
-        if isinstance(self._service, QiskitRuntimeLocalService):
+        self._mode, self._service, self._backend = get_mode_service_backend(mode)
+        if self._service.is_local:
             raise ValueError("The calibrator is currently not supported in local mode.")
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -86,6 +85,19 @@ class Calibrator:
 
         super().__setattr__(name, value)
 
+    def backend(self) -> BackendV2:
+        """Return the backend to calibrate."""
+        return self._backend
+
+    @property
+    def mode(self) -> Session | Batch | None:
+        """Return the execution mode used by this primitive.
+
+        Returns:
+            Mode used by this primitive, or ``None`` if an execution mode is not used.
+        """
+        return self._mode
+
     def run(self) -> RuntimeJobV2:
         """Calibrate the backend.
 
@@ -96,8 +108,8 @@ class Calibrator:
         if self.options.experimental:
             options_dict["experimental"] = self.options.experimental
 
-        if self._session:
-            _run = self._session._run
+        if self._mode:
+            _run = self._mode._run
         else:
             _run = self._service._run
 
@@ -117,7 +129,3 @@ class Calibrator:
             inputs={"options": options_dict},
             calibration_id=getattr(self._backend, "calibration_id", None),
         )
-
-    def backend(self) -> BackendV2:
-        """Return the backend to calibrate."""
-        return self._backend

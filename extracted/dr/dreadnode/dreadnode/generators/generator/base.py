@@ -512,7 +512,7 @@ class Generator(BaseModel):
         """
         return None
 
-    def supports_prompt_caching(self) -> bool:
+    async def supports_prompt_caching(self) -> bool:
         """
         Check if the generator supports prompt caching via ``cache_control`` markers.
 

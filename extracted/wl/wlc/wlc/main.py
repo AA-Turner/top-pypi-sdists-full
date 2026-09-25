@@ -30,7 +30,11 @@ from .client import Weblate
 from .config import NoOptionError, WeblateConfig, WLCConfigurationError
 from .const import DEVEL_URL, URL
 from .exceptions import WeblateDeniedError, WeblateException
-from .http_debug import disable_debug_logging, enable_debug_logging
+from .http_debug import (
+    disable_debug_logging,
+    enable_debug_logging,
+    redact_sensitive_values,
+)
 from .models import Component, Project, Translation, Unit
 from .output import (
     CSV_DANGEROUS_LEADING,
@@ -168,11 +172,6 @@ def _write_existing_download_file(
     destination_stat: os.stat_result,
 ) -> None:
     """Safely update an existing file while preserving its inode metadata."""
-    if destination_stat.st_nlink != 1:
-        raise CommandError(
-            f"Refusing to update multiply-linked downloaded file: {path}"
-        )
-
     flags = (
         os.O_WRONLY
         | getattr(os, "O_BINARY", 0)
@@ -192,6 +191,8 @@ def _write_existing_download_file(
     descriptor_open = True
     try:
         opened_stat = os.fstat(descriptor)
+        # Recheck the opened inode to catch type, hard-link, and replacement races
+        # between the initial lstat() and open().
         if (
             not stat.S_ISREG(opened_stat.st_mode)
             or opened_stat.st_nlink != 1
@@ -240,6 +241,8 @@ def _write_download_file(
     temporary_exists = True
     try:
         if destination_mode is not None and hasattr(os, "fchmod"):
+            # Preserve the replaced file's mode where supported. Some platforms
+            # expose fchmod without implementing it for every filesystem.
             with suppress(NotImplementedError):
                 os.fchmod(descriptor, destination_mode)
         handle = os.fdopen(descriptor, "wb")
@@ -260,6 +263,13 @@ def _write_download_file(
 def print_stderr(message: str) -> None:
     """Print a terminal-safe error message to stderr."""
     print(format_for_stream(message, sys.stderr), file=sys.stderr)
+
+
+def _redact_request_error(error: RequestException, config: WeblateConfig) -> str:
+    """Remove the configured authorization value from a request error."""
+    _url, key = config.get_url_key()
+    headers = {"Authorization": f"Token {key}"} if key else {}
+    return redact_sensitive_values(str(error), headers)
 
 
 class Command:
@@ -886,11 +896,14 @@ class Download(ObjectCommand[CommandObject]):
 
     def download_component(self, component: Component) -> None:
         """Download a single component as file (if not a translation)."""
-        content = component.download(self.args.convert)
         if self.args.output is None:
             raise CommandError("Output is needed for download!")
 
         directory = Path(self.args.output)
+        if _download_destination_stat(directory) is not None and not directory.is_dir():
+            raise CommandError(f"Output path is not a directory: {directory}")
+
+        content = component.download(self.args.convert)
         file_path = directory / (
             f"{sanitize_slug(component.project.slug)}-{sanitize_slug(component.slug)}.zip"
         )
@@ -901,10 +914,10 @@ class Download(ObjectCommand[CommandObject]):
             # Ignore glossary via --no-glossary
             if getattr(component, "is_glossary", False) and self.args.no_glossary:
                 continue
+            # Resolve lazy category data before writing so failure leaves no archive.
+            component_slug = component.full_slug()
             self.download_component(component)
-            self.println(
-                f"downloaded translations for component: {component.full_slug()}"
-            )
+            self.println(f"downloaded translations for component: {component_slug}")
 
     def run(self) -> None:
         """Executor."""
@@ -926,14 +939,7 @@ class Download(ObjectCommand[CommandObject]):
 
         # All translations for a component
         if isinstance(obj, Component):
-            # Only download for the component we scoped
-            self.download_components(
-                [
-                    component
-                    for component in self.wlc.list_components()
-                    if obj.full_slug() == component.full_slug()
-                ]
-            )
+            self.download_components([obj])
             return
 
         # All translations for a project
@@ -1130,9 +1136,9 @@ def main(
             )
         return 1
     except RequestException as error:
-        print_stderr(f"Request failed: {error}")
+        print_stderr(f"Request failed: {_redact_request_error(error, config)}")
         return 10
-    except (CommandError, WeblateException) as error:
+    except (CommandError, WeblateException, OSError) as error:
         print_stderr(f"Error: {error}")
         return 1
     else:

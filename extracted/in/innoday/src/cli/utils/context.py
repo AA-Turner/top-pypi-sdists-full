@@ -27,6 +27,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from src.cli.utils import guidance
 from src.cli.utils.formatters import format_error, format_info
 
 #: A UUID needs no lookup. Anything else is treated as an alias (or a name, which
@@ -176,6 +177,10 @@ def _match_ref(
 
 async def _get_json(client, endpoint: str) -> List[Dict[str, Any]]:
     response = await client.get(endpoint)
+    if response.status_code == 401:
+        # A fallback: InnoDayAPIClient's response hook raises SignInRejected
+        # before this sees a 401. Kept for any other client passed in.
+        raise ContextError(guidance.SIGN_IN_REJECTED)
     if response.status_code != 200:
         raise ContextError(
             f"Could not reach InnoDay to resolve context "

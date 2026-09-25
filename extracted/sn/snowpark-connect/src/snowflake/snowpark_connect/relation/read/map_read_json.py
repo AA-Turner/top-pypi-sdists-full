@@ -819,16 +819,13 @@ def map_read_json(
     calls this.
     """
     raw_options = rel.read.data_source.options
-    has_explicit_corrupt_record_option = any(
-        key.lower() == "columnnameofcorruptrecord" for key in raw_options
+    from snowflake.snowpark_connect.nss.nss_scan_options import (
+        resolve_corrupt_record_column,
     )
-    corrupt_record_column_name = (
-        options.config.get("columnnameofcorruptrecord", "_corrupt_record")
-        if has_explicit_corrupt_record_option
-        else get_string_session_config_param("spark.sql.columnNameOfCorruptRecord")
+
+    corrupt_record_column_name = resolve_corrupt_record_column(
+        raw_options, options.config
     )
-    if corrupt_record_column_name == "":
-        corrupt_record_column_name = None
     # SPARK-35912: JSON file sources can always contain NULL values for any field
     # (missing keys are treated as null). Always convert non-nullable user schemas
     # to nullable, matching Spark's unconditional behavior.
@@ -912,8 +909,13 @@ def map_read_json(
             nss_mode = str(options.config.get("mode", "PERMISSIVE")).upper()
             # Override the seeded _corrupt_record default with the resolved name so
             # inference bakes the right column into DATA_SCHEMA (SNOW-3899671).
+            # Reconcile exactly as the read does below (SNOW-4116187): a SCOS default that
+            # leaks into only one of the two payloads makes INFER_STAGE_FILE_SCHEMA and
+            # STAGE_FILE_READER decode the same bytes differently — a leaked
+            # ``encoding=utf-8`` shadows a caller's ``charset`` during inference only, so
+            # the wrong DATA_SCHEMA gets baked into a correctly-decoded read.
             nss_infer_reader_options = filter_reader_options(
-                "json", dict(options.config)
+                "json", dict(options.config), options.user_option_keys
             )
             if corrupt_record_column_name:
                 nss_infer_reader_options[
@@ -1014,7 +1016,11 @@ def map_read_json(
         # Filter to Spark JSON read options; ensure the resolved corrupt-record
         # column name (which may come from spark.sql.columnNameOfCorruptRecord,
         # not the read options) is passed so it matches the inferred column.
-        nss_reader_options = filter_reader_options("json", dict(options.config))
+        # Pass user_option_keys so that SCOS-injected defaults (e.g. encoding=utf-8)
+        # are reconciled away unless the user explicitly set the option (SNOW-4116187).
+        nss_reader_options = filter_reader_options(
+            "json", dict(options.config), options.user_option_keys
+        )
         if corrupt_record_column_name:
             nss_reader_options["columnnameofcorruptrecord"] = corrupt_record_column_name
 

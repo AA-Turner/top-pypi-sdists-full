@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-from kornia.color import lab_to_rgb, rgb_to_lab
 
+from ..lab import lab_to_rgb, rgb_to_lab
 from ..utils import compile_wrapper
 
 
@@ -28,7 +28,7 @@ def contrast_downscale(img, patch_size=8):
     """
     Contrast-based downscaling of an image using unfold to process patches concurrently.
     """
-    N, _, H, W = img.shape
+    N, _, H, _ = img.shape
     patch_h = patch_size
     patch_w = patch_size
     out_h = H // patch_h

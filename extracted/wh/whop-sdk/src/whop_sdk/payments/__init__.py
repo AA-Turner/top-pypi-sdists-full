@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
         CreatePaymentsRequestPlanProductGlobalAffiliateStatus,
         CreatePaymentsRequestPlanProductVisibility,
         CreatePaymentsRequestPlanVisibility,
+        CreatePaymentsRequestShippingAddress,
         ListFeesPaymentsResponse,
         ListFeesPaymentsResponsePageInfo,
         ListPaymentsRequestBillingReason,
@@ -45,7 +46,38 @@ if typing.TYPE_CHECKING:
         PostPaymentSucceededPayloadApiVersion,
         PostPaymentSucceededPayloadType,
     )
+    from . import direct
+    from .direct import (
+        CreateDirectRequestBillingDetails,
+        CreateDirectRequestBillingDetailsAddress,
+        CreateDirectRequestPaymentMethod,
+        CreateDirectRequestPaymentMethodCard,
+        CreateDirectRequestPaymentMethodCardDetails,
+        CreateDirectRequestPaymentMethodType,
+        CreateDirectRequestPlan,
+        CreateDirectRequestPlanCurrency,
+        CreateDirectRequestPlanPlanType,
+        CreateDirectRequestPlanProduct,
+        CreateDirectRequestPlanProductGlobalAffiliateStatus,
+        CreateDirectRequestPlanProductVisibility,
+        CreateDirectRequestPlanVisibility,
+        CreateDirectRequestSetupFutureUsage,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreateDirectRequestBillingDetails": ".direct",
+    "CreateDirectRequestBillingDetailsAddress": ".direct",
+    "CreateDirectRequestPaymentMethod": ".direct",
+    "CreateDirectRequestPaymentMethodCard": ".direct",
+    "CreateDirectRequestPaymentMethodCardDetails": ".direct",
+    "CreateDirectRequestPaymentMethodType": ".direct",
+    "CreateDirectRequestPlan": ".direct",
+    "CreateDirectRequestPlanCurrency": ".direct",
+    "CreateDirectRequestPlanPlanType": ".direct",
+    "CreateDirectRequestPlanProduct": ".direct",
+    "CreateDirectRequestPlanProductGlobalAffiliateStatus": ".direct",
+    "CreateDirectRequestPlanProductVisibility": ".direct",
+    "CreateDirectRequestPlanVisibility": ".direct",
+    "CreateDirectRequestSetupFutureUsage": ".direct",
     "CreatePaymentsRequestLineItemsItem": ".types",
     "CreatePaymentsRequestPlan": ".types",
     "CreatePaymentsRequestPlanCurrency": ".types",
@@ -54,6 +86,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreatePaymentsRequestPlanProductGlobalAffiliateStatus": ".types",
     "CreatePaymentsRequestPlanProductVisibility": ".types",
     "CreatePaymentsRequestPlanVisibility": ".types",
+    "CreatePaymentsRequestShippingAddress": ".types",
     "ListFeesPaymentsResponse": ".types",
     "ListFeesPaymentsResponsePageInfo": ".types",
     "ListPaymentsRequestBillingReason": ".types",
@@ -83,6 +116,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostPaymentSucceededPayload": ".types",
     "PostPaymentSucceededPayloadApiVersion": ".types",
     "PostPaymentSucceededPayloadType": ".types",
+    "direct": ".direct",
 }
 
 
@@ -108,6 +142,20 @@ def __dir__():
 
 
 __all__ = [
+    "CreateDirectRequestBillingDetails",
+    "CreateDirectRequestBillingDetailsAddress",
+    "CreateDirectRequestPaymentMethod",
+    "CreateDirectRequestPaymentMethodCard",
+    "CreateDirectRequestPaymentMethodCardDetails",
+    "CreateDirectRequestPaymentMethodType",
+    "CreateDirectRequestPlan",
+    "CreateDirectRequestPlanCurrency",
+    "CreateDirectRequestPlanPlanType",
+    "CreateDirectRequestPlanProduct",
+    "CreateDirectRequestPlanProductGlobalAffiliateStatus",
+    "CreateDirectRequestPlanProductVisibility",
+    "CreateDirectRequestPlanVisibility",
+    "CreateDirectRequestSetupFutureUsage",
     "CreatePaymentsRequestLineItemsItem",
     "CreatePaymentsRequestPlan",
     "CreatePaymentsRequestPlanCurrency",
@@ -116,6 +164,7 @@ __all__ = [
     "CreatePaymentsRequestPlanProductGlobalAffiliateStatus",
     "CreatePaymentsRequestPlanProductVisibility",
     "CreatePaymentsRequestPlanVisibility",
+    "CreatePaymentsRequestShippingAddress",
     "ListFeesPaymentsResponse",
     "ListFeesPaymentsResponsePageInfo",
     "ListPaymentsRequestBillingReason",
@@ -145,4 +194,5 @@ __all__ = [
     "PostPaymentSucceededPayload",
     "PostPaymentSucceededPayloadApiVersion",
     "PostPaymentSucceededPayloadType",
+    "direct",
 ]

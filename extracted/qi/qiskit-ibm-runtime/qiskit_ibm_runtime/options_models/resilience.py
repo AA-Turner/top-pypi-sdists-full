@@ -14,14 +14,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated
-
-from pydantic import InstanceOf
-from qiskit.quantum_info import PauliLindbladMap
-
 from .base import BaseOptionsModel
 from .measure_noise_learning import MeasureNoiseLearningOptions
 from .pec import PecOptions
+from .simulator import LayerNoiseModel
 from .zne import ZneOptions
 
 
@@ -49,7 +45,7 @@ class ResilienceOptions(BaseOptionsModel):
     If you enable PEC, you can fine-tune its options by using :attr:`~pec`. See
     :class:`PecOptions` for additional PEC-related options.
 
-    You must also provide a noise model via :attr:`~noise_model_mapping` when enabling PEC.
+    You must also provide a noise model via :attr:`~noise_model` when enabling PEC.
     """
 
     pec: PecOptions = PecOptions()
@@ -62,17 +58,12 @@ class ResilienceOptions(BaseOptionsModel):
     :class:`~.ZneOptions` for additional ZNE related options.
 
     If ``zne_mitigation`` is left as ``None``, it inherits the default for the configured
-    :attr:`~.EstimatorOptions.resilience_level`: ``False`` for resilience levels ``0`` and ``1``,
-    and ``True`` for resilience level ``2``.
+    :attr:`~qiskit_ibm_runtime.options_models.EstimatorOptions.resilience_level`: ``False``
+    for resilience levels ``0`` and ``1``, and ``True`` for resilience level ``2``.
     """
 
     zne: ZneOptions = ZneOptions()
     """Additional zero noise extrapolation mitigation options."""
 
-    noise_model_mapping: dict[str, Annotated[PauliLindbladMap, InstanceOf]] = {}
-    """A noise model mapping for PEC mitigation.
-
-    Maps layer references (strings) to :class:`~qiskit.quantum_info.PauliLindbladMap` objects that
-    describe the noise characteristics of that layer. The dict contains layers from all PUBs. This
-    is required when using PEC mitigation, or ZNE with PEA amplifier.
-    """
+    layer_noise_model: list[LayerNoiseModel] | None = None
+    """Noise model specified by a collection of instructions and the noise that affects them."""

@@ -14,6 +14,7 @@ if typing.TYPE_CHECKING:
     from .account_links.client import AccountLinksClient, AsyncAccountLinksClient
     from .accounts.client import AccountsClient, AsyncAccountsClient
     from .ad_campaigns.client import AdCampaignsClient, AsyncAdCampaignsClient
+    from .ad_conversion_value_rules.client import AdConversionValueRulesClient, AsyncAdConversionValueRulesClient
     from .ad_groups.client import AdGroupsClient, AsyncAdGroupsClient
     from .ads.client import AdsClient, AsyncAdsClient
     from .affiliates.client import AffiliatesClient, AsyncAffiliatesClient
@@ -45,7 +46,6 @@ if typing.TYPE_CHECKING:
     from .dm_members.client import AsyncDmMembersClient, DmMembersClient
     from .domains.client import AsyncDomainsClient, DomainsClient
     from .economic_intelligence.client import AsyncEconomicIntelligenceClient, EconomicIntelligenceClient
-    from .entries.client import AsyncEntriesClient, EntriesClient
     from .events.client import AsyncEventsClient, EventsClient
     from .experiences.client import AsyncExperiencesClient, ExperiencesClient
     from .experiments.client import AsyncExperimentsClient, ExperimentsClient
@@ -65,6 +65,7 @@ if typing.TYPE_CHECKING:
     from .memberships.client import AsyncMembershipsClient, MembershipsClient
     from .messages.client import AsyncMessagesClient, MessagesClient
     from .notifications.client import AsyncNotificationsClient, NotificationsClient
+    from .partner_referral_requests.client import AsyncPartnerReferralRequestsClient, PartnerReferralRequestsClient
     from .partners.client import AsyncPartnersClient, PartnersClient
     from .payment_method_domains.client import AsyncPaymentMethodDomainsClient, PaymentMethodDomainsClient
     from .payment_methods.client import AsyncPaymentMethodsClient, PaymentMethodsClient
@@ -93,6 +94,7 @@ if typing.TYPE_CHECKING:
     from .transfers.client import AsyncTransfersClient, TransfersClient
     from .users.client import AsyncUsersClient, UsersClient
     from .verifications.client import AsyncVerificationsClient, VerificationsClient
+    from .waitlist_entries.client import AsyncWaitlistEntriesClient, WaitlistEntriesClient
     from .webhooks.client import AsyncWebhooksClient, WebhooksClient
 
 
@@ -102,15 +104,12 @@ class Whop:
 
     Parameters
     ----------
-    base_url : typing.Optional[str]
-        The base url to use for requests from the client.
-
     environment : WhopEnvironment
         The environment to use for requests from the client. from .environment import WhopEnvironment
 
 
 
-        Defaults to WhopEnvironment.DEFAULT
+        Defaults to WhopEnvironment.PRODUCTION
 
 
 
@@ -146,7 +145,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-09-15",
+        "2026-09-23",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -155,9 +154,8 @@ class Whop:
     def __init__(
         self,
         *,
-        base_url: typing.Optional[str] = None,
-        environment: WhopEnvironment = WhopEnvironment.DEFAULT,
-        api_version_date: typing.Optional[str] = "2026-09-15",
+        environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
+        api_version_date: typing.Optional[str] = "2026-09-23",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -172,7 +170,7 @@ class Whop:
         _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
         _defaulted_max_retries = max_retries if max_retries is not None else 2
         self._client_wrapper = SyncClientWrapper(
-            base_url=_get_base_url(base_url=base_url, environment=environment),
+            environment=environment,
             api_version_date=api_version_date,
             idempotency_key=idempotency_key,
             token=token,
@@ -192,6 +190,7 @@ class Whop:
         self._account_links: typing.Optional[AccountLinksClient] = None
         self._accounts: typing.Optional[AccountsClient] = None
         self._ad_campaigns: typing.Optional[AdCampaignsClient] = None
+        self._ad_conversion_value_rules: typing.Optional[AdConversionValueRulesClient] = None
         self._ad_groups: typing.Optional[AdGroupsClient] = None
         self._ads: typing.Optional[AdsClient] = None
         self._affiliates: typing.Optional[AffiliatesClient] = None
@@ -223,7 +222,6 @@ class Whop:
         self._dm_members: typing.Optional[DmMembersClient] = None
         self._domains: typing.Optional[DomainsClient] = None
         self._economic_intelligence: typing.Optional[EconomicIntelligenceClient] = None
-        self._entries: typing.Optional[EntriesClient] = None
         self._events: typing.Optional[EventsClient] = None
         self._experiences: typing.Optional[ExperiencesClient] = None
         self._experiments: typing.Optional[ExperimentsClient] = None
@@ -243,6 +241,7 @@ class Whop:
         self._memberships: typing.Optional[MembershipsClient] = None
         self._messages: typing.Optional[MessagesClient] = None
         self._notifications: typing.Optional[NotificationsClient] = None
+        self._partner_referral_requests: typing.Optional[PartnerReferralRequestsClient] = None
         self._partners: typing.Optional[PartnersClient] = None
         self._payment_method_domains: typing.Optional[PaymentMethodDomainsClient] = None
         self._payment_methods: typing.Optional[PaymentMethodsClient] = None
@@ -271,6 +270,7 @@ class Whop:
         self._transfers: typing.Optional[TransfersClient] = None
         self._users: typing.Optional[UsersClient] = None
         self._verifications: typing.Optional[VerificationsClient] = None
+        self._waitlist_entries: typing.Optional[WaitlistEntriesClient] = None
         self._webhooks: typing.Optional[WebhooksClient] = None
 
     @property
@@ -304,6 +304,14 @@ class Whop:
 
             self._ad_campaigns = AdCampaignsClient(client_wrapper=self._client_wrapper)
         return self._ad_campaigns
+
+    @property
+    def ad_conversion_value_rules(self):
+        if self._ad_conversion_value_rules is None:
+            from .ad_conversion_value_rules.client import AdConversionValueRulesClient  # noqa: E402
+
+            self._ad_conversion_value_rules = AdConversionValueRulesClient(client_wrapper=self._client_wrapper)
+        return self._ad_conversion_value_rules
 
     @property
     def ad_groups(self):
@@ -554,14 +562,6 @@ class Whop:
         return self._economic_intelligence
 
     @property
-    def entries(self):
-        if self._entries is None:
-            from .entries.client import EntriesClient  # noqa: E402
-
-            self._entries = EntriesClient(client_wrapper=self._client_wrapper)
-        return self._entries
-
-    @property
     def events(self):
         if self._events is None:
             from .events.client import EventsClient  # noqa: E402
@@ -712,6 +712,14 @@ class Whop:
 
             self._notifications = NotificationsClient(client_wrapper=self._client_wrapper)
         return self._notifications
+
+    @property
+    def partner_referral_requests(self):
+        if self._partner_referral_requests is None:
+            from .partner_referral_requests.client import PartnerReferralRequestsClient  # noqa: E402
+
+            self._partner_referral_requests = PartnerReferralRequestsClient(client_wrapper=self._client_wrapper)
+        return self._partner_referral_requests
 
     @property
     def partners(self):
@@ -938,6 +946,14 @@ class Whop:
         return self._verifications
 
     @property
+    def waitlist_entries(self):
+        if self._waitlist_entries is None:
+            from .waitlist_entries.client import WaitlistEntriesClient  # noqa: E402
+
+            self._waitlist_entries = WaitlistEntriesClient(client_wrapper=self._client_wrapper)
+        return self._waitlist_entries
+
+    @property
     def webhooks(self):
         if self._webhooks is None:
             from .webhooks.client import WebhooksClient  # noqa: E402
@@ -970,15 +986,12 @@ class AsyncWhop:
 
     Parameters
     ----------
-    base_url : typing.Optional[str]
-        The base url to use for requests from the client.
-
     environment : WhopEnvironment
         The environment to use for requests from the client. from .environment import WhopEnvironment
 
 
 
-        Defaults to WhopEnvironment.DEFAULT
+        Defaults to WhopEnvironment.PRODUCTION
 
 
 
@@ -1017,7 +1030,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-09-15",
+        "2026-09-23",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -1026,9 +1039,8 @@ class AsyncWhop:
     def __init__(
         self,
         *,
-        base_url: typing.Optional[str] = None,
-        environment: WhopEnvironment = WhopEnvironment.DEFAULT,
-        api_version_date: typing.Optional[str] = "2026-09-15",
+        environment: WhopEnvironment = WhopEnvironment.PRODUCTION,
+        api_version_date: typing.Optional[str] = "2026-09-23",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1044,7 +1056,7 @@ class AsyncWhop:
         _defaulted_timeout = timeout if timeout is not None else 60 if httpx_client is None else None
         _defaulted_max_retries = max_retries if max_retries is not None else 2
         self._client_wrapper = AsyncClientWrapper(
-            base_url=_get_base_url(base_url=base_url, environment=environment),
+            environment=environment,
             api_version_date=api_version_date,
             idempotency_key=idempotency_key,
             token=token,
@@ -1063,6 +1075,7 @@ class AsyncWhop:
         self._account_links: typing.Optional[AsyncAccountLinksClient] = None
         self._accounts: typing.Optional[AsyncAccountsClient] = None
         self._ad_campaigns: typing.Optional[AsyncAdCampaignsClient] = None
+        self._ad_conversion_value_rules: typing.Optional[AsyncAdConversionValueRulesClient] = None
         self._ad_groups: typing.Optional[AsyncAdGroupsClient] = None
         self._ads: typing.Optional[AsyncAdsClient] = None
         self._affiliates: typing.Optional[AsyncAffiliatesClient] = None
@@ -1094,7 +1107,6 @@ class AsyncWhop:
         self._dm_members: typing.Optional[AsyncDmMembersClient] = None
         self._domains: typing.Optional[AsyncDomainsClient] = None
         self._economic_intelligence: typing.Optional[AsyncEconomicIntelligenceClient] = None
-        self._entries: typing.Optional[AsyncEntriesClient] = None
         self._events: typing.Optional[AsyncEventsClient] = None
         self._experiences: typing.Optional[AsyncExperiencesClient] = None
         self._experiments: typing.Optional[AsyncExperimentsClient] = None
@@ -1114,6 +1126,7 @@ class AsyncWhop:
         self._memberships: typing.Optional[AsyncMembershipsClient] = None
         self._messages: typing.Optional[AsyncMessagesClient] = None
         self._notifications: typing.Optional[AsyncNotificationsClient] = None
+        self._partner_referral_requests: typing.Optional[AsyncPartnerReferralRequestsClient] = None
         self._partners: typing.Optional[AsyncPartnersClient] = None
         self._payment_method_domains: typing.Optional[AsyncPaymentMethodDomainsClient] = None
         self._payment_methods: typing.Optional[AsyncPaymentMethodsClient] = None
@@ -1142,6 +1155,7 @@ class AsyncWhop:
         self._transfers: typing.Optional[AsyncTransfersClient] = None
         self._users: typing.Optional[AsyncUsersClient] = None
         self._verifications: typing.Optional[AsyncVerificationsClient] = None
+        self._waitlist_entries: typing.Optional[AsyncWaitlistEntriesClient] = None
         self._webhooks: typing.Optional[AsyncWebhooksClient] = None
 
     @property
@@ -1175,6 +1189,14 @@ class AsyncWhop:
 
             self._ad_campaigns = AsyncAdCampaignsClient(client_wrapper=self._client_wrapper)
         return self._ad_campaigns
+
+    @property
+    def ad_conversion_value_rules(self):
+        if self._ad_conversion_value_rules is None:
+            from .ad_conversion_value_rules.client import AsyncAdConversionValueRulesClient  # noqa: E402
+
+            self._ad_conversion_value_rules = AsyncAdConversionValueRulesClient(client_wrapper=self._client_wrapper)
+        return self._ad_conversion_value_rules
 
     @property
     def ad_groups(self):
@@ -1425,14 +1447,6 @@ class AsyncWhop:
         return self._economic_intelligence
 
     @property
-    def entries(self):
-        if self._entries is None:
-            from .entries.client import AsyncEntriesClient  # noqa: E402
-
-            self._entries = AsyncEntriesClient(client_wrapper=self._client_wrapper)
-        return self._entries
-
-    @property
     def events(self):
         if self._events is None:
             from .events.client import AsyncEventsClient  # noqa: E402
@@ -1583,6 +1597,14 @@ class AsyncWhop:
 
             self._notifications = AsyncNotificationsClient(client_wrapper=self._client_wrapper)
         return self._notifications
+
+    @property
+    def partner_referral_requests(self):
+        if self._partner_referral_requests is None:
+            from .partner_referral_requests.client import AsyncPartnerReferralRequestsClient  # noqa: E402
+
+            self._partner_referral_requests = AsyncPartnerReferralRequestsClient(client_wrapper=self._client_wrapper)
+        return self._partner_referral_requests
 
     @property
     def partners(self):
@@ -1809,18 +1831,17 @@ class AsyncWhop:
         return self._verifications
 
     @property
+    def waitlist_entries(self):
+        if self._waitlist_entries is None:
+            from .waitlist_entries.client import AsyncWaitlistEntriesClient  # noqa: E402
+
+            self._waitlist_entries = AsyncWaitlistEntriesClient(client_wrapper=self._client_wrapper)
+        return self._waitlist_entries
+
+    @property
     def webhooks(self):
         if self._webhooks is None:
             from .webhooks.client import AsyncWebhooksClient  # noqa: E402
 
             self._webhooks = AsyncWebhooksClient(client_wrapper=self._client_wrapper)
         return self._webhooks
-
-
-def _get_base_url(*, base_url: typing.Optional[str] = None, environment: WhopEnvironment) -> str:
-    if base_url is not None:
-        return base_url
-    elif environment is not None:
-        return environment.value
-    else:
-        raise Exception("Please pass in either base_url or environment to construct the client")

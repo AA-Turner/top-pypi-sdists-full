@@ -133,12 +133,6 @@ class TestDeviceFlow:
         )
         assert r.status_code == 404
 
-    def test_verification_page_renders(self, client):
-        r = client.get("/device?user_code=ABCD-EFGH")
-        assert r.status_code == 200
-        assert "ABCD-EFGH" in r.text
-        assert "Authorize" in r.text
-
 
 class TestDeviceModel:
     def test_user_code_format(self):

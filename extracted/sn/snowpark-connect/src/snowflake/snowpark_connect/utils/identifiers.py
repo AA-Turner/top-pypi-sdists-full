@@ -334,6 +334,113 @@ def is_valid_unquoted_snowflake_identifier(name: str) -> bool:
     return bool(_VALID_UNQUOTED_SNOWFLAKE_IDENTIFIER.match(name))
 
 
+# Snowflake SQL reserved words that are syntactically valid as unquoted
+# identifiers (match _VALID_UNQUOTED_SNOWFLAKE_IDENTIFIER) but must be
+# double-quoted to avoid SQL compilation errors.  Subset of
+# https://docs.snowflake.com/en/sql-reference/reserved-keywords
+_SNOWFLAKE_RESERVED_WORDS: frozenset[str] = frozenset(
+    w.upper()
+    for w in (
+        "account",
+        "all",
+        "alter",
+        "and",
+        "any",
+        "as",
+        "asc",
+        "between",
+        "by",
+        "case",
+        "cast",
+        "check",
+        "column",
+        "connect",
+        "constraint",
+        "create",
+        "cross",
+        "current",
+        "current_date",
+        "current_time",
+        "current_timestamp",
+        "current_user",
+        "database",
+        "delete",
+        "desc",
+        "distinct",
+        "drop",
+        "else",
+        "exists",
+        "false",
+        "following",
+        "for",
+        "from",
+        "full",
+        "grant",
+        "group",
+        "gscluster",
+        "having",
+        "ilike",
+        "in",
+        "increment",
+        "inner",
+        "insert",
+        "intersect",
+        "into",
+        "is",
+        "issue",
+        "join",
+        "lateral",
+        "left",
+        "like",
+        "localtime",
+        "localtimestamp",
+        "minus",
+        "natural",
+        "not",
+        "null",
+        "of",
+        "on",
+        "or",
+        "order",
+        "organization",
+        "qualify",
+        "regexp",
+        "revoke",
+        "right",
+        "rlike",
+        "row",
+        "rows",
+        "sample",
+        "schema",
+        "select",
+        "set",
+        "some",
+        "start",
+        "table",
+        "tablesample",
+        "then",
+        "to",
+        "trigger",
+        "true",
+        "try_cast",
+        "union",
+        "unique",
+        "update",
+        "using",
+        "values",
+        "view",
+        "when",
+        "whenever",
+        "where",
+        "with",
+    )
+)
+
+
+def _is_snowflake_reserved_word(name: str) -> bool:
+    return name.upper() in _SNOWFLAKE_RESERVED_WORDS
+
+
 def cld_identifier_needs_snowflake_quotes(
     bare_name: str,
     *,
@@ -348,10 +455,16 @@ def cld_identifier_needs_snowflake_quotes(
     simple ``\\w+`` identifier may wrap characters that must be quoted in
     Snowflake (e.g. dots, spaces). Simple backtick names like `` `foo` `` do
     not force quotes.
+
+    Reserved-word check: a name like ``select`` passes the regex test for a
+    valid unquoted identifier but is a SQL keyword; emitting it bare causes a
+    syntax error.  Quoting it (``"select"``) makes it safe.
     """
     if spark_case_sensitive:
         return True
     if not is_valid_unquoted_snowflake_identifier(bare_name):
+        return True
+    if _is_snowflake_reserved_word(bare_name):
         return True
     if is_backtick_quoted and not UNQUOTED_SPARK_IDENTIFIER.match(bare_name):
         return True

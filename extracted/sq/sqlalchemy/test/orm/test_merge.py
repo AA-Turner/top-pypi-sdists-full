@@ -1806,6 +1806,29 @@ class MergeTest(_fixtures.FixtureTest):
 
         eq_(sess.query(Address).one(), Address(id=1, email_address="c"))
 
+    def test_merge_all(self):
+        User, users = self.classes.User, self.tables.users
+
+        self.mapper_registry.map_imperatively(User, users)
+        sess = fixture_session()
+        load = self.load_tracker(User)
+
+        ua = User(id=42, name="bob")
+        ub = User(id=7, name="fred")
+        eq_(load.called, 0)
+        uam, ubm = sess.merge_all([ua, ub])
+        eq_(load.called, 2)
+        assert uam in sess
+        assert ubm in sess
+        eq_(uam, User(id=42, name="bob"))
+        eq_(ubm, User(id=7, name="fred"))
+        sess.flush()
+        sess.expunge_all()
+        eq_(
+            sess.query(User).order_by("id").all(),
+            [User(id=7, name="fred"), User(id=42, name="bob")],
+        )
+
 
 class M2ONoUseGetLoadingTest(fixtures.MappedTest):
     """Merge a one-to-many.  The many-to-one on the other side is set up
@@ -2025,13 +2048,11 @@ class DeferredMergeTest(fixtures.MappedTest):
             go,
             [
                 (
-                    "SELECT book.summary AS book_summary "
-                    "FROM book WHERE book.id = :pk_1",
+                    "SELECT book.summary FROM book WHERE book.id = :pk_1",
                     {"pk_1": 1},
                 ),
                 (
-                    "SELECT book.excerpt AS book_excerpt "
-                    "FROM book WHERE book.id = :pk_1",
+                    "SELECT book.excerpt FROM book WHERE book.id = :pk_1",
                     {"pk_1": 1},
                 ),
             ],
@@ -2071,13 +2092,11 @@ class DeferredMergeTest(fixtures.MappedTest):
             go,
             [
                 (
-                    "SELECT book.summary AS book_summary "
-                    "FROM book WHERE book.id = :pk_1",
+                    "SELECT book.summary FROM book WHERE book.id = :pk_1",
                     {"pk_1": 1},
                 ),
                 (
-                    "SELECT book.excerpt AS book_excerpt "
-                    "FROM book WHERE book.id = :pk_1",
+                    "SELECT book.excerpt FROM book WHERE book.id = :pk_1",
                     {"pk_1": 1},
                 ),
             ],

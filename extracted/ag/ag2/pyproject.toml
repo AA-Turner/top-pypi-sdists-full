@@ -24,6 +24,7 @@ markers = [
     "anthropic",
     "zai",
     "mistral",
+    "typesafe",
     "deepseek",
     "cosmosdb",
     "ollama",
@@ -129,7 +130,13 @@ python_version = "3.10"
 files = [
     "ag2/_import_utils.py",
     "ag2/config/anthropic/mappers.py",
+    "ag2/config/dashscope/mappers.py",
+    "ag2/config/gemini/mappers.py",
+    "ag2/config/mistral/mappers.py",
+    "ag2/config/ollama/mappers.py",
     "ag2/config/openai/mappers.py",
+    "ag2/config/xai/mappers.py",
+    "ag2/config/zai/mappers.py",
 ]
 strict = true
 ignore_missing_imports = true
@@ -146,6 +153,10 @@ warn_unused_ignores = false
 disallow_incomplete_defs = true
 disallow_untyped_decorators = true
 disallow_any_unimported = true
+
+[[tool.mypy.overrides]]
+module = "xai_sdk.*"
+follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
 module = "numpy.*"
@@ -173,7 +184,7 @@ keywords = [
     "agentic",
 ]
 requires-python = ">=3.10"
-version = "1.0.6"
+version = "1.1.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python",
@@ -240,6 +251,7 @@ mistral = ["mistralai>=2.8.0,<3"]
 ollama = ["ollama>=0.4.7"]
 bedrock = ["boto3>=1.34.149"]
 dashscope = ["dashscope>=1.25.13"]
+typesafe = ["typesafe-sdk>=0.7.1,<0.8"]
 redis = ["redis>=5.0,<9"]
 tracing = ["opentelemetry-sdk>=1.20"]
 metrics = ["prometheus-client>=0.20.0,<0.30.0"]
@@ -303,6 +315,7 @@ optionals = [
     "ag2[xai]",
     "ag2[zai]",
     "ag2[mistral]",
+    "ag2[typesafe]",
     "ag2[elevenlabs]",
 ]
 docs = [
@@ -345,7 +358,7 @@ types = [
     "mypy==2.3.1",
     "types-PyYAML",
     { include-group = "test" },
-    "ag2[openai, anthropic, a2a, ag-ui]",
+    "ag2[openai, anthropic, gemini, mistral, xai, zai, ollama, dashscope, a2a, ag-ui]",
 ]
 lint = [
     "ruff==0.16.7",

@@ -107,3 +107,23 @@ def test_call_procedures(procedures, cursor, populate_tables_for_procedure_call,
         ) == [{f"{java_proc_with_args.name}": "true"}]
     finally:
         proc.drop()
+
+
+def test_call_procedure_polls_via_retry_loop(procedures):
+    sql_proc_wait = Procedure(
+        name="sql_proc_wait_60s",
+        arguments=[],
+        return_type=ReturnDataType(datatype="VARCHAR"),
+        language_config=SQLFunction(),
+        body="""
+            BEGIN
+                LET waited VARCHAR := (SELECT SYSTEM$WAIT(60));
+                RETURN 'done';
+            END;
+        """,
+    )
+    try:
+        proc = procedures.create(sql_proc_wait, mode=CreateMode.or_replace)
+        assert proc.call(call_argument_list=CallArgumentList(call_arguments=[])) == [{f"{sql_proc_wait.name}": "done"}]
+    finally:
+        proc.drop()

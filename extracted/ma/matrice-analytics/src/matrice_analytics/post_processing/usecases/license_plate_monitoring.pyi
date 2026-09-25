@@ -1,6 +1,7 @@
 """Auto-generated stub for module: license_plate_monitoring."""
 from typing import Any, Dict, List, Set
 
+from . import lpr_ocr_source
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
 from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, ProcessingResult
 from ..core.config import AlertConfig, BaseConfig

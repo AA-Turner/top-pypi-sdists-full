@@ -12,6 +12,9 @@
 
 """Tests the converters for options models."""
 
+from qiskit.circuit import QuantumCircuit
+from qiskit.quantum_info import PauliLindbladMap
+
 from qiskit_ibm_runtime.options_models.converters import (
     estimator_options_to_executor_options,
     sampler_option_to_executor_options,
@@ -38,7 +41,7 @@ class TestSamplerOptionsToExecutorOptions(IBMTestCase):
         self.assertEqual(executor_options.environment.log_level, "WARNING")
         self.assertEqual(executor_options.environment.job_tags, [])
         self.assertEqual(executor_options.environment.private, False)
-        self.assertIsNone(executor_options.environment.max_execution_time)
+        self.assertIsNone(executor_options.max_execution_time)
         self.assertIsNone(executor_options.environment.image)
 
     def test_all_options_mapping(self):
@@ -50,7 +53,6 @@ class TestSamplerOptionsToExecutorOptions(IBMTestCase):
         options.environment.job_tags = ["test1", "test2"]
         options.environment.private = True
         options.max_execution_time = 300
-        options.experimental = {"image": "test-image:latest"}
 
         executor_options = sampler_option_to_executor_options(options)
 
@@ -59,8 +61,7 @@ class TestSamplerOptionsToExecutorOptions(IBMTestCase):
         self.assertEqual(executor_options.environment.log_level, "INFO")
         self.assertEqual(executor_options.environment.job_tags, ["test1", "test2"])
         self.assertEqual(executor_options.environment.private, True)
-        self.assertEqual(executor_options.environment.max_execution_time, 300)
-        self.assertEqual(executor_options.environment.image, "test-image:latest")
+        self.assertEqual(executor_options.max_execution_time, 300)
 
     def test_experimental_image_not_set(self):
         """Test that image is None when experimental is empty."""
@@ -75,7 +76,6 @@ class TestSamplerOptionsToExecutorOptions(IBMTestCase):
         options = SamplerOptions()
         options.experimental = {
             "custom_key": 123,
-            "image": "test:v1",
             "execution": {"stretch_values": True, "scheduler_timing": True},
         }
         executor_options = sampler_option_to_executor_options(options)
@@ -84,7 +84,6 @@ class TestSamplerOptionsToExecutorOptions(IBMTestCase):
         self.assertEqual(options.experimental, executor_options.experimental)
 
         # `image` and execution-related entries must map to executor options.
-        self.assertEqual(executor_options.environment.image, "test:v1")
         self.assertEqual(executor_options.execution.stretch_values, True)
         self.assertEqual(executor_options.execution.scheduler_timing, True)
 
@@ -94,10 +93,8 @@ class TestEstimatorOptionsToExecutorOptions(IBMTestCase):
 
     def test_to_executor_options(self):
         """Test conversion to ExecutorOptions."""
-        options = EstimatorOptions(
-            default_precision=0.022097,
-            max_execution_time=300,
-        )
+        options = EstimatorOptions(default_precision=0.022097)
+        options.max_execution_time = 300
         options.execution.init_qubits = True
         options.execution.rep_delay = 0.001
 
@@ -105,14 +102,38 @@ class TestEstimatorOptionsToExecutorOptions(IBMTestCase):
 
         self.assertTrue(executor_options.execution.init_qubits)
         self.assertEqual(executor_options.execution.rep_delay, 0.001)
-        self.assertEqual(executor_options.environment.max_execution_time, 300)
+        self.assertEqual(executor_options.max_execution_time, 300)
 
     def test_to_executor_options_with_experimental(self):
         """Test conversion with experimental options."""
         options = EstimatorOptions()
-        options.experimental = {"image": "custom:image", "other": "value"}
+        options.experimental = {"other": "value"}
+
+        executor_options = estimator_options_to_executor_options(options)
+        self.assertEqual(executor_options.experimental, options.experimental)
+
+    def test_to_executor_options_resilience_fallback(self):
+        """Test the simulator ``layer_noise_model`` fallback to resilience ``layer_noise_model``."""
+        options = EstimatorOptions()
+        options.resilience.layer_noise_model = []
 
         executor_options = estimator_options_to_executor_options(options)
 
-        self.assertEqual(executor_options.environment.image, "custom:image")
-        self.assertEqual(executor_options.experimental, options.experimental)
+        self.assertEqual(
+            executor_options.simulator.layer_noise_model,
+            options.resilience.layer_noise_model,
+        )
+
+        circuit = QuantumCircuit(2)
+        with circuit.box():
+            circuit.cx(0, 1)
+        options.simulator.layer_noise_model = [
+            (layer, PauliLindbladMap.identity(2)) for layer in circuit.data
+        ]
+
+        executor_options = estimator_options_to_executor_options(options)
+
+        self.assertEqual(
+            executor_options.simulator.layer_noise_model,
+            options.simulator.layer_noise_model,
+        )

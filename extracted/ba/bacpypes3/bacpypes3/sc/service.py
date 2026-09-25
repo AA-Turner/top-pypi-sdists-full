@@ -5,13 +5,17 @@ Secure Connect
 """
 
 import asyncio
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Set
-
+from asyncio.tasks import Task
+import traceback
 import websockets
 
-from ..comm import Server, ServiceAccessPoint
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Set, Tuple, Union, cast
+
 from ..debugging import ModuleLogger, bacpypes_debugging
-from ..pdu import PDU
+
+from ..comm import Server, ServiceAccessPoint
+from ..pdu import LocalBroadcast, IPv4Address, PDU
+
 
 # some debugging
 _debug = 0
@@ -201,7 +205,7 @@ class SCDirectConnectClient(WebSocketClient):
             switch,
             uri,
             subprotocols=[websockets.Subprotocol("dc.bsc.bacnet.org")],
-            **kwargs,
+            **kwargs
         )
 
 
@@ -222,12 +226,13 @@ class SCHubClient(WebSocketClient):
             switch,
             uri,
             subprotocols=[websockets.Subprotocol("hub.bsc.bacnet.org")],
-            **kwargs,
+            **kwargs
         )
 
 
 @bacpypes_debugging
 class WebSocketServer:
+
     _debug: Callable[..., None]
     _exception: Callable[..., None]
 
@@ -356,6 +361,7 @@ class SCDirectConnectServer(WebSocketServer):
     This is the listening side of a direct connection for a specific client.
     """
 
+    pass
 
 
 @bacpypes_debugging
@@ -364,6 +370,7 @@ class SCHubServer(WebSocketServer):
     This is the listening side of a hub connection for a specific client.
     """
 
+    pass
 
 
 @bacpypes_debugging
@@ -412,6 +419,7 @@ class SCHubServiceAccessPoint(SCServiceAccessPoint):
 
 @bacpypes_debugging
 class SCNodeSwitch(Server[PDU]):
+
     _debug: Callable[..., None]
     _exception: Callable[..., None]
 

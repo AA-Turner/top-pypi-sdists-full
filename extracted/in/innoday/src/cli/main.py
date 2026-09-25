@@ -14,6 +14,7 @@ from typing import List, Optional
 from colorama import init as colorama_init
 from rich.console import Console
 
+from src.cli.client import SignInRejected
 from src.cli.commands.auth import AuthCommands
 from src.cli.commands.boards import BoardCommands
 from src.cli.commands.config import ConfigCommands
@@ -39,6 +40,7 @@ from src.cli.commands.upgrade import UpgradeCommands
 from src.cli.commands.utils import UtilityCommands
 from src.cli.commands.workspace import WorkspaceCommands
 from src.cli.config import CLIConfig
+from src.cli.utils import guidance
 from src.cli.utils.formatters import describe_exception, format_error, format_warning
 from src.version import get_display_version
 
@@ -47,6 +49,26 @@ def setup_colorama():
     """Initialize colorama for cross-platform colored output."""
     colorama_init(autoreset=True)
 
+
+#: Commands that run without a sign-in token: signing in and out, local config
+#: and server control, and the diagnostics you run to find out what is wrong.
+_SIGNED_OUT_OK = {
+    "login",
+    "logout",
+    "whoami",  # says "not logged in" itself, and repairs a stale identity
+    "config",
+    "status",
+    "health",
+    "ping",
+    "version",
+    "upgrade",
+    "platform",
+    "platform-admin",
+    "start",
+    "stop",
+    "restart",
+    "logs",
+}
 
 #: Commands that never touch an organization. Priming for these would spend a
 #: request to answer a question they do not ask -- and `login` in particular runs
@@ -599,6 +621,14 @@ async def execute_command(args: argparse.Namespace) -> int:
             )
             return 1
 
+        # Signed out: say so once, here, rather than let each command fail its
+        # own way (a 401 while resolving context, "Organization ID not found",
+        # advice to run `config init`). `status` stays usable -- it is what you
+        # run to find out what is wrong (PF-460).
+        if args.command not in _SIGNED_OUT_OK and not config.get_cli_token():
+            Console().print(f"[red]✗ {guidance.NOT_SIGNED_IN}[/red]")
+            return 1
+
         # Resolve the organization alias to a UUID once, here, before any
         # command runs.
         #
@@ -701,6 +731,9 @@ async def execute_command(args: argparse.Namespace) -> int:
             )
             return 1
 
+    except SignInRejected as rejected:
+        Console().print(f"[red]✗ {rejected}[/red]")
+        return 1
     except KeyboardInterrupt:
         if not args.quiet:
             console = Console()

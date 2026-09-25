@@ -21,14 +21,10 @@ from dbos import (
 )
 from dbos._context import assert_current_dbos_context, get_local_dbos_context
 from dbos._dbos import WorkflowHandle
-from dbos._error import (
-    DBOSAwaitedWorkflowCancelledError,
-    DBOSException,
-    DBOSPatchNondeterminismError,
-)
+from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSPatchNondeterminismError
 from dbos._event_loop import BackgroundEventLoop
 from dbos._schemas.system_database import SystemSchema
-from tests.conftest import retry_until_success, retry_until_success_async
+from tests.conftest import retry_until_success
 
 
 @pytest.mark.asyncio
@@ -819,14 +815,6 @@ async def test_workflow_timeout_async(dbos: DBOS) -> None:
         await (await DBOS.retrieve_workflow_async(direct_child)).get_result()
     assert "was cancelled" in str(exc_info.value)
 
-    # Verify all timeout tasks complete. A task may still be finishing its
-    # (redundant) cancellation of an already-cancelled workflow, so allow it
-    # a moment to drain rather than asserting instantaneous emptiness.
-    deadline = time.time() + 30
-    while dbos._timeout_tasks and time.time() < deadline:
-        await asyncio.sleep(0.1)
-    assert len(dbos._timeout_tasks) == 0
-
 
 @pytest.mark.asyncio
 async def test_max_parallel_workflows(dbos: DBOS) -> None:
@@ -1301,79 +1289,6 @@ async def test_concurrent_patch_async(dbos: DBOS, config: DBOSConfig) -> None:
         assert status.status == "ERROR"
 
 
-def test_destroy_from_adopted_main_loop_does_not_deadlock(
-    config: DBOSConfig, cleanup_test_databases: None
-) -> None:
-    """Reproduce the DBOS.destroy() self-deadlock.
-
-    When DBOS.launch() runs inside a running event loop, DBOS adopts that loop
-    as its main loop. A workflow with a timeout parks a "timeout task" on that
-    loop. If destroy() is then called from that same loop's thread while a
-    timeout task is still pending, destroy() schedules a cancellation coroutine
-    onto the loop and blocks the calling thread on .result() -- but the loop is
-    the calling thread, so it can never run the coroutine. Permanent hang.
-
-    We run the whole launch + timeout + destroy scenario on a dedicated thread
-    with its own event loop, then join it with a timeout. Before the fix the
-    thread deadlocks (join times out); after the fix it completes promptly.
-    """
-    DBOS.destroy(destroy_registry=True)
-    dbos = DBOS(config=config)
-
-    @DBOS.workflow()
-    def wf_with_timeout() -> str:
-        return "done"
-
-    scenario_error: List[BaseException] = []
-
-    def run_scenario() -> None:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        async def scenario() -> None:
-            # Launch from within the running loop so DBOS adopts it as main loop.
-            DBOS.launch()
-
-            # The workflow returns immediately, but its timeout task stays parked
-            # in asyncio.sleep() on this loop, so it is still pending in
-            # dbos._timeout_tasks when we destroy.
-            with SetWorkflowTimeout(30):
-                assert wf_with_timeout() == "done"
-
-            # Poll (don't sleep a fixed amount) until the loop has actually
-            # created the parked timeout task. The async retry yields to the loop
-            # between attempts, so the task gets a chance to be created.
-            def timeout_task_is_pending() -> None:
-                assert dbos._timeout_tasks, "expected a pending timeout task"
-
-            await retry_until_success_async(
-                timeout_task_is_pending, interval=0.2, max_attempts=50
-            )
-
-            # Called from the adopted main-loop thread -> deadlocks before the fix.
-            DBOS.destroy(destroy_registry=True)
-
-        try:
-            loop.run_until_complete(scenario())
-        except BaseException as e:
-            scenario_error.append(e)
-        finally:
-            loop.close()
-
-    worker = threading.Thread(
-        target=run_scenario, name="dbos-destroy-scenario", daemon=True
-    )
-    worker.start()
-    worker.join(timeout=20)
-
-    assert not worker.is_alive(), (
-        "DBOS.destroy() deadlocked: it was called from the adopted main-loop "
-        "thread while a timeout task was still pending."
-    )
-    if scenario_error:
-        raise scenario_error[0]
-
-
 @pytest.mark.parametrize("adopt_main_loop", [False, True], ids=["owned", "adopted"])
 def test_destroy_finalizes_only_owned_async_generators(
     config: DBOSConfig,
@@ -1468,7 +1383,7 @@ async def test_async_child_id_survives_concurrent_context_clear(dbos: DBOS) -> N
         return cast(List[int], await asyncio.gather(*[child(i) for i in range(n)]))
 
     real_check = dbos._sys_db.check_operation_execution
-    real_record = dbos._sys_db.record_child_workflow
+    real_init_child = dbos._sys_db.init_child_workflow
     fired: List[int] = []
 
     def check_and_clear(*args, **kwargs):  # type: ignore[no-untyped-def]
@@ -1481,10 +1396,10 @@ async def test_async_child_id_survives_concurrent_context_clear(dbos: DBOS) -> N
             fired.append(1)
         return result
 
-    def record_and_restore(*args, **kwargs):  # type: ignore[no-untyped-def]
+    def init_child_and_restore(*args, **kwargs):  # type: ignore[no-untyped-def]
         # Last sys-db call in init_wf; restore the id so the child's normal __exit__ stays consistent in this non-cancelled test.
         try:
-            return real_record(*args, **kwargs)
+            return real_init_child(*args, **kwargs)
         finally:
             ctx = get_local_dbos_context()
             saved = getattr(ctx, "_test_saved_wfid", "") if ctx is not None else ""
@@ -1492,13 +1407,13 @@ async def test_async_child_id_survives_concurrent_context_clear(dbos: DBOS) -> N
                 ctx.workflow_id = saved  # type: ignore[union-attr]
 
     dbos._sys_db.check_operation_execution = check_and_clear  # type: ignore[method-assign]
-    dbos._sys_db.record_child_workflow = record_and_restore  # type: ignore[method-assign]
+    dbos._sys_db.init_child_workflow = init_child_and_restore  # type: ignore[method-assign]
     try:
         fanout = 5
         assert (await parent(fanout)) == list(range(fanout))
     finally:
         dbos._sys_db.check_operation_execution = real_check  # type: ignore[method-assign]
-        dbos._sys_db.record_child_workflow = real_record  # type: ignore[method-assign]
+        dbos._sys_db.init_child_workflow = real_init_child  # type: ignore[method-assign]
 
     # The injection must have actually fired (otherwise the test proves nothing).
     assert len(fired) >= fanout
@@ -1600,16 +1515,3 @@ def test_failed_dequeued_async_workflow_leaves_no_unretrieved_future(
         retry_until_success(control_detected, interval=0.1, max_attempts=50)
     finally:
         loop.set_exception_handler(previous_handler)
-
-
-def test_record_child_workflow_rejects_empty_id(dbos: DBOS) -> None:
-    """The persistence guard: an empty child id is never valid and must fail loudly
-    rather than silently corrupt operation_outputs."""
-    with pytest.raises(DBOSException):
-        dbos._sys_db.record_child_workflow(
-            "some-parent-id",
-            "",
-            0,
-            "some.func",
-            started_at_epoch_ms=int(time.time() * 1000),
-        )

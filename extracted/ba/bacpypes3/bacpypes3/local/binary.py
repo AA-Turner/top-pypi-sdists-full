@@ -6,24 +6,20 @@ from __future__ import annotations
 
 from typing import Callable
 
-from ..debugging import ModuleLogger, bacpypes_debugging
+from ..debugging import bacpypes_debugging, ModuleLogger
 
 # object module provides basic objects
 from ..object import (
     BinaryInputObject as _BinaryInputObject,
-)
-from ..object import (
     BinaryOutputObject as _BinaryOutputObject,
-)
-from ..object import (
     BinaryValueObject as _BinaryValueObject,
 )
-from .cmd import Commandable
-from .cov import GenericCriteria
-from .event import ChangeOfStateEventAlgorithm, CommandFailureEventAlgorithm
 
 # local object provides dynamically generated propertyList property
 from .object import Object as _Object
+from .cov import GenericCriteria
+from .cmd import Commandable
+from .event import ChangeOfStateEventAlgorithm, CommandFailureEventAlgorithm
 
 # some debugging
 _debug = 0

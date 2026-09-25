@@ -91,15 +91,91 @@ class DeviceAttributes(StrEnum):
     eco_mode = "eco_mode"
     tbh = "tbh"
     error_code = "error_code"
+    ibh1_on = "ibh1_on"
+    ibh2_on = "ibh2_on"
+    load_output_tbh = "load_output_tbh"
+    pump_i_running = "pump_i_running"
+    sv1_open = "sv1_open"
+    sv2_open = "sv2_open"
+    pump_o_running = "pump_o_running"
+    pump_d_running = "pump_d_running"
+    pump_c_running = "pump_c_running"
+    sv3_open = "sv3_open"
+    crankcase_heater_on = "crankcase_heater_on"
+    pump_s_running = "pump_s_running"
+    alarm_on = "alarm_on"
+    run_valve_on = "run_valve_on"
+    aux_heat_on = "aux_heat_on"
+    defrost_valve_on = "defrost_valve_on"
+    fact_req_solar_on = "fact_req_solar_on"
+    fact_req_ther_cool_on = "fact_req_ther_cool_on"
+    cool_run = "cool_run"
+    heat_run = "heat_run"
+    dhw_run = "dhw_run"
+    fact_req_ther_heat_on = "fact_req_ther_heat_on"
+    edge_version_type = "edge_version_type"
+    comp_total_run_time = "comp_total_run_time"
+    hmi_sn_code = "hmi_sn_code"
+    idu_software_version_str = "idu_software_version_str"
+    odu_software_version_str = "odu_software_version_str"
+    error_code_description = "error_code_description"
+
+    # --- additive attributes already parsed by message.py, now exposed ---
+    remote_onoff = "remote_onoff"
+    heat = "heat"
+    cool = "cool"
+    dhw = "dhw"
+    double_zone = "double_zone"
+    room_thermal_support = "room_thermal_support"
+    room_thermal_state = "room_thermal_state"
+    time_set = "time_set"
+    holiday_on = "holiday_on"
+    tbh_control = "tbh_control"
+    sys_energy_ana_en = "sys_energy_ana_en"
+    hmi_energy_ana_set_en = "hmi_energy_ana_set_en"
+    status_cool = "status_cool"
+    zone1_temp_set = "zone1_temp_set"
+    zone2_temp_set = "zone2_temp_set"
+    t5s = "t5s"
+    tas = "tas"
+    eco_function_state = "eco_function_state"
+    eco_timer_state = "eco_timer_state"
+    disinfect_run = "disinfect_run"
+    disinfect_set_weekday = "disinfect_set_weekday"
+    disinfect_start_hour = "disinfect_start_hour"
+    disinfect_start_minutes = "disinfect_start_minutes"
+    temp_t4 = "temp_t4"
+    temp_t5 = "temp_t5"
+    temp_ta = "temp_ta"
+    temp_tw2 = "temp_tw2"
+    temp_tb_t1 = "temp_tb_t1"
+    temp_tb_t2 = "temp_tb_t2"
+    temp_tsolar = "temp_tsolar"
+    hydbox_subtype = "hydbox_subtype"
+    hydrobox_capacity = "hydrobox_capacity"
+    machine_type = "machine_type"
+    odu_model = "odu_model"
+    dc_current = "dc_current"
+    idu_t1s1 = "idu_t1s1"
+    idu_t1s2 = "idu_t1s2"
+    water_flower = "water_flower"
+    water_pressure = "water_pressure"
+    room_rel_hum = "room_rel_hum"
+    current_unit_capacity = "current_unit_capacity"
+    instant_renew_power0 = "instant_renew_power0"
+
+    # --- additive attributes backed by new parsing logic ---
+    dc_bus_voltage = "dc_bus_voltage"
+    compressor_on = "compressor_on"
 
 
 class MideaC3Device(MideaDevice):
     """Midea C3 device."""
 
     _silent_modes: ClassVar[list[str]] = [
-        C3SilentLevel.OFF.name,
-        C3SilentLevel.SILENT.name,
-        C3SilentLevel.SUPER_SILENT.name,
+        C3SilentLevel.OFF.name.lower(),
+        C3SilentLevel.SILENT.name.lower(),
+        C3SilentLevel.SUPER_SILENT.name.lower(),
     ]
 
     def __init__(
@@ -126,7 +202,7 @@ class MideaC3Device(MideaDevice):
                 DeviceAttributes.zone1_water_temp_mode: False,
                 DeviceAttributes.zone2_water_temp_mode: False,
                 DeviceAttributes.silent_mode: False,
-                DeviceAttributes.silent_level: C3SilentLevel.OFF.name,
+                DeviceAttributes.silent_level: C3SilentLevel.OFF.name.lower(),
                 DeviceAttributes.eco_mode: False,
                 DeviceAttributes.tbh: False,
                 DeviceAttributes.mode: 1,
@@ -174,6 +250,78 @@ class MideaC3Device(MideaDevice):
                 DeviceAttributes.fg_capacity_need: None,
                 DeviceAttributes.instant_power0: None,
                 DeviceAttributes.error_code: 0,
+                DeviceAttributes.ibh1_on: None,
+                DeviceAttributes.ibh2_on: None,
+                DeviceAttributes.load_output_tbh: None,
+                DeviceAttributes.pump_i_running: None,
+                DeviceAttributes.sv1_open: None,
+                DeviceAttributes.sv2_open: None,
+                DeviceAttributes.pump_o_running: None,
+                DeviceAttributes.pump_d_running: None,
+                DeviceAttributes.pump_c_running: None,
+                DeviceAttributes.sv3_open: None,
+                DeviceAttributes.crankcase_heater_on: None,
+                DeviceAttributes.pump_s_running: None,
+                DeviceAttributes.alarm_on: None,
+                DeviceAttributes.run_valve_on: None,
+                DeviceAttributes.aux_heat_on: None,
+                DeviceAttributes.defrost_valve_on: None,
+                DeviceAttributes.fact_req_solar_on: None,
+                DeviceAttributes.fact_req_ther_cool_on: None,
+                DeviceAttributes.cool_run: None,
+                DeviceAttributes.heat_run: None,
+                DeviceAttributes.dhw_run: None,
+                DeviceAttributes.fact_req_ther_heat_on: None,
+                DeviceAttributes.edge_version_type: None,
+                DeviceAttributes.comp_total_run_time: None,
+                DeviceAttributes.hmi_sn_code: None,
+                DeviceAttributes.idu_software_version_str: None,
+                DeviceAttributes.odu_software_version_str: None,
+                DeviceAttributes.error_code_description: "No error",
+                DeviceAttributes.remote_onoff: None,
+                DeviceAttributes.heat: None,
+                DeviceAttributes.cool: None,
+                DeviceAttributes.dhw: None,
+                DeviceAttributes.double_zone: None,
+                DeviceAttributes.room_thermal_support: None,
+                DeviceAttributes.room_thermal_state: None,
+                DeviceAttributes.time_set: None,
+                DeviceAttributes.holiday_on: None,
+                DeviceAttributes.tbh_control: None,
+                DeviceAttributes.sys_energy_ana_en: None,
+                DeviceAttributes.hmi_energy_ana_set_en: None,
+                DeviceAttributes.status_cool: None,
+                DeviceAttributes.zone1_temp_set: None,
+                DeviceAttributes.zone2_temp_set: None,
+                DeviceAttributes.t5s: None,
+                DeviceAttributes.tas: None,
+                DeviceAttributes.eco_function_state: None,
+                DeviceAttributes.eco_timer_state: None,
+                DeviceAttributes.disinfect_run: None,
+                DeviceAttributes.disinfect_set_weekday: None,
+                DeviceAttributes.disinfect_start_hour: None,
+                DeviceAttributes.disinfect_start_minutes: None,
+                DeviceAttributes.temp_t4: None,
+                DeviceAttributes.temp_t5: None,
+                DeviceAttributes.temp_ta: None,
+                DeviceAttributes.temp_tw2: None,
+                DeviceAttributes.temp_tb_t1: None,
+                DeviceAttributes.temp_tb_t2: None,
+                DeviceAttributes.temp_tsolar: None,
+                DeviceAttributes.hydbox_subtype: None,
+                DeviceAttributes.hydrobox_capacity: None,
+                DeviceAttributes.machine_type: None,
+                DeviceAttributes.odu_model: None,
+                DeviceAttributes.dc_current: None,
+                DeviceAttributes.idu_t1s1: None,
+                DeviceAttributes.idu_t1s2: None,
+                DeviceAttributes.water_flower: None,
+                DeviceAttributes.water_pressure: None,
+                DeviceAttributes.room_rel_hum: None,
+                DeviceAttributes.current_unit_capacity: None,
+                DeviceAttributes.instant_renew_power0: None,
+                DeviceAttributes.dc_bus_voltage: None,
+                DeviceAttributes.compressor_on: None,
             },
         )
         self._default_temperature_step: float = 0.5
@@ -255,7 +403,7 @@ class MideaC3Device(MideaDevice):
                         self._attributes[DeviceAttributes.room_temp_min]
                     )
             if self._attributes[DeviceAttributes.zone1_power]:
-                if self._attributes[DeviceAttributes.zone_temp_type][zone]:
+                if self._attributes[DeviceAttributes.zone_temp_type][0]:
                     self._attributes[DeviceAttributes.zone1_water_temp_mode] = True
                     self._attributes[DeviceAttributes.zone1_room_temp_mode] = False
                 else:
@@ -265,7 +413,7 @@ class MideaC3Device(MideaDevice):
                 self._attributes[DeviceAttributes.zone1_water_temp_mode] = False
                 self._attributes[DeviceAttributes.zone1_room_temp_mode] = False
             if self._attributes[DeviceAttributes.zone2_power]:
-                if self._attributes[DeviceAttributes.zone_temp_type][zone]:
+                if self._attributes[DeviceAttributes.zone_temp_type][1]:
                     self._attributes[DeviceAttributes.zone2_water_temp_mode] = True
                     self._attributes[DeviceAttributes.zone2_room_temp_mode] = False
                 else:
@@ -339,13 +487,15 @@ class MideaC3Device(MideaDevice):
                     C3SilentLevel.SILENT
                     if value
                     and self._attributes[DeviceAttributes.silent_level]
-                    == C3SilentLevel.OFF.name
-                    else C3SilentLevel[self._attributes[DeviceAttributes.silent_level]]
+                    == C3SilentLevel.OFF.name.lower()
+                    else C3SilentLevel[
+                        str(self._attributes[DeviceAttributes.silent_level]).upper()
+                    ]
                 )
             elif attr == DeviceAttributes.silent_level.value and isinstance(value, str):
                 message = MessageSetSilent(self._message_protocol_version)
-                message.silent_level = C3SilentLevel[value]
-                message.silent_mode = value != C3SilentLevel.OFF.name
+                message.silent_level = C3SilentLevel[value.upper()]
+                message.silent_mode = value != C3SilentLevel.OFF.name.lower()
         if message is not None:
             self.build_send(message)
 

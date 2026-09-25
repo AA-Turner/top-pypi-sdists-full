@@ -50,8 +50,6 @@ class BundleSpec(BaseModel):
         External access integration objects (database.schema.eai_object_name) to attach at execution time.
     env_vars : list[Dict[str, str]], optional
         List of single-key maps, each mapping an environment variable name to its value.
-    telemetry_options : object, optional
-        Telemetry options as a name/value map (for example, log_level and trace_level).
     """
 
     type: StrictStr
@@ -74,8 +72,6 @@ class BundleSpec(BaseModel):
 
     env_vars: Optional[List[Dict[str, StrictStr]]] = None
 
-    telemetry_options: Optional[Dict[str, Any]] = None
-
     __properties = [
         "type",
         "compute_type",
@@ -87,7 +83,6 @@ class BundleSpec(BaseModel):
         "secrets",
         "external_access_integrations",
         "env_vars",
-        "telemetry_options",
     ]
 
     model_config = ConfigDict(
@@ -157,7 +152,6 @@ class BundleSpec(BaseModel):
                 "secrets": obj.get("secrets"),
                 "external_access_integrations": obj.get("external_access_integrations"),
                 "env_vars": obj.get("env_vars"),
-                "telemetry_options": obj.get("telemetry_options"),
             }
         )
 
@@ -178,7 +172,6 @@ class BundleSpecModel:
         secrets: Optional[list[str]] = None,
         external_access_integrations: Optional[list[str]] = None,
         env_vars: Optional[list[Dict[str, str]]] = None,
-        telemetry_options: Optional[object] = None,
     ):
         """A model object representing the BundleSpec resource.
 
@@ -206,8 +199,6 @@ class BundleSpecModel:
             External access integration objects (database.schema.eai_object_name) to attach at execution time.
         env_vars : list[Dict[str, str]], optional
             List of single-key maps, each mapping an environment variable name to its value.
-        telemetry_options : object, optional
-            Telemetry options as a name/value map (for example, log_level and trace_level).
         """
         self.type = type
         self.compute_type = compute_type
@@ -219,7 +210,6 @@ class BundleSpecModel:
         self.secrets = secrets
         self.external_access_integrations = external_access_integrations
         self.env_vars = env_vars
-        self.telemetry_options = telemetry_options
 
     __properties = [
         "type",
@@ -232,7 +222,6 @@ class BundleSpecModel:
         "secrets",
         "external_access_integrations",
         "env_vars",
-        "telemetry_options",
     ]
 
     def __repr__(self) -> str:
@@ -250,7 +239,6 @@ class BundleSpecModel:
             secrets=self.secrets,
             external_access_integrations=self.external_access_integrations,
             env_vars=self.env_vars,
-            telemetry_options=self.telemetry_options,
         )
 
     @classmethod
@@ -266,7 +254,6 @@ class BundleSpecModel:
             secrets=model.secrets,
             external_access_integrations=model.external_access_integrations,
             env_vars=model.env_vars,
-            telemetry_options=model.telemetry_options,
         )
 
     def to_dict(self):

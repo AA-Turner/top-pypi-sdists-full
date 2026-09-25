@@ -394,7 +394,7 @@ def translate_create_or_replace_tag(rel: TypingAny, table_name_sql: str) -> str:
         op="tag_ddl",
         surface="sql_call",
         ref_type="tag",
-        ddl_action="create",
+        ddl_action="replace" if replace and not create else "create",
     )
     return _build_create_version_tag_sql(
         table_name_sql=table_name_sql,

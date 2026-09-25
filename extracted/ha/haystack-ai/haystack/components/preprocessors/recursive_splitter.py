@@ -6,7 +6,7 @@ import re
 from copy import deepcopy
 from typing import Any, Literal
 
-from haystack import Document, component, logging
+from haystack import Document, component, default_to_dict, logging
 from haystack.lazy_imports import LazyImport
 
 with LazyImport("Run 'pip install tiktoken'") as tiktoken_imports:
@@ -70,9 +70,11 @@ class RecursiveDocumentSplitter:
 
         :param split_length: The maximum length of each chunk by default in words, but can be in characters or tokens.
             See the `split_units` parameter.
-        :param split_overlap: The number of characters to overlap between consecutive chunks.
+        :param split_overlap: The number of overlapping units (words, characters, or tokens, per
+            `split_unit`) between consecutive chunks.
         :param split_unit: The unit of the split_length parameter. It can be either "word", "char", or "token".
             If "token" is selected, the text will be split into tokens using the tiktoken tokenizer (o200k_base).
+            Special-token strings in document content are encoded as ordinary text.
         :param separators: An optional list of separator strings to use for splitting the text. The string
             separators will be treated as regular expressions unless the separator is "sentence", in that case the
             text will be split into sentences using a custom sentence tokenizer based on NLTK.
@@ -109,11 +111,27 @@ class RecursiveDocumentSplitter:
             self.tiktoken_tokenizer = tiktoken.get_encoding("o200k_base")
         self._is_warmed_up = True
 
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Serializes the component to a dictionary.
+
+        :returns:
+            Dictionary with serialized data.
+        """
+        return default_to_dict(
+            self,
+            split_length=self.split_length,
+            split_overlap=self.split_overlap,
+            split_unit=self.split_units,
+            separators=self.separators,
+            sentence_splitter_params=self.sentence_splitter_params,
+        )
+
     def _check_params(self) -> None:
         if self.split_length < 1:
             raise ValueError("Split length must be at least 1 character.")
         if self.split_overlap < 0:
-            raise ValueError("Overlap must be greater than zero.")
+            raise ValueError("split_overlap must be greater than or equal to 0.")
         if self.split_overlap >= self.split_length:
             raise ValueError("Overlap cannot be greater than or equal to the chunk size.")
         if not all(isinstance(separator, str) for separator in self.separators):
@@ -145,7 +163,7 @@ class RecursiveDocumentSplitter:
             return current_chunk, remaining_chars
 
         # at this point we know that the tokenizer is already initialized
-        tokens = self.tiktoken_tokenizer.encode(current_chunk)  # type: ignore
+        tokens = self.tiktoken_tokenizer.encode_ordinary(current_chunk)  # type: ignore
         current_tokens = tokens[: self.split_length]
         remaining_tokens = tokens[self.split_length :]
         return self.tiktoken_tokenizer.decode(current_tokens), self.tiktoken_tokenizer.decode(remaining_tokens)  # type: ignore
@@ -190,8 +208,8 @@ class RecursiveDocumentSplitter:
                     elif self.split_units == "token":
                         # For token-based splitting, combine at token level
                         # at this point we know that the tokenizer is already initialized
-                        remaining_tokens = self.tiktoken_tokenizer.encode(remaining_text)  # type: ignore
-                        next_chunk_tokens = self.tiktoken_tokenizer.encode(chunks[idx + 1])  # type: ignore
+                        remaining_tokens = self.tiktoken_tokenizer.encode_ordinary(remaining_text)  # type: ignore
+                        next_chunk_tokens = self.tiktoken_tokenizer.encode_ordinary(chunks[idx + 1])  # type: ignore
                         chunks[idx + 1] = self.tiktoken_tokenizer.decode(remaining_tokens + next_chunk_tokens)  # type: ignore
                     else:  # char
                         chunks[idx + 1] = remaining_text + chunks[idx + 1]
@@ -233,8 +251,8 @@ class RecursiveDocumentSplitter:
         elif self.split_units == "token":
             # For token-based splitting, combine at token level
             # at this point we know that the tokenizer is already initialized
-            overlap_tokens = self.tiktoken_tokenizer.encode(overlap)  # type: ignore
-            chunk_tokens = self.tiktoken_tokenizer.encode(chunk)  # type: ignore
+            overlap_tokens = self.tiktoken_tokenizer.encode_ordinary(overlap)  # type: ignore
+            chunk_tokens = self.tiktoken_tokenizer.encode_ordinary(chunk)  # type: ignore
             current_chunk = self.tiktoken_tokenizer.decode(overlap_tokens + chunk_tokens)  # type: ignore
         else:  # char
             current_chunk = overlap + chunk
@@ -251,7 +269,7 @@ class RecursiveDocumentSplitter:
         elif self.split_units == "token":
             # For token-based splitting, handle overlap at token level
             # at this point we know that the tokenizer is already initialized
-            tokens = self.tiktoken_tokenizer.encode(prev_chunk)  # type: ignore
+            tokens = self.tiktoken_tokenizer.encode_ordinary(prev_chunk)  # type: ignore
             overlap_tokens = tokens[overlap_start:]
             overlap = self.tiktoken_tokenizer.decode(overlap_tokens)  # type: ignore
         else:  # char
@@ -273,7 +291,7 @@ class RecursiveDocumentSplitter:
             return len(text)
         # token
         # at this point we know that the tokenizer is already initialized
-        return len(self.tiktoken_tokenizer.encode(text))  # type: ignore
+        return len(self.tiktoken_tokenizer.encode_ordinary(text))  # type: ignore
 
     def _chunk_text(self, text: str) -> list[str]:
         """
@@ -349,17 +367,11 @@ class RecursiveDocumentSplitter:
             if current_chunk:
                 chunks.append("".join(current_chunk))
 
-            if self.split_overlap > 0:
-                chunks = self._apply_overlap(chunks)
-
             if chunks:
                 return chunks
 
         # if no separator worked, fall back to word- or character-level chunking
-        chunks = self._fall_back_to_fixed_chunking(text, self.split_units)
-        if self.split_overlap > 0:
-            chunks = self._apply_overlap(chunks)
-        return chunks
+        return self._fall_back_to_fixed_chunking(text, self.split_units)
 
     def _fall_back_to_fixed_chunking(self, text: str, split_units: Literal["word", "char", "token"]) -> list[str]:
         """
@@ -407,7 +419,7 @@ class RecursiveDocumentSplitter:
                 chunks.append(text[i : i + self.split_length])
         else:  # token
             # at this point we know that the tokenizer is already initialized
-            tokens = self.tiktoken_tokenizer.encode(text)  # type: ignore
+            tokens = self.tiktoken_tokenizer.encode_ordinary(text)  # type: ignore
             for i in range(0, len(tokens), self.split_length):
                 chunk_tokens = tokens[i : i + self.split_length]
                 chunks.append(self.tiktoken_tokenizer.decode(chunk_tokens))  # type: ignore
@@ -428,6 +440,12 @@ class RecursiveDocumentSplitter:
     def _run_one(self, doc: Document) -> list[Document]:
         chunks = self._chunk_text(doc.content)  # type: ignore # the caller already check for a non-empty doc.content
         chunks = chunks[:-1] if len(chunks[-1]) == 0 else chunks  # remove last empty chunk if it exists
+
+        # apply the overlap once, on the fully chunked list, so that chunks produced
+        # at inner recursion levels don't get the overlap applied a second time
+        if self.split_overlap > 0:
+            chunks = self._apply_overlap(chunks)
+
         current_position = 0
         current_page = 1
 

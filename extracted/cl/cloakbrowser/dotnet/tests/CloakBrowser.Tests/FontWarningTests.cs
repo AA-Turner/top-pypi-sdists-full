@@ -192,4 +192,39 @@ public class FontWarningTests
             try { Directory.Delete(tmp, recursive: true); } catch { /* best-effort */ }
         }
     }
+
+    [Fact]
+    public void MacFontTells_is_the_20_font_mac_core_set()
+    {
+        Assert.Equal(20, CloakLauncher.MacFontTells.Length);
+        Assert.Contains("Helvetica Neue", CloakLauncher.MacFontTells);
+    }
+
+    [Fact]
+    public void CountFontsPresent_counts_the_mac_set_from_fc_list()
+    {
+        // Shim an "fc-list" on PATH that lists only 2 of the mac tells (POSIX only).
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+
+        var dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(dir);
+        var shim = Path.Combine(dir, "fc-list");
+        File.WriteAllText(shim, "#!/bin/sh\necho '/x/Menlo.ttc: Menlo:style=Regular'\necho '/x/Monaco.ttf: Monaco:style=Regular'\n");
+        using (var chmod = Process.Start(new ProcessStartInfo("chmod", $"+x \"{shim}\"") { UseShellExecute = false }))
+        {
+            chmod!.WaitForExit();
+        }
+
+        var prevPath = Environment.GetEnvironmentVariable("PATH");
+        try
+        {
+            Environment.SetEnvironmentVariable("PATH", dir + Path.PathSeparator + prevPath);
+            Assert.Equal(2, CloakLauncher.CountFontsPresent(CloakLauncher.MacFontTells));
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PATH", prevPath);
+            try { Directory.Delete(dir, recursive: true); } catch { /* best-effort */ }
+        }
+    }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: skops
-Version: 0.15.0
+Version: 0.16.0
 Summary: A set of tools, related to machine learning in production.
 Project-URL: Homepage, http://github.com/skops-dev/skops
 Project-URL: Documentation, https://skops.readthedocs.io/en/stable/

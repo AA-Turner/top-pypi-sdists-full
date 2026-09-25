@@ -382,7 +382,7 @@ module = "weave.vendor.weave_server_sdk.*"
 ignore_errors = true
 
 [tool.bumpversion]
-current_version = "0.53.9"
+current_version = "0.53.10"
 parse = """(?x)
     (?P<major>0|[1-9]\\d*)\\.
     (?P<minor>0|[1-9]\\d*)\\.
@@ -425,6 +425,7 @@ fasion = "fasion" # Wandb lore
 alog_score = "alog_score"
 BoxedNDArray = "BoxedNDArray"
 AKS = "AKS" # Azure Kubernetes Service, in AGENTS.md
+ANDed = "ANDed" # logical AND, past tense; typos splits this into AND + Ded
 
 [tool.fixit]
 enable = [".rules.op_deco", ".rules.legacy_methods"]

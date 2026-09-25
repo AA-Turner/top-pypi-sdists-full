@@ -150,6 +150,8 @@ doc = [
 ]
 lint = [
     "botocore-stubs==1.36.23",
+    "flake8~=7.3",
+    "flake8-async~=26.8",
     "mypy==2.3.1",
     "ruff==0.16.8",
     "types-Markdown",
@@ -184,6 +186,12 @@ test = [
     "rangehttpserver==1.4.0",
     "yappi==1.7.6",
 ]
+# Synced automatically by plain `uv run`/`uv sync`, no `--group` needed.
+dev = [
+    { include-group = "test" },
+    { include-group = "deploy" },
+    { include-group = "lint" },
+]
 
 [project.scripts]
 tinybird_server = "tinybird.app:run"
@@ -193,7 +201,10 @@ tb = "tinybird.tb.cli:cli"
 colibri = "tinybird.colibri.cli:cli"
 
 [tool.uv.workspace]
-members = ["data_connector"]
+members = [
+    "chbackups",
+    "data_connector",
+]
 
 [tool.setuptools]
 include-package-data = true

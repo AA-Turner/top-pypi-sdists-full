@@ -8,6 +8,9 @@
 
 #![allow(dead_code)]
 
+use rayon::prelude::*;
+
+use crate::bzgrid::{fill_neighboring_grid_points, BzGridError, BzGridView};
 use crate::common::{matvec_di, MatD, Vec3D, Vec3I};
 
 /// `THM_EPSILON=1e-10` is unconditionally set in `CMakeLists.txt`
@@ -184,9 +187,13 @@ pub fn all_relative_grid_address() -> AllRelativeGridAddress {
 
 /// Tetrahedron-method integration weight for a single `omega`.
 /// Mirrors `thm_get_integration_weight`.
+///
+/// `tetrahedra_omegas` holds the 24 tetrahedra around a grid point,
+/// or several such sets of 24 concatenated, whose weights are
+/// averaged.
 pub fn integration_weight(
     omega: f64,
-    tetrahedra_omegas: &[[f64; 4]; 24],
+    tetrahedra_omegas: &[[f64; 4]],
     function: WeightFunction,
 ) -> f64 {
     match function {
@@ -197,13 +204,14 @@ pub fn integration_weight(
 
 fn get_integration_weight(
     omega: f64,
-    tetrahedra_omegas: &[[f64; 4]; 24],
+    tetrahedra_omegas: &[[f64; 4]],
     gn: fn(i64, f64, &[f64; 4]) -> f64,
     ij: fn(i64, i64, f64, &[f64; 4]) -> f64,
 ) -> f64 {
+    debug_assert!(tetrahedra_omegas.len() % 24 == 0);
     let mut sum = 0.0;
-    for i in 0..24 {
-        let mut v = tetrahedra_omegas[i];
+    for tetra_omegas in tetrahedra_omegas {
+        let mut v = *tetra_omegas;
         let ci = sort_omegas(&mut v);
         // The chained `else if` exactly preserves the C code's
         // strict-inequality guards: at boundary equality (e.g.
@@ -220,7 +228,57 @@ fn get_integration_weight(
             sum += ij(4, ci, omega, &v) * gn(4, omega, &v);
         }
     }
-    sum / 6.0
+    // 6.0 for 24 tetrahedra, so that case is unchanged bit for bit.
+    sum / (tetrahedra_omegas.len() as f64 / 4.0)
+}
+
+/// Public: tetrahedron-method integration weights for many grid points.
+/// Mirrors `ph3py_get_thm_integration_weights_at_grid_points`.
+///
+/// `iw` is `(num_gp, num_fp, num_band)` in C-contiguous layout.
+/// `relative_grid_address` is the 24-tetrahedra vertex offset table,
+/// or several such tables concatenated, whose weights are averaged.
+/// `frequencies` is `(num_ir, num_band)` flat; `gp2irgp_map` maps each
+/// BZ-grid index to its row in `frequencies`.  Parallelised over grid
+/// points (output chunks are disjoint).
+pub fn integration_weights_at_grid_points(
+    iw: &mut [f64],
+    frequency_points: &[f64],
+    relative_grid_address: &[[Vec3I; 4]],
+    grid_points: &[i64],
+    frequencies: &[f64],
+    num_band: usize,
+    bzgrid: &BzGridView,
+    gp2irgp_map: &[i64],
+    function: WeightFunction,
+) -> Result<(), BzGridError> {
+    let num_fp = frequency_points.len();
+    let chunk_size = num_fp * num_band;
+    let num_tetra = relative_grid_address.len();
+
+    iw.par_chunks_mut(chunk_size)
+        .zip(grid_points.par_iter())
+        .try_for_each_init(
+            || (vec![[0i64; 4]; num_tetra], vec![[0.0f64; 4]; num_tetra]),
+            |(vertices, freq_vertices), (iw_chunk, &gp)| -> Result<(), BzGridError> {
+                for (j, tet) in relative_grid_address.iter().enumerate() {
+                    fill_neighboring_grid_points(&mut vertices[j], gp, tet, bzgrid)?;
+                }
+                for bi in 0..num_band {
+                    for j in 0..num_tetra {
+                        for k in 0..4 {
+                            let ir = gp2irgp_map[vertices[j][k] as usize] as usize;
+                            freq_vertices[j][k] = frequencies[ir * num_band + bi];
+                        }
+                    }
+                    for j in 0..num_fp {
+                        iw_chunk[j * num_band + bi] =
+                            integration_weight(frequency_points[j], freq_vertices, function);
+                    }
+                }
+                Ok(())
+            },
+        )
 }
 
 /// Sort `v` ascending in place; return the case index `ci ∈ {0,1,2,3}`
@@ -683,5 +741,24 @@ mod tests {
         // I branch: gn = 0.0 above highest → weight = 0.
         let w = integration_weight(5.0, &to, WeightFunction::I);
         assert!(w.abs() < 1e-12);
+    }
+
+    #[test]
+    fn integration_weight_of_repeated_set_is_unchanged() {
+        // Two copies of the same 24 tetrahedra average to the weight
+        // of one copy.
+        let mut to = [[0.0; 4]; 24];
+        for i in 0..24 {
+            let x = i as f64;
+            to[i] = [x.sin(), 1.0 + (2.0 * x).cos(), 0.5 * x.cos(), 2.0 - x.sin()];
+        }
+        let doubled: Vec<[f64; 4]> = to.iter().chain(to.iter()).copied().collect();
+        for omega in [-0.5, 0.3, 0.9, 1.4, 2.5] {
+            for wf in [WeightFunction::I, WeightFunction::J] {
+                let w24 = integration_weight(omega, &to, wf);
+                let w48 = integration_weight(omega, &doubled, wf);
+                assert!((w24 - w48).abs() < 1e-14, "{omega} {wf:?}: {w24} {w48}");
+            }
+        }
     }
 }

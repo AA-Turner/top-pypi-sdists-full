@@ -435,6 +435,13 @@ def _has_optional_section(spark_format: str) -> bool:
     return False
 
 
+def spark_legacy_parse_has_bracket_literals(spark_format: str) -> bool:
+    """True when LEGACY SimpleDateFormat would treat unquoted ``[``/``]`` as
+    literals rather than java.time optional sections.
+    """
+    return _has_optional_section(spark_format)
+
+
 def spark_format_needs_udf(spark_format: str) -> bool:
     """Return True if any token in ``spark_format`` cannot be faithfully mapped
     to a Snowflake TO_CHAR/TO_TIMESTAMP element, meaning the whole pattern must

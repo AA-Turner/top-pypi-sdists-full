@@ -39,6 +39,14 @@ class SessionPromptRegistry:
         """First pending human prompt, if one exists."""
         return next(iter(self._pending_human_prompts.values()), None)
 
+    @property
+    def pending_prompts(self) -> list[HumanPrompt]:
+        """Every pending human prompt, oldest first.
+
+        Tool calls run in parallel, so several approvals can wait at once.
+        """
+        return list(self._pending_human_prompts.values())
+
     def turn_phase(self, active_turn_id: str | None) -> str:
         """Project prompt state into the transport snapshot turn phase."""
         if self.pending_prompt is not None:

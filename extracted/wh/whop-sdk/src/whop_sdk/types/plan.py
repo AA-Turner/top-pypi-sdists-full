@@ -6,6 +6,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .account_summary import AccountSummary
 from .checkout_session_payment_method_configuration import CheckoutSessionPaymentMethodConfiguration
+from .money import Money
 from .plan_currency import PlanCurrency
 from .plan_custom_field import PlanCustomField
 from .plan_plan_type import PlanPlanType
@@ -24,6 +25,11 @@ class Plan(UniversalBaseModel):
     adaptive_pricing_enabled: bool = pydantic.Field()
     """
     Whether adaptive pricing is enabled for this plan. Raw setting — does not check processor compatibility or feature flags.
+    """
+
+    attributes: typing.Optional[typing.Dict[str, typing.Optional[str]]] = pydantic.Field(default=None)
+    """
+    Attribute values that make this plan one variant of its product, as a map of attribute name to value, e.g. `{"color": "Blue", "size": "Large"}`. Names are snake_case identifiers and come back in alphabetical order. Every variant plan on a product carries the same attribute names and a distinct set of values; the product lists the full option set as `variant_attributes`. `null` for a plan that is not a variant.
     """
 
     billing_period: typing.Optional[float] = pydantic.Field(default=None)
@@ -104,6 +110,11 @@ class Plan(UniversalBaseModel):
     Initial purchase price in plan currency.
     """
 
+    initial_price_due: Money = pydantic.Field()
+    """
+    Total charged at checkout for one unit, before promo codes and tax: `initial_price` plus the first `renewal_price` for recurring plans, or `initial_price` alone while a free trial applies. The trial does not apply when the viewing user has already used one for this plan.
+    """
+
     internal_notes: typing.Optional[str] = pydantic.Field(default=None)
     """
     Private notes not shown to customers. `null` unless the actor has the `plan:basic:read` scope on the plan's account.
@@ -159,6 +170,11 @@ class Plan(UniversalBaseModel):
     Recurring price charged every billing period.
     """
 
+    sku: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Stock keeping unit, free text set by the seller (e.g. `TSHIRT-LARGE-BLUE`). Not enforced unique. `null` when unset.
+    """
+
     split_pay_required_payments: typing.Optional[float] = pydantic.Field(default=None)
     """
     Installment payments required before the subscription pauses. Must be greater than 1. `null` if split pay is not configured.
@@ -191,7 +207,7 @@ class Plan(UniversalBaseModel):
 
     title: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Plan display name shown to customers. Maximum 30 characters. `null` if no title has been set.
+    Plan display name shown to customers. Maximum 30 characters. A variant created without one defaults to its attribute values joined with ` / `. `null` if no title has been set.
     """
 
     trial_period_days: typing.Optional[float] = pydantic.Field(default=None)

@@ -217,7 +217,7 @@ repos:
         entry: uv run python scripts/ci/canonical_handler_shape.py
         language: system
         pass_filenames: true
-        files: ^(src/omnibase_core/.*/nodes/.*/contract\.yaml|src/omnibase_core/.*/nodes/.*\.py|src/omnibase_core/runtime/runtime_local(_adapter)?\.py|src/omnibase_core/mixins/mixin_envelope_extraction\.py|scripts/ci/canonical_handler_shape\.py|scripts/ci/canonical_handler_shape_baseline\.py|scripts/ci/test_selection_adjacency\.yaml|scripts/ci/adequacy_receipts/.*)$
+        files: ^(src/omnibase_core/(.*/)?nodes/.*/contract\.yaml|src/omnibase_core/(.*/)?nodes/.*\.py|src/omnibase_core/runtime/runtime_local(_adapter)?\.py|src/omnibase_core/mixins/mixin_envelope_extraction\.py|scripts/ci/canonical_handler_shape\.py|scripts/ci/canonical_handler_shape_baseline\.py|scripts/ci/test_selection_adjacency\.yaml|scripts/ci/adequacy_receipts/.*)$
         stages: [pre-commit]
 
       # RSD provenance-stamp fail-closed GATE (OMN-15011). The OMN-14355 ratchet
@@ -235,7 +235,7 @@ repos:
         entry: uv run python scripts/ci/rsd_provenance_stamp.py
         language: system
         pass_filenames: false
-        files: ^(src/omnibase_core/.*/nodes/.*/contract\.yaml|src/omnibase_core/.*/nodes/.*/\.rsd_provenance\.json|scripts/ci/rsd_provenance_stamp\.py|scripts/ci/rsd_provenance_stamp_baseline\.py)$
+        files: ^(src/omnibase_core/(.*/)?nodes/.*/contract\.yaml|src/omnibase_core/(.*/)?nodes/.*/\.rsd_provenance\.json|scripts/ci/rsd_provenance_stamp\.py|scripts/ci/rsd_provenance_stamp_baseline\.py)$
         stages: [pre-commit]
 
       # Fail-closed pre-PR SEAM gate for canonical-shape flips (OMN-14809). The
@@ -289,7 +289,7 @@ repos:
         entry: uv run python scripts/ci/verify_flip_bundle.py
         language: system
         pass_filenames: false
-        files: ^(src/omnibase_core/.*/nodes/.*/contract\.yaml|src/omnibase_core/.*/nodes/.*\.py|scripts/ci/canonical_handler_shape\.py|scripts/ci/canonical_handler_shape_baseline\.py|scripts/ci/verify_flip_bundle\.py|scripts/ci/equivalence_producer\.py|scripts/ci/parity_replay\.py|scripts/ci/parity_red_on_base_baseline\.py|scripts/ci/adequacy_receipts/.*)$
+        files: ^(src/omnibase_core/(.*/)?nodes/.*/contract\.yaml|src/omnibase_core/(.*/)?nodes/.*\.py|scripts/ci/canonical_handler_shape\.py|scripts/ci/canonical_handler_shape_baseline\.py|scripts/ci/verify_flip_bundle\.py|scripts/ci/equivalence_producer\.py|scripts/ci/parity_replay\.py|scripts/ci/parity_red_on_base_baseline\.py|scripts/ci/adequacy_receipts/.*)$
         stages: [pre-push]
 
       # Cleanup: Clear tmp/ directory before commits
@@ -1319,6 +1319,26 @@ repos:
         pass_filenames: true
         stages: [pre-commit]
 
+      # OMN-19252: no NEW hardcoded lab model configuration (task A1 of the
+      # knowledge-base-internal plan 2026-09-23-remove-hardcoded-model-config).
+      # Families: model ids, inference endpoints, private/lab-subnet hosts,
+      # retired lab values, loaded example files. The path classes and the
+      # vendor-default file list live in the validator's policy.yaml; there is
+      # no exclude here and no inline suppression marker (onex-allow-internal-ip
+      # is deliberately NOT honoured). Pre-existing findings are tolerated only
+      # through config/hardcoded_model_config_baseline.yaml, which may only
+      # shrink: a new finding fails, a stale entry fails, and the CI job
+      # "Hardcoded Model Config Ratchet (OMN-19252)" refuses an added entry.
+      # BLOCKING. Runs in CI through the Pre-commit Suite (OMN-18899) job.
+      - id: check-hardcoded-model-config-compute
+        name: No new hardcoded lab model configuration — baseline ratchet (OMN-19252)
+        entry: uv run python -m omnibase_core.validation.hardcoded_model_config.runtime_hardcoded_model_config
+          --baseline config/hardcoded_model_config_baseline.yaml
+        language: system
+        types: [text]
+        pass_filenames: true
+        stages: [pre-commit]
+
       # OMN-13497: ban hand-written fakes/stubs of the platform's OWN inference /
       # routing / dispatch boundary, executed as a COMPUTE node over the in-memory
       # event bus (same two-transport seam as check-private-ip-compute; Kafka in
@@ -2094,7 +2114,8 @@ repos:
             \.github/workflows/.*\.yml|
             url_authority_baseline\.json|
             canonical_inference_baseline\.json|
-            extra_forbid_baseline\.yaml
+            extra_forbid_baseline\.yaml|
+            config/hardcoded_model_config_baseline\.yaml
           )$
 
   # --------------------------------------------------------------------------

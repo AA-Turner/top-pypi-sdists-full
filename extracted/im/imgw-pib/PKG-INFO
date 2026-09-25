@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imgw_pib
-Version: 2.5.1
+Version: 2.5.2
 Summary: Python wrapper for IMGW-PIB API.
 Author: Maciej Bieniek
 License-Expression: Apache-2.0

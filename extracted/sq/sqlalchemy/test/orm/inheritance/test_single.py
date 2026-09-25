@@ -26,6 +26,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import subqueryload
+from sqlalchemy.orm import with_loader_criteria
 from sqlalchemy.orm import with_polymorphic
 from sqlalchemy.sql.selectable import LABEL_STYLE_TABLENAME_PLUS_COL
 from sqlalchemy.testing import AssertsCompiledSQL
@@ -125,6 +126,7 @@ class SingleInheritanceTest(testing.AssertsCompiledSQL, fixtures.MappedTest):
         cls.mapper_registry.map_imperatively(
             Employee,
             employees,
+            polymorphic_identity="employee",
             polymorphic_on=employees.c.type,
             properties={
                 "reports": relationship(Report, back_populates="employee")
@@ -186,7 +188,10 @@ class SingleInheritanceTest(testing.AssertsCompiledSQL, fixtures.MappedTest):
         assert row.employee_id == e1.employee_id
 
     def test_discrim_bound_param_cloned_ok(self):
-        """Test #6824"""
+        """Test #6824
+
+        note this changes a bit with #12395"""
+
         Manager = self.classes.Manager
 
         subq1 = select(Manager.employee_id).label("foo")
@@ -196,7 +201,8 @@ class SingleInheritanceTest(testing.AssertsCompiledSQL, fixtures.MappedTest):
             "SELECT (SELECT employees.employee_id FROM employees "
             "WHERE employees.type IN (__[POSTCOMPILE_type_1])) AS foo, "
             "(SELECT employees.employee_id FROM employees "
-            "WHERE employees.type IN (__[POSTCOMPILE_type_1])) AS bar",
+            "WHERE employees.type IN (__[POSTCOMPILE_type_2])) AS bar",
+            checkparams={"type_1": ["manager"], "type_2": ["manager"]},
         )
 
     def test_multi_qualification(self):
@@ -274,6 +280,16 @@ class SingleInheritanceTest(testing.AssertsCompiledSQL, fixtures.MappedTest):
         # so no result.
         eq_(session.query(Manager.employee_id, Engineer.employee_id).all(), [])
 
+        # however, with #12395, a with_polymorphic will merge the IN
+        # together
+        wp = with_polymorphic(Employee, [Manager, Engineer])
+        eq_(
+            session.query(
+                wp.Manager.employee_id, wp.Engineer.employee_id
+            ).all(),
+            [(m1id, m1id), (e1id, e1id), (e2id, e2id)],
+        )
+
         eq_(scalar(session.query(JuniorEngineer.employee_id)), [e2id])
 
     def test_bundle_qualification(self):
@@ -310,6 +326,16 @@ class SingleInheritanceTest(testing.AssertsCompiledSQL, fixtures.MappedTest):
                 Bundle("name", Manager.employee_id, Engineer.employee_id)
             ).all(),
             [],
+        )
+
+        # however, with #12395, a with_polymorphic will merge the IN
+        # together
+        wp = with_polymorphic(Employee, [Manager, Engineer])
+        eq_(
+            session.query(
+                Bundle("name", wp.Manager.employee_id, wp.Engineer.employee_id)
+            ).all(),
+            [((m1id, m1id),), ((e1id, e1id),), ((e2id, e2id),)],
         )
 
         eq_(
@@ -829,6 +855,291 @@ class SingleInheritanceTest(testing.AssertsCompiledSQL, fixtures.MappedTest):
 
         assert len(rq.join(Report.employee.of_type(Manager)).all()) == 1
         assert len(rq.join(Report.employee.of_type(Engineer)).all()) == 0
+
+
+class WPolySingleJoinedParityTest:
+    """a suite to test that with_polymorphic behaves identically
+    with joined or single inheritance as of 2.1, issue #12395
+
+    """
+
+    @classmethod
+    def insert_data(cls, connection):
+        Employee, Manager, Engineer, Boss, JuniorEngineer = cls.classes(
+            "Employee", "Manager", "Engineer", "Boss", "JuniorEngineer"
+        )
+        with Session(connection) as session:
+            session.add(Employee(name="Employee 1"))
+            session.add(Manager(name="Manager 1", manager_data="manager data"))
+            session.add(
+                Engineer(name="Engineer 1", engineer_info="engineer_info")
+            )
+            session.add(
+                JuniorEngineer(
+                    name="Junior Engineer 1",
+                    engineer_info="junior info",
+                    junior_name="junior name",
+                )
+            )
+            session.add(Boss(name="Boss 1", manager_data="boss data"))
+
+            session.commit()
+
+    @testing.variation("wpoly_type", ["star", "classes"])
+    def test_with_polymorphic_sibling_classes_base(
+        self, wpoly_type: testing.Variation
+    ):
+        Employee, Manager, Engineer, JuniorEngineer, Boss = self.classes(
+            "Employee", "Manager", "Engineer", "JuniorEngineer", "Boss"
+        )
+
+        if wpoly_type.star:
+            wp = with_polymorphic(Employee, "*")
+        elif wpoly_type.classes:
+            wp = with_polymorphic(
+                Employee, [Manager, Engineer, JuniorEngineer]
+            )
+        else:
+            wpoly_type.fail()
+
+        stmt = select(wp).order_by(wp.id)
+        session = fixture_session()
+        eq_(
+            session.scalars(stmt).all(),
+            [
+                Employee(name="Employee 1"),
+                Manager(name="Manager 1", manager_data="manager data"),
+                Engineer(engineer_info="engineer_info"),
+                JuniorEngineer(engineer_info="junior info"),
+                Boss(name="Boss 1", manager_data="boss data"),
+            ],
+        )
+
+        # this raises, because we get rows that are not Manager or
+        # JuniorEngineer
+
+        stmt = select(wp, wp.Manager, wp.JuniorEngineer).order_by(wp.id)
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            r"Row with identity key \(<.*Employee'>, .*\) can't be loaded "
+            r"into an object; the polymorphic discriminator column "
+            r"'employee.type' refers to Mapper\[Employee\(.*\)\], "
+            r"which is "
+            r"not a sub-mapper of the requested "
+            r"Mapper\[Manager\(.*\)\]",
+        ):
+            session.scalars(stmt).all()
+
+    @testing.variation("wpoly_type", ["star", "classes"])
+    def test_with_polymorphic_sibling_classes_middle(
+        self, wpoly_type: testing.Variation
+    ):
+        Employee, Manager, Engineer, JuniorEngineer = self.classes(
+            "Employee", "Manager", "Engineer", "JuniorEngineer"
+        )
+
+        if wpoly_type.star:
+            wp = with_polymorphic(Engineer, "*")
+        elif wpoly_type.classes:
+            wp = with_polymorphic(Engineer, [Engineer, JuniorEngineer])
+        else:
+            wpoly_type.fail()
+
+        stmt = select(wp).order_by(wp.id)
+
+        session = fixture_session()
+        eq_(
+            session.scalars(stmt).all(),
+            [
+                Engineer(engineer_info="engineer_info"),
+                JuniorEngineer(engineer_info="junior info"),
+            ],
+        )
+
+        # this raises, because we get rows that are not JuniorEngineer
+
+        stmt = select(wp.JuniorEngineer).order_by(wp.id)
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            r"Row with identity key \(<.*Employee'>, .*\) can't be loaded "
+            r"into an object; the polymorphic discriminator column "
+            r"'employee.type' refers to Mapper\[Engineer\(.*\)\], "
+            r"which is "
+            r"not a sub-mapper of the requested "
+            r"Mapper\[JuniorEngineer\(.*\)\]",
+        ):
+            session.scalars(stmt).all()
+
+    @testing.variation("wpoly_type", ["star", "classes"])
+    def test_with_polymorphic_sibling_columns(
+        self, wpoly_type: testing.Variation
+    ):
+        Employee, Manager, Engineer, JuniorEngineer = self.classes(
+            "Employee", "Manager", "Engineer", "JuniorEngineer"
+        )
+
+        if wpoly_type.star:
+            wp = with_polymorphic(Employee, "*")
+        elif wpoly_type.classes:
+            wp = with_polymorphic(Employee, [Manager, Engineer])
+        else:
+            wpoly_type.fail()
+
+        stmt = select(
+            wp.name, wp.Manager.manager_data, wp.Engineer.engineer_info
+        ).order_by(wp.id)
+
+        session = fixture_session()
+
+        eq_(
+            session.execute(stmt).all(),
+            [
+                ("Employee 1", None, None),
+                ("Manager 1", "manager data", None),
+                ("Engineer 1", None, "engineer_info"),
+                ("Junior Engineer 1", None, "junior info"),
+                ("Boss 1", "boss data", None),
+            ],
+        )
+
+    @testing.variation("wpoly_type", ["star", "classes"])
+    def test_with_polymorphic_sibling_columns_middle(
+        self, wpoly_type: testing.Variation
+    ):
+        Employee, Manager, Engineer, JuniorEngineer = self.classes(
+            "Employee", "Manager", "Engineer", "JuniorEngineer"
+        )
+
+        if wpoly_type.star:
+            wp = with_polymorphic(Engineer, "*")
+        elif wpoly_type.classes:
+            wp = with_polymorphic(Engineer, [JuniorEngineer])
+        else:
+            wpoly_type.fail()
+
+        stmt = select(wp.name, wp.engineer_info, wp.JuniorEngineer.junior_name)
+
+        session = fixture_session()
+
+        eq_(
+            session.execute(stmt).all(),
+            [
+                ("Engineer 1", "engineer_info", None),
+                ("Junior Engineer 1", "junior info", "junior name"),
+            ],
+        )
+
+
+class JoinedWPolyParityTest(
+    WPolySingleJoinedParityTest, fixtures.DeclarativeMappedTest
+):
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class Employee(ComparableEntity, Base):
+            __tablename__ = "employee"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            name: Mapped[str]
+            type: Mapped[str]
+
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "employee",
+            }
+
+        class Manager(Employee):
+            __tablename__ = "manager"
+            id = mapped_column(
+                Integer, ForeignKey("employee.id"), primary_key=True
+            )
+            manager_data: Mapped[str] = mapped_column(nullable=True)
+
+            __mapper_args__ = {
+                "polymorphic_identity": "manager",
+            }
+
+        class Boss(Manager):
+            __tablename__ = "boss"
+            id = mapped_column(
+                Integer, ForeignKey("manager.id"), primary_key=True
+            )
+
+            __mapper_args__ = {
+                "polymorphic_identity": "boss",
+            }
+
+        class Engineer(Employee):
+            __tablename__ = "engineer"
+            id = mapped_column(
+                Integer, ForeignKey("employee.id"), primary_key=True
+            )
+            engineer_info: Mapped[str] = mapped_column(nullable=True)
+
+            __mapper_args__ = {
+                "polymorphic_identity": "engineer",
+            }
+
+        class JuniorEngineer(Engineer):
+            __tablename__ = "juniorengineer"
+            id = mapped_column(
+                Integer, ForeignKey("engineer.id"), primary_key=True
+            )
+            junior_name: Mapped[str] = mapped_column(nullable=True)
+            __mapper_args__ = {
+                "polymorphic_identity": "juniorengineer",
+                "polymorphic_load": "inline",
+            }
+
+
+class SingleWPolyParityTest(
+    WPolySingleJoinedParityTest, fixtures.DeclarativeMappedTest
+):
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class Employee(ComparableEntity, Base):
+            __tablename__ = "employee"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            name: Mapped[str]
+            type: Mapped[str]
+
+            __mapper_args__ = {
+                "polymorphic_on": "type",
+                "polymorphic_identity": "employee",
+            }
+
+        class Manager(Employee):
+            manager_data: Mapped[str] = mapped_column(nullable=True)
+
+            __mapper_args__ = {
+                "polymorphic_identity": "manager",
+                "polymorphic_load": "inline",
+            }
+
+        class Boss(Manager):
+
+            __mapper_args__ = {
+                "polymorphic_identity": "boss",
+                "polymorphic_load": "inline",
+            }
+
+        class Engineer(Employee):
+            engineer_info: Mapped[str] = mapped_column(nullable=True)
+
+            __mapper_args__ = {
+                "polymorphic_identity": "engineer",
+                "polymorphic_load": "inline",
+            }
+
+        class JuniorEngineer(Engineer):
+            junior_name: Mapped[str] = mapped_column(nullable=True)
+
+            __mapper_args__ = {
+                "polymorphic_identity": "juniorengineer",
+                "polymorphic_load": "inline",
+            }
 
 
 class RelationshipFromSingleTest(
@@ -1424,7 +1735,8 @@ class RelationshipToSingleTest(
                 "WHERE employees.type IN (__[POSTCOMPILE_type_2])",
             )
 
-    def test_relationship_to_subclass(self):
+    @testing.fixture
+    def rel_to_subclass_fixture(self):
         (
             JuniorEngineer,
             Company,
@@ -1481,10 +1793,14 @@ class RelationshipToSingleTest(
         sess.add_all([c1, c2, m1, m2, e1, e2])
         sess.commit()
 
-        eq_(c1.engineers, [e2])
-        eq_(c2.engineers, [e1])
+    def test_relationship_to_subclass_one(self, rel_to_subclass_fixture):
+        Company = self.classes.Company
+        JuniorEngineer = self.classes.JuniorEngineer
+        Engineer = self.classes.Engineer
+        Employee = self.classes.Employee
 
-        sess.expunge_all()
+        sess = fixture_session()
+
         eq_(
             sess.query(Company).order_by(Company.name).all(),
             [
@@ -1544,26 +1860,70 @@ class RelationshipToSingleTest(
             [Company(name="c2")],
         )
 
-        # this however fails as it does not limit the subtypes to just
-        # "Engineer". with joins constructed by filter(), we seem to be
-        # following a policy where we don't try to make decisions on how to
-        # join to the target class, whereas when using join() we seem to have
-        # a lot more capabilities. we might want to document
-        # "advantages of join() vs. straight filtering", or add a large
-        # section to "inheritance" laying out all the various behaviors Query
-        # has.
-        @testing.fails_on_everything_except()
-        def go():
-            sess.expunge_all()
-            eq_(
-                sess.query(Company)
-                .filter(Company.company_id == Engineer.company_id)
-                .filter(Engineer.name.in_(["Tom", "Kurt"]))
-                .all(),
-                [Company(name="c2")],
-            )
+    def test_relationship_to_subclass_implicit_from(
+        self, rel_to_subclass_fixture
+    ):
+        """additional tests related to #13070"""
 
-        go()
+        Company = self.classes.Company
+        Engineer = self.classes.Engineer
+
+        sess = fixture_session()
+        eq_(
+            sess.query(Company)
+            .filter(Company.company_id == Engineer.company_id)
+            .filter(Engineer.name.in_(["Tom", "Kurt"]))
+            .all(),
+            [Company(name="c2")],
+        )
+
+    def test_relationship_to_subclass_any(self, rel_to_subclass_fixture):
+        """additional tests related to #13070.
+
+        this test is using any() with single-inh criteria, however this
+        doesnt seem to actually need anything from the #13070 change
+        as the `Engineer.name` criteria itself already includes the
+        single-inh criteria with no need for _adjust_for_extra_criteria.
+        apparently.
+
+        """
+
+        Company = self.classes.Company
+        Engineer = self.classes.Engineer
+
+        sess = fixture_session()
+        eq_(
+            sess.query(Company)
+            .filter(Company.engineers.any(Engineer.name.in_(["Tom", "Kurt"])))
+            .all(),
+            [Company(name="c2")],
+        )
+
+    def test_relationship_to_subclass_any_loader_criteria(
+        self, rel_to_subclass_fixture
+    ):
+        """additional tests related to #13070.
+
+        in this version, we put the criteria in with_loader_criteria, now
+        we need the #13070 fix for this to work.
+
+        """
+
+        Company = self.classes.Company
+        Engineer = self.classes.Engineer
+
+        sess = fixture_session()
+        eq_(
+            sess.query(Company)
+            .filter(Company.engineers.any())
+            .options(
+                with_loader_criteria(
+                    Engineer, Engineer.name.in_(["Tom", "Kurt"])
+                )
+            )
+            .all(),
+            [Company(name="c2")],
+        )
 
 
 class ManyToManyToSingleTest(fixtures.MappedTest, AssertsCompiledSQL):
@@ -1917,8 +2277,7 @@ class SingleFromPolySelectableTest(
             "engineer.engineer_info AS engineer_engineer_info, "
             "engineer.manager_id AS engineer_manager_id "
             "FROM employee JOIN engineer ON employee.id = engineer.id) "
-            "AS anon_1 "
-            "WHERE anon_1.employee_type IN (__[POSTCOMPILE_type_1])",
+            "AS anon_1",
         )
 
     def test_query_wpoly_single_inh_subclass(self):
@@ -2301,11 +2660,10 @@ class AbstractPolymorphicTest(
                 ],
             ),
             CompiledSQL(
-                "SELECT employee.company_id AS employee_company_id, "
-                "employee.id AS employee_id, employee.name AS employee_name, "
-                "employee.type AS employee_type, "
-                "employee.executive_background AS "
-                "employee_executive_background "
+                "SELECT employee.company_id, "
+                "employee.id, employee.name, "
+                "employee.type, "
+                "employee.executive_background "
                 "FROM employee WHERE employee.company_id "
                 "IN (__[POSTCOMPILE_primary_keys]) "
                 "AND employee.type IN (__[POSTCOMPILE_type_1])",

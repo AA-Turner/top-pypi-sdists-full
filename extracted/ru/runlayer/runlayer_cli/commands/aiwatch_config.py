@@ -48,12 +48,33 @@ def _config_callback(ctx: typer.Context) -> None:
         raise typer.Exit()
 
 
+_UNRECOGNIZED_SECRET = "set (unrecognized format)"
+
+
+def _redact_secret(field: str, value: str) -> str:
+    # Recognized keys render the way the dashboard shows that key type, so an
+    # operator can match a device to a key by eye (pinned by
+    # tests/fixtures/managed_secret_display_cases.json). Anything else is
+    # masked outright: `config show` output gets pasted into tickets, and a
+    # wrong-type or truncated value must not echo more than the old
+    # `****<last4>` did.
+    if field == "enrollment_key":
+        if value.startswith("rl_enroll_") and len(value) > 14:
+            return f"{value[:10]}...{value[-4:]}"
+        return _UNRECOGNIZED_SECRET
+    if value.startswith("rl_org_") and len(value) > 14:
+        return f"{value[:14]}..."
+    return _UNRECOGNIZED_SECRET
+
+
 def _redact_config(config: mdm_config.ManagedConfig) -> dict[str, object]:
     redacted: dict[str, object] = {}
     for key, value in config.items():
         if key in mdm_config.SECRET_FIELDS:
             redacted[key] = (
-                f"****{value[-4:]}" if isinstance(value, str) and value else "not set"
+                _redact_secret(key, value)
+                if isinstance(value, str) and value
+                else "not set"
             )
         else:
             redacted[key] = value

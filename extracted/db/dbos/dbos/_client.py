@@ -70,7 +70,11 @@ from dbos._sys_db import (
     WorkflowStatus,
     WorkflowStatusInternal,
 )
-from dbos._workflow_commands import fork_workflow, get_workflow
+from dbos._workflow_commands import (
+    fork_workflow,
+    get_workflow,
+    rewind_workflow,
+)
 
 R = TypeVar("R", covariant=True)  # A generic type for workflow return values
 
@@ -261,11 +265,14 @@ class DBOSClient:
     def _enqueue(self, options: EnqueueOptions, *args: Any, **kwargs: Any) -> str:
         workflow_id, status = self._build_enqueue_status(options, *args, **kwargs)
         return_existing = options.get("duplication_policy") == "return-existing"
+        # Generated once, so a retried insert recognizes a row it already committed.
+        owner_xid = generate_uuid()
         while True:
             try:
                 self._sys_db.init_workflow(
                     status,
-                    owner_xid=None,
+                    owner_xid=owner_xid,
+                    reuse_policy=options.get("workflow_id_reuse_policy"),
                 )
                 return workflow_id
             except DBOSQueueDeduplicatedError:
@@ -299,7 +306,8 @@ class DBOSClient:
         self._sys_db.init_workflow_with_connection(
             status,
             conn_or_session,
-            owner_xid=None,
+            owner_xid=generate_uuid(),
+            reuse_policy=options.get("workflow_id_reuse_policy"),
         )
         return workflow_id
 
@@ -876,6 +884,51 @@ class DBOSClient:
             WorkflowHandleClientAsyncPolling[Any](wfid, self._sys_db)
             for wfid in workflow_ids
         ]
+
+    def rewind_workflow(
+        self,
+        workflow_id: str,
+        *,
+        start_step: Optional[int] = None,
+        application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
+    ) -> "WorkflowHandle[Any]":
+        """Rewind a workflow to a step (default: the first). Only a workflow in a
+        terminal state can be rewound."""
+        rewind_workflow(
+            self._sys_db,
+            [],
+            workflow_id,
+            1 if start_step is None else start_step,
+            application_version=application_version,
+            queue_name=queue_name,
+            queue_partition_key=queue_partition_key,
+        )
+        return WorkflowHandleClientPolling[Any](workflow_id, self._sys_db)
+
+    async def rewind_workflow_async(
+        self,
+        workflow_id: str,
+        *,
+        start_step: Optional[int] = None,
+        application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
+    ) -> "WorkflowHandleAsync[Any]":
+        """Rewind a workflow to a step (default: the first). Only a workflow in a
+        terminal state can be rewound."""
+        await asyncio.to_thread(
+            rewind_workflow,
+            self._sys_db,
+            [],
+            workflow_id,
+            1 if start_step is None else start_step,
+            application_version=application_version,
+            queue_name=queue_name,
+            queue_partition_key=queue_partition_key,
+        )
+        return WorkflowHandleClientAsyncPolling[Any](workflow_id, self._sys_db)
 
     def set_workflow_delay(
         self,

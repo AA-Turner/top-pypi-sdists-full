@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyairtable
-Version: 3.5.0
+Version: 3.5.0.post1
 Summary: Python Client for the Airtable API
 Home-page: https://github.com/gtalarico/pyairtable
 Author: Gui Talarico
@@ -19,7 +19,7 @@ Classifier: Topic :: Software Development
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: inflection
-Requires-Dist: pydantic<3,>=2
+Requires-Dist: pydantic<3,>=2.11
 Requires-Dist: requests>=2.22.0
 Requires-Dist: typing_extensions
 Requires-Dist: urllib3>=1.26

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1048
+Version: 0.4.1049
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -331,8 +331,8 @@ config.
 Alongside the rule-based method, all **four** calendar days -- planting,
 mid-greenup, mid-greendown, harvest -- are predicted by `catboost`, `cubist`,
 `tabpfn` and `tabicl` through the shared `ml.trainers.auto_train` factory, from
-147 calendar-free features of the NDVI, temperature, rainfall, ESI and SMAP
-soil-moisture climatologies (rainfall regime and wet-season onset, thermal
+221 calendar-free features of the NDVI, temperature, rainfall, dew point, ESI
+and SMAP soil-moisture climatologies plus elevation (rainfall regime and wet-season onset, thermal
 onset, moisture wetting-up and drawdown, ESI interannual spread). Two
 references sit in every table: the rule-based port for the two interior
 transitions (its difference and a model's prediction error are the same

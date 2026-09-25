@@ -16,7 +16,15 @@ from click import Context
 from tinybird import context
 from tinybird.client import AuthNoTokenException, DoesNotExistException, TinyB
 from tinybird.config import DEFAULT_API_HOST, FeatureFlags
-from tinybird.datafile_common import PipeNodeTypes, PipeTypes, folder_push, get_name_version, process_file, wait_job
+from tinybird.datafile_common import (
+    PipeNodeTypes,
+    PipeTypes,
+    folder_push,
+    get_name_version,
+    local_copy_node_uses_on_demand_compute,
+    process_file,
+    wait_job,
+)
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.branch import warn_if_in_live
 from tinybird.tb_cli_modules.cli import cli
@@ -749,30 +757,41 @@ async def pipe_copy_run(
 
     params = dict(key_value.split("=") for key_value in param) if param else {}
 
-    if yes or click.confirm(FeedbackManager.warning_confirm_copy_pipe(pipe=pipe_name_or_id)):
-        click.echo(FeedbackManager.info_copy_job_running(pipe=pipe_name_or_id))
-        client: TinyB = ctx.ensure_object(dict)["client"]
+    if not yes and not click.confirm(FeedbackManager.warning_confirm_copy_pipe(pipe=pipe_name_or_id)):
+        return
 
-        try:
-            response = await client.pipe_run_copy(pipe_name_or_id, params, mode, on_demand_compute=on_demand_compute)
+    if (
+        on_demand_compute
+        and not yes
+        and local_copy_node_uses_on_demand_compute(".", pipe_name_or_id) is False
+        and not click.confirm(
+            FeedbackManager.warning_confirm_on_demand_compute_differs_from_datafile(pipe=pipe_name_or_id),
+            default=False,
+        )
+    ):
+        return
 
-            job_id = response["job"]["job_id"]
-            job_url = response["job"]["job_url"]
-            target_datasource_id = response["tags"]["copy_target_datasource"]
-            target_datasource = await client.get_datasource(target_datasource_id)
-            target_datasource_name = target_datasource["name"]
-            click.echo(
-                FeedbackManager.success_copy_job_created(target_datasource=target_datasource_name, job_url=job_url)
-            )
+    click.echo(FeedbackManager.info_copy_job_running(pipe=pipe_name_or_id))
+    client: TinyB = ctx.ensure_object(dict)["client"]
 
-            if wait:
-                await wait_job(client, job_id, job_url, "** Copying data")
-                click.echo(FeedbackManager.success_data_copied_to_ds(target_datasource=target_datasource_name))
+    try:
+        response = await client.pipe_run_copy(pipe_name_or_id, params, mode, on_demand_compute=on_demand_compute)
 
-        except AuthNoTokenException:
-            raise
-        except Exception as e:
-            raise CLIPipeException(FeedbackManager.error_creating_copy_job(error=e))
+        job_id = response["job"]["job_id"]
+        job_url = response["job"]["job_url"]
+        target_datasource_id = response["tags"]["copy_target_datasource"]
+        target_datasource = await client.get_datasource(target_datasource_id)
+        target_datasource_name = target_datasource["name"]
+        click.echo(FeedbackManager.success_copy_job_created(target_datasource=target_datasource_name, job_url=job_url))
+
+        if wait:
+            await wait_job(client, job_id, job_url, "** Copying data")
+            click.echo(FeedbackManager.success_data_copied_to_ds(target_datasource=target_datasource_name))
+
+    except AuthNoTokenException:
+        raise
+    except Exception as e:
+        raise CLIPipeException(FeedbackManager.error_creating_copy_job(error=e))
 
 
 @pipe_copy.command(name="resume", short_help="Resume a paused copy pipe")

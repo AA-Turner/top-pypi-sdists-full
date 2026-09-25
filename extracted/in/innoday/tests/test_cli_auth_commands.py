@@ -141,9 +141,10 @@ class _CapturingClient:
 
 
 class TestFetchMeTeamSecret:
-    """Regression: on a team-secret-gated API, /auth/me is behind
-    TeamSecretMiddleware. _fetch_me must attach X-Team-Secret when the CLI has
-    one, or a valid token gets a 401 at the gate and login looks 'rejected'."""
+    """_fetch_me attaches X-Team-Secret when the CLI has one. It was a
+    regression fix while a global gate put /auth/me behind the secret (a valid
+    token 401'd and login looked 'rejected'); since PF-455 the header is
+    harmless there, and still sent for consistency."""
 
     @pytest.mark.asyncio
     async def test_team_secret_attached_when_configured(self, monkeypatch):
@@ -218,8 +219,8 @@ class TestTokensGoesThroughTheSharedClient:
     """`innoday auth tokens` answered 401 against every gated deployment.
 
     It built its own `httpx.AsyncClient` carrying only the Bearer header, so
-    `TeamSecretMiddleware` rejected it before routing — and the deployed API
-    always has `TEAM_ACCESS_SECRET` set. Listing or revoking your own tokens
+    the global team-secret gate (removed in PF-455) rejected it before routing
+    — and the deployed API always has `TEAM_ACCESS_SECRET` set. Listing or revoking your own tokens
     was impossible from the CLI. `TestFetchMeTeamSecret` above is the same bug
     found in `_fetch_me`; this handler was the copy nobody had hit yet.
 

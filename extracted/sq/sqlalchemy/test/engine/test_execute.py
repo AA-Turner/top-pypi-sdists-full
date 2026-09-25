@@ -30,10 +30,11 @@ from sqlalchemy import text
 from sqlalchemy import TypeDecorator
 from sqlalchemy import util
 from sqlalchemy import VARCHAR
+from sqlalchemy.connectors.asyncio import AsyncAdapt_dbapi_module
 from sqlalchemy.engine import BindTyping
-from sqlalchemy.engine import default
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.interfaces import ExecuteStyle
 from sqlalchemy.pool import AsyncAdaptedQueuePool
 from sqlalchemy.pool import NullPool
 from sqlalchemy.pool import QueuePool
@@ -51,6 +52,9 @@ from sqlalchemy.testing import is_
 from sqlalchemy.testing import is_false
 from sqlalchemy.testing import is_not
 from sqlalchemy.testing import is_true
+from sqlalchemy.testing import ne_
+from sqlalchemy.testing import provision
+from sqlalchemy.testing.assertions import expect_deprecated
 from sqlalchemy.testing.assertsql import CompiledSQL
 from sqlalchemy.testing.provision import normalize_sequence
 from sqlalchemy.testing.schema import Column
@@ -354,11 +358,14 @@ class ConvenienceExecuteTest(fixtures.TablesTest):
         engine = engines.testing_engine()
 
         close_mock = Mock()
-        with mock.patch.object(
-            engine._connection_cls,
-            "begin",
-            Mock(side_effect=Exception("boom")),
-        ), mock.patch.object(engine._connection_cls, "close", close_mock):
+        with (
+            mock.patch.object(
+                engine._connection_cls,
+                "begin",
+                Mock(side_effect=Exception("boom")),
+            ),
+            mock.patch.object(engine._connection_cls, "close", close_mock),
+        ):
             with expect_raises_message(Exception, "boom"):
                 with engine.begin():
                     pass
@@ -666,13 +673,40 @@ class ExecuteDriverTest(fixtures.TablesTest):
 
     def test_exception_wrapping_dbapi(self):
         with testing.db.connect() as conn:
-            # engine does not have exec_driver_sql
             assert_raises_message(
                 tsa.exc.DBAPIError,
                 r"not_a_valid_statement",
                 conn.exec_driver_sql,
                 "not_a_valid_statement",
             )
+
+    def test_exception_wrapping_orig_accessors(self):
+        de = None
+
+        with testing.db.connect() as conn:
+            try:
+                conn.exec_driver_sql("not_a_valid_statement")
+            except tsa.exc.DBAPIError as de_caught:
+                de = de_caught
+
+        assert isinstance(de.orig, conn.dialect.dbapi.Error)
+
+        # get the driver module name, the one which we know will provide
+        # for exceptions
+        top_level_dbapi_module = conn.dialect.dbapi
+        if isinstance(top_level_dbapi_module, AsyncAdapt_dbapi_module):
+            driver_module = top_level_dbapi_module.exceptions_module
+        else:
+            driver_module = top_level_dbapi_module
+        top_level_dbapi_module = driver_module.__name__.split(".")[0]
+
+        # check that it's not us
+        ne_(top_level_dbapi_module, "sqlalchemy")
+
+        # then make sure driver_exception is from that module
+        assert type(de.driver_exception).__module__.startswith(
+            top_level_dbapi_module
+        )
 
     @testing.requires.sqlite
     def test_exception_wrapping_non_dbapi_error(self):
@@ -708,20 +742,24 @@ class ExecuteDriverTest(fixtures.TablesTest):
         # TODO: this test is assuming too much of arbitrary dialects and would
         # be better suited tested against a single mock dialect that does not
         # have any special behaviors
-        with patch.object(
-            testing.db.dialect, "dbapi", Mock(Error=DBAPIError)
-        ), patch.object(
-            testing.db.dialect, "loaded_dbapi", Mock(Error=DBAPIError)
-        ), patch.object(
-            testing.db.dialect, "is_disconnect", lambda *arg: False
-        ), patch.object(
-            testing.db.dialect,
-            "do_execute",
-            Mock(side_effect=NonStandardException),
-        ), patch.object(
-            testing.db.dialect.execution_ctx_cls,
-            "handle_dbapi_exception",
-            Mock(),
+        with (
+            patch.object(testing.db.dialect, "dbapi", Mock(Error=DBAPIError)),
+            patch.object(
+                testing.db.dialect, "loaded_dbapi", Mock(Error=DBAPIError)
+            ),
+            patch.object(
+                testing.db.dialect, "is_disconnect", lambda *arg: False
+            ),
+            patch.object(
+                testing.db.dialect,
+                "do_execute",
+                Mock(side_effect=NonStandardException),
+            ),
+            patch.object(
+                testing.db.dialect.execution_ctx_cls,
+                "handle_dbapi_exception",
+                Mock(),
+            ),
         ):
             with testing.db.connect() as conn:
                 assert_raises(
@@ -837,46 +875,36 @@ class ExecuteDriverTest(fixtures.TablesTest):
             conn.close()
 
     def test_empty_insert(self, connection):
-        """test that execute() interprets [] as a list with no params"""
+        """test that execute() interprets [] as a list with no params and
+        warns since it has nothing to do with such an executemany.
+        """
         users_autoinc = self.tables.users_autoinc
 
-        connection.execute(
-            users_autoinc.insert().values(user_name=bindparam("name", None)),
-            [],
-        )
-        eq_(connection.execute(users_autoinc.select()).fetchall(), [(1, None)])
+        with expect_deprecated(
+            r"Empty parameter sequence passed to execute\(\). "
+            "This use is deprecated and will raise an exception in a "
+            "future SQLAlchemy release"
+        ):
+            connection.execute(
+                users_autoinc.insert().values(
+                    user_name=bindparam("name", None)
+                ),
+                [],
+            )
+
+        eq_(len(connection.execute(users_autoinc.select()).all()), 1)
 
     @testing.only_on("sqlite")
-    def test_execute_compiled_favors_compiled_paramstyle(self):
-        users = self.tables.users
-
-        with patch.object(testing.db.dialect, "do_execute") as do_exec:
-            stmt = users.update().values(user_id=1, user_name="foo")
-
-            d1 = default.DefaultDialect(paramstyle="format")
-            d2 = default.DefaultDialect(paramstyle="pyformat")
-
-            with testing.db.begin() as conn:
-                conn.execute(stmt.compile(dialect=d1))
-                conn.execute(stmt.compile(dialect=d2))
-
-            eq_(
-                do_exec.mock_calls,
-                [
-                    call(
-                        mock.ANY,
-                        "UPDATE users SET user_id=%s, user_name=%s",
-                        (1, "foo"),
-                        mock.ANY,
-                    ),
-                    call(
-                        mock.ANY,
-                        "UPDATE users SET user_id=%(user_id)s, "
-                        "user_name=%(user_name)s",
-                        {"user_name": "foo", "user_id": 1},
-                        mock.ANY,
-                    ),
-                ],
+    def test_raw_insert_with_empty_list(self, connection):
+        """exec_driver_sql instead does not raise if an empty list is passed.
+        Let the driver do that if it wants to.
+        """
+        conn = connection
+        with expect_raises_message(
+            tsa.exc.ProgrammingError, "Incorrect number of bindings supplied"
+        ):
+            conn.exec_driver_sql(
+                "insert into users (user_id, user_name) values (?, ?)", []
             )
 
     def test_works_after_dispose_testing_engine(self):
@@ -885,6 +913,38 @@ class ExecuteDriverTest(fixtures.TablesTest):
             with eng.connect() as conn:
                 eq_(conn.scalar(select(1)), 1)
             eng.dispose()
+
+    @testing.requires.insertmanyvalues
+    def test_cursor_execute_insertmanyvalues(self, connection, metadata):
+        """test #13018, that before_cursor_execute and after_cursor_execute
+        get the inner INSERT statements / params for an insertmanyvalues
+
+        """
+        canary = Mock()
+
+        t = Table(
+            "t",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+        )
+        t.create(connection)
+
+        event.listen(connection, "before_cursor_execute", canary.bce)
+        event.listen(connection, "after_cursor_execute", canary.ace)
+
+        result = connection.execute(
+            t.insert().returning(
+                t.c.id, t.c.data, sort_by_parameter_order=True
+            ),
+            [{"data": f"d{i}"} for i in range(10)],
+        )
+        eq_(result.all(), [(i + 1, f"d{i}") for i in range(10)])
+
+        eq_(
+            [(c1.args[2], c1.args[3]) for c1 in canary.bce.mock_calls],
+            [(c1.args[2], c1.args[3]) for c1 in canary.ace.mock_calls],
+        )
 
 
 class CompiledCacheTest(fixtures.TestBase):
@@ -1906,11 +1966,12 @@ class EngineEventsTest(fixtures.TestBase):
             # as part of create
             # note we can't use an event to ensure begin() is not called
             # because create also blocks events from happening
-            with mock.patch.object(
-                e1.dialect, "initialize", side_effect=init
-            ) as m1, mock.patch.object(
-                e1._connection_cls, "begin"
-            ) as begin_mock:
+            with (
+                mock.patch.object(
+                    e1.dialect, "initialize", side_effect=init
+                ) as m1,
+                mock.patch.object(e1._connection_cls, "begin") as begin_mock,
+            ):
 
                 @event.listens_for(e1, "connect", insert=True)
                 def go1(dbapi_conn, xyz):
@@ -2209,11 +2270,6 @@ class EngineEventsTest(fixtures.TestBase):
         with e1.connect() as conn:
             conn.execute(select(1))
             conn.execute(select(1).compile(dialect=e1.dialect).statement)
-            conn.execute(select(1).compile(dialect=e1.dialect))
-
-            conn._execute_compiled(
-                select(1).compile(dialect=e1.dialect), (), {}
-            )
 
     @testing.emits_warning("The garbage collector is trying to clean up")
     def test_execute_events(self):
@@ -2543,11 +2599,14 @@ class EngineEventsTest(fixtures.TestBase):
         def conn_tracker(conn, opt):
             opt["conn_tracked"] = True
 
-        with mock.patch.object(
-            engine.dialect, "set_connection_execution_options"
-        ) as conn_opt, mock.patch.object(
-            engine.dialect, "set_engine_execution_options"
-        ) as engine_opt:
+        with (
+            mock.patch.object(
+                engine.dialect, "set_connection_execution_options"
+            ) as conn_opt,
+            mock.patch.object(
+                engine.dialect, "set_engine_execution_options"
+            ) as engine_opt,
+        ):
             e2 = engine.execution_options(e1="opt_e1")
             c1 = engine.connect()
             c2 = c1.execution_options(c1="opt_c1")
@@ -2984,7 +3043,11 @@ class HandleErrorTest(fixtures.TestBase):
         conn = engine.connect()
 
         def boom(connection):
-            raise engine.dialect.dbapi.OperationalError("rollback failed")
+            raise provision.dbapi_error(
+                config,
+                engine.dialect.dbapi.OperationalError,
+                "rollback failed",
+            )
 
         with patch.object(conn.dialect, "do_rollback", boom):
             assert_raises_message(
@@ -3011,7 +3074,11 @@ class HandleErrorTest(fixtures.TestBase):
         conn = engine.connect()
 
         def boom(connection):
-            raise engine.dialect.dbapi.OperationalError("rollback failed")
+            raise provision.dbapi_error(
+                config,
+                engine.dialect.dbapi.OperationalError,
+                "rollback failed",
+            )
 
         @event.listens_for(conn, "begin")
         def _do_begin(conn):
@@ -3201,7 +3268,11 @@ class HandleErrorTest(fixtures.TestBase):
             with patch.object(
                 conn.dialect,
                 "get_isolation_level",
-                Mock(side_effect=ProgrammingError("random error")),
+                Mock(
+                    side_effect=provision.dbapi_error(
+                        config, ProgrammingError, "random error"
+                    )
+                ),
             ):
                 assert_raises(MySpecialException, conn.get_isolation_level)
 
@@ -3291,6 +3362,223 @@ class HandleErrorTest(fixtures.TestBase):
         assert not conn.closed
 
         conn.close()
+
+
+class CursorEventErrorTest(fixtures.RemovesEvents, fixtures.TestBase):
+    """tests for #13381"""
+
+    __sparse_driver_backend__ = True
+
+    @testing.fixture
+    def imv_table(self, metadata):
+        t = Table(
+            "t_imv",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("data", String(50)),
+        )
+        t.create(testing.db)
+        return t
+
+    @testing.fixture
+    def cursor_execute_table(self, metadata):
+        t = Table(
+            "t_ce",
+            metadata,
+            Column(
+                "x",
+                Integer,
+                normalize_sequence(config, Sequence("t_ce_id_seq")),
+                primary_key=True,
+            ),
+            implicit_returning=False,
+        )
+        metadata.create_all(testing.db)
+        return t
+
+    @testing.combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    def test_dbapi_error_exec_single(self, event_name, connection):
+        def handler(
+            conn,
+            cursor,
+            statement,
+            parameters,
+            context,
+            executemany,
+        ):
+            raise connection.dialect.dbapi.OperationalError("error in event")
+
+        self.event_listen(connection, event_name, handler)
+
+        with expect_raises_message(
+            tsa.exc.OperationalError,
+            "error in event",
+        ):
+            connection.exec_driver_sql("select 1")
+
+    @testing.combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    def test_base_exception_invalidates_exec_single(self, event_name):
+        with testing.db.connect() as conn:
+
+            def handler(
+                conn,
+                cursor,
+                statement,
+                parameters,
+                context,
+                executemany,
+            ):
+                raise BaseException("exit-like error")
+
+            self.event_listen(conn, event_name, handler)
+
+            with expect_raises_message(BaseException, "exit-like error"):
+                conn.exec_driver_sql("select 1")
+
+            is_true(conn.invalidated)
+
+    @testing.requires.insertmanyvalues
+    @testing.combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    def test_dbapi_error_insertmanyvalues(
+        self, event_name, imv_table, connection
+    ):
+        def handler(
+            conn,
+            cursor,
+            statement,
+            parameters,
+            context,
+            executemany,
+        ):
+            if context.execute_style is ExecuteStyle.INSERTMANYVALUES:
+                raise connection.dialect.dbapi.OperationalError(
+                    "error in event"
+                )
+
+        self.event_listen(connection, event_name, handler)
+
+        with expect_raises_message(
+            tsa.exc.OperationalError,
+            "error in event",
+        ):
+            connection.execute(
+                imv_table.insert().returning(
+                    imv_table.c.id,
+                    sort_by_parameter_order=True,
+                ),
+                [{"data": f"d{i}"} for i in range(10)],
+            )
+
+    @testing.requires.insertmanyvalues
+    @testing.combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    def test_base_exception_invalidates_insertmanyvalues(
+        self, event_name, imv_table
+    ):
+        with testing.db.connect() as conn:
+
+            def handler(
+                conn,
+                cursor,
+                statement,
+                parameters,
+                context,
+                executemany,
+            ):
+                if context.execute_style is ExecuteStyle.INSERTMANYVALUES:
+                    raise BaseException("exit-like error")
+
+            self.event_listen(conn, event_name, handler)
+
+            with expect_raises_message(BaseException, "exit-like error"):
+                conn.execute(
+                    imv_table.insert().returning(
+                        imv_table.c.id,
+                        sort_by_parameter_order=True,
+                    ),
+                    [{"data": f"d{i}"} for i in range(10)],
+                )
+
+            is_true(conn.invalidated)
+
+        # release lingering cursor refs so sqlite file lock clears
+        gc_collect()
+
+    @testing.requires.sequences
+    @testing.combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    def test_dbapi_error_cursor_execute(
+        self, event_name, cursor_execute_table, connection
+    ):
+        def handler(
+            conn,
+            cursor,
+            statement,
+            parameters,
+            context,
+            executemany,
+        ):
+            if "t_ce_id_seq" in str(statement):
+                raise connection.dialect.dbapi.OperationalError(
+                    "error in event"
+                )
+
+        self.event_listen(connection, event_name, handler)
+
+        with expect_raises_message(
+            tsa.exc.OperationalError,
+            "error in event",
+        ):
+            connection.execute(cursor_execute_table.insert())
+
+    @testing.requires.sequences
+    @testing.combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    def test_base_exception_invalidates_cursor_execute(
+        self, event_name, cursor_execute_table
+    ):
+        with testing.db.connect() as conn:
+
+            def handler(
+                conn,
+                cursor,
+                statement,
+                parameters,
+                context,
+                executemany,
+            ):
+                if "t_ce_id_seq" in str(statement):
+                    raise BaseException("exit-like error")
+
+            self.event_listen(conn, event_name, handler)
+
+            with expect_raises_message(BaseException, "exit-like error"):
+                conn.execute(cursor_execute_table.insert())
+
+            is_true(conn.invalidated)
+
+        gc_collect()
 
 
 class OnConnectTest(fixtures.TestBase):
@@ -3477,7 +3765,9 @@ class OnConnectTest(fixtures.TestBase):
         dialect = testing.db.dialect
         dbapi = dialect.dbapi
         assert not dialect.is_disconnect(
-            dbapi.OperationalError("test"), None, None
+            provision.dbapi_error(config, dbapi.OperationalError, "test"),
+            None,
+            None,
         )
 
     def test_dont_create_transaction_on_initialize(self):
@@ -3500,11 +3790,12 @@ class OnConnectTest(fixtures.TestBase):
             nonlocal init_connection
             init_connection = connection
 
-        with mock.patch.object(
-            e._connection_cls, "begin"
-        ) as mock_begin, mock.patch.object(
-            e.dialect, "initialize", Mock(side_effect=mock_initialize)
-        ) as mock_init:
+        with (
+            mock.patch.object(e._connection_cls, "begin") as mock_begin,
+            mock.patch.object(
+                e.dialect, "initialize", Mock(side_effect=mock_initialize)
+            ) as mock_init,
+        ):
             conn = e.connect()
 
             eq_(mock_begin.mock_calls, [])
@@ -3983,12 +4274,16 @@ class SetInputSizesTest(fixtures.TablesTest):
         # "safe" datatypes so that the DBAPI does not actually need
         # setinputsizes() called in order to work.
 
-        with mock.patch.object(
-            engine.dialect, "bind_typing", BindTyping.SETINPUTSIZES
-        ), mock.patch.object(
-            engine.dialect, "do_set_input_sizes", do_set_input_sizes
-        ), mock.patch.object(
-            engine.dialect.execution_ctx_cls, "pre_exec", pre_exec
+        with (
+            mock.patch.object(
+                engine.dialect, "bind_typing", BindTyping.SETINPUTSIZES
+            ),
+            mock.patch.object(
+                engine.dialect, "do_set_input_sizes", do_set_input_sizes
+            ),
+            mock.patch.object(
+                engine.dialect.execution_ctx_cls, "pre_exec", pre_exec
+            ),
         ):
             yield engine, canary
 

@@ -2,37 +2,39 @@
 Utility functions
 """
 
-import base64
 import re
+import base64
 from functools import partial
+
 from typing import Optional
 
-from rdflib import BNode, Graph, Literal, URIRef  # type: ignore[import]
-from rdflib.namespace import RDF, XSD, Namespace  # type: ignore[import]
+from rdflib import Graph, Literal, BNode, URIRef  # type: ignore[import]
+from rdflib.namespace import Namespace, RDF, XSD  # type: ignore[import]
 
-from ..basetypes import AnyAtomicExtended, DateTime
-from ..constructeddata import (
-    AnyAtomic,
-    ExtendedList,  # covers SequenceOf, ArrayOf, and ListOf
-    Sequence,  # covers both Sequence and Choice
-)
-from ..debugging import ModuleLogger, bacpypes_debugging
+from ..debugging import bacpypes_debugging, ModuleLogger
+
 from ..primitivedata import (
     Atomic,
-    BitString,
-    Boolean,
-    CharacterString,
-    Date,
-    Double,
-    Enumerated,
-    Integer,
     Null,
-    ObjectIdentifier,
-    OctetString,
-    Real,
-    Time,
+    Boolean,
     Unsigned,
+    Integer,
+    Real,
+    Double,
+    OctetString,
+    CharacterString,
+    BitString,
+    Enumerated,
+    Date,
+    Time,
+    ObjectIdentifier,
 )
+from ..constructeddata import (
+    AnyAtomic,
+    Sequence,  # covers both Sequence and Choice
+    ExtendedList,  # covers SequenceOf, ArrayOf, and ListOf
+)
+from ..basetypes import DateTime, AnyAtomicExtended
 
 # some debugging
 _debug = 0
@@ -318,7 +320,7 @@ def time_decode(graph: Graph, value):
 
 def objectidentifier_encode(graph: Graph, value):
     obj_type, obj_instance = value
-    objectidentifier_string = f"{obj_type},{obj_instance}"
+    objectidentifier_string = "{},{}".format(obj_type, obj_instance)
     return Literal(objectidentifier_string, datatype=BACNET.objectIdentifier)
 
 
@@ -344,6 +346,9 @@ def datetime_decode(graph: Graph, value):
         raise TypeError(value.datatype)
 
 
+#
+#
+#
 
 
 def atomic_encode(graph: Graph, value) -> Literal:
@@ -507,7 +512,9 @@ def graph_to_sequence(graph: Graph, node: URIRef, seq_class: type) -> Sequence:
                     value = real_decode(graph, literal)
                 elif literal.datatype == XSD.double:
                     value = double_decode(graph, literal)
-                elif literal.datatype == XSD.base64Binary or literal.datatype == XSD.hexBinary:
+                elif literal.datatype == XSD.base64Binary:
+                    value = octetstring_decode(graph, literal)
+                elif literal.datatype == XSD.hexBinary:
                     value = octetstring_decode(graph, literal)
                 elif literal.datatype is None:
                     value = characterstring_decode(graph, literal)

@@ -43,39 +43,25 @@ class TestExtractTar:
         assert (dest / "chrome").read_bytes() == b"binary"
         assert (dest / "lib" / "libfoo.so").read_bytes() == b"lib"
 
-    def test_path_traversal_blocked(self, tmp_path):
-        archive = tmp_path / "evil.tar.gz"
-        with tarfile.open(archive, "w:gz") as tar:
-            info = tarfile.TarInfo(name="../../../etc/passwd")
-            info.size = 4
-            tar.addfile(info, io.BytesIO(b"evil"))
-
-        dest = tmp_path / "out"
-        dest.mkdir()
-        with pytest.raises(RuntimeError, match="path traversal"):
-            _extract_tar(archive, dest)
-
-    def test_suspicious_symlink_skipped(self, tmp_path):
-        """Symlinks with absolute targets are skipped (logged as warning)."""
+    def test_symlink_extracted(self, tmp_path):
+        """Symlinks extract as-is — the archive is signature-verified before
+        extraction, so no per-member sanitization is applied (macOS .app
+        Framework layout depends on symlinks)."""
         archive = tmp_path / "symlink.tar.gz"
         with tarfile.open(archive, "w:gz") as tar:
-            # Normal file
             info = tarfile.TarInfo(name="chrome")
             info.size = 6
             tar.addfile(info, io.BytesIO(b"binary"))
-            # Suspicious symlink
-            sym = tarfile.TarInfo(name="evil_link")
+            sym = tarfile.TarInfo(name="chrome_link")
             sym.type = tarfile.SYMTYPE
-            sym.linkname = "/etc/passwd"
+            sym.linkname = "chrome"
             tar.addfile(sym)
 
         dest = tmp_path / "out"
         dest.mkdir()
         _extract_tar(archive, dest)
-        # Normal file extracted
         assert (dest / "chrome").exists()
-        # Suspicious symlink was skipped
-        assert not (dest / "evil_link").exists()
+        assert (dest / "chrome_link").is_symlink()
 
 
 # ---------------------------------------------------------------------------
@@ -100,16 +86,6 @@ class TestExtractZip:
         _extract_zip(archive, dest)
         assert (dest / "chrome.exe").read_bytes() == b"binary"
         assert (dest / "lib" / "foo.dll").read_bytes() == b"lib"
-
-    def test_path_traversal_blocked(self, tmp_path):
-        archive = tmp_path / "evil.zip"
-        with zipfile.ZipFile(archive, "w") as zf:
-            zf.writestr("../../../etc/passwd", "evil")
-
-        dest = tmp_path / "out"
-        dest.mkdir()
-        with pytest.raises(RuntimeError, match="path traversal"):
-            _extract_zip(archive, dest)
 
 
 # ---------------------------------------------------------------------------

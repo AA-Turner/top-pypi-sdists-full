@@ -16,7 +16,6 @@ from sqlalchemy.orm import configure_mappers
 from sqlalchemy.orm import exc as orm_exc
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
-from sqlalchemy.orm import noload
 from sqlalchemy.orm import PassiveFlag
 from sqlalchemy.orm import Query
 from sqlalchemy.orm import relationship
@@ -548,33 +547,6 @@ class DynamicTest(_DynamicFixture, _fixtures.FixtureTest, AssertsCompiledSQL):
             [],
         )
 
-    @testing.combinations(("star",), ("attronly",), argnames="type_")
-    def test_noload_issue(self, type_, user_address_fixture):
-        """test #6420.   a noload that hits the dynamic loader
-        should have no effect.
-
-        """
-
-        User, Address = user_address_fixture()
-
-        s = fixture_session()
-
-        if type_ == "star":
-            u1 = s.query(User).filter_by(id=7).options(noload("*")).first()
-            assert "name" not in u1.__dict__["name"]
-        elif type_ == "attronly":
-            u1 = (
-                s.query(User)
-                .filter_by(id=7)
-                .options(noload(User.addresses))
-                .first()
-            )
-
-            eq_(u1.__dict__["name"], "jack")
-
-        # noload doesn't affect a dynamic loader, because it has no state
-        eq_(list(u1.addresses), [Address(id=1)])
-
     def test_m2m(self, order_item_fixture):
         Order, Item = order_item_fixture(
             items_args={"backref": backref("orders", lazy="dynamic")}
@@ -799,30 +771,6 @@ class WriteOnlyTest(
 ):
     __dialect__ = "default"
 
-    @testing.combinations(("star",), ("attronly",), argnames="type_")
-    def test_noload_issue(self, type_, user_address_fixture):
-        """test #6420.   a noload that hits the dynamic loader
-        should have no effect.
-
-        """
-
-        User, Address = user_address_fixture()
-
-        s = fixture_session()
-
-        if type_ == "star":
-            u1 = s.query(User).filter_by(id=7).options(noload("*")).first()
-            assert "name" not in u1.__dict__["name"]
-        elif type_ == "attronly":
-            u1 = (
-                s.query(User)
-                .filter_by(id=7)
-                .options(noload(User.addresses))
-                .first()
-            )
-
-            eq_(u1.__dict__["name"], "jack")
-
     def test_iteration_error(self, user_address_fixture):
         User, Address = user_address_fixture()
 
@@ -978,6 +926,9 @@ class WriteOnlyTest(
                 "polymorphic_identity": "sub",
             }
 
+        # NOTE: keep filter_by(id=1) here because this also tests that an
+        # overlap issue does not occur with filter_by and the secondary table
+        # being explicitly added to _from_obj
         gp = GrandParent(id=1)
         make_transient_to_detached(gp)
         self.assert_compile(
@@ -1179,7 +1130,7 @@ class _UOWTests:
             testing.db,
             sess.flush,
             CompiledSQL(
-                "SELECT users.id AS users_id, users.name AS users_name "
+                "SELECT users.id, users.name "
                 "FROM users WHERE users.id = :pk_1",
                 lambda ctx: [{"pk_1": u1_id}],
             ),
@@ -1212,8 +1163,8 @@ class _UOWTests:
             testing.db,
             sess.flush,
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, addresses.email_address "
-                "AS addresses_email_address FROM addresses "
+                "SELECT addresses.id, addresses.email_address "
+                "FROM addresses "
                 "WHERE addresses.id = :pk_1",
                 lambda ctx: [{"pk_1": a2_id}],
             ),
@@ -1223,7 +1174,7 @@ class _UOWTests:
                 lambda ctx: [{"addresses_id": a2_id, "user_id": None}],
             ),
             CompiledSQL(
-                "SELECT users.id AS users_id, users.name AS users_name "
+                "SELECT users.id, users.name "
                 "FROM users WHERE users.id = :pk_1",
                 lambda ctx: [{"pk_1": u1_id}],
             ),

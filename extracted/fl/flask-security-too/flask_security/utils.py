@@ -5,7 +5,7 @@ flask_security.utils
 Flask-Security utils module
 
 :copyright: (c) 2012-2019 by Matt Wright.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import abc
 import base64
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from functools import partial
 import hashlib
@@ -22,11 +23,9 @@ import typing as t
 from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit, urlencode
 import urllib.request
 import urllib.error
-import warnings
 
 from flask import (
     Response,
-    after_this_request,
     current_app,
     flash,
     g,
@@ -35,6 +34,7 @@ from flask import (
     render_template,
     session,
     url_for,
+    after_this_request,
 )
 from flask_login import login_user as _login_user
 from flask_login import logout_user as _logout_user
@@ -56,13 +56,15 @@ if t.TYPE_CHECKING:  # pragma: no cover
     from flask.typing import ResponseValue
     from flask_security import UserMixin
 
-localize_callback = LocalProxy(lambda: _security.i18n_domain.gettext)
+localize_callback: t.Callable[..., str] = LocalProxy(
+    lambda: _security.i18n_domain.gettext
+)
 
-FsPermNeed = partial(Need, "fsperm")
-FsPermNeed.__doc__ = """A need with the method preset to `"fsperm"`."""
+_FsPermNeed = partial(Need, "fsperm")
+_FsPermNeed.__doc__ = """A need with the method preset to `"fsperm"`."""
 
 
-def _(translate):
+def _(translate: str) -> str:
     """Identity function to mark strings for translation."""
     return translate
 
@@ -100,13 +102,13 @@ Quart compatibility needs an async version
 """
 if get_quart_status():  # pragma: no cover
 
-    async def view_commit(response=None):
+    async def _view_commit(response=None):
         _datastore.commit()
         return response
 
 else:
 
-    def view_commit(response=None):  # type: ignore[misc]
+    def _view_commit(response=None):  # type: ignore[misc]
         _datastore.commit()
         return response
 
@@ -155,7 +157,7 @@ def naive_utcfromtimestamp(timestamp: float) -> datetime:
     return aware_utcfromtimestamp(timestamp).replace(tzinfo=None)
 
 
-def find_csrf_field_name() -> t.Optional[str]:
+def _find_csrf_field_name() -> t.Optional[str]:
     """Retrieve the configured CSRF field name from Flask-WTF form configuration.
 
     This is needed to properly clear CSRF tokens on logout since Flask-WTF doesn't
@@ -189,7 +191,7 @@ def is_user_authenticated(user: UserMixin | None) -> bool:
     We have a configuration variable ANONYMOUS_USER_DISABLED which if true will force
     current_user to None on unauthenticated as well
     """
-    if config_value("ANONYMOUS_USER_DISABLED"):
+    if _config_value("ANONYMOUS_USER_DISABLED"):
         # Note that user often is current_user which is a proxy and isn't ever actually
         # 'None'
         return bool(user)
@@ -217,7 +219,7 @@ def login_user(
     """
 
     if remember is None:
-        remember = config_value("DEFAULT_REMEMBER_ME")
+        remember = _config_value("DEFAULT_REMEMBER_ME")
 
     if not _login_user(user, remember, force=True):  # pragma: no cover
         return False
@@ -278,13 +280,17 @@ def logout_user() -> None:
     # Clear csrf token between sessions.
     # Ideally this would be handled by Flask-WTF but...
     # We don't clear entire session since Flask-Login seems to like having it.
-    csrf_field_name = find_csrf_field_name()
+    csrf_field_name = _find_csrf_field_name()
     if csrf_field_name:
         session.pop(csrf_field_name, None)
         # Flask-WTF 'caches' csrf_token - and only set the session if not already
         # in 'g'. Be sure to clear both. This affects at least /confirm
         g.pop(csrf_field_name, None)
     session["fs_cc"] = "clear"
+    if _config_value("REFRESH_TOKEN") and _config_value("REFRESH_TOKEN_COOKIE_NAME"):
+        from .tokens import clear_refresh_token_cookie
+
+        after_this_request(partial(clear_refresh_token_cookie))
     identity_changed.send(
         current_app._get_current_object(),  # type: ignore
         _async_wrapper=current_app.ensure_sync,
@@ -372,14 +378,14 @@ def get_hmac(password: str | bytes) -> bytes:
 
     :param password: The password to sign
     """
-    if not (salt := config_value("PASSWORD_SALT")):
+    if not (salt := _config_value("PASSWORD_SALT")):
         raise RuntimeError(
             "The configuration value `SECURITY_PASSWORD_SALT` must "
             "not be None when the value of `SECURITY_PASSWORD_HASH` is "
-            'set to "%s"' % config_value("PASSWORD_HASH")
+            'set to "%s"' % _config_value("PASSWORD_HASH")
         )
 
-    h = hmac.new(encode_string(salt), encode_string(password), hashlib.sha512)
+    h = hmac.new(_encode_string(salt), _encode_string(password), hashlib.sha512)
     return base64.b64encode(h.digest())
 
 
@@ -393,7 +399,7 @@ def verify_password(password: str | bytes, password_hash: str | bytes) -> bool:
     .. note::
         Make sure that the password passed in has already been normalized.
     """
-    if use_double_hash(password_hash):
+    if _use_double_hash(password_hash):
         password = get_hmac(password)
         if _pwd_context.identify(password_hash) == "bcrypt":
             password = password[:72]
@@ -424,7 +430,7 @@ def verify_and_update_password(password: str | bytes, user: UserMixin) -> bool:
     # value to hash_password if the hashing algorithm has changed
     input_password = password
 
-    if use_double_hash(user.password):
+    if _use_double_hash(user.password):
         password = get_hmac(password)
         if _pwd_context.identify(user.password) == "bcrypt":
             password = password[:72]
@@ -458,25 +464,25 @@ def hash_password(password: str | bytes) -> str:
 
     :param password: The plaintext password to hash
     """
-    if use_double_hash():
+    if _use_double_hash():
         password = get_hmac(password).decode("ascii")
 
     # Passing in options as part of hash is deprecated in passlib 1.7
     # and new algorithms like argon2 don't even support it.
-    if config_value("PASSWORD_HASH") == "bcrypt":
+    if _config_value("PASSWORD_HASH") == "bcrypt":
         # bcrypt - OWASP says truncation concerns are negligible:
         # https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#input-limits-of-bcrypt
         password = password[:72]
 
     return _pwd_context.hash(
         password,
-        **config_value("PASSWORD_HASH_OPTIONS", default={}).get(
-            config_value("PASSWORD_HASH"), {}
+        **_config_value("PASSWORD_HASH_OPTIONS", default={}).get(
+            _config_value("PASSWORD_HASH"), {}
         ),
     )
 
 
-def encode_string(string: t.Union[str, bytes]) -> bytes:
+def _encode_string(string: t.Union[str, bytes]) -> bytes:
     """Encodes a string to bytes, if it isn't already.
 
     :param string: The string to encode
@@ -495,7 +501,7 @@ def hash_data(data: t.Union[str, bytes]) -> str:
 
     Note: Uses application's configured _hashing_context
     """
-    return _hashing_context.hash(encode_string(data))
+    return _hashing_context.hash(_encode_string(data))
 
 
 def verify_hash(hashed_data: bytes, compare_data: t.Union[str, bytes]) -> bool:
@@ -507,36 +513,36 @@ def verify_hash(hashed_data: bytes, compare_data: t.Union[str, bytes]) -> bool:
 
     Note: Uses application's configured _hashing_context
     """
-    return _hashing_context.verify(encode_string(compare_data), hashed_data)
+    return _hashing_context.verify(_encode_string(compare_data), hashed_data)
 
 
-def suppress_form_csrf():
+def _suppress_form_csrf():
     """
     Return meta contents if we should suppress form from attempting to validate CSRF.
 
     If app doesn't want CSRF for unauth endpoints then check if caller is authenticated
     or not (many endpoints can be called either way).
     """
-    if config_value("CSRF_IGNORE_UNAUTH_ENDPOINTS") and not is_user_authenticated(
+    if _config_value("CSRF_IGNORE_UNAUTH_ENDPOINTS") and not is_user_authenticated(
         current_user
     ):
         return {"csrf": False}
     return {}
 
 
-def confirm_redirect(form, identity_attribute):
+def _confirm_redirect(form, identity_attribute):
     """This is a very specific utility that all open endpoints call
     to implement the confirm redirect feature.
     """
     if (
         form.requires_confirmation
-        and config_value("REQUIRES_CONFIRMATION_ERROR_VIEW")
-        and not config_value("RETURN_GENERIC_RESPONSES")
+        and _config_value("REQUIRES_CONFIRMATION_ERROR_VIEW")
+        and not _config_value("RETURN_GENERIC_RESPONSES")
     ):
         do_flash(*get_message("CONFIRMATION_REQUIRED"))
         return redirect(
             get_url(
-                config_value("REQUIRES_CONFIRMATION_ERROR_VIEW"),
+                _config_value("REQUIRES_CONFIRMATION_ERROR_VIEW"),
                 qparams={identity_attribute: getattr(form.user, identity_attribute)},
             )
         )
@@ -550,7 +556,7 @@ def do_flash(message: str, category: str) -> None:
     :param message: The flash message
     :param category: The flash message category
     """
-    if config_value("FLASH_MESSAGES"):
+    if _config_value("FLASH_MESSAGES"):
         flash(message, category)
 
 
@@ -562,7 +568,7 @@ def parse_auth_token(auth_token: str) -> dict[str, t.Any]:
 
     # This can raise BadSignature or SignatureExpired exceptions from itsdangerous
     raw_data = _security.remember_token_serializer.loads(
-        auth_token, max_age=config_value("TOKEN_MAX_AGE")
+        auth_token, max_age=_config_value("TOKEN_MAX_AGE").total_seconds()
     )
 
     # Version 3.x generated tokens that map to data with 3 elements,
@@ -613,9 +619,9 @@ def get_url(endpoint_or_url: str, qparams: dict[str, str] | None = None) -> str:
         # For (mostly) testing - allow changing/adding the url - for example
         # add a different host:port for cases where the UI is running
         # separately.
-        if config_value("REDIRECT_HOST"):
+        if _config_value("REDIRECT_HOST"):
             url = transform_url(
-                endpoint_or_url, qparams, netloc=config_value("REDIRECT_HOST")
+                endpoint_or_url, qparams, netloc=_config_value("REDIRECT_HOST")
             )
         else:
             url = transform_url(endpoint_or_url, qparams)
@@ -623,7 +629,7 @@ def get_url(endpoint_or_url: str, qparams: dict[str, str] | None = None) -> str:
         return url
 
 
-def slash_url_suffix(url: str, suffix: str) -> str:
+def _slash_url_suffix(url: str, suffix: str) -> str:
     """
     Formats a suffix to be appended to a URL, ensuring proper slash placement.
 
@@ -637,9 +643,9 @@ def slash_url_suffix(url: str, suffix: str) -> str:
     :return: The formatted suffix with the appropriate leading or trailing slash.
 
     Example:
-        >>> slash_url_suffix("https://example.com/api", "v1")
+        >>> _slash_url_suffix("https://example.com/api", "v1")
         '/v1'
-        >>> slash_url_suffix("https://example.com/api/", "v1")
+        >>> _slash_url_suffix("https://example.com/api/", "v1")
         'v1/'
     """
     return url.endswith("/") and f"{suffix}/" or f"/{suffix}"
@@ -665,7 +671,7 @@ def transform_url(
     return urlunsplit(link_parse._replace(**kwargs))
 
 
-def get_security_endpoint_name(endpoint: str) -> str:
+def _get_security_endpoint_name(endpoint: str) -> str:
     """
     Returns the fully qualified endpoint name by combining the blueprint name
     and the endpoint.
@@ -674,10 +680,10 @@ def get_security_endpoint_name(endpoint: str) -> str:
     :return: The fully qualified endpoint name in the format '<blueprint>.<endpoint>'.
 
     Example:
-        >>> get_security_endpoint_name("login")
+        >>> _get_security_endpoint_name("login")
         'my_blueprint.login'
     """
-    return f"{config_value('BLUEPRINT_NAME')}.{endpoint}"
+    return f"{_config_value('BLUEPRINT_NAME')}.{endpoint}"
 
 
 def url_for_security(endpoint: str, **values: t.Any) -> str:
@@ -691,7 +697,7 @@ def url_for_security(endpoint: str, **values: t.Any) -> str:
     :param _anchor: if provided, this is added as anchor to the URL.
     :param _method: if provided, this explicitly specifies an HTTP method.
     """
-    endpoint = get_security_endpoint_name(endpoint)
+    endpoint = _get_security_endpoint_name(endpoint)
     # mypy is complaining about this - but I think it's wrong?
     return url_for(endpoint, **values)  # type: ignore
 
@@ -713,7 +719,7 @@ def validate_redirect_url(url: str) -> bool:
     if (url_next.netloc or url_next.scheme) and url_next.netloc != url_base.netloc:
         base_domain = current_app.config.get("SERVER_NAME")
         if (
-            config_value("REDIRECT_ALLOW_SUBDOMAINS")
+            _config_value("REDIRECT_ALLOW_SUBDOMAINS")
             and base_domain
             and (
                 url_next.netloc == base_domain
@@ -721,18 +727,18 @@ def validate_redirect_url(url: str) -> bool:
             )
         ):
             return True
-        base_domain = config_value("REDIRECT_BASE_DOMAIN")
+        base_domain = _config_value("REDIRECT_BASE_DOMAIN")
         if base_domain:
             allowable = [
-                f"{sub}.{base_domain}"
-                for sub in config_value("REDIRECT_ALLOWED_SUBDOMAINS")
+                base_domain if sub == "." else f"{sub}.{base_domain}"
+                for sub in _config_value("REDIRECT_ALLOWED_SUBDOMAINS")
             ]
             return url_next.netloc in allowable
         return False
     return True
 
 
-def get_post_action_redirect(
+def _get_post_action_redirect(
     config_key: str, next_loc: FlaskForm | MultiDict | dict | None
 ) -> str:
     """
@@ -773,7 +779,7 @@ def get_post_action_redirect(
     netloc has a same issue: https://amazon.com\\.lp.com will cause many
     browsers to redirect to amazon.com
     """
-    rurl = propagate_next(find_redirect(config_key), next_loc)
+    rurl = _propagate_next(_find_redirect(config_key), next_loc)
 
     u = urlsplit(rurl)
     userinfo = ""
@@ -789,23 +795,23 @@ def get_post_action_redirect(
     return safe_url
 
 
-def get_post_login_redirect() -> str:
-    return get_post_action_redirect("SECURITY_POST_LOGIN_VIEW", request.form)
+def _get_post_login_redirect() -> str:
+    return _get_post_action_redirect("SECURITY_POST_LOGIN_VIEW", request.form)
 
 
-def get_post_register_redirect() -> str:
-    return get_post_action_redirect("SECURITY_POST_REGISTER_VIEW", request.form)
+def _get_post_register_redirect() -> str:
+    return _get_post_action_redirect("SECURITY_POST_REGISTER_VIEW", request.form)
 
 
-def get_post_logout_redirect() -> str:
-    return get_post_action_redirect("SECURITY_POST_LOGOUT_VIEW", request.form)
+def _get_post_logout_redirect() -> str:
+    return _get_post_action_redirect("SECURITY_POST_LOGOUT_VIEW", request.form)
 
 
-def get_post_verify_redirect() -> str:
-    return get_post_action_redirect("SECURITY_POST_VERIFY_VIEW", request.form)
+def _get_post_verify_redirect() -> str:
+    return _get_post_action_redirect("SECURITY_POST_VERIFY_VIEW", request.form)
 
 
-def find_redirect(key: str) -> str:
+def _find_redirect(key: str) -> str:
     """Returns the URL to redirect to.
 
     :param key: The  application configuration key to search for
@@ -817,7 +823,9 @@ def find_redirect(key: str) -> str:
     return rv
 
 
-def propagate_next(fallback_url: str, form: FlaskForm | MultiDict | dict | None) -> str:
+def _propagate_next(
+    fallback_url: str, form: FlaskForm | MultiDict | dict | None
+) -> str:
     """Compute appropriate redirect URL
     The application can add a 'next' query parameter or have 'next' as a form field.
     If either exist, make sure they are valid (not pointing to external location)
@@ -845,7 +853,7 @@ def propagate_next(fallback_url: str, form: FlaskForm | MultiDict | dict | None)
     raise ValueError("No valid redirect URL found - configuration error")
 
 
-def simplify_url(base_url: str, redirect_url: str) -> str:
+def _simplify_url(base_url: str, redirect_url: str) -> str:
     """
     Reduces the scheme and host from the redirect_url so it can be passed
     as a relative URL in a query (e.g. next) param.
@@ -866,11 +874,11 @@ def simplify_url(base_url: str, redirect_url: str) -> str:
 
 
 def get_message(key: str, **kwargs: t.Any) -> tuple[str, str]:
-    rv = config_value("MSG_" + key)
+    rv = _config_value("MSG_" + key)
     return localize_callback(rv[0], **kwargs), rv[1]
 
 
-def config_value(key, app=None, default=None, strict=True):
+def _config_value(key, app=None, default=None, strict=True):
     """Get a Flask-Security configuration value.
 
     :param key: The configuration key without the prefix `SECURITY_`
@@ -887,37 +895,45 @@ def config_value(key, app=None, default=None, strict=True):
     return app.config.get(key, default)
 
 
-def get_max_age(key, app=None):
-    td = get_within_delta(key + "_WITHIN", app)
-    return td.seconds + td.days * 24 * 3600
-
-
-def get_within_delta(key, app=None):
-    """Get a timedelta object from the application configuration following
-    the internal convention of::
-
-        <Amount of Units> <Type of Units>
-
-    Examples of valid config values::
-
-        5 days
-        10 minutes
-
-    :param key: The config value key without the `SECURITY_` prefix
-    :param app: Optional application to inspect. Defaults to Flask's
-                `current_app`
+def _td_format(td: timedelta) -> str:
+    """Formats a timedelta object to a string.
+    Use humanize.precisedelta if available otherwise use
+    this simplistic version of what humanize provides (English only).
     """
-    txt = config_value(key, app=app)
-    values = txt.split()
-    return timedelta(**{values[1]: int(values[0])})
+    try:
+        import humanize
+
+        return humanize.precisedelta(td)
+    except ImportError:
+        periods = [
+            ("year", 60 * 60 * 24 * 365),
+            ("month", 60 * 60 * 24 * 30),
+            ("day", 60 * 60 * 24),
+            ("hour", 60 * 60),
+            ("minute", 60),
+            ("second", 1),
+        ]
+
+        seconds = int(td.total_seconds())
+        strings = []
+        for period_name, period_seconds in periods:
+            if seconds >= period_seconds:
+                period_value, seconds = divmod(seconds, period_seconds)
+                has_s = "s" if period_value > 1 else ""
+                strings.append(f"{period_value} {period_name}{has_s}")
+        if len(strings) == 2:
+            return " and ".join(strings)
+        return ", ".join(strings)
 
 
-def send_mail(subject, recipient, template, **context):
+def send_mail(
+    subject: str, recipient: str | tuple[str, str], template: str, **context: t.Any
+) -> None:
     """Send an email.
 
     :param subject: Email subject
     :param recipient: Email recipient
-    :param template: The name of the email template
+    :param template: The path/name of the email template
     :param context: The context to render the template with
 
     This formats the email and passes it off to :class:`.MailUtil` to actually send the
@@ -929,15 +945,14 @@ def send_mail(subject, recipient, template, **context):
 
     body = None
     html = None
-    template_path = f"security/email/{template}"
-    if config_value("EMAIL_PLAINTEXT"):
-        body = _security.render_template(f"{template_path}.txt", **context)
-    if config_value("EMAIL_HTML"):
-        html = _security.render_template(f"{template_path}.html", **context)
+    if _config_value("EMAIL_PLAINTEXT"):
+        body = _security.render_template(f"{template}.txt", **context)
+    if _config_value("EMAIL_HTML"):
+        html = _security.render_template(f"{template}.html", **context)
 
     subject = localize_callback(subject)
 
-    sender = config_value("EMAIL_SENDER")
+    sender = _config_value("EMAIL_SENDER")
     if isinstance(sender, LocalProxy):
         sender = sender._get_current_object()
 
@@ -952,47 +967,6 @@ def send_mail(subject, recipient, template, **context):
     )
 
 
-def get_token_status(token, serializer, max_age=None, return_data=False):
-    """Get the status of a token.
-
-    :param token: The token to check
-    :param serializer: The name of the serializer. Can be one of the
-                       following: ``confirm``, ``login``, ``reset``
-    :param max_age: The name of the max age config option. Can be one of
-                    the following: ``CONFIRM_EMAIL``, ``LOGIN``,
-                    ``RESET_PASSWORD``
-
-    .. deprecated:: 5.0.0
-    """
-    warnings.warn(
-        "'get_token_status' is deprecated - use check_and_get_token_status instead",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    serializer = getattr(_security, serializer + "_serializer")
-    max_age = get_max_age(max_age)
-    user, data = None, None
-    expired, invalid = False, False
-
-    try:
-        data = serializer.loads(token, max_age=max_age)
-    except SignatureExpired:
-        d, data = serializer.loads_unsafe(token)
-        expired = True
-    except (BadSignature, TypeError, ValueError):
-        invalid = True
-
-    if data:
-        user = _datastore.find_user(fs_uniquifier=data[0])
-
-    expired = expired and (user is not None)
-
-    if return_data:
-        return expired, invalid, user, data
-    else:
-        return expired, invalid, user
-
-
 def check_and_get_token_status(
     token: str, serializer_name: str, within: timedelta
 ) -> tuple[bool, bool, t.Any]:
@@ -1001,7 +975,9 @@ def check_and_get_token_status(
     :param token: The token to check
     :param serializer_name: The name of the serializer. Can be one of the
                        following: ``confirm``, ``login``, ``reset``, ``us_setup``
-                       ``remember``, ``two_factor_validity``, ``wan``
+                       ``remember``, ``tf_validity``, ``tf_setup``,
+                       ``wan``, ``change_email``,
+                       ``refresh_token``
     :param within: max age - passed as a timedelta
 
     :return: a tuple of (expired, invalid, data)
@@ -1050,14 +1026,14 @@ def get_identity_attribute(attr: str, app: Flask | None = None) -> dict[str, t.A
     return {}
 
 
-def lookup_identity(identity):
+def lookup_identity(identity: str | int) -> UserMixin | None:
     """
     Lookup identity in DB.
     This loops through, in order, :py:data:`SECURITY_USER_IDENTITY_ATTRIBUTES`,
     and first calls the mapper function to normalize.
     Then the db.find_user is called on the specified user model attribute.
     """
-    for mapping in config_value("USER_IDENTITY_ATTRIBUTES"):
+    for mapping in _config_value("USER_IDENTITY_ATTRIBUTES"):
         attr = list(mapping.keys())[0]
         details = mapping[attr]
         idata = details["mapper"](identity)
@@ -1110,21 +1086,21 @@ def uia_username_mapper(identity: str) -> str | None:
     return _security.username_util.normalize(identity)
 
 
-def use_double_hash(password_hash=None):
+def _use_double_hash(password_hash=None):
     """Return a bool indicating whether a password should be hashed twice."""
     # Default to plaintext for backward compatibility with
     # :py:data:`SECURITY_PASSWORD_SINGLE_HASH` = False
-    single_hash = config_value("PASSWORD_SINGLE_HASH") or {"plaintext"}
+    single_hash = _config_value("PASSWORD_SINGLE_HASH") or {"plaintext"}
 
     if password_hash is None:
-        scheme = config_value("PASSWORD_HASH")
+        scheme = _config_value("PASSWORD_HASH")
     else:
         scheme = _pwd_context.identify(password_hash)
 
     return not (single_hash is True or scheme in single_hash)
 
 
-def csrf_cookie_handler(response: Response) -> Response:
+def _csrf_cookie_handler(response: Response) -> Response:
     """Called at end of every request.
     Uses session to track state (set/clear)
 
@@ -1140,8 +1116,8 @@ def csrf_cookie_handler(response: Response) -> Response:
     It is of course removed on logout/session end.
     Other info on web suggests replacing on every POST and accepting up to 'age' ago.
     """
-    csrf_cookie = config_value("CSRF_COOKIE")
-    csrf_cookie_name = config_value("CSRF_COOKIE_NAME")
+    csrf_cookie = _config_value("CSRF_COOKIE")
+    csrf_cookie_name = _config_value("CSRF_COOKIE_NAME")
     if not csrf_cookie_name:
         return response
 
@@ -1176,7 +1152,7 @@ def csrf_cookie_handler(response: Response) -> Response:
     if op == "set":
         send = True
         session["fs_cc"] = "sent"
-    elif config_value("CSRF_COOKIE_REFRESH_EACH_REQUEST"):
+    elif _config_value("CSRF_COOKIE_REFRESH_EACH_REQUEST"):
         send = True
     elif current_app.config["WTF_CSRF_TIME_LIMIT"]:
         current_cookie = request.cookies.get(csrf_cookie_name, None)
@@ -1192,12 +1168,23 @@ def csrf_cookie_handler(response: Response) -> Response:
     return response
 
 
-def add_cache_control(resp: Response) -> Response:
+def _add_cache_control(resp: Response) -> Response:
     """Add cache control header attributes to response."""
-    cc = config_value("CACHE_CONTROL") or dict()
+    cc = _config_value("CACHE_CONTROL") or dict()
     for attr, v in cc.items():
         resp.cache_control[attr] = v
     return resp
+
+
+def allowed_auth_token(user: UserMixin) -> bool:
+    """When an endpoint could return an auth_token (such as all the authentication
+    endpoints) - this utility if it should - based on configuration variables."""
+    if (
+        _config_value("BACKWARDS_COMPAT_AUTH_TOKEN")
+        or "include_auth_token" in request.args
+    ):
+        return True
+    return False
 
 
 def base_render_json(
@@ -1222,26 +1209,14 @@ def base_render_json(
         code = 200
         payload = dict()
         if user:
-            # This allows anonymous GETs via JSON
+            # This will be false for anonymous GETs via JSON
+            from .tokens import response_tokens
+
             if include_user:
                 payload["user"] = user.get_security_payload()
 
             if include_auth_token:
-                # view willing to return auth_token - check behavior config
-                if (
-                    config_value("BACKWARDS_COMPAT_AUTH_TOKEN")
-                    or "include_auth_token" in request.args
-                ):
-                    try:
-                        token = user.get_auth_token()
-                    except ValueError:
-                        # application has fs_token_uniquifier attribute but it
-                        # hasn't been initialized. Since we are in a request context
-                        # we can do that here.
-                        _datastore.set_token_uniquifier(user)
-                        after_this_request(view_commit)
-                        token = user.get_auth_token()
-                    payload["user"]["authentication_token"] = token
+                response_tokens(user, payload)
 
         # Return csrf_token on each JSON response - just as every form
         # has it rendered.
@@ -1261,7 +1236,7 @@ def simple_render_json(
     return _security._render_json(payload, 200, None, None)
 
 
-def default_want_json(req):
+def _default_want_json(req):
     """Return True if response should be in json
     N.B. do not call this directly - use security._want_json()
 
@@ -1281,8 +1256,8 @@ def default_want_json(req):
 
 
 def json_error_response(
-    errors: str | list | None = None,
-    field_errors: dict[str | None, list] | None = None,
+    errors: str | list[str] | None = None,
+    field_errors: dict[str, list[str]] | None = None,
 ) -> dict[str, t.Any]:
     """Helper to create an error response.
 
@@ -1291,10 +1266,7 @@ def json_error_response(
     passed in field_errors.
 
     The "field_errors" key which is exactly what is returned from WTForms - namely
-    a dict of field-name: msg. For form-level errors (WTForms 3.0) the 'field-name' is
-    None - which alas means it isn't sortable and Flask's default JSONProvider
-    sorts keys - so we change that to '__all__' which is what django uses
-    apparently and was suggested as part of WTForms 3.0.
+    a dict of field-name: [msg].
     """
     response_json: dict[str, list | dict[str, list]] = dict()
     plain_errors = []
@@ -1310,20 +1282,13 @@ def json_error_response(
         # we return that, as well as create a simple list of errors.
         for e in field_errors.values():
             plain_errors.extend(e)
-        if None in field_errors.keys():
-            # Ugh - wtforms decided to use None as a key - which json
-            # a) can't sort
-            # b) converts to "null"
-            # Issue filed - maybe they will change it
-            field_errors[""] = field_errors[None]
-            del field_errors[None]
         response_json["field_errors"] = field_errors  # type: ignore
     response_json["errors"] = plain_errors
 
     return response_json
 
 
-def default_render_template(*args: t.Any, **kwargs: t.Any) -> str:
+def _default_render_template(*args: t.Any, **kwargs: t.Any) -> str:
     return render_template(*args, **kwargs)
 
 
@@ -1351,7 +1316,9 @@ class SmsSenderFactory:
     senders: dict[str, t.Type[SmsSenderBaseClass]] = {"Dummy": DummySmsSender}
 
     @classmethod
-    def createSender(cls, name, *args, **kwargs):
+    def createSender(
+        cls, name: str, *args: t.Any, **kwargs: t.Any
+    ) -> SmsSenderBaseClass:
         """Initialize an SMS sender.
 
         :param name: Name as registered in SmsSenderFactory:senders (e.g. 'Twilio')
@@ -1365,10 +1332,10 @@ try:  # pragma: no cover
     from twilio.rest import Client
 
     class TwilioSmsSender(SmsSenderBaseClass):
-        def __init__(self):
-            super().__init__()
-            self.account_sid = config_value("SMS_SERVICE_CONFIG")["ACCOUNT_SID"]
-            self.auth_token = config_value("SMS_SERVICE_CONFIG")["AUTH_TOKEN"]
+        def __init__(self, *args: t.Any, **kwargs: t.Any):
+            super().__init__(*args, **kwargs)
+            self.account_sid: str = _config_value("SMS_SERVICE_CONFIG")["ACCOUNT_SID"]
+            self.auth_token: str = _config_value("SMS_SERVICE_CONFIG")["AUTH_TOKEN"]
 
         def send_sms(self, from_number: str, to_number: str, msg: str) -> None:
             """Send message via twilio account."""
@@ -1391,10 +1358,10 @@ def password_length_validator(password: str) -> list[str] | None:
     .. versionadded:: 3.4.0
 
     """
-    if len(password) < config_value("PASSWORD_LENGTH_MIN") or len(password) > 128:
+    if len(password) < _config_value("PASSWORD_LENGTH_MIN") or len(password) > 128:
         return [
             get_message(
-                "PASSWORD_INVALID_LENGTH", length=config_value("PASSWORD_LENGTH_MIN")
+                "PASSWORD_INVALID_LENGTH", length=_config_value("PASSWORD_LENGTH_MIN")
             )[0]
         ]
     return None
@@ -1420,7 +1387,7 @@ def password_complexity_validator(
     .. versionadded:: 3.4.0
     """
 
-    if config_value("PASSWORD_COMPLEXITY_CHECKER") == "zxcvbn":
+    if _config_value("PASSWORD_COMPLEXITY_CHECKER") == "zxcvbn":
         import zxcvbn
 
         user_info: list[t.Any] = []
@@ -1433,7 +1400,7 @@ def password_complexity_validator(
             if kwargs:
                 user_info = list(kwargs.values())
         results = zxcvbn.zxcvbn(password, user_inputs=user_info)
-        if results["score"] >= config_value("ZXCVBN_MINIMUM_SCORE"):
+        if results["score"] >= _config_value("ZXCVBN_MINIMUM_SCORE"):
             return None
         # Should we return suggestions? Default forms don't really know what to do.
         if results["feedback"]["warning"]:
@@ -1458,10 +1425,10 @@ def password_breached_validator(password: str) -> list[str] | None:
 
     .. versionadded:: 3.4.0
     """
-    if pwn := config_value("PASSWORD_CHECK_BREACHED"):
+    if pwn := _config_value("PASSWORD_CHECK_BREACHED"):
         try:
             cnt = pwned(password)
-            if cnt >= config_value("PASSWORD_BREACHED_COUNT"):
+            if cnt >= _config_value("PASSWORD_BREACHED_COUNT"):
                 return [get_message("PASSWORD_BREACHED")[0]]
         except Exception:
             if pwn == "strict":
@@ -1501,7 +1468,7 @@ def pwned(password: str) -> int:
     return entries.get(sha1[5:].upper(), 0)
 
 
-def handle_already_auth(form, payload=None):
+def _handle_already_auth(form, payload=None):
     """
     Allow already authenticated users. For GET this is useful for
     single-page-applications on refresh - session still active but need to
@@ -1526,4 +1493,37 @@ def handle_already_auth(form, payload=None):
             form.user = current_user
             return base_render_json(form, additional=payload)
     else:
-        return redirect(get_url(config_value("POST_LOGIN_VIEW")))
+        return redirect(get_url(_config_value("POST_LOGIN_VIEW")))
+
+
+def input_svn(
+    value: str,
+    allowed_categories: list[str] | None,
+    normalize_form: t.Literal["NFC", "NFD", "NFKC", "NFKD"] | None,
+) -> t.Tuple[t.Literal["ok", "illegal", "unallowed"], str | None]:
+    """
+    Used to sanitize, validate, and normalize (user/form) input
+
+    allowed_categories: list of allowed categories (input to unicodedata.category()).
+
+    normalize_form: input to unicodedata.normalize().
+
+    Returns a tuple of ("reason", cleaned_input)
+    If cleaned_input is None, "reason" will be why. The "unallowed" response
+    is dependent on the input 'allowed_categories' which normally is from a config
+    variable.
+
+    .. versionadded:: 5.9.0
+    """
+    import nh3
+
+    sanitized = nh3.clean(value.strip(), tags=set())
+    if sanitized != value.strip():
+        return "illegal", None
+    if allowed_categories:
+        cats = [unicodedata.category(c)[0] for c in sanitized]
+        if any([cat not in allowed_categories for cat in cats]):
+            return "unallowed", None
+    if normalize_form:
+        return "ok", unicodedata.normalize(normalize_form, sanitized)
+    return "ok", sanitized

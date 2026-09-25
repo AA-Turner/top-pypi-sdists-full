@@ -1,11 +1,11 @@
 import json
 import multiprocessing
 import os
+import time
 from concurrent.futures import Executor, ProcessPoolExecutor, ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
 from threading import Barrier, Thread
-import time
 from typing import Any
 from urllib.parse import urlparse
 
@@ -15,7 +15,6 @@ from arro3.core import Field as ArrowField
 
 from deltalake import DeltaTable
 from deltalake._util import encode_partition_value
-from deltalake.exceptions import DeltaError
 from deltalake.query import QueryBuilder
 from deltalake.writer import write_deltalake
 
@@ -588,33 +587,6 @@ def test_get_add_actions_on_empty_table(tmp_path: Path):
     add_actions = dt.get_add_actions()
     assert add_actions.num_rows == 0
     assert dt.get_add_actions(flatten=True).num_rows == 0
-
-
-@pytest.mark.pyarrow
-def test_get_add_actions_without_files_raises():
-    table_path = "../crates/test/tests/data/simple_table"
-    dt = DeltaTable(table_path, without_files=True)
-
-    with pytest.raises(DeltaError, match="Table is instantiated without files\\."):
-        dt.get_add_actions(flatten=True)
-
-
-@pytest.mark.pyarrow
-def test_without_files_update_preserves_get_add_actions_error(tmp_path: Path):
-    import pyarrow as pa
-
-    data = pa.table({"id": pa.array([1, 2, 3], type=pa.int64())})
-    write_deltalake(tmp_path, data)
-
-    dt = DeltaTable(tmp_path, without_files=True)
-    assert dt.version() == 0
-
-    write_deltalake(tmp_path, data, mode="append")
-    dt.update_incremental()
-
-    assert dt.version() == 1
-    with pytest.raises(DeltaError, match="Table is instantiated without files\\."):
-        dt.get_add_actions(flatten=True)
 
 
 def assert_correct_files(dt: DeltaTable, partition_filters, expected_paths):
@@ -1381,8 +1353,14 @@ def test_read_table_last_checkpoint_not_updated():
     assert dt.version() == 3
 
 
-def test_is_deltatable_valid_path():
-    table_path = "../crates/test/tests/data/simple_table"
+@pytest.mark.parametrize(
+    "table_path",
+    [
+        "../crates/test/tests/data/simple_table",
+        Path("../crates/test/tests/data/simple_table"),
+    ],
+)
+def test_is_deltatable_valid_path(table_path: str | Path):
     assert DeltaTable.is_deltatable(table_path)
 
 
@@ -1756,14 +1734,6 @@ def test_deletion_vectors_empty_table():
     vectors = dt.deletion_vectors()
     assert vectors.schema.names == ["filepath", "selection_vector"]
     assert vectors.read_all().num_rows == 0
-
-
-def test_deletion_vectors_without_files_raises():
-    table_path = "../crates/test/tests/data/simple_table"
-    dt = DeltaTable(table_path, without_files=True)
-
-    with pytest.raises(Exception, match="without files"):
-        dt.deletion_vectors()
 
 
 @pytest.mark.pyarrow

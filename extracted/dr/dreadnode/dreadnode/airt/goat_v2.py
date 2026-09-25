@@ -237,7 +237,7 @@ def _build_enhanced_graph_context(trials: "list[Trial[str]]") -> str:
         context_parts.append(f"  <prompt>{trial.candidate[:300]}</prompt>")
 
         if trial.evaluation_result and trial.evaluation_result.samples:
-            response = trial.evaluation_result.samples[0].output[:300]  # ty: ignore[not-subscriptable]
+            response = str(trial.evaluation_result.samples[0].output)[:300]
             context_parts.append(f"  <response>{response}</response>")
 
         context_parts.append("</node>\n")

@@ -104,6 +104,7 @@ class RawDisputesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "disputes",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -240,6 +241,7 @@ class RawDisputesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "disputes/summary",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "groups": groups,
@@ -311,6 +313,7 @@ class RawDisputesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -363,7 +366,7 @@ class RawDisputesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Dispute]:
         """
-        Edits a dispute's evidence, while it is still editable. Sending it is a separate call.
+        Edits a dispute's evidence, while it is still editable. Sending it is a separate call. `evidence.documents`, when provided, replaces the full set of documents beyond the four fixed evidence slots — see its own description.
 
         Parameters
         ----------
@@ -383,6 +386,7 @@ class RawDisputesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "evidence": convert_and_respect_annotation_metadata(
@@ -466,6 +470,7 @@ class RawDisputesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}/submit",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -540,7 +545,7 @@ class RawDisputesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Dispute]:
         """
-        Replaces the full set of uploaded evidence documents on a dispute, beyond the four fixed evidence slots. Upload files through `POST /files` and reference them by `id`, or send the files as multipart file parts to upload and attach in one call. Send every document the packet should carry — up to 10, 10MB each and 25MB in total; an empty list removes them all. Accepted content types: application/pdf, application/json, image/jpeg, image/png, image/webp — any other type is rejected.
+        Prefer `PATCH /disputes/{id}` with `evidence.documents` — it does the same replace alongside every other evidence field in one call. Replaces the full set of uploaded evidence documents on a dispute, beyond the four fixed evidence slots. Upload files through `POST /files` and reference them by `id`, or send the files as multipart file parts to upload and attach in one call. Send every document the packet should carry — up to 10, 10MB each and 25MB in total; an empty list removes them all. Accepted content types: application/pdf, application/json, image/jpeg, image/png, image/webp — any other type is rejected. Policy documents (`return_policy`, `shipping_policy`, `cancellation_policy`, `terms_of_service`) default from the account's own documents; uploading one here replaces the account copy for this dispute, and a `cancellation_policy` or `return_policy` upload also takes precedence over the matching fixed evidence slot.
 
         Parameters
         ----------
@@ -548,7 +553,7 @@ class RawDisputesClient:
             The dispute ID (`dspt_` tag).
 
         documents : typing.Sequence[UploadEvidenceDisputesRequestDocumentsItem]
-            The full set of evidence documents the dispute should carry. Replaces all previously uploaded documents.
+            The full set of evidence documents the dispute should carry, beyond the four fixed evidence slots. Replaces all previously uploaded documents. Upload files through `POST /files` and reference them by `id`, or send the files as multipart file parts to upload and attach in one call. Policy documents (`return_policy`, `shipping_policy`, `cancellation_policy`, `terms_of_service`) default from the account's own documents; uploading one here replaces the account copy for this dispute, and a `cancellation_policy` or `return_policy` upload also takes precedence over the matching fixed evidence slot.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -560,6 +565,7 @@ class RawDisputesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}/upload_evidence",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "documents": convert_and_respect_annotation_metadata(
@@ -708,6 +714,7 @@ class AsyncRawDisputesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "disputes",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -847,6 +854,7 @@ class AsyncRawDisputesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "disputes/summary",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "groups": groups,
@@ -920,6 +928,7 @@ class AsyncRawDisputesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -972,7 +981,7 @@ class AsyncRawDisputesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Dispute]:
         """
-        Edits a dispute's evidence, while it is still editable. Sending it is a separate call.
+        Edits a dispute's evidence, while it is still editable. Sending it is a separate call. `evidence.documents`, when provided, replaces the full set of documents beyond the four fixed evidence slots — see its own description.
 
         Parameters
         ----------
@@ -992,6 +1001,7 @@ class AsyncRawDisputesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "evidence": convert_and_respect_annotation_metadata(
@@ -1077,6 +1087,7 @@ class AsyncRawDisputesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}/submit",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -1151,7 +1162,7 @@ class AsyncRawDisputesClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Dispute]:
         """
-        Replaces the full set of uploaded evidence documents on a dispute, beyond the four fixed evidence slots. Upload files through `POST /files` and reference them by `id`, or send the files as multipart file parts to upload and attach in one call. Send every document the packet should carry — up to 10, 10MB each and 25MB in total; an empty list removes them all. Accepted content types: application/pdf, application/json, image/jpeg, image/png, image/webp — any other type is rejected.
+        Prefer `PATCH /disputes/{id}` with `evidence.documents` — it does the same replace alongside every other evidence field in one call. Replaces the full set of uploaded evidence documents on a dispute, beyond the four fixed evidence slots. Upload files through `POST /files` and reference them by `id`, or send the files as multipart file parts to upload and attach in one call. Send every document the packet should carry — up to 10, 10MB each and 25MB in total; an empty list removes them all. Accepted content types: application/pdf, application/json, image/jpeg, image/png, image/webp — any other type is rejected. Policy documents (`return_policy`, `shipping_policy`, `cancellation_policy`, `terms_of_service`) default from the account's own documents; uploading one here replaces the account copy for this dispute, and a `cancellation_policy` or `return_policy` upload also takes precedence over the matching fixed evidence slot.
 
         Parameters
         ----------
@@ -1159,7 +1170,7 @@ class AsyncRawDisputesClient:
             The dispute ID (`dspt_` tag).
 
         documents : typing.Sequence[UploadEvidenceDisputesRequestDocumentsItem]
-            The full set of evidence documents the dispute should carry. Replaces all previously uploaded documents.
+            The full set of evidence documents the dispute should carry, beyond the four fixed evidence slots. Replaces all previously uploaded documents. Upload files through `POST /files` and reference them by `id`, or send the files as multipart file parts to upload and attach in one call. Policy documents (`return_policy`, `shipping_policy`, `cancellation_policy`, `terms_of_service`) default from the account's own documents; uploading one here replaces the account copy for this dispute, and a `cancellation_policy` or `return_policy` upload also takes precedence over the matching fixed evidence slot.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1171,6 +1182,7 @@ class AsyncRawDisputesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"disputes/{encode_path_param(id)}/upload_evidence",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "documents": convert_and_respect_annotation_metadata(

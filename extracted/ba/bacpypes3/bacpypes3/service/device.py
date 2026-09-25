@@ -5,6 +5,7 @@ Application Module
 from __future__ import annotations
 
 import asyncio
+
 from typing import (
     Callable,
     Dict,
@@ -12,26 +13,28 @@ from typing import (
     Optional,
 )
 
-from ..apdu import (
-    DeviceCommunicationControlRequest,
-    IAmRequest,
-    IHaveRequest,
-    SimpleAckPDU,
-    WhoHasRequest,
-    WhoIsRequest,
-)
-from ..basetypes import WhoHasLimits, WhoHasObject
-from ..debugging import ModuleLogger, bacpypes_debugging
+from ..debugging import bacpypes_debugging, ModuleLogger
+
+from ..pdu import Address, GlobalBroadcast
+
 from ..errors import (
     ExecutionError,
     InconsistentParameters,
     MissingRequiredParameter,
     ParameterOutOfRange,
 )
-from ..pdu import Address, GlobalBroadcast
 from ..primitivedata import (
     CharacterString,
     ObjectIdentifier,
+)
+from ..basetypes import WhoHasLimits, WhoHasObject
+from ..apdu import (
+    WhoIsRequest,
+    IAmRequest,
+    WhoHasRequest,
+    IHaveRequest,
+    DeviceCommunicationControlRequest,
+    SimpleAckPDU,
 )
 
 # some debugging
@@ -672,7 +675,9 @@ class DeviceCommunicationControlServices:
             )
 
         if getattr(self.device_object, "_dcc_password", None):
-            if not apdu.password or apdu.password != self.device_object._dcc_password:
+            if not apdu.password or apdu.password != getattr(
+                self.device_object, "_dcc_password"
+            ):
                 raise ExecutionError(errorClass="security", errorCode="passwordFailure")
 
         if apdu.enableDisable == "enable":

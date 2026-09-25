@@ -3,14 +3,14 @@
 Import the main names to top level.
 """
 
-__version__ = '0.11.4'
+__version__ = '0.12.0'
 
 try:
     import numba
-except:
+except ImportError as e:
     raise ImportError(
-        "Cannot import numba from current anaconda distribution. \
-            Please run `conda install numba` to install the latest version.")
+        "Cannot import numba, which QuantEcon.py requires. Install it with "
+        "`pip install numba` or `conda install numba`.") from e
 
 #-Modules-#
 from . import distributions
@@ -53,4 +53,5 @@ from .markov import mc_compute_stationary, mc_sample_path
 #<-
 from ._rank_nullspace import rank_est, nullspace
 from ._robustlq import RBLQ
-from .util import searchsorted, fetch_nb_dependencies, tic, tac, toc, Timer, timeit
+from .util import searchsorted, index_dict, fetch_nb_dependencies, \
+    tic, tac, toc, Timer, timeit

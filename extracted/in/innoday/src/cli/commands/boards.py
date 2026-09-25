@@ -17,7 +17,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.table import Table
 
-from src.cli.client import APIError, InnoDayAPIClient
+from src.cli.client import APIError, InnoDayAPIClient, SignInRejected
+from src.cli.utils import guidance
 from src.cli.utils.formatters import (
     ProgressReporter,
     advisory_console,
@@ -181,6 +182,8 @@ async def _latest_sync_record(
             f"/organizations/{org_id}/boards/{board_id}/sync-history",
             params={"limit": 5},
         )
+    except SignInRejected:
+        raise  # retrying cannot fix a dead token; let the top level say so
     except (APIError, httpx.HTTPError) as exc:
         return None, _ReadFailure(None, str(exc) or exc.__class__.__name__)
     if response.status_code != 200:
@@ -609,11 +612,7 @@ class BoardCommands:
 
         # Check organization is configured
         if not config.get_current_organization():
-            console.print(
-                format_error(
-                    "Organization not configured. Run 'innoday config init' first."
-                )
-            )
+            console.print(format_error(guidance.NO_PROJECT))
             return 1
 
         async with InnoDayAPIClient(config) as client:
@@ -672,11 +671,7 @@ class BoardCommands:
         org_id = config.get_organization_id(org_alias)
 
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         with ProgressReporter(
@@ -875,11 +870,7 @@ class BoardCommands:
             return 1
         org_id = config.get_organization_id(org_alias)
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         params = {"limit": args.limit}
@@ -951,11 +942,7 @@ class BoardCommands:
             return 1
         org_id = config.get_organization_id(org_alias)
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         response = await client.get(
@@ -1016,11 +1003,7 @@ class BoardCommands:
         org_id = config.get_organization_id(org_alias)
 
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         params = {}
@@ -1168,9 +1151,7 @@ class BoardCommands:
         # Get user ID from config
         user_id = config.get_user_id()
         if not user_id:
-            console.print(
-                format_error("User ID not configured. Run 'innoday config init' first.")
-            )
+            console.print(format_error(guidance.IDENTITY_NOT_CACHED))
             return 1
 
         # Get organization ID
@@ -1178,11 +1159,7 @@ class BoardCommands:
         org_id = config.get_organization_id(org_alias)
 
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         # A board must belong to a project (BoardRegistration.project_id is a
@@ -1489,11 +1466,7 @@ class BoardCommands:
             return 1
         org_id = config.get_organization_id(org_alias)
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         board_id = await BoardCommands._resolve_board_id(args, client, config, org_id)
@@ -1722,11 +1695,7 @@ class BoardCommands:
             return 1
         org_id = config.get_organization_id(org_alias)
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         board_id = await BoardCommands._resolve_board_id(args, client, config, org_id)
@@ -1791,11 +1760,7 @@ class BoardCommands:
             return 1
         org_id = config.get_organization_id(org_alias)
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         board = await BoardCommands._resolve_board_record(args, client, config, org_id)

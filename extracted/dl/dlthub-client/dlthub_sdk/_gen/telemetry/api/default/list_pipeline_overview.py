@@ -9,11 +9,11 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.error_response_400 import ErrorResponse400
+from ...models.list_page_pipeline_overview_response import (
+    ListPagePipelineOverviewResponse,
+)
 from ...models.list_pipeline_overview_order_type_0_item import (
     ListPipelineOverviewOrderType0Item,
-)
-from ...models.list_pipeline_overview_response_200 import (
-    ListPipelineOverviewResponse200,
 )
 from ...models.list_pipeline_overview_sort_type_0_item import (
     ListPipelineOverviewSortType0Item,
@@ -36,6 +36,7 @@ def _get_kwargs(
     latest_destination_name: list[str] | None | Unset = UNSET,
     sort: list[ListPipelineOverviewSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineOverviewOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -117,6 +118,13 @@ def _get_kwargs(
         json_order = order
     params["order"] = json_order
 
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -132,9 +140,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse400 | ListPipelineOverviewResponse200 | None:
+) -> ErrorResponse400 | ListPagePipelineOverviewResponse | None:
     if response.status_code == 200:
-        response_200 = ListPipelineOverviewResponse200.from_dict(response.json())
+        response_200 = ListPagePipelineOverviewResponse.from_dict(response.json())
 
         return response_200
 
@@ -151,7 +159,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse400 | ListPipelineOverviewResponse200]:
+) -> Response[ErrorResponse400 | ListPagePipelineOverviewResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -175,7 +183,8 @@ def sync_detailed(
     latest_destination_name: list[str] | None | Unset = UNSET,
     sort: list[ListPipelineOverviewSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineOverviewOrderType0Item] | None | Unset = UNSET,
-) -> Response[ErrorResponse400 | ListPipelineOverviewResponse200]:
+    cursor: None | str | Unset = UNSET,
+) -> Response[ErrorResponse400 | ListPagePipelineOverviewResponse]:
     """ListPipelineOverview
 
     One row per pipeline in the time range, with its aggregate metrics.
@@ -206,13 +215,16 @@ def sync_detailed(
             entries.
         order (list[ListPipelineOverviewOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ListPipelineOverviewResponse200]
+        Response[ErrorResponse400 | ListPagePipelineOverviewResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -227,6 +239,7 @@ def sync_detailed(
         latest_destination_name=latest_destination_name,
         sort=sort,
         order=order,
+        cursor=cursor,
     )
 
     response = client.get_httpx_client().request(
@@ -251,7 +264,8 @@ def sync(
     latest_destination_name: list[str] | None | Unset = UNSET,
     sort: list[ListPipelineOverviewSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineOverviewOrderType0Item] | None | Unset = UNSET,
-) -> ErrorResponse400 | ListPipelineOverviewResponse200 | None:
+    cursor: None | str | Unset = UNSET,
+) -> ErrorResponse400 | ListPagePipelineOverviewResponse | None:
     """ListPipelineOverview
 
     One row per pipeline in the time range, with its aggregate metrics.
@@ -282,13 +296,16 @@ def sync(
             entries.
         order (list[ListPipelineOverviewOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ListPipelineOverviewResponse200
+        ErrorResponse400 | ListPagePipelineOverviewResponse
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -304,6 +321,7 @@ def sync(
         latest_destination_name=latest_destination_name,
         sort=sort,
         order=order,
+        cursor=cursor,
     ).parsed
 
 
@@ -322,7 +340,8 @@ async def asyncio_detailed(
     latest_destination_name: list[str] | None | Unset = UNSET,
     sort: list[ListPipelineOverviewSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineOverviewOrderType0Item] | None | Unset = UNSET,
-) -> Response[ErrorResponse400 | ListPipelineOverviewResponse200]:
+    cursor: None | str | Unset = UNSET,
+) -> Response[ErrorResponse400 | ListPagePipelineOverviewResponse]:
     """ListPipelineOverview
 
     One row per pipeline in the time range, with its aggregate metrics.
@@ -353,13 +372,16 @@ async def asyncio_detailed(
             entries.
         order (list[ListPipelineOverviewOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ListPipelineOverviewResponse200]
+        Response[ErrorResponse400 | ListPagePipelineOverviewResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -374,6 +396,7 @@ async def asyncio_detailed(
         latest_destination_name=latest_destination_name,
         sort=sort,
         order=order,
+        cursor=cursor,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -396,7 +419,8 @@ async def asyncio(
     latest_destination_name: list[str] | None | Unset = UNSET,
     sort: list[ListPipelineOverviewSortType0Item] | None | Unset = UNSET,
     order: list[ListPipelineOverviewOrderType0Item] | None | Unset = UNSET,
-) -> ErrorResponse400 | ListPipelineOverviewResponse200 | None:
+    cursor: None | str | Unset = UNSET,
+) -> ErrorResponse400 | ListPagePipelineOverviewResponse | None:
     """ListPipelineOverview
 
     One row per pipeline in the time range, with its aggregate metrics.
@@ -427,13 +451,16 @@ async def asyncio(
             entries.
         order (list[ListPipelineOverviewOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ListPipelineOverviewResponse200
+        ErrorResponse400 | ListPagePipelineOverviewResponse
     """
     return (
         await asyncio_detailed(
@@ -450,5 +477,6 @@ async def asyncio(
             latest_destination_name=latest_destination_name,
             sort=sort,
             order=order,
+            cursor=cursor,
         )
     ).parsed

@@ -37,6 +37,8 @@ LAZY_EXPORTS: dict[str, str] = {
     "AgeGenderConfig": "matrice_analytics.post_processing.usecases.age_gender_detection",
     "AgeGenderUseCase": "matrice_analytics.post_processing.usecases.age_gender_detection",
     "AlertConfig": "matrice_analytics.post_processing.core.config",
+    "AlertsVerificationConfig": "matrice_analytics.post_processing.usecases.alerts_verification",
+    "AlertsVerificationUseCase": "matrice_analytics.post_processing.usecases.alerts_verification",
     "AnimalDetectionConfig": "matrice_analytics.post_processing.usecases.animal_detection",
     "AnimalDetectionUseCase": "matrice_analytics.post_processing.usecases.animal_detection",
     "AntiSpoofingDetectionConfig": "matrice_analytics.post_processing.usecases.anti_spoofing_detection",

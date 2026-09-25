@@ -509,6 +509,9 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // v15.2.0 peer admits it — and it rides the first identity round to every
     // node this owner stewards (CIRISServer#606). Healed here, from the
     // owner's own pen, before anything below replicates it.
+    // Every outcome is named. The `Ok(_) => {}` arm this replaces swallowed an
+    // `Absent` on the production canonical for a whole boot with the owner's pen
+    // on disk (CIRISServer#606, 2026-09-24): no line, row unchanged.
     match crate::node_key::heal_owner_key_record(&engine).await {
         Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Rebound)) => {
             tracing::info!("boot: the owner's registration record was rebound (#606)")
@@ -516,7 +519,15 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
         Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Unbound { refusal })) => {
             tracing::warn!(%refusal, "boot: the owner's registration record is UNBOUND and could not be rebound (#606)")
         }
-        Ok(_) => {}
+        Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Bound)) => {
+            tracing::info!("boot: the owner's registration record already binds its subject (#606)")
+        }
+        Ok(Some(crate::auth::ownership::OwnerKeyRecordState::Absent)) => {
+            tracing::warn!("boot: the owner resolved but this node holds no registration record for them — nothing to heal (#606)")
+        }
+        Ok(None) => {
+            tracing::info!("boot: no owner pen on this node (unowned, or no user seed registered) — owner record heal skipped (#606)")
+        }
         Err(e) => tracing::warn!(error = %e, "boot: owner key record heal failed (non-fatal)"),
     }
     match crate::node_key::anchor_agent_to_owner(&engine).await {
@@ -557,6 +568,36 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // than leaving it to be inferred from withheld frames later.
     if let Err(e) = crate::mesh_genesis::install_baked_trust_root(&engine).await {
         tracing::debug!(error = %e, "baked trust root did not install");
+    }
+    // THE OWNER ACCEPTS THE ROOT (CIRISServer#632 step 2; CIRISEdge#659 walk).
+    // Trust lives on the owner: edge's `Rooted(P)` at node N is
+    // `∃R ∈ roots_of(owner_of(N)) ∩ roots_of(owner_of(P))`, and `roots_of(k)`
+    // is the live `delegates_to(k → R, infra:*)` at federation — keyed on the
+    // OWNER. The node→R edge above is bootstrap default trust; the owner's own
+    // signed acceptance is what makes this node placeable in the mesh. Written
+    // wherever the owner's pen exists: here at boot (the already-claimed
+    // fleet, and the production canonical on its one boot with the pen), at
+    // claim, and at import. Idempotent; every outcome named.
+    match crate::node_key::accept_roots_as_owner(&engine).await {
+        Ok(Some(newly)) if !newly.is_empty() => tracing::info!(
+            roots = ?newly,
+            "boot: the OWNER accepted this node's trust root(s) — delegates_to(owner → root, \
+             infra:*) at federation; peers sharing a valid root now read this node Rooted"
+        ),
+        Ok(Some(_)) => tracing::info!(
+            "boot: the owner's acceptance of every trust root this node accepted is already on \
+             record (nothing written)"
+        ),
+        Ok(None) => tracing::info!(
+            "boot: no owner pen on this node (unowned, or no user seed registered) — the \
+             owner's root acceptance waits for the claim; until then this node is not Rooted \
+             by any peer (CIRISEdge#659)"
+        ),
+        Err(e) => tracing::warn!(
+            error = %e,
+            "boot: the owner's root acceptance FAILED (non-fatal) — this node stays un-Rooted \
+             by every peer until it is written"
+        ),
     }
     // WHAT STATE IS THIS NODE ACTUALLY IN? Ask persist, do not infer it from
     // whether the install returned Err (CIRISServer#400, persist v31.0.0).
@@ -963,6 +1004,8 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // announce-heal of the peer's routing dest + the LINK_REQUEST_TX-with-no-path
     // guard that turns any future recurrence into a loud immediate error.
     prime_canonical_bootstrap_peers(&engine, &edge).await;
+    // The first-contact carry for a server-shaped node (CIRISServer#632 / CIRISEdge#671).
+    crate::mesh_genesis::carry_allegiance_from_canonicals(&engine, &[]).await;
 
     crate::compose_status::phase("holonomic");
     // ── Holonomic-tier swarm runtime (CIRISServer#11) ─────────────────────────
@@ -1571,6 +1614,19 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                         // The scope-address plane, so a cohort write can report
                         // whether the room it seals into is addressable at all.
                         edge.scope_lifecycle().cloned(),
+                    ))
+                    // HOUSEHOLDS (CIRISServer#627, FSD/ROSTER_AND_DRIVE_CRUD.md §3):
+                    // create / list / read / add / remove / leave / role /
+                    // dissolve, and envelope → cosign → assemble for a quorum
+                    // family. Owner-gated; every row signed by the owner's fed-ID.
+                    .merge(crate::family_api::router(
+                        Arc::clone(&engine),
+                        crate::user_seed_dir(&cfg),
+                    ))
+                    // THE OWNER'S DEVICES (FSD §2): release a node, relabel a key.
+                    .merge(crate::self_devices::router(
+                        Arc::clone(&engine),
+                        crate::user_seed_dir(&cfg),
                     ))
                     // THE AGENT-COMPAT FEDERATION EDGE SURFACE (CIRISServer#261):
                     // GET /v1/federation/identity + /metrics, POST
@@ -2429,16 +2485,27 @@ pub(crate) async fn publish_self_transport_destination(
     // engine signer's by construction (CIRISServer#315: cfg.key_id == local_derived_key_id());
     // NOT `federation_signer`, whose re-opened seed can diverge in the fold (the phantom-key
     // class #315 closed). signer_acts_for is satisfied: attesting == occurrence (self).
-    let signer = match EngineSelfSigner::new(engine).await {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!(key_id, error = %e,
-                "could not build the engine self-signer for the signed transport-destination — skipping");
-            return;
-        }
+    // WHO SIGNS is WHO THE BINDING IS FOR (CIRISServer#632). On an actor/node split
+    // the wire identity — `key_id` here — is the NODE key, while the engine signs as
+    // the ACTOR; persist refused every boot's binding ("signer <actor> is neither
+    // identity <node> …"), so no peer could attribute this node's link until the
+    // transport-destination plane carried a binding on the round cadence — the 70 s
+    // before the owner's consent reached the canonical on the production-shaped
+    // ladder. The node binding is signed by the held node pen under its registered
+    // id; every other case keeps the engine signer.
+    let signer: Box<dyn SelfSigner> = match node_pen_signer_for(key_id, engine).await {
+        Some(node) => Box::new(node),
+        None => match EngineSelfSigner::new(engine).await {
+            Ok(s) => Box::new(s),
+            Err(e) => {
+                tracing::warn!(key_id, error = %e,
+                    "could not build the engine self-signer for the signed transport-destination — skipping");
+                return;
+            }
+        },
     };
     let (signed_envelope, signature) =
-        match produce_signed_identity_occurrence(&signer, envelope).await {
+        match produce_signed_identity_occurrence(signer.as_ref(), envelope).await {
             Ok(v) => v,
             Err(e) => {
                 tracing::warn!(key_id, error = %e,
@@ -3743,6 +3810,70 @@ impl ciris_verify_core::self_at_login::SelfSigner for EngineSelfSigner {
     }
 }
 
+/// A [`SelfSigner`](ciris_verify_core::self_at_login::SelfSigner) over the held
+/// NODE pen, named by the node key's REGISTERED id (the pen's `derived_key_id()`;
+/// its `key_id()` is a bare alias registered nowhere). `Some` only when `key_id`
+/// IS that node key and it differs from the engine's — i.e. on a split install,
+/// for the node's own records.
+struct NodePenSelfSigner {
+    pen: Arc<ciris_persist::prelude::LocalSigner>,
+    key_id: String,
+    ed_pub: Vec<u8>,
+    pqc_pub: Vec<u8>,
+}
+
+async fn node_pen_signer_for(key_id: &str, engine: &Arc<Engine>) -> Option<NodePenSelfSigner> {
+    let pen = crate::node_key::held_node_signer()?;
+    let node = pen.derived_key_id();
+    if node != key_id {
+        return None;
+    }
+    if engine.local_derived_key_id().await.ok().as_deref() == Some(key_id) {
+        return None;
+    }
+    let probe = match pen.sign_hybrid(b"ciris:self-signer:pubkey-probe:v1").await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(key_id, error = %e, "node pen probe-sign failed — falling back to the engine signer");
+            return None;
+        }
+    };
+    Some(NodePenSelfSigner {
+        pen,
+        key_id: node,
+        ed_pub: probe.classical.public_key,
+        pqc_pub: probe.pqc.public_key,
+    })
+}
+
+#[async_trait::async_trait]
+impl ciris_verify_core::self_at_login::SelfSigner for NodePenSelfSigner {
+    fn key_id(&self) -> &str {
+        &self.key_id
+    }
+    async fn ed25519_public_key(&self) -> Result<Vec<u8>, ciris_verify_core::VerifyError> {
+        Ok(self.ed_pub.clone())
+    }
+    async fn mldsa65_public_key(&self) -> Result<Vec<u8>, ciris_verify_core::VerifyError> {
+        Ok(self.pqc_pub.clone())
+    }
+    async fn sign_bound(
+        &self,
+        bytes: &[u8],
+    ) -> Result<(String, String), ciris_verify_core::VerifyError> {
+        use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+        let sig = self.pen.sign_hybrid(bytes).await.map_err(|e| {
+            ciris_verify_core::VerifyError::IntegrityError {
+                message: format!("NodePenSelfSigner sign_hybrid: {e}"),
+            }
+        })?;
+        Ok((
+            B64.encode(&sig.classical.signature),
+            B64.encode(&sig.pqc.signature),
+        ))
+    }
+}
+
 pub(crate) async fn build_self_key_record(
     engine: &Arc<Engine>,
     _cfg: &ServerConfig,
@@ -3776,7 +3907,20 @@ pub(crate) async fn build_self_key_record(
     let signed: ciris_persist::federation::SignedKeyRecord =
         serde_json::from_value(serde_json::to_value(&v_rec)?)
             .map_err(|e| anyhow::anyhow!("bridge verify→persist self SignedKeyRecord: {e}"))?;
-    Ok(signed.record)
+    let mut record = signed.record;
+    // Row metadata, NOT part of the signed envelope (as accord.rs attaches real
+    // custody evidence): under a live TEST anchor this node may be a root's
+    // charter holder, and persist v47.3.0 reads a holder with no evidence as
+    // an invalid root (CIRISPersist#901). Honest about what it is.
+    if crate::test_anchor_marker_active() {
+        record.attestation_evidence = Some(crate::software_only_test_marker());
+        tracing::info!(
+            key_id = %record.key_id,
+            "self key record carries the SoftwareOnly_TEST custody marker — a TEST trust \
+             anchor is live (test-anchor build + CIRIS_TEST_TRUST_ROOT); never in production"
+        );
+    }
+    Ok(record)
 }
 
 /// Set up **CEG-driven** directed-consent replication. The corpus's
@@ -4181,7 +4325,16 @@ pub(crate) async fn start_replication_runtime(
     //    one hot path reads it back; anything else is a finger on the scale). Every
     //    candidate is admission-filtered against the federation directory (an
     //    unknown key has no record to route/verify).
-    let candidates = crate::peer::replication_peers_from_consent(engine, node_key_id).await?;
+    // THE RUNTIME'S IDENTITY IS THE WIRE IDENTITY (CIRISServer#632, D2). On a
+    // split install `node_key_id` here is the edge SIGNER — the ACTOR — while the
+    // owner-binding, the owner's `consent:replication` grant (`for_key_id`) and
+    // the link all name the NODE key. Keyed on the actor,
+    // `consent_peers_by_principals(actor)` matched nothing and the production-
+    // shaped agent withheld its whole Attestation plane toward the canonical
+    // (`send_set_size=0 consent=0 owner_routed=0`, 2026-09-24). The blob puller
+    // below keeps the signing key: its holder claims are self-attested by it.
+    let wire = crate::node_key::wire_identity().unwrap_or(node_key_id);
+    let candidates = crate::peer::replication_peers_from_consent(engine, wire).await?;
     let mut desired: Vec<String> = Vec::with_capacity(candidates.len());
     for peer in candidates {
         match directory.lookup_public_key(&peer).await {
@@ -4340,7 +4493,7 @@ pub(crate) async fn start_replication_runtime(
         crate::backend::spawn_blob_puller(engine, Arc::clone(edge), node_key_id).await;
     let runtime_config = ReplicationRuntimeConfig {
         metrics: Some(edge.metrics()),
-        local_key_id: Some(node_key_id.to_string()),
+        local_key_id: Some(wire.to_string()),
         // SEALED-CONTENT WIRING (edge v27.0.0, CIRISEdge#640): the three hooks
         // that only make sense together, spelled as one type so the half-wired
         // node cannot be built — `pull_sink ⇒ engine`, `revocations ⇒ engine`.
@@ -4445,9 +4598,14 @@ pub(crate) fn spawn_announce_logger(bus: Arc<ciris_edge::events::EventBus>) {
                             ev.message
                         );
                     }
+                    // NOT "rooted": edge emits this at Info for an ADVISORY
+                    // cold-start admit too (the peer_admitted line beside it says
+                    // `provenance=Advisory`). The old headline "announce rooted"
+                    // read as a trust verdict and misled a #632 RCA. The message
+                    // carries edge's own words; the headline claims nothing.
                     EventSeverity::Info => tracing::info!(
                         peer = ?ev.peer_key_id,
-                        "RNS announce rooted (peer now reachable by key_id): {}",
+                        "RNS announce event (edge's words — NOT a rooting verdict): {}",
                         ev.message
                     ),
                 },

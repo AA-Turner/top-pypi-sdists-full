@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pixeloe"
-version = "0.1.4"
+version = "1.0.0"
 description = "Detail-Oriented Pixelization based on Contrast-Aware Outline Expansion."
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache License 2.0"}
+license = "Apache-2.0"
 authors = [
     {name = "Shih-Ying Yeh(KohakuBlueLeaf)", email = "apolloyeh0123@gmail.com"},
 ]
@@ -17,18 +17,80 @@ dependencies = [
     "numpy",
     "pillow",
     "torch",
+    "torchvision",
     "kornia",
+    # Slang compute-shader backend (pixeloe.slang), on every platform slangpy
+    # ships wheels for (macOS arm64 wheels need macOS 26 = Darwin 25);
+    # elsewhere pixelize() runs the torch pipeline.
+    "slangpy>=0.43.1; (sys_platform == 'win32' and platform_machine == 'AMD64') or (sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')) or (sys_platform == 'darwin' and platform_machine == 'arm64' and platform_release >= '25')",
+]
+
+[project.optional-dependencies]
+# requests slangpy where the marker above leaves it out
+slang = [
+    "slangpy>=0.43.1",
+]
+gradio = [
+    "gradio>=4.0.0",
+    "toml",
+]
+standalone = [
+    "gradio>=4.0.0",
+    "toml",
+    "pywebview",
+]
+all = [
+    "gradio>=4.0.0",
+    "toml",
+    "pywebview",
+]
+dev = [
+    "black",
+    "build",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "twine",
 ]
 
 [project.urls]
 Homepage = "https://github.com/KohakuBlueleaf/PixelOE"
+Repository = "https://github.com/KohakuBlueleaf/PixelOE"
 
 [project.scripts]
-"pixeloe.pixelize" = "pixeloe.cli:pixelize"
-"pixeloe.outline" = "pixeloe.cli:outline"
+"pixeloe.pixelize" = "pixeloe.cli_legacy:pixelize"
+"pixeloe.outline" = "pixeloe.cli_legacy:outline"
+"pixeloe.slang" = "pixeloe.slang.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+pixeloe = ["slang/shaders/**/*.slang", "slang/runtime/cpu/*.cpp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+# Breakage only (syntax, undefined names); formatting is black's job. Pinned so
+# a ruff release that widens its default rule set cannot turn CI red.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.ruff.lint.per-file-ignores]
+"nodes/pixel.py" = ["E402", "E731"]
+"src/pixeloe/legacy/**/*.py" = ["F401"]
+"src/pixeloe/torch/downscale/k_centroid.py" = ["F401"]
+
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "kblueleaf"
+DisplayName = "PixelOE"
+Icon = "https://kblueleaf.net/_astro/pixeloe-icon.vlyukbYz.jpg"

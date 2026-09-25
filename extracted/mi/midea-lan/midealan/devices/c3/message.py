@@ -12,8 +12,146 @@ from midealan.message import (
 )
 
 TEMP_NEG_VALUE = 127
+
+# Sentinels for probes/curves the unit does not have installed. Confirmed
+# against a Galmet Prima 06 GT: a wired-HMI reading sheet transcribed at the
+# same timestamps as a LAN capture shows "-" (not installed) for every one of
+# these fields exactly when the LAN byte reads the sentinel value below, so
+# the byte means "not present", not a literal 127 degC or an active curve.
+TEMP_PROBE_DISCONNECTED = 0x7F
+CURVE_SETPOINT_INACTIVE = 0xFF
+
+
+def _temp_or_none(raw: int) -> int | None:
+    """Map the disconnected-probe sentinel (0x7F) to None."""
+    return None if raw == TEMP_PROBE_DISCONNECTED else raw
+
+
+def _setpoint_or_none(raw: int) -> int | None:
+    """Map the curve-inactive sentinel (0xFF) to None."""
+    return None if raw == CURVE_SETPOINT_INACTIVE else raw
+
+
+# Serial-number blocks appended to the X10 telemetry frame. The lua splits
+# the tail into three fixed 32-byte ASCII blocks (1-indexed):
+#   iduSNCode = _bodyBytes[96..127]
+#   oduSNCode = _bodyBytes[128..159]
+#   hmiSNCode = _bodyBytes[160..191]
+# Only the HMI block is decoded; on the captured 171H120F the IDU and ODU
+# blocks are dash-filled. Unused positions are padded with "-", and a block
+# shorter than its full width is NUL-terminated.
+SN_BLOCK_LENGTH = 32
+HMI_SN_BLOCK_OFFSET = 159
+
+
+def _parse_sn_block(
+    body: bytearray,
+    data_offset: int,
+    block_offset: int,
+) -> str | None:
+    """Decode one fixed-width, dash-padded ASCII serial-number block.
+
+    Returns None when the frame stops before the block, when the block holds
+    only padding, or when its content is not printable ASCII.
+    """
+    start = data_offset + block_offset
+    end = start + SN_BLOCK_LENGTH
+    if len(body) < end:
+        return None
+    block = bytes(body[start:end])
+    terminator = block.find(0)
+    if terminator == -1:
+        # No NUL in the block: only a fully populated 32-byte value is
+        # valid. A dash-padded block with no terminator is a partial or
+        # corrupt record, not a short serial that happens to fill the slot.
+        if block.strip(b"-") != block:
+            return None
+    else:
+        # Bytes after the terminator must be pure dash padding. Anything
+        # else (garbage, a second value) makes the record untrustworthy.
+        if block[terminator + 1 :].strip(b"-"):
+            return None
+        block = block[:terminator]
+    candidate = block.strip(b"-").strip()
+    if not candidate:
+        return None
+    try:
+        decoded = candidate.decode("ascii")
+    except UnicodeDecodeError:
+        return None
+    return decoded if decoded.isprintable() else None
+
+
 # Outdoor fan speed is transmitted as RPM / 10.
 FAN_SPEED_FACTOR = 10
+
+# Error code lookup (source: Midea Modbus documentation V4.7,
+# 0052003044313 V.E, "Error code table 1", page 11).
+# Format: raw_value -> (display_code, human_description).
+# All entries below were cross-checked against that source; the four
+# codes previously marked "unknown" (Hd, HE, L2, L9) plus L8 are now
+# filled in, and three codes (E1, H9, HA) whose text had been
+# shifted from neighbouring rows during transcription are corrected.
+C3_ERROR_CODE_TABLE: dict[int, tuple[str, str]] = {
+    1: ("E0", "Water flow fault (E8 displayed 3 times)"),
+    2: (
+        "E1",
+        (
+            "Phase loss, or neutral and live wire connected reversely "
+            "(three-phase units only)"
+        ),
+    ),
+    3: ("E2", "Communication fault between controller and hydraulic module"),
+    4: ("E3", "Final outlet water temp. sensor (T1) fault"),
+    5: ("E4", "Water tank temp. sensor (T5) fault"),
+    6: ("E5", "Condenser outlet refrigerant temp. sensor (T3) fault"),
+    7: ("E6", "Ambient temp. sensor (T4) fault"),
+    8: ("E7", "Buffer tank up temp. sensor (Tbt1) fault"),
+    9: ("E8", "Water flow failure"),
+    10: ("E9", "Suction temp. sensor (Th) fault"),
+    11: ("EA", "Discharge temp. sensor (Tp) fault"),
+    12: ("Eb", "Solar temp. sensor (Tsolar) fault"),
+    13: ("Ec", "Buffer tank low temp. sensor (Tbt2) fault"),
+    14: ("Ed", "Inlet water temp. sensor (Tw_in) malfunction"),
+    15: ("EE", "Hydraulic module EEPROM failure"),
+    20: ("P0", "Low pressure switch protection"),
+    21: ("P1", "High pressure switch protection"),
+    23: ("P3", "Compressor overcurrent protection"),
+    24: ("P4", "High discharge temperature protection"),
+    25: ("P5", "|Tw_out - Tw_in| value too big protection"),
+    26: ("P6", "Inverter module protection"),
+    31: ("Pb", "Anti-freeze mode"),
+    33: ("Pd", "High refrigerant outlet temp. protection of condenser"),
+    38: ("PP", "Tw_out - Tw_in unusual protection"),
+    39: ("H0", "Communication fault: hydraulic PCB B <-> main control PCB B"),
+    40: ("H1", "Communication fault: inverter PCB A <-> main control PCB B"),
+    41: ("H2", "Refrigerant liquid temp. sensor (T2) fault"),
+    42: ("H3", "Refrigerant gas temp. sensor (T2B) fault"),
+    43: ("H4", "Three times P6 (L0/L1) protection"),
+    44: ("H5", "Room temp. sensor (Ta) fault"),
+    45: ("H6", "DC fan motor fault"),
+    46: ("H7", "Voltage protection"),
+    47: ("H8", "Pressure sensor fault"),
+    48: ("H9", "Outlet water temp. sensor for Zone 2 (Tw2) fault"),
+    49: ("HA", "Outlet water temp. sensor (Tw_out) fault"),
+    50: ("Hb", "3 times PP protection and Tw_out < 7C"),
+    52: ("Hd", "Communication fault between hydraulic modules (parallel)"),
+    53: ("HE", "Communication error: main board <-> thermostat transfer board"),
+    54: ("HF", "Inverter module board EEPROM fault"),
+    55: ("HH", "H6 displayed 10 times in 2 hours"),
+    57: ("HP", "Low pressure protection (Pe<0.6) occurred 3 times in 1 hour"),
+    65: ("C7", "Transducer module temperature too high protection"),
+    112: ("bH", "PED PCB fault"),
+    116: ("F1", "Low DC generatrix voltage protection"),
+    134: ("L0", "Module protection"),
+    135: ("L1", "DC generatrix low voltage protection"),
+    136: ("L2", "DC generatrix high voltage protection"),
+    138: ("L4", "MCE fault"),
+    139: ("L5", "Zero speed protection"),
+    141: ("L7", "Phase sequence fault"),
+    142: ("L8", "Speed difference > 15Hz between front and back clock"),
+    143: ("L9", "Speed difference > 15Hz between real and setting speed"),
+}
 
 
 class C3SilentLevel(IntEnum):
@@ -308,9 +446,17 @@ class C3BasicBody(MessageBody):
         self.dhw_temp_min = float(body[data_offset + 20])
         self.tank_actual_temperature = float(body[data_offset + 21])
         self.error_code = body[data_offset + 22]
+        if self.error_code == 0:
+            self.error_code_description = "No error"
+        else:
+            _code_info = C3_ERROR_CODE_TABLE.get(self.error_code)
+            if _code_info:
+                self.error_code_description = f"{_code_info[0]}: {_code_info[1]}"
+            else:
+                self.error_code_description = f"Unknown code (raw={self.error_code})"
         self.tbh_control = body[data_offset + 23] & 0x80 > 0
-        self.SysEnergyAnaEN = body[data_offset + 23] & 0x20 > 0
-        self.HMIEnergyAnaSetEN = body[data_offset + 23] & 0x40 > 0
+        self.sys_energy_ana_en = body[data_offset + 23] & 0x20 > 0
+        self.hmi_energy_ana_set_en = body[data_offset + 23] & 0x40 > 0
 
 
 class C3EnergyBody(MessageBody):
@@ -367,7 +513,7 @@ class C3SilenceBody(MessageBody):
             (body[data_offset] & 0x1) + ((body[data_offset] & 0x8) >> 2)
             if self.silent_mode
             else C3SilentLevel.OFF.value,
-        ).name
+        ).name.lower()
         # Message protocol information:
         # silence_function_state: Byte 1, BIT 0
         # silence_timer1_state: Byte 1, BIT 1
@@ -413,6 +559,7 @@ class C3UnitParaBody(MessageBody):
         """Initialize C3 UnitPara message body."""
         super().__init__(body)
         self.comp_run_freq = body[data_offset]
+        self.compressor_on = self.comp_run_freq > 0
         self.unit_mode_run = body[data_offset + 1]
         # Outdoor fan speed, transmitted as RPM / 10 in a single byte.
         # It lives at data_offset + 2, directly after unit_mode_run; the
@@ -427,7 +574,7 @@ class C3UnitParaBody(MessageBody):
         self.temp_tp = body[data_offset + 8]
         self.temp_tw_in = body[data_offset + 9]
         self.temp_tw_out = body[data_offset + 10]
-        self.temp_tsolar = body[data_offset + 11]
+        self.temp_tsolar = _temp_or_none(body[data_offset + 11])
         self.hydbox_subtype = body[data_offset + 12]
         self.fg_usb_info_connect = body[data_offset + 13]
         # self.usb_index_max  body[data_offset + 14]
@@ -439,14 +586,57 @@ class C3UnitParaBody(MessageBody):
         self.odu_model = body[data_offset + 21]
         # self.unit_online_num  body[data_offset + 22]
         # self.current_code  body[data_offset + 23]
+        # LOAD_OUTPUT bitmap. Authoritative source: Midea Modbus doc
+        # V4.7, register 129 (Load output, 16-bit). Cross-checked
+        # against the wired HMI during a pump test.
+        #   BIT0 = electric heater IBH1     BIT4 = SV1
+        #   BIT1 = electric heater IBH2     BIT5 = SV2
+        #   BIT2 = electric heater TBH      BIT6 = external pump Pump_o
+        #   BIT3 = internal pump Pump_i     BIT7 = DHW pump Pump_d
+        # BIT8 (mixed water loop pump Pump_c, zone 2) lives in the
+        # adjacent byte; BIT9-BIT15 are reserved per the Modbus doc.
+        load_output = body[data_offset + 32]
+        load_output_hi = body[data_offset + 31]
+        self.ibh1_on = bool(load_output & 0x01)
+        self.ibh2_on = bool(load_output & 0x02)
+        self.load_output_tbh = bool(load_output & 0x04)
+        self.pump_i_running = bool(load_output & 0x08)
+        self.sv1_open = bool(load_output & 0x10)
+        self.sv2_open = bool(load_output & 0x20)
+        self.pump_o_running = bool(load_output & 0x40)
+        self.pump_d_running = bool(load_output & 0x80)
+        self.pump_c_running = bool(load_output_hi & 0x01)
+        # Remaining bits of register 129 (Modbus doc V4.7 BIT9-BIT15).
+        # BIT13 and BIT15 are documented as reserved, but the 171H120F lua
+        # reads them as fgRunValveOn and fgDefValveOn and they are live on
+        # real units, so both are decoded. BIT10 is "Crankcase heater" in
+        # the doc and fgHeat4ValveOn in the lua; the doc name is used.
+        self.sv3_open = bool(load_output_hi & 0x02)
+        self.crankcase_heater_on = bool(load_output_hi & 0x04)
+        self.pump_s_running = bool(load_output_hi & 0x08)
+        self.alarm_on = bool(load_output_hi & 0x10)
+        self.run_valve_on = bool(load_output_hi & 0x20)
+        self.aux_heat_on = bool(load_output_hi & 0x40)
+        self.defrost_valve_on = bool(load_output_hi & 0x80)
+        # Run-state byte. Not part of the Modbus register map; the bit
+        # names come from the 171H120F lua, which fills bits 1-7. Bit 0 is
+        # unnamed there and is left undecoded.
+        run_state = body[data_offset + 30]
+        self.fact_req_solar_on = bool(run_state & 0x02)
+        self.fact_req_ther_cool_on = bool(run_state & 0x04)
+        self.cool_run = bool(run_state & 0x08)
+        self.heat_run = bool(run_state & 0x10)
+        self.dhw_run = bool(run_state & 0x20)
+        self.fact_req_ther_heat_on = bool(run_state & 0x40)
+        self.edge_version_type = bool(run_state & 0x80)
         self.temp_t1 = body[data_offset + 33]
-        self.temp_tw2 = body[data_offset + 34]
+        self.temp_tw2 = _temp_or_none(body[data_offset + 34])
         self.temp_t2 = body[data_offset + 35]
         self.temp_t2b = body[data_offset + 36]
         self.temp_t5 = body[data_offset + 37]
-        self.temp_ta = body[data_offset + 38]
-        self.temp_tb_t1 = body[data_offset + 39]
-        self.temp_tb_t2 = body[data_offset + 40]
+        self.temp_ta = _temp_or_none(body[data_offset + 38])
+        self.temp_tb_t1 = _temp_or_none(body[data_offset + 39])
+        self.temp_tb_t2 = _temp_or_none(body[data_offset + 40])
         self.hydrobox_capacity = body[data_offset + 41]
         self.pressure_high = body[data_offset + 42] * 256 + body[data_offset + 43]
         self.pressure_low = body[data_offset + 44] * 256 + body[data_offset + 45]
@@ -454,9 +644,13 @@ class C3UnitParaBody(MessageBody):
         self.machine_type = body[data_offset + 47]
         self.odu_target_fre = body[data_offset + 48]
         self.dc_current = body[data_offset + 49]
+        # Inverter DC bus voltage, single byte scaled x10 (V). Offset +50
+        # sits between dc_current (+49) and temp_tf (+51) and was previously
+        # unused. Correlated against wired HMI: raw 33 -> 330 V, raw 37 -> 370 V.
+        self.dc_bus_voltage = body[data_offset + 50] * 10
         self.temp_tf = body[data_offset + 51]
-        self.idu_t1s1 = body[data_offset + 52]
-        self.idu_t1s2 = body[data_offset + 53]
+        self.idu_t1s1 = _setpoint_or_none(body[data_offset + 52])
+        self.idu_t1s2 = _setpoint_or_none(body[data_offset + 53])
         self.water_flower = body[data_offset + 54] * 256 + body[data_offset + 55]
         self.odu_plan_vol_lmt = body[data_offset + 56]
         # lua _bodyBytes[58] * 256 + _bodyBytes[59]; the low byte was dropped.
@@ -512,6 +706,37 @@ class C3UnitParaBody(MessageBody):
             + (self.read_byte(body, data_offset + 88) << 8)
             + self.read_byte(body, data_offset + 89)
         )
+        # ------------------------------------------------------------------
+        # IDU / ODU software versions (Modbus reg 130 / reg 1042 mapped
+        # into X10 telemetry frame). Verified against wired HMI:
+        #   raw byte offset 93 = IDU sw version (HMI shows "V<n>")
+        #   raw byte offset 94 = ODU sw version (HMI shows "V<n>")
+        # Guard: leave version bytes unset when the frame is short. This
+        # reads body[...] directly rather than going through read_byte()
+        # like the rest of the method on purpose -- read_byte() defaults to
+        # 0, which would surface as "V0" and be indistinguishable from a
+        # unit actually reporting version 0. None says "not reported".
+        self.idu_software_version: int | None = None
+        self.odu_software_version: int | None = None
+        if len(body) > data_offset + 94:
+            self.idu_software_version = body[data_offset + 93]
+            self.odu_software_version = body[data_offset + 94]
+        self.idu_software_version_str = (
+            f"V{self.idu_software_version}"
+            if self.idu_software_version is not None
+            else None
+        )
+        self.odu_software_version_str = (
+            f"V{self.odu_software_version}"
+            if self.odu_software_version is not None
+            else None
+        )
+        # HMI serial number, read at its fixed block offset.
+        self.hmi_sn_code: str | None = _parse_sn_block(
+            body,
+            data_offset,
+            HMI_SN_BLOCK_OFFSET,
+        )
 
 
 class C3UnitParaUpBody(MessageBody):
@@ -535,6 +760,7 @@ class C3UnitParaUpBody(MessageBody):
         """Initialize C3 UnitPara notify message body."""
         super().__init__(body)
         self.comp_run_freq = body[data_offset]
+        self.compressor_on = self.comp_run_freq > 0
         self.fan_speed = body[data_offset + 1] * FAN_SPEED_FACTOR
         self.temp_t3 = body[data_offset + 2]
         self.temp_t4 = body[data_offset + 3]
@@ -544,18 +770,18 @@ class C3UnitParaUpBody(MessageBody):
         self.odu_comp_current = body[data_offset + 7]
         self.odu_voltage = body[data_offset + 8] * 256 + body[data_offset + 9]
         self.temp_t1 = body[data_offset + 10]
-        self.temp_tw2 = body[data_offset + 11]
+        self.temp_tw2 = _temp_or_none(body[data_offset + 11])
         self.temp_t2 = body[data_offset + 12]
         self.temp_t2b = body[data_offset + 13]
         self.temp_t5 = body[data_offset + 14]
-        self.temp_ta = body[data_offset + 15]
+        self.temp_ta = _temp_or_none(body[data_offset + 15])
         self.pressure_high = body[data_offset + 16] * 256 + body[data_offset + 17]
         self.pressure_low = body[data_offset + 18] * 256 + body[data_offset + 19]
         self.temp_th = body[data_offset + 20]
         self.odu_target_fre = body[data_offset + 21]
         self.temp_tf = body[data_offset + 22]
-        self.idu_t1s1 = body[data_offset + 23]
-        self.idu_t1s2 = body[data_offset + 24]
+        self.idu_t1s1 = _setpoint_or_none(body[data_offset + 23])
+        self.idu_t1s2 = _setpoint_or_none(body[data_offset + 24])
         self.water_flower = body[data_offset + 25] * 256 + body[data_offset + 26]
         self.current_unit_capacity = (
             body[data_offset + 27] * 256 + body[data_offset + 28]
@@ -589,10 +815,61 @@ class C3UnitParaUpBody(MessageBody):
             + (body[data_offset + 55])
         )
         self.unit_mode_run = body[data_offset + 59]
+        # Compressor total run time in hours (u16 BE at lua bytes 57-58,
+        # i.e. body[data_offset + 56 .. + 57]). The capture fixture used
+        # in the tests decodes to 2964 h. Cross-checked on a second unit,
+        # a Galmet Prima 06 GT, where the notify decoded 2365 h against
+        # 2365 h read from the wired HMI at the same time. The X10 query
+        # response does not carry this counter, so this notify is the
+        # only source for it.
+        self.comp_total_run_time = body[data_offset + 56] * 256 + body[data_offset + 57]
 
 
 class MessageC3Response(MessageResponse):
     """C3 message response."""
+
+    # Populated dynamically by MessageResponse.set_attr(), which copies
+    # every attribute of the parsed body onto the response via setattr().
+    # mypy cannot see attributes added that way; declaring them here as
+    # class-level annotations has no effect on runtime behaviour (set_attr()
+    # remains the only place that assigns them) and only gives mypy the
+    # static type it needs for the accesses in message_c3_test.py.
+    temp_t1: int
+    ibh1_on: bool
+    ibh2_on: bool
+    load_output_tbh: bool
+    pump_i_running: bool
+    sv1_open: bool
+    sv2_open: bool
+    pump_o_running: bool
+    pump_d_running: bool
+    pump_c_running: bool
+    sv3_open: bool
+    crankcase_heater_on: bool
+    pump_s_running: bool
+    alarm_on: bool
+    run_valve_on: bool
+    aux_heat_on: bool
+    defrost_valve_on: bool
+    fact_req_solar_on: bool
+    fact_req_ther_cool_on: bool
+    cool_run: bool
+    heat_run: bool
+    dhw_run: bool
+    fact_req_ther_heat_on: bool
+    edge_version_type: bool
+    comp_total_run_time: int
+    unit_mode_run: int
+    error_code: int
+    error_code_description: str
+    idu_software_version: int | None
+    odu_software_version: int | None
+    idu_software_version_str: str | None
+    odu_software_version_str: str | None
+    fg_capacity_need: int
+    current_unit_capacity: int
+    total_energy_consumption: int
+    total_produced_energy: int
 
     def __init__(self, message: bytes) -> None:
         """Initialize C3 message response."""

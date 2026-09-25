@@ -33,10 +33,7 @@ def corpstats_add(request, token) -> HttpResponseRedirect:
             corp_id = EveCharacter.objects.get(character_id=token.character_id).corporation_id
         else:
             corp_id = get_characters_character_id(token.character_id).corporation_id
-        try:
-            corp = EveCorporationInfo.objects.get(corporation_id=corp_id)
-        except EveCorporationInfo.DoesNotExist:
-            corp = EveCorporationInfo.objects.create_corporation(corp_id=corp_id, use_etag=False)
+        corp = EveCorporationInfo.objects.get_or_create_esi(corporation_id=corp_id)
         cs = CorpStats.objects.create(token=token, corp=corp)
         try:
             cs.update()

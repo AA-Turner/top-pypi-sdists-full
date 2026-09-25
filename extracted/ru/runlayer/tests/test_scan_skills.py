@@ -8,6 +8,7 @@ import uuid
 
 import httpx
 import pytest
+import structlog
 
 from runlayer_cli.scan import file_collector, skill_scanner
 from runlayer_cli.scan.artifact_cache import (
@@ -2573,9 +2574,7 @@ class TestSkillResubmitThrottle:
         assert self._scan(client, cache, skills) == ("success", {"host_static"})
         assert self._submitted_paths(client) == ["/skills/a-copy", "/skills/big"]
 
-    def test_vanished_skill_accrues_one_miss_per_window_until_the_third(
-        self, tmp_path
-    ):
+    def test_vanished_skill_accrues_one_miss_per_window_until_the_third(self, tmp_path):
         """Unchanged A keeps the surface throttled, so vanished B is missed
         only by the complete scan at each expiry: stale after 3 x window."""
         scan_interval = 15 * 60
@@ -3246,6 +3245,97 @@ class TestSubmitDiscoveredPluginsFileStripping:
             == "unsupported"
         )
         cache.record.assert_not_called()
+
+    def test_superseded_plugin_submit_succeeds_without_caching_or_resubmit(self):
+        client = mock.MagicMock()
+        client.submit_plugin_fingerprints.return_value = {
+            "results": [
+                {
+                    "identifier": "plug-superseded",
+                    "known": True,
+                    "has_content": True,
+                }
+            ]
+        }
+        client.submit_plugin.return_value = {
+            "plugin_id": None,
+            "created": False,
+            "has_content": False,
+            "superseded": True,
+        }
+        cache = mock.MagicMock()
+        cache.contains.return_value = False
+        plugin = DiscoveredPluginArtifact(
+            name="superseded-plugin",
+            plugin_type="cursor_plugin",
+            client="cursor",
+            install_path="/ext/superseded",
+            identifier="plug-superseded",
+            files=[PluginFile(title="package.json", content="{}")],
+        )
+
+        superseded: list[tuple[str, str]] = []
+        with structlog.testing.capture_logs() as logs:
+            status = submit_discovered_plugins(
+                client, [plugin], artifact_cache=cache, superseded=superseded
+            )
+
+        assert status == "success"
+        assert superseded == [("plugin", "plug-superseded")]
+        client.submit_plugin.assert_called_once()
+        cache.evict.assert_not_called()
+        cache.record.assert_not_called()
+        assert [
+            log for log in logs if log["event"] == "artifact_positive_superseded"
+        ] == [
+            {
+                "event": "artifact_positive_superseded",
+                "log_level": "warning",
+                "artifact_type": "plugin",
+                "identifier": "plug-superseded",
+            }
+        ]
+
+    def test_superseded_on_content_retry_is_reported_and_not_cached(self):
+        """A sibling finishing between the stripped submit and the content
+        resubmit supersedes the retry; it must be reported, not cached."""
+        client = mock.MagicMock()
+        client.submit_plugin.side_effect = [
+            {"plugin_id": "p", "created": False, "has_content": False},
+            {
+                "plugin_id": None,
+                "created": False,
+                "has_content": True,
+                "superseded": True,
+            },
+        ]
+        cache = mock.MagicMock()
+        cache.contains.return_value = True
+        plugin = DiscoveredPluginArtifact(
+            name="retry-plugin",
+            plugin_type="cursor_plugin",
+            client="cursor",
+            install_path="/ext/retry",
+            identifier="plug-retry",
+            files=[PluginFile(title="package.json", content="{}")],
+        )
+
+        superseded: list[tuple[str, str]] = []
+        with structlog.testing.capture_logs() as logs:
+            status = submit_discovered_plugins(
+                client, [plugin], artifact_cache=cache, superseded=superseded
+            )
+
+        assert status == "success"
+        assert client.submit_plugin.call_count == 2
+        assert superseded == [("plugin", "plug-retry")]
+        cache.evict.assert_called_once()
+        cache.record.assert_not_called()
+        assert [
+            log["identifier"]
+            for log in logs
+            if log["event"] == "artifact_positive_superseded"
+        ] == ["plug-retry"]
 
     def test_plugin_cache_hit_missing_content_resubmits_full(self):
         client = mock.MagicMock()

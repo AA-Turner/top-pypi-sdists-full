@@ -14,10 +14,10 @@ from ...models.error_response_404 import ErrorResponse404
 from ...models.list_configurations_order_type_0_item import (
     ListConfigurationsOrderType0Item,
 )
-from ...models.list_configurations_response_200 import ListConfigurationsResponse200
 from ...models.list_configurations_sort_type_0_item import (
     ListConfigurationsSortType0Item,
 )
+from ...models.list_page_configuration_response import ListPageConfigurationResponse
 from ...types import UNSET, Response, Unset
 
 
@@ -28,6 +28,7 @@ def _get_kwargs(
     offset: int | Unset = 0,
     sort: list[ListConfigurationsSortType0Item] | None | Unset = UNSET,
     order: list[ListConfigurationsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -61,6 +62,13 @@ def _get_kwargs(
         json_order = order
     params["order"] = json_order
 
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -81,11 +89,11 @@ def _parse_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListConfigurationsResponse200
+    | ListPageConfigurationResponse
     | None
 ):
     if response.status_code == 200:
-        response_200 = ListConfigurationsResponse200.from_dict(response.json())
+        response_200 = ListPageConfigurationResponse.from_dict(response.json())
 
         return response_200
 
@@ -122,7 +130,7 @@ def _build_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListConfigurationsResponse200
+    | ListPageConfigurationResponse
 ]:
     return Response(
         status_code=HTTPStatus(response.status_code),
@@ -140,12 +148,13 @@ def sync_detailed(
     offset: int | Unset = 0,
     sort: list[ListConfigurationsSortType0Item] | None | Unset = UNSET,
     order: list[ListConfigurationsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListConfigurationsResponse200
+    | ListPageConfigurationResponse
 ]:
     """ListConfigurations
 
@@ -164,13 +173,16 @@ def sync_detailed(
             entries.
         order (list[ListConfigurationsOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListConfigurationsResponse200]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageConfigurationResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -178,6 +190,7 @@ def sync_detailed(
         offset=offset,
         sort=sort,
         order=order,
+        cursor=cursor,
     )
 
     response = client.get_httpx_client().request(
@@ -195,12 +208,13 @@ def sync(
     offset: int | Unset = 0,
     sort: list[ListConfigurationsSortType0Item] | None | Unset = UNSET,
     order: list[ListConfigurationsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListConfigurationsResponse200
+    | ListPageConfigurationResponse
     | None
 ):
     """ListConfigurations
@@ -220,13 +234,16 @@ def sync(
             entries.
         order (list[ListConfigurationsOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListConfigurationsResponse200
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageConfigurationResponse
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -235,6 +252,7 @@ def sync(
         offset=offset,
         sort=sort,
         order=order,
+        cursor=cursor,
     ).parsed
 
 
@@ -246,12 +264,13 @@ async def asyncio_detailed(
     offset: int | Unset = 0,
     sort: list[ListConfigurationsSortType0Item] | None | Unset = UNSET,
     order: list[ListConfigurationsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListConfigurationsResponse200
+    | ListPageConfigurationResponse
 ]:
     """ListConfigurations
 
@@ -270,13 +289,16 @@ async def asyncio_detailed(
             entries.
         order (list[ListConfigurationsOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListConfigurationsResponse200]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageConfigurationResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -284,6 +306,7 @@ async def asyncio_detailed(
         offset=offset,
         sort=sort,
         order=order,
+        cursor=cursor,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -299,12 +322,13 @@ async def asyncio(
     offset: int | Unset = 0,
     sort: list[ListConfigurationsSortType0Item] | None | Unset = UNSET,
     order: list[ListConfigurationsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListConfigurationsResponse200
+    | ListPageConfigurationResponse
     | None
 ):
     """ListConfigurations
@@ -324,13 +348,16 @@ async def asyncio(
             entries.
         order (list[ListConfigurationsOrderType0Item] | None | Unset): Sort directions, one per
             `sort` key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListConfigurationsResponse200
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageConfigurationResponse
     """
     return (
         await asyncio_detailed(
@@ -340,5 +367,6 @@ async def asyncio(
             offset=offset,
             sort=sort,
             order=order,
+            cursor=cursor,
         )
     ).parsed

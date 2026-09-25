@@ -28,6 +28,10 @@ from meridian.data import time_coordinates as tc
 import numpy as np
 import xarray as xr
 
+__all__ = [
+    'WeeklyOptimizationGrid',
+]
+
 
 @dataclasses.dataclass(frozen=True)
 class WeeklyOptimizationGrid:
@@ -48,7 +52,7 @@ class WeeklyOptimizationGrid:
     n_rf_channels: Number of reach and frequency channels in the grid.
     use_optimal_frequency: Whether optimal frequency was used.
     max_frequency: Maximum frequency value used for optimal frequency.
-    optimal_frequency: Optional ndarray of optimal frequency per RF channel.
+    opt_freq_ds: Optional[xr.Dataset] containing Frequency vs ROI grid data.
   """
 
   incremental_outcome: xr.DataArray
@@ -62,7 +66,7 @@ class WeeklyOptimizationGrid:
   n_rf_channels: int = 0
   use_optimal_frequency: bool = True
   max_frequency: float | None = None
-  optimal_frequency: np.ndarray | None = None
+  opt_freq_ds: xr.Dataset | None = None
 
   @classmethod
   def create(
@@ -81,6 +85,7 @@ class WeeklyOptimizationGrid:
       batch_size: int = 10,
       use_optimal_frequency: bool = True,
       max_frequency: float | None = None,
+      chains_per_batch: int | None = None,
   ) -> 'WeeklyOptimizationGrid':
     """Builds a weekly optimization grid using vectorized backend calculations.
 
@@ -118,6 +123,11 @@ class WeeklyOptimizationGrid:
         channels during grid creation. Defaults to True.
       max_frequency: Maximum frequency value used for optimal frequency grid.
         Defaults to None.
+      chains_per_batch: Maximum number of MCMC chains to process in each batch.
+        The computation is split over the chain dimension of the posterior (or
+        prior) parameters and the per-batch means are averaged back together,
+        which lowers the peak memory footprint without changing the result. If
+        None, all chains are processed at once. Defaults to None.
 
     Returns:
       A `WeeklyOptimizationGrid` object containing the weekly grid dataset and
@@ -137,6 +147,11 @@ class WeeklyOptimizationGrid:
       raise ValueError(
           '`max_constraint_variation` must be non-negative. Got'
           f' {max_constraint_variation}.'
+      )
+
+    if chains_per_batch is not None and chains_per_batch < 1:
+      raise ValueError(
+          f'`chains_per_batch` must be positive. Got {chains_per_batch}.'
       )
 
     dist_type = c.POSTERIOR if use_posterior else c.PRIOR
@@ -253,6 +268,7 @@ class WeeklyOptimizationGrid:
       decay_m = None
       sat_m = None
 
+    opt_freq_ds = None
     if model_context.n_rf_channels > 0:
       if use_optimal_frequency:
         opt_freq_data = analyzer_module.DataTensors(
@@ -271,9 +287,6 @@ class WeeklyOptimizationGrid:
             opt_freq_ds.optimal_frequency,
             dtype=backend.float_dtype,
         )
-        optimal_frequency = np.asarray(
-            opt_freq_ds.optimal_frequency.data, dtype=float
-        )
         frequency_base = to_float(
             backend.ones_like(filled_data.frequency) * optimal_frequency_tensor  # pyrefly: ignore[bad-argument-type]
         )
@@ -290,7 +303,6 @@ class WeeklyOptimizationGrid:
               )
           )
       else:
-        optimal_frequency = None
         frequency_base = to_float(filled_data.frequency)  # pyrefly: ignore[bad-argument-type]
         if model_context.rf_tensors.reach_transformer is None:
           reach_base_scaled = to_float(model_context.rf_tensors.reach_scaled)  # pyrefly: ignore[bad-argument-type]
@@ -307,7 +319,6 @@ class WeeklyOptimizationGrid:
       decay_rf = model_context.adstock_decay_spec.rf
       sat_rf = model_context.saturation_spec.rf
     else:
-      optimal_frequency = None
       reach_base_scaled = None
       frequency_base = None
       alpha_rf = None
@@ -323,33 +334,73 @@ class WeeklyOptimizationGrid:
     all_outcomes = []
     multiplier_batch_size = max(1, batch_size)
 
+    # MCMC parameters are shaped `(n_chains, n_draws, ...)`. Splitting the
+    # computation over the chain dimension lowers the peak memory footprint.
+    if alpha_m is not None:
+      n_chains = int(alpha_m.shape[0])
+    elif alpha_rf is not None:
+      n_chains = int(alpha_rf.shape[0])
+    else:
+      n_chains = 0
+
+    if chains_per_batch is None or n_chains == 0:
+      chain_ranges = [(0, n_chains)]
+    else:
+      chain_ranges = [
+          (start, min(start + chains_per_batch, n_chains))
+          for start in range(0, n_chains, chains_per_batch)
+      ]
+
+    def slice_chains(
+        tensor: backend.Tensor | None, start: int, stop: int
+    ) -> backend.Tensor | None:
+      """Slices the leading chain dimension, preserving the tensor rank."""
+      if tensor is None or (start == 0 and stop == n_chains):
+        return tensor
+      return tensor[start:stop, ...]
+
     for i in range(0, len(all_multipliers_array), multiplier_batch_size):  # pyrefly: ignore[bad-argument-type]
       batch = all_multipliers_array[i : i + multiplier_batch_size]
-      batch_outcomes = cls._compute_batch(
-          batch,
-          media_base_scaled,
-          alpha_m,
-          ec_m,
-          slope_m,
-          beta_gm,
-          reach_base_scaled,
-          frequency_base,
-          alpha_rf,
-          ec_rf,
-          slope_rf,
-          beta_grf,
-          revenue_per_kpi,
-          time_indices=time_indices,
-          eqs=eqs,
-          decay_m=decay_m,
-          sat_m=sat_m,
-          decay_rf=decay_rf,
-          sat_rf=sat_rf,
-          n_times=n_times,
-          kpi_transformer=kpi_transformer,
-          use_kpi=use_kpi,
-      )
-      all_outcomes.append(np.asarray(batch_outcomes))
+      chain_outcomes = []
+      chain_weights = []
+      for chain_start, chain_stop in chain_ranges:
+        chain_outcome = cls._compute_batch(
+            batch,
+            media_base_scaled,
+            slice_chains(alpha_m, chain_start, chain_stop),
+            slice_chains(ec_m, chain_start, chain_stop),
+            slice_chains(slope_m, chain_start, chain_stop),
+            slice_chains(beta_gm, chain_start, chain_stop),
+            reach_base_scaled,
+            frequency_base,
+            slice_chains(alpha_rf, chain_start, chain_stop),
+            slice_chains(ec_rf, chain_start, chain_stop),
+            slice_chains(slope_rf, chain_start, chain_stop),
+            slice_chains(beta_grf, chain_start, chain_stop),
+            revenue_per_kpi,
+            time_indices=time_indices,
+            eqs=eqs,
+            decay_m=decay_m,
+            sat_m=sat_m,
+            decay_rf=decay_rf,
+            sat_rf=sat_rf,
+            n_times=n_times,
+            kpi_transformer=kpi_transformer,
+            use_kpi=use_kpi,
+        )
+        chain_outcomes.append(np.asarray(chain_outcome))
+        chain_weights.append(chain_stop - chain_start)
+
+      if len(chain_outcomes) == 1:
+        batch_outcomes = chain_outcomes[0]
+      else:
+        # `_compute_batch` averages over the chain and draw dimensions. Every
+        # chain has the same number of draws, so the global mean is the mean of
+        # the per-batch means weighted by the number of chains in each batch.
+        batch_outcomes = np.average(
+            np.stack(chain_outcomes, axis=0), axis=0, weights=chain_weights
+        )
+      all_outcomes.append(batch_outcomes)
 
     outcomes = np.concatenate(all_outcomes, axis=0)
 
@@ -380,7 +431,7 @@ class WeeklyOptimizationGrid:
         n_rf_channels=model_context.n_rf_channels,
         use_optimal_frequency=use_optimal_frequency,
         max_frequency=max_frequency,
-        optimal_frequency=optimal_frequency,
+        opt_freq_ds=opt_freq_ds,
     )
 
   @classmethod
@@ -739,6 +790,12 @@ class WeeklyOptimizationGrid:
         attrs={c.SPEND_STEP_SIZE: step_size},
     )
 
+    optimal_frequency = None
+    if self.opt_freq_ds is not None and c.OPTIMAL_FREQUENCY in self.opt_freq_ds:
+      optimal_frequency = np.asarray(
+          self.opt_freq_ds.optimal_frequency.data, dtype=float
+      )
+
     return optimizer.OptimizationGrid(
         _grid_dataset=grid_dataset,
         historical_spend=hist_spend,
@@ -750,7 +807,7 @@ class WeeklyOptimizationGrid:
         end_date=end_date_str,
         gtol=0.0001,
         round_factor=round_factor,
-        optimal_frequency=self.optimal_frequency,
+        optimal_frequency=optimal_frequency,
         selected_geos=None,
         selected_times=selected_times,
     )
@@ -882,16 +939,15 @@ class WeeklyOptimizationGrid:
         raise ValueError(
             f'Grid at index {i} has a different max_frequency value.'
         )
-      if (grid.optimal_frequency is None) != (first.optimal_frequency is None):
+      if (grid.opt_freq_ds is None) != (first.opt_freq_ds is None):
         raise ValueError(
-            f'Grid at index {i} has different optimal_frequency values.'
+            f'Grid at index {i} has different opt_freq_ds presence.'
         )
-      if grid.optimal_frequency is not None and not np.array_equal(
-          grid.optimal_frequency, first.optimal_frequency  # pyrefly: ignore[bad-argument-type]
-      ):
-        raise ValueError(
-            f'Grid at index {i} has different optimal_frequency values.'
-        )
+      if grid.opt_freq_ds is not None and first.opt_freq_ds is not None:
+        if not grid.opt_freq_ds.equals(first.opt_freq_ds):
+          raise ValueError(
+              f'Grid at index {i} has different opt_freq_ds values.'
+          )
       if not np.array_equal(grid.channels, first.channels):
         raise ValueError(f'Grid at index {i} has different channels.')
       if not np.array_equal(
@@ -939,5 +995,5 @@ class WeeklyOptimizationGrid:
         n_rf_channels=first.n_rf_channels,
         use_optimal_frequency=first.use_optimal_frequency,
         max_frequency=first.max_frequency,
-        optimal_frequency=first.optimal_frequency,
+        opt_freq_ds=first.opt_freq_ds,
     )

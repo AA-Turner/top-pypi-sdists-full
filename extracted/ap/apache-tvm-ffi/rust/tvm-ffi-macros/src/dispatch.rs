@@ -21,8 +21,8 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, quote_spanned};
 use syn::{
-    parse_macro_input, FnArg, ImplItem, ImplItemMethod, ItemImpl, Meta, NestedMeta, PathArguments,
-    Type,
+    parse_macro_input, Expr, FnArg, ImplItem, ImplItemMethod, ItemImpl, Meta, NestedMeta,
+    PathArguments, Token, Type,
 };
 
 use crate::utils::get_tvm_ffi_crate;
@@ -31,7 +31,7 @@ pub(crate) fn dispatch(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as DispatchArgs);
     let item_impl = parse_macro_input!(item as ItemImpl);
 
-    match expand(&item_impl, args.mode) {
+    match expand(&item_impl, args) {
         Ok(generated) => quote!(#item_impl #generated).into(),
         Err(error) => {
             let error = error.to_compile_error();
@@ -42,6 +42,7 @@ pub(crate) fn dispatch(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 struct DispatchArgs {
     mode: DispatchMode,
+    policy: Option<Expr>,
 }
 
 #[derive(Clone, Copy)]
@@ -71,13 +72,6 @@ impl DispatchMode {
         }
     }
 
-    fn value_type(self) -> &'static str {
-        match self {
-            Self::Walk | Self::Visit => "VisitValue",
-            Self::Map | Self::Mutate => "MapValue",
-        }
-    }
-
     fn result_is_optional(self) -> bool {
         match self {
             Self::Walk | Self::Map | Self::Mutate => true,
@@ -104,25 +98,32 @@ impl syn::parse::Parse for DispatchArgs {
                  `dispatch(mutate)`",
             ));
         };
-        if !input.is_empty() {
-            let message = if matches!(mode, DispatchMode::Mutate) {
-                "`dispatch(mutate)` takes no further arguments; the definition region is \
-                 available through `Mutator::region()`"
-                    .to_owned()
-            } else {
-                format!(
-                    "`dispatch({})` takes no further arguments; a handler that needs the \
-                     definition-region state declares a trailing `DefRegionKind` argument",
-                    mode.name()
-                )
-            };
-            return Err(input.error(message));
-        }
-        Ok(DispatchArgs { mode })
+        let policy = if input.is_empty() {
+            None
+        } else {
+            input.parse::<Token![,]>()?;
+            if !matches!(mode, DispatchMode::Visit | DispatchMode::Mutate) {
+                return Err(input.error(
+                    "`policy` is supported by `dispatch(visit)` and `dispatch(mutate)`",
+                ));
+            }
+            let name: syn::Ident = input.parse()?;
+            if name != "policy" {
+                return Err(syn::Error::new(name.span(), "expected `policy = expression`"));
+            }
+            input.parse::<Token![=]>()?;
+            let policy = input.parse()?;
+            if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+            }
+            Some(policy)
+        };
+        Ok(DispatchArgs { mode, policy })
     }
 }
 
-fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2> {
+fn expand(item_impl: &ItemImpl, args: DispatchArgs) -> syn::Result<TokenStream2> {
+    let DispatchArgs { mode, policy } = args;
     if item_impl.trait_.is_some() {
         return Err(syn::Error::new_spanned(
             item_impl,
@@ -162,10 +163,7 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
         DispatchMode::Visit => quote! {
             #tvm_ffi::extra::structural_visit::IntoVisitResult::into_visit_result
         },
-        DispatchMode::Map => quote! {
-            #tvm_ffi::extra::structural_mutate::IntoMapResult::into_map_result
-        },
-        DispatchMode::Mutate => quote! {
+        DispatchMode::Map | DispatchMode::Mutate => quote! {
             #tvm_ffi::extra::structural_mutate::IntoMutateResult::into_mutate_result
         },
     };
@@ -173,6 +171,55 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
     let self_type = &item_impl.self_ty;
     let (impl_generics, _, where_clause) = item_impl.generics.split_for_impl();
     let impl_cfg_attrs = presence_attrs(&item_impl.attrs)?;
+    let (policy_state_impl, policy_method) = if let Some(policy) = policy {
+        let (module, state_trait, method) = match mode {
+            DispatchMode::Visit => (
+                quote!(#tvm_ffi::extra::structural_visit),
+                quote!(VisitCallbackState),
+                quote! {
+                    fn default_visit_children(
+                        &mut self,
+                        value: &#tvm_ffi::StructuralView,
+                        kind: #tvm_ffi::DefRegionKind,
+                    ) -> #tvm_ffi::Result<Option<#tvm_ffi::VisitInterrupt>> {
+                        let policy = #policy;
+                        #tvm_ffi::extra::structural_visit::default_visit_with_policy(
+                            self, &policy, value, kind,
+                        )
+                    }
+                },
+            ),
+            DispatchMode::Mutate => (
+                quote!(#tvm_ffi::extra::structural_mutate),
+                quote!(MutateCallbackState),
+                quote! {
+                    fn on_default_mutate(
+                        &mut self,
+                        value: #tvm_ffi::MutateValue<'_>,
+                        kind: #tvm_ffi::DefRegionKind,
+                    ) -> #tvm_ffi::Result<#tvm_ffi::Any> {
+                        let policy = #policy;
+                        #tvm_ffi::extra::structural_mutate::default_mutate_with_policy(
+                            self, &policy, value, kind,
+                        )
+                    }
+                },
+            ),
+            _ => unreachable!(),
+        };
+        (
+            quote! {
+                #(#[#impl_cfg_attrs])*
+                impl #impl_generics #module::#state_trait<Self> for #self_type #where_clause {
+                    fn callback_state(&self) -> &Self { self }
+                    fn callback_state_mut(&mut self) -> &mut Self { self }
+                }
+            },
+            method,
+        )
+    } else {
+        (quote!(), quote!())
+    };
     let ordering_errors = handlers
         .iter()
         .enumerate()
@@ -182,7 +229,7 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
                 let span = handler.method.span();
                 let handler_attrs = &handler.cfg_attrs;
                 let later_attrs = &later.cfg_attrs;
-                let value_type = mode.value_type();
+                let value_type = "StructuralView";
                 quote_spanned! {span=>
                     #(#[#impl_cfg_attrs])*
                     #(#[#handler_attrs])*
@@ -203,9 +250,9 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
                 #[allow(unreachable_code, unused_variables)]
                 fn dispatch_walk(
                     &mut self,
-                    value: &#tvm_ffi::extra::structural_visit::VisitValue,
+                    value: &#tvm_ffi::StructuralView,
                     def_region_kind: #tvm_ffi::extra::structural_visit::DefRegionKind,
-                ) -> Option<#tvm_ffi::extra::structural_visit::WalkCallbackResult> {
+                ) -> Option<#tvm_ffi::Result<#tvm_ffi::WalkResult>> {
                     #(#links)*
                     None
                 }
@@ -215,11 +262,13 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
             impl #impl_generics #tvm_ffi::extra::structural_visit::StructuralVisitor
                 for #self_type #where_clause
             {
-                #[inline]
+                #policy_method
+
+                #[inline(always)]
                 #[allow(unreachable_code, unused_variables)]
                 fn visit(
                     &mut self,
-                    value: &#tvm_ffi::extra::structural_visit::VisitValue,
+                    value: &#tvm_ffi::StructuralView,
                     def_region_kind: #tvm_ffi::extra::structural_visit::DefRegionKind,
                 ) -> #tvm_ffi::Result<
                     Option<#tvm_ffi::extra::structural_visit::VisitInterrupt>
@@ -237,9 +286,9 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
                 #[allow(unreachable_code, unused_variables)]
                 fn dispatch_map(
                     &mut self,
-                    value: &#tvm_ffi::extra::structural_mutate::MapValue,
+                    value: &#tvm_ffi::StructuralView,
                     def_region_kind: #tvm_ffi::extra::structural_visit::DefRegionKind,
-                ) -> Option<#tvm_ffi::extra::structural_mutate::MapResult> {
+                ) -> Option<#tvm_ffi::Result<#tvm_ffi::Any>> {
                     #(#links)*
                     None
                 }
@@ -249,13 +298,27 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
             impl #impl_generics #tvm_ffi::extra::structural_mutate::MutateDispatch
                 for #self_type #where_clause
             {
+                #policy_method
+
                 #[inline(always)]
                 #[allow(unreachable_code, unused_variables)]
                 fn dispatch_mutate(
                     &mut self,
-                    value: &#tvm_ffi::extra::structural_mutate::MapValue,
+                    value: &#tvm_ffi::StructuralView,
                     mutator: &mut #tvm_ffi::extra::structural_mutate::Mutator,
-                ) -> Option<#tvm_ffi::extra::structural_mutate::MutateResult> {
+                ) -> Option<#tvm_ffi::Result<#tvm_ffi::Any>> {
+                    <Self as #tvm_ffi::extra::structural_mutate::MutateDispatch>::dispatch_mutate_value(
+                        self, #tvm_ffi::MutateValue::borrowed(value), mutator,
+                    )
+                }
+
+                #[inline(always)]
+                #[allow(unreachable_code, unused_variables, unused_mut)]
+                fn dispatch_mutate_value(
+                    &mut self,
+                    mut value: #tvm_ffi::MutateValue<'_>,
+                    mutator: &mut #tvm_ffi::Mutator,
+                ) -> Option<#tvm_ffi::Result<#tvm_ffi::Any>> {
                     #(#links)*
                     None
                 }
@@ -265,6 +328,7 @@ fn expand(item_impl: &ItemImpl, mode: DispatchMode) -> syn::Result<TokenStream2>
 
     Ok(quote! {
         #(#ordering_errors)*
+        #policy_state_impl
 
         #(#[#impl_cfg_attrs])*
         #dispatch_impl
@@ -297,6 +361,11 @@ fn expand_links(
             };
             let invoke = match &handler.argument {
                 HandlerArgument::Value => {
+                    let value = if matches!(mode, DispatchMode::Mutate) {
+                        quote!(#value.as_value())
+                    } else {
+                        value.clone()
+                    };
                     let result = wrap_result(quote! {
                         #into_result(self.#method(#value #trailing_arg))
                     });
@@ -311,6 +380,17 @@ fn expand_links(
                     quote! {
                         if let Some(node) = #value.as_node::<#node_type>() {
                             return #result;
+                        }
+                    }
+                }
+                HandlerArgument::Capability(value_type) => {
+                    let result = wrap_result(quote! {
+                        #into_result(self.#method(typed #trailing_arg))
+                    });
+                    quote! {
+                        match #value.try_cast::<#value_type>() {
+                            Ok(typed) => return #result,
+                            Err(original) => #value = original,
                         }
                     }
                 }
@@ -347,15 +427,13 @@ enum HandlerArgument {
     Value,
     BorrowedNode(Type),
     Owned(Type),
+    Capability(Type),
 }
 
 fn parse_handler(method: &ImplItemMethod, mode: DispatchMode) -> syn::Result<Handler> {
     let inputs = &method.sig.inputs;
-    let receiver_is_expected = match (mode, inputs.first()) {
-        (DispatchMode::Mutate, Some(FnArg::Receiver(receiver))) => {
-            receiver.reference.is_some() && receiver.mutability.is_some()
-        }
-        (_, Some(FnArg::Receiver(receiver))) => {
+    let receiver_is_expected = match inputs.first() {
+        Some(FnArg::Receiver(receiver)) => {
             receiver.reference.is_some() && receiver.mutability.is_some()
         }
         _ => false,
@@ -375,7 +453,7 @@ fn parse_handler(method: &ImplItemMethod, mode: DispatchMode) -> syn::Result<Han
         return Err(syn::Error::new_spanned(&method.sig, message));
     }
     let wants_def_region = !matches!(mode, DispatchMode::Mutate) && inputs.len() == 3;
-    let wants_mutator = matches!(mode, DispatchMode::Mutate) && inputs.len() == 3;
+    let wants_mutator = matches!(mode, DispatchMode::Mutate) && inputs.len() >= 3;
     if wants_mutator {
         let context_type = match inputs.iter().nth(2) {
             Some(FnArg::Typed(context)) => context.ty.as_ref(),
@@ -390,7 +468,7 @@ fn parse_handler(method: &ImplItemMethod, mode: DispatchMode) -> syn::Result<Han
     };
     let argument = match &value_type {
         Type::Reference(reference) if reference.mutability.is_none() => {
-            if is_dispatch_value(reference.elem.as_ref(), mode) {
+            if is_dispatch_value(reference.elem.as_ref()) {
                 HandlerArgument::Value
             } else {
                 HandlerArgument::BorrowedNode((*reference.elem).clone())
@@ -404,6 +482,28 @@ fn parse_handler(method: &ImplItemMethod, mode: DispatchMode) -> syn::Result<Han
                     mode.name()
                 ),
             ));
+        }
+        Type::Path(path)
+            if matches!(mode, DispatchMode::Mutate)
+                && path
+                    .path
+                    .segments
+                    .last()
+                    .is_some_and(|s| s.ident == "MutateValue") =>
+        {
+            let segment = path.path.segments.last().unwrap();
+            let value_type = if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                args.args.iter().find_map(|arg| match arg {
+                    syn::GenericArgument::Type(ty) => Some(ty.clone()),
+                    _ => None,
+                })
+            } else {
+                None
+            };
+            let tvm_ffi = get_tvm_ffi_crate();
+            HandlerArgument::Capability(
+                value_type.unwrap_or_else(|| syn::parse_quote!(#tvm_ffi::Any)),
+            )
         }
         _ => HandlerArgument::Owned(value_type),
     };
@@ -496,12 +596,12 @@ fn presence_meta(meta: Meta) -> Option<Meta> {
     }
 }
 
-fn is_dispatch_value(value_type: &Type, mode: DispatchMode) -> bool {
+fn is_dispatch_value(value_type: &Type) -> bool {
     let Type::Path(path) = value_type else {
         return false;
     };
     path.path
         .segments
         .last()
-        .is_some_and(|segment| segment.ident == mode.value_type())
+        .is_some_and(|segment| segment.ident == "StructuralView")
 }

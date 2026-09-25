@@ -8,6 +8,17 @@ behalf of the user. All operations are scoped to ctx.user_id automatically.
 
 The exposed tool names retain the ``usertable_*`` prefix so existing agent
 definitions and the persisted tools registry keep working unchanged.
+
+TWO STORES, ONE TOOL (CUTOVER-PLAN rev 3, row A1). A table moved to the record store keeps
+its dataset id, and its older copy is archived. So every verb that names a table first asks
+WHERE THAT TABLE LIVES — the host-injected record-store arm (``dataset_store_arm``, wired in
+``aidream/package_integration.py`` to ``matrx_records.agent.dataset_arm.DatasetStoreArm``,
+which asks ``matrx_records.server.table_home``, the same answer the frontend's
+``whereThisTableLives`` gives). A moved table is served through the store's own doors under
+the operating person's principal; an older table keeps the body below. ``create`` is born in
+the record store once the organization's tables have moved. Arguments and answers are the
+same shape on both arms, so none of the agents that carry this tool changes. After the flip
+the older arm is removed.
 """
 
 from __future__ import annotations
@@ -66,6 +77,85 @@ def _self_capped(result: ToolResult) -> ToolResult:
 
 
 # ---------------------------------------------------------------------------
+# Where does this table live? — the record-store arm (row A1)
+# ---------------------------------------------------------------------------
+
+#: The ``_ext`` key the host's record-store arm is registered under.
+STORE_ARM_EXT_KEY = "dataset_store_arm"
+
+_arm_announced: set[str] = set()
+
+
+def _store_arm() -> Any | None:
+    """The host's record-store arm, or ``None`` on a host that has no record store.
+
+    Unwired is ANNOUNCED once, by name: a host that forgets the wiring would otherwise read
+    every moved table from its archived older copy, silently.
+    """
+    from matrx_ai._ext import get_ext, has_ext
+
+    if has_ext(STORE_ARM_EXT_KEY):
+        return get_ext(STORE_ARM_EXT_KEY)
+    if "unwired" not in _arm_announced:
+        _arm_announced.add("unwired")
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "matrx-ai has no '%s' configured, so the dataset tool reads and writes ONLY the "
+            "older tables; a table moved to the record store is answered from its archived "
+            "copy. REMEDY: aidream/package_integration.py, "
+            "matrx_ai.configure(dataset_store_arm=DatasetStoreArm()).",
+            STORE_ARM_EXT_KEY,
+        )
+    return None
+
+
+class _ArmFailed(Exception):
+    def __init__(self, result: ToolResult) -> None:
+        self.result = result
+        super().__init__(result.error.message if result.error else "the record store failed")
+
+
+def _arm_error(exc: Exception) -> ToolResult:
+    """A record-store refusal or wait, as the tool's own error — never a success."""
+    name = type(exc).__name__
+    if name == "ChangeWaits":
+        return ToolResult(
+            success=False,
+            error=ToolError(error_type="approval_required", message=str(exc)),
+        )
+    if name == "NoOperatingPerson":
+        return ToolResult(
+            success=False, error=ToolError(error_type="authentication", message=str(exc))
+        )
+    sqlstate = getattr(exc, "sqlstate", None)
+    return ToolResult(
+        success=False,
+        error=ToolError(
+            error_type="not_found" if sqlstate == "02000" else "database",
+            message=str(exc),
+            traceback=traceback.format_exc(),
+        ),
+    )
+
+
+async def _moved(table_id: str) -> Any | None:
+    """The arm when ``table_id`` lives in the record store, else ``None`` (an older table).
+
+    A store that could not be asked RAISES :class:`_ArmFailed` carrying the error: answering
+    "older" to a failed question would send a moved table's write to its archived copy.
+    """
+    arm = _store_arm()
+    if arm is None or not table_id:
+        return None
+    try:
+        home = await arm.home(table_id)
+    except Exception as exc:  # noqa: BLE001 — carried out whole, never swallowed
+        raise _ArmFailed(_arm_error(exc)) from exc
+    return arm if getattr(home, "in_the_record_store", False) else None
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -106,6 +196,17 @@ async def usertable_get_all(args: dict[str, Any], ctx: ToolContext) -> ToolResul
             }
             for r in rows
         ]
+        # THE RECORD STORE'S TABLES TOO. A moved table's older copy is archived, so the
+        # older list no longer carries it; without this a table the person can open on the
+        # new screen would vanish from the one list the agent can see.
+        arm = _store_arm()
+        if arm is not None:
+            try:
+                in_store = await arm.list_tables()
+            except Exception as exc:  # noqa: BLE001 — carried out whole
+                return _arm_error(exc)
+            seen = {t["table_id"] for t in in_store}
+            tables = in_store + [t for t in tables if t["table_id"] not in seen]
         return _self_capped(
             ToolResult(
                 success=True,
@@ -139,6 +240,17 @@ async def usertable_get_metadata(args: dict[str, Any], ctx: ToolContext) -> Tool
         )
 
     try:
+        arm = await _moved(table_id)
+        if arm is not None:
+            meta = (await arm.get(table_id, include="metadata"))["metadata"]
+            return ToolResult(
+                success=True,
+                output={
+                    "table_id": meta["dataset_id"],
+                    "table_name": meta["dataset_name"],
+                    **{k: v for k, v in meta.items() if k not in {"dataset_id", "dataset_name"}},
+                },
+            )
         rows = await asyncio.to_thread(
             _run_query,
             "datasets_get_metadata",
@@ -224,6 +336,19 @@ async def usertable_get_fields(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
     try:
+        arm = await _moved(table_id)
+        if arm is not None:
+            fields = await arm.fields(table_id)
+            return _self_capped(
+                ToolResult(
+                    success=True,
+                    output={
+                        "fields": fields[:200],
+                        "count": len(fields),
+                        "truncated": len(fields) > 200,
+                    },
+                )
+            )
         rows = await asyncio.to_thread(
             _run_query,
             "datasets_get_fields",
@@ -294,11 +419,26 @@ async def usertable_get_data(args: dict[str, Any], ctx: ToolContext) -> ToolResu
         params = {"table_id": table_id, "limit": limit, "offset": offset}
 
     try:
-        rows = await asyncio.to_thread(
-            _run_query,
-            query_name,
-            params,
-        )
+        arm = await _moved(table_id)
+        if arm is not None:
+            got = await arm.get(
+                table_id,
+                include="data",
+                limit=limit,
+                offset=offset,
+                sort_by=sort_field,
+                sort_order=sort_direction,
+            )
+            rows = [
+                {"id": r["row_id"], "data": r["data"], "created_at": r["created_at"]}
+                for r in got["rows"]
+            ]
+        else:
+            rows = await asyncio.to_thread(
+                _run_query,
+                query_name,
+                params,
+            )
         data = [
             {
                 "row_id": str(r.get("id", "")),
@@ -356,16 +496,25 @@ async def usertable_search_data(args: dict[str, Any], ctx: ToolContext) -> ToolR
     wildcard_term = f"%{search_term}%" if "%" not in search_term else search_term
 
     try:
-        rows = await asyncio.to_thread(
-            _run_query,
-            "datasets_search_rows",
-            {
-                "table_id": table_id,
-                "search_term": wildcard_term,
-                "limit": limit,
-                "offset": offset,
-            },
-        )
+        arm = await _moved(table_id)
+        if arm is not None:
+            rows = [
+                {"id": r["row_id"], "data": r["data"], "created_at": r["created_at"]}
+                for r in await arm.search(
+                    table_id, term=search_term, limit=limit, offset=offset
+                )
+            ]
+        else:
+            rows = await asyncio.to_thread(
+                _run_query,
+                "datasets_search_rows",
+                {
+                    "table_id": table_id,
+                    "search_term": wildcard_term,
+                    "limit": limit,
+                    "offset": offset,
+                },
+            )
         data = [
             {
                 "row_id": str(r.get("id", "")),
@@ -426,6 +575,16 @@ async def usertable_add_rows(args: dict[str, Any], ctx: ToolContext) -> ToolResu
             success=False,
             error=ToolError(error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
         )
+
+    try:
+        arm = await _moved(table_id)
+    except _ArmFailed as failed:
+        return failed.result
+    if arm is not None:
+        try:
+            return ToolResult(success=True, output=await arm.add_rows(table_id, rows_input))
+        except Exception as exc:  # noqa: BLE001 — a refusal or a wait, said as such
+            return _arm_error(exc)
 
     batch_params = [
         {"table_id": table_id, "data": json.dumps(row), "user_id": ctx.user_id}
@@ -491,6 +650,16 @@ async def usertable_update_row(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
     try:
+        arm = await _moved(table_id)
+    except _ArmFailed as failed:
+        return failed.result
+    if arm is not None:
+        try:
+            return ToolResult(success=True, output=await arm.update_row(table_id, row_id, data))
+        except Exception as exc:  # noqa: BLE001 — a refusal or a wait, said as such
+            return _arm_error(exc)
+
+    try:
         result = await asyncio.to_thread(
             _run_query,
             "datasets_update_row",
@@ -545,6 +714,16 @@ async def usertable_delete_row(args: dict[str, Any], ctx: ToolContext) -> ToolRe
             success=False,
             error=ToolError(error_type="read_only", message=READ_ONLY_TOOL_MESSAGE),
         )
+
+    try:
+        arm = await _moved(table_id)
+    except _ArmFailed as failed:
+        return failed.result
+    if arm is not None:
+        try:
+            return ToolResult(success=True, output=await arm.delete_row(table_id, row_id))
+        except Exception as exc:  # noqa: BLE001 — a refusal or a wait, said as such
+            return _arm_error(exc)
 
     try:
         from matrx_ai.db._registry import get_model as get_db_model
@@ -738,6 +917,29 @@ async def _dataset_get(args: dict[str, Any], ctx: ToolContext, started_at: float
     output: dict[str, Any] = {"dataset_id": dataset_id}
 
     try:
+        arm = await _moved(dataset_id)
+        if arm is not None:
+            output = await arm.get(
+                dataset_id,
+                include=include,
+                limit=int(args.get("limit", 50)),
+                offset=int(args.get("offset", 0)),
+                sort_by=args.get("sort_by") or None,
+                sort_order=(args.get("sort_order") or "asc").lower(),
+            )
+            if "rows" in output:
+                raw_rows = await _rows_in_words(dataset_id, output["rows"], ctx)
+                output["rows"], output["cap"] = _bounded_dataset_rows(raw_rows)
+            return _self_capped(
+                ToolResult(
+                    success=True,
+                    output=output,
+                    started_at=started_at,
+                    completed_at=time.time(),
+                    tool_name="dataset",
+                    call_id=ctx.call_id,
+                )
+            )
         if include in {"metadata", "all"}:
             meta_rows = await asyncio.to_thread(
                 _run_query, "datasets_get_metadata", {"table_id": dataset_id}
@@ -875,6 +1077,32 @@ async def dataset(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
     if action == "create":
+        # BIRTHS (CUTOVER-PLAN Step 2). Once this organization's tables have moved, a new
+        # table is born in the record store — otherwise it would be made in a store nobody
+        # reads any more. Until then it is made beside the organization's other tables.
+        arm = _store_arm()
+        if arm is not None:
+            try:
+                born_there, _why = await arm.born_in_the_store()
+                if born_there:
+                    table_name = (args.get("dataset_name") or "").strip()
+                    data = args.get("data")
+                    if not table_name:
+                        return _validation_error("table_name is required.", started_at, ctx)
+                    if not data or not isinstance(data, list):
+                        return _validation_error(
+                            "data must be a non-empty list of dicts, each representing a row.",
+                            started_at,
+                            ctx,
+                        )
+                    made = await arm.create(
+                        name=table_name,
+                        description=args.get("description", "") or "",
+                        data=data,
+                    )
+                    return _stamp(ToolResult(success=True, output=made), started_at, ctx)
+            except Exception as exc:  # noqa: BLE001 — a refusal or a wait, said as such
+                return _stamp(_arm_error(exc), started_at, ctx)
         impl = usertable_create_advanced if args.get("typed") else usertable_create
         return _stamp(
             await impl(

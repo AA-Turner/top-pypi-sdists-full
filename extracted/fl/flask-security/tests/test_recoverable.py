@@ -236,6 +236,12 @@ def test_recoverable_json(app, client, get_message, outbox):
     assert len(flashes) == 0
 
 
+@pytest.mark.registerable()
+@pytest.mark.settings(
+    email_template_password_reset="security/email/reset_instructions_test",
+    email_html=False,
+    reset_password_within=timedelta(minutes=45),
+)
 def test_recoverable_template(app, client, get_message, outbox):
     # Check contents of email template - this uses a test template
     # in order to check all context vars since the default template
@@ -246,16 +252,20 @@ def test_recoverable_template(app, client, get_message, outbox):
         )
         assert len(outbox) == 1
         matcher = re.findall(r"\w+:.*", outbox[0].body, re.IGNORECASE)
-        # should be 4 - link, email, token, config item
+        # should be 5 - link, email, token, config item, within
         assert matcher[1].split(":")[1] == "joe@lp.com"
         assert matcher[2].split(":")[1] == resets[0]["reset_token"]
         assert matcher[3].split(":")[1] == "True"  # register_blueprint
         assert matcher[4].split(":")[1] == "/reset"  # SECURITY_RESET_URL
+        assert matcher[5].split(":")[1] == "45 minutes"  # within
 
         # check link
         link = matcher[0].split(":", 1)[1]
         response = client.get(link, follow_redirects=True)
         assert b"Reset Password" in response.data
+
+        # regular text template is included in the test template
+        assert "This link will expire in 45 minutes." in outbox[0].body
 
 
 def test_recover_invalidates_session(app, client):
@@ -298,7 +308,7 @@ def test_login_form_description(app, sqlalchemy_datastore):
         assert login_form.password.description == expected
 
 
-@pytest.mark.settings(reset_password_within="1 milliseconds")
+@pytest.mark.settings(reset_password_within=timedelta(hours=4))
 def test_expired_reset_token(client, get_message):
     # Note that we need relatively new-ish date since session cookies also expire.
     with freeze_time(date.today() + timedelta(days=-1)):
@@ -309,9 +319,7 @@ def test_expired_reset_token(client, get_message):
     token = requests[0]["token"]
 
     with capture_flashes() as flashes:
-        msg = get_message(
-            "PASSWORD_RESET_EXPIRED", within="1 milliseconds", email=user.email
-        )
+        msg = get_message("PASSWORD_RESET_EXPIRED", within="4 hours", email=user.email)
 
         # Test getting reset form with expired token
         response = client.get("/reset/" + token, follow_redirects=True)
@@ -475,7 +483,7 @@ def test_spa_get(app, client):
 
 
 @pytest.mark.settings(
-    reset_password_within="1 milliseconds",
+    reset_password_within=timedelta(seconds=39),
     redirect_host="localhost:8081",
     redirect_behavior="spa",
     reset_error_view="/reset-error",
@@ -507,7 +515,7 @@ def test_spa_get_bad_token(app, client, get_message):
         assert "email" not in qparams
 
         msg = get_message(
-            "PASSWORD_RESET_EXPIRED", within="1 milliseconds", email="joe@lp.com"
+            "PASSWORD_RESET_EXPIRED", within="39 seconds", email="joe@lp.com"
         )
         assert msg == qparams["error"].encode("utf-8")
 

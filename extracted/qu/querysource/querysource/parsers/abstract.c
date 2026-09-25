@@ -1574,8 +1574,8 @@ struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser {
 };
 
 
-/* "querysource/parsers/abstract.pyx":124
- *         return self.query_parsed
+/* "querysource/parsers/abstract.pyx":132
+ *         return self._paged
  * 
  *     async def get_query(self):             # <<<<<<<<<<<<<<
  *         return await self.build_query()
@@ -1587,7 +1587,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct__get_query 
 };
 
 
-/* "querysource/parsers/abstract.pyx":131
+/* "querysource/parsers/abstract.pyx":139
  *         return self
  * 
  *     @abstractmethod             # <<<<<<<<<<<<<<
@@ -1600,7 +1600,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_que
 };
 
 
-/* "querysource/parsers/abstract.pyx":333
+/* "querysource/parsers/abstract.pyx":345
  *     # ------------------------------------------------------------------
  * 
  *     async def _parse_hierarchy(self):             # <<<<<<<<<<<<<<
@@ -1613,7 +1613,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hi
 };
 
 
-/* "querysource/parsers/abstract.pyx":336
+/* "querysource/parsers/abstract.pyx":348
  *         self._parse_hierarchy_sync()
  * 
  *     async def _program_slug(self):             # <<<<<<<<<<<<<<
@@ -1626,7 +1626,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_
 };
 
 
-/* "querysource/parsers/abstract.pyx":339
+/* "querysource/parsers/abstract.pyx":351
  *         self._program_slug_sync()
  * 
  *     async def _query_slug(self):             # <<<<<<<<<<<<<<
@@ -1639,7 +1639,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_sl
 };
 
 
-/* "querysource/parsers/abstract.pyx":342
+/* "querysource/parsers/abstract.pyx":354
  *         self._query_slug_sync()
  * 
  *     async def _query_refresh(self):             # <<<<<<<<<<<<<<
@@ -1652,7 +1652,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_re
 };
 
 
-/* "querysource/parsers/abstract.pyx":345
+/* "querysource/parsers/abstract.pyx":357
  *         self._query_refresh_sync()
  * 
  *     async def _query_fields(self):             # <<<<<<<<<<<<<<
@@ -1665,7 +1665,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fi
 };
 
 
-/* "querysource/parsers/abstract.pyx":348
+/* "querysource/parsers/abstract.pyx":360
  *         self._query_fields_sync()
  * 
  *     async def _query_limit(self):             # <<<<<<<<<<<<<<
@@ -1678,7 +1678,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_li
 };
 
 
-/* "querysource/parsers/abstract.pyx":351
+/* "querysource/parsers/abstract.pyx":363
  *         self._query_limit_sync()
  * 
  *     async def _offset_pagination(self):             # <<<<<<<<<<<<<<
@@ -1691,7 +1691,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_p
 };
 
 
-/* "querysource/parsers/abstract.pyx":354
+/* "querysource/parsers/abstract.pyx":366
  *         self._offset_pagination_sync()
  * 
  *     async def _grouping(self):             # <<<<<<<<<<<<<<
@@ -1704,7 +1704,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping
 };
 
 
-/* "querysource/parsers/abstract.pyx":357
+/* "querysource/parsers/abstract.pyx":369
  *         self._grouping_sync()
  * 
  *     async def _ordering(self):             # <<<<<<<<<<<<<<
@@ -1717,7 +1717,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_10__orderin
 };
 
 
-/* "querysource/parsers/abstract.pyx":360
+/* "querysource/parsers/abstract.pyx":372
  *         self._ordering_sync()
  * 
  *     async def _filter_options(self):             # <<<<<<<<<<<<<<
@@ -1730,7 +1730,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_
 };
 
 
-/* "querysource/parsers/abstract.pyx":363
+/* "querysource/parsers/abstract.pyx":375
  *         self._filter_options_sync()
  * 
  *     async def _query_filter(self):             # <<<<<<<<<<<<<<
@@ -1743,7 +1743,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_f
 };
 
 
-/* "querysource/parsers/abstract.pyx":366
+/* "querysource/parsers/abstract.pyx":378
  *         self._query_filter_sync()
  * 
  *     async def _qs_filters(self):             # <<<<<<<<<<<<<<
@@ -1756,7 +1756,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filt
 };
 
 
-/* "querysource/parsers/abstract.pyx":369
+/* "querysource/parsers/abstract.pyx":381
  *         self._qs_filters_sync()
  * 
  *     async def _col_definition(self):             # <<<<<<<<<<<<<<
@@ -1769,7 +1769,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_def
 };
 
 
-/* "querysource/parsers/abstract.pyx":379
+/* "querysource/parsers/abstract.pyx":391
  *     # ------------------------------------------------------------------
  * 
  *     async def set_options(self):             # <<<<<<<<<<<<<<
@@ -1789,7 +1789,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_opti
 };
 
 
-/* "querysource/parsers/abstract.pyx":418
+/* "querysource/parsers/abstract.pyx":430
  *         return None
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:             # <<<<<<<<<<<<<<
@@ -1804,7 +1804,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_ope
 };
 
 
-/* "querysource/parsers/abstract.pyx":438
+/* "querysource/parsers/abstract.pyx":450
  *         return sentence
  * 
  *     async def _parser_conditions(self, conditions: dict):             # <<<<<<<<<<<<<<
@@ -1829,7 +1829,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_
 };
 
 
-/* "querysource/parsers/abstract.pyx":474
+/* "querysource/parsers/abstract.pyx":486
  *         return False
  * 
  *     async def _process_element(self, name: str, value: object, connection: object):             # <<<<<<<<<<<<<<
@@ -1855,7 +1855,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_18__process
 };
 
 
-/* "querysource/parsers/abstract.pyx":512
+/* "querysource/parsers/abstract.pyx":524
  *             return name, value
  * 
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:             # <<<<<<<<<<<<<<
@@ -1879,7 +1879,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_cond
 };
 
 
-/* "querysource/parsers/abstract.pyx":535
+/* "querysource/parsers/abstract.pyx":547
  *         return self
  * 
  *     async def _where_element(self, key, value, connection):             # <<<<<<<<<<<<<<
@@ -1904,7 +1904,7 @@ struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_e
 };
 
 
-/* "querysource/parsers/abstract.pyx":569
+/* "querysource/parsers/abstract.pyx":581
  *         return key, result
  * 
  *     async def set_where(self, _filter: dict, connection: object) -> object:             # <<<<<<<<<<<<<<
@@ -1942,6 +1942,7 @@ struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser {
   PyObject *(*get_query_filters)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch);
   PyObject *(*where_cond)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, int __pyx_skip_dispatch);
   PyObject *(*query)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch);
+  int (*is_paged)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch);
   PyObject *(*filtering_options)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, int __pyx_skip_dispatch);
   PyObject *(*_get_function_replacement)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, PyObject *, PyObject *);
   PyObject *(*_merge_conditions_and_filters)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *);
@@ -2551,14 +2552,14 @@ static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObj
 #define __Pyx_PyErr_ExceptionMatches2(err1, err2)  __Pyx_PyErr_GivenExceptionMatches2(__Pyx_PyErr_CurrentExceptionType(), err1, err2)
 #define __Pyx_PyException_Check(obj) __Pyx_TypeCheck(obj, PyExc_Exception)
 
-/* PyObject_Unicode.proto */
-#if PY_MAJOR_VERSION >= 3
-#define __Pyx_PyObject_Unicode(obj)\
-    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Str(obj))
-#else
-#define __Pyx_PyObject_Unicode(obj)\
-    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Unicode(obj))
-#endif
+/* SliceObject.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(
+        PyObject* obj, Py_ssize_t cstart, Py_ssize_t cstop,
+        PyObject** py_start, PyObject** py_stop, PyObject** py_slice,
+        int has_cstart, int has_cstop, int wraparound);
+
+/* RaiseUnboundLocalError.proto */
+static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname);
 
 /* ListCompAppend.proto */
 #if CYTHON_USE_PYLIST_INTERNALS && CYTHON_ASSUME_SAFE_MACROS
@@ -2677,6 +2678,15 @@ static CYTHON_INLINE PyObject* __Pyx__PyObject_LookupSpecial(PyObject* obj, PyOb
 #else
 #define __Pyx_PyObject_LookupSpecialNoError(o,n) __Pyx_PyObject_GetAttrStrNoError(o,n)
 #define __Pyx_PyObject_LookupSpecial(o,n) __Pyx_PyObject_GetAttrStr(o,n)
+#endif
+
+/* PyObject_Unicode.proto */
+#if PY_MAJOR_VERSION >= 3
+#define __Pyx_PyObject_Unicode(obj)\
+    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Str(obj))
+#else
+#define __Pyx_PyObject_Unicode(obj)\
+    (likely(PyUnicode_CheckExact(obj)) ? __Pyx_NewRef(obj) : PyObject_Unicode(obj))
 #endif
 
 /* GetItemInt.proto */
@@ -2987,6 +2997,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
 static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_set_attributes(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto*/
 static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_define_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions); /* proto*/
 static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_query(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, int __pyx_skip_dispatch); /* proto*/
+static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_is_paged(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, int __pyx_skip_dispatch); /* proto*/
 static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sentence(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence, int __pyx_skip_dispatch); /* proto*/
 static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__extract_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto*/
 static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hierarchy_sync(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto*/
@@ -3036,30 +3047,30 @@ static const char __pyx_k__2[] = ">";
 static const char __pyx_k_fn[] = "fn";
 static const char __pyx_k_gc[] = "gc";
 static const char __pyx_k_op[] = "op";
-static const char __pyx_k__13[] = ",";
-static const char __pyx_k__36[] = "@";
-static const char __pyx_k__38[] = " = ";
-static const char __pyx_k__39[] = ", ";
-static const char __pyx_k__42[] = "|";
-static const char __pyx_k__43[] = "!";
-static const char __pyx_k__44[] = "&";
-static const char __pyx_k__46[] = ".";
-static const char __pyx_k__47[] = "*";
-static const char __pyx_k__48[] = "";
-static const char __pyx_k__49[] = "$";
-static const char __pyx_k__50[] = "~";
-static const char __pyx_k__51[] = "^";
-static const char __pyx_k__52[] = "?";
-static const char __pyx_k__55[] = "::";
-static const char __pyx_k__56[] = "@>";
-static const char __pyx_k__57[] = "<@";
-static const char __pyx_k__58[] = "->";
-static const char __pyx_k__59[] = "->>";
-static const char __pyx_k__60[] = ">=";
-static const char __pyx_k__61[] = "<=";
-static const char __pyx_k__62[] = "<>";
-static const char __pyx_k__63[] = "!=";
-static const char __pyx_k__74[] = "_";
+static const char __pyx_k__14[] = ",";
+static const char __pyx_k__37[] = "@";
+static const char __pyx_k__39[] = " = ";
+static const char __pyx_k__40[] = ", ";
+static const char __pyx_k__43[] = "|";
+static const char __pyx_k__44[] = "!";
+static const char __pyx_k__45[] = "&";
+static const char __pyx_k__47[] = ".";
+static const char __pyx_k__48[] = "*";
+static const char __pyx_k__49[] = "";
+static const char __pyx_k__50[] = "$";
+static const char __pyx_k__51[] = "~";
+static const char __pyx_k__52[] = "^";
+static const char __pyx_k__53[] = "?";
+static const char __pyx_k__56[] = "::";
+static const char __pyx_k__57[] = "@>";
+static const char __pyx_k__58[] = "<@";
+static const char __pyx_k__59[] = "->";
+static const char __pyx_k__60[] = "->>";
+static const char __pyx_k__61[] = ">=";
+static const char __pyx_k__62[] = "<=";
+static const char __pyx_k__63[] = "<>";
+static const char __pyx_k__64[] = "!=";
+static const char __pyx_k__76[] = "_";
 static const char __pyx_k_abc[] = "abc";
 static const char __pyx_k_dsn[] = "dsn";
 static const char __pyx_k_err[] = "err";
@@ -3132,6 +3143,7 @@ static const char __pyx_k_noquote[] = "noquote";
 static const char __pyx_k_popitem[] = "popitem";
 static const char __pyx_k_refresh[] = "refresh";
 static const char __pyx_k_results[] = "results";
+static const char __pyx_k_to_flag[] = "to_flag";
 static const char __pyx_k_warning[] = "warning";
 static const char __pyx_k_Error_on[] = "Error on: ";
 static const char __pyx_k_KeyError[] = "KeyError";
@@ -3143,6 +3155,7 @@ static const char __pyx_k_filter_3[] = "_filter";
 static const char __pyx_k_getstate[] = "__getstate__";
 static const char __pyx_k_group_by[] = "group_by";
 static const char __pyx_k_grouping[] = "grouping";
+static const char __pyx_k_is_paged[] = "is_paged";
 static const char __pyx_k_is_valid[] = "is_valid";
 static const char __pyx_k_order_by[] = "order_by";
 static const char __pyx_k_ordering[] = "ordering";
@@ -3161,7 +3174,6 @@ static const char __pyx_k_pyx_state[] = "__pyx_state";
 static const char __pyx_k_query_raw[] = "query_raw";
 static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
 static const char __pyx_k_set_where[] = "set_where";
-static const char __pyx_k_strtobool[] = "strtobool";
 static const char __pyx_k_tablename[] = "tablename";
 static const char __pyx_k_val_comps[] = "val_comps";
 static const char __pyx_k_with_type[] = " with type ";
@@ -3176,7 +3188,6 @@ static const char __pyx_k_connection[] = "connection";
 static const char __pyx_k_definition[] = "definition";
 static const char __pyx_k_exceptions[] = "exceptions";
 static const char __pyx_k_grouping_2[] = "_grouping";
-static const char __pyx_k_is_boolean[] = "is_boolean";
 static const char __pyx_k_ordering_2[] = "_ordering";
 static const char __pyx_k_pyx_vtable[] = "__pyx_vtable__";
 static const char __pyx_k_qs_filters[] = "_qs_filters";
@@ -3233,6 +3244,7 @@ static const char __pyx_k_cline_in_traceback[] = "cline_in_traceback";
 static const char __pyx_k_AbstractParser_query[] = "AbstractParser.query";
 static const char __pyx_k_set_options_KeyError[] = "set_options KeyError: ";
 static const char __pyx_k_get_operational_value[] = "_get_operational_value";
+static const char __pyx_k_AbstractParser_is_paged[] = "AbstractParser.is_paged";
 static const char __pyx_k_AbstractParser_sentence[] = "AbstractParser.sentence";
 static const char __pyx_k_AbstractParser__grouping[] = "AbstractParser._grouping";
 static const char __pyx_k_AbstractParser__ordering[] = "AbstractParser._ordering";
@@ -3264,6 +3276,8 @@ static const char __pyx_k_AbstractParser__offset_paginatio[] = "AbstractParser._
 static const char __pyx_k_AbstractParser__parser_condition[] = "AbstractParser._parser_conditions";
 static const char __pyx_k_AbstractParser_filtering_options[] = "AbstractParser.filtering_options";
 static const char __pyx_k_AbstractParser_get_query_filters[] = "AbstractParser.get_query_filters";
+static const char __pyx_k_Unrecognized_paged_condition_val[] = "Unrecognized 'paged' condition value %s; treating as False";
+static const char __pyx_k_Unrecognized_refresh_condition_v[] = "Unrecognized 'refresh' condition value %s; treating as False";
 static const char __pyx_k_no_default___reduce___due_to_non[] = "no default __reduce__ due to non-trivial __cinit__";
 static const char __pyx_k_querysource_parsers_abstract_pyx[] = "querysource/parsers/abstract.pyx";
 /* #### Code section: decls ### */
@@ -3272,32 +3286,33 @@ static int __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_2__init__(
 static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_4__str__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_6__repr__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_8query(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10get_query(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_13sentence(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15build_query(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_parse_hierarchy(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_21_program_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_24_query_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_27_query_refresh(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_30_query_fields(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_33_query_limit(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_36_offset_pagination(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_39_grouping(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_42_ordering(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_45_filter_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_48_query_filter(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_51_qs_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_54_col_definition(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_57get_query_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59set_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_62_get_operational_value(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_value, CYTHON_UNUSED PyObject *__pyx_v_connection); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_65filtering_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67_parser_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_70_process_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_value, PyObject *__pyx_v_connection); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_73set_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions, PyObject *__pyx_v_connection); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_76where_cond(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_where); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78_where_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_connection); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_81set_where(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v__filter, PyObject *__pyx_v_connection); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10is_paged(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_12get_query(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15sentence(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_17build_query(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_20_parse_hierarchy(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_23_program_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_26_query_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_29_query_refresh(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_32_query_fields(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_35_query_limit(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_38_offset_pagination(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_41_grouping(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_44_ordering(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_47_filter_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_50_query_filter(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_53_qs_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_56_col_definition(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59get_query_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_61set_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_64_get_operational_value(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_value, CYTHON_UNUSED PyObject *__pyx_v_connection); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67filtering_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_69_parser_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_72_process_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_value, PyObject *__pyx_v_connection); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_75set_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions, PyObject *__pyx_v_connection); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78where_cond(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_where); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_80_where_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_connection); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_83set_where(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v__filter, PyObject *__pyx_v_connection); /* proto */
 static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_6logger___get__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
 static int __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_6logger_2__set__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static int __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_6logger_4__del__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
@@ -3381,8 +3396,8 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_s
 static int __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_safe_substitution_2__set__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
 static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_14string_literal___get__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
 static int __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_14string_literal_2__set__(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_value); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_84__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_86__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_86__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_88__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_11querysource_7parsers_8abstract_AbstractParser(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_11querysource_7parsers_8abstract___pyx_scope_struct__get_query(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
 static PyObject *__pyx_tp_new_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -3510,6 +3525,7 @@ typedef struct {
   PyObject *__pyx_n_s_AbstractParser_filtering_options;
   PyObject *__pyx_n_s_AbstractParser_get_query;
   PyObject *__pyx_n_s_AbstractParser_get_query_filters;
+  PyObject *__pyx_n_s_AbstractParser_is_paged;
   PyObject *__pyx_n_s_AbstractParser_query;
   PyObject *__pyx_n_s_AbstractParser_sentence;
   PyObject *__pyx_n_s_AbstractParser_set_conditions;
@@ -3534,25 +3550,26 @@ typedef struct {
   PyObject *__pyx_n_s_REDIS_URL;
   PyObject *__pyx_kp_u_SET_conditions;
   PyObject *__pyx_n_s_TypeError;
+  PyObject *__pyx_kp_u_Unrecognized_paged_condition_val;
+  PyObject *__pyx_kp_u_Unrecognized_refresh_condition_v;
   PyObject *__pyx_n_s_ValueError;
-  PyObject *__pyx_kp_u__13;
+  PyObject *__pyx_kp_u__14;
   PyObject *__pyx_kp_u__2;
-  PyObject *__pyx_kp_u__36;
-  PyObject *__pyx_kp_u__38;
+  PyObject *__pyx_kp_u__37;
   PyObject *__pyx_kp_u__39;
-  PyObject *__pyx_kp_u__42;
+  PyObject *__pyx_kp_u__40;
   PyObject *__pyx_kp_u__43;
   PyObject *__pyx_kp_u__44;
-  PyObject *__pyx_kp_u__46;
-  PyObject *__pyx_n_s__47;
+  PyObject *__pyx_kp_u__45;
   PyObject *__pyx_kp_u__47;
   PyObject *__pyx_n_s__48;
-  PyObject *__pyx_kp_u__49;
+  PyObject *__pyx_kp_u__48;
+  PyObject *__pyx_n_s__49;
   PyObject *__pyx_kp_u__50;
   PyObject *__pyx_kp_u__51;
-  PyObject *__pyx_n_s__52;
   PyObject *__pyx_kp_u__52;
-  PyObject *__pyx_kp_u__55;
+  PyObject *__pyx_n_s__53;
+  PyObject *__pyx_kp_u__53;
   PyObject *__pyx_kp_u__56;
   PyObject *__pyx_kp_u__57;
   PyObject *__pyx_kp_u__58;
@@ -3561,7 +3578,8 @@ typedef struct {
   PyObject *__pyx_kp_u__61;
   PyObject *__pyx_kp_u__62;
   PyObject *__pyx_kp_u__63;
-  PyObject *__pyx_n_s__74;
+  PyObject *__pyx_kp_u__64;
+  PyObject *__pyx_n_s__76;
   PyObject *__pyx_n_s_abc;
   PyObject *__pyx_n_s_abstractmethod;
   PyObject *__pyx_n_u_add_fields;
@@ -3628,8 +3646,8 @@ typedef struct {
   PyObject *__pyx_n_s_import;
   PyObject *__pyx_n_s_initializing;
   PyObject *__pyx_n_s_inspect;
-  PyObject *__pyx_n_s_is_boolean;
   PyObject *__pyx_n_s_is_coroutine;
+  PyObject *__pyx_n_s_is_paged;
   PyObject *__pyx_n_s_is_parseable;
   PyObject *__pyx_n_s_is_valid;
   PyObject *__pyx_kp_u_isenabled;
@@ -3710,11 +3728,11 @@ typedef struct {
   PyObject *__pyx_n_u_string_literal;
   PyObject *__pyx_kp_s_stringsource;
   PyObject *__pyx_n_s_strip;
-  PyObject *__pyx_n_s_strtobool;
   PyObject *__pyx_n_u_tablename;
   PyObject *__pyx_n_s_tasks;
   PyObject *__pyx_n_s_test;
   PyObject *__pyx_n_s_throw;
+  PyObject *__pyx_n_s_to_flag;
   PyObject *__pyx_n_s_type;
   PyObject *__pyx_n_s_types;
   PyObject *__pyx_n_s_types_validators;
@@ -3730,37 +3748,38 @@ typedef struct {
   PyObject *__pyx_n_s_where_element;
   PyObject *__pyx_kp_u_with_type;
   PyObject *__pyx_int_0;
+  PyObject *__pyx_int_64;
+  PyObject *__pyx_slice__8;
   PyObject *__pyx_tuple__3;
   PyObject *__pyx_tuple__6;
   PyObject *__pyx_tuple__7;
-  PyObject *__pyx_tuple__8;
   PyObject *__pyx_tuple__9;
   PyObject *__pyx_tuple__10;
   PyObject *__pyx_tuple__11;
   PyObject *__pyx_tuple__12;
-  PyObject *__pyx_tuple__28;
+  PyObject *__pyx_tuple__13;
   PyObject *__pyx_tuple__29;
   PyObject *__pyx_tuple__30;
   PyObject *__pyx_tuple__31;
   PyObject *__pyx_tuple__32;
-  PyObject *__pyx_tuple__35;
-  PyObject *__pyx_tuple__53;
+  PyObject *__pyx_tuple__33;
+  PyObject *__pyx_tuple__36;
   PyObject *__pyx_tuple__54;
-  PyObject *__pyx_tuple__64;
+  PyObject *__pyx_tuple__55;
   PyObject *__pyx_tuple__65;
-  PyObject *__pyx_tuple__67;
-  PyObject *__pyx_tuple__70;
-  PyObject *__pyx_tuple__71;
+  PyObject *__pyx_tuple__66;
+  PyObject *__pyx_tuple__69;
+  PyObject *__pyx_tuple__72;
   PyObject *__pyx_tuple__73;
   PyObject *__pyx_tuple__75;
-  PyObject *__pyx_tuple__76;
   PyObject *__pyx_tuple__77;
+  PyObject *__pyx_tuple__78;
   PyObject *__pyx_tuple__79;
-  PyObject *__pyx_tuple__80;
+  PyObject *__pyx_tuple__81;
   PyObject *__pyx_tuple__82;
+  PyObject *__pyx_tuple__84;
   PyObject *__pyx_codeobj__4;
   PyObject *__pyx_codeobj__5;
-  PyObject *__pyx_codeobj__14;
   PyObject *__pyx_codeobj__15;
   PyObject *__pyx_codeobj__16;
   PyObject *__pyx_codeobj__17;
@@ -3774,19 +3793,21 @@ typedef struct {
   PyObject *__pyx_codeobj__25;
   PyObject *__pyx_codeobj__26;
   PyObject *__pyx_codeobj__27;
-  PyObject *__pyx_codeobj__33;
+  PyObject *__pyx_codeobj__28;
   PyObject *__pyx_codeobj__34;
-  PyObject *__pyx_codeobj__37;
-  PyObject *__pyx_codeobj__40;
+  PyObject *__pyx_codeobj__35;
+  PyObject *__pyx_codeobj__38;
   PyObject *__pyx_codeobj__41;
-  PyObject *__pyx_codeobj__45;
-  PyObject *__pyx_codeobj__66;
+  PyObject *__pyx_codeobj__42;
+  PyObject *__pyx_codeobj__46;
+  PyObject *__pyx_codeobj__67;
   PyObject *__pyx_codeobj__68;
-  PyObject *__pyx_codeobj__69;
-  PyObject *__pyx_codeobj__72;
-  PyObject *__pyx_codeobj__78;
-  PyObject *__pyx_codeobj__81;
+  PyObject *__pyx_codeobj__70;
+  PyObject *__pyx_codeobj__71;
+  PyObject *__pyx_codeobj__74;
+  PyObject *__pyx_codeobj__80;
   PyObject *__pyx_codeobj__83;
+  PyObject *__pyx_codeobj__85;
 } __pyx_mstate;
 
 #if CYTHON_USE_MODULE_STATE
@@ -3900,6 +3921,7 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_filtering_options);
   Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_get_query);
   Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_get_query_filters);
+  Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_is_paged);
   Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_query);
   Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_sentence);
   Py_CLEAR(clear_module_state->__pyx_n_s_AbstractParser_set_conditions);
@@ -3924,25 +3946,26 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_REDIS_URL);
   Py_CLEAR(clear_module_state->__pyx_kp_u_SET_conditions);
   Py_CLEAR(clear_module_state->__pyx_n_s_TypeError);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Unrecognized_paged_condition_val);
+  Py_CLEAR(clear_module_state->__pyx_kp_u_Unrecognized_refresh_condition_v);
   Py_CLEAR(clear_module_state->__pyx_n_s_ValueError);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__13);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__14);
   Py_CLEAR(clear_module_state->__pyx_kp_u__2);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__36);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__38);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__37);
   Py_CLEAR(clear_module_state->__pyx_kp_u__39);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__42);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__40);
   Py_CLEAR(clear_module_state->__pyx_kp_u__43);
   Py_CLEAR(clear_module_state->__pyx_kp_u__44);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__46);
-  Py_CLEAR(clear_module_state->__pyx_n_s__47);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__45);
   Py_CLEAR(clear_module_state->__pyx_kp_u__47);
   Py_CLEAR(clear_module_state->__pyx_n_s__48);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__49);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__48);
+  Py_CLEAR(clear_module_state->__pyx_n_s__49);
   Py_CLEAR(clear_module_state->__pyx_kp_u__50);
   Py_CLEAR(clear_module_state->__pyx_kp_u__51);
-  Py_CLEAR(clear_module_state->__pyx_n_s__52);
   Py_CLEAR(clear_module_state->__pyx_kp_u__52);
-  Py_CLEAR(clear_module_state->__pyx_kp_u__55);
+  Py_CLEAR(clear_module_state->__pyx_n_s__53);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__53);
   Py_CLEAR(clear_module_state->__pyx_kp_u__56);
   Py_CLEAR(clear_module_state->__pyx_kp_u__57);
   Py_CLEAR(clear_module_state->__pyx_kp_u__58);
@@ -3951,7 +3974,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_kp_u__61);
   Py_CLEAR(clear_module_state->__pyx_kp_u__62);
   Py_CLEAR(clear_module_state->__pyx_kp_u__63);
-  Py_CLEAR(clear_module_state->__pyx_n_s__74);
+  Py_CLEAR(clear_module_state->__pyx_kp_u__64);
+  Py_CLEAR(clear_module_state->__pyx_n_s__76);
   Py_CLEAR(clear_module_state->__pyx_n_s_abc);
   Py_CLEAR(clear_module_state->__pyx_n_s_abstractmethod);
   Py_CLEAR(clear_module_state->__pyx_n_u_add_fields);
@@ -4018,8 +4042,8 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_import);
   Py_CLEAR(clear_module_state->__pyx_n_s_initializing);
   Py_CLEAR(clear_module_state->__pyx_n_s_inspect);
-  Py_CLEAR(clear_module_state->__pyx_n_s_is_boolean);
   Py_CLEAR(clear_module_state->__pyx_n_s_is_coroutine);
+  Py_CLEAR(clear_module_state->__pyx_n_s_is_paged);
   Py_CLEAR(clear_module_state->__pyx_n_s_is_parseable);
   Py_CLEAR(clear_module_state->__pyx_n_s_is_valid);
   Py_CLEAR(clear_module_state->__pyx_kp_u_isenabled);
@@ -4100,11 +4124,11 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_u_string_literal);
   Py_CLEAR(clear_module_state->__pyx_kp_s_stringsource);
   Py_CLEAR(clear_module_state->__pyx_n_s_strip);
-  Py_CLEAR(clear_module_state->__pyx_n_s_strtobool);
   Py_CLEAR(clear_module_state->__pyx_n_u_tablename);
   Py_CLEAR(clear_module_state->__pyx_n_s_tasks);
   Py_CLEAR(clear_module_state->__pyx_n_s_test);
   Py_CLEAR(clear_module_state->__pyx_n_s_throw);
+  Py_CLEAR(clear_module_state->__pyx_n_s_to_flag);
   Py_CLEAR(clear_module_state->__pyx_n_s_type);
   Py_CLEAR(clear_module_state->__pyx_n_s_types);
   Py_CLEAR(clear_module_state->__pyx_n_s_types_validators);
@@ -4120,37 +4144,38 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_n_s_where_element);
   Py_CLEAR(clear_module_state->__pyx_kp_u_with_type);
   Py_CLEAR(clear_module_state->__pyx_int_0);
+  Py_CLEAR(clear_module_state->__pyx_int_64);
+  Py_CLEAR(clear_module_state->__pyx_slice__8);
   Py_CLEAR(clear_module_state->__pyx_tuple__3);
   Py_CLEAR(clear_module_state->__pyx_tuple__6);
   Py_CLEAR(clear_module_state->__pyx_tuple__7);
-  Py_CLEAR(clear_module_state->__pyx_tuple__8);
   Py_CLEAR(clear_module_state->__pyx_tuple__9);
   Py_CLEAR(clear_module_state->__pyx_tuple__10);
   Py_CLEAR(clear_module_state->__pyx_tuple__11);
   Py_CLEAR(clear_module_state->__pyx_tuple__12);
-  Py_CLEAR(clear_module_state->__pyx_tuple__28);
+  Py_CLEAR(clear_module_state->__pyx_tuple__13);
   Py_CLEAR(clear_module_state->__pyx_tuple__29);
   Py_CLEAR(clear_module_state->__pyx_tuple__30);
   Py_CLEAR(clear_module_state->__pyx_tuple__31);
   Py_CLEAR(clear_module_state->__pyx_tuple__32);
-  Py_CLEAR(clear_module_state->__pyx_tuple__35);
-  Py_CLEAR(clear_module_state->__pyx_tuple__53);
+  Py_CLEAR(clear_module_state->__pyx_tuple__33);
+  Py_CLEAR(clear_module_state->__pyx_tuple__36);
   Py_CLEAR(clear_module_state->__pyx_tuple__54);
-  Py_CLEAR(clear_module_state->__pyx_tuple__64);
+  Py_CLEAR(clear_module_state->__pyx_tuple__55);
   Py_CLEAR(clear_module_state->__pyx_tuple__65);
-  Py_CLEAR(clear_module_state->__pyx_tuple__67);
-  Py_CLEAR(clear_module_state->__pyx_tuple__70);
-  Py_CLEAR(clear_module_state->__pyx_tuple__71);
+  Py_CLEAR(clear_module_state->__pyx_tuple__66);
+  Py_CLEAR(clear_module_state->__pyx_tuple__69);
+  Py_CLEAR(clear_module_state->__pyx_tuple__72);
   Py_CLEAR(clear_module_state->__pyx_tuple__73);
   Py_CLEAR(clear_module_state->__pyx_tuple__75);
-  Py_CLEAR(clear_module_state->__pyx_tuple__76);
   Py_CLEAR(clear_module_state->__pyx_tuple__77);
+  Py_CLEAR(clear_module_state->__pyx_tuple__78);
   Py_CLEAR(clear_module_state->__pyx_tuple__79);
-  Py_CLEAR(clear_module_state->__pyx_tuple__80);
+  Py_CLEAR(clear_module_state->__pyx_tuple__81);
   Py_CLEAR(clear_module_state->__pyx_tuple__82);
+  Py_CLEAR(clear_module_state->__pyx_tuple__84);
   Py_CLEAR(clear_module_state->__pyx_codeobj__4);
   Py_CLEAR(clear_module_state->__pyx_codeobj__5);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__14);
   Py_CLEAR(clear_module_state->__pyx_codeobj__15);
   Py_CLEAR(clear_module_state->__pyx_codeobj__16);
   Py_CLEAR(clear_module_state->__pyx_codeobj__17);
@@ -4164,19 +4189,21 @@ static int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_codeobj__25);
   Py_CLEAR(clear_module_state->__pyx_codeobj__26);
   Py_CLEAR(clear_module_state->__pyx_codeobj__27);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__33);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__28);
   Py_CLEAR(clear_module_state->__pyx_codeobj__34);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__37);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__40);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__35);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__38);
   Py_CLEAR(clear_module_state->__pyx_codeobj__41);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__45);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__66);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__42);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__46);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__67);
   Py_CLEAR(clear_module_state->__pyx_codeobj__68);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__69);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__72);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__78);
-  Py_CLEAR(clear_module_state->__pyx_codeobj__81);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__70);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__71);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__74);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__80);
   Py_CLEAR(clear_module_state->__pyx_codeobj__83);
+  Py_CLEAR(clear_module_state->__pyx_codeobj__85);
   return 0;
 }
 #endif
@@ -4268,6 +4295,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_filtering_options);
   Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_get_query);
   Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_get_query_filters);
+  Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_is_paged);
   Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_query);
   Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_sentence);
   Py_VISIT(traverse_module_state->__pyx_n_s_AbstractParser_set_conditions);
@@ -4292,25 +4320,26 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_REDIS_URL);
   Py_VISIT(traverse_module_state->__pyx_kp_u_SET_conditions);
   Py_VISIT(traverse_module_state->__pyx_n_s_TypeError);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Unrecognized_paged_condition_val);
+  Py_VISIT(traverse_module_state->__pyx_kp_u_Unrecognized_refresh_condition_v);
   Py_VISIT(traverse_module_state->__pyx_n_s_ValueError);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__13);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__14);
   Py_VISIT(traverse_module_state->__pyx_kp_u__2);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__36);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__38);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__37);
   Py_VISIT(traverse_module_state->__pyx_kp_u__39);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__42);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__40);
   Py_VISIT(traverse_module_state->__pyx_kp_u__43);
   Py_VISIT(traverse_module_state->__pyx_kp_u__44);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__46);
-  Py_VISIT(traverse_module_state->__pyx_n_s__47);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__45);
   Py_VISIT(traverse_module_state->__pyx_kp_u__47);
   Py_VISIT(traverse_module_state->__pyx_n_s__48);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__49);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__48);
+  Py_VISIT(traverse_module_state->__pyx_n_s__49);
   Py_VISIT(traverse_module_state->__pyx_kp_u__50);
   Py_VISIT(traverse_module_state->__pyx_kp_u__51);
-  Py_VISIT(traverse_module_state->__pyx_n_s__52);
   Py_VISIT(traverse_module_state->__pyx_kp_u__52);
-  Py_VISIT(traverse_module_state->__pyx_kp_u__55);
+  Py_VISIT(traverse_module_state->__pyx_n_s__53);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__53);
   Py_VISIT(traverse_module_state->__pyx_kp_u__56);
   Py_VISIT(traverse_module_state->__pyx_kp_u__57);
   Py_VISIT(traverse_module_state->__pyx_kp_u__58);
@@ -4319,7 +4348,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_kp_u__61);
   Py_VISIT(traverse_module_state->__pyx_kp_u__62);
   Py_VISIT(traverse_module_state->__pyx_kp_u__63);
-  Py_VISIT(traverse_module_state->__pyx_n_s__74);
+  Py_VISIT(traverse_module_state->__pyx_kp_u__64);
+  Py_VISIT(traverse_module_state->__pyx_n_s__76);
   Py_VISIT(traverse_module_state->__pyx_n_s_abc);
   Py_VISIT(traverse_module_state->__pyx_n_s_abstractmethod);
   Py_VISIT(traverse_module_state->__pyx_n_u_add_fields);
@@ -4386,8 +4416,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_import);
   Py_VISIT(traverse_module_state->__pyx_n_s_initializing);
   Py_VISIT(traverse_module_state->__pyx_n_s_inspect);
-  Py_VISIT(traverse_module_state->__pyx_n_s_is_boolean);
   Py_VISIT(traverse_module_state->__pyx_n_s_is_coroutine);
+  Py_VISIT(traverse_module_state->__pyx_n_s_is_paged);
   Py_VISIT(traverse_module_state->__pyx_n_s_is_parseable);
   Py_VISIT(traverse_module_state->__pyx_n_s_is_valid);
   Py_VISIT(traverse_module_state->__pyx_kp_u_isenabled);
@@ -4468,11 +4498,11 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_u_string_literal);
   Py_VISIT(traverse_module_state->__pyx_kp_s_stringsource);
   Py_VISIT(traverse_module_state->__pyx_n_s_strip);
-  Py_VISIT(traverse_module_state->__pyx_n_s_strtobool);
   Py_VISIT(traverse_module_state->__pyx_n_u_tablename);
   Py_VISIT(traverse_module_state->__pyx_n_s_tasks);
   Py_VISIT(traverse_module_state->__pyx_n_s_test);
   Py_VISIT(traverse_module_state->__pyx_n_s_throw);
+  Py_VISIT(traverse_module_state->__pyx_n_s_to_flag);
   Py_VISIT(traverse_module_state->__pyx_n_s_type);
   Py_VISIT(traverse_module_state->__pyx_n_s_types);
   Py_VISIT(traverse_module_state->__pyx_n_s_types_validators);
@@ -4488,37 +4518,38 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_n_s_where_element);
   Py_VISIT(traverse_module_state->__pyx_kp_u_with_type);
   Py_VISIT(traverse_module_state->__pyx_int_0);
+  Py_VISIT(traverse_module_state->__pyx_int_64);
+  Py_VISIT(traverse_module_state->__pyx_slice__8);
   Py_VISIT(traverse_module_state->__pyx_tuple__3);
   Py_VISIT(traverse_module_state->__pyx_tuple__6);
   Py_VISIT(traverse_module_state->__pyx_tuple__7);
-  Py_VISIT(traverse_module_state->__pyx_tuple__8);
   Py_VISIT(traverse_module_state->__pyx_tuple__9);
   Py_VISIT(traverse_module_state->__pyx_tuple__10);
   Py_VISIT(traverse_module_state->__pyx_tuple__11);
   Py_VISIT(traverse_module_state->__pyx_tuple__12);
-  Py_VISIT(traverse_module_state->__pyx_tuple__28);
+  Py_VISIT(traverse_module_state->__pyx_tuple__13);
   Py_VISIT(traverse_module_state->__pyx_tuple__29);
   Py_VISIT(traverse_module_state->__pyx_tuple__30);
   Py_VISIT(traverse_module_state->__pyx_tuple__31);
   Py_VISIT(traverse_module_state->__pyx_tuple__32);
-  Py_VISIT(traverse_module_state->__pyx_tuple__35);
-  Py_VISIT(traverse_module_state->__pyx_tuple__53);
+  Py_VISIT(traverse_module_state->__pyx_tuple__33);
+  Py_VISIT(traverse_module_state->__pyx_tuple__36);
   Py_VISIT(traverse_module_state->__pyx_tuple__54);
-  Py_VISIT(traverse_module_state->__pyx_tuple__64);
+  Py_VISIT(traverse_module_state->__pyx_tuple__55);
   Py_VISIT(traverse_module_state->__pyx_tuple__65);
-  Py_VISIT(traverse_module_state->__pyx_tuple__67);
-  Py_VISIT(traverse_module_state->__pyx_tuple__70);
-  Py_VISIT(traverse_module_state->__pyx_tuple__71);
+  Py_VISIT(traverse_module_state->__pyx_tuple__66);
+  Py_VISIT(traverse_module_state->__pyx_tuple__69);
+  Py_VISIT(traverse_module_state->__pyx_tuple__72);
   Py_VISIT(traverse_module_state->__pyx_tuple__73);
   Py_VISIT(traverse_module_state->__pyx_tuple__75);
-  Py_VISIT(traverse_module_state->__pyx_tuple__76);
   Py_VISIT(traverse_module_state->__pyx_tuple__77);
+  Py_VISIT(traverse_module_state->__pyx_tuple__78);
   Py_VISIT(traverse_module_state->__pyx_tuple__79);
-  Py_VISIT(traverse_module_state->__pyx_tuple__80);
+  Py_VISIT(traverse_module_state->__pyx_tuple__81);
   Py_VISIT(traverse_module_state->__pyx_tuple__82);
+  Py_VISIT(traverse_module_state->__pyx_tuple__84);
   Py_VISIT(traverse_module_state->__pyx_codeobj__4);
   Py_VISIT(traverse_module_state->__pyx_codeobj__5);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__14);
   Py_VISIT(traverse_module_state->__pyx_codeobj__15);
   Py_VISIT(traverse_module_state->__pyx_codeobj__16);
   Py_VISIT(traverse_module_state->__pyx_codeobj__17);
@@ -4532,19 +4563,21 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
   Py_VISIT(traverse_module_state->__pyx_codeobj__25);
   Py_VISIT(traverse_module_state->__pyx_codeobj__26);
   Py_VISIT(traverse_module_state->__pyx_codeobj__27);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__33);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__28);
   Py_VISIT(traverse_module_state->__pyx_codeobj__34);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__37);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__40);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__35);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__38);
   Py_VISIT(traverse_module_state->__pyx_codeobj__41);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__45);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__66);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__42);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__46);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__67);
   Py_VISIT(traverse_module_state->__pyx_codeobj__68);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__69);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__72);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__78);
-  Py_VISIT(traverse_module_state->__pyx_codeobj__81);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__70);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__71);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__74);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__80);
   Py_VISIT(traverse_module_state->__pyx_codeobj__83);
+  Py_VISIT(traverse_module_state->__pyx_codeobj__85);
   return 0;
 }
 #endif
@@ -4648,6 +4681,7 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_AbstractParser_filtering_options __pyx_mstate_global->__pyx_n_s_AbstractParser_filtering_options
 #define __pyx_n_s_AbstractParser_get_query __pyx_mstate_global->__pyx_n_s_AbstractParser_get_query
 #define __pyx_n_s_AbstractParser_get_query_filters __pyx_mstate_global->__pyx_n_s_AbstractParser_get_query_filters
+#define __pyx_n_s_AbstractParser_is_paged __pyx_mstate_global->__pyx_n_s_AbstractParser_is_paged
 #define __pyx_n_s_AbstractParser_query __pyx_mstate_global->__pyx_n_s_AbstractParser_query
 #define __pyx_n_s_AbstractParser_sentence __pyx_mstate_global->__pyx_n_s_AbstractParser_sentence
 #define __pyx_n_s_AbstractParser_set_conditions __pyx_mstate_global->__pyx_n_s_AbstractParser_set_conditions
@@ -4672,25 +4706,26 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_REDIS_URL __pyx_mstate_global->__pyx_n_s_REDIS_URL
 #define __pyx_kp_u_SET_conditions __pyx_mstate_global->__pyx_kp_u_SET_conditions
 #define __pyx_n_s_TypeError __pyx_mstate_global->__pyx_n_s_TypeError
+#define __pyx_kp_u_Unrecognized_paged_condition_val __pyx_mstate_global->__pyx_kp_u_Unrecognized_paged_condition_val
+#define __pyx_kp_u_Unrecognized_refresh_condition_v __pyx_mstate_global->__pyx_kp_u_Unrecognized_refresh_condition_v
 #define __pyx_n_s_ValueError __pyx_mstate_global->__pyx_n_s_ValueError
-#define __pyx_kp_u__13 __pyx_mstate_global->__pyx_kp_u__13
+#define __pyx_kp_u__14 __pyx_mstate_global->__pyx_kp_u__14
 #define __pyx_kp_u__2 __pyx_mstate_global->__pyx_kp_u__2
-#define __pyx_kp_u__36 __pyx_mstate_global->__pyx_kp_u__36
-#define __pyx_kp_u__38 __pyx_mstate_global->__pyx_kp_u__38
+#define __pyx_kp_u__37 __pyx_mstate_global->__pyx_kp_u__37
 #define __pyx_kp_u__39 __pyx_mstate_global->__pyx_kp_u__39
-#define __pyx_kp_u__42 __pyx_mstate_global->__pyx_kp_u__42
+#define __pyx_kp_u__40 __pyx_mstate_global->__pyx_kp_u__40
 #define __pyx_kp_u__43 __pyx_mstate_global->__pyx_kp_u__43
 #define __pyx_kp_u__44 __pyx_mstate_global->__pyx_kp_u__44
-#define __pyx_kp_u__46 __pyx_mstate_global->__pyx_kp_u__46
-#define __pyx_n_s__47 __pyx_mstate_global->__pyx_n_s__47
+#define __pyx_kp_u__45 __pyx_mstate_global->__pyx_kp_u__45
 #define __pyx_kp_u__47 __pyx_mstate_global->__pyx_kp_u__47
 #define __pyx_n_s__48 __pyx_mstate_global->__pyx_n_s__48
-#define __pyx_kp_u__49 __pyx_mstate_global->__pyx_kp_u__49
+#define __pyx_kp_u__48 __pyx_mstate_global->__pyx_kp_u__48
+#define __pyx_n_s__49 __pyx_mstate_global->__pyx_n_s__49
 #define __pyx_kp_u__50 __pyx_mstate_global->__pyx_kp_u__50
 #define __pyx_kp_u__51 __pyx_mstate_global->__pyx_kp_u__51
-#define __pyx_n_s__52 __pyx_mstate_global->__pyx_n_s__52
 #define __pyx_kp_u__52 __pyx_mstate_global->__pyx_kp_u__52
-#define __pyx_kp_u__55 __pyx_mstate_global->__pyx_kp_u__55
+#define __pyx_n_s__53 __pyx_mstate_global->__pyx_n_s__53
+#define __pyx_kp_u__53 __pyx_mstate_global->__pyx_kp_u__53
 #define __pyx_kp_u__56 __pyx_mstate_global->__pyx_kp_u__56
 #define __pyx_kp_u__57 __pyx_mstate_global->__pyx_kp_u__57
 #define __pyx_kp_u__58 __pyx_mstate_global->__pyx_kp_u__58
@@ -4699,7 +4734,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_kp_u__61 __pyx_mstate_global->__pyx_kp_u__61
 #define __pyx_kp_u__62 __pyx_mstate_global->__pyx_kp_u__62
 #define __pyx_kp_u__63 __pyx_mstate_global->__pyx_kp_u__63
-#define __pyx_n_s__74 __pyx_mstate_global->__pyx_n_s__74
+#define __pyx_kp_u__64 __pyx_mstate_global->__pyx_kp_u__64
+#define __pyx_n_s__76 __pyx_mstate_global->__pyx_n_s__76
 #define __pyx_n_s_abc __pyx_mstate_global->__pyx_n_s_abc
 #define __pyx_n_s_abstractmethod __pyx_mstate_global->__pyx_n_s_abstractmethod
 #define __pyx_n_u_add_fields __pyx_mstate_global->__pyx_n_u_add_fields
@@ -4766,8 +4802,8 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_import __pyx_mstate_global->__pyx_n_s_import
 #define __pyx_n_s_initializing __pyx_mstate_global->__pyx_n_s_initializing
 #define __pyx_n_s_inspect __pyx_mstate_global->__pyx_n_s_inspect
-#define __pyx_n_s_is_boolean __pyx_mstate_global->__pyx_n_s_is_boolean
 #define __pyx_n_s_is_coroutine __pyx_mstate_global->__pyx_n_s_is_coroutine
+#define __pyx_n_s_is_paged __pyx_mstate_global->__pyx_n_s_is_paged
 #define __pyx_n_s_is_parseable __pyx_mstate_global->__pyx_n_s_is_parseable
 #define __pyx_n_s_is_valid __pyx_mstate_global->__pyx_n_s_is_valid
 #define __pyx_kp_u_isenabled __pyx_mstate_global->__pyx_kp_u_isenabled
@@ -4848,11 +4884,11 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_u_string_literal __pyx_mstate_global->__pyx_n_u_string_literal
 #define __pyx_kp_s_stringsource __pyx_mstate_global->__pyx_kp_s_stringsource
 #define __pyx_n_s_strip __pyx_mstate_global->__pyx_n_s_strip
-#define __pyx_n_s_strtobool __pyx_mstate_global->__pyx_n_s_strtobool
 #define __pyx_n_u_tablename __pyx_mstate_global->__pyx_n_u_tablename
 #define __pyx_n_s_tasks __pyx_mstate_global->__pyx_n_s_tasks
 #define __pyx_n_s_test __pyx_mstate_global->__pyx_n_s_test
 #define __pyx_n_s_throw __pyx_mstate_global->__pyx_n_s_throw
+#define __pyx_n_s_to_flag __pyx_mstate_global->__pyx_n_s_to_flag
 #define __pyx_n_s_type __pyx_mstate_global->__pyx_n_s_type
 #define __pyx_n_s_types __pyx_mstate_global->__pyx_n_s_types
 #define __pyx_n_s_types_validators __pyx_mstate_global->__pyx_n_s_types_validators
@@ -4868,37 +4904,38 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_n_s_where_element __pyx_mstate_global->__pyx_n_s_where_element
 #define __pyx_kp_u_with_type __pyx_mstate_global->__pyx_kp_u_with_type
 #define __pyx_int_0 __pyx_mstate_global->__pyx_int_0
+#define __pyx_int_64 __pyx_mstate_global->__pyx_int_64
+#define __pyx_slice__8 __pyx_mstate_global->__pyx_slice__8
 #define __pyx_tuple__3 __pyx_mstate_global->__pyx_tuple__3
 #define __pyx_tuple__6 __pyx_mstate_global->__pyx_tuple__6
 #define __pyx_tuple__7 __pyx_mstate_global->__pyx_tuple__7
-#define __pyx_tuple__8 __pyx_mstate_global->__pyx_tuple__8
 #define __pyx_tuple__9 __pyx_mstate_global->__pyx_tuple__9
 #define __pyx_tuple__10 __pyx_mstate_global->__pyx_tuple__10
 #define __pyx_tuple__11 __pyx_mstate_global->__pyx_tuple__11
 #define __pyx_tuple__12 __pyx_mstate_global->__pyx_tuple__12
-#define __pyx_tuple__28 __pyx_mstate_global->__pyx_tuple__28
+#define __pyx_tuple__13 __pyx_mstate_global->__pyx_tuple__13
 #define __pyx_tuple__29 __pyx_mstate_global->__pyx_tuple__29
 #define __pyx_tuple__30 __pyx_mstate_global->__pyx_tuple__30
 #define __pyx_tuple__31 __pyx_mstate_global->__pyx_tuple__31
 #define __pyx_tuple__32 __pyx_mstate_global->__pyx_tuple__32
-#define __pyx_tuple__35 __pyx_mstate_global->__pyx_tuple__35
-#define __pyx_tuple__53 __pyx_mstate_global->__pyx_tuple__53
+#define __pyx_tuple__33 __pyx_mstate_global->__pyx_tuple__33
+#define __pyx_tuple__36 __pyx_mstate_global->__pyx_tuple__36
 #define __pyx_tuple__54 __pyx_mstate_global->__pyx_tuple__54
-#define __pyx_tuple__64 __pyx_mstate_global->__pyx_tuple__64
+#define __pyx_tuple__55 __pyx_mstate_global->__pyx_tuple__55
 #define __pyx_tuple__65 __pyx_mstate_global->__pyx_tuple__65
-#define __pyx_tuple__67 __pyx_mstate_global->__pyx_tuple__67
-#define __pyx_tuple__70 __pyx_mstate_global->__pyx_tuple__70
-#define __pyx_tuple__71 __pyx_mstate_global->__pyx_tuple__71
+#define __pyx_tuple__66 __pyx_mstate_global->__pyx_tuple__66
+#define __pyx_tuple__69 __pyx_mstate_global->__pyx_tuple__69
+#define __pyx_tuple__72 __pyx_mstate_global->__pyx_tuple__72
 #define __pyx_tuple__73 __pyx_mstate_global->__pyx_tuple__73
 #define __pyx_tuple__75 __pyx_mstate_global->__pyx_tuple__75
-#define __pyx_tuple__76 __pyx_mstate_global->__pyx_tuple__76
 #define __pyx_tuple__77 __pyx_mstate_global->__pyx_tuple__77
+#define __pyx_tuple__78 __pyx_mstate_global->__pyx_tuple__78
 #define __pyx_tuple__79 __pyx_mstate_global->__pyx_tuple__79
-#define __pyx_tuple__80 __pyx_mstate_global->__pyx_tuple__80
+#define __pyx_tuple__81 __pyx_mstate_global->__pyx_tuple__81
 #define __pyx_tuple__82 __pyx_mstate_global->__pyx_tuple__82
+#define __pyx_tuple__84 __pyx_mstate_global->__pyx_tuple__84
 #define __pyx_codeobj__4 __pyx_mstate_global->__pyx_codeobj__4
 #define __pyx_codeobj__5 __pyx_mstate_global->__pyx_codeobj__5
-#define __pyx_codeobj__14 __pyx_mstate_global->__pyx_codeobj__14
 #define __pyx_codeobj__15 __pyx_mstate_global->__pyx_codeobj__15
 #define __pyx_codeobj__16 __pyx_mstate_global->__pyx_codeobj__16
 #define __pyx_codeobj__17 __pyx_mstate_global->__pyx_codeobj__17
@@ -4912,19 +4949,21 @@ static int __pyx_m_traverse(PyObject *m, visitproc visit, void *arg) {
 #define __pyx_codeobj__25 __pyx_mstate_global->__pyx_codeobj__25
 #define __pyx_codeobj__26 __pyx_mstate_global->__pyx_codeobj__26
 #define __pyx_codeobj__27 __pyx_mstate_global->__pyx_codeobj__27
-#define __pyx_codeobj__33 __pyx_mstate_global->__pyx_codeobj__33
+#define __pyx_codeobj__28 __pyx_mstate_global->__pyx_codeobj__28
 #define __pyx_codeobj__34 __pyx_mstate_global->__pyx_codeobj__34
-#define __pyx_codeobj__37 __pyx_mstate_global->__pyx_codeobj__37
-#define __pyx_codeobj__40 __pyx_mstate_global->__pyx_codeobj__40
+#define __pyx_codeobj__35 __pyx_mstate_global->__pyx_codeobj__35
+#define __pyx_codeobj__38 __pyx_mstate_global->__pyx_codeobj__38
 #define __pyx_codeobj__41 __pyx_mstate_global->__pyx_codeobj__41
-#define __pyx_codeobj__45 __pyx_mstate_global->__pyx_codeobj__45
-#define __pyx_codeobj__66 __pyx_mstate_global->__pyx_codeobj__66
+#define __pyx_codeobj__42 __pyx_mstate_global->__pyx_codeobj__42
+#define __pyx_codeobj__46 __pyx_mstate_global->__pyx_codeobj__46
+#define __pyx_codeobj__67 __pyx_mstate_global->__pyx_codeobj__67
 #define __pyx_codeobj__68 __pyx_mstate_global->__pyx_codeobj__68
-#define __pyx_codeobj__69 __pyx_mstate_global->__pyx_codeobj__69
-#define __pyx_codeobj__72 __pyx_mstate_global->__pyx_codeobj__72
-#define __pyx_codeobj__78 __pyx_mstate_global->__pyx_codeobj__78
-#define __pyx_codeobj__81 __pyx_mstate_global->__pyx_codeobj__81
+#define __pyx_codeobj__70 __pyx_mstate_global->__pyx_codeobj__70
+#define __pyx_codeobj__71 __pyx_mstate_global->__pyx_codeobj__71
+#define __pyx_codeobj__74 __pyx_mstate_global->__pyx_codeobj__74
+#define __pyx_codeobj__80 __pyx_mstate_global->__pyx_codeobj__80
 #define __pyx_codeobj__83 __pyx_mstate_global->__pyx_codeobj__83
+#define __pyx_codeobj__85 __pyx_mstate_global->__pyx_codeobj__85
 /* #### Code section: module_code ### */
 
 /* "querysource/parsers/abstract.pyx":31
@@ -6454,7 +6493,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_query
  *     cpdef str query(self):
  *         return self.query_parsed             # <<<<<<<<<<<<<<
  * 
- *     async def get_query(self):
+ *     cpdef bint is_paged(self):
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(__pyx_v_self->query_parsed);
@@ -6550,10 +6589,193 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_8que
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
 /* "querysource/parsers/abstract.pyx":124
  *         return self.query_parsed
+ * 
+ *     cpdef bint is_paged(self):             # <<<<<<<<<<<<<<
+ *         """Return whether pagination was requested (parsed ``paged`` condition).
+ * 
+ */
+
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11is_paged(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_is_paged(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, int __pyx_skip_dispatch) {
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_4 = NULL;
+  unsigned int __pyx_t_5;
+  int __pyx_t_6;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("is_paged", 1);
+  /* Check if called by wrapper */
+  if (unlikely(__pyx_skip_dispatch)) ;
+  /* Check if overridden in Python */
+  else if (unlikely((Py_TYPE(((PyObject *)__pyx_v_self))->tp_dictoffset != 0) || __Pyx_PyType_HasFeature(Py_TYPE(((PyObject *)__pyx_v_self)), (Py_TPFLAGS_IS_ABSTRACT | Py_TPFLAGS_HEAPTYPE)))) {
+    #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+    static PY_UINT64_T __pyx_tp_dict_version = __PYX_DICT_VERSION_INIT, __pyx_obj_dict_version = __PYX_DICT_VERSION_INIT;
+    if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
+      PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
+      #endif
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_is_paged); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 124, __pyx_L1_error)
+      __Pyx_GOTREF(__pyx_t_1);
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11is_paged)) {
+        __Pyx_INCREF(__pyx_t_1);
+        __pyx_t_3 = __pyx_t_1; __pyx_t_4 = NULL;
+        __pyx_t_5 = 0;
+        #if CYTHON_UNPACK_METHODS
+        if (unlikely(PyMethod_Check(__pyx_t_3))) {
+          __pyx_t_4 = PyMethod_GET_SELF(__pyx_t_3);
+          if (likely(__pyx_t_4)) {
+            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_3);
+            __Pyx_INCREF(__pyx_t_4);
+            __Pyx_INCREF(function);
+            __Pyx_DECREF_SET(__pyx_t_3, function);
+            __pyx_t_5 = 1;
+          }
+        }
+        #endif
+        {
+          PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
+          __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
+          __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_2);
+          __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+        }
+        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 124, __pyx_L1_error)
+        __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+        __pyx_r = __pyx_t_6;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        goto __pyx_L0;
+      }
+      #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+      __pyx_tp_dict_version = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
+      __pyx_obj_dict_version = __Pyx_get_object_dict_version(((PyObject *)__pyx_v_self));
+      if (unlikely(__pyx_typedict_guard != __pyx_tp_dict_version)) {
+        __pyx_tp_dict_version = __pyx_obj_dict_version = __PYX_DICT_VERSION_INIT;
+      }
+      #endif
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+      #if CYTHON_USE_DICT_VERSIONS && CYTHON_USE_PYTYPE_LOOKUP && CYTHON_USE_TYPE_SLOTS
+    }
+    #endif
+  }
+
+  /* "querysource/parsers/abstract.pyx":130
+ *             bool: the coerced ``paged`` flag (see FEAT-149 ``to_flag`` truth table).
+ *         """
+ *         return self._paged             # <<<<<<<<<<<<<<
+ * 
+ *     async def get_query(self):
+ */
+  __pyx_r = __pyx_v_self->_paged;
+  goto __pyx_L0;
+
+  /* "querysource/parsers/abstract.pyx":124
+ *         return self.query_parsed
+ * 
+ *     cpdef bint is_paged(self):             # <<<<<<<<<<<<<<
+ *         """Return whether pagination was requested (parsed ``paged`` condition).
+ * 
+ */
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
+  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser.is_paged", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* Python wrapper */
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11is_paged(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+); /*proto*/
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_10is_paged, "AbstractParser.is_paged(self) -> bool\nReturn whether pagination was requested (parsed ``paged`` condition).\n\n        Returns:\n            bool: the coerced ``paged`` flag (see FEAT-149 ``to_flag`` truth table).\n        ");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_11is_paged = {"is_paged", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11is_paged, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_10is_paged};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11is_paged(PyObject *__pyx_v_self, 
+#if CYTHON_METH_FASTCALL
+PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
+#else
+PyObject *__pyx_args, PyObject *__pyx_kwds
+#endif
+) {
+  #if !CYTHON_METH_FASTCALL
+  CYTHON_UNUSED Py_ssize_t __pyx_nargs;
+  #endif
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("is_paged (wrapper)", 0);
+  #if !CYTHON_METH_FASTCALL
+  #if CYTHON_ASSUME_SAFE_MACROS
+  __pyx_nargs = PyTuple_GET_SIZE(__pyx_args);
+  #else
+  __pyx_nargs = PyTuple_Size(__pyx_args); if (unlikely(__pyx_nargs < 0)) return NULL;
+  #endif
+  #endif
+  __pyx_kwvalues = __Pyx_KwValues_FASTCALL(__pyx_args, __pyx_nargs);
+  if (unlikely(__pyx_nargs > 0)) {
+    __Pyx_RaiseArgtupleInvalid("is_paged", 1, 0, 0, __pyx_nargs); return NULL;}
+  if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "is_paged", 0))) return NULL;
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10is_paged(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10is_paged(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  int __pyx_t_1;
+  PyObject *__pyx_t_2 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("is_paged", 1);
+  __Pyx_XDECREF(__pyx_r);
+  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_is_paged(__pyx_v_self, 1); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
+  goto __pyx_L0;
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser.is_paged", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_14generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+
+/* "querysource/parsers/abstract.pyx":132
+ *         return self._paged
  * 
  *     async def get_query(self):             # <<<<<<<<<<<<<<
  *         return await self.build_query()
@@ -6561,16 +6783,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11get_query(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_13get_query(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_10get_query, "AbstractParser.get_query(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_11get_query = {"get_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11get_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_10get_query};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11get_query(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_12get_query, "AbstractParser.get_query(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_13get_query = {"get_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_13get_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_12get_query};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_13get_query(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6595,14 +6817,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("get_query", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "get_query", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10get_query(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_12get_query(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10get_query(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_12get_query(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct__get_query *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -6614,7 +6836,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10ge
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct__get_query *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 124, __pyx_L1_error)
+    __PYX_ERR(0, 132, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -6622,7 +6844,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10ge
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12generator, __pyx_codeobj__4, (PyObject *) __pyx_cur_scope, __pyx_n_s_get_query, __pyx_n_s_AbstractParser_get_query, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 124, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_14generator, __pyx_codeobj__4, (PyObject *) __pyx_cur_scope, __pyx_n_s_get_query, __pyx_n_s_AbstractParser_get_query, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 132, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -6638,7 +6860,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_10ge
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_14generator(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct__get_query *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct__get_query *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -6659,9 +6881,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 132, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":125
+  /* "querysource/parsers/abstract.pyx":133
  * 
  *     async def get_query(self):
  *         return await self.build_query()             # <<<<<<<<<<<<<<
@@ -6669,7 +6891,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
  *     cpdef object sentence(self, str sentence):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_build_query); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 125, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_build_query); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -6689,7 +6911,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
     PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -6704,11 +6926,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L4_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 125, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 133, __pyx_L1_error)
     __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
   } else {
     __pyx_t_1 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 125, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_1);
@@ -6716,8 +6938,8 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":124
- *         return self.query_parsed
+  /* "querysource/parsers/abstract.pyx":132
+ *         return self._paged
  * 
  *     async def get_query(self):             # <<<<<<<<<<<<<<
  *         return await self.build_query()
@@ -6742,7 +6964,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":127
+/* "querysource/parsers/abstract.pyx":135
  *         return await self.build_query()
  * 
  *     cpdef object sentence(self, str sentence):             # <<<<<<<<<<<<<<
@@ -6750,7 +6972,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_12ge
  *         return self
  */
 
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_14sentence(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16sentence(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6778,9 +7000,9 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sente
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_sentence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_sentence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_14sentence)) {
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16sentence)) {
         __Pyx_XDECREF(__pyx_r);
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_3 = __pyx_t_1; __pyx_t_4 = NULL;
@@ -6801,7 +7023,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sente
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_sentence};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
@@ -6823,7 +7045,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sente
     #endif
   }
 
-  /* "querysource/parsers/abstract.pyx":128
+  /* "querysource/parsers/abstract.pyx":136
  * 
  *     cpdef object sentence(self, str sentence):
  *         self.query_raw = sentence             # <<<<<<<<<<<<<<
@@ -6836,7 +7058,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sente
   __Pyx_DECREF(__pyx_v_self->query_raw);
   __pyx_v_self->query_raw = __pyx_v_sentence;
 
-  /* "querysource/parsers/abstract.pyx":129
+  /* "querysource/parsers/abstract.pyx":137
  *     cpdef object sentence(self, str sentence):
  *         self.query_raw = sentence
  *         return self             # <<<<<<<<<<<<<<
@@ -6848,7 +7070,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sente
   __pyx_r = ((PyObject *)__pyx_v_self);
   goto __pyx_L0;
 
-  /* "querysource/parsers/abstract.pyx":127
+  /* "querysource/parsers/abstract.pyx":135
  *         return await self.build_query()
  * 
  *     cpdef object sentence(self, str sentence):             # <<<<<<<<<<<<<<
@@ -6871,16 +7093,16 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sente
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_14sentence(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16sentence(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_13sentence, "AbstractParser.sentence(self, unicode sentence)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_14sentence = {"sentence", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_14sentence, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_13sentence};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_14sentence(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_15sentence, "AbstractParser.sentence(self, unicode sentence)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_16sentence = {"sentence", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16sentence, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_15sentence};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16sentence(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -6924,12 +7146,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 127, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 135, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "sentence") < 0)) __PYX_ERR(0, 127, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "sentence") < 0)) __PYX_ERR(0, 135, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -6940,7 +7162,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("sentence", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 127, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("sentence", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 135, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -6954,8 +7176,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_sentence), (&PyUnicode_Type), 1, "sentence", 1))) __PYX_ERR(0, 127, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_13sentence(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_sentence);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_sentence), (&PyUnicode_Type), 1, "sentence", 1))) __PYX_ERR(0, 135, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15sentence(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_sentence);
 
   /* function exit code */
   goto __pyx_L0;
@@ -6972,7 +7194,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_13sentence(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15sentence(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -6981,7 +7203,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_13se
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("sentence", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sentence(__pyx_v_self, __pyx_v_sentence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_sentence(__pyx_v_self, __pyx_v_sentence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -6997,9 +7219,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_13se
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_17generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_19generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":131
+/* "querysource/parsers/abstract.pyx":139
  *         return self
  * 
  *     @abstractmethod             # <<<<<<<<<<<<<<
@@ -7008,16 +7230,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_17ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16build_query(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_18build_query(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_15build_query, "AbstractParser.build_query(self)\nBuild a QuerySource Query.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_16build_query = {"build_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16build_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_15build_query};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16build_query(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_17build_query, "AbstractParser.build_query(self)\nBuild a QuerySource Query.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_18build_query = {"build_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_18build_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_17build_query};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_18build_query(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -7042,14 +7264,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("build_query", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "build_query", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15build_query(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_17build_query(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15build_query(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_17build_query(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -7061,7 +7283,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15bu
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 131, __pyx_L1_error)
+    __PYX_ERR(0, 139, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -7069,7 +7291,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15bu
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_17generator1, __pyx_codeobj__5, (PyObject *) __pyx_cur_scope, __pyx_n_s_build_query, __pyx_n_s_AbstractParser_build_query, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 131, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_19generator1, __pyx_codeobj__5, (PyObject *) __pyx_cur_scope, __pyx_n_s_build_query, __pyx_n_s_AbstractParser_build_query, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -7085,7 +7307,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_15bu
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_17generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_19generator1(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -7101,7 +7323,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_17ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 139, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
   /* function exit code */
@@ -7121,7 +7343,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_17ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":139
+/* "querysource/parsers/abstract.pyx":147
  *     # ------------------------------------------------------------------
  * 
  *     cdef void _extract_options(self):             # <<<<<<<<<<<<<<
@@ -7134,133 +7356,133 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__extract_o
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "querysource/parsers/abstract.pyx":141
+  /* "querysource/parsers/abstract.pyx":149
  *     cdef void _extract_options(self):
  *         """Extract all query options synchronously  no event loop overhead."""
  *         self._parse_hierarchy_sync()             # <<<<<<<<<<<<<<
  *         self._program_slug_sync()
  *         self._query_slug_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_parse_hierarchy_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_parse_hierarchy_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 149, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":142
+  /* "querysource/parsers/abstract.pyx":150
  *         """Extract all query options synchronously  no event loop overhead."""
  *         self._parse_hierarchy_sync()
  *         self._program_slug_sync()             # <<<<<<<<<<<<<<
  *         self._query_slug_sync()
  *         self._query_refresh_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_program_slug_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_program_slug_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 150, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":143
+  /* "querysource/parsers/abstract.pyx":151
  *         self._parse_hierarchy_sync()
  *         self._program_slug_sync()
  *         self._query_slug_sync()             # <<<<<<<<<<<<<<
  *         self._query_refresh_sync()
  *         self._query_fields_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_slug_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 143, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_slug_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 151, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":144
+  /* "querysource/parsers/abstract.pyx":152
  *         self._program_slug_sync()
  *         self._query_slug_sync()
  *         self._query_refresh_sync()             # <<<<<<<<<<<<<<
  *         self._query_fields_sync()
  *         self._query_limit_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_refresh_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 144, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_refresh_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":145
+  /* "querysource/parsers/abstract.pyx":153
  *         self._query_slug_sync()
  *         self._query_refresh_sync()
  *         self._query_fields_sync()             # <<<<<<<<<<<<<<
  *         self._query_limit_sync()
  *         self._offset_pagination_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_fields_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_fields_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 153, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":146
+  /* "querysource/parsers/abstract.pyx":154
  *         self._query_refresh_sync()
  *         self._query_fields_sync()
  *         self._query_limit_sync()             # <<<<<<<<<<<<<<
  *         self._offset_pagination_sync()
  *         self._grouping_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_limit_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 146, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_limit_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":147
+  /* "querysource/parsers/abstract.pyx":155
  *         self._query_fields_sync()
  *         self._query_limit_sync()
  *         self._offset_pagination_sync()             # <<<<<<<<<<<<<<
  *         self._grouping_sync()
  *         self._ordering_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_offset_pagination_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 147, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_offset_pagination_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":148
+  /* "querysource/parsers/abstract.pyx":156
  *         self._query_limit_sync()
  *         self._offset_pagination_sync()
  *         self._grouping_sync()             # <<<<<<<<<<<<<<
  *         self._ordering_sync()
  *         self._filter_options_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_grouping_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 148, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_grouping_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":149
+  /* "querysource/parsers/abstract.pyx":157
  *         self._offset_pagination_sync()
  *         self._grouping_sync()
  *         self._ordering_sync()             # <<<<<<<<<<<<<<
  *         self._filter_options_sync()
  *         self._qry_options_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_ordering_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 149, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_ordering_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":150
+  /* "querysource/parsers/abstract.pyx":158
  *         self._grouping_sync()
  *         self._ordering_sync()
  *         self._filter_options_sync()             # <<<<<<<<<<<<<<
  *         self._qry_options_sync()
  *         self._query_filter_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_filter_options_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 150, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_filter_options_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":151
+  /* "querysource/parsers/abstract.pyx":159
  *         self._ordering_sync()
  *         self._filter_options_sync()
  *         self._qry_options_sync()             # <<<<<<<<<<<<<<
  *         self._query_filter_sync()
  *         self._qs_filters_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_qry_options_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 151, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_qry_options_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 159, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":152
+  /* "querysource/parsers/abstract.pyx":160
  *         self._filter_options_sync()
  *         self._qry_options_sync()
  *         self._query_filter_sync()             # <<<<<<<<<<<<<<
  *         self._qs_filters_sync()
  *         self._col_definition_sync()
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_filter_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_query_filter_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 160, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":153
+  /* "querysource/parsers/abstract.pyx":161
  *         self._qry_options_sync()
  *         self._query_filter_sync()
  *         self._qs_filters_sync()             # <<<<<<<<<<<<<<
  *         self._col_definition_sync()
  * 
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_qs_filters_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 153, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_qs_filters_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 161, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":154
+  /* "querysource/parsers/abstract.pyx":162
  *         self._query_filter_sync()
  *         self._qs_filters_sync()
  *         self._col_definition_sync()             # <<<<<<<<<<<<<<
  * 
  *     cdef void _parse_hierarchy_sync(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_col_definition_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_col_definition_sync(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 162, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":139
+  /* "querysource/parsers/abstract.pyx":147
  *     # ------------------------------------------------------------------
  * 
  *     cdef void _extract_options(self):             # <<<<<<<<<<<<<<
@@ -7275,7 +7497,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__extract_o
   __pyx_L0:;
 }
 
-/* "querysource/parsers/abstract.pyx":156
+/* "querysource/parsers/abstract.pyx":164
  *         self._col_definition_sync()
  * 
  *     cdef void _parse_hierarchy_sync(self):             # <<<<<<<<<<<<<<
@@ -7299,7 +7521,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_parse_hierarchy_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":157
+  /* "querysource/parsers/abstract.pyx":165
  * 
  *     cdef void _parse_hierarchy_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7315,16 +7537,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":158
+      /* "querysource/parsers/abstract.pyx":166
  *     cdef void _parse_hierarchy_sync(self):
  *         try:
  *             self._hierarchy = self.conditions.pop('hierarchy', [])             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self._hierarchy = []
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 158, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 166, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 158, __pyx_L3_error)
+      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 166, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -7345,18 +7567,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 158, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
-      if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 158, __pyx_L3_error)
+      if (!(likely(PyList_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_4))) __PYX_ERR(0, 166, __pyx_L3_error)
       __Pyx_GIVEREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_v_self->_hierarchy);
       __Pyx_DECREF(__pyx_v_self->_hierarchy);
       __pyx_v_self->_hierarchy = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":157
+      /* "querysource/parsers/abstract.pyx":165
  * 
  *     cdef void _parse_hierarchy_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7374,7 +7596,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":159
+    /* "querysource/parsers/abstract.pyx":167
  *         try:
  *             self._hierarchy = self.conditions.pop('hierarchy', [])
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -7384,19 +7606,19 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_9) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._parse_hierarchy_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 159, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 167, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/parsers/abstract.pyx":160
+      /* "querysource/parsers/abstract.pyx":168
  *             self._hierarchy = self.conditions.pop('hierarchy', [])
  *         except (KeyError, AttributeError):
  *             self._hierarchy = []             # <<<<<<<<<<<<<<
  * 
  *     cdef void _program_slug_sync(self):
  */
-      __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 160, __pyx_L5_except_error)
+      __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 168, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GIVEREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_v_self->_hierarchy);
@@ -7410,7 +7632,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":157
+    /* "querysource/parsers/abstract.pyx":165
  * 
  *     cdef void _parse_hierarchy_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7431,7 +7653,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":156
+  /* "querysource/parsers/abstract.pyx":164
  *         self._col_definition_sync()
  * 
  *     cdef void _parse_hierarchy_sync(self):             # <<<<<<<<<<<<<<
@@ -7451,7 +7673,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__parse_hie
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":162
+/* "querysource/parsers/abstract.pyx":170
  *             self._hierarchy = []
  * 
  *     cdef void _program_slug_sync(self):             # <<<<<<<<<<<<<<
@@ -7473,7 +7695,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_program_slug_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":163
+  /* "querysource/parsers/abstract.pyx":171
  * 
  *     cdef void _program_slug_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7489,23 +7711,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":164
+      /* "querysource/parsers/abstract.pyx":172
  *     cdef void _program_slug_sync(self):
  *         try:
  *             self.program_slug = self.definition.program_slug             # <<<<<<<<<<<<<<
  *         except (KeyError, IndexError, AttributeError):
  *             self.program_slug = None
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_program_slug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 164, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_program_slug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 172, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 164, __pyx_L3_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 172, __pyx_L3_error)
       __Pyx_GIVEREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_v_self->program_slug);
       __Pyx_DECREF(__pyx_v_self->program_slug);
       __pyx_v_self->program_slug = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":163
+      /* "querysource/parsers/abstract.pyx":171
  * 
  *     cdef void _program_slug_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7520,7 +7742,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":165
+    /* "querysource/parsers/abstract.pyx":173
  *         try:
  *             self.program_slug = self.definition.program_slug
  *         except (KeyError, IndexError, AttributeError):             # <<<<<<<<<<<<<<
@@ -7530,12 +7752,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
     __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError) || __Pyx_PyErr_ExceptionMatches(__pyx_builtin_IndexError) || __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError);
     if (__pyx_t_5) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._program_slug_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 165, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 173, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "querysource/parsers/abstract.pyx":166
+      /* "querysource/parsers/abstract.pyx":174
  *             self.program_slug = self.definition.program_slug
  *         except (KeyError, IndexError, AttributeError):
  *             self.program_slug = None             # <<<<<<<<<<<<<<
@@ -7554,7 +7776,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":163
+    /* "querysource/parsers/abstract.pyx":171
  * 
  *     cdef void _program_slug_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7575,7 +7797,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":162
+  /* "querysource/parsers/abstract.pyx":170
  *             self._hierarchy = []
  * 
  *     cdef void _program_slug_sync(self):             # <<<<<<<<<<<<<<
@@ -7594,7 +7816,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__program_s
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":168
+/* "querysource/parsers/abstract.pyx":176
  *             self.program_slug = None
  * 
  *     cdef void _query_slug_sync(self):             # <<<<<<<<<<<<<<
@@ -7622,7 +7844,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_query_slug_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":169
+  /* "querysource/parsers/abstract.pyx":177
  * 
  *     cdef void _query_slug_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7638,23 +7860,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":170
+      /* "querysource/parsers/abstract.pyx":178
  *     cdef void _query_slug_sync(self):
  *         try:
  *             self._slug = self.definition.query_slug             # <<<<<<<<<<<<<<
  *         except (KeyError, IndexError, AttributeError):
  *             try:
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_query_slug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 170, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_query_slug); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 178, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 170, __pyx_L3_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 178, __pyx_L3_error)
       __Pyx_GIVEREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_v_self->_slug);
       __Pyx_DECREF(__pyx_v_self->_slug);
       __pyx_v_self->_slug = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":169
+      /* "querysource/parsers/abstract.pyx":177
  * 
  *     cdef void _query_slug_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7669,7 +7891,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":171
+    /* "querysource/parsers/abstract.pyx":179
  *         try:
  *             self._slug = self.definition.query_slug
  *         except (KeyError, IndexError, AttributeError):             # <<<<<<<<<<<<<<
@@ -7679,12 +7901,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
     __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError) || __Pyx_PyErr_ExceptionMatches(__pyx_builtin_IndexError) || __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError);
     if (__pyx_t_5) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_slug_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 171, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 179, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "querysource/parsers/abstract.pyx":172
+      /* "querysource/parsers/abstract.pyx":180
  *             self._slug = self.definition.query_slug
  *         except (KeyError, IndexError, AttributeError):
  *             try:             # <<<<<<<<<<<<<<
@@ -7700,26 +7922,26 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
         __Pyx_XGOTREF(__pyx_t_10);
         /*try:*/ {
 
-          /* "querysource/parsers/abstract.pyx":173
+          /* "querysource/parsers/abstract.pyx":181
  *         except (KeyError, IndexError, AttributeError):
  *             try:
  *                 self._slug = self.conditions.pop('slug', None)             # <<<<<<<<<<<<<<
  *             except (KeyError, AttributeError):
  *                 self._slug = None
  */
-          __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 173, __pyx_L11_error)
+          __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 181, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_11);
-          __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_11, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 173, __pyx_L11_error)
+          __pyx_t_12 = __Pyx_PyObject_Call(__pyx_t_11, __pyx_tuple__6, NULL); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 181, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_12);
           __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-          if (!(likely(PyUnicode_CheckExact(__pyx_t_12))||((__pyx_t_12) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_12))) __PYX_ERR(0, 173, __pyx_L11_error)
+          if (!(likely(PyUnicode_CheckExact(__pyx_t_12))||((__pyx_t_12) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_12))) __PYX_ERR(0, 181, __pyx_L11_error)
           __Pyx_GIVEREF(__pyx_t_12);
           __Pyx_GOTREF(__pyx_v_self->_slug);
           __Pyx_DECREF(__pyx_v_self->_slug);
           __pyx_v_self->_slug = ((PyObject*)__pyx_t_12);
           __pyx_t_12 = 0;
 
-          /* "querysource/parsers/abstract.pyx":172
+          /* "querysource/parsers/abstract.pyx":180
  *             self._slug = self.definition.query_slug
  *         except (KeyError, IndexError, AttributeError):
  *             try:             # <<<<<<<<<<<<<<
@@ -7735,7 +7957,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-        /* "querysource/parsers/abstract.pyx":174
+        /* "querysource/parsers/abstract.pyx":182
  *             try:
  *                 self._slug = self.conditions.pop('slug', None)
  *             except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -7745,12 +7967,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
         __pyx_t_5 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
         if (__pyx_t_5) {
           __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_slug_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_11, &__pyx_t_13) < 0) __PYX_ERR(0, 174, __pyx_L13_except_error)
+          if (__Pyx_GetException(&__pyx_t_12, &__pyx_t_11, &__pyx_t_13) < 0) __PYX_ERR(0, 182, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_12);
           __Pyx_XGOTREF(__pyx_t_11);
           __Pyx_XGOTREF(__pyx_t_13);
 
-          /* "querysource/parsers/abstract.pyx":175
+          /* "querysource/parsers/abstract.pyx":183
  *                 self._slug = self.conditions.pop('slug', None)
  *             except (KeyError, AttributeError):
  *                 self._slug = None             # <<<<<<<<<<<<<<
@@ -7769,7 +7991,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
         }
         goto __pyx_L13_except_error;
 
-        /* "querysource/parsers/abstract.pyx":172
+        /* "querysource/parsers/abstract.pyx":180
  *             self._slug = self.definition.query_slug
  *         except (KeyError, IndexError, AttributeError):
  *             try:             # <<<<<<<<<<<<<<
@@ -7796,7 +8018,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":169
+    /* "querysource/parsers/abstract.pyx":177
  * 
  *     cdef void _query_slug_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -7817,7 +8039,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":168
+  /* "querysource/parsers/abstract.pyx":176
  *             self.program_slug = None
  * 
  *     cdef void _query_slug_sync(self):             # <<<<<<<<<<<<<<
@@ -7839,11 +8061,11 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_slu
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":177
+/* "querysource/parsers/abstract.pyx":185
  *                 self._slug = None
  * 
  *     cdef void _query_refresh_sync(self):             # <<<<<<<<<<<<<<
- *         cdef object refresh
+ *         cdef object refresh = None
  *         try:
  */
 
@@ -7855,22 +8077,35 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_ref
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
   PyObject *__pyx_t_5 = NULL;
-  int __pyx_t_6;
-  PyObject *__pyx_t_7 = NULL;
-  PyObject *__pyx_t_8 = NULL;
-  unsigned int __pyx_t_9;
-  int __pyx_t_10;
+  PyObject *__pyx_t_6 = NULL;
+  unsigned int __pyx_t_7;
+  int __pyx_t_8;
+  int __pyx_t_9;
+  PyObject *__pyx_t_10 = NULL;
+  PyObject *__pyx_t_11 = NULL;
+  PyObject *__pyx_t_12 = NULL;
+  PyObject *__pyx_t_13 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_query_refresh_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":179
+  /* "querysource/parsers/abstract.pyx":186
+ * 
  *     cdef void _query_refresh_sync(self):
- *         cdef object refresh
+ *         cdef object refresh = None             # <<<<<<<<<<<<<<
+ *         try:
+ *             refresh = self.conditions.pop('refresh', False)
+ */
+  __Pyx_INCREF(Py_None);
+  __pyx_v_refresh = Py_None;
+
+  /* "querysource/parsers/abstract.pyx":187
+ *     cdef void _query_refresh_sync(self):
+ *         cdef object refresh = None
  *         try:             # <<<<<<<<<<<<<<
  *             refresh = self.conditions.pop('refresh', False)
- *             if isinstance(refresh, bool):
+ *             self.refresh = to_flag(refresh)
  */
   {
     __Pyx_PyThreadState_declare
@@ -7881,101 +8116,62 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_ref
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":180
- *         cdef object refresh
+      /* "querysource/parsers/abstract.pyx":188
+ *         cdef object refresh = None
  *         try:
  *             refresh = self.conditions.pop('refresh', False)             # <<<<<<<<<<<<<<
- *             if isinstance(refresh, bool):
- *                 self.refresh = refresh
+ *             self.refresh = to_flag(refresh)
+ *         except (KeyError, AttributeError):
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 180, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 188, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__7, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 180, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__7, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 188, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_v_refresh = __pyx_t_5;
+      __Pyx_DECREF_SET(__pyx_v_refresh, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "querysource/parsers/abstract.pyx":181
+      /* "querysource/parsers/abstract.pyx":189
  *         try:
  *             refresh = self.conditions.pop('refresh', False)
- *             if isinstance(refresh, bool):             # <<<<<<<<<<<<<<
- *                 self.refresh = refresh
- *             else:
- */
-      __pyx_t_5 = ((PyObject*)&PyBool_Type);
-      __Pyx_INCREF(__pyx_t_5);
-      __pyx_t_6 = PyObject_IsInstance(__pyx_v_refresh, __pyx_t_5); if (unlikely(__pyx_t_6 == ((int)-1))) __PYX_ERR(0, 181, __pyx_L3_error)
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (__pyx_t_6) {
-
-        /* "querysource/parsers/abstract.pyx":182
- *             refresh = self.conditions.pop('refresh', False)
- *             if isinstance(refresh, bool):
- *                 self.refresh = refresh             # <<<<<<<<<<<<<<
- *             else:
- *                 self.refresh = strtobool(str(refresh))
- */
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_refresh); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 182, __pyx_L3_error)
-        __pyx_v_self->refresh = __pyx_t_6;
-
-        /* "querysource/parsers/abstract.pyx":181
- *         try:
- *             refresh = self.conditions.pop('refresh', False)
- *             if isinstance(refresh, bool):             # <<<<<<<<<<<<<<
- *                 self.refresh = refresh
- *             else:
- */
-        goto __pyx_L9;
-      }
-
-      /* "querysource/parsers/abstract.pyx":184
- *                 self.refresh = refresh
- *             else:
- *                 self.refresh = strtobool(str(refresh))             # <<<<<<<<<<<<<<
- *         except (KeyError, AttributeError, ValueError):
+ *             self.refresh = to_flag(refresh)             # <<<<<<<<<<<<<<
+ *         except (KeyError, AttributeError):
  *             self.refresh = False
  */
-      /*else*/ {
-        __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_strtobool); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 184, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_7 = __Pyx_PyObject_Unicode(__pyx_v_refresh); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 184, __pyx_L3_error)
-        __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_8 = NULL;
-        __pyx_t_9 = 0;
-        #if CYTHON_UNPACK_METHODS
-        if (unlikely(PyMethod_Check(__pyx_t_4))) {
-          __pyx_t_8 = PyMethod_GET_SELF(__pyx_t_4);
-          if (likely(__pyx_t_8)) {
-            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
-            __Pyx_INCREF(__pyx_t_8);
-            __Pyx_INCREF(function);
-            __Pyx_DECREF_SET(__pyx_t_4, function);
-            __pyx_t_9 = 1;
-          }
+      __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_to_flag); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 189, __pyx_L3_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_6 = NULL;
+      __pyx_t_7 = 0;
+      #if CYTHON_UNPACK_METHODS
+      if (unlikely(PyMethod_Check(__pyx_t_4))) {
+        __pyx_t_6 = PyMethod_GET_SELF(__pyx_t_4);
+        if (likely(__pyx_t_6)) {
+          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+          __Pyx_INCREF(__pyx_t_6);
+          __Pyx_INCREF(function);
+          __Pyx_DECREF_SET(__pyx_t_4, function);
+          __pyx_t_7 = 1;
         }
-        #endif
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_8, __pyx_t_7};
-          __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
-          __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-          __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 184, __pyx_L3_error)
-          __Pyx_GOTREF(__pyx_t_5);
-          __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        }
-        __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 184, __pyx_L3_error)
-        __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_v_self->refresh = __pyx_t_6;
       }
-      __pyx_L9:;
+      #endif
+      {
+        PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_v_refresh};
+        __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_7, 1+__pyx_t_7);
+        __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 189, __pyx_L3_error)
+        __Pyx_GOTREF(__pyx_t_5);
+        __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      }
+      __pyx_t_8 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_8 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 189, __pyx_L3_error)
+      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __pyx_v_self->refresh = __pyx_t_8;
 
-      /* "querysource/parsers/abstract.pyx":179
+      /* "querysource/parsers/abstract.pyx":187
  *     cdef void _query_refresh_sync(self):
- *         cdef object refresh
+ *         cdef object refresh = None
  *         try:             # <<<<<<<<<<<<<<
  *             refresh = self.conditions.pop('refresh', False)
- *             if isinstance(refresh, bool):
+ *             self.refresh = to_flag(refresh)
  */
     }
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -7985,45 +8181,120 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_ref
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-    __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-    __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+    __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-    /* "querysource/parsers/abstract.pyx":185
- *             else:
- *                 self.refresh = strtobool(str(refresh))
- *         except (KeyError, AttributeError, ValueError):             # <<<<<<<<<<<<<<
+    /* "querysource/parsers/abstract.pyx":190
+ *             refresh = self.conditions.pop('refresh', False)
+ *             self.refresh = to_flag(refresh)
+ *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
  *             self.refresh = False
- * 
+ *         except ValueError:
  */
-    __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError) || __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError) || __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
-    if (__pyx_t_10) {
+    __pyx_t_9 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
+    if (__pyx_t_9) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_refresh_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_7) < 0) __PYX_ERR(0, 185, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_6) < 0) __PYX_ERR(0, 190, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_4);
-      __Pyx_XGOTREF(__pyx_t_7);
+      __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/parsers/abstract.pyx":186
- *                 self.refresh = strtobool(str(refresh))
- *         except (KeyError, AttributeError, ValueError):
+      /* "querysource/parsers/abstract.pyx":191
+ *             self.refresh = to_flag(refresh)
+ *         except (KeyError, AttributeError):
+ *             self.refresh = False             # <<<<<<<<<<<<<<
+ *         except ValueError:
+ *             self.logger.warning(
+ */
+      __pyx_v_self->refresh = 0;
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
+      goto __pyx_L4_exception_handled;
+    }
+
+    /* "querysource/parsers/abstract.pyx":192
+ *         except (KeyError, AttributeError):
+ *             self.refresh = False
+ *         except ValueError:             # <<<<<<<<<<<<<<
+ *             self.logger.warning(
+ *                 "Unrecognized 'refresh' condition value %s; treating as False",
+ */
+    __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
+    if (__pyx_t_9) {
+      __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_refresh_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
+      if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_4, &__pyx_t_5) < 0) __PYX_ERR(0, 192, __pyx_L5_except_error)
+      __Pyx_XGOTREF(__pyx_t_6);
+      __Pyx_XGOTREF(__pyx_t_4);
+      __Pyx_XGOTREF(__pyx_t_5);
+
+      /* "querysource/parsers/abstract.pyx":193
+ *             self.refresh = False
+ *         except ValueError:
+ *             self.logger.warning(             # <<<<<<<<<<<<<<
+ *                 "Unrecognized 'refresh' condition value %s; treating as False",
+ *                 repr(refresh)[:64]
+ */
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->logger, __pyx_n_s_warning); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 193, __pyx_L5_except_error)
+      __Pyx_GOTREF(__pyx_t_11);
+
+      /* "querysource/parsers/abstract.pyx":195
+ *             self.logger.warning(
+ *                 "Unrecognized 'refresh' condition value %s; treating as False",
+ *                 repr(refresh)[:64]             # <<<<<<<<<<<<<<
+ *             )
+ *             self.refresh = False
+ */
+      __pyx_t_12 = PyObject_Repr(__pyx_v_refresh); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 195, __pyx_L5_except_error)
+      __Pyx_GOTREF(__pyx_t_12);
+      __pyx_t_13 = __Pyx_PyObject_GetSlice(__pyx_t_12, 0, 64, NULL, NULL, &__pyx_slice__8, 0, 1, 0); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 195, __pyx_L5_except_error)
+      __Pyx_GOTREF(__pyx_t_13);
+      __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+      __pyx_t_12 = NULL;
+      __pyx_t_7 = 0;
+      #if CYTHON_UNPACK_METHODS
+      if (likely(PyMethod_Check(__pyx_t_11))) {
+        __pyx_t_12 = PyMethod_GET_SELF(__pyx_t_11);
+        if (likely(__pyx_t_12)) {
+          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_11);
+          __Pyx_INCREF(__pyx_t_12);
+          __Pyx_INCREF(function);
+          __Pyx_DECREF_SET(__pyx_t_11, function);
+          __pyx_t_7 = 1;
+        }
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[3] = {__pyx_t_12, __pyx_kp_u_Unrecognized_refresh_condition_v, __pyx_t_13};
+        __pyx_t_10 = __Pyx_PyObject_FastCall(__pyx_t_11, __pyx_callargs+1-__pyx_t_7, 2+__pyx_t_7);
+        __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+        __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 193, __pyx_L5_except_error)
+        __Pyx_GOTREF(__pyx_t_10);
+        __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      }
+      __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+
+      /* "querysource/parsers/abstract.pyx":197
+ *                 repr(refresh)[:64]
+ *             )
  *             self.refresh = False             # <<<<<<<<<<<<<<
  * 
  *     cdef void _query_fields_sync(self):
  */
       __pyx_v_self->refresh = 0;
-      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       goto __pyx_L4_exception_handled;
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":179
+    /* "querysource/parsers/abstract.pyx":187
  *     cdef void _query_refresh_sync(self):
- *         cdef object refresh
+ *         cdef object refresh = None
  *         try:             # <<<<<<<<<<<<<<
  *             refresh = self.conditions.pop('refresh', False)
- *             if isinstance(refresh, bool):
+ *             self.refresh = to_flag(refresh)
  */
     __pyx_L5_except_error:;
     __Pyx_XGIVEREF(__pyx_t_1);
@@ -8039,11 +8310,11 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_ref
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":177
+  /* "querysource/parsers/abstract.pyx":185
  *                 self._slug = None
  * 
  *     cdef void _query_refresh_sync(self):             # <<<<<<<<<<<<<<
- *         cdef object refresh
+ *         cdef object refresh = None
  *         try:
  */
 
@@ -8052,15 +8323,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_ref
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
-  __Pyx_XDECREF(__pyx_t_7);
-  __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_10);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_XDECREF(__pyx_t_13);
   __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_refresh_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_refresh);
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":188
+/* "querysource/parsers/abstract.pyx":199
  *             self.refresh = False
  * 
  *     cdef void _query_fields_sync(self):             # <<<<<<<<<<<<<<
@@ -8086,16 +8360,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_query_fields_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":189
+  /* "querysource/parsers/abstract.pyx":200
  * 
  *     cdef void _query_fields_sync(self):
  *         self.fields = self.conditions.pop('fields', [])             # <<<<<<<<<<<<<<
  *         if not self.fields:
  *             try:
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 189, __pyx_L1_error)
+  __pyx_t_3 = PyList_New(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -8116,18 +8390,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 189, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 200, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 189, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 200, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->fields);
   __Pyx_DECREF(__pyx_v_self->fields);
   __pyx_v_self->fields = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":190
+  /* "querysource/parsers/abstract.pyx":201
  *     cdef void _query_fields_sync(self):
  *         self.fields = self.conditions.pop('fields', [])
  *         if not self.fields:             # <<<<<<<<<<<<<<
@@ -8138,7 +8412,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
   __pyx_t_7 = (!__pyx_t_6);
   if (__pyx_t_7) {
 
-    /* "querysource/parsers/abstract.pyx":191
+    /* "querysource/parsers/abstract.pyx":202
  *         self.fields = self.conditions.pop('fields', [])
  *         if not self.fields:
  *             try:             # <<<<<<<<<<<<<<
@@ -8154,23 +8428,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
       __Pyx_XGOTREF(__pyx_t_10);
       /*try:*/ {
 
-        /* "querysource/parsers/abstract.pyx":192
+        /* "querysource/parsers/abstract.pyx":203
  *         if not self.fields:
  *             try:
  *                 self.fields = self.definition.fields             # <<<<<<<<<<<<<<
  *             except AttributeError:
  *                 self.fields = []
  */
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_fields); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 192, __pyx_L4_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_fields); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 203, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 192, __pyx_L4_error)
+        if (!(likely(PyList_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_1))) __PYX_ERR(0, 203, __pyx_L4_error)
         __Pyx_GIVEREF(__pyx_t_1);
         __Pyx_GOTREF(__pyx_v_self->fields);
         __Pyx_DECREF(__pyx_v_self->fields);
         __pyx_v_self->fields = ((PyObject*)__pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "querysource/parsers/abstract.pyx":191
+        /* "querysource/parsers/abstract.pyx":202
  *         self.fields = self.conditions.pop('fields', [])
  *         if not self.fields:
  *             try:             # <<<<<<<<<<<<<<
@@ -8188,7 +8462,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":193
+      /* "querysource/parsers/abstract.pyx":204
  *             try:
  *                 self.fields = self.definition.fields
  *             except AttributeError:             # <<<<<<<<<<<<<<
@@ -8198,19 +8472,19 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
       __pyx_t_11 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError);
       if (__pyx_t_11) {
         __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_fields_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_3) < 0) __PYX_ERR(0, 193, __pyx_L6_except_error)
+        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_2, &__pyx_t_3) < 0) __PYX_ERR(0, 204, __pyx_L6_except_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __Pyx_XGOTREF(__pyx_t_2);
         __Pyx_XGOTREF(__pyx_t_3);
 
-        /* "querysource/parsers/abstract.pyx":194
+        /* "querysource/parsers/abstract.pyx":205
  *                 self.fields = self.definition.fields
  *             except AttributeError:
  *                 self.fields = []             # <<<<<<<<<<<<<<
  * 
  *     cdef void _query_limit_sync(self):
  */
-        __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 194, __pyx_L6_except_error)
+        __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 205, __pyx_L6_except_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_GIVEREF(__pyx_t_4);
         __Pyx_GOTREF(__pyx_v_self->fields);
@@ -8224,7 +8498,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
       }
       goto __pyx_L6_except_error;
 
-      /* "querysource/parsers/abstract.pyx":191
+      /* "querysource/parsers/abstract.pyx":202
  *         self.fields = self.conditions.pop('fields', [])
  *         if not self.fields:
  *             try:             # <<<<<<<<<<<<<<
@@ -8245,7 +8519,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
       __pyx_L9_try_end:;
     }
 
-    /* "querysource/parsers/abstract.pyx":190
+    /* "querysource/parsers/abstract.pyx":201
  *     cdef void _query_fields_sync(self):
  *         self.fields = self.conditions.pop('fields', [])
  *         if not self.fields:             # <<<<<<<<<<<<<<
@@ -8254,7 +8528,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":188
+  /* "querysource/parsers/abstract.pyx":199
  *             self.refresh = False
  * 
  *     cdef void _query_fields_sync(self):             # <<<<<<<<<<<<<<
@@ -8274,7 +8548,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fie
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":196
+/* "querysource/parsers/abstract.pyx":207
  *                 self.fields = []
  * 
  *     cdef void _query_limit_sync(self):             # <<<<<<<<<<<<<<
@@ -8297,7 +8571,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_query_limit_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":197
+  /* "querysource/parsers/abstract.pyx":208
  * 
  *     cdef void _query_limit_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -8313,26 +8587,26 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":198
+      /* "querysource/parsers/abstract.pyx":209
  *     cdef void _query_limit_sync(self):
  *         try:
  *             self.querylimit = int(self.conditions.pop('_limit', 0))             # <<<<<<<<<<<<<<
  *             if not self.querylimit:
  *                 self.querylimit = int(self.conditions.pop('querylimit', 0))
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 198, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__8, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 198, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__9, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 209, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyNumber_Int(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 198, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyNumber_Int(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 209, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 198, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 209, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_v_self->querylimit = __pyx_t_6;
 
-      /* "querysource/parsers/abstract.pyx":199
+      /* "querysource/parsers/abstract.pyx":210
  *         try:
  *             self.querylimit = int(self.conditions.pop('_limit', 0))
  *             if not self.querylimit:             # <<<<<<<<<<<<<<
@@ -8342,26 +8616,26 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
       __pyx_t_7 = (!(__pyx_v_self->querylimit != 0));
       if (__pyx_t_7) {
 
-        /* "querysource/parsers/abstract.pyx":200
+        /* "querysource/parsers/abstract.pyx":211
  *             self.querylimit = int(self.conditions.pop('_limit', 0))
  *             if not self.querylimit:
  *                 self.querylimit = int(self.conditions.pop('querylimit', 0))             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self.querylimit = 0
  */
-        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 200, __pyx_L3_error)
+        __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__9, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L3_error)
+        __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__10, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 211, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_4 = __Pyx_PyNumber_Int(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 200, __pyx_L3_error)
+        __pyx_t_4 = __Pyx_PyNumber_Int(__pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 200, __pyx_L3_error)
+        __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 211, __pyx_L3_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __pyx_v_self->querylimit = __pyx_t_6;
 
-        /* "querysource/parsers/abstract.pyx":199
+        /* "querysource/parsers/abstract.pyx":210
  *         try:
  *             self.querylimit = int(self.conditions.pop('_limit', 0))
  *             if not self.querylimit:             # <<<<<<<<<<<<<<
@@ -8370,7 +8644,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
  */
       }
 
-      /* "querysource/parsers/abstract.pyx":197
+      /* "querysource/parsers/abstract.pyx":208
  * 
  *     cdef void _query_limit_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -8386,7 +8660,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "querysource/parsers/abstract.pyx":201
+    /* "querysource/parsers/abstract.pyx":212
  *             if not self.querylimit:
  *                 self.querylimit = int(self.conditions.pop('querylimit', 0))
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -8396,12 +8670,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
     __pyx_t_6 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_6) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_limit_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 201, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_8) < 0) __PYX_ERR(0, 212, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_8);
 
-      /* "querysource/parsers/abstract.pyx":202
+      /* "querysource/parsers/abstract.pyx":213
  *                 self.querylimit = int(self.conditions.pop('querylimit', 0))
  *         except (KeyError, AttributeError):
  *             self.querylimit = 0             # <<<<<<<<<<<<<<
@@ -8416,7 +8690,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":197
+    /* "querysource/parsers/abstract.pyx":208
  * 
  *     cdef void _query_limit_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -8437,7 +8711,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":196
+  /* "querysource/parsers/abstract.pyx":207
  *                 self.fields = []
  * 
  *     cdef void _query_limit_sync(self):             # <<<<<<<<<<<<<<
@@ -8456,7 +8730,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_lim
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":204
+/* "querysource/parsers/abstract.pyx":215
  *             self.querylimit = 0
  * 
  *     cdef void _offset_pagination_sync(self):             # <<<<<<<<<<<<<<
@@ -8477,12 +8751,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
   PyObject *__pyx_t_8 = NULL;
   unsigned int __pyx_t_9;
   int __pyx_t_10;
+  PyObject *__pyx_t_11 = NULL;
+  PyObject *__pyx_t_12 = NULL;
+  PyObject *__pyx_t_13 = NULL;
+  PyObject *__pyx_t_14 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_offset_pagination_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":206
+  /* "querysource/parsers/abstract.pyx":217
  *     cdef void _offset_pagination_sync(self):
  *         cdef object paged
  *         try:             # <<<<<<<<<<<<<<
@@ -8498,23 +8776,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":207
+      /* "querysource/parsers/abstract.pyx":218
  *         cdef object paged
  *         try:
  *             self._offset = self.conditions.pop('_offset', 0)             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self._offset = 0
  */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 207, __pyx_L3_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 218, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__10, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 207, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__11, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 218, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_6 = __Pyx_PyInt_As_int32_t(__pyx_t_5); if (unlikely((__pyx_t_6 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 207, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyInt_As_int32_t(__pyx_t_5); if (unlikely((__pyx_t_6 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 218, __pyx_L3_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_v_self->_offset = __pyx_t_6;
 
-      /* "querysource/parsers/abstract.pyx":206
+      /* "querysource/parsers/abstract.pyx":217
  *     cdef void _offset_pagination_sync(self):
  *         cdef object paged
  *         try:             # <<<<<<<<<<<<<<
@@ -8530,7 +8808,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-    /* "querysource/parsers/abstract.pyx":208
+    /* "querysource/parsers/abstract.pyx":219
  *         try:
  *             self._offset = self.conditions.pop('_offset', 0)
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -8540,12 +8818,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __pyx_t_7 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_7) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._offset_pagination_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_8) < 0) __PYX_ERR(0, 208, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_4, &__pyx_t_8) < 0) __PYX_ERR(0, 219, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_8);
 
-      /* "querysource/parsers/abstract.pyx":209
+      /* "querysource/parsers/abstract.pyx":220
  *             self._offset = self.conditions.pop('_offset', 0)
  *         except (KeyError, AttributeError):
  *             self._offset = 0             # <<<<<<<<<<<<<<
@@ -8560,7 +8838,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":206
+    /* "querysource/parsers/abstract.pyx":217
  *     cdef void _offset_pagination_sync(self):
  *         cdef object paged
  *         try:             # <<<<<<<<<<<<<<
@@ -8581,12 +8859,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":210
+  /* "querysource/parsers/abstract.pyx":221
  *         except (KeyError, AttributeError):
  *             self._offset = 0
  *         try:             # <<<<<<<<<<<<<<
  *             paged = self.conditions.pop('paged', False)
- *             if is_boolean(paged):
+ *             self._paged = to_flag(paged)
  */
   {
     __Pyx_PyThreadState_declare
@@ -8597,29 +8875,29 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __Pyx_XGOTREF(__pyx_t_1);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":211
+      /* "querysource/parsers/abstract.pyx":222
  *             self._offset = 0
  *         try:
  *             paged = self.conditions.pop('paged', False)             # <<<<<<<<<<<<<<
- *             if is_boolean(paged):
- *                 self._paged = paged
+ *             self._paged = to_flag(paged)
+ *         except (KeyError, AttributeError):
  */
-      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 211, __pyx_L11_error)
+      __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 222, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_tuple__11, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 211, __pyx_L11_error)
+      __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_8, __pyx_tuple__12, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 222, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_v_paged = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":212
+      /* "querysource/parsers/abstract.pyx":223
  *         try:
  *             paged = self.conditions.pop('paged', False)
- *             if is_boolean(paged):             # <<<<<<<<<<<<<<
- *                 self._paged = paged
- *             elif isinstance(paged, str):
+ *             self._paged = to_flag(paged)             # <<<<<<<<<<<<<<
+ *         except (KeyError, AttributeError):
+ *             self._paged = False
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_is_boolean); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 212, __pyx_L11_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_to_flag); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 223, __pyx_L11_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_t_5 = NULL;
       __pyx_t_9 = 0;
@@ -8639,107 +8917,20 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
         PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_paged};
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 212, __pyx_L11_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 223, __pyx_L11_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       }
-      __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 212, __pyx_L11_error)
+      __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 223, __pyx_L11_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (__pyx_t_10) {
+      __pyx_v_self->_paged = __pyx_t_10;
 
-        /* "querysource/parsers/abstract.pyx":213
- *             paged = self.conditions.pop('paged', False)
- *             if is_boolean(paged):
- *                 self._paged = paged             # <<<<<<<<<<<<<<
- *             elif isinstance(paged, str):
- *                 self._paged = strtobool(paged)
- */
-        __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_paged); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 213, __pyx_L11_error)
-        __pyx_v_self->_paged = __pyx_t_10;
-
-        /* "querysource/parsers/abstract.pyx":212
- *         try:
- *             paged = self.conditions.pop('paged', False)
- *             if is_boolean(paged):             # <<<<<<<<<<<<<<
- *                 self._paged = paged
- *             elif isinstance(paged, str):
- */
-        goto __pyx_L17;
-      }
-
-      /* "querysource/parsers/abstract.pyx":214
- *             if is_boolean(paged):
- *                 self._paged = paged
- *             elif isinstance(paged, str):             # <<<<<<<<<<<<<<
- *                 self._paged = strtobool(paged)
- *             else:
- */
-      __pyx_t_10 = PyUnicode_Check(__pyx_v_paged); 
-      if (__pyx_t_10) {
-
-        /* "querysource/parsers/abstract.pyx":215
- *                 self._paged = paged
- *             elif isinstance(paged, str):
- *                 self._paged = strtobool(paged)             # <<<<<<<<<<<<<<
- *             else:
- *                 self._paged = False
- */
-        __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_strtobool); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 215, __pyx_L11_error)
-        __Pyx_GOTREF(__pyx_t_8);
-        __pyx_t_5 = NULL;
-        __pyx_t_9 = 0;
-        #if CYTHON_UNPACK_METHODS
-        if (unlikely(PyMethod_Check(__pyx_t_8))) {
-          __pyx_t_5 = PyMethod_GET_SELF(__pyx_t_8);
-          if (likely(__pyx_t_5)) {
-            PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_8);
-            __Pyx_INCREF(__pyx_t_5);
-            __Pyx_INCREF(function);
-            __Pyx_DECREF_SET(__pyx_t_8, function);
-            __pyx_t_9 = 1;
-          }
-        }
-        #endif
-        {
-          PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_paged};
-          __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_9, 1+__pyx_t_9);
-          __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 215, __pyx_L11_error)
-          __Pyx_GOTREF(__pyx_t_4);
-          __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        }
-        __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 215, __pyx_L11_error)
-        __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_v_self->_paged = __pyx_t_10;
-
-        /* "querysource/parsers/abstract.pyx":214
- *             if is_boolean(paged):
- *                 self._paged = paged
- *             elif isinstance(paged, str):             # <<<<<<<<<<<<<<
- *                 self._paged = strtobool(paged)
- *             else:
- */
-        goto __pyx_L17;
-      }
-
-      /* "querysource/parsers/abstract.pyx":217
- *                 self._paged = strtobool(paged)
- *             else:
- *                 self._paged = False             # <<<<<<<<<<<<<<
- *         except (KeyError, AttributeError):
- *             self._paged = False
- */
-      /*else*/ {
-        __pyx_v_self->_paged = 0;
-      }
-      __pyx_L17:;
-
-      /* "querysource/parsers/abstract.pyx":210
+      /* "querysource/parsers/abstract.pyx":221
  *         except (KeyError, AttributeError):
  *             self._offset = 0
  *         try:             # <<<<<<<<<<<<<<
  *             paged = self.conditions.pop('paged', False)
- *             if is_boolean(paged):
+ *             self._paged = to_flag(paged)
  */
     }
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -8751,27 +8942,27 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "querysource/parsers/abstract.pyx":218
- *             else:
- *                 self._paged = False
+    /* "querysource/parsers/abstract.pyx":224
+ *             paged = self.conditions.pop('paged', False)
+ *             self._paged = to_flag(paged)
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
  *             self._paged = False
- *         try:
+ *         except ValueError:
  */
     __pyx_t_7 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_7) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._offset_pagination_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 218, __pyx_L13_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 224, __pyx_L13_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_8);
       __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "querysource/parsers/abstract.pyx":219
- *                 self._paged = False
+      /* "querysource/parsers/abstract.pyx":225
+ *             self._paged = to_flag(paged)
  *         except (KeyError, AttributeError):
  *             self._paged = False             # <<<<<<<<<<<<<<
- *         try:
- *             self._page_ = self.conditions.pop('page', 0)
+ *         except ValueError:
+ *             self.logger.warning(
  */
       __pyx_v_self->_paged = 0;
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -8779,14 +8970,91 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       goto __pyx_L12_exception_handled;
     }
+
+    /* "querysource/parsers/abstract.pyx":226
+ *         except (KeyError, AttributeError):
+ *             self._paged = False
+ *         except ValueError:             # <<<<<<<<<<<<<<
+ *             self.logger.warning(
+ *                 "Unrecognized 'paged' condition value %s; treating as False",
+ */
+    __pyx_t_7 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_ValueError);
+    if (__pyx_t_7) {
+      __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._offset_pagination_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
+      if (__Pyx_GetException(&__pyx_t_5, &__pyx_t_8, &__pyx_t_4) < 0) __PYX_ERR(0, 226, __pyx_L13_except_error)
+      __Pyx_XGOTREF(__pyx_t_5);
+      __Pyx_XGOTREF(__pyx_t_8);
+      __Pyx_XGOTREF(__pyx_t_4);
+
+      /* "querysource/parsers/abstract.pyx":227
+ *             self._paged = False
+ *         except ValueError:
+ *             self.logger.warning(             # <<<<<<<<<<<<<<
+ *                 "Unrecognized 'paged' condition value %s; treating as False",
+ *                 repr(paged)[:64]
+ */
+      __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->logger, __pyx_n_s_warning); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 227, __pyx_L13_except_error)
+      __Pyx_GOTREF(__pyx_t_12);
+
+      /* "querysource/parsers/abstract.pyx":229
+ *             self.logger.warning(
+ *                 "Unrecognized 'paged' condition value %s; treating as False",
+ *                 repr(paged)[:64]             # <<<<<<<<<<<<<<
+ *             )
+ *             self._paged = False
+ */
+      if (unlikely(!__pyx_v_paged)) { __Pyx_RaiseUnboundLocalError("paged"); __PYX_ERR(0, 229, __pyx_L13_except_error) }
+      __pyx_t_13 = PyObject_Repr(__pyx_v_paged); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 229, __pyx_L13_except_error)
+      __Pyx_GOTREF(__pyx_t_13);
+      __pyx_t_14 = __Pyx_PyObject_GetSlice(__pyx_t_13, 0, 64, NULL, NULL, &__pyx_slice__8, 0, 1, 0); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 229, __pyx_L13_except_error)
+      __Pyx_GOTREF(__pyx_t_14);
+      __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
+      __pyx_t_13 = NULL;
+      __pyx_t_9 = 0;
+      #if CYTHON_UNPACK_METHODS
+      if (likely(PyMethod_Check(__pyx_t_12))) {
+        __pyx_t_13 = PyMethod_GET_SELF(__pyx_t_12);
+        if (likely(__pyx_t_13)) {
+          PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_12);
+          __Pyx_INCREF(__pyx_t_13);
+          __Pyx_INCREF(function);
+          __Pyx_DECREF_SET(__pyx_t_12, function);
+          __pyx_t_9 = 1;
+        }
+      }
+      #endif
+      {
+        PyObject *__pyx_callargs[3] = {__pyx_t_13, __pyx_kp_u_Unrecognized_paged_condition_val, __pyx_t_14};
+        __pyx_t_11 = __Pyx_PyObject_FastCall(__pyx_t_12, __pyx_callargs+1-__pyx_t_9, 2+__pyx_t_9);
+        __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
+        __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
+        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 227, __pyx_L13_except_error)
+        __Pyx_GOTREF(__pyx_t_11);
+        __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
+      }
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+
+      /* "querysource/parsers/abstract.pyx":231
+ *                 repr(paged)[:64]
+ *             )
+ *             self._paged = False             # <<<<<<<<<<<<<<
+ *         try:
+ *             self._page_ = self.conditions.pop('page', 0)
+ */
+      __pyx_v_self->_paged = 0;
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
+      __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
+      goto __pyx_L12_exception_handled;
+    }
     goto __pyx_L13_except_error;
 
-    /* "querysource/parsers/abstract.pyx":210
+    /* "querysource/parsers/abstract.pyx":221
  *         except (KeyError, AttributeError):
  *             self._offset = 0
  *         try:             # <<<<<<<<<<<<<<
  *             paged = self.conditions.pop('paged', False)
- *             if is_boolean(paged):
+ *             self._paged = to_flag(paged)
  */
     __pyx_L13_except_error:;
     __Pyx_XGIVEREF(__pyx_t_3);
@@ -8802,8 +9070,8 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __pyx_L16_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":220
- *         except (KeyError, AttributeError):
+  /* "querysource/parsers/abstract.pyx":232
+ *             )
  *             self._paged = False
  *         try:             # <<<<<<<<<<<<<<
  *             self._page_ = self.conditions.pop('page', 0)
@@ -8818,24 +9086,24 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":221
+      /* "querysource/parsers/abstract.pyx":233
  *             self._paged = False
  *         try:
  *             self._page_ = self.conditions.pop('page', 0)             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self._page_ = 0
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 221, __pyx_L20_error)
-      __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_tuple__12, NULL); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 221, __pyx_L20_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 233, __pyx_L21_error)
+      __Pyx_GOTREF(__pyx_t_4);
+      __pyx_t_8 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__13, NULL); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 233, __pyx_L21_error)
       __Pyx_GOTREF(__pyx_t_8);
-      __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_6 = __Pyx_PyInt_As_int32_t(__pyx_t_8); if (unlikely((__pyx_t_6 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 221, __pyx_L20_error)
+      __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+      __pyx_t_6 = __Pyx_PyInt_As_int32_t(__pyx_t_8); if (unlikely((__pyx_t_6 == ((int32_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 233, __pyx_L21_error)
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_v_self->_page_ = __pyx_t_6;
 
-      /* "querysource/parsers/abstract.pyx":220
- *         except (KeyError, AttributeError):
+      /* "querysource/parsers/abstract.pyx":232
+ *             )
  *             self._paged = False
  *         try:             # <<<<<<<<<<<<<<
  *             self._page_ = self.conditions.pop('page', 0)
@@ -8845,13 +9113,17 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    goto __pyx_L25_try_end;
-    __pyx_L20_error:;
+    goto __pyx_L26_try_end;
+    __pyx_L21_error:;
+    __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+    __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
+    __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
+    __Pyx_XDECREF(__pyx_t_14); __pyx_t_14 = 0;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "querysource/parsers/abstract.pyx":222
+    /* "querysource/parsers/abstract.pyx":234
  *         try:
  *             self._page_ = self.conditions.pop('page', 0)
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -8861,12 +9133,12 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
     __pyx_t_7 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_7) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._offset_pagination_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_8, &__pyx_t_5, &__pyx_t_4) < 0) __PYX_ERR(0, 222, __pyx_L22_except_error)
+      if (__Pyx_GetException(&__pyx_t_8, &__pyx_t_4, &__pyx_t_5) < 0) __PYX_ERR(0, 234, __pyx_L23_except_error)
       __Pyx_XGOTREF(__pyx_t_8);
-      __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_4);
+      __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "querysource/parsers/abstract.pyx":223
+      /* "querysource/parsers/abstract.pyx":235
  *             self._page_ = self.conditions.pop('page', 0)
  *         except (KeyError, AttributeError):
  *             self._page_ = 0             # <<<<<<<<<<<<<<
@@ -8875,34 +9147,34 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
  */
       __pyx_v_self->_page_ = 0;
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      goto __pyx_L21_exception_handled;
+      __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
+      goto __pyx_L22_exception_handled;
     }
-    goto __pyx_L22_except_error;
+    goto __pyx_L23_except_error;
 
-    /* "querysource/parsers/abstract.pyx":220
- *         except (KeyError, AttributeError):
+    /* "querysource/parsers/abstract.pyx":232
+ *             )
  *             self._paged = False
  *         try:             # <<<<<<<<<<<<<<
  *             self._page_ = self.conditions.pop('page', 0)
  *         except (KeyError, AttributeError):
  */
-    __pyx_L22_except_error:;
+    __pyx_L23_except_error:;
     __Pyx_XGIVEREF(__pyx_t_1);
     __Pyx_XGIVEREF(__pyx_t_2);
     __Pyx_XGIVEREF(__pyx_t_3);
     __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
     goto __pyx_L1_error;
-    __pyx_L21_exception_handled:;
+    __pyx_L22_exception_handled:;
     __Pyx_XGIVEREF(__pyx_t_1);
     __Pyx_XGIVEREF(__pyx_t_2);
     __Pyx_XGIVEREF(__pyx_t_3);
     __Pyx_ExceptionReset(__pyx_t_1, __pyx_t_2, __pyx_t_3);
-    __pyx_L25_try_end:;
+    __pyx_L26_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":204
+  /* "querysource/parsers/abstract.pyx":215
  *             self.querylimit = 0
  * 
  *     cdef void _offset_pagination_sync(self):             # <<<<<<<<<<<<<<
@@ -8916,13 +9188,17 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__offset_pa
   __Pyx_XDECREF(__pyx_t_4);
   __Pyx_XDECREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_8);
+  __Pyx_XDECREF(__pyx_t_11);
+  __Pyx_XDECREF(__pyx_t_12);
+  __Pyx_XDECREF(__pyx_t_13);
+  __Pyx_XDECREF(__pyx_t_14);
   __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._offset_pagination_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
   __Pyx_XDECREF(__pyx_v_paged);
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":225
+/* "querysource/parsers/abstract.pyx":237
  *             self._page_ = 0
  * 
  *     cdef void _grouping_sync(self):             # <<<<<<<<<<<<<<
@@ -8955,31 +9231,31 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_grouping_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":226
+  /* "querysource/parsers/abstract.pyx":238
  * 
  *     cdef void _grouping_sync(self):
  *         cdef object group1 = []             # <<<<<<<<<<<<<<
  *         cdef object group2 = []
  *         try:
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 226, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 238, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_group1 = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":227
+  /* "querysource/parsers/abstract.pyx":239
  *     cdef void _grouping_sync(self):
  *         cdef object group1 = []
  *         cdef object group2 = []             # <<<<<<<<<<<<<<
  *         try:
  *             group1 = self.conditions.pop('group_by', [])
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 227, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_group2 = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":228
+  /* "querysource/parsers/abstract.pyx":240
  *         cdef object group1 = []
  *         cdef object group2 = []
  *         try:             # <<<<<<<<<<<<<<
@@ -8995,16 +9271,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":229
+      /* "querysource/parsers/abstract.pyx":241
  *         cdef object group2 = []
  *         try:
  *             group1 = self.conditions.pop('group_by', [])             # <<<<<<<<<<<<<<
  *         except AttributeError:
  *             pass
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 229, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 241, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 229, __pyx_L3_error)
+      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 241, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9025,14 +9301,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 229, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 241, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_group1, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":228
+      /* "querysource/parsers/abstract.pyx":240
  *         cdef object group1 = []
  *         cdef object group2 = []
  *         try:             # <<<<<<<<<<<<<<
@@ -9050,7 +9326,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":230
+    /* "querysource/parsers/abstract.pyx":242
  *         try:
  *             group1 = self.conditions.pop('group_by', [])
  *         except AttributeError:             # <<<<<<<<<<<<<<
@@ -9064,7 +9340,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":228
+    /* "querysource/parsers/abstract.pyx":240
  *         cdef object group1 = []
  *         cdef object group2 = []
  *         try:             # <<<<<<<<<<<<<<
@@ -9085,7 +9361,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":232
+  /* "querysource/parsers/abstract.pyx":244
  *         except AttributeError:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -9101,16 +9377,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __Pyx_XGOTREF(__pyx_t_2);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":233
+      /* "querysource/parsers/abstract.pyx":245
  *             pass
  *         try:
  *             group2 = self.conditions.pop('grouping', [])             # <<<<<<<<<<<<<<
  *         except AttributeError:
  *             pass
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 233, __pyx_L9_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 245, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 233, __pyx_L9_error)
+      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 245, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9131,14 +9407,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 233, __pyx_L9_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 245, __pyx_L9_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_group2, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":232
+      /* "querysource/parsers/abstract.pyx":244
  *         except AttributeError:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -9156,7 +9432,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":234
+    /* "querysource/parsers/abstract.pyx":246
  *         try:
  *             group2 = self.conditions.pop('grouping', [])
  *         except AttributeError:             # <<<<<<<<<<<<<<
@@ -9170,7 +9446,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     }
     goto __pyx_L11_except_error;
 
-    /* "querysource/parsers/abstract.pyx":232
+    /* "querysource/parsers/abstract.pyx":244
  *         except AttributeError:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -9191,7 +9467,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __pyx_L14_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":236
+  /* "querysource/parsers/abstract.pyx":248
  *         except AttributeError:
  *             pass
  *         if isinstance(group1, str):             # <<<<<<<<<<<<<<
@@ -9201,7 +9477,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
   __pyx_t_10 = PyUnicode_Check(__pyx_v_group1); 
   if (__pyx_t_10) {
 
-    /* "querysource/parsers/abstract.pyx":237
+    /* "querysource/parsers/abstract.pyx":249
  *             pass
  *         if isinstance(group1, str):
  *             group1 = [a.strip() for a in group1.split(',')]             # <<<<<<<<<<<<<<
@@ -9209,9 +9485,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
  *             group2 = [a.strip() for a in group2.split(',')]
  */
     { /* enter inner scope */
-      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 237, __pyx_L18_error)
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L18_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_group1, __pyx_n_s_split); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 237, __pyx_L18_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_group1, __pyx_n_s_split); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 249, __pyx_L18_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9228,10 +9504,10 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__13};
+        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__14};
         __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 237, __pyx_L18_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 249, __pyx_L18_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
@@ -9240,9 +9516,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
         __pyx_t_11 = 0;
         __pyx_t_12 = NULL;
       } else {
-        __pyx_t_11 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 237, __pyx_L18_error)
+        __pyx_t_11 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 249, __pyx_L18_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 237, __pyx_L18_error)
+        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 249, __pyx_L18_error)
       }
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       for (;;) {
@@ -9251,28 +9527,28 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 237, __pyx_L18_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 249, __pyx_L18_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_5 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 237, __pyx_L18_error)
+            __pyx_t_5 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 249, __pyx_L18_error)
             #else
-            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 237, __pyx_L18_error)
+            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 249, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_5);
             #endif
           } else {
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 237, __pyx_L18_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 249, __pyx_L18_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 237, __pyx_L18_error)
+            __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 249, __pyx_L18_error)
             #else
-            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 237, __pyx_L18_error)
+            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 249, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_5);
             #endif
           }
@@ -9282,7 +9558,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
               if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-              else __PYX_ERR(0, 237, __pyx_L18_error)
+              else __PYX_ERR(0, 249, __pyx_L18_error)
             }
             break;
           }
@@ -9290,7 +9566,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
         }
         __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_a, __pyx_t_5);
         __pyx_t_5 = 0;
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 237, __pyx_L18_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_7genexpr__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 249, __pyx_L18_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_13 = NULL;
         __pyx_t_8 = 0;
@@ -9310,11 +9586,11 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
           PyObject *__pyx_callargs[2] = {__pyx_t_13, NULL};
           __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_8, 0+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 237, __pyx_L18_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 249, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_5);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 237, __pyx_L18_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 249, __pyx_L18_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -9328,7 +9604,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __Pyx_DECREF_SET(__pyx_v_group1, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":236
+    /* "querysource/parsers/abstract.pyx":248
  *         except AttributeError:
  *             pass
  *         if isinstance(group1, str):             # <<<<<<<<<<<<<<
@@ -9337,7 +9613,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":238
+  /* "querysource/parsers/abstract.pyx":250
  *         if isinstance(group1, str):
  *             group1 = [a.strip() for a in group1.split(',')]
  *         if isinstance(group2, str):             # <<<<<<<<<<<<<<
@@ -9347,7 +9623,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
   __pyx_t_10 = PyUnicode_Check(__pyx_v_group2); 
   if (__pyx_t_10) {
 
-    /* "querysource/parsers/abstract.pyx":239
+    /* "querysource/parsers/abstract.pyx":251
  *             group1 = [a.strip() for a in group1.split(',')]
  *         if isinstance(group2, str):
  *             group2 = [a.strip() for a in group2.split(',')]             # <<<<<<<<<<<<<<
@@ -9355,9 +9631,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
  *         if not self.grouping:
  */
     { /* enter inner scope */
-      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 239, __pyx_L26_error)
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L26_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_group2, __pyx_n_s_split); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 239, __pyx_L26_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_group2, __pyx_n_s_split); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 251, __pyx_L26_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9374,10 +9650,10 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__13};
+        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__14};
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 239, __pyx_L26_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L26_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
@@ -9386,9 +9662,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
         __pyx_t_11 = 0;
         __pyx_t_12 = NULL;
       } else {
-        __pyx_t_11 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 239, __pyx_L26_error)
+        __pyx_t_11 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 251, __pyx_L26_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 239, __pyx_L26_error)
+        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 251, __pyx_L26_error)
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
@@ -9397,28 +9673,28 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 239, __pyx_L26_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 251, __pyx_L26_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_6 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 239, __pyx_L26_error)
+            __pyx_t_6 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 251, __pyx_L26_error)
             #else
-            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 239, __pyx_L26_error)
+            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L26_error)
             __Pyx_GOTREF(__pyx_t_6);
             #endif
           } else {
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_5);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 239, __pyx_L26_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 251, __pyx_L26_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 239, __pyx_L26_error)
+            __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 251, __pyx_L26_error)
             #else
-            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 239, __pyx_L26_error)
+            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L26_error)
             __Pyx_GOTREF(__pyx_t_6);
             #endif
           }
@@ -9428,7 +9704,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
               if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-              else __PYX_ERR(0, 239, __pyx_L26_error)
+              else __PYX_ERR(0, 251, __pyx_L26_error)
             }
             break;
           }
@@ -9436,7 +9712,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
         }
         __Pyx_XDECREF_SET(__pyx_8genexpr1__pyx_v_a, __pyx_t_6);
         __pyx_t_6 = 0;
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 239, __pyx_L26_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr1__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 251, __pyx_L26_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_13 = NULL;
         __pyx_t_8 = 0;
@@ -9456,11 +9732,11 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
           PyObject *__pyx_callargs[2] = {__pyx_t_13, NULL};
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_8, 0+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 239, __pyx_L26_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L26_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 239, __pyx_L26_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 251, __pyx_L26_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -9474,7 +9750,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
     __Pyx_DECREF_SET(__pyx_v_group2, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":238
+    /* "querysource/parsers/abstract.pyx":250
  *         if isinstance(group1, str):
  *             group1 = [a.strip() for a in group1.split(',')]
  *         if isinstance(group2, str):             # <<<<<<<<<<<<<<
@@ -9483,51 +9759,51 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":240
+  /* "querysource/parsers/abstract.pyx":252
  *         if isinstance(group2, str):
  *             group2 = [a.strip() for a in group2.split(',')]
  *         self.grouping = (group1 or []) + (group2 or [])             # <<<<<<<<<<<<<<
  *         if not self.grouping:
  *             try:
  */
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_group1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_group1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 252, __pyx_L1_error)
   if (!__pyx_t_10) {
   } else {
     __Pyx_INCREF(__pyx_v_group1);
     __pyx_t_1 = __pyx_v_group1;
     goto __pyx_L31_bool_binop_done;
   }
-  __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_INCREF(__pyx_t_5);
   __pyx_t_1 = __pyx_t_5;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_L31_bool_binop_done:;
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_group2); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_group2); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 252, __pyx_L1_error)
   if (!__pyx_t_10) {
   } else {
     __Pyx_INCREF(__pyx_v_group2);
     __pyx_t_5 = __pyx_v_group2;
     goto __pyx_L33_bool_binop_done;
   }
-  __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(__pyx_t_6);
   __pyx_t_5 = __pyx_t_6;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_L33_bool_binop_done:;
-  __pyx_t_6 = PyNumber_Add(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 240, __pyx_L1_error)
+  __pyx_t_6 = PyNumber_Add(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 240, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 252, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_6);
   __Pyx_GOTREF(__pyx_v_self->grouping);
   __Pyx_DECREF(__pyx_v_self->grouping);
   __pyx_v_self->grouping = ((PyObject*)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "querysource/parsers/abstract.pyx":241
+  /* "querysource/parsers/abstract.pyx":253
  *             group2 = [a.strip() for a in group2.split(',')]
  *         self.grouping = (group1 or []) + (group2 or [])
  *         if not self.grouping:             # <<<<<<<<<<<<<<
@@ -9538,7 +9814,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
   __pyx_t_14 = (!__pyx_t_10);
   if (__pyx_t_14) {
 
-    /* "querysource/parsers/abstract.pyx":242
+    /* "querysource/parsers/abstract.pyx":254
  *         self.grouping = (group1 or []) + (group2 or [])
  *         if not self.grouping:
  *             try:             # <<<<<<<<<<<<<<
@@ -9554,23 +9830,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "querysource/parsers/abstract.pyx":243
+        /* "querysource/parsers/abstract.pyx":255
  *         if not self.grouping:
  *             try:
  *                 self.grouping = self.definition.grouping             # <<<<<<<<<<<<<<
  *             except AttributeError:
  *                 self.grouping = []
  */
-        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_grouping); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 243, __pyx_L36_error)
+        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_grouping); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 255, __pyx_L36_error)
         __Pyx_GOTREF(__pyx_t_6);
-        if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 243, __pyx_L36_error)
+        if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 255, __pyx_L36_error)
         __Pyx_GIVEREF(__pyx_t_6);
         __Pyx_GOTREF(__pyx_v_self->grouping);
         __Pyx_DECREF(__pyx_v_self->grouping);
         __pyx_v_self->grouping = ((PyObject*)__pyx_t_6);
         __pyx_t_6 = 0;
 
-        /* "querysource/parsers/abstract.pyx":242
+        /* "querysource/parsers/abstract.pyx":254
  *         self.grouping = (group1 or []) + (group2 or [])
  *         if not self.grouping:
  *             try:             # <<<<<<<<<<<<<<
@@ -9589,7 +9865,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "querysource/parsers/abstract.pyx":244
+      /* "querysource/parsers/abstract.pyx":256
  *             try:
  *                 self.grouping = self.definition.grouping
  *             except AttributeError:             # <<<<<<<<<<<<<<
@@ -9599,19 +9875,19 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       __pyx_t_9 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError);
       if (__pyx_t_9) {
         __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._grouping_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_1) < 0) __PYX_ERR(0, 244, __pyx_L38_except_error)
+        if (__Pyx_GetException(&__pyx_t_6, &__pyx_t_5, &__pyx_t_1) < 0) __PYX_ERR(0, 256, __pyx_L38_except_error)
         __Pyx_XGOTREF(__pyx_t_6);
         __Pyx_XGOTREF(__pyx_t_5);
         __Pyx_XGOTREF(__pyx_t_1);
 
-        /* "querysource/parsers/abstract.pyx":245
+        /* "querysource/parsers/abstract.pyx":257
  *                 self.grouping = self.definition.grouping
  *             except AttributeError:
  *                 self.grouping = []             # <<<<<<<<<<<<<<
  * 
  *     cdef void _ordering_sync(self):
  */
-        __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 245, __pyx_L38_except_error)
+        __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 257, __pyx_L38_except_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_GIVEREF(__pyx_t_7);
         __Pyx_GOTREF(__pyx_v_self->grouping);
@@ -9625,7 +9901,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       }
       goto __pyx_L38_except_error;
 
-      /* "querysource/parsers/abstract.pyx":242
+      /* "querysource/parsers/abstract.pyx":254
  *         self.grouping = (group1 or []) + (group2 or [])
  *         if not self.grouping:
  *             try:             # <<<<<<<<<<<<<<
@@ -9646,7 +9922,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
       __pyx_L41_try_end:;
     }
 
-    /* "querysource/parsers/abstract.pyx":241
+    /* "querysource/parsers/abstract.pyx":253
  *             group2 = [a.strip() for a in group2.split(',')]
  *         self.grouping = (group1 or []) + (group2 or [])
  *         if not self.grouping:             # <<<<<<<<<<<<<<
@@ -9655,7 +9931,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":225
+  /* "querysource/parsers/abstract.pyx":237
  *             self._page_ = 0
  * 
  *     cdef void _grouping_sync(self):             # <<<<<<<<<<<<<<
@@ -9680,7 +9956,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__grouping_
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":247
+/* "querysource/parsers/abstract.pyx":259
  *                 self.grouping = []
  * 
  *     cdef void _ordering_sync(self):             # <<<<<<<<<<<<<<
@@ -9713,31 +9989,31 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_ordering_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":248
+  /* "querysource/parsers/abstract.pyx":260
  * 
  *     cdef void _ordering_sync(self):
  *         cdef object order1 = []             # <<<<<<<<<<<<<<
  *         cdef object order2 = []
  *         try:
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 248, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 260, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_order1 = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":249
+  /* "querysource/parsers/abstract.pyx":261
  *     cdef void _ordering_sync(self):
  *         cdef object order1 = []
  *         cdef object order2 = []             # <<<<<<<<<<<<<<
  *         try:
  *             order1 = self.conditions.pop('order_by', [])
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 249, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_order2 = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":250
+  /* "querysource/parsers/abstract.pyx":262
  *         cdef object order1 = []
  *         cdef object order2 = []
  *         try:             # <<<<<<<<<<<<<<
@@ -9753,16 +10029,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":251
+      /* "querysource/parsers/abstract.pyx":263
  *         cdef object order2 = []
  *         try:
  *             order1 = self.conditions.pop('order_by', [])             # <<<<<<<<<<<<<<
  *         except AttributeError:
  *             pass
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 251, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 263, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 251, __pyx_L3_error)
+      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 263, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9783,14 +10059,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 251, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 263, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_order1, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":250
+      /* "querysource/parsers/abstract.pyx":262
  *         cdef object order1 = []
  *         cdef object order2 = []
  *         try:             # <<<<<<<<<<<<<<
@@ -9808,7 +10084,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":252
+    /* "querysource/parsers/abstract.pyx":264
  *         try:
  *             order1 = self.conditions.pop('order_by', [])
  *         except AttributeError:             # <<<<<<<<<<<<<<
@@ -9822,7 +10098,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":250
+    /* "querysource/parsers/abstract.pyx":262
  *         cdef object order1 = []
  *         cdef object order2 = []
  *         try:             # <<<<<<<<<<<<<<
@@ -9843,7 +10119,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":254
+  /* "querysource/parsers/abstract.pyx":266
  *         except AttributeError:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -9859,16 +10135,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __Pyx_XGOTREF(__pyx_t_2);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":255
+      /* "querysource/parsers/abstract.pyx":267
  *             pass
  *         try:
  *             order2 = self.conditions.pop('ordering', [])             # <<<<<<<<<<<<<<
  *         except AttributeError:
  *             pass
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 255, __pyx_L9_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 267, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 255, __pyx_L9_error)
+      __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 267, __pyx_L9_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9889,14 +10165,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 255, __pyx_L9_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 267, __pyx_L9_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_order2, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":254
+      /* "querysource/parsers/abstract.pyx":266
  *         except AttributeError:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -9914,7 +10190,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":256
+    /* "querysource/parsers/abstract.pyx":268
  *         try:
  *             order2 = self.conditions.pop('ordering', [])
  *         except AttributeError:             # <<<<<<<<<<<<<<
@@ -9928,7 +10204,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     }
     goto __pyx_L11_except_error;
 
-    /* "querysource/parsers/abstract.pyx":254
+    /* "querysource/parsers/abstract.pyx":266
  *         except AttributeError:
  *             pass
  *         try:             # <<<<<<<<<<<<<<
@@ -9949,7 +10225,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __pyx_L14_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":258
+  /* "querysource/parsers/abstract.pyx":270
  *         except AttributeError:
  *             pass
  *         if isinstance(order1, str):             # <<<<<<<<<<<<<<
@@ -9959,7 +10235,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
   __pyx_t_10 = PyUnicode_Check(__pyx_v_order1); 
   if (__pyx_t_10) {
 
-    /* "querysource/parsers/abstract.pyx":259
+    /* "querysource/parsers/abstract.pyx":271
  *             pass
  *         if isinstance(order1, str):
  *             order1 = [a.strip() for a in order1.split(',')]             # <<<<<<<<<<<<<<
@@ -9967,9 +10243,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
  *             order2 = [a.strip() for a in order2.split(',')]
  */
     { /* enter inner scope */
-      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 259, __pyx_L18_error)
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 271, __pyx_L18_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_order1, __pyx_n_s_split); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 259, __pyx_L18_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_order1, __pyx_n_s_split); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 271, __pyx_L18_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -9986,10 +10262,10 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__13};
+        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__14};
         __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L18_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 271, __pyx_L18_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
@@ -9998,9 +10274,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
         __pyx_t_11 = 0;
         __pyx_t_12 = NULL;
       } else {
-        __pyx_t_11 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 259, __pyx_L18_error)
+        __pyx_t_11 = -1; __pyx_t_6 = PyObject_GetIter(__pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 271, __pyx_L18_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 259, __pyx_L18_error)
+        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_6); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 271, __pyx_L18_error)
       }
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       for (;;) {
@@ -10009,28 +10285,28 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_6);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 259, __pyx_L18_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 271, __pyx_L18_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_5 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 259, __pyx_L18_error)
+            __pyx_t_5 = PyList_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 271, __pyx_L18_error)
             #else
-            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L18_error)
+            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 271, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_5);
             #endif
           } else {
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_6);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 259, __pyx_L18_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 271, __pyx_L18_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 259, __pyx_L18_error)
+            __pyx_t_5 = PyTuple_GET_ITEM(__pyx_t_6, __pyx_t_11); __Pyx_INCREF(__pyx_t_5); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 271, __pyx_L18_error)
             #else
-            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L18_error)
+            __pyx_t_5 = __Pyx_PySequence_ITEM(__pyx_t_6, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 271, __pyx_L18_error)
             __Pyx_GOTREF(__pyx_t_5);
             #endif
           }
@@ -10040,7 +10316,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
               if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-              else __PYX_ERR(0, 259, __pyx_L18_error)
+              else __PYX_ERR(0, 271, __pyx_L18_error)
             }
             break;
           }
@@ -10048,7 +10324,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
         }
         __Pyx_XDECREF_SET(__pyx_8genexpr2__pyx_v_a, __pyx_t_5);
         __pyx_t_5 = 0;
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr2__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 259, __pyx_L18_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr2__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 271, __pyx_L18_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_13 = NULL;
         __pyx_t_8 = 0;
@@ -10068,11 +10344,11 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
           PyObject *__pyx_callargs[2] = {__pyx_t_13, NULL};
           __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_8, 0+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 259, __pyx_L18_error)
+          if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 271, __pyx_L18_error)
           __Pyx_GOTREF(__pyx_t_5);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 259, __pyx_L18_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_5))) __PYX_ERR(0, 271, __pyx_L18_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
@@ -10086,7 +10362,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __Pyx_DECREF_SET(__pyx_v_order1, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":258
+    /* "querysource/parsers/abstract.pyx":270
  *         except AttributeError:
  *             pass
  *         if isinstance(order1, str):             # <<<<<<<<<<<<<<
@@ -10095,7 +10371,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":260
+  /* "querysource/parsers/abstract.pyx":272
  *         if isinstance(order1, str):
  *             order1 = [a.strip() for a in order1.split(',')]
  *         if isinstance(order2, str):             # <<<<<<<<<<<<<<
@@ -10105,7 +10381,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
   __pyx_t_10 = PyUnicode_Check(__pyx_v_order2); 
   if (__pyx_t_10) {
 
-    /* "querysource/parsers/abstract.pyx":261
+    /* "querysource/parsers/abstract.pyx":273
  *             order1 = [a.strip() for a in order1.split(',')]
  *         if isinstance(order2, str):
  *             order2 = [a.strip() for a in order2.split(',')]             # <<<<<<<<<<<<<<
@@ -10113,9 +10389,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
  *         if not self.ordering:
  */
     { /* enter inner scope */
-      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 261, __pyx_L26_error)
+      __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 273, __pyx_L26_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_order2, __pyx_n_s_split); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 261, __pyx_L26_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_order2, __pyx_n_s_split); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 273, __pyx_L26_error)
       __Pyx_GOTREF(__pyx_t_5);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -10132,10 +10408,10 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
       }
       #endif
       {
-        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__13};
+        PyObject *__pyx_callargs[2] = {__pyx_t_7, __pyx_kp_u__14};
         __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 1+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 261, __pyx_L26_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L26_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
@@ -10144,9 +10420,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
         __pyx_t_11 = 0;
         __pyx_t_12 = NULL;
       } else {
-        __pyx_t_11 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 261, __pyx_L26_error)
+        __pyx_t_11 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_6); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 273, __pyx_L26_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 261, __pyx_L26_error)
+        __pyx_t_12 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 273, __pyx_L26_error)
       }
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       for (;;) {
@@ -10155,28 +10431,28 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
             {
               Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 261, __pyx_L26_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 273, __pyx_L26_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_6 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 261, __pyx_L26_error)
+            __pyx_t_6 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 273, __pyx_L26_error)
             #else
-            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 261, __pyx_L26_error)
+            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L26_error)
             __Pyx_GOTREF(__pyx_t_6);
             #endif
           } else {
             {
               Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_5);
               #if !CYTHON_ASSUME_SAFE_MACROS
-              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 261, __pyx_L26_error)
+              if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 273, __pyx_L26_error)
               #endif
               if (__pyx_t_11 >= __pyx_temp) break;
             }
             #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-            __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 261, __pyx_L26_error)
+            __pyx_t_6 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_11); __Pyx_INCREF(__pyx_t_6); __pyx_t_11++; if (unlikely((0 < 0))) __PYX_ERR(0, 273, __pyx_L26_error)
             #else
-            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 261, __pyx_L26_error)
+            __pyx_t_6 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_11); __pyx_t_11++; if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L26_error)
             __Pyx_GOTREF(__pyx_t_6);
             #endif
           }
@@ -10186,7 +10462,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
             PyObject* exc_type = PyErr_Occurred();
             if (exc_type) {
               if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-              else __PYX_ERR(0, 261, __pyx_L26_error)
+              else __PYX_ERR(0, 273, __pyx_L26_error)
             }
             break;
           }
@@ -10194,7 +10470,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
         }
         __Pyx_XDECREF_SET(__pyx_8genexpr3__pyx_v_a, __pyx_t_6);
         __pyx_t_6 = 0;
-        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr3__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 261, __pyx_L26_error)
+        __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_8genexpr3__pyx_v_a, __pyx_n_s_strip); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 273, __pyx_L26_error)
         __Pyx_GOTREF(__pyx_t_7);
         __pyx_t_13 = NULL;
         __pyx_t_8 = 0;
@@ -10214,11 +10490,11 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
           PyObject *__pyx_callargs[2] = {__pyx_t_13, NULL};
           __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_8, 0+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_13); __pyx_t_13 = 0;
-          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 261, __pyx_L26_error)
+          if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 273, __pyx_L26_error)
           __Pyx_GOTREF(__pyx_t_6);
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         }
-        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 261, __pyx_L26_error)
+        if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_6))) __PYX_ERR(0, 273, __pyx_L26_error)
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -10232,7 +10508,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
     __Pyx_DECREF_SET(__pyx_v_order2, __pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":260
+    /* "querysource/parsers/abstract.pyx":272
  *         if isinstance(order1, str):
  *             order1 = [a.strip() for a in order1.split(',')]
  *         if isinstance(order2, str):             # <<<<<<<<<<<<<<
@@ -10241,51 +10517,51 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":262
+  /* "querysource/parsers/abstract.pyx":274
  *         if isinstance(order2, str):
  *             order2 = [a.strip() for a in order2.split(',')]
  *         self.ordering = (order1 or []) + (order2 or [])             # <<<<<<<<<<<<<<
  *         if not self.ordering:
  *             try:
  */
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_order1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_order1); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
   if (!__pyx_t_10) {
   } else {
     __Pyx_INCREF(__pyx_v_order1);
     __pyx_t_1 = __pyx_v_order1;
     goto __pyx_L31_bool_binop_done;
   }
-  __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 274, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_INCREF(__pyx_t_5);
   __pyx_t_1 = __pyx_t_5;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_L31_bool_binop_done:;
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_order2); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_order2); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 274, __pyx_L1_error)
   if (!__pyx_t_10) {
   } else {
     __Pyx_INCREF(__pyx_v_order2);
     __pyx_t_5 = __pyx_v_order2;
     goto __pyx_L33_bool_binop_done;
   }
-  __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_6 = PyList_New(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_INCREF(__pyx_t_6);
   __pyx_t_5 = __pyx_t_6;
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __pyx_L33_bool_binop_done:;
-  __pyx_t_6 = PyNumber_Add(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 262, __pyx_L1_error)
+  __pyx_t_6 = PyNumber_Add(__pyx_t_1, __pyx_t_5); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 274, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 262, __pyx_L1_error)
+  if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 274, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_6);
   __Pyx_GOTREF(__pyx_v_self->ordering);
   __Pyx_DECREF(__pyx_v_self->ordering);
   __pyx_v_self->ordering = ((PyObject*)__pyx_t_6);
   __pyx_t_6 = 0;
 
-  /* "querysource/parsers/abstract.pyx":263
+  /* "querysource/parsers/abstract.pyx":275
  *             order2 = [a.strip() for a in order2.split(',')]
  *         self.ordering = (order1 or []) + (order2 or [])
  *         if not self.ordering:             # <<<<<<<<<<<<<<
@@ -10296,7 +10572,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
   __pyx_t_14 = (!__pyx_t_10);
   if (__pyx_t_14) {
 
-    /* "querysource/parsers/abstract.pyx":264
+    /* "querysource/parsers/abstract.pyx":276
  *         self.ordering = (order1 or []) + (order2 or [])
  *         if not self.ordering:
  *             try:             # <<<<<<<<<<<<<<
@@ -10312,23 +10588,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "querysource/parsers/abstract.pyx":265
+        /* "querysource/parsers/abstract.pyx":277
  *         if not self.ordering:
  *             try:
  *                 self.ordering = self.definition.ordering             # <<<<<<<<<<<<<<
  *             except AttributeError:
  *                 pass
  */
-        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_ordering); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 265, __pyx_L36_error)
+        __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_ordering); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 277, __pyx_L36_error)
         __Pyx_GOTREF(__pyx_t_6);
-        if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 265, __pyx_L36_error)
+        if (!(likely(PyList_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("list", __pyx_t_6))) __PYX_ERR(0, 277, __pyx_L36_error)
         __Pyx_GIVEREF(__pyx_t_6);
         __Pyx_GOTREF(__pyx_v_self->ordering);
         __Pyx_DECREF(__pyx_v_self->ordering);
         __pyx_v_self->ordering = ((PyObject*)__pyx_t_6);
         __pyx_t_6 = 0;
 
-        /* "querysource/parsers/abstract.pyx":264
+        /* "querysource/parsers/abstract.pyx":276
  *         self.ordering = (order1 or []) + (order2 or [])
  *         if not self.ordering:
  *             try:             # <<<<<<<<<<<<<<
@@ -10347,7 +10623,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "querysource/parsers/abstract.pyx":266
+      /* "querysource/parsers/abstract.pyx":278
  *             try:
  *                 self.ordering = self.definition.ordering
  *             except AttributeError:             # <<<<<<<<<<<<<<
@@ -10361,7 +10637,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
       }
       goto __pyx_L38_except_error;
 
-      /* "querysource/parsers/abstract.pyx":264
+      /* "querysource/parsers/abstract.pyx":276
  *         self.ordering = (order1 or []) + (order2 or [])
  *         if not self.ordering:
  *             try:             # <<<<<<<<<<<<<<
@@ -10382,7 +10658,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
       __pyx_L41_try_end:;
     }
 
-    /* "querysource/parsers/abstract.pyx":263
+    /* "querysource/parsers/abstract.pyx":275
  *             order2 = [a.strip() for a in order2.split(',')]
  *         self.ordering = (order1 or []) + (order2 or [])
  *         if not self.ordering:             # <<<<<<<<<<<<<<
@@ -10391,7 +10667,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":247
+  /* "querysource/parsers/abstract.pyx":259
  *                 self.grouping = []
  * 
  *     cdef void _ordering_sync(self):             # <<<<<<<<<<<<<<
@@ -10416,7 +10692,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__ordering_
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":269
+/* "querysource/parsers/abstract.pyx":281
  *                 pass
  * 
  *     cdef void _filter_options_sync(self):             # <<<<<<<<<<<<<<
@@ -10440,7 +10716,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_filter_options_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":270
+  /* "querysource/parsers/abstract.pyx":282
  * 
  *     cdef void _filter_options_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -10456,16 +10732,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":271
+      /* "querysource/parsers/abstract.pyx":283
  *     cdef void _filter_options_sync(self):
  *         try:
  *             self.filter_options = self.conditions.pop('filter_options', {})             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self.filter_options = {}
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 271, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 283, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 271, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 283, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -10486,18 +10762,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 271, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 283, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
-      if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 271, __pyx_L3_error)
+      if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 283, __pyx_L3_error)
       __Pyx_GIVEREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_v_self->filter_options);
       __Pyx_DECREF(__pyx_v_self->filter_options);
       __pyx_v_self->filter_options = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":270
+      /* "querysource/parsers/abstract.pyx":282
  * 
  *     cdef void _filter_options_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -10515,7 +10791,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":272
+    /* "querysource/parsers/abstract.pyx":284
  *         try:
  *             self.filter_options = self.conditions.pop('filter_options', {})
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -10525,19 +10801,19 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_9) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._filter_options_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 272, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 284, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/parsers/abstract.pyx":273
+      /* "querysource/parsers/abstract.pyx":285
  *             self.filter_options = self.conditions.pop('filter_options', {})
  *         except (KeyError, AttributeError):
  *             self.filter_options = {}             # <<<<<<<<<<<<<<
  * 
  *     cdef void _qry_options_sync(self):
  */
-      __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 273, __pyx_L5_except_error)
+      __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 285, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GIVEREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_v_self->filter_options);
@@ -10551,7 +10827,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":270
+    /* "querysource/parsers/abstract.pyx":282
  * 
  *     cdef void _filter_options_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -10572,7 +10848,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":269
+  /* "querysource/parsers/abstract.pyx":281
  *                 pass
  * 
  *     cdef void _filter_options_sync(self):             # <<<<<<<<<<<<<<
@@ -10592,7 +10868,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__filter_op
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":275
+/* "querysource/parsers/abstract.pyx":287
  *             self.filter_options = {}
  * 
  *     cdef void _qry_options_sync(self):             # <<<<<<<<<<<<<<
@@ -10616,7 +10892,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_qry_options_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":276
+  /* "querysource/parsers/abstract.pyx":288
  * 
  *     cdef void _qry_options_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -10632,16 +10908,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":277
+      /* "querysource/parsers/abstract.pyx":289
  *     cdef void _qry_options_sync(self):
  *         try:
  *             self._qry_options = self.conditions.pop('qry_options', {})             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self._qry_options = {}
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 277, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 289, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 277, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 289, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -10662,18 +10938,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 277, __pyx_L3_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 289, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
-      if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 277, __pyx_L3_error)
+      if (!(likely(PyDict_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_4))) __PYX_ERR(0, 289, __pyx_L3_error)
       __Pyx_GIVEREF(__pyx_t_4);
       __Pyx_GOTREF(__pyx_v_self->_qry_options);
       __Pyx_DECREF(__pyx_v_self->_qry_options);
       __pyx_v_self->_qry_options = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":276
+      /* "querysource/parsers/abstract.pyx":288
  * 
  *     cdef void _qry_options_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -10691,7 +10967,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":278
+    /* "querysource/parsers/abstract.pyx":290
  *         try:
  *             self._qry_options = self.conditions.pop('qry_options', {})
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -10701,19 +10977,19 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
     __pyx_t_9 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_KeyError, __pyx_builtin_AttributeError);
     if (__pyx_t_9) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._qry_options_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 278, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 290, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_5);
       __Pyx_XGOTREF(__pyx_t_6);
 
-      /* "querysource/parsers/abstract.pyx":279
+      /* "querysource/parsers/abstract.pyx":291
  *             self._qry_options = self.conditions.pop('qry_options', {})
  *         except (KeyError, AttributeError):
  *             self._qry_options = {}             # <<<<<<<<<<<<<<
  * 
  *     cdef void _query_filter_sync(self):
  */
-      __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 279, __pyx_L5_except_error)
+      __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 291, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GIVEREF(__pyx_t_7);
       __Pyx_GOTREF(__pyx_v_self->_qry_options);
@@ -10727,7 +11003,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":276
+    /* "querysource/parsers/abstract.pyx":288
  * 
  *     cdef void _qry_options_sync(self):
  *         try:             # <<<<<<<<<<<<<<
@@ -10748,7 +11024,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":275
+  /* "querysource/parsers/abstract.pyx":287
  *             self.filter_options = {}
  * 
  *     cdef void _qry_options_sync(self):             # <<<<<<<<<<<<<<
@@ -10768,7 +11044,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qry_optio
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":281
+/* "querysource/parsers/abstract.pyx":293
  *             self._qry_options = {}
  * 
  *     cdef void _query_filter_sync(self):             # <<<<<<<<<<<<<<
@@ -10794,14 +11070,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_query_filter_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":282
+  /* "querysource/parsers/abstract.pyx":294
  * 
  *     cdef void _query_filter_sync(self):
  *         self.filter = {}             # <<<<<<<<<<<<<<
  *         try:
  *             self.filter = self.conditions.pop('where_cond', {})
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 282, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->filter);
@@ -10809,7 +11085,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
   __pyx_v_self->filter = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":283
+  /* "querysource/parsers/abstract.pyx":295
  *     cdef void _query_filter_sync(self):
  *         self.filter = {}
  *         try:             # <<<<<<<<<<<<<<
@@ -10825,16 +11101,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":284
+      /* "querysource/parsers/abstract.pyx":296
  *         self.filter = {}
  *         try:
  *             self.filter = self.conditions.pop('where_cond', {})             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             pass
  */
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 284, __pyx_L3_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 296, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 284, __pyx_L3_error)
+      __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 296, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_7 = NULL;
       __pyx_t_8 = 0;
@@ -10855,18 +11131,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 284, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 296, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       }
-      if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 284, __pyx_L3_error)
+      if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 296, __pyx_L3_error)
       __Pyx_GIVEREF(__pyx_t_1);
       __Pyx_GOTREF(__pyx_v_self->filter);
       __Pyx_DECREF(__pyx_v_self->filter);
       __pyx_v_self->filter = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":283
+      /* "querysource/parsers/abstract.pyx":295
  *     cdef void _query_filter_sync(self):
  *         self.filter = {}
  *         try:             # <<<<<<<<<<<<<<
@@ -10884,7 +11160,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-    /* "querysource/parsers/abstract.pyx":285
+    /* "querysource/parsers/abstract.pyx":297
  *         try:
  *             self.filter = self.conditions.pop('where_cond', {})
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -10898,7 +11174,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":283
+    /* "querysource/parsers/abstract.pyx":295
  *     cdef void _query_filter_sync(self):
  *         self.filter = {}
  *         try:             # <<<<<<<<<<<<<<
@@ -10919,18 +11195,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
     __pyx_L8_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":287
+  /* "querysource/parsers/abstract.pyx":299
  *         except (KeyError, AttributeError):
  *             pass
  *         if not self.filter:             # <<<<<<<<<<<<<<
  *             try:
  *                 self.filter = self.conditions.pop('filter', {})
  */
-  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 287, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(0, 299, __pyx_L1_error)
   __pyx_t_11 = (!__pyx_t_10);
   if (__pyx_t_11) {
 
-    /* "querysource/parsers/abstract.pyx":288
+    /* "querysource/parsers/abstract.pyx":300
  *             pass
  *         if not self.filter:
  *             try:             # <<<<<<<<<<<<<<
@@ -10946,16 +11222,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __Pyx_XGOTREF(__pyx_t_2);
       /*try:*/ {
 
-        /* "querysource/parsers/abstract.pyx":289
+        /* "querysource/parsers/abstract.pyx":301
  *         if not self.filter:
  *             try:
  *                 self.filter = self.conditions.pop('filter', {})             # <<<<<<<<<<<<<<
  *             except (KeyError, AttributeError):
  *                 pass
  */
-        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 289, __pyx_L10_error)
+        __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 301, __pyx_L10_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 289, __pyx_L10_error)
+        __pyx_t_6 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 301, __pyx_L10_error)
         __Pyx_GOTREF(__pyx_t_6);
         __pyx_t_7 = NULL;
         __pyx_t_8 = 0;
@@ -10976,18 +11252,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
           __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_8, 2+__pyx_t_8);
           __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 289, __pyx_L10_error)
+          if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 301, __pyx_L10_error)
           __Pyx_GOTREF(__pyx_t_1);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         }
-        if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 289, __pyx_L10_error)
+        if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 301, __pyx_L10_error)
         __Pyx_GIVEREF(__pyx_t_1);
         __Pyx_GOTREF(__pyx_v_self->filter);
         __Pyx_DECREF(__pyx_v_self->filter);
         __pyx_v_self->filter = ((PyObject*)__pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "querysource/parsers/abstract.pyx":288
+        /* "querysource/parsers/abstract.pyx":300
  *             pass
  *         if not self.filter:
  *             try:             # <<<<<<<<<<<<<<
@@ -11005,7 +11281,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "querysource/parsers/abstract.pyx":290
+      /* "querysource/parsers/abstract.pyx":302
  *             try:
  *                 self.filter = self.conditions.pop('filter', {})
  *             except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -11019,7 +11295,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       }
       goto __pyx_L12_except_error;
 
-      /* "querysource/parsers/abstract.pyx":288
+      /* "querysource/parsers/abstract.pyx":300
  *             pass
  *         if not self.filter:
  *             try:             # <<<<<<<<<<<<<<
@@ -11040,7 +11316,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __pyx_L15_try_end:;
     }
 
-    /* "querysource/parsers/abstract.pyx":287
+    /* "querysource/parsers/abstract.pyx":299
  *         except (KeyError, AttributeError):
  *             pass
  *         if not self.filter:             # <<<<<<<<<<<<<<
@@ -11049,18 +11325,18 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":292
+  /* "querysource/parsers/abstract.pyx":304
  *             except (KeyError, AttributeError):
  *                 pass
  *         if not self.filter:             # <<<<<<<<<<<<<<
  *             try:
  *                 self.filter = self.definition.filtering
  */
-  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 292, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 304, __pyx_L1_error)
   __pyx_t_10 = (!__pyx_t_11);
   if (__pyx_t_10) {
 
-    /* "querysource/parsers/abstract.pyx":293
+    /* "querysource/parsers/abstract.pyx":305
  *                 pass
  *         if not self.filter:
  *             try:             # <<<<<<<<<<<<<<
@@ -11076,23 +11352,23 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __Pyx_XGOTREF(__pyx_t_4);
       /*try:*/ {
 
-        /* "querysource/parsers/abstract.pyx":294
+        /* "querysource/parsers/abstract.pyx":306
  *         if not self.filter:
  *             try:
  *                 self.filter = self.definition.filtering             # <<<<<<<<<<<<<<
  *                 if self.filter is None:
  *                     self.filter = {}
  */
-        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_filtering); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 294, __pyx_L17_error)
+        __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_filtering); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 306, __pyx_L17_error)
         __Pyx_GOTREF(__pyx_t_1);
-        if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 294, __pyx_L17_error)
+        if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 306, __pyx_L17_error)
         __Pyx_GIVEREF(__pyx_t_1);
         __Pyx_GOTREF(__pyx_v_self->filter);
         __Pyx_DECREF(__pyx_v_self->filter);
         __pyx_v_self->filter = ((PyObject*)__pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "querysource/parsers/abstract.pyx":295
+        /* "querysource/parsers/abstract.pyx":307
  *             try:
  *                 self.filter = self.definition.filtering
  *                 if self.filter is None:             # <<<<<<<<<<<<<<
@@ -11102,14 +11378,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
         __pyx_t_10 = (__pyx_v_self->filter == ((PyObject*)Py_None));
         if (__pyx_t_10) {
 
-          /* "querysource/parsers/abstract.pyx":296
+          /* "querysource/parsers/abstract.pyx":308
  *                 self.filter = self.definition.filtering
  *                 if self.filter is None:
  *                     self.filter = {}             # <<<<<<<<<<<<<<
  *             except (TypeError, AttributeError):
  *                 self.filter = {}
  */
-          __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 296, __pyx_L17_error)
+          __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L17_error)
           __Pyx_GOTREF(__pyx_t_1);
           __Pyx_GIVEREF(__pyx_t_1);
           __Pyx_GOTREF(__pyx_v_self->filter);
@@ -11117,7 +11393,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
           __pyx_v_self->filter = ((PyObject*)__pyx_t_1);
           __pyx_t_1 = 0;
 
-          /* "querysource/parsers/abstract.pyx":295
+          /* "querysource/parsers/abstract.pyx":307
  *             try:
  *                 self.filter = self.definition.filtering
  *                 if self.filter is None:             # <<<<<<<<<<<<<<
@@ -11126,7 +11402,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
  */
         }
 
-        /* "querysource/parsers/abstract.pyx":293
+        /* "querysource/parsers/abstract.pyx":305
  *                 pass
  *         if not self.filter:
  *             try:             # <<<<<<<<<<<<<<
@@ -11144,7 +11420,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "querysource/parsers/abstract.pyx":297
+      /* "querysource/parsers/abstract.pyx":309
  *                 if self.filter is None:
  *                     self.filter = {}
  *             except (TypeError, AttributeError):             # <<<<<<<<<<<<<<
@@ -11154,19 +11430,19 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __pyx_t_9 = __Pyx_PyErr_ExceptionMatches2(__pyx_builtin_TypeError, __pyx_builtin_AttributeError);
       if (__pyx_t_9) {
         __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._query_filter_sync", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 297, __pyx_L19_except_error)
+        if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_5, &__pyx_t_6) < 0) __PYX_ERR(0, 309, __pyx_L19_except_error)
         __Pyx_XGOTREF(__pyx_t_1);
         __Pyx_XGOTREF(__pyx_t_5);
         __Pyx_XGOTREF(__pyx_t_6);
 
-        /* "querysource/parsers/abstract.pyx":298
+        /* "querysource/parsers/abstract.pyx":310
  *                     self.filter = {}
  *             except (TypeError, AttributeError):
  *                 self.filter = {}             # <<<<<<<<<<<<<<
  * 
  *     cdef void _qs_filters_sync(self):
  */
-        __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 298, __pyx_L19_except_error)
+        __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 310, __pyx_L19_except_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_GIVEREF(__pyx_t_7);
         __Pyx_GOTREF(__pyx_v_self->filter);
@@ -11180,7 +11456,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       }
       goto __pyx_L19_except_error;
 
-      /* "querysource/parsers/abstract.pyx":293
+      /* "querysource/parsers/abstract.pyx":305
  *                 pass
  *         if not self.filter:
  *             try:             # <<<<<<<<<<<<<<
@@ -11201,7 +11477,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
       __pyx_L22_try_end:;
     }
 
-    /* "querysource/parsers/abstract.pyx":292
+    /* "querysource/parsers/abstract.pyx":304
  *             except (KeyError, AttributeError):
  *                 pass
  *         if not self.filter:             # <<<<<<<<<<<<<<
@@ -11210,7 +11486,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":281
+  /* "querysource/parsers/abstract.pyx":293
  *             self._qry_options = {}
  * 
  *     cdef void _query_filter_sync(self):             # <<<<<<<<<<<<<<
@@ -11230,7 +11506,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__query_fil
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":300
+/* "querysource/parsers/abstract.pyx":312
  *                 self.filter = {}
  * 
  *     cdef void _qs_filters_sync(self):             # <<<<<<<<<<<<<<
@@ -11258,7 +11534,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qs_filter
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_qs_filters_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":302
+  /* "querysource/parsers/abstract.pyx":314
  *     cdef void _qs_filters_sync(self):
  *         cdef str _filter_name
  *         for _filter_name, fn in QS_FILTERS.items():             # <<<<<<<<<<<<<<
@@ -11266,13 +11542,13 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qs_filter
  *                 _f = self.conditions.pop(_filter_name)
  */
   __pyx_t_2 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_QS_FILTERS); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_QS_FILTERS); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   if (unlikely(__pyx_t_5 == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 302, __pyx_L1_error)
+    __PYX_ERR(0, 314, __pyx_L1_error)
   }
-  __pyx_t_6 = __Pyx_dict_iterator(__pyx_t_5, 0, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 302, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_dict_iterator(__pyx_t_5, 0, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 314, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_XDECREF(__pyx_t_1);
@@ -11281,33 +11557,33 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qs_filter
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_6, &__pyx_t_5, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 302, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 314, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_GOTREF(__pyx_t_5);
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_6))) __PYX_ERR(0, 302, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_6))||((__pyx_t_6) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_6))) __PYX_ERR(0, 314, __pyx_L1_error)
     __Pyx_XDECREF_SET(__pyx_v__filter_name, ((PyObject*)__pyx_t_6));
     __pyx_t_6 = 0;
     __Pyx_XDECREF_SET(__pyx_v_fn, __pyx_t_5);
     __pyx_t_5 = 0;
 
-    /* "querysource/parsers/abstract.pyx":303
+    /* "querysource/parsers/abstract.pyx":315
  *         cdef str _filter_name
  *         for _filter_name, fn in QS_FILTERS.items():
  *             if _filter_name in self.conditions:             # <<<<<<<<<<<<<<
  *                 _f = self.conditions.pop(_filter_name)
  *                 self._query_filters[_filter_name] = (fn, _f)
  */
-    __pyx_t_8 = (__Pyx_PySequence_ContainsTF(__pyx_v__filter_name, __pyx_v_self->conditions, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 303, __pyx_L1_error)
+    __pyx_t_8 = (__Pyx_PySequence_ContainsTF(__pyx_v__filter_name, __pyx_v_self->conditions, Py_EQ)); if (unlikely((__pyx_t_8 < 0))) __PYX_ERR(0, 315, __pyx_L1_error)
     if (__pyx_t_8) {
 
-      /* "querysource/parsers/abstract.pyx":304
+      /* "querysource/parsers/abstract.pyx":316
  *         for _filter_name, fn in QS_FILTERS.items():
  *             if _filter_name in self.conditions:
  *                 _f = self.conditions.pop(_filter_name)             # <<<<<<<<<<<<<<
  *                 self._query_filters[_filter_name] = (fn, _f)
  * 
  */
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 304, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 316, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_9 = NULL;
       __pyx_t_10 = 0;
@@ -11327,36 +11603,36 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qs_filter
         PyObject *__pyx_callargs[2] = {__pyx_t_9, __pyx_v__filter_name};
         __pyx_t_5 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_10, 1+__pyx_t_10);
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 304, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 316, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
       __Pyx_XDECREF_SET(__pyx_v__f, __pyx_t_5);
       __pyx_t_5 = 0;
 
-      /* "querysource/parsers/abstract.pyx":305
+      /* "querysource/parsers/abstract.pyx":317
  *             if _filter_name in self.conditions:
  *                 _f = self.conditions.pop(_filter_name)
  *                 self._query_filters[_filter_name] = (fn, _f)             # <<<<<<<<<<<<<<
  * 
  *     cdef void _col_definition_sync(self):
  */
-      __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 305, __pyx_L1_error)
+      __pyx_t_5 = PyTuple_New(2); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 317, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_INCREF(__pyx_v_fn);
       __Pyx_GIVEREF(__pyx_v_fn);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_fn)) __PYX_ERR(0, 305, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_v_fn)) __PYX_ERR(0, 317, __pyx_L1_error);
       __Pyx_INCREF(__pyx_v__f);
       __Pyx_GIVEREF(__pyx_v__f);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v__f)) __PYX_ERR(0, 305, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_5, 1, __pyx_v__f)) __PYX_ERR(0, 317, __pyx_L1_error);
       if (unlikely(__pyx_v_self->_query_filters == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 305, __pyx_L1_error)
+        __PYX_ERR(0, 317, __pyx_L1_error)
       }
-      if (unlikely((PyDict_SetItem(__pyx_v_self->_query_filters, __pyx_v__filter_name, __pyx_t_5) < 0))) __PYX_ERR(0, 305, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_self->_query_filters, __pyx_v__filter_name, __pyx_t_5) < 0))) __PYX_ERR(0, 317, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-      /* "querysource/parsers/abstract.pyx":303
+      /* "querysource/parsers/abstract.pyx":315
  *         cdef str _filter_name
  *         for _filter_name, fn in QS_FILTERS.items():
  *             if _filter_name in self.conditions:             # <<<<<<<<<<<<<<
@@ -11367,7 +11643,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qs_filter
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":300
+  /* "querysource/parsers/abstract.pyx":312
  *                 self.filter = {}
  * 
  *     cdef void _qs_filters_sync(self):             # <<<<<<<<<<<<<<
@@ -11390,7 +11666,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__qs_filter
   __Pyx_RefNannyFinishContext();
 }
 
-/* "querysource/parsers/abstract.pyx":307
+/* "querysource/parsers/abstract.pyx":319
  *                 self._query_filters[_filter_name] = (fn, _f)
  * 
  *     cdef void _col_definition_sync(self):             # <<<<<<<<<<<<<<
@@ -11417,16 +11693,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_col_definition_sync", 1);
 
-  /* "querysource/parsers/abstract.pyx":308
+  /* "querysource/parsers/abstract.pyx":320
  * 
  *     cdef void _col_definition_sync(self):
  *         self.cond_definition = self.conditions.pop('cond_definition', {})             # <<<<<<<<<<<<<<
  *         if self.definition and self.definition.cond_definition:
  *             self.cond_definition = {
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 308, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   __pyx_t_5 = 0;
@@ -11447,39 +11723,39 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 308, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 320, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
-  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 308, __pyx_L1_error)
+  if (!(likely(PyDict_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_1))) __PYX_ERR(0, 320, __pyx_L1_error)
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF(__pyx_v_self->cond_definition);
   __Pyx_DECREF(__pyx_v_self->cond_definition);
   __pyx_v_self->cond_definition = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":309
+  /* "querysource/parsers/abstract.pyx":321
  *     cdef void _col_definition_sync(self):
  *         self.cond_definition = self.conditions.pop('cond_definition', {})
  *         if self.definition and self.definition.cond_definition:             # <<<<<<<<<<<<<<
  *             self.cond_definition = {
  *                 **self.cond_definition,
  */
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_self->definition); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 309, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_v_self->definition); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 321, __pyx_L1_error)
   if (__pyx_t_7) {
   } else {
     __pyx_t_6 = __pyx_t_7;
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_cond_definition); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 309, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_cond_definition); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 309, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 321, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_6 = __pyx_t_7;
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_6) {
 
-    /* "querysource/parsers/abstract.pyx":311
+    /* "querysource/parsers/abstract.pyx":323
  *         if self.definition and self.definition.cond_definition:
  *             self.cond_definition = {
  *                 **self.cond_definition,             # <<<<<<<<<<<<<<
@@ -11488,31 +11764,31 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
  */
     if (unlikely(__pyx_v_self->cond_definition == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 311, __pyx_L1_error)
+      __PYX_ERR(0, 323, __pyx_L1_error)
     }
-    __pyx_t_1 = PyDict_Copy(__pyx_v_self->cond_definition); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 311, __pyx_L1_error)
+    __pyx_t_1 = PyDict_Copy(__pyx_v_self->cond_definition); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 323, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "querysource/parsers/abstract.pyx":312
+    /* "querysource/parsers/abstract.pyx":324
  *             self.cond_definition = {
  *                 **self.cond_definition,
  *                 **self.definition.cond_definition             # <<<<<<<<<<<<<<
  *             }
  *         try:
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_cond_definition); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 312, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->definition, __pyx_n_s_cond_definition); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 324, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     if (unlikely(__pyx_t_2 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-      __PYX_ERR(0, 312, __pyx_L1_error)
+      __PYX_ERR(0, 324, __pyx_L1_error)
     }
     if (unlikely(PyDict_Update(__pyx_t_1, __pyx_t_2) < 0)) {
       if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_t_2);
-      __PYX_ERR(0, 312, __pyx_L1_error)
+      __PYX_ERR(0, 324, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "querysource/parsers/abstract.pyx":310
+    /* "querysource/parsers/abstract.pyx":322
  *         self.cond_definition = self.conditions.pop('cond_definition', {})
  *         if self.definition and self.definition.cond_definition:
  *             self.cond_definition = {             # <<<<<<<<<<<<<<
@@ -11525,7 +11801,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     __pyx_v_self->cond_definition = ((PyObject*)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":309
+    /* "querysource/parsers/abstract.pyx":321
  *     cdef void _col_definition_sync(self):
  *         self.cond_definition = self.conditions.pop('cond_definition', {})
  *         if self.definition and self.definition.cond_definition:             # <<<<<<<<<<<<<<
@@ -11534,7 +11810,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":314
+  /* "querysource/parsers/abstract.pyx":326
  *                 **self.definition.cond_definition
  *             }
  *         try:             # <<<<<<<<<<<<<<
@@ -11550,20 +11826,20 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     __Pyx_XGOTREF(__pyx_t_10);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":315
+      /* "querysource/parsers/abstract.pyx":327
  *             }
  *         try:
  *             if self.conditions.coldef:             # <<<<<<<<<<<<<<
  *                 self.cond_definition = {
  *                     **self.cond_definition,
  */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_coldef); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 315, __pyx_L6_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_coldef); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 327, __pyx_L6_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 315, __pyx_L6_error)
+      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 327, __pyx_L6_error)
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       if (__pyx_t_6) {
 
-        /* "querysource/parsers/abstract.pyx":317
+        /* "querysource/parsers/abstract.pyx":329
  *             if self.conditions.coldef:
  *                 self.cond_definition = {
  *                     **self.cond_definition,             # <<<<<<<<<<<<<<
@@ -11572,31 +11848,31 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
  */
         if (unlikely(__pyx_v_self->cond_definition == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-          __PYX_ERR(0, 317, __pyx_L6_error)
+          __PYX_ERR(0, 329, __pyx_L6_error)
         }
-        __pyx_t_1 = PyDict_Copy(__pyx_v_self->cond_definition); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 317, __pyx_L6_error)
+        __pyx_t_1 = PyDict_Copy(__pyx_v_self->cond_definition); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 329, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_1);
 
-        /* "querysource/parsers/abstract.pyx":318
+        /* "querysource/parsers/abstract.pyx":330
  *                 self.cond_definition = {
  *                     **self.cond_definition,
  *                     **self.conditions.coldef             # <<<<<<<<<<<<<<
  *                 }
  *                 del self.conditions.coldef
  */
-        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_coldef); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 318, __pyx_L6_error)
+        __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->conditions, __pyx_n_s_coldef); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 330, __pyx_L6_error)
         __Pyx_GOTREF(__pyx_t_2);
         if (unlikely(__pyx_t_2 == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-          __PYX_ERR(0, 318, __pyx_L6_error)
+          __PYX_ERR(0, 330, __pyx_L6_error)
         }
         if (unlikely(PyDict_Update(__pyx_t_1, __pyx_t_2) < 0)) {
           if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_t_2);
-          __PYX_ERR(0, 318, __pyx_L6_error)
+          __PYX_ERR(0, 330, __pyx_L6_error)
         }
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-        /* "querysource/parsers/abstract.pyx":316
+        /* "querysource/parsers/abstract.pyx":328
  *         try:
  *             if self.conditions.coldef:
  *                 self.cond_definition = {             # <<<<<<<<<<<<<<
@@ -11609,16 +11885,16 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
         __pyx_v_self->cond_definition = ((PyObject*)__pyx_t_1);
         __pyx_t_1 = 0;
 
-        /* "querysource/parsers/abstract.pyx":320
+        /* "querysource/parsers/abstract.pyx":332
  *                     **self.conditions.coldef
  *                 }
  *                 del self.conditions.coldef             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             pass
  */
-        if (__Pyx_PyObject_DelAttrStr(__pyx_v_self->conditions, __pyx_n_s_coldef) < 0) __PYX_ERR(0, 320, __pyx_L6_error)
+        if (__Pyx_PyObject_DelAttrStr(__pyx_v_self->conditions, __pyx_n_s_coldef) < 0) __PYX_ERR(0, 332, __pyx_L6_error)
 
-        /* "querysource/parsers/abstract.pyx":315
+        /* "querysource/parsers/abstract.pyx":327
  *             }
  *         try:
  *             if self.conditions.coldef:             # <<<<<<<<<<<<<<
@@ -11627,7 +11903,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
  */
       }
 
-      /* "querysource/parsers/abstract.pyx":314
+      /* "querysource/parsers/abstract.pyx":326
  *                 **self.definition.cond_definition
  *             }
  *         try:             # <<<<<<<<<<<<<<
@@ -11645,7 +11921,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":321
+    /* "querysource/parsers/abstract.pyx":333
  *                 }
  *                 del self.conditions.coldef
  *         except (KeyError, AttributeError):             # <<<<<<<<<<<<<<
@@ -11659,7 +11935,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     }
     goto __pyx_L8_except_error;
 
-    /* "querysource/parsers/abstract.pyx":314
+    /* "querysource/parsers/abstract.pyx":326
  *                 **self.definition.cond_definition
  *             }
  *         try:             # <<<<<<<<<<<<<<
@@ -11680,17 +11956,17 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     __pyx_L11_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":323
+  /* "querysource/parsers/abstract.pyx":335
  *         except (KeyError, AttributeError):
  *             pass
  *         if self.cond_definition:             # <<<<<<<<<<<<<<
  *             self.c_length = len(self.cond_definition)
  *         else:
  */
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_self->cond_definition); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 323, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_self->cond_definition); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 335, __pyx_L1_error)
   if (__pyx_t_6) {
 
-    /* "querysource/parsers/abstract.pyx":324
+    /* "querysource/parsers/abstract.pyx":336
  *             pass
  *         if self.cond_definition:
  *             self.c_length = len(self.cond_definition)             # <<<<<<<<<<<<<<
@@ -11701,13 +11977,13 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     __Pyx_INCREF(__pyx_t_1);
     if (unlikely(__pyx_t_1 == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-      __PYX_ERR(0, 324, __pyx_L1_error)
+      __PYX_ERR(0, 336, __pyx_L1_error)
     }
-    __pyx_t_12 = PyDict_Size(__pyx_t_1); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 324, __pyx_L1_error)
+    __pyx_t_12 = PyDict_Size(__pyx_t_1); if (unlikely(__pyx_t_12 == ((Py_ssize_t)-1))) __PYX_ERR(0, 336, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_v_self->c_length = __pyx_t_12;
 
-    /* "querysource/parsers/abstract.pyx":323
+    /* "querysource/parsers/abstract.pyx":335
  *         except (KeyError, AttributeError):
  *             pass
  *         if self.cond_definition:             # <<<<<<<<<<<<<<
@@ -11717,7 +11993,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
     goto __pyx_L13;
   }
 
-  /* "querysource/parsers/abstract.pyx":326
+  /* "querysource/parsers/abstract.pyx":338
  *             self.c_length = len(self.cond_definition)
  *         else:
  *             self.c_length = 0             # <<<<<<<<<<<<<<
@@ -11727,14 +12003,14 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
   /*else*/ {
     __pyx_v_self->c_length = 0;
 
-    /* "querysource/parsers/abstract.pyx":327
+    /* "querysource/parsers/abstract.pyx":339
  *         else:
  *             self.c_length = 0
  *             self.cond_definition = {}             # <<<<<<<<<<<<<<
  * 
  *     # ------------------------------------------------------------------
  */
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 327, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 339, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __Pyx_GOTREF(__pyx_v_self->cond_definition);
@@ -11744,7 +12020,7 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
   }
   __pyx_L13:;
 
-  /* "querysource/parsers/abstract.pyx":307
+  /* "querysource/parsers/abstract.pyx":319
  *                 self._query_filters[_filter_name] = (fn, _f)
  * 
  *     cdef void _col_definition_sync(self):             # <<<<<<<<<<<<<<
@@ -11763,9 +12039,9 @@ static void __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__col_defin
   __pyx_L0:;
   __Pyx_RefNannyFinishContext();
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_20generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_22generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":333
+/* "querysource/parsers/abstract.pyx":345
  *     # ------------------------------------------------------------------
  * 
  *     async def _parse_hierarchy(self):             # <<<<<<<<<<<<<<
@@ -11774,16 +12050,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_20ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_19_parse_hierarchy(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_21_parse_hierarchy(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_18_parse_hierarchy, "AbstractParser._parse_hierarchy(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_19_parse_hierarchy = {"_parse_hierarchy", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_19_parse_hierarchy, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_18_parse_hierarchy};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_19_parse_hierarchy(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_20_parse_hierarchy, "AbstractParser._parse_hierarchy(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_21_parse_hierarchy = {"_parse_hierarchy", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_21_parse_hierarchy, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_20_parse_hierarchy};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_21_parse_hierarchy(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11808,14 +12084,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_parse_hierarchy", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_parse_hierarchy", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_parse_hierarchy(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_20_parse_hierarchy(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_parse_hierarchy(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_20_parse_hierarchy(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -11827,7 +12103,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_p
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 333, __pyx_L1_error)
+    __PYX_ERR(0, 345, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -11835,7 +12111,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_p
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_20generator2, __pyx_codeobj__14, (PyObject *) __pyx_cur_scope, __pyx_n_s_parse_hierarchy, __pyx_n_s_AbstractParser__parse_hierarchy, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 333, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_22generator2, __pyx_codeobj__15, (PyObject *) __pyx_cur_scope, __pyx_n_s_parse_hierarchy, __pyx_n_s_AbstractParser__parse_hierarchy, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 345, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -11851,7 +12127,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_18_p
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_20generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_22generator2(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -11867,19 +12143,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_20ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 333, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 345, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":334
+  /* "querysource/parsers/abstract.pyx":346
  * 
  *     async def _parse_hierarchy(self):
  *         self._parse_hierarchy_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _program_slug(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_parse_hierarchy_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 334, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_parse_hierarchy_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 346, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":333
+  /* "querysource/parsers/abstract.pyx":345
  *     # ------------------------------------------------------------------
  * 
  *     async def _parse_hierarchy(self):             # <<<<<<<<<<<<<<
@@ -11903,9 +12179,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_20ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_23generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_25generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":336
+/* "querysource/parsers/abstract.pyx":348
  *         self._parse_hierarchy_sync()
  * 
  *     async def _program_slug(self):             # <<<<<<<<<<<<<<
@@ -11914,16 +12190,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_23ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_22_program_slug(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_24_program_slug(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_21_program_slug, "AbstractParser._program_slug(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_22_program_slug = {"_program_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_22_program_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_21_program_slug};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_22_program_slug(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_23_program_slug, "AbstractParser._program_slug(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_24_program_slug = {"_program_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_24_program_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_23_program_slug};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_24_program_slug(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -11948,14 +12224,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_program_slug", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_program_slug", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_21_program_slug(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_23_program_slug(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_21_program_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_23_program_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -11967,7 +12243,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_21_p
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 336, __pyx_L1_error)
+    __PYX_ERR(0, 348, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -11975,7 +12251,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_21_p
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_23generator3, __pyx_codeobj__15, (PyObject *) __pyx_cur_scope, __pyx_n_s_program_slug_2, __pyx_n_s_AbstractParser__program_slug, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 336, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_25generator3, __pyx_codeobj__16, (PyObject *) __pyx_cur_scope, __pyx_n_s_program_slug_2, __pyx_n_s_AbstractParser__program_slug, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 348, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -11991,7 +12267,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_21_p
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_23generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_25generator3(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12007,19 +12283,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_23ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 336, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 348, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":337
+  /* "querysource/parsers/abstract.pyx":349
  * 
  *     async def _program_slug(self):
  *         self._program_slug_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _query_slug(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_program_slug_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 337, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_program_slug_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":336
+  /* "querysource/parsers/abstract.pyx":348
  *         self._parse_hierarchy_sync()
  * 
  *     async def _program_slug(self):             # <<<<<<<<<<<<<<
@@ -12043,9 +12319,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_23ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_26generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_28generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":339
+/* "querysource/parsers/abstract.pyx":351
  *         self._program_slug_sync()
  * 
  *     async def _query_slug(self):             # <<<<<<<<<<<<<<
@@ -12054,16 +12330,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_26ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_25_query_slug(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_27_query_slug(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_24_query_slug, "AbstractParser._query_slug(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_25_query_slug = {"_query_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_25_query_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_24_query_slug};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_25_query_slug(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_26_query_slug, "AbstractParser._query_slug(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_27_query_slug = {"_query_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_27_query_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_26_query_slug};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_27_query_slug(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12088,14 +12364,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_query_slug", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_query_slug", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_24_query_slug(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_26_query_slug(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_24_query_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_26_query_slug(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12107,7 +12383,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_24_q
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 339, __pyx_L1_error)
+    __PYX_ERR(0, 351, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12115,7 +12391,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_24_q
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_26generator4, __pyx_codeobj__16, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_slug_2, __pyx_n_s_AbstractParser__query_slug, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 339, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_28generator4, __pyx_codeobj__17, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_slug_2, __pyx_n_s_AbstractParser__query_slug, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 351, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12131,7 +12407,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_24_q
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_26generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_28generator4(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12147,19 +12423,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_26ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 339, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 351, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":340
+  /* "querysource/parsers/abstract.pyx":352
  * 
  *     async def _query_slug(self):
  *         self._query_slug_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _query_refresh(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_slug_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 340, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_slug_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 352, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":339
+  /* "querysource/parsers/abstract.pyx":351
  *         self._program_slug_sync()
  * 
  *     async def _query_slug(self):             # <<<<<<<<<<<<<<
@@ -12183,9 +12459,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_26ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_29generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_31generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":342
+/* "querysource/parsers/abstract.pyx":354
  *         self._query_slug_sync()
  * 
  *     async def _query_refresh(self):             # <<<<<<<<<<<<<<
@@ -12194,16 +12470,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_29ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_28_query_refresh(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_30_query_refresh(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_27_query_refresh, "AbstractParser._query_refresh(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_28_query_refresh = {"_query_refresh", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_28_query_refresh, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_27_query_refresh};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_28_query_refresh(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_29_query_refresh, "AbstractParser._query_refresh(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_30_query_refresh = {"_query_refresh", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_30_query_refresh, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_29_query_refresh};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_30_query_refresh(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12228,14 +12504,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_query_refresh", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_query_refresh", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_27_query_refresh(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_29_query_refresh(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_27_query_refresh(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_29_query_refresh(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12247,7 +12523,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_27_q
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 342, __pyx_L1_error)
+    __PYX_ERR(0, 354, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12255,7 +12531,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_27_q
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_29generator5, __pyx_codeobj__17, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_refresh, __pyx_n_s_AbstractParser__query_refresh, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 342, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_31generator5, __pyx_codeobj__18, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_refresh, __pyx_n_s_AbstractParser__query_refresh, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 354, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12271,7 +12547,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_27_q
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_29generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_31generator5(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12287,19 +12563,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_29ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 342, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 354, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":343
+  /* "querysource/parsers/abstract.pyx":355
  * 
  *     async def _query_refresh(self):
  *         self._query_refresh_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _query_fields(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_refresh_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 343, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_refresh_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 355, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":342
+  /* "querysource/parsers/abstract.pyx":354
  *         self._query_slug_sync()
  * 
  *     async def _query_refresh(self):             # <<<<<<<<<<<<<<
@@ -12323,9 +12599,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_29ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_32generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_34generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":345
+/* "querysource/parsers/abstract.pyx":357
  *         self._query_refresh_sync()
  * 
  *     async def _query_fields(self):             # <<<<<<<<<<<<<<
@@ -12334,16 +12610,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_32ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_31_query_fields(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_33_query_fields(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_30_query_fields, "AbstractParser._query_fields(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_31_query_fields = {"_query_fields", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_31_query_fields, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_30_query_fields};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_31_query_fields(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_32_query_fields, "AbstractParser._query_fields(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_33_query_fields = {"_query_fields", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_33_query_fields, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_32_query_fields};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_33_query_fields(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12368,14 +12644,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_query_fields", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_query_fields", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_30_query_fields(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_32_query_fields(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_30_query_fields(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_32_query_fields(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12387,7 +12663,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_30_q
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 345, __pyx_L1_error)
+    __PYX_ERR(0, 357, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12395,7 +12671,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_30_q
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_32generator6, __pyx_codeobj__18, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_fields, __pyx_n_s_AbstractParser__query_fields, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 345, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_34generator6, __pyx_codeobj__19, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_fields, __pyx_n_s_AbstractParser__query_fields, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 357, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12411,7 +12687,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_30_q
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_32generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_34generator6(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12427,19 +12703,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_32ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 345, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 357, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":346
+  /* "querysource/parsers/abstract.pyx":358
  * 
  *     async def _query_fields(self):
  *         self._query_fields_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _query_limit(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_fields_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 346, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_fields_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 358, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":345
+  /* "querysource/parsers/abstract.pyx":357
  *         self._query_refresh_sync()
  * 
  *     async def _query_fields(self):             # <<<<<<<<<<<<<<
@@ -12463,9 +12739,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_32ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_35generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_37generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":348
+/* "querysource/parsers/abstract.pyx":360
  *         self._query_fields_sync()
  * 
  *     async def _query_limit(self):             # <<<<<<<<<<<<<<
@@ -12474,16 +12750,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_35ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_34_query_limit(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_36_query_limit(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_33_query_limit, "AbstractParser._query_limit(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_34_query_limit = {"_query_limit", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_34_query_limit, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_33_query_limit};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_34_query_limit(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_35_query_limit, "AbstractParser._query_limit(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_36_query_limit = {"_query_limit", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_36_query_limit, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_35_query_limit};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_36_query_limit(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12508,14 +12784,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_query_limit", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_query_limit", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_33_query_limit(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_35_query_limit(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_33_query_limit(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_35_query_limit(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12527,7 +12803,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_33_q
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 348, __pyx_L1_error)
+    __PYX_ERR(0, 360, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12535,7 +12811,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_33_q
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_35generator7, __pyx_codeobj__19, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_limit, __pyx_n_s_AbstractParser__query_limit, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 348, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_37generator7, __pyx_codeobj__20, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_limit, __pyx_n_s_AbstractParser__query_limit, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 360, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12551,7 +12827,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_33_q
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_35generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_37generator7(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12567,19 +12843,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_35ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 348, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 360, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":349
+  /* "querysource/parsers/abstract.pyx":361
  * 
  *     async def _query_limit(self):
  *         self._query_limit_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _offset_pagination(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_limit_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 349, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_limit_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 361, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":348
+  /* "querysource/parsers/abstract.pyx":360
  *         self._query_fields_sync()
  * 
  *     async def _query_limit(self):             # <<<<<<<<<<<<<<
@@ -12603,9 +12879,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_35ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_38generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_40generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":351
+/* "querysource/parsers/abstract.pyx":363
  *         self._query_limit_sync()
  * 
  *     async def _offset_pagination(self):             # <<<<<<<<<<<<<<
@@ -12614,16 +12890,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_38ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_37_offset_pagination(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_39_offset_pagination(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_36_offset_pagination, "AbstractParser._offset_pagination(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_37_offset_pagination = {"_offset_pagination", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_37_offset_pagination, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_36_offset_pagination};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_37_offset_pagination(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_38_offset_pagination, "AbstractParser._offset_pagination(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_39_offset_pagination = {"_offset_pagination", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_39_offset_pagination, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_38_offset_pagination};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_39_offset_pagination(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12648,14 +12924,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_offset_pagination", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_offset_pagination", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_36_offset_pagination(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_38_offset_pagination(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_36_offset_pagination(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_38_offset_pagination(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12667,7 +12943,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_36_o
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 351, __pyx_L1_error)
+    __PYX_ERR(0, 363, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12675,7 +12951,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_36_o
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_38generator8, __pyx_codeobj__20, (PyObject *) __pyx_cur_scope, __pyx_n_s_offset_pagination, __pyx_n_s_AbstractParser__offset_paginatio, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 351, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_40generator8, __pyx_codeobj__21, (PyObject *) __pyx_cur_scope, __pyx_n_s_offset_pagination, __pyx_n_s_AbstractParser__offset_paginatio, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 363, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12691,7 +12967,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_36_o
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_38generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_40generator8(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12707,19 +12983,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_38ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 351, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 363, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":352
+  /* "querysource/parsers/abstract.pyx":364
  * 
  *     async def _offset_pagination(self):
  *         self._offset_pagination_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _grouping(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_offset_pagination_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 352, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_offset_pagination_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 364, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":351
+  /* "querysource/parsers/abstract.pyx":363
  *         self._query_limit_sync()
  * 
  *     async def _offset_pagination(self):             # <<<<<<<<<<<<<<
@@ -12743,9 +13019,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_38ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_41generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_43generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":354
+/* "querysource/parsers/abstract.pyx":366
  *         self._offset_pagination_sync()
  * 
  *     async def _grouping(self):             # <<<<<<<<<<<<<<
@@ -12754,16 +13030,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_41ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_40_grouping(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_42_grouping(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_39_grouping, "AbstractParser._grouping(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_40_grouping = {"_grouping", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_40_grouping, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_39_grouping};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_40_grouping(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_41_grouping, "AbstractParser._grouping(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_42_grouping = {"_grouping", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_42_grouping, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_41_grouping};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_42_grouping(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12788,14 +13064,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_grouping", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_grouping", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_39_grouping(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_41_grouping(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_39_grouping(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_41_grouping(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12807,7 +13083,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_39_g
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 354, __pyx_L1_error)
+    __PYX_ERR(0, 366, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12815,7 +13091,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_39_g
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_41generator9, __pyx_codeobj__21, (PyObject *) __pyx_cur_scope, __pyx_n_s_grouping_2, __pyx_n_s_AbstractParser__grouping, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 354, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_43generator9, __pyx_codeobj__22, (PyObject *) __pyx_cur_scope, __pyx_n_s_grouping_2, __pyx_n_s_AbstractParser__grouping, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 366, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12831,7 +13107,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_39_g
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_41generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_43generator9(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12847,19 +13123,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_41ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 354, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 366, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":355
+  /* "querysource/parsers/abstract.pyx":367
  * 
  *     async def _grouping(self):
  *         self._grouping_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _ordering(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_grouping_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 355, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_grouping_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":354
+  /* "querysource/parsers/abstract.pyx":366
  *         self._offset_pagination_sync()
  * 
  *     async def _grouping(self):             # <<<<<<<<<<<<<<
@@ -12883,9 +13159,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_41ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_44generator10(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_46generator10(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":357
+/* "querysource/parsers/abstract.pyx":369
  *         self._grouping_sync()
  * 
  *     async def _ordering(self):             # <<<<<<<<<<<<<<
@@ -12894,16 +13170,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_44ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_43_ordering(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_45_ordering(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_42_ordering, "AbstractParser._ordering(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_43_ordering = {"_ordering", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_43_ordering, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_42_ordering};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_43_ordering(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_44_ordering, "AbstractParser._ordering(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_45_ordering = {"_ordering", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_45_ordering, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_44_ordering};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_45_ordering(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -12928,14 +13204,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_ordering", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_ordering", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_42_ordering(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_44_ordering(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_42_ordering(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_44_ordering(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -12947,7 +13223,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_42_o
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 357, __pyx_L1_error)
+    __PYX_ERR(0, 369, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -12955,7 +13231,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_42_o
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_44generator10, __pyx_codeobj__22, (PyObject *) __pyx_cur_scope, __pyx_n_s_ordering_2, __pyx_n_s_AbstractParser__ordering, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 357, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_46generator10, __pyx_codeobj__23, (PyObject *) __pyx_cur_scope, __pyx_n_s_ordering_2, __pyx_n_s_AbstractParser__ordering, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 369, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -12971,7 +13247,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_42_o
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_44generator10(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_46generator10(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -12987,19 +13263,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_44ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 357, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 369, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":358
+  /* "querysource/parsers/abstract.pyx":370
  * 
  *     async def _ordering(self):
  *         self._ordering_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _filter_options(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_ordering_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 358, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_ordering_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 370, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":357
+  /* "querysource/parsers/abstract.pyx":369
  *         self._grouping_sync()
  * 
  *     async def _ordering(self):             # <<<<<<<<<<<<<<
@@ -13023,9 +13299,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_44ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_47generator11(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_49generator11(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":360
+/* "querysource/parsers/abstract.pyx":372
  *         self._ordering_sync()
  * 
  *     async def _filter_options(self):             # <<<<<<<<<<<<<<
@@ -13034,16 +13310,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_47ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_46_filter_options(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_48_filter_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_45_filter_options, "AbstractParser._filter_options(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_46_filter_options = {"_filter_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_46_filter_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_45_filter_options};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_46_filter_options(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_47_filter_options, "AbstractParser._filter_options(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_48_filter_options = {"_filter_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_48_filter_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_47_filter_options};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_48_filter_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13068,14 +13344,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_filter_options", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_filter_options", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_45_filter_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_47_filter_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_45_filter_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_47_filter_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -13087,7 +13363,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_45_f
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 360, __pyx_L1_error)
+    __PYX_ERR(0, 372, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -13095,7 +13371,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_45_f
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_47generator11, __pyx_codeobj__23, (PyObject *) __pyx_cur_scope, __pyx_n_s_filter_options_2, __pyx_n_s_AbstractParser__filter_options, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 360, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_49generator11, __pyx_codeobj__24, (PyObject *) __pyx_cur_scope, __pyx_n_s_filter_options_2, __pyx_n_s_AbstractParser__filter_options, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 372, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -13111,7 +13387,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_45_f
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_47generator11(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_49generator11(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -13127,19 +13403,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_47ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 360, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 372, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":361
+  /* "querysource/parsers/abstract.pyx":373
  * 
  *     async def _filter_options(self):
  *         self._filter_options_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _query_filter(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_filter_options_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 361, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_filter_options_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 373, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":360
+  /* "querysource/parsers/abstract.pyx":372
  *         self._ordering_sync()
  * 
  *     async def _filter_options(self):             # <<<<<<<<<<<<<<
@@ -13163,9 +13439,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_47ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_50generator12(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_52generator12(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":363
+/* "querysource/parsers/abstract.pyx":375
  *         self._filter_options_sync()
  * 
  *     async def _query_filter(self):             # <<<<<<<<<<<<<<
@@ -13174,16 +13450,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_50ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_49_query_filter(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_51_query_filter(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_48_query_filter, "AbstractParser._query_filter(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_49_query_filter = {"_query_filter", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_49_query_filter, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_48_query_filter};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_49_query_filter(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_50_query_filter, "AbstractParser._query_filter(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_51_query_filter = {"_query_filter", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_51_query_filter, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_50_query_filter};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_51_query_filter(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13208,14 +13484,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_query_filter", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_query_filter", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_48_query_filter(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_50_query_filter(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_48_query_filter(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_50_query_filter(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -13227,7 +13503,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_48_q
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 363, __pyx_L1_error)
+    __PYX_ERR(0, 375, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -13235,7 +13511,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_48_q
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_50generator12, __pyx_codeobj__24, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_filter, __pyx_n_s_AbstractParser__query_filter, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 363, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_52generator12, __pyx_codeobj__25, (PyObject *) __pyx_cur_scope, __pyx_n_s_query_filter, __pyx_n_s_AbstractParser__query_filter, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 375, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -13251,7 +13527,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_48_q
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_50generator12(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_52generator12(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -13267,19 +13543,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_50ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 375, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":364
+  /* "querysource/parsers/abstract.pyx":376
  * 
  *     async def _query_filter(self):
  *         self._query_filter_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _qs_filters(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_filter_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 364, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_query_filter_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 376, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":363
+  /* "querysource/parsers/abstract.pyx":375
  *         self._filter_options_sync()
  * 
  *     async def _query_filter(self):             # <<<<<<<<<<<<<<
@@ -13303,9 +13579,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_50ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_53generator13(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_55generator13(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":366
+/* "querysource/parsers/abstract.pyx":378
  *         self._query_filter_sync()
  * 
  *     async def _qs_filters(self):             # <<<<<<<<<<<<<<
@@ -13314,16 +13590,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_53ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_52_qs_filters(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_54_qs_filters(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_51_qs_filters, "AbstractParser._qs_filters(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_52_qs_filters = {"_qs_filters", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_52_qs_filters, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_51_qs_filters};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_52_qs_filters(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_53_qs_filters, "AbstractParser._qs_filters(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_54_qs_filters = {"_qs_filters", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_54_qs_filters, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_53_qs_filters};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_54_qs_filters(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13348,14 +13624,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_qs_filters", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_qs_filters", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_51_qs_filters(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_53_qs_filters(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_51_qs_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_53_qs_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -13367,7 +13643,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_51_q
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 366, __pyx_L1_error)
+    __PYX_ERR(0, 378, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -13375,7 +13651,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_51_q
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_53generator13, __pyx_codeobj__25, (PyObject *) __pyx_cur_scope, __pyx_n_s_qs_filters, __pyx_n_s_AbstractParser__qs_filters, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 366, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_55generator13, __pyx_codeobj__26, (PyObject *) __pyx_cur_scope, __pyx_n_s_qs_filters, __pyx_n_s_AbstractParser__qs_filters, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 378, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -13391,7 +13667,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_51_q
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_53generator13(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_55generator13(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -13407,19 +13683,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_53ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 366, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 378, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":367
+  /* "querysource/parsers/abstract.pyx":379
  * 
  *     async def _qs_filters(self):
  *         self._qs_filters_sync()             # <<<<<<<<<<<<<<
  * 
  *     async def _col_definition(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_qs_filters_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 367, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_qs_filters_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 379, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":366
+  /* "querysource/parsers/abstract.pyx":378
  *         self._query_filter_sync()
  * 
  *     async def _qs_filters(self):             # <<<<<<<<<<<<<<
@@ -13443,9 +13719,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_53ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56generator14(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_58generator14(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":369
+/* "querysource/parsers/abstract.pyx":381
  *         self._qs_filters_sync()
  * 
  *     async def _col_definition(self):             # <<<<<<<<<<<<<<
@@ -13454,16 +13730,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_55_col_definition(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_57_col_definition(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_54_col_definition, "AbstractParser._col_definition(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_55_col_definition = {"_col_definition", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_55_col_definition, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_54_col_definition};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_55_col_definition(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_56_col_definition, "AbstractParser._col_definition(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_57_col_definition = {"_col_definition", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_57_col_definition, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_56_col_definition};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_57_col_definition(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13488,14 +13764,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("_col_definition", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "_col_definition", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_54_col_definition(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_56_col_definition(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_54_col_definition(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_56_col_definition(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -13507,7 +13783,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_54_c
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 369, __pyx_L1_error)
+    __PYX_ERR(0, 381, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -13515,7 +13791,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_54_c
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56generator14, __pyx_codeobj__26, (PyObject *) __pyx_cur_scope, __pyx_n_s_col_definition, __pyx_n_s_AbstractParser__col_definition, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 369, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_58generator14, __pyx_codeobj__27, (PyObject *) __pyx_cur_scope, __pyx_n_s_col_definition, __pyx_n_s_AbstractParser__col_definition, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 381, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -13531,7 +13807,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_54_c
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56generator14(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_58generator14(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -13547,19 +13823,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 369, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 381, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":370
+  /* "querysource/parsers/abstract.pyx":382
  * 
  *     async def _col_definition(self):
  *         self._col_definition_sync()             # <<<<<<<<<<<<<<
  * 
  *     cpdef dict get_query_filters(self):
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_col_definition_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 370, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_col_definition_sync(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 382, __pyx_L1_error)
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":369
+  /* "querysource/parsers/abstract.pyx":381
  *         self._qs_filters_sync()
  * 
  *     async def _col_definition(self):             # <<<<<<<<<<<<<<
@@ -13584,7 +13860,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":372
+/* "querysource/parsers/abstract.pyx":384
  *         self._col_definition_sync()
  * 
  *     cpdef dict get_query_filters(self):             # <<<<<<<<<<<<<<
@@ -13592,7 +13868,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_56ge
  * 
  */
 
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13620,9 +13896,9 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_q
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_get_query_filters); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 372, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_get_query_filters); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 384, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters)) {
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters)) {
         __Pyx_XDECREF(__pyx_r);
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_3 = __pyx_t_1; __pyx_t_4 = NULL;
@@ -13643,11 +13919,11 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_q
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 372, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 384, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(PyDict_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_2))) __PYX_ERR(0, 372, __pyx_L1_error)
+        if (!(likely(PyDict_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_2))) __PYX_ERR(0, 384, __pyx_L1_error)
         __pyx_r = ((PyObject*)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -13666,7 +13942,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_q
     #endif
   }
 
-  /* "querysource/parsers/abstract.pyx":373
+  /* "querysource/parsers/abstract.pyx":385
  * 
  *     cpdef dict get_query_filters(self):
  *         return self._query_filters             # <<<<<<<<<<<<<<
@@ -13678,7 +13954,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_q
   __pyx_r = __pyx_v_self->_query_filters;
   goto __pyx_L0;
 
-  /* "querysource/parsers/abstract.pyx":372
+  /* "querysource/parsers/abstract.pyx":384
  *         self._col_definition_sync()
  * 
  *     cpdef dict get_query_filters(self):             # <<<<<<<<<<<<<<
@@ -13701,16 +13977,16 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_q
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_57get_query_filters, "AbstractParser.get_query_filters(self) -> dict");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters = {"get_query_filters", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_57get_query_filters};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_59get_query_filters, "AbstractParser.get_query_filters(self) -> dict");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters = {"get_query_filters", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_59get_query_filters};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13735,14 +14011,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("get_query_filters", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "get_query_filters", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_57get_query_filters(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59get_query_filters(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_57get_query_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59get_query_filters(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -13751,7 +14027,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_57ge
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_query_filters", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_query_filters(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_query_filters(__pyx_v_self, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 384, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -13767,9 +14043,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_57ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61generator15(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_63generator15(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":379
+/* "querysource/parsers/abstract.pyx":391
  *     # ------------------------------------------------------------------
  * 
  *     async def set_options(self):             # <<<<<<<<<<<<<<
@@ -13778,16 +14054,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60set_options(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_62set_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_59set_options, "AbstractParser.set_options(self)\nSet the options for the query.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_60set_options = {"set_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60set_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_59set_options};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60set_options(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_61set_options, "AbstractParser.set_options(self)\nSet the options for the query.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_62set_options = {"set_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_62set_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_61set_options};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_62set_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -13812,14 +14088,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("set_options", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "set_options", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59set_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_61set_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59set_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_61set_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -13831,7 +14107,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59se
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 379, __pyx_L1_error)
+    __PYX_ERR(0, 391, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -13839,7 +14115,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59se
   __Pyx_INCREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   __Pyx_GIVEREF((PyObject *)__pyx_cur_scope->__pyx_v_self);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61generator15, __pyx_codeobj__27, (PyObject *) __pyx_cur_scope, __pyx_n_s_set_options, __pyx_n_s_AbstractParser_set_options, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 379, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_63generator15, __pyx_codeobj__28, (PyObject *) __pyx_cur_scope, __pyx_n_s_set_options, __pyx_n_s_AbstractParser_set_options, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 391, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -13855,7 +14131,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_59se
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61generator15(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_63generator15(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -13894,9 +14170,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 379, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 391, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":381
+  /* "querysource/parsers/abstract.pyx":393
  *     async def set_options(self):
  *         """Set the options for the query."""
  *         if not self.tablename:             # <<<<<<<<<<<<<<
@@ -13907,26 +14183,26 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "querysource/parsers/abstract.pyx":382
+    /* "querysource/parsers/abstract.pyx":394
  *         """Set the options for the query."""
  *         if not self.tablename:
  *             self.tablename = self.conditions.pop('tablename', None)             # <<<<<<<<<<<<<<
  *         if not self.schema:
  *             self.schema = self.conditions.pop('schema', None)
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 382, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_tuple__28, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 382, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_tuple__29, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 394, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 382, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 394, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_4);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->tablename);
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->tablename);
     __pyx_cur_scope->__pyx_v_self->tablename = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":381
+    /* "querysource/parsers/abstract.pyx":393
  *     async def set_options(self):
  *         """Set the options for the query."""
  *         if not self.tablename:             # <<<<<<<<<<<<<<
@@ -13935,7 +14211,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":383
+  /* "querysource/parsers/abstract.pyx":395
  *         if not self.tablename:
  *             self.tablename = self.conditions.pop('tablename', None)
  *         if not self.schema:             # <<<<<<<<<<<<<<
@@ -13946,26 +14222,26 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
   __pyx_t_1 = (!__pyx_t_2);
   if (__pyx_t_1) {
 
-    /* "querysource/parsers/abstract.pyx":384
+    /* "querysource/parsers/abstract.pyx":396
  *             self.tablename = self.conditions.pop('tablename', None)
  *         if not self.schema:
  *             self.schema = self.conditions.pop('schema', None)             # <<<<<<<<<<<<<<
  *         if not self.database:
  *             self.database = self.conditions.pop('database', None)
  */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 384, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 396, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__29, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 384, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__30, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 396, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_3))) __PYX_ERR(0, 384, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_3))) __PYX_ERR(0, 396, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_3);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->schema);
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->schema);
     __pyx_cur_scope->__pyx_v_self->schema = ((PyObject*)__pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "querysource/parsers/abstract.pyx":383
+    /* "querysource/parsers/abstract.pyx":395
  *         if not self.tablename:
  *             self.tablename = self.conditions.pop('tablename', None)
  *         if not self.schema:             # <<<<<<<<<<<<<<
@@ -13974,7 +14250,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":385
+  /* "querysource/parsers/abstract.pyx":397
  *         if not self.schema:
  *             self.schema = self.conditions.pop('schema', None)
  *         if not self.database:             # <<<<<<<<<<<<<<
@@ -13985,26 +14261,26 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "querysource/parsers/abstract.pyx":386
+    /* "querysource/parsers/abstract.pyx":398
  *             self.schema = self.conditions.pop('schema', None)
  *         if not self.database:
  *             self.database = self.conditions.pop('database', None)             # <<<<<<<<<<<<<<
  *         self._distinct = bool(self.conditions.pop('distinct', False))
  *         self._add_fields = self.conditions.pop('add_fields', False)
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 386, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 398, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_tuple__30, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 386, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_tuple__31, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 398, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 386, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 398, __pyx_L1_error)
     __Pyx_GIVEREF(__pyx_t_4);
     __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_self->database);
     __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->database);
     __pyx_cur_scope->__pyx_v_self->database = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":385
+    /* "querysource/parsers/abstract.pyx":397
  *         if not self.schema:
  *             self.schema = self.conditions.pop('schema', None)
  *         if not self.database:             # <<<<<<<<<<<<<<
@@ -14013,48 +14289,48 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":387
+  /* "querysource/parsers/abstract.pyx":399
  *         if not self.database:
  *             self.database = self.conditions.pop('database', None)
  *         self._distinct = bool(self.conditions.pop('distinct', False))             # <<<<<<<<<<<<<<
  *         self._add_fields = self.conditions.pop('add_fields', False)
  *         # Synchronous extraction  no asyncio.gather overhead
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__31, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_tuple__32, NULL); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 387, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 399, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_cur_scope->__pyx_v_self->_distinct = (!(!__pyx_t_2));
 
-  /* "querysource/parsers/abstract.pyx":388
+  /* "querysource/parsers/abstract.pyx":400
  *             self.database = self.conditions.pop('database', None)
  *         self._distinct = bool(self.conditions.pop('distinct', False))
  *         self._add_fields = self.conditions.pop('add_fields', False)             # <<<<<<<<<<<<<<
  *         # Synchronous extraction  no asyncio.gather overhead
  *         self._extract_options()
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->conditions, __pyx_n_s_pop); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 400, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_tuple__32, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_tuple__33, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 400, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 388, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_2 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 400, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_cur_scope->__pyx_v_self->_add_fields = __pyx_t_2;
 
-  /* "querysource/parsers/abstract.pyx":390
+  /* "querysource/parsers/abstract.pyx":402
  *         self._add_fields = self.conditions.pop('add_fields', False)
  *         # Synchronous extraction  no asyncio.gather overhead
  *         self._extract_options()             # <<<<<<<<<<<<<<
  *         # other options are set of conditions
  *         try:
  */
-  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_extract_options(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 390, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_extract_options(__pyx_cur_scope->__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 402, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":392
+  /* "querysource/parsers/abstract.pyx":404
  *         self._extract_options()
  *         # other options are set of conditions
  *         try:             # <<<<<<<<<<<<<<
@@ -14068,34 +14344,34 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
     __Pyx_XGOTREF(__pyx_t_7);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":393
+      /* "querysource/parsers/abstract.pyx":405
  *         # other options are set of conditions
  *         try:
  *             params = {}             # <<<<<<<<<<<<<<
  *             conditions = dict(self.conditions) if self.conditions else {}
  *             try:
  */
-      __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 393, __pyx_L7_error)
+      __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 405, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_GIVEREF(__pyx_t_4);
       __pyx_cur_scope->__pyx_v_params = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":394
+      /* "querysource/parsers/abstract.pyx":406
  *         try:
  *             params = {}
  *             conditions = dict(self.conditions) if self.conditions else {}             # <<<<<<<<<<<<<<
  *             try:
  *                 def_conditions = self.definition.conditions
  */
-      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_self->conditions); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 394, __pyx_L7_error)
+      __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_self->conditions); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 406, __pyx_L7_error)
       if (__pyx_t_2) {
-        __pyx_t_3 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyDict_Type)), __pyx_cur_scope->__pyx_v_self->conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L7_error)
+        __pyx_t_3 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyDict_Type)), __pyx_cur_scope->__pyx_v_self->conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 406, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_3);
         __pyx_t_4 = __pyx_t_3;
         __pyx_t_3 = 0;
       } else {
-        __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 394, __pyx_L7_error)
+        __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 406, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_3);
         __pyx_t_4 = __pyx_t_3;
         __pyx_t_3 = 0;
@@ -14104,7 +14380,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
       __pyx_cur_scope->__pyx_v_conditions = ((PyObject*)__pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "querysource/parsers/abstract.pyx":395
+      /* "querysource/parsers/abstract.pyx":407
  *             params = {}
  *             conditions = dict(self.conditions) if self.conditions else {}
  *             try:             # <<<<<<<<<<<<<<
@@ -14118,20 +14394,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
         __Pyx_XGOTREF(__pyx_t_10);
         /*try:*/ {
 
-          /* "querysource/parsers/abstract.pyx":396
+          /* "querysource/parsers/abstract.pyx":408
  *             conditions = dict(self.conditions) if self.conditions else {}
  *             try:
  *                 def_conditions = self.definition.conditions             # <<<<<<<<<<<<<<
  *                 if def_conditions is None:
  *                     def_conditions = {}
  */
-          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->definition, __pyx_n_s_conditions); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 396, __pyx_L13_error)
+          __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->definition, __pyx_n_s_conditions); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 408, __pyx_L13_error)
           __Pyx_GOTREF(__pyx_t_4);
           __Pyx_GIVEREF(__pyx_t_4);
           __pyx_cur_scope->__pyx_v_def_conditions = __pyx_t_4;
           __pyx_t_4 = 0;
 
-          /* "querysource/parsers/abstract.pyx":397
+          /* "querysource/parsers/abstract.pyx":409
  *             try:
  *                 def_conditions = self.definition.conditions
  *                 if def_conditions is None:             # <<<<<<<<<<<<<<
@@ -14141,21 +14417,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
           __pyx_t_2 = (__pyx_cur_scope->__pyx_v_def_conditions == Py_None);
           if (__pyx_t_2) {
 
-            /* "querysource/parsers/abstract.pyx":398
+            /* "querysource/parsers/abstract.pyx":410
  *                 def_conditions = self.definition.conditions
  *                 if def_conditions is None:
  *                     def_conditions = {}             # <<<<<<<<<<<<<<
  *             except AttributeError:
  *                 def_conditions = {}
  */
-            __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 398, __pyx_L13_error)
+            __pyx_t_4 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 410, __pyx_L13_error)
             __Pyx_GOTREF(__pyx_t_4);
             __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_def_conditions);
             __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_def_conditions, __pyx_t_4);
             __Pyx_GIVEREF(__pyx_t_4);
             __pyx_t_4 = 0;
 
-            /* "querysource/parsers/abstract.pyx":397
+            /* "querysource/parsers/abstract.pyx":409
  *             try:
  *                 def_conditions = self.definition.conditions
  *                 if def_conditions is None:             # <<<<<<<<<<<<<<
@@ -14164,7 +14440,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
           }
 
-          /* "querysource/parsers/abstract.pyx":395
+          /* "querysource/parsers/abstract.pyx":407
  *             params = {}
  *             conditions = dict(self.conditions) if self.conditions else {}
  *             try:             # <<<<<<<<<<<<<<
@@ -14180,7 +14456,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-        /* "querysource/parsers/abstract.pyx":399
+        /* "querysource/parsers/abstract.pyx":411
  *                 if def_conditions is None:
  *                     def_conditions = {}
  *             except AttributeError:             # <<<<<<<<<<<<<<
@@ -14190,19 +14466,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
         __pyx_t_11 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_AttributeError);
         if (__pyx_t_11) {
           __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser.set_options", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_3, &__pyx_t_12) < 0) __PYX_ERR(0, 399, __pyx_L15_except_error)
+          if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_3, &__pyx_t_12) < 0) __PYX_ERR(0, 411, __pyx_L15_except_error)
           __Pyx_XGOTREF(__pyx_t_4);
           __Pyx_XGOTREF(__pyx_t_3);
           __Pyx_XGOTREF(__pyx_t_12);
 
-          /* "querysource/parsers/abstract.pyx":400
+          /* "querysource/parsers/abstract.pyx":412
  *                     def_conditions = {}
  *             except AttributeError:
  *                 def_conditions = {}             # <<<<<<<<<<<<<<
  *             params = conditions.pop('conditions', {})
  *             if params is None:
  */
-          __pyx_t_13 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 400, __pyx_L15_except_error)
+          __pyx_t_13 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 412, __pyx_L15_except_error)
           __Pyx_GOTREF(__pyx_t_13);
           __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_def_conditions);
           __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_v_def_conditions, __pyx_t_13);
@@ -14215,7 +14491,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
         }
         goto __pyx_L15_except_error;
 
-        /* "querysource/parsers/abstract.pyx":395
+        /* "querysource/parsers/abstract.pyx":407
  *             params = {}
  *             conditions = dict(self.conditions) if self.conditions else {}
  *             try:             # <<<<<<<<<<<<<<
@@ -14236,7 +14512,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
         __pyx_L18_try_end:;
       }
 
-      /* "querysource/parsers/abstract.pyx":401
+      /* "querysource/parsers/abstract.pyx":413
  *             except AttributeError:
  *                 def_conditions = {}
  *             params = conditions.pop('conditions', {})             # <<<<<<<<<<<<<<
@@ -14245,11 +14521,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
       if (unlikely(__pyx_cur_scope->__pyx_v_conditions == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "pop");
-        __PYX_ERR(0, 401, __pyx_L7_error)
+        __PYX_ERR(0, 413, __pyx_L7_error)
       }
-      __pyx_t_12 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 401, __pyx_L7_error)
+      __pyx_t_12 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 413, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_12);
-      __pyx_t_3 = __Pyx_PyDict_Pop(__pyx_cur_scope->__pyx_v_conditions, __pyx_n_u_conditions, __pyx_t_12); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 401, __pyx_L7_error)
+      __pyx_t_3 = __Pyx_PyDict_Pop(__pyx_cur_scope->__pyx_v_conditions, __pyx_n_u_conditions, __pyx_t_12); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 413, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_params);
@@ -14257,7 +14533,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
       __Pyx_GIVEREF(__pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "querysource/parsers/abstract.pyx":402
+      /* "querysource/parsers/abstract.pyx":414
  *                 def_conditions = {}
  *             params = conditions.pop('conditions', {})
  *             if params is None:             # <<<<<<<<<<<<<<
@@ -14267,21 +14543,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
       __pyx_t_2 = (__pyx_cur_scope->__pyx_v_params == Py_None);
       if (__pyx_t_2) {
 
-        /* "querysource/parsers/abstract.pyx":403
+        /* "querysource/parsers/abstract.pyx":415
  *             params = conditions.pop('conditions', {})
  *             if params is None:
  *                 params = {}             # <<<<<<<<<<<<<<
  *             conditions = {**def_conditions, **conditions, **params}
  *             await self._parser_conditions(
  */
-        __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 403, __pyx_L7_error)
+        __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 415, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_3);
         __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_params);
         __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_params, __pyx_t_3);
         __Pyx_GIVEREF(__pyx_t_3);
         __pyx_t_3 = 0;
 
-        /* "querysource/parsers/abstract.pyx":402
+        /* "querysource/parsers/abstract.pyx":414
  *                 def_conditions = {}
  *             params = conditions.pop('conditions', {})
  *             if params is None:             # <<<<<<<<<<<<<<
@@ -14290,7 +14566,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
       }
 
-      /* "querysource/parsers/abstract.pyx":404
+      /* "querysource/parsers/abstract.pyx":416
  *             if params is None:
  *                 params = {}
  *             conditions = {**def_conditions, **conditions, **params}             # <<<<<<<<<<<<<<
@@ -14299,65 +14575,65 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
  */
       if (unlikely(__pyx_cur_scope->__pyx_v_def_conditions == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 404, __pyx_L7_error)
+        __PYX_ERR(0, 416, __pyx_L7_error)
       }
       if (likely(PyDict_CheckExact(__pyx_cur_scope->__pyx_v_def_conditions))) {
-        __pyx_t_3 = PyDict_Copy(__pyx_cur_scope->__pyx_v_def_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 404, __pyx_L7_error)
+        __pyx_t_3 = PyDict_Copy(__pyx_cur_scope->__pyx_v_def_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 416, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_3);
       } else {
-        __pyx_t_3 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_cur_scope->__pyx_v_def_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 404, __pyx_L7_error)
+        __pyx_t_3 = __Pyx_PyObject_CallOneArg((PyObject*)&PyDict_Type, __pyx_cur_scope->__pyx_v_def_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 416, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_3);
       }
       if (unlikely(__pyx_cur_scope->__pyx_v_conditions == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 404, __pyx_L7_error)
+        __PYX_ERR(0, 416, __pyx_L7_error)
       }
       if (unlikely(PyDict_Update(__pyx_t_3, __pyx_cur_scope->__pyx_v_conditions) < 0)) {
         if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_cur_scope->__pyx_v_conditions);
-        __PYX_ERR(0, 404, __pyx_L7_error)
+        __PYX_ERR(0, 416, __pyx_L7_error)
       }
       if (unlikely(__pyx_cur_scope->__pyx_v_params == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 404, __pyx_L7_error)
+        __PYX_ERR(0, 416, __pyx_L7_error)
       }
       if (unlikely(PyDict_Update(__pyx_t_3, __pyx_cur_scope->__pyx_v_params) < 0)) {
         if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_cur_scope->__pyx_v_params);
-        __PYX_ERR(0, 404, __pyx_L7_error)
+        __PYX_ERR(0, 416, __pyx_L7_error)
       }
       __Pyx_GOTREF(__pyx_cur_scope->__pyx_v_conditions);
       __Pyx_DECREF_SET(__pyx_cur_scope->__pyx_v_conditions, ((PyObject*)__pyx_t_3));
       __Pyx_GIVEREF(__pyx_t_3);
       __pyx_t_3 = 0;
 
-      /* "querysource/parsers/abstract.pyx":405
+      /* "querysource/parsers/abstract.pyx":417
  *                 params = {}
  *             conditions = {**def_conditions, **conditions, **params}
  *             await self._parser_conditions(             # <<<<<<<<<<<<<<
  *                 conditions=conditions
  *             )
  */
-      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_parser_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 405, __pyx_L7_error)
+      __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_parser_conditions); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 417, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_3);
 
-      /* "querysource/parsers/abstract.pyx":406
+      /* "querysource/parsers/abstract.pyx":418
  *             conditions = {**def_conditions, **conditions, **params}
  *             await self._parser_conditions(
  *                 conditions=conditions             # <<<<<<<<<<<<<<
  *             )
  *         except KeyError as err:
  */
-      __pyx_t_12 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 406, __pyx_L7_error)
+      __pyx_t_12 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 418, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_12);
-      if (PyDict_SetItem(__pyx_t_12, __pyx_n_s_conditions, __pyx_cur_scope->__pyx_v_conditions) < 0) __PYX_ERR(0, 406, __pyx_L7_error)
+      if (PyDict_SetItem(__pyx_t_12, __pyx_n_s_conditions, __pyx_cur_scope->__pyx_v_conditions) < 0) __PYX_ERR(0, 418, __pyx_L7_error)
 
-      /* "querysource/parsers/abstract.pyx":405
+      /* "querysource/parsers/abstract.pyx":417
  *                 params = {}
  *             conditions = {**def_conditions, **conditions, **params}
  *             await self._parser_conditions(             # <<<<<<<<<<<<<<
  *                 conditions=conditions
  *             )
  */
-      __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_12); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 405, __pyx_L7_error)
+      __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_empty_tuple, __pyx_t_12); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 417, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
@@ -14387,16 +14663,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
         __pyx_t_7 = __pyx_cur_scope->__pyx_t_2;
         __pyx_cur_scope->__pyx_t_2 = 0;
         __Pyx_XGOTREF(__pyx_t_7);
-        if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 405, __pyx_L7_error)
+        if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 417, __pyx_L7_error)
       } else {
         PyObject* exc_type = __Pyx_PyErr_CurrentExceptionType();
         if (exc_type) {
           if (likely(exc_type == PyExc_StopIteration || (exc_type != PyExc_GeneratorExit && __Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))) PyErr_Clear();
-          else __PYX_ERR(0, 405, __pyx_L7_error)
+          else __PYX_ERR(0, 417, __pyx_L7_error)
         }
       }
 
-      /* "querysource/parsers/abstract.pyx":392
+      /* "querysource/parsers/abstract.pyx":404
  *         self._extract_options()
  *         # other options are set of conditions
  *         try:             # <<<<<<<<<<<<<<
@@ -14414,7 +14690,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":408
+    /* "querysource/parsers/abstract.pyx":420
  *                 conditions=conditions
  *             )
  *         except KeyError as err:             # <<<<<<<<<<<<<<
@@ -14424,7 +14700,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
     __pyx_t_11 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_KeyError);
     if (__pyx_t_11) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser.set_options", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_12, &__pyx_t_3) < 0) __PYX_ERR(0, 408, __pyx_L9_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_12, &__pyx_t_3) < 0) __PYX_ERR(0, 420, __pyx_L9_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_12);
       __Pyx_XGOTREF(__pyx_t_3);
@@ -14433,18 +14709,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
       __pyx_cur_scope->__pyx_v_err = __pyx_t_12;
       /*try:*/ {
 
-        /* "querysource/parsers/abstract.pyx":409
+        /* "querysource/parsers/abstract.pyx":421
  *             )
  *         except KeyError as err:
  *             self.logger.warning(f'set_options KeyError: {err}')             # <<<<<<<<<<<<<<
  *         return self
  * 
  */
-        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->logger, __pyx_n_s_warning); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 409, __pyx_L29_error)
+        __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->logger, __pyx_n_s_warning); if (unlikely(!__pyx_t_14)) __PYX_ERR(0, 421, __pyx_L29_error)
         __Pyx_GOTREF(__pyx_t_14);
-        __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_err, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 409, __pyx_L29_error)
+        __pyx_t_15 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_err, __pyx_empty_unicode); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 421, __pyx_L29_error)
         __Pyx_GOTREF(__pyx_t_15);
-        __pyx_t_16 = __Pyx_PyUnicode_Concat(__pyx_kp_u_set_options_KeyError, __pyx_t_15); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 409, __pyx_L29_error)
+        __pyx_t_16 = __Pyx_PyUnicode_Concat(__pyx_kp_u_set_options_KeyError, __pyx_t_15); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 421, __pyx_L29_error)
         __Pyx_GOTREF(__pyx_t_16);
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
         __pyx_t_15 = NULL;
@@ -14466,14 +14742,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
           __pyx_t_13 = __Pyx_PyObject_FastCall(__pyx_t_14, __pyx_callargs+1-__pyx_t_17, 1+__pyx_t_17);
           __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
           __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
-          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 409, __pyx_L29_error)
+          if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 421, __pyx_L29_error)
           __Pyx_GOTREF(__pyx_t_13);
           __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
         }
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
       }
 
-      /* "querysource/parsers/abstract.pyx":408
+      /* "querysource/parsers/abstract.pyx":420
  *                 conditions=conditions
  *             )
  *         except KeyError as err:             # <<<<<<<<<<<<<<
@@ -14530,7 +14806,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
     }
     goto __pyx_L9_except_error;
 
-    /* "querysource/parsers/abstract.pyx":392
+    /* "querysource/parsers/abstract.pyx":404
  *         self._extract_options()
  *         # other options are set of conditions
  *         try:             # <<<<<<<<<<<<<<
@@ -14551,7 +14827,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
     __pyx_L12_try_end:;
   }
 
-  /* "querysource/parsers/abstract.pyx":410
+  /* "querysource/parsers/abstract.pyx":422
  *         except KeyError as err:
  *             self.logger.warning(f'set_options KeyError: {err}')
  *         return self             # <<<<<<<<<<<<<<
@@ -14563,7 +14839,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":379
+  /* "querysource/parsers/abstract.pyx":391
  *     # ------------------------------------------------------------------
  * 
  *     async def set_options(self):             # <<<<<<<<<<<<<<
@@ -14593,7 +14869,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_61ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":412
+/* "querysource/parsers/abstract.pyx":424
  *         return self
  * 
  *     cdef object _get_function_replacement(self, object function, str key, object val):             # <<<<<<<<<<<<<<
@@ -14615,16 +14891,16 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_get_function_replacement", 1);
 
-  /* "querysource/parsers/abstract.pyx":413
+  /* "querysource/parsers/abstract.pyx":425
  * 
  *     cdef object _get_function_replacement(self, object function, str key, object val):
  *         fn = QS_VARIABLES.get(function, None)             # <<<<<<<<<<<<<<
  *         if callable(fn):
  *             return fn(key, val)
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_QS_VARIABLES); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_QS_VARIABLES); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 413, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_get); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 425, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -14645,24 +14921,24 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
     PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_v_function, Py_None};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 413, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 425, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
   __pyx_v_fn = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":414
+  /* "querysource/parsers/abstract.pyx":426
  *     cdef object _get_function_replacement(self, object function, str key, object val):
  *         fn = QS_VARIABLES.get(function, None)
  *         if callable(fn):             # <<<<<<<<<<<<<<
  *             return fn(key, val)
  *         return None
  */
-  __pyx_t_5 = __Pyx_PyCallable_Check(__pyx_v_fn); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 414, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyCallable_Check(__pyx_v_fn); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 426, __pyx_L1_error)
   if (__pyx_t_5) {
 
-    /* "querysource/parsers/abstract.pyx":415
+    /* "querysource/parsers/abstract.pyx":427
  *         fn = QS_VARIABLES.get(function, None)
  *         if callable(fn):
  *             return fn(key, val)             # <<<<<<<<<<<<<<
@@ -14689,7 +14965,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
       PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_v_key, __pyx_v_val};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 415, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 427, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -14697,7 +14973,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
     __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "querysource/parsers/abstract.pyx":414
+    /* "querysource/parsers/abstract.pyx":426
  *     cdef object _get_function_replacement(self, object function, str key, object val):
  *         fn = QS_VARIABLES.get(function, None)
  *         if callable(fn):             # <<<<<<<<<<<<<<
@@ -14706,7 +14982,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":416
+  /* "querysource/parsers/abstract.pyx":428
  *         if callable(fn):
  *             return fn(key, val)
  *         return None             # <<<<<<<<<<<<<<
@@ -14717,7 +14993,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
   __pyx_r = Py_None; __Pyx_INCREF(Py_None);
   goto __pyx_L0;
 
-  /* "querysource/parsers/abstract.pyx":412
+  /* "querysource/parsers/abstract.pyx":424
  *         return self
  * 
  *     cdef object _get_function_replacement(self, object function, str key, object val):             # <<<<<<<<<<<<<<
@@ -14738,9 +15014,9 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64generator16(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_66generator16(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":418
+/* "querysource/parsers/abstract.pyx":430
  *         return None
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:             # <<<<<<<<<<<<<<
@@ -14749,16 +15025,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_63_get_operational_value(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_65_get_operational_value(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_62_get_operational_value, "AbstractParser._get_operational_value(self, value: object, connection: object) -> object");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_63_get_operational_value = {"_get_operational_value", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_63_get_operational_value, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_62_get_operational_value};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_63_get_operational_value(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_64_get_operational_value, "AbstractParser._get_operational_value(self, value: object, connection: object) -> object");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_65_get_operational_value = {"_get_operational_value", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_65_get_operational_value, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_64_get_operational_value};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_65_get_operational_value(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -14805,7 +15081,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 418, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 430, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -14813,14 +15089,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 418, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 430, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_get_operational_value", 1, 2, 2, 1); __PYX_ERR(0, 418, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_get_operational_value", 1, 2, 2, 1); __PYX_ERR(0, 430, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_get_operational_value") < 0)) __PYX_ERR(0, 418, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_get_operational_value") < 0)) __PYX_ERR(0, 430, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -14833,7 +15109,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_get_operational_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 418, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_get_operational_value", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 430, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -14847,7 +15123,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_62_get_operational_value(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_value, __pyx_v_connection);
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_64_get_operational_value(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_value, __pyx_v_connection);
 
   /* function exit code */
   {
@@ -14860,7 +15136,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_62_get_operational_value(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_value, CYTHON_UNUSED PyObject *__pyx_v_connection) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_64_get_operational_value(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v_value, CYTHON_UNUSED PyObject *__pyx_v_connection) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -14872,7 +15148,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_62_g
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 418, __pyx_L1_error)
+    __PYX_ERR(0, 430, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -14886,7 +15162,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_62_g
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_connection);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_connection);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64generator16, __pyx_codeobj__33, (PyObject *) __pyx_cur_scope, __pyx_n_s_get_operational_value, __pyx_n_s_AbstractParser__get_operational, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 418, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_66generator16, __pyx_codeobj__34, (PyObject *) __pyx_cur_scope, __pyx_n_s_get_operational_value, __pyx_n_s_AbstractParser__get_operational, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 430, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -14902,7 +15178,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_62_g
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64generator16(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_66generator16(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -14921,9 +15197,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 430, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":419
+  /* "querysource/parsers/abstract.pyx":431
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:
  *         try:             # <<<<<<<<<<<<<<
@@ -14934,7 +15210,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
     (void)__pyx_t_1; (void)__pyx_t_2; (void)__pyx_t_3; /* mark used */
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":420
+      /* "querysource/parsers/abstract.pyx":432
  *     async def _get_operational_value(self, value: object, connection: object) -> object:
  *         try:
  *             return None             # <<<<<<<<<<<<<<
@@ -14945,7 +15221,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
       __pyx_r = NULL;
       goto __pyx_L8_try_return;
 
-      /* "querysource/parsers/abstract.pyx":419
+      /* "querysource/parsers/abstract.pyx":431
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:
  *         try:             # <<<<<<<<<<<<<<
@@ -14958,7 +15234,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
   }
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":418
+  /* "querysource/parsers/abstract.pyx":430
  *         return None
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:             # <<<<<<<<<<<<<<
@@ -14981,7 +15257,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":424
+/* "querysource/parsers/abstract.pyx":436
  *             return None
  * 
  *     cpdef str filtering_options(self, str sentence):             # <<<<<<<<<<<<<<
@@ -14989,7 +15265,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_64ge
  *         if self.filter_options:
  */
 
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15019,9 +15295,9 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_filtering_options); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 424, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_filtering_options); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 436, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options)) {
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options)) {
         __Pyx_XDECREF(__pyx_r);
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_3 = __pyx_t_1; __pyx_t_4 = NULL;
@@ -15042,11 +15318,11 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_sentence};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 424, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 436, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
-        if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 424, __pyx_L1_error)
+        if (!(likely(PyUnicode_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_2))) __PYX_ERR(0, 436, __pyx_L1_error)
         __pyx_r = ((PyObject*)__pyx_t_2);
         __pyx_t_2 = 0;
         __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -15065,36 +15341,36 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
     #endif
   }
 
-  /* "querysource/parsers/abstract.pyx":426
+  /* "querysource/parsers/abstract.pyx":438
  *     cpdef str filtering_options(self, str sentence):
  *         """Add Filter Options."""
  *         if self.filter_options:             # <<<<<<<<<<<<<<
  *             self.logger.notice(
  *                 f" == FILTER OPTION: {self.filter_options}"
  */
-  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter_options); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 426, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter_options); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 438, __pyx_L1_error)
   if (__pyx_t_6) {
 
-    /* "querysource/parsers/abstract.pyx":427
+    /* "querysource/parsers/abstract.pyx":439
  *         """Add Filter Options."""
  *         if self.filter_options:
  *             self.logger.notice(             # <<<<<<<<<<<<<<
  *                 f" == FILTER OPTION: {self.filter_options}"
  *             )
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->logger, __pyx_n_s_notice); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 427, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_self->logger, __pyx_n_s_notice); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 439, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
 
-    /* "querysource/parsers/abstract.pyx":428
+    /* "querysource/parsers/abstract.pyx":440
  *         if self.filter_options:
  *             self.logger.notice(
  *                 f" == FILTER OPTION: {self.filter_options}"             # <<<<<<<<<<<<<<
  *             )
  *             if self.filter:
  */
-    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_self->filter_options, __pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 428, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_v_self->filter_options, __pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 440, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_kp_u_FILTER_OPTION, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 428, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_kp_u_FILTER_OPTION, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 440, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -15116,23 +15392,23 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 427, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 439, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":430
+    /* "querysource/parsers/abstract.pyx":442
  *                 f" == FILTER OPTION: {self.filter_options}"
  *             )
  *             if self.filter:             # <<<<<<<<<<<<<<
  *                 self.filter = {**self.filter, **self.filter_options}
  *             else:
  */
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 430, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_v_self->filter); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 442, __pyx_L1_error)
     if (__pyx_t_6) {
 
-      /* "querysource/parsers/abstract.pyx":431
+      /* "querysource/parsers/abstract.pyx":443
  *             )
  *             if self.filter:
  *                 self.filter = {**self.filter, **self.filter_options}             # <<<<<<<<<<<<<<
@@ -15141,17 +15417,17 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
  */
       if (unlikely(__pyx_v_self->filter == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 431, __pyx_L1_error)
+        __PYX_ERR(0, 443, __pyx_L1_error)
       }
-      __pyx_t_1 = PyDict_Copy(__pyx_v_self->filter); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 431, __pyx_L1_error)
+      __pyx_t_1 = PyDict_Copy(__pyx_v_self->filter); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 443, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       if (unlikely(__pyx_v_self->filter_options == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 431, __pyx_L1_error)
+        __PYX_ERR(0, 443, __pyx_L1_error)
       }
       if (unlikely(PyDict_Update(__pyx_t_1, __pyx_v_self->filter_options) < 0)) {
         if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_v_self->filter_options);
-        __PYX_ERR(0, 431, __pyx_L1_error)
+        __PYX_ERR(0, 443, __pyx_L1_error)
       }
       __Pyx_GIVEREF(__pyx_t_1);
       __Pyx_GOTREF(__pyx_v_self->filter);
@@ -15159,7 +15435,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
       __pyx_v_self->filter = ((PyObject*)__pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":430
+      /* "querysource/parsers/abstract.pyx":442
  *                 f" == FILTER OPTION: {self.filter_options}"
  *             )
  *             if self.filter:             # <<<<<<<<<<<<<<
@@ -15169,7 +15445,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
       goto __pyx_L4;
     }
 
-    /* "querysource/parsers/abstract.pyx":433
+    /* "querysource/parsers/abstract.pyx":445
  *                 self.filter = {**self.filter, **self.filter_options}
  *             else:
  *                 self.filter = self.filter_options             # <<<<<<<<<<<<<<
@@ -15187,7 +15463,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
     }
     __pyx_L4:;
 
-    /* "querysource/parsers/abstract.pyx":434
+    /* "querysource/parsers/abstract.pyx":446
  *             else:
  *                 self.filter = self.filter_options
  *             if 'where_cond' not in sentence or 'filter' not in sentence:             # <<<<<<<<<<<<<<
@@ -15196,9 +15472,9 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
  */
     if (unlikely(__pyx_v_sentence == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 434, __pyx_L1_error)
+      __PYX_ERR(0, 446, __pyx_L1_error)
     }
-    __pyx_t_7 = (__Pyx_PyUnicode_ContainsTF(__pyx_n_u_where_cond, __pyx_v_sentence, Py_NE)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 434, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_ContainsTF(__pyx_n_u_where_cond, __pyx_v_sentence, Py_NE)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 446, __pyx_L1_error)
     if (!__pyx_t_7) {
     } else {
       __pyx_t_6 = __pyx_t_7;
@@ -15206,14 +15482,14 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
     }
     if (unlikely(__pyx_v_sentence == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-      __PYX_ERR(0, 434, __pyx_L1_error)
+      __PYX_ERR(0, 446, __pyx_L1_error)
     }
-    __pyx_t_7 = (__Pyx_PyUnicode_ContainsTF(__pyx_n_u_filter, __pyx_v_sentence, Py_NE)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 434, __pyx_L1_error)
+    __pyx_t_7 = (__Pyx_PyUnicode_ContainsTF(__pyx_n_u_filter, __pyx_v_sentence, Py_NE)); if (unlikely((__pyx_t_7 < 0))) __PYX_ERR(0, 446, __pyx_L1_error)
     __pyx_t_6 = __pyx_t_7;
     __pyx_L6_bool_binop_done:;
     if (__pyx_t_6) {
 
-      /* "querysource/parsers/abstract.pyx":435
+      /* "querysource/parsers/abstract.pyx":447
  *                 self.filter = self.filter_options
  *             if 'where_cond' not in sentence or 'filter' not in sentence:
  *                 return f'{sentence!s} {{filter}}'             # <<<<<<<<<<<<<<
@@ -15221,16 +15497,16 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
  * 
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_sentence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 435, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyUnicode_Unicode(__pyx_v_sentence); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 447, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_2 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_kp_u_filter_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 435, __pyx_L1_error)
+      __pyx_t_2 = __Pyx_PyUnicode_ConcatInPlace(__pyx_t_1, __pyx_kp_u_filter_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 447, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_r = ((PyObject*)__pyx_t_2);
       __pyx_t_2 = 0;
       goto __pyx_L0;
 
-      /* "querysource/parsers/abstract.pyx":434
+      /* "querysource/parsers/abstract.pyx":446
  *             else:
  *                 self.filter = self.filter_options
  *             if 'where_cond' not in sentence or 'filter' not in sentence:             # <<<<<<<<<<<<<<
@@ -15239,7 +15515,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":426
+    /* "querysource/parsers/abstract.pyx":438
  *     cpdef str filtering_options(self, str sentence):
  *         """Add Filter Options."""
  *         if self.filter_options:             # <<<<<<<<<<<<<<
@@ -15248,7 +15524,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":436
+  /* "querysource/parsers/abstract.pyx":448
  *             if 'where_cond' not in sentence or 'filter' not in sentence:
  *                 return f'{sentence!s} {{filter}}'
  *         return sentence             # <<<<<<<<<<<<<<
@@ -15260,7 +15536,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
   __pyx_r = __pyx_v_sentence;
   goto __pyx_L0;
 
-  /* "querysource/parsers/abstract.pyx":424
+  /* "querysource/parsers/abstract.pyx":436
  *             return None
  * 
  *     cpdef str filtering_options(self, str sentence):             # <<<<<<<<<<<<<<
@@ -15283,16 +15559,16 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filte
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_65filtering_options, "AbstractParser.filtering_options(self, unicode sentence) -> unicode\nAdd Filter Options.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options = {"filtering_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_65filtering_options};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_67filtering_options, "AbstractParser.filtering_options(self, unicode sentence) -> unicode\nAdd Filter Options.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options = {"filtering_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_67filtering_options};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15336,12 +15612,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 424, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 436, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "filtering_options") < 0)) __PYX_ERR(0, 424, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "filtering_options") < 0)) __PYX_ERR(0, 436, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -15352,7 +15628,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("filtering_options", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 424, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("filtering_options", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 436, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15366,8 +15642,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_sentence), (&PyUnicode_Type), 1, "sentence", 1))) __PYX_ERR(0, 424, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_65filtering_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_sentence);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_sentence), (&PyUnicode_Type), 1, "sentence", 1))) __PYX_ERR(0, 436, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67filtering_options(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_sentence);
 
   /* function exit code */
   goto __pyx_L0;
@@ -15384,7 +15660,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_65filtering_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67filtering_options(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_sentence) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -15393,7 +15669,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_65fi
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("filtering_options", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filtering_options(__pyx_v_self, __pyx_v_sentence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filtering_options(__pyx_v_self, __pyx_v_sentence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 436, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -15409,9 +15685,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_65fi
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69generator17(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_71generator17(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":438
+/* "querysource/parsers/abstract.pyx":450
  *         return sentence
  * 
  *     async def _parser_conditions(self, conditions: dict):             # <<<<<<<<<<<<<<
@@ -15420,16 +15696,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68_parser_conditions(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_70_parser_conditions(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_67_parser_conditions, "AbstractParser._parser_conditions(self, dict conditions: dict)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_68_parser_conditions = {"_parser_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68_parser_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_67_parser_conditions};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68_parser_conditions(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_69_parser_conditions, "AbstractParser._parser_conditions(self, dict conditions: dict)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_70_parser_conditions = {"_parser_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_70_parser_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_69_parser_conditions};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_70_parser_conditions(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -15473,12 +15749,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 438, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 450, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_parser_conditions") < 0)) __PYX_ERR(0, 438, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_parser_conditions") < 0)) __PYX_ERR(0, 450, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -15489,7 +15765,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_parser_conditions", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 438, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_parser_conditions", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 450, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -15503,8 +15779,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_conditions), (&PyDict_Type), 0, "conditions", 1))) __PYX_ERR(0, 438, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67_parser_conditions(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_conditions);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_conditions), (&PyDict_Type), 0, "conditions", 1))) __PYX_ERR(0, 450, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_69_parser_conditions(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_conditions);
 
   /* function exit code */
   goto __pyx_L0;
@@ -15521,7 +15797,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67_parser_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_69_parser_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -15533,7 +15809,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67_p
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 438, __pyx_L1_error)
+    __PYX_ERR(0, 450, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -15544,7 +15820,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67_p
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_conditions);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_conditions);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69generator17, __pyx_codeobj__34, (PyObject *) __pyx_cur_scope, __pyx_n_s_parser_conditions, __pyx_n_s_AbstractParser__parser_condition, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 438, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_71generator17, __pyx_codeobj__35, (PyObject *) __pyx_cur_scope, __pyx_n_s_parser_conditions, __pyx_n_s_AbstractParser__parser_condition, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 450, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -15560,7 +15836,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_67_p
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69generator17(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_71generator17(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -15594,22 +15870,22 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 438, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 450, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":439
+  /* "querysource/parsers/abstract.pyx":451
  * 
  *     async def _parser_conditions(self, conditions: dict):
  *         redis = self._get_redis()             # <<<<<<<<<<<<<<
  *         async with await redis.connection() as conn:
  *             _filter = await self.set_conditions(conditions, conn)
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_get_redis(__pyx_cur_scope->__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 439, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_get_redis(__pyx_cur_scope->__pyx_v_self); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 451, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_redis = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":440
+  /* "querysource/parsers/abstract.pyx":452
  *     async def _parser_conditions(self, conditions: dict):
  *         redis = self._get_redis()
  *         async with await redis.connection() as conn:             # <<<<<<<<<<<<<<
@@ -15617,7 +15893,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
  *             await self.set_where(_filter, conn)
  */
   /*with:*/ {
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_redis, __pyx_n_s_connection); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 440, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_redis, __pyx_n_s_connection); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 452, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_3 = NULL;
     __pyx_t_4 = 0;
@@ -15637,7 +15913,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
       PyObject *__pyx_callargs[2] = {__pyx_t_3, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 440, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 452, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     }
@@ -15652,16 +15928,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
       __pyx_generator->resume_label = 1;
       return __pyx_r;
       __pyx_L4_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 440, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 452, __pyx_L1_error)
       __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
     } else {
       __pyx_t_1 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 440, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 452, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
-    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_n_s_aexit); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 440, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_n_s_aexit); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 452, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_n_s_aenter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 440, __pyx_L5_error)
+    __pyx_t_3 = __Pyx_PyObject_LookupSpecial(__pyx_t_1, __pyx_n_s_aenter); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 452, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_6 = NULL;
     __pyx_t_4 = 0;
@@ -15681,7 +15957,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
       PyObject *__pyx_callargs[2] = {__pyx_t_6, NULL};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_4, 0+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 440, __pyx_L5_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 452, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -15706,11 +15982,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
       __pyx_t_5 = __pyx_cur_scope->__pyx_t_1;
       __pyx_cur_scope->__pyx_t_1 = 0;
       __Pyx_XGOTREF(__pyx_t_5);
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 440, __pyx_L5_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 452, __pyx_L5_error)
       __pyx_t_2 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_2);
     } else {
       __pyx_t_2 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_2) < 0) __PYX_ERR(0, 440, __pyx_L5_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_2) < 0) __PYX_ERR(0, 452, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
     }
     __pyx_t_3 = __pyx_t_2;
@@ -15727,14 +16003,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
           __pyx_cur_scope->__pyx_v_conn = __pyx_t_3;
           __pyx_t_3 = 0;
 
-          /* "querysource/parsers/abstract.pyx":441
+          /* "querysource/parsers/abstract.pyx":453
  *         redis = self._get_redis()
  *         async with await redis.connection() as conn:
  *             _filter = await self.set_conditions(conditions, conn)             # <<<<<<<<<<<<<<
  *             await self.set_where(_filter, conn)
  *         return self
  */
-          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_set_conditions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 441, __pyx_L10_error)
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_set_conditions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 453, __pyx_L10_error)
           __Pyx_GOTREF(__pyx_t_1);
           __pyx_t_2 = NULL;
           __pyx_t_4 = 0;
@@ -15754,7 +16030,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_cur_scope->__pyx_v_conditions, __pyx_cur_scope->__pyx_v_conn};
             __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
             __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 441, __pyx_L10_error)
+            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 453, __pyx_L10_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           }
@@ -15789,25 +16065,25 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             __pyx_t_9 = __pyx_cur_scope->__pyx_t_3;
             __pyx_cur_scope->__pyx_t_3 = 0;
             __Pyx_XGOTREF(__pyx_t_9);
-            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 441, __pyx_L10_error)
+            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 453, __pyx_L10_error)
             __pyx_t_3 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_3);
           } else {
             __pyx_t_3 = NULL;
-            if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_3) < 0) __PYX_ERR(0, 441, __pyx_L10_error)
+            if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_3) < 0) __PYX_ERR(0, 453, __pyx_L10_error)
             __Pyx_GOTREF(__pyx_t_3);
           }
           __Pyx_GIVEREF(__pyx_t_3);
           __pyx_cur_scope->__pyx_v__filter = __pyx_t_3;
           __pyx_t_3 = 0;
 
-          /* "querysource/parsers/abstract.pyx":442
+          /* "querysource/parsers/abstract.pyx":454
  *         async with await redis.connection() as conn:
  *             _filter = await self.set_conditions(conditions, conn)
  *             await self.set_where(_filter, conn)             # <<<<<<<<<<<<<<
  *         return self
  * 
  */
-          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_set_where); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 442, __pyx_L10_error)
+          __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_set_where); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 454, __pyx_L10_error)
           __Pyx_GOTREF(__pyx_t_1);
           __pyx_t_2 = NULL;
           __pyx_t_4 = 0;
@@ -15827,7 +16103,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_cur_scope->__pyx_v__filter, __pyx_cur_scope->__pyx_v_conn};
             __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_1, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
             __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 442, __pyx_L10_error)
+            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 454, __pyx_L10_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           }
@@ -15862,16 +16138,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             __pyx_t_9 = __pyx_cur_scope->__pyx_t_3;
             __pyx_cur_scope->__pyx_t_3 = 0;
             __Pyx_XGOTREF(__pyx_t_9);
-            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 442, __pyx_L10_error)
+            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 454, __pyx_L10_error)
           } else {
             PyObject* exc_type = __Pyx_PyErr_CurrentExceptionType();
             if (exc_type) {
               if (likely(exc_type == PyExc_StopIteration || (exc_type != PyExc_GeneratorExit && __Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))) PyErr_Clear();
-              else __PYX_ERR(0, 442, __pyx_L10_error)
+              else __PYX_ERR(0, 454, __pyx_L10_error)
             }
           }
 
-          /* "querysource/parsers/abstract.pyx":440
+          /* "querysource/parsers/abstract.pyx":452
  *     async def _parser_conditions(self, conditions: dict):
  *         redis = self._get_redis()
  *         async with await redis.connection() as conn:             # <<<<<<<<<<<<<<
@@ -15890,16 +16166,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         /*except:*/ {
           __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._parser_conditions", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_1, &__pyx_t_2) < 0) __PYX_ERR(0, 440, __pyx_L12_except_error)
+          if (__Pyx_GetException(&__pyx_t_3, &__pyx_t_1, &__pyx_t_2) < 0) __PYX_ERR(0, 452, __pyx_L12_except_error)
           __Pyx_XGOTREF(__pyx_t_3);
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_2);
-          __pyx_t_6 = PyTuple_Pack(3, __pyx_t_3, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 440, __pyx_L12_except_error)
+          __pyx_t_6 = PyTuple_Pack(3, __pyx_t_3, __pyx_t_1, __pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 452, __pyx_L12_except_error)
           __Pyx_GOTREF(__pyx_t_6);
           __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_6, NULL);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 440, __pyx_L12_except_error)
+          if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 452, __pyx_L12_except_error)
           __Pyx_GOTREF(__pyx_t_10);
           __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
@@ -15952,18 +16228,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             __pyx_t_10 = __pyx_cur_scope->__pyx_t_7;
             __pyx_cur_scope->__pyx_t_7 = 0;
             __Pyx_XGOTREF(__pyx_t_10);
-            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 440, __pyx_L12_except_error)
+            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 452, __pyx_L12_except_error)
             __pyx_t_6 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_6);
           } else {
             __pyx_t_6 = NULL;
-            if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_6) < 0) __PYX_ERR(0, 440, __pyx_L12_except_error)
+            if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_6) < 0) __PYX_ERR(0, 452, __pyx_L12_except_error)
             __Pyx_GOTREF(__pyx_t_6);
           }
           __pyx_t_10 = __pyx_t_6;
           __pyx_t_6 = 0;
           __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_10);
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (__pyx_t_11 < 0) __PYX_ERR(0, 440, __pyx_L12_except_error)
+          if (__pyx_t_11 < 0) __PYX_ERR(0, 452, __pyx_L12_except_error)
           __pyx_t_12 = (!__pyx_t_11);
           if (unlikely(__pyx_t_12)) {
             __Pyx_GIVEREF(__pyx_t_3);
@@ -15971,7 +16247,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             __Pyx_XGIVEREF(__pyx_t_2);
             __Pyx_ErrRestoreWithState(__pyx_t_3, __pyx_t_1, __pyx_t_2);
             __pyx_t_3 = 0; __pyx_t_1 = 0; __pyx_t_2 = 0; 
-            __PYX_ERR(0, 440, __pyx_L12_except_error)
+            __PYX_ERR(0, 452, __pyx_L12_except_error)
           }
           __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
           __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -15995,9 +16271,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
     /*finally:*/ {
       /*normal exit:*/{
         if (__pyx_t_5) {
-          __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_tuple__35, NULL);
+          __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_tuple__36, NULL);
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 440, __pyx_L1_error)
+          if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 452, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_9);
           __pyx_r = __Pyx_Coroutine_Yield_From(__pyx_generator, __pyx_t_9);
           __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -16020,11 +16296,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
             __pyx_t_9 = __pyx_cur_scope->__pyx_t_1;
             __pyx_cur_scope->__pyx_t_1 = 0;
             __Pyx_XGOTREF(__pyx_t_9);
-            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 440, __pyx_L1_error)
+            if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 452, __pyx_L1_error)
             __pyx_t_2 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_2);
           } else {
             __pyx_t_2 = NULL;
-            if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_2) < 0) __PYX_ERR(0, 440, __pyx_L1_error)
+            if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_2) < 0) __PYX_ERR(0, 452, __pyx_L1_error)
             __Pyx_GOTREF(__pyx_t_2);
           }
           __pyx_t_9 = __pyx_t_2;
@@ -16042,7 +16318,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
     __pyx_L23:;
   }
 
-  /* "querysource/parsers/abstract.pyx":443
+  /* "querysource/parsers/abstract.pyx":455
  *             _filter = await self.set_conditions(conditions, conn)
  *             await self.set_where(_filter, conn)
  *         return self             # <<<<<<<<<<<<<<
@@ -16054,7 +16330,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":438
+  /* "querysource/parsers/abstract.pyx":450
  *         return sentence
  * 
  *     async def _parser_conditions(self, conditions: dict):             # <<<<<<<<<<<<<<
@@ -16081,7 +16357,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_69ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":445
+/* "querysource/parsers/abstract.pyx":457
  *         return self
  * 
  *     cdef object _merge_conditions_and_filters(self, dict conditions):             # <<<<<<<<<<<<<<
@@ -16104,7 +16380,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_merge_conditions_and_filters", 1);
 
-  /* "querysource/parsers/abstract.pyx":447
+  /* "querysource/parsers/abstract.pyx":459
  *     cdef object _merge_conditions_and_filters(self, dict conditions):
  *         """Merge conditions with filters, handling potential TypeError."""
  *         try:             # <<<<<<<<<<<<<<
@@ -16120,7 +16396,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
     __Pyx_XGOTREF(__pyx_t_3);
     /*try:*/ {
 
-      /* "querysource/parsers/abstract.pyx":448
+      /* "querysource/parsers/abstract.pyx":460
  *         """Merge conditions with filters, handling potential TypeError."""
  *         try:
  *             return {**conditions, **self.filter}             # <<<<<<<<<<<<<<
@@ -16130,23 +16406,23 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
       __Pyx_XDECREF(__pyx_r);
       if (unlikely(__pyx_v_conditions == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 448, __pyx_L3_error)
+        __PYX_ERR(0, 460, __pyx_L3_error)
       }
-      __pyx_t_4 = PyDict_Copy(__pyx_v_conditions); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 448, __pyx_L3_error)
+      __pyx_t_4 = PyDict_Copy(__pyx_v_conditions); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 460, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_4);
       if (unlikely(__pyx_v_self->filter == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 448, __pyx_L3_error)
+        __PYX_ERR(0, 460, __pyx_L3_error)
       }
       if (unlikely(PyDict_Update(__pyx_t_4, __pyx_v_self->filter) < 0)) {
         if (PyErr_ExceptionMatches(PyExc_AttributeError)) __Pyx_RaiseMappingExpectedError(__pyx_v_self->filter);
-        __PYX_ERR(0, 448, __pyx_L3_error)
+        __PYX_ERR(0, 460, __pyx_L3_error)
       }
       __pyx_r = __pyx_t_4;
       __pyx_t_4 = 0;
       goto __pyx_L7_try_return;
 
-      /* "querysource/parsers/abstract.pyx":447
+      /* "querysource/parsers/abstract.pyx":459
  *     cdef object _merge_conditions_and_filters(self, dict conditions):
  *         """Merge conditions with filters, handling potential TypeError."""
  *         try:             # <<<<<<<<<<<<<<
@@ -16157,7 +16433,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
     __pyx_L3_error:;
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":449
+    /* "querysource/parsers/abstract.pyx":461
  *         try:
  *             return {**conditions, **self.filter}
  *         except TypeError:             # <<<<<<<<<<<<<<
@@ -16167,12 +16443,12 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
     __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_TypeError);
     if (__pyx_t_5) {
       __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._merge_conditions_and_filters", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 449, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_4, &__pyx_t_6, &__pyx_t_7) < 0) __PYX_ERR(0, 461, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_4);
       __Pyx_XGOTREF(__pyx_t_6);
       __Pyx_XGOTREF(__pyx_t_7);
 
-      /* "querysource/parsers/abstract.pyx":450
+      /* "querysource/parsers/abstract.pyx":462
  *             return {**conditions, **self.filter}
  *         except TypeError:
  *             return conditions             # <<<<<<<<<<<<<<
@@ -16189,7 +16465,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
     }
     goto __pyx_L5_except_error;
 
-    /* "querysource/parsers/abstract.pyx":447
+    /* "querysource/parsers/abstract.pyx":459
  *     cdef object _merge_conditions_and_filters(self, dict conditions):
  *         """Merge conditions with filters, handling potential TypeError."""
  *         try:             # <<<<<<<<<<<<<<
@@ -16216,7 +16492,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
     goto __pyx_L0;
   }
 
-  /* "querysource/parsers/abstract.pyx":445
+  /* "querysource/parsers/abstract.pyx":457
  *         return self
  * 
  *     cdef object _merge_conditions_and_filters(self, dict conditions):             # <<<<<<<<<<<<<<
@@ -16237,7 +16513,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merg
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":452
+/* "querysource/parsers/abstract.pyx":464
  *             return conditions
  * 
  *     cdef bint _handle_keys(self, str key, object val, dict _filter):             # <<<<<<<<<<<<<<
@@ -16269,7 +16545,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_handle_keys", 1);
 
-  /* "querysource/parsers/abstract.pyx":453
+  /* "querysource/parsers/abstract.pyx":465
  * 
  *     cdef bint _handle_keys(self, str key, object val, dict _filter):
  *         cdef object _type = self.cond_definition.get(key, None)             # <<<<<<<<<<<<<<
@@ -16278,14 +16554,14 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
  */
   if (unlikely(__pyx_v_self->cond_definition == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-    __PYX_ERR(0, 453, __pyx_L1_error)
+    __PYX_ERR(0, 465, __pyx_L1_error)
   }
-  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->cond_definition, __pyx_v_key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 453, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_v_self->cond_definition, __pyx_v_key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v__type = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":457
+  /* "querysource/parsers/abstract.pyx":469
  *         cdef str fn
  *         cdef object result
  *         if isinstance(val, dict):             # <<<<<<<<<<<<<<
@@ -16295,14 +16571,14 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
   __pyx_t_2 = PyDict_Check(__pyx_v_val); 
   if (__pyx_t_2) {
 
-    /* "querysource/parsers/abstract.pyx":458
+    /* "querysource/parsers/abstract.pyx":470
  *         cdef object result
  *         if isinstance(val, dict):
  *             op, value = val.popitem()             # <<<<<<<<<<<<<<
  *             result = is_valid(key, value, _type)
  *             self._conditions[key] = {op: result}
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_val, __pyx_n_s_popitem); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_val, __pyx_n_s_popitem); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -16322,7 +16598,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 458, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 470, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -16332,7 +16608,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 458, __pyx_L1_error)
+        __PYX_ERR(0, 470, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -16345,15 +16621,15 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __Pyx_INCREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_t_4);
       #else
-      __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 458, __pyx_L1_error)
+      __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 470, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 458, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 470, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       #endif
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 458, __pyx_L1_error)
+      __pyx_t_6 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 470, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_7 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_6);
@@ -16361,7 +16637,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __Pyx_GOTREF(__pyx_t_3);
       index = 1; __pyx_t_4 = __pyx_t_7(__pyx_t_6); if (unlikely(!__pyx_t_4)) goto __pyx_L4_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 2) < 0) __PYX_ERR(0, 458, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 2) < 0) __PYX_ERR(0, 470, __pyx_L1_error)
       __pyx_t_7 = NULL;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L5_unpacking_done;
@@ -16369,7 +16645,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_7 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 458, __pyx_L1_error)
+      __PYX_ERR(0, 470, __pyx_L1_error)
       __pyx_L5_unpacking_done:;
     }
     __pyx_v_op = __pyx_t_3;
@@ -16377,14 +16653,14 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
     __pyx_v_value = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":459
+    /* "querysource/parsers/abstract.pyx":471
  *         if isinstance(val, dict):
  *             op, value = val.popitem()
  *             result = is_valid(key, value, _type)             # <<<<<<<<<<<<<<
  *             self._conditions[key] = {op: result}
  *             return True
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 459, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 471, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_3 = NULL;
     __pyx_t_5 = 0;
@@ -16404,31 +16680,31 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       PyObject *__pyx_callargs[4] = {__pyx_t_3, __pyx_v_key, __pyx_v_value, __pyx_v__type};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 3+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 459, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 471, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_v_result = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":460
+    /* "querysource/parsers/abstract.pyx":472
  *             op, value = val.popitem()
  *             result = is_valid(key, value, _type)
  *             self._conditions[key] = {op: result}             # <<<<<<<<<<<<<<
  *             return True
  *         comps = field_components(str(val))
  */
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 460, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (PyDict_SetItem(__pyx_t_1, __pyx_v_op, __pyx_v_result) < 0) __PYX_ERR(0, 460, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_1, __pyx_v_op, __pyx_v_result) < 0) __PYX_ERR(0, 472, __pyx_L1_error)
     if (unlikely(__pyx_v_self->_conditions == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      __PYX_ERR(0, 460, __pyx_L1_error)
+      __PYX_ERR(0, 472, __pyx_L1_error)
     }
-    if (unlikely((PyDict_SetItem(__pyx_v_self->_conditions, __pyx_v_key, __pyx_t_1) < 0))) __PYX_ERR(0, 460, __pyx_L1_error)
+    if (unlikely((PyDict_SetItem(__pyx_v_self->_conditions, __pyx_v_key, __pyx_t_1) < 0))) __PYX_ERR(0, 472, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":461
+    /* "querysource/parsers/abstract.pyx":473
  *             result = is_valid(key, value, _type)
  *             self._conditions[key] = {op: result}
  *             return True             # <<<<<<<<<<<<<<
@@ -16438,7 +16714,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "querysource/parsers/abstract.pyx":457
+    /* "querysource/parsers/abstract.pyx":469
  *         cdef str fn
  *         cdef object result
  *         if isinstance(val, dict):             # <<<<<<<<<<<<<<
@@ -16447,16 +16723,16 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":462
+  /* "querysource/parsers/abstract.pyx":474
  *             self._conditions[key] = {op: result}
  *             return True
  *         comps = field_components(str(val))             # <<<<<<<<<<<<<<
  *         if comps:
  *             prefix, fn, _ = comps[0]
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_field_components); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 462, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_field_components); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 474, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_val); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 462, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_Unicode(__pyx_v_val); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 474, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_6 = NULL;
   __pyx_t_5 = 0;
@@ -16477,31 +16753,31 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 462, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 474, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_comps = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":463
+  /* "querysource/parsers/abstract.pyx":475
  *             return True
  *         comps = field_components(str(val))
  *         if comps:             # <<<<<<<<<<<<<<
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':
  */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_comps); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_v_comps); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 475, __pyx_L1_error)
   if (__pyx_t_2) {
 
-    /* "querysource/parsers/abstract.pyx":464
+    /* "querysource/parsers/abstract.pyx":476
  *         comps = field_components(str(val))
  *         if comps:
  *             prefix, fn, _ = comps[0]             # <<<<<<<<<<<<<<
  *             if prefix == '@':
  *                 result = self._get_function_replacement(fn, key, val)
  */
-    __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 464, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
       PyObject* sequence = __pyx_t_1;
@@ -16509,7 +16785,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       if (unlikely(size != 3)) {
         if (size > 3) __Pyx_RaiseTooManyValuesError(3);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 464, __pyx_L1_error)
+        __PYX_ERR(0, 476, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -16525,17 +16801,17 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __Pyx_INCREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_t_6);
       #else
-      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 464, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 476, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 464, __pyx_L1_error)
+      __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 476, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_6 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 464, __pyx_L1_error)
+      __pyx_t_6 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 476, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       #endif
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 464, __pyx_L1_error)
+      __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 476, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __pyx_t_7 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -16545,7 +16821,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __Pyx_GOTREF(__pyx_t_3);
       index = 2; __pyx_t_6 = __pyx_t_7(__pyx_t_8); if (unlikely(!__pyx_t_6)) goto __pyx_L7_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_6);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_8), 3) < 0) __PYX_ERR(0, 464, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_8), 3) < 0) __PYX_ERR(0, 476, __pyx_L1_error)
       __pyx_t_7 = NULL;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       goto __pyx_L8_unpacking_done;
@@ -16553,11 +16829,11 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __pyx_t_7 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 464, __pyx_L1_error)
+      __PYX_ERR(0, 476, __pyx_L1_error)
       __pyx_L8_unpacking_done:;
     }
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 464, __pyx_L1_error)
-    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_3))) __PYX_ERR(0, 464, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_4))||((__pyx_t_4) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_4))) __PYX_ERR(0, 476, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_t_3))) __PYX_ERR(0, 476, __pyx_L1_error)
     __pyx_v_prefix = ((PyObject*)__pyx_t_4);
     __pyx_t_4 = 0;
     __pyx_v_fn = ((PyObject*)__pyx_t_3);
@@ -16565,36 +16841,36 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
     __pyx_v__ = __pyx_t_6;
     __pyx_t_6 = 0;
 
-    /* "querysource/parsers/abstract.pyx":465
+    /* "querysource/parsers/abstract.pyx":477
  *         if comps:
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':             # <<<<<<<<<<<<<<
  *                 result = self._get_function_replacement(fn, key, val)
  *                 result = is_valid(key, result, _type)
  */
-    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_prefix, __pyx_kp_u__36, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 465, __pyx_L1_error)
+    __pyx_t_2 = (__Pyx_PyUnicode_Equals(__pyx_v_prefix, __pyx_kp_u__37, Py_EQ)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 477, __pyx_L1_error)
     if (__pyx_t_2) {
 
-      /* "querysource/parsers/abstract.pyx":466
+      /* "querysource/parsers/abstract.pyx":478
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':
  *                 result = self._get_function_replacement(fn, key, val)             # <<<<<<<<<<<<<<
  *                 result = is_valid(key, result, _type)
  *                 self._conditions[key] = result
  */
-      __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_get_function_replacement(__pyx_v_self, __pyx_v_fn, __pyx_v_key, __pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 466, __pyx_L1_error)
+      __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self->__pyx_vtab)->_get_function_replacement(__pyx_v_self, __pyx_v_fn, __pyx_v_key, __pyx_v_val); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 478, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __pyx_v_result = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":467
+      /* "querysource/parsers/abstract.pyx":479
  *             if prefix == '@':
  *                 result = self._get_function_replacement(fn, key, val)
  *                 result = is_valid(key, result, _type)             # <<<<<<<<<<<<<<
  *                 self._conditions[key] = result
  *                 return True
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 467, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 479, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_3 = NULL;
       __pyx_t_5 = 0;
@@ -16614,14 +16890,14 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
         PyObject *__pyx_callargs[4] = {__pyx_t_3, __pyx_v_key, __pyx_v_result, __pyx_v__type};
         __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_5, 3+__pyx_t_5);
         __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 467, __pyx_L1_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 479, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
       __Pyx_DECREF_SET(__pyx_v_result, __pyx_t_1);
       __pyx_t_1 = 0;
 
-      /* "querysource/parsers/abstract.pyx":468
+      /* "querysource/parsers/abstract.pyx":480
  *                 result = self._get_function_replacement(fn, key, val)
  *                 result = is_valid(key, result, _type)
  *                 self._conditions[key] = result             # <<<<<<<<<<<<<<
@@ -16630,11 +16906,11 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
  */
       if (unlikely(__pyx_v_self->_conditions == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        __PYX_ERR(0, 468, __pyx_L1_error)
+        __PYX_ERR(0, 480, __pyx_L1_error)
       }
-      if (unlikely((PyDict_SetItem(__pyx_v_self->_conditions, __pyx_v_key, __pyx_v_result) < 0))) __PYX_ERR(0, 468, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_self->_conditions, __pyx_v_key, __pyx_v_result) < 0))) __PYX_ERR(0, 480, __pyx_L1_error)
 
-      /* "querysource/parsers/abstract.pyx":469
+      /* "querysource/parsers/abstract.pyx":481
  *                 result = is_valid(key, result, _type)
  *                 self._conditions[key] = result
  *                 return True             # <<<<<<<<<<<<<<
@@ -16644,7 +16920,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
       __pyx_r = 1;
       goto __pyx_L0;
 
-      /* "querysource/parsers/abstract.pyx":465
+      /* "querysource/parsers/abstract.pyx":477
  *         if comps:
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':             # <<<<<<<<<<<<<<
@@ -16653,7 +16929,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":463
+    /* "querysource/parsers/abstract.pyx":475
  *             return True
  *         comps = field_components(str(val))
  *         if comps:             # <<<<<<<<<<<<<<
@@ -16663,7 +16939,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
     goto __pyx_L6;
   }
 
-  /* "querysource/parsers/abstract.pyx":471
+  /* "querysource/parsers/abstract.pyx":483
  *                 return True
  *         else:
  *             return False             # <<<<<<<<<<<<<<
@@ -16676,7 +16952,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
   }
   __pyx_L6:;
 
-  /* "querysource/parsers/abstract.pyx":472
+  /* "querysource/parsers/abstract.pyx":484
  *         else:
  *             return False
  *         return False             # <<<<<<<<<<<<<<
@@ -16686,7 +16962,7 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "querysource/parsers/abstract.pyx":452
+  /* "querysource/parsers/abstract.pyx":464
  *             return conditions
  * 
  *     cdef bint _handle_keys(self, str key, object val, dict _filter):             # <<<<<<<<<<<<<<
@@ -16715,9 +16991,9 @@ static int __pyx_f_11querysource_7parsers_8abstract_14AbstractParser__handle_key
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72generator18(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_74generator18(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":474
+/* "querysource/parsers/abstract.pyx":486
  *         return False
  * 
  *     async def _process_element(self, name: str, value: object, connection: object):             # <<<<<<<<<<<<<<
@@ -16726,16 +17002,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_71_process_element(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_73_process_element(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_70_process_element, "AbstractParser._process_element(self, unicode name: str, value: object, connection: object)\nProcess a single element and return the key-value pair to be added to the filter.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_71_process_element = {"_process_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_71_process_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_70_process_element};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_71_process_element(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_72_process_element, "AbstractParser._process_element(self, unicode name: str, value: object, connection: object)\nProcess a single element and return the key-value pair to be added to the filter.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_73_process_element = {"_process_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_73_process_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_72_process_element};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_73_process_element(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -16785,7 +17061,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 474, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 486, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -16793,9 +17069,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 474, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 486, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_process_element", 1, 3, 3, 1); __PYX_ERR(0, 474, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_process_element", 1, 3, 3, 1); __PYX_ERR(0, 486, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -16803,14 +17079,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 474, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 486, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_process_element", 1, 3, 3, 2); __PYX_ERR(0, 474, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_process_element", 1, 3, 3, 2); __PYX_ERR(0, 486, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_process_element") < 0)) __PYX_ERR(0, 474, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_process_element") < 0)) __PYX_ERR(0, 486, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -16825,7 +17101,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_process_element", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 474, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_process_element", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 486, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -16839,8 +17115,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_name), (&PyUnicode_Type), 0, "name", 1))) __PYX_ERR(0, 474, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_70_process_element(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_name, __pyx_v_value, __pyx_v_connection);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_name), (&PyUnicode_Type), 0, "name", 1))) __PYX_ERR(0, 486, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_72_process_element(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_name, __pyx_v_value, __pyx_v_connection);
 
   /* function exit code */
   goto __pyx_L0;
@@ -16857,7 +17133,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_70_process_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_value, PyObject *__pyx_v_connection) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_72_process_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_name, PyObject *__pyx_v_value, PyObject *__pyx_v_connection) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -16869,7 +17145,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_70_p
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 474, __pyx_L1_error)
+    __PYX_ERR(0, 486, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -16886,7 +17162,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_70_p
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_connection);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_connection);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72generator18, __pyx_codeobj__37, (PyObject *) __pyx_cur_scope, __pyx_n_s_process_element, __pyx_n_s_AbstractParser__process_element, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 474, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_74generator18, __pyx_codeobj__38, (PyObject *) __pyx_cur_scope, __pyx_n_s_process_element, __pyx_n_s_AbstractParser__process_element, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 486, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -16902,7 +17178,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_70_p
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72generator18(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_74generator18(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -16945,16 +17221,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 474, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 486, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":476
+  /* "querysource/parsers/abstract.pyx":488
  *     async def _process_element(self, name: str, value: object, connection: object):
  *         """Process a single element and return the key-value pair to be added to the filter."""
  *         comps = field_components(name)             # <<<<<<<<<<<<<<
  *         if not comps:
  *             return name, value
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_field_components); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 476, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_field_components); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 488, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   __pyx_t_4 = 0;
@@ -16974,7 +17250,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_cur_scope->__pyx_v_name};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_2, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 476, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 488, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   }
@@ -16982,18 +17258,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
   __pyx_cur_scope->__pyx_v_comps = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":477
+  /* "querysource/parsers/abstract.pyx":489
  *         """Process a single element and return the key-value pair to be added to the filter."""
  *         comps = field_components(name)
  *         if not comps:             # <<<<<<<<<<<<<<
  *             return name, value
  *         _, key, _ = comps[0]
  */
-  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_comps); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 477, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_comps); if (unlikely((__pyx_t_5 < 0))) __PYX_ERR(0, 489, __pyx_L1_error)
   __pyx_t_6 = (!__pyx_t_5);
   if (__pyx_t_6) {
 
-    /* "querysource/parsers/abstract.pyx":478
+    /* "querysource/parsers/abstract.pyx":490
  *         comps = field_components(name)
  *         if not comps:
  *             return name, value             # <<<<<<<<<<<<<<
@@ -17001,19 +17277,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  *         if key in self.cond_definition:
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 478, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 490, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_name);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_name);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_cur_scope->__pyx_v_name)) __PYX_ERR(0, 478, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_cur_scope->__pyx_v_name)) __PYX_ERR(0, 490, __pyx_L1_error);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_value);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 478, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 490, __pyx_L1_error);
     __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     goto __pyx_L0;
 
-    /* "querysource/parsers/abstract.pyx":477
+    /* "querysource/parsers/abstract.pyx":489
  *         """Process a single element and return the key-value pair to be added to the filter."""
  *         comps = field_components(name)
  *         if not comps:             # <<<<<<<<<<<<<<
@@ -17022,14 +17298,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":479
+  /* "querysource/parsers/abstract.pyx":491
  *         if not comps:
  *             return name, value
  *         _, key, _ = comps[0]             # <<<<<<<<<<<<<<
  *         if key in self.cond_definition:
  *             if self._handle_keys(key, value, {}):
  */
-  __pyx_t_1 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 479, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 491, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
     PyObject* sequence = __pyx_t_1;
@@ -17037,7 +17313,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     if (unlikely(size != 3)) {
       if (size > 3) __Pyx_RaiseTooManyValuesError(3);
       else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      __PYX_ERR(0, 479, __pyx_L1_error)
+      __PYX_ERR(0, 491, __pyx_L1_error)
     }
     #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
     if (likely(PyTuple_CheckExact(sequence))) {
@@ -17053,17 +17329,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     __Pyx_INCREF(__pyx_t_3);
     __Pyx_INCREF(__pyx_t_7);
     #else
-    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 479, __pyx_L1_error)
+    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 491, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 479, __pyx_L1_error)
+    __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 491, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_7 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 479, __pyx_L1_error)
+    __pyx_t_7 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 491, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     #endif
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } else {
     Py_ssize_t index = -1;
-    __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 479, __pyx_L1_error)
+    __pyx_t_8 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 491, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_9 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -17073,7 +17349,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     __Pyx_GOTREF(__pyx_t_3);
     index = 2; __pyx_t_7 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_7)) goto __pyx_L5_unpacking_failed;
     __Pyx_GOTREF(__pyx_t_7);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 3) < 0) __PYX_ERR(0, 479, __pyx_L1_error)
+    if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 3) < 0) __PYX_ERR(0, 491, __pyx_L1_error)
     __pyx_t_9 = NULL;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     goto __pyx_L6_unpacking_done;
@@ -17081,7 +17357,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
     __pyx_t_9 = NULL;
     if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    __PYX_ERR(0, 479, __pyx_L1_error)
+    __PYX_ERR(0, 491, __pyx_L1_error)
     __pyx_L6_unpacking_done:;
   }
   __Pyx_GIVEREF(__pyx_t_2);
@@ -17095,7 +17371,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
   __Pyx_GIVEREF(__pyx_t_7);
   __pyx_t_7 = 0;
 
-  /* "querysource/parsers/abstract.pyx":480
+  /* "querysource/parsers/abstract.pyx":492
  *             return name, value
  *         _, key, _ = comps[0]
  *         if key in self.cond_definition:             # <<<<<<<<<<<<<<
@@ -17104,26 +17380,26 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
   if (unlikely(__pyx_cur_scope->__pyx_v_self->cond_definition == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-    __PYX_ERR(0, 480, __pyx_L1_error)
+    __PYX_ERR(0, 492, __pyx_L1_error)
   }
-  __pyx_t_6 = (__Pyx_PyDict_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_self->cond_definition, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 480, __pyx_L1_error)
+  __pyx_t_6 = (__Pyx_PyDict_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_self->cond_definition, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 492, __pyx_L1_error)
   if (__pyx_t_6) {
 
-    /* "querysource/parsers/abstract.pyx":481
+    /* "querysource/parsers/abstract.pyx":493
  *         _, key, _ = comps[0]
  *         if key in self.cond_definition:
  *             if self._handle_keys(key, value, {}):             # <<<<<<<<<<<<<<
  *                 return None
  *             _type = self.cond_definition.get(key, None)
  */
-    if (!(likely(PyUnicode_CheckExact(__pyx_cur_scope->__pyx_v_key))||((__pyx_cur_scope->__pyx_v_key) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_cur_scope->__pyx_v_key))) __PYX_ERR(0, 481, __pyx_L1_error)
-    __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 481, __pyx_L1_error)
+    if (!(likely(PyUnicode_CheckExact(__pyx_cur_scope->__pyx_v_key))||((__pyx_cur_scope->__pyx_v_key) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_cur_scope->__pyx_v_key))) __PYX_ERR(0, 493, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 493, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_6 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_handle_keys(__pyx_cur_scope->__pyx_v_self, ((PyObject*)__pyx_cur_scope->__pyx_v_key), __pyx_cur_scope->__pyx_v_value, ((PyObject*)__pyx_t_1)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 481, __pyx_L1_error)
+    __pyx_t_6 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_handle_keys(__pyx_cur_scope->__pyx_v_self, ((PyObject*)__pyx_cur_scope->__pyx_v_key), __pyx_cur_scope->__pyx_v_value, ((PyObject*)__pyx_t_1)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 493, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_6) {
 
-      /* "querysource/parsers/abstract.pyx":482
+      /* "querysource/parsers/abstract.pyx":494
  *         if key in self.cond_definition:
  *             if self._handle_keys(key, value, {}):
  *                 return None             # <<<<<<<<<<<<<<
@@ -17134,7 +17410,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       __pyx_r = NULL;
       goto __pyx_L0;
 
-      /* "querysource/parsers/abstract.pyx":481
+      /* "querysource/parsers/abstract.pyx":493
  *         _, key, _ = comps[0]
  *         if key in self.cond_definition:
  *             if self._handle_keys(key, value, {}):             # <<<<<<<<<<<<<<
@@ -17143,7 +17419,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":483
+    /* "querysource/parsers/abstract.pyx":495
  *             if self._handle_keys(key, value, {}):
  *                 return None
  *             _type = self.cond_definition.get(key, None)             # <<<<<<<<<<<<<<
@@ -17152,32 +17428,32 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
     if (unlikely(__pyx_cur_scope->__pyx_v_self->cond_definition == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "get");
-      __PYX_ERR(0, 483, __pyx_L1_error)
+      __PYX_ERR(0, 495, __pyx_L1_error)
     }
-    __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_cur_scope->__pyx_v_self->cond_definition, __pyx_cur_scope->__pyx_v_key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 483, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyDict_GetItemDefault(__pyx_cur_scope->__pyx_v_self->cond_definition, __pyx_cur_scope->__pyx_v_key, Py_None); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 495, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_cur_scope->__pyx_v__type = __pyx_t_1;
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":484
+    /* "querysource/parsers/abstract.pyx":496
  *                 return None
  *             _type = self.cond_definition.get(key, None)
  *             self.logger.debug(             # <<<<<<<<<<<<<<
  *                 f'SET conditions: {key} = {value} with type {_type}'
  *             )
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->logger, __pyx_n_s_debug); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 484, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->logger, __pyx_n_s_debug); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 496, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
 
-    /* "querysource/parsers/abstract.pyx":485
+    /* "querysource/parsers/abstract.pyx":497
  *             _type = self.cond_definition.get(key, None)
  *             self.logger.debug(
  *                 f'SET conditions: {key} = {value} with type {_type}'             # <<<<<<<<<<<<<<
  *             )
  *             if new_val := await self._get_operational_value(value, connection):
  */
-    __pyx_t_3 = PyTuple_New(6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 485, __pyx_L1_error)
+    __pyx_t_3 = PyTuple_New(6); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_10 = 0;
     __pyx_t_11 = 127;
@@ -17185,18 +17461,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     __pyx_t_10 += 16;
     __Pyx_GIVEREF(__pyx_kp_u_SET_conditions);
     PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_kp_u_SET_conditions);
-    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_key, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_key, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_11;
     __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_2);
     PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_2);
     __pyx_t_2 = 0;
-    __Pyx_INCREF(__pyx_kp_u__38);
+    __Pyx_INCREF(__pyx_kp_u__39);
     __pyx_t_10 += 3;
-    __Pyx_GIVEREF(__pyx_kp_u__38);
-    PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u__38);
-    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+    __Pyx_GIVEREF(__pyx_kp_u__39);
+    PyTuple_SET_ITEM(__pyx_t_3, 2, __pyx_kp_u__39);
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_11;
     __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
@@ -17207,14 +17483,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     __pyx_t_10 += 11;
     __Pyx_GIVEREF(__pyx_kp_u_with_type);
     PyTuple_SET_ITEM(__pyx_t_3, 4, __pyx_kp_u_with_type);
-    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v__type, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v__type, __pyx_empty_unicode); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_2) : __pyx_t_11;
     __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_2);
     __Pyx_GIVEREF(__pyx_t_2);
     PyTuple_SET_ITEM(__pyx_t_3, 5, __pyx_t_2);
     __pyx_t_2 = 0;
-    __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_3, 6, __pyx_t_10, __pyx_t_11); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 485, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_3, 6, __pyx_t_10, __pyx_t_11); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 497, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_3 = NULL;
@@ -17236,20 +17512,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 484, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 496, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":487
+    /* "querysource/parsers/abstract.pyx":499
  *                 f'SET conditions: {key} = {value} with type {_type}'
  *             )
  *             if new_val := await self._get_operational_value(value, connection):             # <<<<<<<<<<<<<<
  *                 result = new_val
  *             else:
  */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_get_operational_value); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 487, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_get_operational_value); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 499, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_2 = NULL;
     __pyx_t_4 = 0;
@@ -17269,7 +17545,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_cur_scope->__pyx_v_value, __pyx_cur_scope->__pyx_v_connection};
       __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_4, 2+__pyx_t_4);
       __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 487, __pyx_L1_error)
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 499, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
@@ -17284,21 +17560,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       __pyx_generator->resume_label = 1;
       return __pyx_r;
       __pyx_L10_resume_from_await:;
-      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 487, __pyx_L1_error)
+      if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 499, __pyx_L1_error)
       __pyx_t_1 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_1);
     } else {
       __pyx_t_1 = NULL;
-      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 487, __pyx_L1_error)
+      if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_1) < 0) __PYX_ERR(0, 499, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
     }
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_cur_scope->__pyx_v_new_val = __pyx_t_1;
     __Pyx_INCREF(__pyx_t_1);
-    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 487, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 499, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     if (__pyx_t_6) {
 
-      /* "querysource/parsers/abstract.pyx":488
+      /* "querysource/parsers/abstract.pyx":500
  *             )
  *             if new_val := await self._get_operational_value(value, connection):
  *                 result = new_val             # <<<<<<<<<<<<<<
@@ -17309,7 +17585,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_new_val);
       __pyx_cur_scope->__pyx_v_result = __pyx_cur_scope->__pyx_v_new_val;
 
-      /* "querysource/parsers/abstract.pyx":487
+      /* "querysource/parsers/abstract.pyx":499
  *                 f'SET conditions: {key} = {value} with type {_type}'
  *             )
  *             if new_val := await self._get_operational_value(value, connection):             # <<<<<<<<<<<<<<
@@ -17319,7 +17595,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       goto __pyx_L9;
     }
 
-    /* "querysource/parsers/abstract.pyx":490
+    /* "querysource/parsers/abstract.pyx":502
  *                 result = new_val
  *             else:
  *                 try:             # <<<<<<<<<<<<<<
@@ -17334,14 +17610,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
         __Pyx_XGOTREF(__pyx_t_14);
         /*try:*/ {
 
-          /* "querysource/parsers/abstract.pyx":491
+          /* "querysource/parsers/abstract.pyx":503
  *             else:
  *                 try:
  *                     result = is_valid(key, value, _type)             # <<<<<<<<<<<<<<
  *                 except TypeError as exc:
  *                     self.logger.warning(
  */
-          __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 491, __pyx_L11_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 503, __pyx_L11_error)
           __Pyx_GOTREF(__pyx_t_7);
           __pyx_t_2 = NULL;
           __pyx_t_4 = 0;
@@ -17361,7 +17637,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
             PyObject *__pyx_callargs[4] = {__pyx_t_2, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_value, __pyx_cur_scope->__pyx_v__type};
             __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_4, 3+__pyx_t_4);
             __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 491, __pyx_L11_error)
+            if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 503, __pyx_L11_error)
             __Pyx_GOTREF(__pyx_t_1);
             __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           }
@@ -17369,7 +17645,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           __pyx_cur_scope->__pyx_v_result = __pyx_t_1;
           __pyx_t_1 = 0;
 
-          /* "querysource/parsers/abstract.pyx":490
+          /* "querysource/parsers/abstract.pyx":502
  *                 result = new_val
  *             else:
  *                 try:             # <<<<<<<<<<<<<<
@@ -17388,7 +17664,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-        /* "querysource/parsers/abstract.pyx":492
+        /* "querysource/parsers/abstract.pyx":504
  *                 try:
  *                     result = is_valid(key, value, _type)
  *                 except TypeError as exc:             # <<<<<<<<<<<<<<
@@ -17398,7 +17674,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
         __pyx_t_15 = __Pyx_PyErr_ExceptionMatches(__pyx_builtin_TypeError);
         if (__pyx_t_15) {
           __Pyx_AddTraceback("querysource.parsers.abstract.AbstractParser._process_element", __pyx_clineno, __pyx_lineno, __pyx_filename);
-          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_2) < 0) __PYX_ERR(0, 492, __pyx_L13_except_error)
+          if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_7, &__pyx_t_2) < 0) __PYX_ERR(0, 504, __pyx_L13_except_error)
           __Pyx_XGOTREF(__pyx_t_1);
           __Pyx_XGOTREF(__pyx_t_7);
           __Pyx_XGOTREF(__pyx_t_2);
@@ -17407,24 +17683,24 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           __pyx_cur_scope->__pyx_v_exc = __pyx_t_7;
           /*try:*/ {
 
-            /* "querysource/parsers/abstract.pyx":493
+            /* "querysource/parsers/abstract.pyx":505
  *                     result = is_valid(key, value, _type)
  *                 except TypeError as exc:
  *                     self.logger.warning(             # <<<<<<<<<<<<<<
  *                         f'Error on: {key} = {value} with type {_type}, {exc}'
  *                     )
  */
-            __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->logger, __pyx_n_s_warning); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 493, __pyx_L22_error)
+            __pyx_t_8 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_self->logger, __pyx_n_s_warning); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 505, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_8);
 
-            /* "querysource/parsers/abstract.pyx":494
+            /* "querysource/parsers/abstract.pyx":506
  *                 except TypeError as exc:
  *                     self.logger.warning(
  *                         f'Error on: {key} = {value} with type {_type}, {exc}'             # <<<<<<<<<<<<<<
  *                     )
  *                     if isinstance(value, list):
  */
-            __pyx_t_16 = PyTuple_New(8); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 494, __pyx_L22_error)
+            __pyx_t_16 = PyTuple_New(8); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 506, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_16);
             __pyx_t_10 = 0;
             __pyx_t_11 = 127;
@@ -17432,18 +17708,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
             __pyx_t_10 += 10;
             __Pyx_GIVEREF(__pyx_kp_u_Error_on);
             PyTuple_SET_ITEM(__pyx_t_16, 0, __pyx_kp_u_Error_on);
-            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_key, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 494, __pyx_L22_error)
+            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_key, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 506, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_11;
             __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
             __Pyx_GIVEREF(__pyx_t_17);
             PyTuple_SET_ITEM(__pyx_t_16, 1, __pyx_t_17);
             __pyx_t_17 = 0;
-            __Pyx_INCREF(__pyx_kp_u__38);
+            __Pyx_INCREF(__pyx_kp_u__39);
             __pyx_t_10 += 3;
-            __Pyx_GIVEREF(__pyx_kp_u__38);
-            PyTuple_SET_ITEM(__pyx_t_16, 2, __pyx_kp_u__38);
-            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 494, __pyx_L22_error)
+            __Pyx_GIVEREF(__pyx_kp_u__39);
+            PyTuple_SET_ITEM(__pyx_t_16, 2, __pyx_kp_u__39);
+            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_value, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 506, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_11;
             __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
@@ -17454,25 +17730,25 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
             __pyx_t_10 += 11;
             __Pyx_GIVEREF(__pyx_kp_u_with_type);
             PyTuple_SET_ITEM(__pyx_t_16, 4, __pyx_kp_u_with_type);
-            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v__type, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 494, __pyx_L22_error)
+            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v__type, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 506, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_11;
             __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
             __Pyx_GIVEREF(__pyx_t_17);
             PyTuple_SET_ITEM(__pyx_t_16, 5, __pyx_t_17);
             __pyx_t_17 = 0;
-            __Pyx_INCREF(__pyx_kp_u__39);
+            __Pyx_INCREF(__pyx_kp_u__40);
             __pyx_t_10 += 2;
-            __Pyx_GIVEREF(__pyx_kp_u__39);
-            PyTuple_SET_ITEM(__pyx_t_16, 6, __pyx_kp_u__39);
-            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_exc, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 494, __pyx_L22_error)
+            __Pyx_GIVEREF(__pyx_kp_u__40);
+            PyTuple_SET_ITEM(__pyx_t_16, 6, __pyx_kp_u__40);
+            __pyx_t_17 = __Pyx_PyObject_FormatSimple(__pyx_cur_scope->__pyx_v_exc, __pyx_empty_unicode); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 506, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_17);
             __pyx_t_11 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) > __pyx_t_11) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_17) : __pyx_t_11;
             __pyx_t_10 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_17);
             __Pyx_GIVEREF(__pyx_t_17);
             PyTuple_SET_ITEM(__pyx_t_16, 7, __pyx_t_17);
             __pyx_t_17 = 0;
-            __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_16, 8, __pyx_t_10, __pyx_t_11); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 494, __pyx_L22_error)
+            __pyx_t_17 = __Pyx_PyUnicode_Join(__pyx_t_16, 8, __pyx_t_10, __pyx_t_11); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 506, __pyx_L22_error)
             __Pyx_GOTREF(__pyx_t_17);
             __Pyx_DECREF(__pyx_t_16); __pyx_t_16 = 0;
             __pyx_t_16 = NULL;
@@ -17494,13 +17770,13 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
               __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
               __Pyx_XDECREF(__pyx_t_16); __pyx_t_16 = 0;
               __Pyx_DECREF(__pyx_t_17); __pyx_t_17 = 0;
-              if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 493, __pyx_L22_error)
+              if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 505, __pyx_L22_error)
               __Pyx_GOTREF(__pyx_t_3);
               __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
             }
             __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-            /* "querysource/parsers/abstract.pyx":496
+            /* "querysource/parsers/abstract.pyx":508
  *                         f'Error on: {key} = {value} with type {_type}, {exc}'
  *                     )
  *                     if isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -17510,7 +17786,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
             __pyx_t_6 = PyList_Check(__pyx_cur_scope->__pyx_v_value); 
             if (__pyx_t_6) {
 
-              /* "querysource/parsers/abstract.pyx":497
+              /* "querysource/parsers/abstract.pyx":509
  *                     )
  *                     if isinstance(value, list):
  *                         return name, value             # <<<<<<<<<<<<<<
@@ -17518,14 +17794,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  *             return key, result
  */
               __Pyx_XDECREF(__pyx_r);
-              __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 497, __pyx_L22_error)
+              __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 509, __pyx_L22_error)
               __Pyx_GOTREF(__pyx_t_3);
               __Pyx_INCREF(__pyx_cur_scope->__pyx_v_name);
               __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_name);
-              if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_cur_scope->__pyx_v_name)) __PYX_ERR(0, 497, __pyx_L22_error);
+              if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_cur_scope->__pyx_v_name)) __PYX_ERR(0, 509, __pyx_L22_error);
               __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
               __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_value);
-              if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 497, __pyx_L22_error);
+              if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 509, __pyx_L22_error);
               __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_3);
               __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
               __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -17533,7 +17809,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
               __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
               goto __pyx_L21_return;
 
-              /* "querysource/parsers/abstract.pyx":496
+              /* "querysource/parsers/abstract.pyx":508
  *                         f'Error on: {key} = {value} with type {_type}, {exc}'
  *                     )
  *                     if isinstance(value, list):             # <<<<<<<<<<<<<<
@@ -17542,7 +17818,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
             }
 
-            /* "querysource/parsers/abstract.pyx":498
+            /* "querysource/parsers/abstract.pyx":510
  *                     if isinstance(value, list):
  *                         return name, value
  *                     return None             # <<<<<<<<<<<<<<
@@ -17557,7 +17833,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
             goto __pyx_L21_return;
           }
 
-          /* "querysource/parsers/abstract.pyx":492
+          /* "querysource/parsers/abstract.pyx":504
  *                 try:
  *                     result = is_valid(key, value, _type)
  *                 except TypeError as exc:             # <<<<<<<<<<<<<<
@@ -17634,7 +17910,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
         }
         goto __pyx_L13_except_error;
 
-        /* "querysource/parsers/abstract.pyx":490
+        /* "querysource/parsers/abstract.pyx":502
  *                 result = new_val
  *             else:
  *                 try:             # <<<<<<<<<<<<<<
@@ -17658,7 +17934,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     }
     __pyx_L9:;
 
-    /* "querysource/parsers/abstract.pyx":499
+    /* "querysource/parsers/abstract.pyx":511
  *                         return name, value
  *                     return None
  *             return key, result             # <<<<<<<<<<<<<<
@@ -17666,19 +17942,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  *             # Handle @-prefixed function replacements even for unknown keys
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 499, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 511, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 499, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 511, __pyx_L1_error);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_result);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_result);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 499, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 511, __pyx_L1_error);
     __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     goto __pyx_L0;
 
-    /* "querysource/parsers/abstract.pyx":480
+    /* "querysource/parsers/abstract.pyx":492
  *             return name, value
  *         _, key, _ = comps[0]
  *         if key in self.cond_definition:             # <<<<<<<<<<<<<<
@@ -17687,7 +17963,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":502
+  /* "querysource/parsers/abstract.pyx":514
  *         else:
  *             # Handle @-prefixed function replacements even for unknown keys
  *             if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -17698,14 +17974,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
     __pyx_t_6 = PyUnicode_Check(__pyx_cur_scope->__pyx_v_value); 
     if (__pyx_t_6) {
 
-      /* "querysource/parsers/abstract.pyx":503
+      /* "querysource/parsers/abstract.pyx":515
  *             # Handle @-prefixed function replacements even for unknown keys
  *             if isinstance(value, str):
  *                 val_comps = field_components(value)             # <<<<<<<<<<<<<<
  *                 if val_comps:
  *                     prefix, fn, _ = val_comps[0]
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_field_components); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 503, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_7, __pyx_n_s_field_components); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 515, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_1 = NULL;
       __pyx_t_4 = 0;
@@ -17725,7 +18001,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
         PyObject *__pyx_callargs[2] = {__pyx_t_1, __pyx_cur_scope->__pyx_v_value};
         __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+1-__pyx_t_4, 1+__pyx_t_4);
         __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 503, __pyx_L1_error)
+        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 515, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       }
@@ -17733,24 +18009,24 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
       __pyx_cur_scope->__pyx_v_val_comps = __pyx_t_2;
       __pyx_t_2 = 0;
 
-      /* "querysource/parsers/abstract.pyx":504
+      /* "querysource/parsers/abstract.pyx":516
  *             if isinstance(value, str):
  *                 val_comps = field_components(value)
  *                 if val_comps:             # <<<<<<<<<<<<<<
  *                     prefix, fn, _ = val_comps[0]
  *                     if prefix == '@':
  */
-      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_val_comps); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 504, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_val_comps); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 516, __pyx_L1_error)
       if (__pyx_t_6) {
 
-        /* "querysource/parsers/abstract.pyx":505
+        /* "querysource/parsers/abstract.pyx":517
  *                 val_comps = field_components(value)
  *                 if val_comps:
  *                     prefix, fn, _ = val_comps[0]             # <<<<<<<<<<<<<<
  *                     if prefix == '@':
  *                         result = self._get_function_replacement(fn, key, value)
  */
-        __pyx_t_2 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_val_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 505, __pyx_L1_error)
+        __pyx_t_2 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_val_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 517, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_2);
         if ((likely(PyTuple_CheckExact(__pyx_t_2))) || (PyList_CheckExact(__pyx_t_2))) {
           PyObject* sequence = __pyx_t_2;
@@ -17758,7 +18034,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           if (unlikely(size != 3)) {
             if (size > 3) __Pyx_RaiseTooManyValuesError(3);
             else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-            __PYX_ERR(0, 505, __pyx_L1_error)
+            __PYX_ERR(0, 517, __pyx_L1_error)
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
           if (likely(PyTuple_CheckExact(sequence))) {
@@ -17774,17 +18050,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           __Pyx_INCREF(__pyx_t_1);
           __Pyx_INCREF(__pyx_t_3);
           #else
-          __pyx_t_7 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 505, __pyx_L1_error)
+          __pyx_t_7 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 517, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_7);
-          __pyx_t_1 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 505, __pyx_L1_error)
+          __pyx_t_1 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 517, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_3 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 505, __pyx_L1_error)
+          __pyx_t_3 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 517, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
           #endif
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         } else {
           Py_ssize_t index = -1;
-          __pyx_t_8 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 505, __pyx_L1_error)
+          __pyx_t_8 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 517, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_8);
           __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
           __pyx_t_9 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
@@ -17794,7 +18070,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           __Pyx_GOTREF(__pyx_t_1);
           index = 2; __pyx_t_3 = __pyx_t_9(__pyx_t_8); if (unlikely(!__pyx_t_3)) goto __pyx_L31_unpacking_failed;
           __Pyx_GOTREF(__pyx_t_3);
-          if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 3) < 0) __PYX_ERR(0, 505, __pyx_L1_error)
+          if (__Pyx_IternextUnpackEndCheck(__pyx_t_9(__pyx_t_8), 3) < 0) __PYX_ERR(0, 517, __pyx_L1_error)
           __pyx_t_9 = NULL;
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           goto __pyx_L32_unpacking_done;
@@ -17802,7 +18078,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
           __pyx_t_9 = NULL;
           if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-          __PYX_ERR(0, 505, __pyx_L1_error)
+          __PYX_ERR(0, 517, __pyx_L1_error)
           __pyx_L32_unpacking_done:;
         }
         __Pyx_GIVEREF(__pyx_t_7);
@@ -17816,31 +18092,31 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
         __Pyx_GIVEREF(__pyx_t_3);
         __pyx_t_3 = 0;
 
-        /* "querysource/parsers/abstract.pyx":506
+        /* "querysource/parsers/abstract.pyx":518
  *                 if val_comps:
  *                     prefix, fn, _ = val_comps[0]
  *                     if prefix == '@':             # <<<<<<<<<<<<<<
  *                         result = self._get_function_replacement(fn, key, value)
  *                         self._conditions[key] = result
  */
-        __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_prefix, __pyx_kp_u__36, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 506, __pyx_L1_error)
+        __pyx_t_6 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_prefix, __pyx_kp_u__37, Py_EQ)); if (unlikely((__pyx_t_6 < 0))) __PYX_ERR(0, 518, __pyx_L1_error)
         if (__pyx_t_6) {
 
-          /* "querysource/parsers/abstract.pyx":507
+          /* "querysource/parsers/abstract.pyx":519
  *                     prefix, fn, _ = val_comps[0]
  *                     if prefix == '@':
  *                         result = self._get_function_replacement(fn, key, value)             # <<<<<<<<<<<<<<
  *                         self._conditions[key] = result
  *                         return None
  */
-          if (!(likely(PyUnicode_CheckExact(__pyx_cur_scope->__pyx_v_key))||((__pyx_cur_scope->__pyx_v_key) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_cur_scope->__pyx_v_key))) __PYX_ERR(0, 507, __pyx_L1_error)
-          __pyx_t_2 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_get_function_replacement(__pyx_cur_scope->__pyx_v_self, __pyx_cur_scope->__pyx_v_fn, ((PyObject*)__pyx_cur_scope->__pyx_v_key), __pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 507, __pyx_L1_error)
+          if (!(likely(PyUnicode_CheckExact(__pyx_cur_scope->__pyx_v_key))||((__pyx_cur_scope->__pyx_v_key) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_cur_scope->__pyx_v_key))) __PYX_ERR(0, 519, __pyx_L1_error)
+          __pyx_t_2 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_get_function_replacement(__pyx_cur_scope->__pyx_v_self, __pyx_cur_scope->__pyx_v_fn, ((PyObject*)__pyx_cur_scope->__pyx_v_key), __pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 519, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_GIVEREF(__pyx_t_2);
           __pyx_cur_scope->__pyx_v_result = __pyx_t_2;
           __pyx_t_2 = 0;
 
-          /* "querysource/parsers/abstract.pyx":508
+          /* "querysource/parsers/abstract.pyx":520
  *                     if prefix == '@':
  *                         result = self._get_function_replacement(fn, key, value)
  *                         self._conditions[key] = result             # <<<<<<<<<<<<<<
@@ -17849,11 +18125,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
           if (unlikely(__pyx_cur_scope->__pyx_v_self->_conditions == Py_None)) {
             PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-            __PYX_ERR(0, 508, __pyx_L1_error)
+            __PYX_ERR(0, 520, __pyx_L1_error)
           }
-          if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_self->_conditions, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_result) < 0))) __PYX_ERR(0, 508, __pyx_L1_error)
+          if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_self->_conditions, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_result) < 0))) __PYX_ERR(0, 520, __pyx_L1_error)
 
-          /* "querysource/parsers/abstract.pyx":509
+          /* "querysource/parsers/abstract.pyx":521
  *                         result = self._get_function_replacement(fn, key, value)
  *                         self._conditions[key] = result
  *                         return None             # <<<<<<<<<<<<<<
@@ -17864,7 +18140,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
           __pyx_r = NULL;
           goto __pyx_L0;
 
-          /* "querysource/parsers/abstract.pyx":506
+          /* "querysource/parsers/abstract.pyx":518
  *                 if val_comps:
  *                     prefix, fn, _ = val_comps[0]
  *                     if prefix == '@':             # <<<<<<<<<<<<<<
@@ -17873,7 +18149,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
         }
 
-        /* "querysource/parsers/abstract.pyx":504
+        /* "querysource/parsers/abstract.pyx":516
  *             if isinstance(value, str):
  *                 val_comps = field_components(value)
  *                 if val_comps:             # <<<<<<<<<<<<<<
@@ -17882,7 +18158,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
       }
 
-      /* "querysource/parsers/abstract.pyx":502
+      /* "querysource/parsers/abstract.pyx":514
  *         else:
  *             # Handle @-prefixed function replacements even for unknown keys
  *             if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -17891,7 +18167,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":510
+    /* "querysource/parsers/abstract.pyx":522
  *                         self._conditions[key] = result
  *                         return None
  *             return name, value             # <<<<<<<<<<<<<<
@@ -17899,21 +18175,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 510, __pyx_L1_error)
+    __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 522, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_name);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_name);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_name)) __PYX_ERR(0, 510, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_name)) __PYX_ERR(0, 522, __pyx_L1_error);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_value);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 510, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 522, __pyx_L1_error);
     __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     goto __pyx_L0;
   }
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":474
+  /* "querysource/parsers/abstract.pyx":486
  *         return False
  * 
  *     async def _process_element(self, name: str, value: object, connection: object):             # <<<<<<<<<<<<<<
@@ -17942,9 +18218,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_72ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75generator19(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_77generator19(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":512
+/* "querysource/parsers/abstract.pyx":524
  *             return name, value
  * 
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:             # <<<<<<<<<<<<<<
@@ -17953,16 +18229,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_74set_conditions(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_76set_conditions(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_73set_conditions, "AbstractParser.set_conditions(self, dict conditions: dict, connection: object) -> dict\nCheck if all conditions are valid and return the value.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_74set_conditions = {"set_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_74set_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_73set_conditions};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_74set_conditions(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_75set_conditions, "AbstractParser.set_conditions(self, dict conditions: dict, connection: object) -> dict\nCheck if all conditions are valid and return the value.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_76set_conditions = {"set_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_76set_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_75set_conditions};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_76set_conditions(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -18009,7 +18285,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 512, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 524, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -18017,14 +18293,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 512, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 524, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("set_conditions", 1, 2, 2, 1); __PYX_ERR(0, 512, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("set_conditions", 1, 2, 2, 1); __PYX_ERR(0, 524, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set_conditions") < 0)) __PYX_ERR(0, 512, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set_conditions") < 0)) __PYX_ERR(0, 524, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -18037,7 +18313,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_conditions", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 512, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_conditions", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 524, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18051,8 +18327,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_conditions), (&PyDict_Type), 0, "conditions", 1))) __PYX_ERR(0, 512, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_73set_conditions(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_conditions, __pyx_v_connection);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_conditions), (&PyDict_Type), 0, "conditions", 1))) __PYX_ERR(0, 524, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_75set_conditions(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_conditions, __pyx_v_connection);
 
   /* function exit code */
   goto __pyx_L0;
@@ -18069,7 +18345,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_73set_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions, PyObject *__pyx_v_connection) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_75set_conditions(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_conditions, PyObject *__pyx_v_connection) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -18081,7 +18357,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_73se
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 512, __pyx_L1_error)
+    __PYX_ERR(0, 524, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -18095,7 +18371,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_73se
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_connection);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_connection);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75generator19, __pyx_codeobj__40, (PyObject *) __pyx_cur_scope, __pyx_n_s_set_conditions, __pyx_n_s_AbstractParser_set_conditions, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 512, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_77generator19, __pyx_codeobj__41, (PyObject *) __pyx_cur_scope, __pyx_n_s_set_conditions, __pyx_n_s_AbstractParser_set_conditions, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 524, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -18111,7 +18387,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_73se
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75generator19(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_77generator19(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -18141,48 +18417,48 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 512, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 524, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":514
+  /* "querysource/parsers/abstract.pyx":526
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:
  *         """Check if all conditions are valid and return the value."""
  *         elements = self._merge_conditions_and_filters(conditions)             # <<<<<<<<<<<<<<
  *         tasks = []
  *         _filter = {}
  */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_merge_conditions_and_filters(__pyx_cur_scope->__pyx_v_self, __pyx_cur_scope->__pyx_v_conditions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 514, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_merge_conditions_and_filters(__pyx_cur_scope->__pyx_v_self, __pyx_cur_scope->__pyx_v_conditions); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 526, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_elements = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":515
+  /* "querysource/parsers/abstract.pyx":527
  *         """Check if all conditions are valid and return the value."""
  *         elements = self._merge_conditions_and_filters(conditions)
  *         tasks = []             # <<<<<<<<<<<<<<
  *         _filter = {}
  * 
  */
-  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 515, __pyx_L1_error)
+  __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 527, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v_tasks = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":516
+  /* "querysource/parsers/abstract.pyx":528
  *         elements = self._merge_conditions_and_filters(conditions)
  *         tasks = []
  *         _filter = {}             # <<<<<<<<<<<<<<
  * 
  *         for name, val in elements.items():
  */
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 516, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 528, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __pyx_cur_scope->__pyx_v__filter = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":518
+  /* "querysource/parsers/abstract.pyx":530
  *         _filter = {}
  * 
  *         for name, val in elements.items():             # <<<<<<<<<<<<<<
@@ -18192,9 +18468,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
   __pyx_t_2 = 0;
   if (unlikely(__pyx_cur_scope->__pyx_v_elements == Py_None)) {
     PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "items");
-    __PYX_ERR(0, 518, __pyx_L1_error)
+    __PYX_ERR(0, 530, __pyx_L1_error)
   }
-  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_v_elements, 0, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 518, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_v_elements, 0, __pyx_n_s_items, (&__pyx_t_3), (&__pyx_t_4)); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 530, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_XDECREF(__pyx_t_1);
   __pyx_t_1 = __pyx_t_5;
@@ -18202,7 +18478,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
   while (1) {
     __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_1, __pyx_t_3, &__pyx_t_2, &__pyx_t_5, &__pyx_t_6, NULL, __pyx_t_4);
     if (unlikely(__pyx_t_7 == 0)) break;
-    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 518, __pyx_L1_error)
+    if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 530, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_name);
@@ -18214,14 +18490,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
     __Pyx_GIVEREF(__pyx_t_6);
     __pyx_t_6 = 0;
 
-    /* "querysource/parsers/abstract.pyx":519
+    /* "querysource/parsers/abstract.pyx":531
  * 
  *         for name, val in elements.items():
  *             tasks.append(self._process_element(name, val, connection))             # <<<<<<<<<<<<<<
  *         results = await asyncio.gather(*tasks)
  * 
  */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_process_element); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 519, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_process_element); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 531, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_t_8 = NULL;
     __pyx_t_9 = 0;
@@ -18241,30 +18517,30 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
       PyObject *__pyx_callargs[4] = {__pyx_t_8, __pyx_cur_scope->__pyx_v_name, __pyx_cur_scope->__pyx_v_val, __pyx_cur_scope->__pyx_v_connection};
       __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_5, __pyx_callargs+1-__pyx_t_9, 3+__pyx_t_9);
       __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 519, __pyx_L1_error)
+      if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 531, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     }
-    __pyx_t_10 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_tasks, __pyx_t_6); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 519, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyList_Append(__pyx_cur_scope->__pyx_v_tasks, __pyx_t_6); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 531, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":520
+  /* "querysource/parsers/abstract.pyx":532
  *         for name, val in elements.items():
  *             tasks.append(self._process_element(name, val, connection))
  *         results = await asyncio.gather(*tasks)             # <<<<<<<<<<<<<<
  * 
  *         for result in results:
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_gather); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_gather); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PySequence_Tuple(__pyx_cur_scope->__pyx_v_tasks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __pyx_t_1 = PySequence_Tuple(__pyx_cur_scope->__pyx_v_tasks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_1, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 520, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_1, NULL); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 532, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -18279,18 +18555,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L6_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 520, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 532, __pyx_L1_error)
     __pyx_t_5 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_5);
   } else {
     __pyx_t_5 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_5) < 0) __PYX_ERR(0, 520, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_5) < 0) __PYX_ERR(0, 532, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
   }
   __Pyx_GIVEREF(__pyx_t_5);
   __pyx_cur_scope->__pyx_v_results = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "querysource/parsers/abstract.pyx":522
+  /* "querysource/parsers/abstract.pyx":534
  *         results = await asyncio.gather(*tasks)
  * 
  *         for result in results:             # <<<<<<<<<<<<<<
@@ -18302,9 +18578,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
     __pyx_t_3 = 0;
     __pyx_t_11 = NULL;
   } else {
-    __pyx_t_3 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_results); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 522, __pyx_L1_error)
+    __pyx_t_3 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_results); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 534, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_11 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 522, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 534, __pyx_L1_error)
   }
   for (;;) {
     if (likely(!__pyx_t_11)) {
@@ -18312,28 +18588,28 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 534, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_3); __Pyx_INCREF(__pyx_t_1); __pyx_t_3++; if (unlikely((0 < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
+        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_5, __pyx_t_3); __Pyx_INCREF(__pyx_t_1); __pyx_t_3++; if (unlikely((0 < 0))) __PYX_ERR(0, 534, __pyx_L1_error)
         #else
-        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 522, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 534, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       } else {
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_5);
           #if !CYTHON_ASSUME_SAFE_MACROS
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 534, __pyx_L1_error)
           #endif
           if (__pyx_t_3 >= __pyx_temp) break;
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_3); __Pyx_INCREF(__pyx_t_1); __pyx_t_3++; if (unlikely((0 < 0))) __PYX_ERR(0, 522, __pyx_L1_error)
+        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_5, __pyx_t_3); __Pyx_INCREF(__pyx_t_1); __pyx_t_3++; if (unlikely((0 < 0))) __PYX_ERR(0, 534, __pyx_L1_error)
         #else
-        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 522, __pyx_L1_error)
+        __pyx_t_1 = __Pyx_PySequence_ITEM(__pyx_t_5, __pyx_t_3); __pyx_t_3++; if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 534, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       }
@@ -18343,7 +18619,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else __PYX_ERR(0, 522, __pyx_L1_error)
+          else __PYX_ERR(0, 534, __pyx_L1_error)
         }
         break;
       }
@@ -18354,17 +18630,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
     __Pyx_GIVEREF(__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "querysource/parsers/abstract.pyx":523
+    /* "querysource/parsers/abstract.pyx":535
  * 
  *         for result in results:
  *             if result:             # <<<<<<<<<<<<<<
  *                 key, value = result
  *                 if key in self.cond_definition:
  */
-    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_result); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 523, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_result); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 535, __pyx_L1_error)
     if (__pyx_t_12) {
 
-      /* "querysource/parsers/abstract.pyx":524
+      /* "querysource/parsers/abstract.pyx":536
  *         for result in results:
  *             if result:
  *                 key, value = result             # <<<<<<<<<<<<<<
@@ -18377,7 +18653,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 524, __pyx_L1_error)
+          __PYX_ERR(0, 536, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -18390,21 +18666,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
         __Pyx_INCREF(__pyx_t_1);
         __Pyx_INCREF(__pyx_t_6);
         #else
-        __pyx_t_1 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 524, __pyx_L1_error)
+        __pyx_t_1 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 536, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_1);
-        __pyx_t_6 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 524, __pyx_L1_error)
+        __pyx_t_6 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 536, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         #endif
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_8 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_result); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 524, __pyx_L1_error)
+        __pyx_t_8 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_result); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 536, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __pyx_t_13 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_8);
         index = 0; __pyx_t_1 = __pyx_t_13(__pyx_t_8); if (unlikely(!__pyx_t_1)) goto __pyx_L10_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_1);
         index = 1; __pyx_t_6 = __pyx_t_13(__pyx_t_8); if (unlikely(!__pyx_t_6)) goto __pyx_L10_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_6);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_13(__pyx_t_8), 2) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_13(__pyx_t_8), 2) < 0) __PYX_ERR(0, 536, __pyx_L1_error)
         __pyx_t_13 = NULL;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         goto __pyx_L11_unpacking_done;
@@ -18412,7 +18688,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __pyx_t_13 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 524, __pyx_L1_error)
+        __PYX_ERR(0, 536, __pyx_L1_error)
         __pyx_L11_unpacking_done:;
       }
       __Pyx_XGOTREF(__pyx_cur_scope->__pyx_v_key);
@@ -18424,7 +18700,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
       __Pyx_GIVEREF(__pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "querysource/parsers/abstract.pyx":525
+      /* "querysource/parsers/abstract.pyx":537
  *             if result:
  *                 key, value = result
  *                 if key in self.cond_definition:             # <<<<<<<<<<<<<<
@@ -18433,12 +18709,12 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
  */
       if (unlikely(__pyx_cur_scope->__pyx_v_self->cond_definition == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not iterable");
-        __PYX_ERR(0, 525, __pyx_L1_error)
+        __PYX_ERR(0, 537, __pyx_L1_error)
       }
-      __pyx_t_12 = (__Pyx_PyDict_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_self->cond_definition, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 525, __pyx_L1_error)
+      __pyx_t_12 = (__Pyx_PyDict_ContainsTF(__pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_self->cond_definition, Py_EQ)); if (unlikely((__pyx_t_12 < 0))) __PYX_ERR(0, 537, __pyx_L1_error)
       if (__pyx_t_12) {
 
-        /* "querysource/parsers/abstract.pyx":526
+        /* "querysource/parsers/abstract.pyx":538
  *                 key, value = result
  *                 if key in self.cond_definition:
  *                     self._conditions[key] = value             # <<<<<<<<<<<<<<
@@ -18447,11 +18723,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
  */
         if (unlikely(__pyx_cur_scope->__pyx_v_self->_conditions == Py_None)) {
           PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-          __PYX_ERR(0, 526, __pyx_L1_error)
+          __PYX_ERR(0, 538, __pyx_L1_error)
         }
-        if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_self->_conditions, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_value) < 0))) __PYX_ERR(0, 526, __pyx_L1_error)
+        if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v_self->_conditions, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_value) < 0))) __PYX_ERR(0, 538, __pyx_L1_error)
 
-        /* "querysource/parsers/abstract.pyx":525
+        /* "querysource/parsers/abstract.pyx":537
  *             if result:
  *                 key, value = result
  *                 if key in self.cond_definition:             # <<<<<<<<<<<<<<
@@ -18461,7 +18737,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
         goto __pyx_L12;
       }
 
-      /* "querysource/parsers/abstract.pyx":528
+      /* "querysource/parsers/abstract.pyx":540
  *                     self._conditions[key] = value
  *                 else:
  *                     _filter[key] = value             # <<<<<<<<<<<<<<
@@ -18469,11 +18745,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
  * 
  */
       /*else*/ {
-        if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v__filter, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_value) < 0))) __PYX_ERR(0, 528, __pyx_L1_error)
+        if (unlikely((PyDict_SetItem(__pyx_cur_scope->__pyx_v__filter, __pyx_cur_scope->__pyx_v_key, __pyx_cur_scope->__pyx_v_value) < 0))) __PYX_ERR(0, 540, __pyx_L1_error)
       }
       __pyx_L12:;
 
-      /* "querysource/parsers/abstract.pyx":523
+      /* "querysource/parsers/abstract.pyx":535
  * 
  *         for result in results:
  *             if result:             # <<<<<<<<<<<<<<
@@ -18482,7 +18758,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":522
+    /* "querysource/parsers/abstract.pyx":534
  *         results = await asyncio.gather(*tasks)
  * 
  *         for result in results:             # <<<<<<<<<<<<<<
@@ -18492,7 +18768,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
   }
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "querysource/parsers/abstract.pyx":529
+  /* "querysource/parsers/abstract.pyx":541
  *                 else:
  *                     _filter[key] = value
  *         return _filter             # <<<<<<<<<<<<<<
@@ -18504,7 +18780,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":512
+  /* "querysource/parsers/abstract.pyx":524
  *             return name, value
  * 
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:             # <<<<<<<<<<<<<<
@@ -18531,7 +18807,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
   return __pyx_r;
 }
 
-/* "querysource/parsers/abstract.pyx":531
+/* "querysource/parsers/abstract.pyx":543
  *         return _filter
  * 
  *     cpdef object where_cond(self, dict where):             # <<<<<<<<<<<<<<
@@ -18539,7 +18815,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_75ge
  *         return self
  */
 
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_77where_cond(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79where_cond(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -18567,9 +18843,9 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where
     if (unlikely(!__Pyx_object_dict_version_matches(((PyObject *)__pyx_v_self), __pyx_tp_dict_version, __pyx_obj_dict_version))) {
       PY_UINT64_T __pyx_typedict_guard = __Pyx_get_tp_dict_version(((PyObject *)__pyx_v_self));
       #endif
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_where_cond); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 531, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_n_s_where_cond); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 543, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_77where_cond)) {
+      if (!__Pyx_IsSameCFunction(__pyx_t_1, (void*) __pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79where_cond)) {
         __Pyx_XDECREF(__pyx_r);
         __Pyx_INCREF(__pyx_t_1);
         __pyx_t_3 = __pyx_t_1; __pyx_t_4 = NULL;
@@ -18590,7 +18866,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where
           PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_where};
           __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 531, __pyx_L1_error)
+          if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         }
@@ -18612,7 +18888,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where
     #endif
   }
 
-  /* "querysource/parsers/abstract.pyx":532
+  /* "querysource/parsers/abstract.pyx":544
  * 
  *     cpdef object where_cond(self, dict where):
  *         self.filter = where             # <<<<<<<<<<<<<<
@@ -18625,7 +18901,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where
   __Pyx_DECREF(__pyx_v_self->filter);
   __pyx_v_self->filter = __pyx_v_where;
 
-  /* "querysource/parsers/abstract.pyx":533
+  /* "querysource/parsers/abstract.pyx":545
  *     cpdef object where_cond(self, dict where):
  *         self.filter = where
  *         return self             # <<<<<<<<<<<<<<
@@ -18637,7 +18913,7 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where
   __pyx_r = ((PyObject *)__pyx_v_self);
   goto __pyx_L0;
 
-  /* "querysource/parsers/abstract.pyx":531
+  /* "querysource/parsers/abstract.pyx":543
  *         return _filter
  * 
  *     cpdef object where_cond(self, dict where):             # <<<<<<<<<<<<<<
@@ -18660,16 +18936,16 @@ static PyObject *__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_77where_cond(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79where_cond(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_76where_cond, "AbstractParser.where_cond(self, dict where)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_77where_cond = {"where_cond", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_77where_cond, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_76where_cond};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_77where_cond(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_78where_cond, "AbstractParser.where_cond(self, dict where)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_79where_cond = {"where_cond", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79where_cond, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_78where_cond};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79where_cond(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -18713,12 +18989,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 531, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 543, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "where_cond") < 0)) __PYX_ERR(0, 531, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "where_cond") < 0)) __PYX_ERR(0, 543, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
@@ -18729,7 +19005,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("where_cond", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 531, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("where_cond", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 543, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18743,8 +19019,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_where), (&PyDict_Type), 1, "where", 1))) __PYX_ERR(0, 531, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_76where_cond(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_where);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_where), (&PyDict_Type), 1, "where", 1))) __PYX_ERR(0, 543, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78where_cond(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_where);
 
   /* function exit code */
   goto __pyx_L0;
@@ -18761,7 +19037,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_76where_cond(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_where) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78where_cond(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_where) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
@@ -18770,7 +19046,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_76wh
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("where_cond", 1);
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where_cond(__pyx_v_self, __pyx_v_where, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 531, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where_cond(__pyx_v_self, __pyx_v_where, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 543, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -18786,9 +19062,9 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_76wh
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80generator20(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_82generator20(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":535
+/* "querysource/parsers/abstract.pyx":547
  *         return self
  * 
  *     async def _where_element(self, key, value, connection):             # <<<<<<<<<<<<<<
@@ -18797,16 +19073,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79_where_element(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_81_where_element(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_78_where_element, "AbstractParser._where_element(self, key, value, connection)\nProcess a single element for the WHERE clause.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_79_where_element = {"_where_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79_where_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_78_where_element};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79_where_element(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_80_where_element, "AbstractParser._where_element(self, key, value, connection)\nProcess a single element for the WHERE clause.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_81_where_element = {"_where_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_81_where_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_80_where_element};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_81_where_element(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -18856,7 +19132,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 535, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 547, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -18864,9 +19140,9 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 535, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 547, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_where_element", 1, 3, 3, 1); __PYX_ERR(0, 535, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_where_element", 1, 3, 3, 1); __PYX_ERR(0, 547, __pyx_L3_error)
         }
         CYTHON_FALLTHROUGH;
         case  2:
@@ -18874,14 +19150,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[2]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 535, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 547, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("_where_element", 1, 3, 3, 2); __PYX_ERR(0, 535, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("_where_element", 1, 3, 3, 2); __PYX_ERR(0, 547, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_where_element") < 0)) __PYX_ERR(0, 535, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "_where_element") < 0)) __PYX_ERR(0, 547, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 3)) {
       goto __pyx_L5_argtuple_error;
@@ -18896,7 +19172,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("_where_element", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 535, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("_where_element", 1, 3, 3, __pyx_nargs); __PYX_ERR(0, 547, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -18910,7 +19186,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78_where_element(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_key, __pyx_v_value, __pyx_v_connection);
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_80_where_element(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v_key, __pyx_v_value, __pyx_v_connection);
 
   /* function exit code */
   {
@@ -18923,7 +19199,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78_where_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_connection) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_80_where_element(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v_key, PyObject *__pyx_v_value, PyObject *__pyx_v_connection) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -18935,7 +19211,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78_w
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 535, __pyx_L1_error)
+    __PYX_ERR(0, 547, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -18952,7 +19228,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78_w
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_connection);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_connection);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80generator20, __pyx_codeobj__41, (PyObject *) __pyx_cur_scope, __pyx_n_s_where_element, __pyx_n_s_AbstractParser__where_element, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 535, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_82generator20, __pyx_codeobj__42, (PyObject *) __pyx_cur_scope, __pyx_n_s_where_element, __pyx_n_s_AbstractParser__where_element, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 547, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -18968,7 +19244,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_78_w
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80generator20(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_82generator20(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -18998,9 +19274,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 535, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 547, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":538
+  /* "querysource/parsers/abstract.pyx":550
  *         """Process a single element for the WHERE clause."""
  * 
  *         if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -19010,14 +19286,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
   __pyx_t_1 = PyDict_Check(__pyx_cur_scope->__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/parsers/abstract.pyx":539
+    /* "querysource/parsers/abstract.pyx":551
  * 
  *         if isinstance(value, dict):
  *             op, v = value.popitem()             # <<<<<<<<<<<<<<
  *             result = is_valid(key, v, noquote=self.string_literal)
  *             return key, {op: result}
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_value, __pyx_n_s_popitem); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 539, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_cur_scope->__pyx_v_value, __pyx_n_s_popitem); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -19037,7 +19313,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_5, 0+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 539, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     }
@@ -19047,7 +19323,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       if (unlikely(size != 2)) {
         if (size > 2) __Pyx_RaiseTooManyValuesError(2);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 539, __pyx_L1_error)
+        __PYX_ERR(0, 551, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -19060,15 +19336,15 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_INCREF(__pyx_t_3);
       __Pyx_INCREF(__pyx_t_4);
       #else
-      __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 539, __pyx_L1_error)
+      __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 539, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       #endif
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_6 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 539, __pyx_L1_error)
+      __pyx_t_6 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 551, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       __pyx_t_7 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_6);
@@ -19076,7 +19352,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_GOTREF(__pyx_t_3);
       index = 1; __pyx_t_4 = __pyx_t_7(__pyx_t_6); if (unlikely(!__pyx_t_4)) goto __pyx_L5_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_4);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 2) < 0) __PYX_ERR(0, 539, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_6), 2) < 0) __PYX_ERR(0, 551, __pyx_L1_error)
       __pyx_t_7 = NULL;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L6_unpacking_done;
@@ -19084,7 +19360,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __pyx_t_7 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 539, __pyx_L1_error)
+      __PYX_ERR(0, 551, __pyx_L1_error)
       __pyx_L6_unpacking_done:;
     }
     __Pyx_GIVEREF(__pyx_t_3);
@@ -19094,30 +19370,30 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __pyx_cur_scope->__pyx_v_v = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "querysource/parsers/abstract.pyx":540
+    /* "querysource/parsers/abstract.pyx":552
  *         if isinstance(value, dict):
  *             op, v = value.popitem()
  *             result = is_valid(key, v, noquote=self.string_literal)             # <<<<<<<<<<<<<<
  *             return key, {op: result}
  * 
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 540, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 540, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 540, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 552, __pyx_L1_error);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_v);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_v);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_cur_scope->__pyx_v_v)) __PYX_ERR(0, 540, __pyx_L1_error);
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 540, __pyx_L1_error)
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_cur_scope->__pyx_v_v)) __PYX_ERR(0, 552, __pyx_L1_error);
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_cur_scope->__pyx_v_self->string_literal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 540, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_cur_scope->__pyx_v_self->string_literal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_noquote, __pyx_t_6) < 0) __PYX_ERR(0, 540, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_noquote, __pyx_t_6) < 0) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 540, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_4, __pyx_t_3); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 552, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -19126,7 +19402,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __pyx_cur_scope->__pyx_v_result = __pyx_t_6;
     __pyx_t_6 = 0;
 
-    /* "querysource/parsers/abstract.pyx":541
+    /* "querysource/parsers/abstract.pyx":553
  *             op, v = value.popitem()
  *             result = is_valid(key, v, noquote=self.string_literal)
  *             return key, {op: result}             # <<<<<<<<<<<<<<
@@ -19134,22 +19410,22 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  *         if isinstance(value, str):
  */
     __Pyx_XDECREF(__pyx_r);
-    __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 541, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 553, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    if (PyDict_SetItem(__pyx_t_6, __pyx_cur_scope->__pyx_v_op, __pyx_cur_scope->__pyx_v_result) < 0) __PYX_ERR(0, 541, __pyx_L1_error)
-    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 541, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_6, __pyx_cur_scope->__pyx_v_op, __pyx_cur_scope->__pyx_v_result) < 0) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 553, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 541, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 553, __pyx_L1_error);
     __Pyx_GIVEREF(__pyx_t_6);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_6)) __PYX_ERR(0, 541, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_6)) __PYX_ERR(0, 553, __pyx_L1_error);
     __pyx_t_6 = 0;
     __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     goto __pyx_L0;
 
-    /* "querysource/parsers/abstract.pyx":538
+    /* "querysource/parsers/abstract.pyx":550
  *         """Process a single element for the WHERE clause."""
  * 
  *         if isinstance(value, dict):             # <<<<<<<<<<<<<<
@@ -19158,7 +19434,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":543
+  /* "querysource/parsers/abstract.pyx":555
  *             return key, {op: result}
  * 
  *         if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -19168,14 +19444,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
   __pyx_t_1 = PyUnicode_Check(__pyx_cur_scope->__pyx_v_value); 
   if (__pyx_t_1) {
 
-    /* "querysource/parsers/abstract.pyx":544
+    /* "querysource/parsers/abstract.pyx":556
  * 
  *         if isinstance(value, str):
  *             parser = is_parseable(value)             # <<<<<<<<<<<<<<
  *             if parser:
  *                 try:
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_parseable); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 544, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_parseable); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 556, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __pyx_t_4 = NULL;
     __pyx_t_5 = 0;
@@ -19195,7 +19471,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_cur_scope->__pyx_v_value};
       __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 544, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 556, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     }
@@ -19203,17 +19479,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __pyx_cur_scope->__pyx_v_parser = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "querysource/parsers/abstract.pyx":545
+    /* "querysource/parsers/abstract.pyx":557
  *         if isinstance(value, str):
  *             parser = is_parseable(value)
  *             if parser:             # <<<<<<<<<<<<<<
  *                 try:
  *                     value = parser(value)
  */
-    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_parser); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 545, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_parser); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 557, __pyx_L1_error)
     if (__pyx_t_1) {
 
-      /* "querysource/parsers/abstract.pyx":546
+      /* "querysource/parsers/abstract.pyx":558
  *             parser = is_parseable(value)
  *             if parser:
  *                 try:             # <<<<<<<<<<<<<<
@@ -19227,7 +19503,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
         __Pyx_XGOTREF(__pyx_t_10);
         /*try:*/ {
 
-          /* "querysource/parsers/abstract.pyx":547
+          /* "querysource/parsers/abstract.pyx":559
  *             if parser:
  *                 try:
  *                     value = parser(value)             # <<<<<<<<<<<<<<
@@ -19253,7 +19529,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
             PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_cur_scope->__pyx_v_value};
             __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
             __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 547, __pyx_L9_error)
+            if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 559, __pyx_L9_error)
             __Pyx_GOTREF(__pyx_t_3);
             __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           }
@@ -19262,7 +19538,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
           __Pyx_GIVEREF(__pyx_t_3);
           __pyx_t_3 = 0;
 
-          /* "querysource/parsers/abstract.pyx":546
+          /* "querysource/parsers/abstract.pyx":558
  *             parser = is_parseable(value)
  *             if parser:
  *                 try:             # <<<<<<<<<<<<<<
@@ -19280,7 +19556,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
 
-        /* "querysource/parsers/abstract.pyx":548
+        /* "querysource/parsers/abstract.pyx":560
  *                 try:
  *                     value = parser(value)
  *                 except (TypeError, ValueError):             # <<<<<<<<<<<<<<
@@ -19294,7 +19570,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
         }
         goto __pyx_L11_except_error;
 
-        /* "querysource/parsers/abstract.pyx":546
+        /* "querysource/parsers/abstract.pyx":558
  *             parser = is_parseable(value)
  *             if parser:
  *                 try:             # <<<<<<<<<<<<<<
@@ -19315,7 +19591,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
         __pyx_L14_try_end:;
       }
 
-      /* "querysource/parsers/abstract.pyx":545
+      /* "querysource/parsers/abstract.pyx":557
  *         if isinstance(value, str):
  *             parser = is_parseable(value)
  *             if parser:             # <<<<<<<<<<<<<<
@@ -19324,7 +19600,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":543
+    /* "querysource/parsers/abstract.pyx":555
  *             return key, {op: result}
  * 
  *         if isinstance(value, str):             # <<<<<<<<<<<<<<
@@ -19333,16 +19609,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":551
+  /* "querysource/parsers/abstract.pyx":563
  *                     pass
  * 
  *         comps = field_components(str(value))             # <<<<<<<<<<<<<<
  *         if comps:
  *             prefix, fn, _ = comps[0]
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_field_components); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_field_components); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 563, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
-  __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Unicode(__pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 563, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_2 = NULL;
   __pyx_t_5 = 0;
@@ -19363,7 +19639,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __pyx_t_3 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_5, 1+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 551, __pyx_L1_error)
+    if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 563, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
   }
@@ -19371,24 +19647,24 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
   __pyx_cur_scope->__pyx_v_comps = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "querysource/parsers/abstract.pyx":552
+  /* "querysource/parsers/abstract.pyx":564
  * 
  *         comps = field_components(str(value))
  *         if comps:             # <<<<<<<<<<<<<<
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':
  */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_comps); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 552, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_comps); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 564, __pyx_L1_error)
   if (__pyx_t_1) {
 
-    /* "querysource/parsers/abstract.pyx":553
+    /* "querysource/parsers/abstract.pyx":565
  *         comps = field_components(str(value))
  *         if comps:
  *             prefix, fn, _ = comps[0]             # <<<<<<<<<<<<<<
  *             if prefix == '@':
  *                 result = self._get_function_replacement(fn, key, value)
  */
-    __pyx_t_3 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 553, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_GetItemInt(__pyx_cur_scope->__pyx_v_comps, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 565, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     if ((likely(PyTuple_CheckExact(__pyx_t_3))) || (PyList_CheckExact(__pyx_t_3))) {
       PyObject* sequence = __pyx_t_3;
@@ -19396,7 +19672,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       if (unlikely(size != 3)) {
         if (size > 3) __Pyx_RaiseTooManyValuesError(3);
         else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-        __PYX_ERR(0, 553, __pyx_L1_error)
+        __PYX_ERR(0, 565, __pyx_L1_error)
       }
       #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
       if (likely(PyTuple_CheckExact(sequence))) {
@@ -19412,17 +19688,17 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_INCREF(__pyx_t_4);
       __Pyx_INCREF(__pyx_t_2);
       #else
-      __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 553, __pyx_L1_error)
+      __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 565, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 553, __pyx_L1_error)
+      __pyx_t_4 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 565, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_2 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 553, __pyx_L1_error)
+      __pyx_t_2 = PySequence_ITEM(sequence, 2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 565, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       #endif
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     } else {
       Py_ssize_t index = -1;
-      __pyx_t_12 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 553, __pyx_L1_error)
+      __pyx_t_12 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 565, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __pyx_t_7 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_12);
@@ -19432,7 +19708,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_GOTREF(__pyx_t_4);
       index = 2; __pyx_t_2 = __pyx_t_7(__pyx_t_12); if (unlikely(!__pyx_t_2)) goto __pyx_L16_unpacking_failed;
       __Pyx_GOTREF(__pyx_t_2);
-      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_12), 3) < 0) __PYX_ERR(0, 553, __pyx_L1_error)
+      if (__Pyx_IternextUnpackEndCheck(__pyx_t_7(__pyx_t_12), 3) < 0) __PYX_ERR(0, 565, __pyx_L1_error)
       __pyx_t_7 = NULL;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       goto __pyx_L17_unpacking_done;
@@ -19440,7 +19716,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_t_7 = NULL;
       if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-      __PYX_ERR(0, 553, __pyx_L1_error)
+      __PYX_ERR(0, 565, __pyx_L1_error)
       __pyx_L17_unpacking_done:;
     }
     __Pyx_GIVEREF(__pyx_t_6);
@@ -19453,54 +19729,54 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __pyx_cur_scope->__pyx_v__ = __pyx_t_2;
     __pyx_t_2 = 0;
 
-    /* "querysource/parsers/abstract.pyx":554
+    /* "querysource/parsers/abstract.pyx":566
  *         if comps:
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':             # <<<<<<<<<<<<<<
  *                 result = self._get_function_replacement(fn, key, value)
  *                 result = is_valid(key, result, noquote=self.string_literal)
  */
-    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_prefix, __pyx_kp_u__36, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 554, __pyx_L1_error)
+    __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_cur_scope->__pyx_v_prefix, __pyx_kp_u__37, Py_EQ)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 566, __pyx_L1_error)
     if (__pyx_t_1) {
 
-      /* "querysource/parsers/abstract.pyx":555
+      /* "querysource/parsers/abstract.pyx":567
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':
  *                 result = self._get_function_replacement(fn, key, value)             # <<<<<<<<<<<<<<
  *                 result = is_valid(key, result, noquote=self.string_literal)
  *                 return key, result
  */
-      if (!(likely(PyUnicode_CheckExact(__pyx_cur_scope->__pyx_v_key))||((__pyx_cur_scope->__pyx_v_key) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_cur_scope->__pyx_v_key))) __PYX_ERR(0, 555, __pyx_L1_error)
-      __pyx_t_3 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_get_function_replacement(__pyx_cur_scope->__pyx_v_self, __pyx_cur_scope->__pyx_v_fn, ((PyObject*)__pyx_cur_scope->__pyx_v_key), __pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 555, __pyx_L1_error)
+      if (!(likely(PyUnicode_CheckExact(__pyx_cur_scope->__pyx_v_key))||((__pyx_cur_scope->__pyx_v_key) == Py_None) || __Pyx_RaiseUnexpectedTypeError("unicode", __pyx_cur_scope->__pyx_v_key))) __PYX_ERR(0, 567, __pyx_L1_error)
+      __pyx_t_3 = ((struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser *)__pyx_cur_scope->__pyx_v_self->__pyx_vtab)->_get_function_replacement(__pyx_cur_scope->__pyx_v_self, __pyx_cur_scope->__pyx_v_fn, ((PyObject*)__pyx_cur_scope->__pyx_v_key), __pyx_cur_scope->__pyx_v_value); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_GIVEREF(__pyx_t_3);
       __pyx_cur_scope->__pyx_v_result = __pyx_t_3;
       __pyx_t_3 = 0;
 
-      /* "querysource/parsers/abstract.pyx":556
+      /* "querysource/parsers/abstract.pyx":568
  *             if prefix == '@':
  *                 result = self._get_function_replacement(fn, key, value)
  *                 result = is_valid(key, result, noquote=self.string_literal)             # <<<<<<<<<<<<<<
  *                 return key, result
  *             elif prefix in ('|', '!', '&', '>', '<'):
  */
-      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 556, __pyx_L1_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 568, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 556, __pyx_L1_error)
+      __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 568, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_2);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 556, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 568, __pyx_L1_error);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_result);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_result);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 556, __pyx_L1_error);
-      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 556, __pyx_L1_error)
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 568, __pyx_L1_error);
+      __pyx_t_4 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 568, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_cur_scope->__pyx_v_self->string_literal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 556, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyBool_FromLong(__pyx_cur_scope->__pyx_v_self->string_literal); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 568, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
-      if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_noquote, __pyx_t_6) < 0) __PYX_ERR(0, 556, __pyx_L1_error)
+      if (PyDict_SetItem(__pyx_t_4, __pyx_n_s_noquote, __pyx_t_6) < 0) __PYX_ERR(0, 568, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-      __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 556, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_2, __pyx_t_4); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 568, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
       __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -19510,7 +19786,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
       __Pyx_GIVEREF(__pyx_t_6);
       __pyx_t_6 = 0;
 
-      /* "querysource/parsers/abstract.pyx":557
+      /* "querysource/parsers/abstract.pyx":569
  *                 result = self._get_function_replacement(fn, key, value)
  *                 result = is_valid(key, result, noquote=self.string_literal)
  *                 return key, result             # <<<<<<<<<<<<<<
@@ -19518,19 +19794,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  *                 return key, value
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 557, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 569, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 557, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 569, __pyx_L1_error);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_result);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_result);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 557, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 569, __pyx_L1_error);
       __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L0;
 
-      /* "querysource/parsers/abstract.pyx":554
+      /* "querysource/parsers/abstract.pyx":566
  *         if comps:
  *             prefix, fn, _ = comps[0]
  *             if prefix == '@':             # <<<<<<<<<<<<<<
@@ -19539,7 +19815,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":558
+    /* "querysource/parsers/abstract.pyx":570
  *                 result = is_valid(key, result, noquote=self.string_literal)
  *                 return key, result
  *             elif prefix in ('|', '!', '&', '>', '<'):             # <<<<<<<<<<<<<<
@@ -19548,38 +19824,38 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_prefix);
     __pyx_t_6 = __pyx_cur_scope->__pyx_v_prefix;
-    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__42, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 558, __pyx_L1_error)
+    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__43, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 570, __pyx_L1_error)
     if (!__pyx_t_13) {
     } else {
       __pyx_t_1 = __pyx_t_13;
       goto __pyx_L19_bool_binop_done;
     }
-    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__43, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 558, __pyx_L1_error)
+    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__44, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 570, __pyx_L1_error)
     if (!__pyx_t_13) {
     } else {
       __pyx_t_1 = __pyx_t_13;
       goto __pyx_L19_bool_binop_done;
     }
-    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__44, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 558, __pyx_L1_error)
+    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__45, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 570, __pyx_L1_error)
     if (!__pyx_t_13) {
     } else {
       __pyx_t_1 = __pyx_t_13;
       goto __pyx_L19_bool_binop_done;
     }
-    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__2, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 558, __pyx_L1_error)
+    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u__2, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 570, __pyx_L1_error)
     if (!__pyx_t_13) {
     } else {
       __pyx_t_1 = __pyx_t_13;
       goto __pyx_L19_bool_binop_done;
     }
-    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u_, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 558, __pyx_L1_error)
+    __pyx_t_13 = (__Pyx_PyUnicode_Equals(__pyx_t_6, __pyx_kp_u_, Py_EQ)); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 570, __pyx_L1_error)
     __pyx_t_1 = __pyx_t_13;
     __pyx_L19_bool_binop_done:;
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_13 = __pyx_t_1;
     if (__pyx_t_13) {
 
-      /* "querysource/parsers/abstract.pyx":559
+      /* "querysource/parsers/abstract.pyx":571
  *                 return key, result
  *             elif prefix in ('|', '!', '&', '>', '<'):
  *                 return key, value             # <<<<<<<<<<<<<<
@@ -19587,19 +19863,19 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  *         new_val = await self._get_operational_value(value, connection)
  */
       __Pyx_XDECREF(__pyx_r);
-      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 559, __pyx_L1_error)
+      __pyx_t_6 = PyTuple_New(2); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 571, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 559, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 571, __pyx_L1_error);
       __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
       __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_value);
-      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 559, __pyx_L1_error);
+      if (__Pyx_PyTuple_SET_ITEM(__pyx_t_6, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 571, __pyx_L1_error);
       __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_6);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       goto __pyx_L0;
 
-      /* "querysource/parsers/abstract.pyx":558
+      /* "querysource/parsers/abstract.pyx":570
  *                 result = is_valid(key, result, noquote=self.string_literal)
  *                 return key, result
  *             elif prefix in ('|', '!', '&', '>', '<'):             # <<<<<<<<<<<<<<
@@ -19608,7 +19884,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
     }
 
-    /* "querysource/parsers/abstract.pyx":552
+    /* "querysource/parsers/abstract.pyx":564
  * 
  *         comps = field_components(str(value))
  *         if comps:             # <<<<<<<<<<<<<<
@@ -19617,14 +19893,14 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  */
   }
 
-  /* "querysource/parsers/abstract.pyx":561
+  /* "querysource/parsers/abstract.pyx":573
  *                 return key, value
  * 
  *         new_val = await self._get_operational_value(value, connection)             # <<<<<<<<<<<<<<
  *         if new_val:
  *             result = new_val
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_get_operational_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 561, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_get_operational_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 573, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_2 = NULL;
   __pyx_t_5 = 0;
@@ -19644,7 +19920,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     PyObject *__pyx_callargs[3] = {__pyx_t_2, __pyx_cur_scope->__pyx_v_value, __pyx_cur_scope->__pyx_v_connection};
     __pyx_t_6 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_5, 2+__pyx_t_5);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 561, __pyx_L1_error)
+    if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 573, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
@@ -19659,28 +19935,28 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L24_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 561, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 573, __pyx_L1_error)
     __pyx_t_6 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_6);
   } else {
     __pyx_t_6 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_6) < 0) __PYX_ERR(0, 561, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_6) < 0) __PYX_ERR(0, 573, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
   }
   __Pyx_GIVEREF(__pyx_t_6);
   __pyx_cur_scope->__pyx_v_new_val = __pyx_t_6;
   __pyx_t_6 = 0;
 
-  /* "querysource/parsers/abstract.pyx":562
+  /* "querysource/parsers/abstract.pyx":574
  * 
  *         new_val = await self._get_operational_value(value, connection)
  *         if new_val:             # <<<<<<<<<<<<<<
  *             result = new_val
  *         else:
  */
-  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_new_val); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 562, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyObject_IsTrue(__pyx_cur_scope->__pyx_v_new_val); if (unlikely((__pyx_t_13 < 0))) __PYX_ERR(0, 574, __pyx_L1_error)
   if (__pyx_t_13) {
 
-    /* "querysource/parsers/abstract.pyx":563
+    /* "querysource/parsers/abstract.pyx":575
  *         new_val = await self._get_operational_value(value, connection)
  *         if new_val:
  *             result = new_val             # <<<<<<<<<<<<<<
@@ -19691,7 +19967,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_new_val);
     __pyx_cur_scope->__pyx_v_result = __pyx_cur_scope->__pyx_v_new_val;
 
-    /* "querysource/parsers/abstract.pyx":562
+    /* "querysource/parsers/abstract.pyx":574
  * 
  *         new_val = await self._get_operational_value(value, connection)
  *         if new_val:             # <<<<<<<<<<<<<<
@@ -19701,7 +19977,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
     goto __pyx_L25;
   }
 
-  /* "querysource/parsers/abstract.pyx":565
+  /* "querysource/parsers/abstract.pyx":577
  *             result = new_val
  *         else:
  *             result = is_valid(key, value, noquote=self.string_literal)             # <<<<<<<<<<<<<<
@@ -19709,23 +19985,23 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  *         return key, result
  */
   /*else*/ {
-    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 565, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_n_s_is_valid); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 565, __pyx_L1_error)
+    __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 565, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 577, __pyx_L1_error);
     __Pyx_INCREF(__pyx_cur_scope->__pyx_v_value);
     __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_value);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 565, __pyx_L1_error);
-    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 565, __pyx_L1_error)
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_cur_scope->__pyx_v_value)) __PYX_ERR(0, 577, __pyx_L1_error);
+    __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_cur_scope->__pyx_v_self->string_literal); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 565, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyBool_FromLong(__pyx_cur_scope->__pyx_v_self->string_literal); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_noquote, __pyx_t_3) < 0) __PYX_ERR(0, 565, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_noquote, __pyx_t_3) < 0) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 565, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_6, __pyx_t_4, __pyx_t_2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 577, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -19736,7 +20012,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
   }
   __pyx_L25:;
 
-  /* "querysource/parsers/abstract.pyx":567
+  /* "querysource/parsers/abstract.pyx":579
  *             result = is_valid(key, value, noquote=self.string_literal)
  * 
  *         return key, result             # <<<<<<<<<<<<<<
@@ -19744,20 +20020,20 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
  *     async def set_where(self, _filter: dict, connection: object) -> object:
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 567, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 579, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_key);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_key);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 567, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_cur_scope->__pyx_v_key)) __PYX_ERR(0, 579, __pyx_L1_error);
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_result);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_result);
-  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 567, __pyx_L1_error);
+  if (__Pyx_PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_cur_scope->__pyx_v_result)) __PYX_ERR(0, 579, __pyx_L1_error);
   __pyx_r = NULL; __Pyx_ReturnWithStopIteration(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":535
+  /* "querysource/parsers/abstract.pyx":547
  *         return self
  * 
  *     async def _where_element(self, key, value, connection):             # <<<<<<<<<<<<<<
@@ -19784,9 +20060,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_80ge
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83generator21(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_85generator21(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value); /* proto */
 
-/* "querysource/parsers/abstract.pyx":569
+/* "querysource/parsers/abstract.pyx":581
  *         return key, result
  * 
  *     async def set_where(self, _filter: dict, connection: object) -> object:             # <<<<<<<<<<<<<<
@@ -19795,16 +20071,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_82set_where(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_84set_where(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_81set_where, "AbstractParser.set_where(self, dict _filter: dict, connection: object) -> object\nSet the WHERE clause conditions in parallel.");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_82set_where = {"set_where", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_82set_where, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_81set_where};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_82set_where(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_83set_where, "AbstractParser.set_where(self, dict _filter: dict, connection: object) -> object\nSet the WHERE clause conditions in parallel.");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_84set_where = {"set_where", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_84set_where, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_83set_where};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_84set_where(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -19851,7 +20127,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[0]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 569, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 581, __pyx_L3_error)
         else goto __pyx_L5_argtuple_error;
         CYTHON_FALLTHROUGH;
         case  1:
@@ -19859,14 +20135,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
           (void)__Pyx_Arg_NewRef_FASTCALL(values[1]);
           kw_args--;
         }
-        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 569, __pyx_L3_error)
+        else if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 581, __pyx_L3_error)
         else {
-          __Pyx_RaiseArgtupleInvalid("set_where", 1, 2, 2, 1); __PYX_ERR(0, 569, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("set_where", 1, 2, 2, 1); __PYX_ERR(0, 581, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
         const Py_ssize_t kwd_pos_args = __pyx_nargs;
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set_where") < 0)) __PYX_ERR(0, 569, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values + 0, kwd_pos_args, "set_where") < 0)) __PYX_ERR(0, 581, __pyx_L3_error)
       }
     } else if (unlikely(__pyx_nargs != 2)) {
       goto __pyx_L5_argtuple_error;
@@ -19879,7 +20155,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("set_where", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 569, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("set_where", 1, 2, 2, __pyx_nargs); __PYX_ERR(0, 581, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -19893,8 +20169,8 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v__filter), (&PyDict_Type), 0, "_filter", 1))) __PYX_ERR(0, 569, __pyx_L1_error)
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_81set_where(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v__filter, __pyx_v_connection);
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v__filter), (&PyDict_Type), 0, "_filter", 1))) __PYX_ERR(0, 581, __pyx_L1_error)
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_83set_where(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v__filter, __pyx_v_connection);
 
   /* function exit code */
   goto __pyx_L0;
@@ -19911,7 +20187,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_81set_where(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v__filter, PyObject *__pyx_v_connection) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_83set_where(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, PyObject *__pyx_v__filter, PyObject *__pyx_v_connection) {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where *__pyx_cur_scope;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
@@ -19923,7 +20199,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_81se
   if (unlikely(!__pyx_cur_scope)) {
     __pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where *)Py_None);
     __Pyx_INCREF(Py_None);
-    __PYX_ERR(0, 569, __pyx_L1_error)
+    __PYX_ERR(0, 581, __pyx_L1_error)
   } else {
     __Pyx_GOTREF((PyObject *)__pyx_cur_scope);
   }
@@ -19937,7 +20213,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_81se
   __Pyx_INCREF(__pyx_cur_scope->__pyx_v_connection);
   __Pyx_GIVEREF(__pyx_cur_scope->__pyx_v_connection);
   {
-    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83generator21, __pyx_codeobj__45, (PyObject *) __pyx_cur_scope, __pyx_n_s_set_where, __pyx_n_s_AbstractParser_set_where, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 569, __pyx_L1_error)
+    __pyx_CoroutineObject *gen = __Pyx_Coroutine_New((__pyx_coroutine_body_t) __pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_85generator21, __pyx_codeobj__46, (PyObject *) __pyx_cur_scope, __pyx_n_s_set_where, __pyx_n_s_AbstractParser_set_where, __pyx_n_s_querysource_parsers_abstract); if (unlikely(!gen)) __PYX_ERR(0, 581, __pyx_L1_error)
     __Pyx_DECREF(__pyx_cur_scope);
     __Pyx_RefNannyFinishContext();
     return (PyObject *) gen;
@@ -19953,7 +20229,7 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_81se
   return __pyx_r;
 }
 
-static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83generator21(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
+static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_85generator21(__pyx_CoroutineObject *__pyx_generator, CYTHON_UNUSED PyThreadState *__pyx_tstate, PyObject *__pyx_sent_value) /* generator body */
 {
   struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where *__pyx_cur_scope = ((struct __pyx_obj_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where *)__pyx_generator->closure);
   PyObject *__pyx_r = NULL;
@@ -19983,9 +20259,9 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
     return NULL;
   }
   __pyx_L3_first_run:;
-  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 581, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":571
+  /* "querysource/parsers/abstract.pyx":583
  *     async def set_where(self, _filter: dict, connection: object) -> object:
  *         """Set the WHERE clause conditions in parallel."""
  *         tasks = [self._where_element(key, value, connection) for key, value in _filter.items()]             # <<<<<<<<<<<<<<
@@ -19993,10 +20269,10 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
  * 
  */
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 571, __pyx_L1_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 583, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __pyx_t_3 = 0;
-    __pyx_t_6 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_v__filter, 1, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 571, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_dict_iterator(__pyx_cur_scope->__pyx_v__filter, 1, __pyx_n_s_items, (&__pyx_t_4), (&__pyx_t_5)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 583, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_2);
     __pyx_t_2 = __pyx_t_6;
@@ -20004,7 +20280,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
     while (1) {
       __pyx_t_8 = __Pyx_dict_iter_next(__pyx_t_2, __pyx_t_4, &__pyx_t_3, &__pyx_t_6, &__pyx_t_7, NULL, __pyx_t_5);
       if (unlikely(__pyx_t_8 == 0)) break;
-      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 571, __pyx_L1_error)
+      if (unlikely(__pyx_t_8 == -1)) __PYX_ERR(0, 583, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_XGOTREF(__pyx_cur_scope->__pyx_8genexpr4__pyx_v_key);
@@ -20015,7 +20291,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
       __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_8genexpr4__pyx_v_value, __pyx_t_7);
       __Pyx_GIVEREF(__pyx_t_7);
       __pyx_t_7 = 0;
-      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_where_element); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 571, __pyx_L1_error)
+      __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_cur_scope->__pyx_v_self), __pyx_n_s_where_element); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 583, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_6);
       __pyx_t_9 = NULL;
       __pyx_t_10 = 0;
@@ -20035,11 +20311,11 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
         PyObject *__pyx_callargs[4] = {__pyx_t_9, __pyx_cur_scope->__pyx_8genexpr4__pyx_v_key, __pyx_cur_scope->__pyx_8genexpr4__pyx_v_value, __pyx_cur_scope->__pyx_v_connection};
         __pyx_t_7 = __Pyx_PyObject_FastCall(__pyx_t_6, __pyx_callargs+1-__pyx_t_10, 3+__pyx_t_10);
         __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 571, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 583, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       }
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 571, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 583, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -20048,21 +20324,21 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
   __pyx_cur_scope->__pyx_v_tasks = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "querysource/parsers/abstract.pyx":572
+  /* "querysource/parsers/abstract.pyx":584
  *         """Set the WHERE clause conditions in parallel."""
  *         tasks = [self._where_element(key, value, connection) for key, value in _filter.items()]
  *         results = await asyncio.gather(*tasks)             # <<<<<<<<<<<<<<
  * 
  *         where_cond = {key: value for key, value in results}
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_asyncio); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_gather); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_gather); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = PySequence_Tuple(__pyx_cur_scope->__pyx_v_tasks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __pyx_t_1 = PySequence_Tuple(__pyx_cur_scope->__pyx_v_tasks); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_1, NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 572, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_1, NULL); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 584, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
@@ -20077,18 +20353,18 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
     __pyx_generator->resume_label = 1;
     return __pyx_r;
     __pyx_L6_resume_from_await:;
-    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 572, __pyx_L1_error)
+    if (unlikely(!__pyx_sent_value)) __PYX_ERR(0, 584, __pyx_L1_error)
     __pyx_t_7 = __pyx_sent_value; __Pyx_INCREF(__pyx_t_7);
   } else {
     __pyx_t_7 = NULL;
-    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_7) < 0) __PYX_ERR(0, 572, __pyx_L1_error)
+    if (__Pyx_PyGen_FetchStopIterationValue(&__pyx_t_7) < 0) __PYX_ERR(0, 584, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __Pyx_GIVEREF(__pyx_t_7);
   __pyx_cur_scope->__pyx_v_results = __pyx_t_7;
   __pyx_t_7 = 0;
 
-  /* "querysource/parsers/abstract.pyx":574
+  /* "querysource/parsers/abstract.pyx":586
  *         results = await asyncio.gather(*tasks)
  * 
  *         where_cond = {key: value for key, value in results}             # <<<<<<<<<<<<<<
@@ -20096,16 +20372,16 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
  *         return self
  */
   { /* enter inner scope */
-    __pyx_t_7 = PyDict_New(); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 574, __pyx_L1_error)
+    __pyx_t_7 = PyDict_New(); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 586, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     if (likely(PyList_CheckExact(__pyx_cur_scope->__pyx_v_results)) || PyTuple_CheckExact(__pyx_cur_scope->__pyx_v_results)) {
       __pyx_t_1 = __pyx_cur_scope->__pyx_v_results; __Pyx_INCREF(__pyx_t_1);
       __pyx_t_4 = 0;
       __pyx_t_11 = NULL;
     } else {
-      __pyx_t_4 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_results); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 574, __pyx_L1_error)
+      __pyx_t_4 = -1; __pyx_t_1 = PyObject_GetIter(__pyx_cur_scope->__pyx_v_results); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 586, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_11 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 574, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 586, __pyx_L1_error)
     }
     for (;;) {
       if (likely(!__pyx_t_11)) {
@@ -20113,28 +20389,28 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_1);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 574, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 586, __pyx_L1_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(0, 574, __pyx_L1_error)
+          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_1, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(0, 586, __pyx_L1_error)
           #else
-          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 574, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 586, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         } else {
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_1);
             #if !CYTHON_ASSUME_SAFE_MACROS
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 574, __pyx_L1_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 586, __pyx_L1_error)
             #endif
             if (__pyx_t_4 >= __pyx_temp) break;
           }
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(0, 574, __pyx_L1_error)
+          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_1, __pyx_t_4); __Pyx_INCREF(__pyx_t_2); __pyx_t_4++; if (unlikely((0 < 0))) __PYX_ERR(0, 586, __pyx_L1_error)
           #else
-          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 574, __pyx_L1_error)
+          __pyx_t_2 = __Pyx_PySequence_ITEM(__pyx_t_1, __pyx_t_4); __pyx_t_4++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 586, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         }
@@ -20144,7 +20420,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 574, __pyx_L1_error)
+            else __PYX_ERR(0, 586, __pyx_L1_error)
           }
           break;
         }
@@ -20156,7 +20432,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
         if (unlikely(size != 2)) {
           if (size > 2) __Pyx_RaiseTooManyValuesError(2);
           else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-          __PYX_ERR(0, 574, __pyx_L1_error)
+          __PYX_ERR(0, 586, __pyx_L1_error)
         }
         #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
         if (likely(PyTuple_CheckExact(sequence))) {
@@ -20169,15 +20445,15 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
         __Pyx_INCREF(__pyx_t_6);
         __Pyx_INCREF(__pyx_t_9);
         #else
-        __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 574, __pyx_L1_error)
+        __pyx_t_6 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 586, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_9 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 574, __pyx_L1_error)
+        __pyx_t_9 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 586, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         #endif
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
       } else {
         Py_ssize_t index = -1;
-        __pyx_t_12 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 574, __pyx_L1_error)
+        __pyx_t_12 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 586, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
         __pyx_t_13 = __Pyx_PyObject_GetIterNextFunc(__pyx_t_12);
@@ -20185,7 +20461,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
         __Pyx_GOTREF(__pyx_t_6);
         index = 1; __pyx_t_9 = __pyx_t_13(__pyx_t_12); if (unlikely(!__pyx_t_9)) goto __pyx_L9_unpacking_failed;
         __Pyx_GOTREF(__pyx_t_9);
-        if (__Pyx_IternextUnpackEndCheck(__pyx_t_13(__pyx_t_12), 2) < 0) __PYX_ERR(0, 574, __pyx_L1_error)
+        if (__Pyx_IternextUnpackEndCheck(__pyx_t_13(__pyx_t_12), 2) < 0) __PYX_ERR(0, 586, __pyx_L1_error)
         __pyx_t_13 = NULL;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         goto __pyx_L10_unpacking_done;
@@ -20193,7 +20469,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
         __pyx_t_13 = NULL;
         if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-        __PYX_ERR(0, 574, __pyx_L1_error)
+        __PYX_ERR(0, 586, __pyx_L1_error)
         __pyx_L10_unpacking_done:;
       }
       __Pyx_XGOTREF(__pyx_cur_scope->__pyx_8genexpr5__pyx_v_key);
@@ -20204,7 +20480,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
       __Pyx_XDECREF_SET(__pyx_cur_scope->__pyx_8genexpr5__pyx_v_value, __pyx_t_9);
       __Pyx_GIVEREF(__pyx_t_9);
       __pyx_t_9 = 0;
-      if (unlikely(PyDict_SetItem(__pyx_t_7, (PyObject*)__pyx_cur_scope->__pyx_8genexpr5__pyx_v_key, (PyObject*)__pyx_cur_scope->__pyx_8genexpr5__pyx_v_value))) __PYX_ERR(0, 574, __pyx_L1_error)
+      if (unlikely(PyDict_SetItem(__pyx_t_7, (PyObject*)__pyx_cur_scope->__pyx_8genexpr5__pyx_v_key, (PyObject*)__pyx_cur_scope->__pyx_8genexpr5__pyx_v_value))) __PYX_ERR(0, 586, __pyx_L1_error)
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   } /* exit inner scope */
@@ -20212,7 +20488,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
   __pyx_cur_scope->__pyx_v_where_cond = ((PyObject*)__pyx_t_7);
   __pyx_t_7 = 0;
 
-  /* "querysource/parsers/abstract.pyx":575
+  /* "querysource/parsers/abstract.pyx":587
  * 
  *         where_cond = {key: value for key, value in results}
  *         self.filter = where_cond             # <<<<<<<<<<<<<<
@@ -20224,7 +20500,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
   __Pyx_DECREF(__pyx_cur_scope->__pyx_v_self->filter);
   __pyx_cur_scope->__pyx_v_self->filter = __pyx_cur_scope->__pyx_v_where_cond;
 
-  /* "querysource/parsers/abstract.pyx":576
+  /* "querysource/parsers/abstract.pyx":588
  *         where_cond = {key: value for key, value in results}
  *         self.filter = where_cond
  *         return self             # <<<<<<<<<<<<<<
@@ -20234,7 +20510,7 @@ static PyObject *__pyx_gb_11querysource_7parsers_8abstract_14AbstractParser_83ge
   goto __pyx_L0;
   CYTHON_MAYBE_UNUSED_VAR(__pyx_cur_scope);
 
-  /* "querysource/parsers/abstract.pyx":569
+  /* "querysource/parsers/abstract.pyx":581
  *         return key, result
  * 
  *     async def set_where(self, _filter: dict, connection: object) -> object:             # <<<<<<<<<<<<<<
@@ -23408,16 +23684,16 @@ static int __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_14string_l
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_85__reduce_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_84__reduce_cython__, "AbstractParser.__reduce_cython__(self)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_85__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_85__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_84__reduce_cython__};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_85__reduce_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_86__reduce_cython__, "AbstractParser.__reduce_cython__(self)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_87__reduce_cython__ = {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_86__reduce_cython__};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__reduce_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -23442,14 +23718,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   if (unlikely(__pyx_nargs > 0)) {
     __Pyx_RaiseArgtupleInvalid("__reduce_cython__", 1, 0, 0, __pyx_nargs); return NULL;}
   if (unlikely(__pyx_kwds) && __Pyx_NumKwargs_FASTCALL(__pyx_kwds) && unlikely(!__Pyx_CheckKeywordStrings(__pyx_kwds, "__reduce_cython__", 0))) return NULL;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_84__reduce_cython__(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_86__reduce_cython__(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self));
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_84__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_86__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -23489,16 +23765,16 @@ static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_84__
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__setstate_cython__(PyObject *__pyx_v_self, 
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_89__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
 PyObject *__pyx_args, PyObject *__pyx_kwds
 #endif
 ); /*proto*/
-PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_86__setstate_cython__, "AbstractParser.__setstate_cython__(self, __pyx_state)");
-static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_87__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_86__setstate_cython__};
-static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__setstate_cython__(PyObject *__pyx_v_self, 
+PyDoc_STRVAR(__pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_88__setstate_cython__, "AbstractParser.__setstate_cython__(self, __pyx_state)");
+static PyMethodDef __pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_89__setstate_cython__ = {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_89__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_88__setstate_cython__};
+static PyObject *__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_89__setstate_cython__(PyObject *__pyx_v_self, 
 #if CYTHON_METH_FASTCALL
 PyObject *const *__pyx_args, Py_ssize_t __pyx_nargs, PyObject *__pyx_kwds
 #else
@@ -23572,7 +23848,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_86__setstate_cython__(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v___pyx_state);
+  __pyx_r = __pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_88__setstate_cython__(((struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *)__pyx_v_self), __pyx_v___pyx_state);
 
   /* function exit code */
   {
@@ -23585,7 +23861,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_86__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
+static PyObject *__pyx_pf_11querysource_7parsers_8abstract_14AbstractParser_88__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state) {
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
   int __pyx_lineno = 0;
@@ -24228,30 +24504,30 @@ static PyObject *__pyx_specialmethod___pyx_pw_11querysource_7parsers_8abstract_1
 
 static PyMethodDef __pyx_methods_11querysource_7parsers_8abstract_AbstractParser[] = {
   {"__repr__", (PyCFunction)__pyx_specialmethod___pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_7__repr__, METH_NOARGS|METH_COEXIST, 0},
-  {"get_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_11get_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_10get_query},
-  {"build_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_16build_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_15build_query},
-  {"_parse_hierarchy", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_19_parse_hierarchy, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_18_parse_hierarchy},
-  {"_program_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_22_program_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_21_program_slug},
-  {"_query_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_25_query_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_24_query_slug},
-  {"_query_refresh", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_28_query_refresh, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_27_query_refresh},
-  {"_query_fields", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_31_query_fields, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_30_query_fields},
-  {"_query_limit", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_34_query_limit, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_33_query_limit},
-  {"_offset_pagination", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_37_offset_pagination, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_36_offset_pagination},
-  {"_grouping", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_40_grouping, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_39_grouping},
-  {"_ordering", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_43_ordering, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_42_ordering},
-  {"_filter_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_46_filter_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_45_filter_options},
-  {"_query_filter", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_49_query_filter, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_48_query_filter},
-  {"_qs_filters", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_52_qs_filters, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_51_qs_filters},
-  {"_col_definition", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_55_col_definition, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_54_col_definition},
-  {"set_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_60set_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_59set_options},
-  {"_get_operational_value", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_63_get_operational_value, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_62_get_operational_value},
-  {"_parser_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_68_parser_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_67_parser_conditions},
-  {"_process_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_71_process_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_70_process_element},
-  {"set_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_74set_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_73set_conditions},
-  {"_where_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_79_where_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_78_where_element},
-  {"set_where", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_82set_where, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_81set_where},
-  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_85__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_84__reduce_cython__},
-  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_86__setstate_cython__},
+  {"get_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_13get_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_12get_query},
+  {"build_query", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_18build_query, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_17build_query},
+  {"_parse_hierarchy", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_21_parse_hierarchy, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_20_parse_hierarchy},
+  {"_program_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_24_program_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_23_program_slug},
+  {"_query_slug", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_27_query_slug, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_26_query_slug},
+  {"_query_refresh", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_30_query_refresh, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_29_query_refresh},
+  {"_query_fields", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_33_query_fields, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_32_query_fields},
+  {"_query_limit", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_36_query_limit, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_35_query_limit},
+  {"_offset_pagination", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_39_offset_pagination, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_38_offset_pagination},
+  {"_grouping", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_42_grouping, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_41_grouping},
+  {"_ordering", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_45_ordering, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_44_ordering},
+  {"_filter_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_48_filter_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_47_filter_options},
+  {"_query_filter", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_51_query_filter, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_50_query_filter},
+  {"_qs_filters", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_54_qs_filters, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_53_qs_filters},
+  {"_col_definition", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_57_col_definition, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_56_col_definition},
+  {"set_options", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_62set_options, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_61set_options},
+  {"_get_operational_value", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_65_get_operational_value, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_64_get_operational_value},
+  {"_parser_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_70_parser_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_69_parser_conditions},
+  {"_process_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_73_process_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_72_process_element},
+  {"set_conditions", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_76set_conditions, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_75set_conditions},
+  {"_where_element", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_81_where_element, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_80_where_element},
+  {"set_where", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_84set_where, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_83set_where},
+  {"__reduce_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_87__reduce_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_86__reduce_cython__},
+  {"__setstate_cython__", (PyCFunction)(void*)(__Pyx_PyCFunction_FastCallWithKeywords)__pyx_pw_11querysource_7parsers_8abstract_14AbstractParser_89__setstate_cython__, __Pyx_METH_FASTCALL|METH_KEYWORDS, __pyx_doc_11querysource_7parsers_8abstract_14AbstractParser_88__setstate_cython__},
   {0, 0, 0, 0}
 };
 
@@ -28306,6 +28582,7 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_AbstractParser_filtering_options, __pyx_k_AbstractParser_filtering_options, sizeof(__pyx_k_AbstractParser_filtering_options), 0, 0, 1, 1},
     {&__pyx_n_s_AbstractParser_get_query, __pyx_k_AbstractParser_get_query, sizeof(__pyx_k_AbstractParser_get_query), 0, 0, 1, 1},
     {&__pyx_n_s_AbstractParser_get_query_filters, __pyx_k_AbstractParser_get_query_filters, sizeof(__pyx_k_AbstractParser_get_query_filters), 0, 0, 1, 1},
+    {&__pyx_n_s_AbstractParser_is_paged, __pyx_k_AbstractParser_is_paged, sizeof(__pyx_k_AbstractParser_is_paged), 0, 0, 1, 1},
     {&__pyx_n_s_AbstractParser_query, __pyx_k_AbstractParser_query, sizeof(__pyx_k_AbstractParser_query), 0, 0, 1, 1},
     {&__pyx_n_s_AbstractParser_sentence, __pyx_k_AbstractParser_sentence, sizeof(__pyx_k_AbstractParser_sentence), 0, 0, 1, 1},
     {&__pyx_n_s_AbstractParser_set_conditions, __pyx_k_AbstractParser_set_conditions, sizeof(__pyx_k_AbstractParser_set_conditions), 0, 0, 1, 1},
@@ -28330,25 +28607,26 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_REDIS_URL, __pyx_k_REDIS_URL, sizeof(__pyx_k_REDIS_URL), 0, 0, 1, 1},
     {&__pyx_kp_u_SET_conditions, __pyx_k_SET_conditions, sizeof(__pyx_k_SET_conditions), 0, 1, 0, 0},
     {&__pyx_n_s_TypeError, __pyx_k_TypeError, sizeof(__pyx_k_TypeError), 0, 0, 1, 1},
+    {&__pyx_kp_u_Unrecognized_paged_condition_val, __pyx_k_Unrecognized_paged_condition_val, sizeof(__pyx_k_Unrecognized_paged_condition_val), 0, 1, 0, 0},
+    {&__pyx_kp_u_Unrecognized_refresh_condition_v, __pyx_k_Unrecognized_refresh_condition_v, sizeof(__pyx_k_Unrecognized_refresh_condition_v), 0, 1, 0, 0},
     {&__pyx_n_s_ValueError, __pyx_k_ValueError, sizeof(__pyx_k_ValueError), 0, 0, 1, 1},
-    {&__pyx_kp_u__13, __pyx_k__13, sizeof(__pyx_k__13), 0, 1, 0, 0},
+    {&__pyx_kp_u__14, __pyx_k__14, sizeof(__pyx_k__14), 0, 1, 0, 0},
     {&__pyx_kp_u__2, __pyx_k__2, sizeof(__pyx_k__2), 0, 1, 0, 0},
-    {&__pyx_kp_u__36, __pyx_k__36, sizeof(__pyx_k__36), 0, 1, 0, 0},
-    {&__pyx_kp_u__38, __pyx_k__38, sizeof(__pyx_k__38), 0, 1, 0, 0},
+    {&__pyx_kp_u__37, __pyx_k__37, sizeof(__pyx_k__37), 0, 1, 0, 0},
     {&__pyx_kp_u__39, __pyx_k__39, sizeof(__pyx_k__39), 0, 1, 0, 0},
-    {&__pyx_kp_u__42, __pyx_k__42, sizeof(__pyx_k__42), 0, 1, 0, 0},
+    {&__pyx_kp_u__40, __pyx_k__40, sizeof(__pyx_k__40), 0, 1, 0, 0},
     {&__pyx_kp_u__43, __pyx_k__43, sizeof(__pyx_k__43), 0, 1, 0, 0},
     {&__pyx_kp_u__44, __pyx_k__44, sizeof(__pyx_k__44), 0, 1, 0, 0},
-    {&__pyx_kp_u__46, __pyx_k__46, sizeof(__pyx_k__46), 0, 1, 0, 0},
-    {&__pyx_n_s__47, __pyx_k__47, sizeof(__pyx_k__47), 0, 0, 1, 1},
+    {&__pyx_kp_u__45, __pyx_k__45, sizeof(__pyx_k__45), 0, 1, 0, 0},
     {&__pyx_kp_u__47, __pyx_k__47, sizeof(__pyx_k__47), 0, 1, 0, 0},
     {&__pyx_n_s__48, __pyx_k__48, sizeof(__pyx_k__48), 0, 0, 1, 1},
-    {&__pyx_kp_u__49, __pyx_k__49, sizeof(__pyx_k__49), 0, 1, 0, 0},
+    {&__pyx_kp_u__48, __pyx_k__48, sizeof(__pyx_k__48), 0, 1, 0, 0},
+    {&__pyx_n_s__49, __pyx_k__49, sizeof(__pyx_k__49), 0, 0, 1, 1},
     {&__pyx_kp_u__50, __pyx_k__50, sizeof(__pyx_k__50), 0, 1, 0, 0},
     {&__pyx_kp_u__51, __pyx_k__51, sizeof(__pyx_k__51), 0, 1, 0, 0},
-    {&__pyx_n_s__52, __pyx_k__52, sizeof(__pyx_k__52), 0, 0, 1, 1},
     {&__pyx_kp_u__52, __pyx_k__52, sizeof(__pyx_k__52), 0, 1, 0, 0},
-    {&__pyx_kp_u__55, __pyx_k__55, sizeof(__pyx_k__55), 0, 1, 0, 0},
+    {&__pyx_n_s__53, __pyx_k__53, sizeof(__pyx_k__53), 0, 0, 1, 1},
+    {&__pyx_kp_u__53, __pyx_k__53, sizeof(__pyx_k__53), 0, 1, 0, 0},
     {&__pyx_kp_u__56, __pyx_k__56, sizeof(__pyx_k__56), 0, 1, 0, 0},
     {&__pyx_kp_u__57, __pyx_k__57, sizeof(__pyx_k__57), 0, 1, 0, 0},
     {&__pyx_kp_u__58, __pyx_k__58, sizeof(__pyx_k__58), 0, 1, 0, 0},
@@ -28357,7 +28635,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_kp_u__61, __pyx_k__61, sizeof(__pyx_k__61), 0, 1, 0, 0},
     {&__pyx_kp_u__62, __pyx_k__62, sizeof(__pyx_k__62), 0, 1, 0, 0},
     {&__pyx_kp_u__63, __pyx_k__63, sizeof(__pyx_k__63), 0, 1, 0, 0},
-    {&__pyx_n_s__74, __pyx_k__74, sizeof(__pyx_k__74), 0, 0, 1, 1},
+    {&__pyx_kp_u__64, __pyx_k__64, sizeof(__pyx_k__64), 0, 1, 0, 0},
+    {&__pyx_n_s__76, __pyx_k__76, sizeof(__pyx_k__76), 0, 0, 1, 1},
     {&__pyx_n_s_abc, __pyx_k_abc, sizeof(__pyx_k_abc), 0, 0, 1, 1},
     {&__pyx_n_s_abstractmethod, __pyx_k_abstractmethod, sizeof(__pyx_k_abstractmethod), 0, 0, 1, 1},
     {&__pyx_n_u_add_fields, __pyx_k_add_fields, sizeof(__pyx_k_add_fields), 0, 1, 0, 1},
@@ -28424,8 +28703,8 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
     {&__pyx_n_s_initializing, __pyx_k_initializing, sizeof(__pyx_k_initializing), 0, 0, 1, 1},
     {&__pyx_n_s_inspect, __pyx_k_inspect, sizeof(__pyx_k_inspect), 0, 0, 1, 1},
-    {&__pyx_n_s_is_boolean, __pyx_k_is_boolean, sizeof(__pyx_k_is_boolean), 0, 0, 1, 1},
     {&__pyx_n_s_is_coroutine, __pyx_k_is_coroutine, sizeof(__pyx_k_is_coroutine), 0, 0, 1, 1},
+    {&__pyx_n_s_is_paged, __pyx_k_is_paged, sizeof(__pyx_k_is_paged), 0, 0, 1, 1},
     {&__pyx_n_s_is_parseable, __pyx_k_is_parseable, sizeof(__pyx_k_is_parseable), 0, 0, 1, 1},
     {&__pyx_n_s_is_valid, __pyx_k_is_valid, sizeof(__pyx_k_is_valid), 0, 0, 1, 1},
     {&__pyx_kp_u_isenabled, __pyx_k_isenabled, sizeof(__pyx_k_isenabled), 0, 1, 0, 0},
@@ -28506,11 +28785,11 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
     {&__pyx_n_u_string_literal, __pyx_k_string_literal, sizeof(__pyx_k_string_literal), 0, 1, 0, 1},
     {&__pyx_kp_s_stringsource, __pyx_k_stringsource, sizeof(__pyx_k_stringsource), 0, 0, 1, 0},
     {&__pyx_n_s_strip, __pyx_k_strip, sizeof(__pyx_k_strip), 0, 0, 1, 1},
-    {&__pyx_n_s_strtobool, __pyx_k_strtobool, sizeof(__pyx_k_strtobool), 0, 0, 1, 1},
     {&__pyx_n_u_tablename, __pyx_k_tablename, sizeof(__pyx_k_tablename), 0, 1, 0, 1},
     {&__pyx_n_s_tasks, __pyx_k_tasks, sizeof(__pyx_k_tasks), 0, 0, 1, 1},
     {&__pyx_n_s_test, __pyx_k_test, sizeof(__pyx_k_test), 0, 0, 1, 1},
     {&__pyx_n_s_throw, __pyx_k_throw, sizeof(__pyx_k_throw), 0, 0, 1, 1},
+    {&__pyx_n_s_to_flag, __pyx_k_to_flag, sizeof(__pyx_k_to_flag), 0, 0, 1, 1},
     {&__pyx_n_s_type, __pyx_k_type, sizeof(__pyx_k_type), 0, 0, 1, 1},
     {&__pyx_n_s_types, __pyx_k_types, sizeof(__pyx_k_types), 0, 0, 1, 1},
     {&__pyx_n_s_types_validators, __pyx_k_types_validators, sizeof(__pyx_k_types_validators), 0, 0, 1, 1},
@@ -28532,10 +28811,10 @@ static int __Pyx_CreateStringTabAndInitStrings(void) {
 /* #### Code section: cached_builtins ### */
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_KeyError = __Pyx_GetBuiltinName(__pyx_n_s_KeyError); if (!__pyx_builtin_KeyError) __PYX_ERR(0, 114, __pyx_L1_error)
-  __pyx_builtin_AttributeError = __Pyx_GetBuiltinName(__pyx_n_s_AttributeError); if (!__pyx_builtin_AttributeError) __PYX_ERR(0, 159, __pyx_L1_error)
-  __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_n_s_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(0, 165, __pyx_L1_error)
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 185, __pyx_L1_error)
-  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 297, __pyx_L1_error)
+  __pyx_builtin_AttributeError = __Pyx_GetBuiltinName(__pyx_n_s_AttributeError); if (!__pyx_builtin_AttributeError) __PYX_ERR(0, 167, __pyx_L1_error)
+  __pyx_builtin_IndexError = __Pyx_GetBuiltinName(__pyx_n_s_IndexError); if (!__pyx_builtin_IndexError) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(0, 192, __pyx_L1_error)
+  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(0, 309, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -28557,148 +28836,159 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__3);
   __Pyx_GIVEREF(__pyx_tuple__3);
 
-  /* "querysource/parsers/abstract.pyx":173
+  /* "querysource/parsers/abstract.pyx":181
  *         except (KeyError, IndexError, AttributeError):
  *             try:
  *                 self._slug = self.conditions.pop('slug', None)             # <<<<<<<<<<<<<<
  *             except (KeyError, AttributeError):
  *                 self._slug = None
  */
-  __pyx_tuple__6 = PyTuple_Pack(2, __pyx_n_u_slug, Py_None); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_tuple__6 = PyTuple_Pack(2, __pyx_n_u_slug, Py_None); if (unlikely(!__pyx_tuple__6)) __PYX_ERR(0, 181, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__6);
   __Pyx_GIVEREF(__pyx_tuple__6);
 
-  /* "querysource/parsers/abstract.pyx":180
- *         cdef object refresh
+  /* "querysource/parsers/abstract.pyx":188
+ *         cdef object refresh = None
  *         try:
  *             refresh = self.conditions.pop('refresh', False)             # <<<<<<<<<<<<<<
- *             if isinstance(refresh, bool):
- *                 self.refresh = refresh
+ *             self.refresh = to_flag(refresh)
+ *         except (KeyError, AttributeError):
  */
-  __pyx_tuple__7 = PyTuple_Pack(2, __pyx_n_u_refresh, Py_False); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 180, __pyx_L1_error)
+  __pyx_tuple__7 = PyTuple_Pack(2, __pyx_n_u_refresh, Py_False); if (unlikely(!__pyx_tuple__7)) __PYX_ERR(0, 188, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__7);
   __Pyx_GIVEREF(__pyx_tuple__7);
 
-  /* "querysource/parsers/abstract.pyx":198
+  /* "querysource/parsers/abstract.pyx":195
+ *             self.logger.warning(
+ *                 "Unrecognized 'refresh' condition value %s; treating as False",
+ *                 repr(refresh)[:64]             # <<<<<<<<<<<<<<
+ *             )
+ *             self.refresh = False
+ */
+  __pyx_slice__8 = PySlice_New(Py_None, __pyx_int_64, Py_None); if (unlikely(!__pyx_slice__8)) __PYX_ERR(0, 195, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_slice__8);
+  __Pyx_GIVEREF(__pyx_slice__8);
+
+  /* "querysource/parsers/abstract.pyx":209
  *     cdef void _query_limit_sync(self):
  *         try:
  *             self.querylimit = int(self.conditions.pop('_limit', 0))             # <<<<<<<<<<<<<<
  *             if not self.querylimit:
  *                 self.querylimit = int(self.conditions.pop('querylimit', 0))
  */
-  __pyx_tuple__8 = PyTuple_Pack(2, __pyx_n_u_limit, __pyx_int_0); if (unlikely(!__pyx_tuple__8)) __PYX_ERR(0, 198, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__8);
-  __Pyx_GIVEREF(__pyx_tuple__8);
+  __pyx_tuple__9 = PyTuple_Pack(2, __pyx_n_u_limit, __pyx_int_0); if (unlikely(!__pyx_tuple__9)) __PYX_ERR(0, 209, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__9);
+  __Pyx_GIVEREF(__pyx_tuple__9);
 
-  /* "querysource/parsers/abstract.pyx":200
+  /* "querysource/parsers/abstract.pyx":211
  *             self.querylimit = int(self.conditions.pop('_limit', 0))
  *             if not self.querylimit:
  *                 self.querylimit = int(self.conditions.pop('querylimit', 0))             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self.querylimit = 0
  */
-  __pyx_tuple__9 = PyTuple_Pack(2, __pyx_n_u_querylimit, __pyx_int_0); if (unlikely(!__pyx_tuple__9)) __PYX_ERR(0, 200, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__9);
-  __Pyx_GIVEREF(__pyx_tuple__9);
+  __pyx_tuple__10 = PyTuple_Pack(2, __pyx_n_u_querylimit, __pyx_int_0); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__10);
+  __Pyx_GIVEREF(__pyx_tuple__10);
 
-  /* "querysource/parsers/abstract.pyx":207
+  /* "querysource/parsers/abstract.pyx":218
  *         cdef object paged
  *         try:
  *             self._offset = self.conditions.pop('_offset', 0)             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self._offset = 0
  */
-  __pyx_tuple__10 = PyTuple_Pack(2, __pyx_n_u_offset, __pyx_int_0); if (unlikely(!__pyx_tuple__10)) __PYX_ERR(0, 207, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__10);
-  __Pyx_GIVEREF(__pyx_tuple__10);
-
-  /* "querysource/parsers/abstract.pyx":211
- *             self._offset = 0
- *         try:
- *             paged = self.conditions.pop('paged', False)             # <<<<<<<<<<<<<<
- *             if is_boolean(paged):
- *                 self._paged = paged
- */
-  __pyx_tuple__11 = PyTuple_Pack(2, __pyx_n_u_paged, Py_False); if (unlikely(!__pyx_tuple__11)) __PYX_ERR(0, 211, __pyx_L1_error)
+  __pyx_tuple__11 = PyTuple_Pack(2, __pyx_n_u_offset, __pyx_int_0); if (unlikely(!__pyx_tuple__11)) __PYX_ERR(0, 218, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__11);
   __Pyx_GIVEREF(__pyx_tuple__11);
 
-  /* "querysource/parsers/abstract.pyx":221
+  /* "querysource/parsers/abstract.pyx":222
+ *             self._offset = 0
+ *         try:
+ *             paged = self.conditions.pop('paged', False)             # <<<<<<<<<<<<<<
+ *             self._paged = to_flag(paged)
+ *         except (KeyError, AttributeError):
+ */
+  __pyx_tuple__12 = PyTuple_Pack(2, __pyx_n_u_paged, Py_False); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 222, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__12);
+  __Pyx_GIVEREF(__pyx_tuple__12);
+
+  /* "querysource/parsers/abstract.pyx":233
  *             self._paged = False
  *         try:
  *             self._page_ = self.conditions.pop('page', 0)             # <<<<<<<<<<<<<<
  *         except (KeyError, AttributeError):
  *             self._page_ = 0
  */
-  __pyx_tuple__12 = PyTuple_Pack(2, __pyx_n_u_page, __pyx_int_0); if (unlikely(!__pyx_tuple__12)) __PYX_ERR(0, 221, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__12);
-  __Pyx_GIVEREF(__pyx_tuple__12);
+  __pyx_tuple__13 = PyTuple_Pack(2, __pyx_n_u_page, __pyx_int_0); if (unlikely(!__pyx_tuple__13)) __PYX_ERR(0, 233, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__13);
+  __Pyx_GIVEREF(__pyx_tuple__13);
 
-  /* "querysource/parsers/abstract.pyx":382
+  /* "querysource/parsers/abstract.pyx":394
  *         """Set the options for the query."""
  *         if not self.tablename:
  *             self.tablename = self.conditions.pop('tablename', None)             # <<<<<<<<<<<<<<
  *         if not self.schema:
  *             self.schema = self.conditions.pop('schema', None)
  */
-  __pyx_tuple__28 = PyTuple_Pack(2, __pyx_n_u_tablename, Py_None); if (unlikely(!__pyx_tuple__28)) __PYX_ERR(0, 382, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__28);
-  __Pyx_GIVEREF(__pyx_tuple__28);
+  __pyx_tuple__29 = PyTuple_Pack(2, __pyx_n_u_tablename, Py_None); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 394, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__29);
+  __Pyx_GIVEREF(__pyx_tuple__29);
 
-  /* "querysource/parsers/abstract.pyx":384
+  /* "querysource/parsers/abstract.pyx":396
  *             self.tablename = self.conditions.pop('tablename', None)
  *         if not self.schema:
  *             self.schema = self.conditions.pop('schema', None)             # <<<<<<<<<<<<<<
  *         if not self.database:
  *             self.database = self.conditions.pop('database', None)
  */
-  __pyx_tuple__29 = PyTuple_Pack(2, __pyx_n_u_schema, Py_None); if (unlikely(!__pyx_tuple__29)) __PYX_ERR(0, 384, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__29);
-  __Pyx_GIVEREF(__pyx_tuple__29);
+  __pyx_tuple__30 = PyTuple_Pack(2, __pyx_n_u_schema, Py_None); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 396, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__30);
+  __Pyx_GIVEREF(__pyx_tuple__30);
 
-  /* "querysource/parsers/abstract.pyx":386
+  /* "querysource/parsers/abstract.pyx":398
  *             self.schema = self.conditions.pop('schema', None)
  *         if not self.database:
  *             self.database = self.conditions.pop('database', None)             # <<<<<<<<<<<<<<
  *         self._distinct = bool(self.conditions.pop('distinct', False))
  *         self._add_fields = self.conditions.pop('add_fields', False)
  */
-  __pyx_tuple__30 = PyTuple_Pack(2, __pyx_n_u_database, Py_None); if (unlikely(!__pyx_tuple__30)) __PYX_ERR(0, 386, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__30);
-  __Pyx_GIVEREF(__pyx_tuple__30);
+  __pyx_tuple__31 = PyTuple_Pack(2, __pyx_n_u_database, Py_None); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 398, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__31);
+  __Pyx_GIVEREF(__pyx_tuple__31);
 
-  /* "querysource/parsers/abstract.pyx":387
+  /* "querysource/parsers/abstract.pyx":399
  *         if not self.database:
  *             self.database = self.conditions.pop('database', None)
  *         self._distinct = bool(self.conditions.pop('distinct', False))             # <<<<<<<<<<<<<<
  *         self._add_fields = self.conditions.pop('add_fields', False)
  *         # Synchronous extraction  no asyncio.gather overhead
  */
-  __pyx_tuple__31 = PyTuple_Pack(2, __pyx_n_u_distinct, Py_False); if (unlikely(!__pyx_tuple__31)) __PYX_ERR(0, 387, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__31);
-  __Pyx_GIVEREF(__pyx_tuple__31);
+  __pyx_tuple__32 = PyTuple_Pack(2, __pyx_n_u_distinct, Py_False); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 399, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__32);
+  __Pyx_GIVEREF(__pyx_tuple__32);
 
-  /* "querysource/parsers/abstract.pyx":388
+  /* "querysource/parsers/abstract.pyx":400
  *             self.database = self.conditions.pop('database', None)
  *         self._distinct = bool(self.conditions.pop('distinct', False))
  *         self._add_fields = self.conditions.pop('add_fields', False)             # <<<<<<<<<<<<<<
  *         # Synchronous extraction  no asyncio.gather overhead
  *         self._extract_options()
  */
-  __pyx_tuple__32 = PyTuple_Pack(2, __pyx_n_u_add_fields, Py_False); if (unlikely(!__pyx_tuple__32)) __PYX_ERR(0, 388, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__32);
-  __Pyx_GIVEREF(__pyx_tuple__32);
+  __pyx_tuple__33 = PyTuple_Pack(2, __pyx_n_u_add_fields, Py_False); if (unlikely(!__pyx_tuple__33)) __PYX_ERR(0, 400, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__33);
+  __Pyx_GIVEREF(__pyx_tuple__33);
 
-  /* "querysource/parsers/abstract.pyx":440
+  /* "querysource/parsers/abstract.pyx":452
  *     async def _parser_conditions(self, conditions: dict):
  *         redis = self._get_redis()
  *         async with await redis.connection() as conn:             # <<<<<<<<<<<<<<
  *             _filter = await self.set_conditions(conditions, conn)
  *             await self.set_where(_filter, conn)
  */
-  __pyx_tuple__35 = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__35)) __PYX_ERR(0, 440, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__35);
-  __Pyx_GIVEREF(__pyx_tuple__35);
+  __pyx_tuple__36 = PyTuple_Pack(3, Py_None, Py_None, Py_None); if (unlikely(!__pyx_tuple__36)) __PYX_ERR(0, 452, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__36);
+  __Pyx_GIVEREF(__pyx_tuple__36);
 
   /* "querysource/parsers/abstract.pyx":23
  * 
@@ -28707,9 +28997,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * cdef tuple END_TOKENS = ('|', '&', '!', '<', '>')
  * cdef tuple KEYWORD_TOKENS = ('::', '@>', '<@', '->', '->>', '>=', '<=', '<>', '!=', '<', '>')
  */
-  __pyx_tuple__53 = PyTuple_Pack(6, __pyx_kp_u__36, __pyx_kp_u__49, __pyx_kp_u__50, __pyx_kp_u__51, __pyx_kp_u__52, __pyx_kp_u__47); if (unlikely(!__pyx_tuple__53)) __PYX_ERR(0, 23, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__53);
-  __Pyx_GIVEREF(__pyx_tuple__53);
+  __pyx_tuple__54 = PyTuple_Pack(6, __pyx_kp_u__37, __pyx_kp_u__50, __pyx_kp_u__51, __pyx_kp_u__52, __pyx_kp_u__53, __pyx_kp_u__48); if (unlikely(!__pyx_tuple__54)) __PYX_ERR(0, 23, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__54);
+  __Pyx_GIVEREF(__pyx_tuple__54);
 
   /* "querysource/parsers/abstract.pyx":24
  * 
@@ -28718,9 +29008,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * cdef tuple KEYWORD_TOKENS = ('::', '@>', '<@', '->', '->>', '>=', '<=', '<>', '!=', '<', '>')
  * 
  */
-  __pyx_tuple__54 = PyTuple_Pack(5, __pyx_kp_u__42, __pyx_kp_u__44, __pyx_kp_u__43, __pyx_kp_u_, __pyx_kp_u__2); if (unlikely(!__pyx_tuple__54)) __PYX_ERR(0, 24, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__54);
-  __Pyx_GIVEREF(__pyx_tuple__54);
+  __pyx_tuple__55 = PyTuple_Pack(5, __pyx_kp_u__43, __pyx_kp_u__45, __pyx_kp_u__44, __pyx_kp_u_, __pyx_kp_u__2); if (unlikely(!__pyx_tuple__55)) __PYX_ERR(0, 24, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__55);
+  __Pyx_GIVEREF(__pyx_tuple__55);
 
   /* "querysource/parsers/abstract.pyx":25
  * cdef tuple START_TOKENS = ('@', '$', '~', '^', '?', '*')
@@ -28729,9 +29019,9 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * 
  * 
  */
-  __pyx_tuple__64 = PyTuple_Pack(11, __pyx_kp_u__55, __pyx_kp_u__56, __pyx_kp_u__57, __pyx_kp_u__58, __pyx_kp_u__59, __pyx_kp_u__60, __pyx_kp_u__61, __pyx_kp_u__62, __pyx_kp_u__63, __pyx_kp_u_, __pyx_kp_u__2); if (unlikely(!__pyx_tuple__64)) __PYX_ERR(0, 25, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__64);
-  __Pyx_GIVEREF(__pyx_tuple__64);
+  __pyx_tuple__65 = PyTuple_Pack(11, __pyx_kp_u__56, __pyx_kp_u__57, __pyx_kp_u__58, __pyx_kp_u__59, __pyx_kp_u__60, __pyx_kp_u__61, __pyx_kp_u__62, __pyx_kp_u__63, __pyx_kp_u__64, __pyx_kp_u_, __pyx_kp_u__2); if (unlikely(!__pyx_tuple__65)) __PYX_ERR(0, 25, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__65);
+  __Pyx_GIVEREF(__pyx_tuple__65);
 
   /* "querysource/parsers/abstract.pyx":121
  *             )
@@ -28740,278 +29030,287 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  *         return self.query_parsed
  * 
  */
-  __pyx_tuple__65 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__65)) __PYX_ERR(0, 121, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__65);
-  __Pyx_GIVEREF(__pyx_tuple__65);
-  __pyx_codeobj__66 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query, 121, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__66)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_tuple__66 = PyTuple_Pack(1, __pyx_n_s_self); if (unlikely(!__pyx_tuple__66)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__66);
+  __Pyx_GIVEREF(__pyx_tuple__66);
+  __pyx_codeobj__67 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query, 121, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__67)) __PYX_ERR(0, 121, __pyx_L1_error)
 
   /* "querysource/parsers/abstract.pyx":124
  *         return self.query_parsed
+ * 
+ *     cpdef bint is_paged(self):             # <<<<<<<<<<<<<<
+ *         """Return whether pagination was requested (parsed ``paged`` condition).
+ * 
+ */
+  __pyx_codeobj__68 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_is_paged, 124, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__68)) __PYX_ERR(0, 124, __pyx_L1_error)
+
+  /* "querysource/parsers/abstract.pyx":132
+ *         return self._paged
  * 
  *     async def get_query(self):             # <<<<<<<<<<<<<<
  *         return await self.build_query()
  * 
  */
-  __pyx_codeobj__4 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_get_query, 124, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__4)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_codeobj__4 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_get_query, 132, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__4)) __PYX_ERR(0, 132, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":127
+  /* "querysource/parsers/abstract.pyx":135
  *         return await self.build_query()
  * 
  *     cpdef object sentence(self, str sentence):             # <<<<<<<<<<<<<<
  *         self.query_raw = sentence
  *         return self
  */
-  __pyx_tuple__67 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_sentence); if (unlikely(!__pyx_tuple__67)) __PYX_ERR(0, 127, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__67);
-  __Pyx_GIVEREF(__pyx_tuple__67);
-  __pyx_codeobj__68 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__67, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_sentence, 127, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__68)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_tuple__69 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_sentence); if (unlikely(!__pyx_tuple__69)) __PYX_ERR(0, 135, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__69);
+  __Pyx_GIVEREF(__pyx_tuple__69);
+  __pyx_codeobj__70 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__69, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_sentence, 135, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__70)) __PYX_ERR(0, 135, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":131
+  /* "querysource/parsers/abstract.pyx":139
  *         return self
  * 
  *     @abstractmethod             # <<<<<<<<<<<<<<
  *     async def build_query(self):
  *         """Build a QuerySource Query."""
  */
-  __pyx_codeobj__5 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_build_query, 131, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__5)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_codeobj__5 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_build_query, 139, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__5)) __PYX_ERR(0, 139, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":333
+  /* "querysource/parsers/abstract.pyx":345
  *     # ------------------------------------------------------------------
  * 
  *     async def _parse_hierarchy(self):             # <<<<<<<<<<<<<<
  *         self._parse_hierarchy_sync()
  * 
  */
-  __pyx_codeobj__14 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_parse_hierarchy, 333, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__14)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_parse_hierarchy, 345, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 345, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":336
+  /* "querysource/parsers/abstract.pyx":348
  *         self._parse_hierarchy_sync()
  * 
  *     async def _program_slug(self):             # <<<<<<<<<<<<<<
  *         self._program_slug_sync()
  * 
  */
-  __pyx_codeobj__15 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_program_slug_2, 336, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__15)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_program_slug_2, 348, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 348, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":339
+  /* "querysource/parsers/abstract.pyx":351
  *         self._program_slug_sync()
  * 
  *     async def _query_slug(self):             # <<<<<<<<<<<<<<
  *         self._query_slug_sync()
  * 
  */
-  __pyx_codeobj__16 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_slug_2, 339, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__16)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_slug_2, 351, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(0, 351, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":342
+  /* "querysource/parsers/abstract.pyx":354
  *         self._query_slug_sync()
  * 
  *     async def _query_refresh(self):             # <<<<<<<<<<<<<<
  *         self._query_refresh_sync()
  * 
  */
-  __pyx_codeobj__17 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_refresh, 342, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__17)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_refresh, 354, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 354, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":345
+  /* "querysource/parsers/abstract.pyx":357
  *         self._query_refresh_sync()
  * 
  *     async def _query_fields(self):             # <<<<<<<<<<<<<<
  *         self._query_fields_sync()
  * 
  */
-  __pyx_codeobj__18 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_fields, 345, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__18)) __PYX_ERR(0, 345, __pyx_L1_error)
+  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_fields, 357, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 357, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":348
+  /* "querysource/parsers/abstract.pyx":360
  *         self._query_fields_sync()
  * 
  *     async def _query_limit(self):             # <<<<<<<<<<<<<<
  *         self._query_limit_sync()
  * 
  */
-  __pyx_codeobj__19 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_limit, 348, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__19)) __PYX_ERR(0, 348, __pyx_L1_error)
+  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_limit, 360, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 360, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":351
+  /* "querysource/parsers/abstract.pyx":363
  *         self._query_limit_sync()
  * 
  *     async def _offset_pagination(self):             # <<<<<<<<<<<<<<
  *         self._offset_pagination_sync()
  * 
  */
-  __pyx_codeobj__20 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_offset_pagination, 351, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__20)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_offset_pagination, 363, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 363, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":354
+  /* "querysource/parsers/abstract.pyx":366
  *         self._offset_pagination_sync()
  * 
  *     async def _grouping(self):             # <<<<<<<<<<<<<<
  *         self._grouping_sync()
  * 
  */
-  __pyx_codeobj__21 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_grouping_2, 354, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__21)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_grouping_2, 366, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 366, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":357
+  /* "querysource/parsers/abstract.pyx":369
  *         self._grouping_sync()
  * 
  *     async def _ordering(self):             # <<<<<<<<<<<<<<
  *         self._ordering_sync()
  * 
  */
-  __pyx_codeobj__22 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_ordering_2, 357, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__22)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_ordering_2, 369, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 369, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":360
+  /* "querysource/parsers/abstract.pyx":372
  *         self._ordering_sync()
  * 
  *     async def _filter_options(self):             # <<<<<<<<<<<<<<
  *         self._filter_options_sync()
  * 
  */
-  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_filter_options_2, 360, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_filter_options_2, 372, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 372, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":363
+  /* "querysource/parsers/abstract.pyx":375
  *         self._filter_options_sync()
  * 
  *     async def _query_filter(self):             # <<<<<<<<<<<<<<
  *         self._query_filter_sync()
  * 
  */
-  __pyx_codeobj__24 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_filter, 363, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__24)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_query_filter, 375, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 375, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":366
+  /* "querysource/parsers/abstract.pyx":378
  *         self._query_filter_sync()
  * 
  *     async def _qs_filters(self):             # <<<<<<<<<<<<<<
  *         self._qs_filters_sync()
  * 
  */
-  __pyx_codeobj__25 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_qs_filters, 366, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__25)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_qs_filters, 378, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 378, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":369
+  /* "querysource/parsers/abstract.pyx":381
  *         self._qs_filters_sync()
  * 
  *     async def _col_definition(self):             # <<<<<<<<<<<<<<
  *         self._col_definition_sync()
  * 
  */
-  __pyx_codeobj__26 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_col_definition, 369, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__26)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_col_definition, 381, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 381, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":372
+  /* "querysource/parsers/abstract.pyx":384
  *         self._col_definition_sync()
  * 
  *     cpdef dict get_query_filters(self):             # <<<<<<<<<<<<<<
  *         return self._query_filters
  * 
  */
-  __pyx_codeobj__69 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_get_query_filters, 372, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__69)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __pyx_codeobj__71 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_get_query_filters, 384, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__71)) __PYX_ERR(0, 384, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":379
+  /* "querysource/parsers/abstract.pyx":391
  *     # ------------------------------------------------------------------
  * 
  *     async def set_options(self):             # <<<<<<<<<<<<<<
  *         """Set the options for the query."""
  *         if not self.tablename:
  */
-  __pyx_tuple__70 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_params, __pyx_n_s_conditions, __pyx_n_s_def_conditions, __pyx_n_s_err); if (unlikely(!__pyx_tuple__70)) __PYX_ERR(0, 379, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__70);
-  __Pyx_GIVEREF(__pyx_tuple__70);
-  __pyx_codeobj__27 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__70, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_set_options, 379, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__27)) __PYX_ERR(0, 379, __pyx_L1_error)
+  __pyx_tuple__72 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_params, __pyx_n_s_conditions, __pyx_n_s_def_conditions, __pyx_n_s_err); if (unlikely(!__pyx_tuple__72)) __PYX_ERR(0, 391, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__72);
+  __Pyx_GIVEREF(__pyx_tuple__72);
+  __pyx_codeobj__28 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__72, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_set_options, 391, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__28)) __PYX_ERR(0, 391, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":418
+  /* "querysource/parsers/abstract.pyx":430
  *         return None
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:             # <<<<<<<<<<<<<<
  *         try:
  *             return None
  */
-  __pyx_tuple__71 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_value, __pyx_n_s_connection); if (unlikely(!__pyx_tuple__71)) __PYX_ERR(0, 418, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__71);
-  __Pyx_GIVEREF(__pyx_tuple__71);
-  __pyx_codeobj__33 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__71, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_get_operational_value, 418, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__33)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_tuple__73 = PyTuple_Pack(3, __pyx_n_s_self, __pyx_n_s_value, __pyx_n_s_connection); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 430, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__73);
+  __Pyx_GIVEREF(__pyx_tuple__73);
+  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__73, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_get_operational_value, 430, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(0, 430, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":424
+  /* "querysource/parsers/abstract.pyx":436
  *             return None
  * 
  *     cpdef str filtering_options(self, str sentence):             # <<<<<<<<<<<<<<
  *         """Add Filter Options."""
  *         if self.filter_options:
  */
-  __pyx_codeobj__72 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__67, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_filtering_options, 424, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__72)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_codeobj__74 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__69, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_filtering_options, 436, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__74)) __PYX_ERR(0, 436, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":438
+  /* "querysource/parsers/abstract.pyx":450
  *         return sentence
  * 
  *     async def _parser_conditions(self, conditions: dict):             # <<<<<<<<<<<<<<
  *         redis = self._get_redis()
  *         async with await redis.connection() as conn:
  */
-  __pyx_tuple__73 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_conditions, __pyx_n_s_redis, __pyx_n_s_conn, __pyx_n_s_filter_3); if (unlikely(!__pyx_tuple__73)) __PYX_ERR(0, 438, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__73);
-  __Pyx_GIVEREF(__pyx_tuple__73);
-  __pyx_codeobj__34 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__73, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_parser_conditions, 438, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__34)) __PYX_ERR(0, 438, __pyx_L1_error)
+  __pyx_tuple__75 = PyTuple_Pack(5, __pyx_n_s_self, __pyx_n_s_conditions, __pyx_n_s_redis, __pyx_n_s_conn, __pyx_n_s_filter_3); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(0, 450, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__75);
+  __Pyx_GIVEREF(__pyx_tuple__75);
+  __pyx_codeobj__35 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 5, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__75, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_parser_conditions, 450, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__35)) __PYX_ERR(0, 450, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":474
+  /* "querysource/parsers/abstract.pyx":486
  *         return False
  * 
  *     async def _process_element(self, name: str, value: object, connection: object):             # <<<<<<<<<<<<<<
  *         """Process a single element and return the key-value pair to be added to the filter."""
  *         comps = field_components(name)
  */
-  __pyx_tuple__75 = PyTuple_Pack(14, __pyx_n_s_self, __pyx_n_s_name_2, __pyx_n_s_value, __pyx_n_s_connection, __pyx_n_s_comps, __pyx_n_s__74, __pyx_n_s_key, __pyx_n_s_type, __pyx_n_s_result, __pyx_n_s_exc, __pyx_n_s_val_comps, __pyx_n_s_prefix, __pyx_n_s_fn, __pyx_n_s_new_val); if (unlikely(!__pyx_tuple__75)) __PYX_ERR(0, 474, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__75);
-  __Pyx_GIVEREF(__pyx_tuple__75);
-  __pyx_codeobj__37 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__75, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_process_element, 474, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__37)) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_tuple__77 = PyTuple_Pack(14, __pyx_n_s_self, __pyx_n_s_name_2, __pyx_n_s_value, __pyx_n_s_connection, __pyx_n_s_comps, __pyx_n_s__76, __pyx_n_s_key, __pyx_n_s_type, __pyx_n_s_result, __pyx_n_s_exc, __pyx_n_s_val_comps, __pyx_n_s_prefix, __pyx_n_s_fn, __pyx_n_s_new_val); if (unlikely(!__pyx_tuple__77)) __PYX_ERR(0, 486, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__77);
+  __Pyx_GIVEREF(__pyx_tuple__77);
+  __pyx_codeobj__38 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 14, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__77, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_process_element, 486, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__38)) __PYX_ERR(0, 486, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":512
+  /* "querysource/parsers/abstract.pyx":524
  *             return name, value
  * 
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:             # <<<<<<<<<<<<<<
  *         """Check if all conditions are valid and return the value."""
  *         elements = self._merge_conditions_and_filters(conditions)
  */
-  __pyx_tuple__76 = PyTuple_Pack(12, __pyx_n_s_self, __pyx_n_s_conditions, __pyx_n_s_connection, __pyx_n_s_elements, __pyx_n_s_tasks, __pyx_n_s_filter_3, __pyx_n_s_name_2, __pyx_n_s_val, __pyx_n_s_results, __pyx_n_s_result, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__76)) __PYX_ERR(0, 512, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__76);
-  __Pyx_GIVEREF(__pyx_tuple__76);
-  __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 12, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__76, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_set_conditions, 512, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) __PYX_ERR(0, 512, __pyx_L1_error)
+  __pyx_tuple__78 = PyTuple_Pack(12, __pyx_n_s_self, __pyx_n_s_conditions, __pyx_n_s_connection, __pyx_n_s_elements, __pyx_n_s_tasks, __pyx_n_s_filter_3, __pyx_n_s_name_2, __pyx_n_s_val, __pyx_n_s_results, __pyx_n_s_result, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__78)) __PYX_ERR(0, 524, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__78);
+  __Pyx_GIVEREF(__pyx_tuple__78);
+  __pyx_codeobj__41 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 12, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__78, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_set_conditions, 524, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__41)) __PYX_ERR(0, 524, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":531
+  /* "querysource/parsers/abstract.pyx":543
  *         return _filter
  * 
  *     cpdef object where_cond(self, dict where):             # <<<<<<<<<<<<<<
  *         self.filter = where
  *         return self
  */
-  __pyx_tuple__77 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_where); if (unlikely(!__pyx_tuple__77)) __PYX_ERR(0, 531, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__77);
-  __Pyx_GIVEREF(__pyx_tuple__77);
-  __pyx_codeobj__78 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__77, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_where_cond, 531, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__78)) __PYX_ERR(0, 531, __pyx_L1_error)
+  __pyx_tuple__79 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_where); if (unlikely(!__pyx_tuple__79)) __PYX_ERR(0, 543, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__79);
+  __Pyx_GIVEREF(__pyx_tuple__79);
+  __pyx_codeobj__80 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__79, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_where_cond, 543, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__80)) __PYX_ERR(0, 543, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":535
+  /* "querysource/parsers/abstract.pyx":547
  *         return self
  * 
  *     async def _where_element(self, key, value, connection):             # <<<<<<<<<<<<<<
  *         """Process a single element for the WHERE clause."""
  * 
  */
-  __pyx_tuple__79 = PyTuple_Pack(13, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_connection, __pyx_n_s_op, __pyx_n_s_v, __pyx_n_s_result, __pyx_n_s_parser, __pyx_n_s_comps, __pyx_n_s_prefix, __pyx_n_s_fn, __pyx_n_s__74, __pyx_n_s_new_val); if (unlikely(!__pyx_tuple__79)) __PYX_ERR(0, 535, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__79);
-  __Pyx_GIVEREF(__pyx_tuple__79);
-  __pyx_codeobj__41 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 13, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__79, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_where_element, 535, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__41)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_tuple__81 = PyTuple_Pack(13, __pyx_n_s_self, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_connection, __pyx_n_s_op, __pyx_n_s_v, __pyx_n_s_result, __pyx_n_s_parser, __pyx_n_s_comps, __pyx_n_s_prefix, __pyx_n_s_fn, __pyx_n_s__76, __pyx_n_s_new_val); if (unlikely(!__pyx_tuple__81)) __PYX_ERR(0, 547, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__81);
+  __Pyx_GIVEREF(__pyx_tuple__81);
+  __pyx_codeobj__42 = (PyObject*)__Pyx_PyCode_New(4, 0, 0, 13, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__81, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_where_element, 547, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__42)) __PYX_ERR(0, 547, __pyx_L1_error)
 
-  /* "querysource/parsers/abstract.pyx":569
+  /* "querysource/parsers/abstract.pyx":581
  *         return key, result
  * 
  *     async def set_where(self, _filter: dict, connection: object) -> object:             # <<<<<<<<<<<<<<
  *         """Set the WHERE clause conditions in parallel."""
  *         tasks = [self._where_element(key, value, connection) for key, value in _filter.items()]
  */
-  __pyx_tuple__80 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_filter_3, __pyx_n_s_connection, __pyx_n_s_tasks, __pyx_n_s_results, __pyx_n_s_where_cond, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__80)) __PYX_ERR(0, 569, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__80);
-  __Pyx_GIVEREF(__pyx_tuple__80);
-  __pyx_codeobj__45 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__80, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_set_where, 569, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__45)) __PYX_ERR(0, 569, __pyx_L1_error)
+  __pyx_tuple__82 = PyTuple_Pack(10, __pyx_n_s_self, __pyx_n_s_filter_3, __pyx_n_s_connection, __pyx_n_s_tasks, __pyx_n_s_results, __pyx_n_s_where_cond, __pyx_n_s_key, __pyx_n_s_value, __pyx_n_s_key, __pyx_n_s_value); if (unlikely(!__pyx_tuple__82)) __PYX_ERR(0, 581, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__82);
+  __Pyx_GIVEREF(__pyx_tuple__82);
+  __pyx_codeobj__46 = (PyObject*)__Pyx_PyCode_New(3, 0, 0, 10, 0, CO_OPTIMIZED|CO_NEWLOCALS|CO_COROUTINE, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__82, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_querysource_parsers_abstract_pyx, __pyx_n_s_set_where, 581, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__46)) __PYX_ERR(0, 581, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __reduce_cython__(self):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
  */
-  __pyx_codeobj__81 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__65, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__81)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __pyx_codeobj__83 = (PyObject*)__Pyx_PyCode_New(1, 0, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__66, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_reduce_cython, 1, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__83)) __PYX_ERR(2, 1, __pyx_L1_error)
 
   /* "(tree fragment)":3
  * def __reduce_cython__(self):
@@ -29019,10 +29318,10 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  */
-  __pyx_tuple__82 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__82)) __PYX_ERR(2, 3, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_tuple__82);
-  __Pyx_GIVEREF(__pyx_tuple__82);
-  __pyx_codeobj__83 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__82, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 3, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__83)) __PYX_ERR(2, 3, __pyx_L1_error)
+  __pyx_tuple__84 = PyTuple_Pack(2, __pyx_n_s_self, __pyx_n_s_pyx_state); if (unlikely(!__pyx_tuple__84)) __PYX_ERR(2, 3, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_tuple__84);
+  __Pyx_GIVEREF(__pyx_tuple__84);
+  __pyx_codeobj__85 = (PyObject*)__Pyx_PyCode_New(2, 0, 0, 2, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__84, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_stringsource, __pyx_n_s_setstate_cython, 3, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__85)) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -29038,6 +29337,7 @@ static CYTHON_SMALL_CODE int __Pyx_InitConstants(void) {
   __pyx_umethod_PyDict_Type_pop.method_name = &__pyx_n_s_pop;
   if (__Pyx_CreateStringTabAndInitStrings() < 0) __PYX_ERR(0, 1, __pyx_L1_error);
   __pyx_int_0 = PyInt_FromLong(0); if (unlikely(!__pyx_int_0)) __PYX_ERR(0, 1, __pyx_L1_error)
+  __pyx_int_64 = PyInt_FromLong(64); if (unlikely(!__pyx_int_64)) __PYX_ERR(0, 1, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -29098,6 +29398,7 @@ static int __Pyx_modinit_type_init_code(void) {
   __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser.get_query_filters = (PyObject *(*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_get_query_filters;
   __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser.where_cond = (PyObject *(*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, int __pyx_skip_dispatch))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_where_cond;
   __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser.query = (PyObject *(*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_query;
+  __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser.is_paged = (int (*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_is_paged;
   __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser.filtering_options = (PyObject *(*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, int __pyx_skip_dispatch))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser_filtering_options;
   __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser._get_function_replacement = (PyObject *(*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, PyObject *, PyObject *))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__get_function_replacement;
   __pyx_vtable_11querysource_7parsers_8abstract_AbstractParser._merge_conditions_and_filters = (PyObject *(*)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *))__pyx_f_11querysource_7parsers_8abstract_14AbstractParser__merge_conditions_and_filters;
@@ -29156,15 +29457,15 @@ static int __Pyx_modinit_type_init_code(void) {
   if (__Pyx_setup_reduce((PyObject *) __pyx_ptype_11querysource_7parsers_8abstract_AbstractParser) < 0) __PYX_ERR(0, 28, __pyx_L1_error)
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct__get_query_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query)) __PYX_ERR(0, 124, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct__get_query_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query) < 0) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct__get_query_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query)) __PYX_ERR(0, 132, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct__get_query_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct__get_query;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query) < 0) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct__get_query->tp_print = 0;
@@ -29175,15 +29476,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query)) __PYX_ERR(0, 131, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query) < 0) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query)) __PYX_ERR(0, 139, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query) < 0) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_1_build_query->tp_print = 0;
@@ -29194,15 +29495,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy)) __PYX_ERR(0, 333, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy)) __PYX_ERR(0, 345, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_2__parse_hierarchy->tp_print = 0;
@@ -29213,15 +29514,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug)) __PYX_ERR(0, 336, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug)) __PYX_ERR(0, 348, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_3__program_slug->tp_print = 0;
@@ -29232,15 +29533,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug)) __PYX_ERR(0, 339, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug) < 0) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug)) __PYX_ERR(0, 351, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug) < 0) __PYX_ERR(0, 339, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_4__query_slug->tp_print = 0;
@@ -29251,15 +29552,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh)) __PYX_ERR(0, 342, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh) < 0) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh)) __PYX_ERR(0, 354, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh) < 0) __PYX_ERR(0, 342, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_5__query_refresh->tp_print = 0;
@@ -29270,15 +29571,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields)) __PYX_ERR(0, 345, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields)) __PYX_ERR(0, 357, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_6__query_fields->tp_print = 0;
@@ -29289,15 +29590,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit)) __PYX_ERR(0, 348, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit)) __PYX_ERR(0, 360, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_7__query_limit->tp_print = 0;
@@ -29308,15 +29609,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination)) __PYX_ERR(0, 351, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination)) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_8__offset_pagination->tp_print = 0;
@@ -29327,15 +29628,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping)) __PYX_ERR(0, 354, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping)) __PYX_ERR(0, 366, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_9__grouping->tp_print = 0;
@@ -29346,15 +29647,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering)) __PYX_ERR(0, 357, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering)) __PYX_ERR(0, 369, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_10__ordering->tp_print = 0;
@@ -29365,15 +29666,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options)) __PYX_ERR(0, 360, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options)) __PYX_ERR(0, 372, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options) < 0) __PYX_ERR(0, 372, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options) < 0) __PYX_ERR(0, 372, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_11__filter_options->tp_print = 0;
@@ -29384,15 +29685,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter)) __PYX_ERR(0, 363, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter)) __PYX_ERR(0, 375, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter) < 0) __PYX_ERR(0, 375, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter) < 0) __PYX_ERR(0, 375, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_12__query_filter->tp_print = 0;
@@ -29403,15 +29704,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters)) __PYX_ERR(0, 366, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters)) __PYX_ERR(0, 378, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters) < 0) __PYX_ERR(0, 378, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters) < 0) __PYX_ERR(0, 378, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_13__qs_filters->tp_print = 0;
@@ -29422,15 +29723,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition)) __PYX_ERR(0, 369, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition)) __PYX_ERR(0, 381, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition) < 0) __PYX_ERR(0, 381, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition) < 0) __PYX_ERR(0, 381, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_14__col_definition->tp_print = 0;
@@ -29441,15 +29742,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options)) __PYX_ERR(0, 379, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options) < 0) __PYX_ERR(0, 379, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options)) __PYX_ERR(0, 391, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options) < 0) __PYX_ERR(0, 391, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options) < 0) __PYX_ERR(0, 379, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options) < 0) __PYX_ERR(0, 391, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_15_set_options->tp_print = 0;
@@ -29460,15 +29761,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value)) __PYX_ERR(0, 418, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value)) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_16__get_operational_value->tp_print = 0;
@@ -29479,15 +29780,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions)) __PYX_ERR(0, 438, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions) < 0) __PYX_ERR(0, 438, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions)) __PYX_ERR(0, 450, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions) < 0) __PYX_ERR(0, 438, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_17__parser_conditions->tp_print = 0;
@@ -29498,15 +29799,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element)) __PYX_ERR(0, 474, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element) < 0) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element)) __PYX_ERR(0, 486, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element) < 0) __PYX_ERR(0, 474, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_18__process_element->tp_print = 0;
@@ -29517,15 +29818,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions)) __PYX_ERR(0, 512, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions) < 0) __PYX_ERR(0, 512, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions)) __PYX_ERR(0, 524, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions) < 0) __PYX_ERR(0, 512, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_19_set_conditions->tp_print = 0;
@@ -29536,15 +29837,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element)) __PYX_ERR(0, 535, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element)) __PYX_ERR(0, 547, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element) < 0) __PYX_ERR(0, 547, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element) < 0) __PYX_ERR(0, 547, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_20__where_element->tp_print = 0;
@@ -29555,15 +29856,15 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #endif
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where)) __PYX_ERR(0, 569, __pyx_L1_error)
-  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
+  __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where_spec, NULL); if (unlikely(!__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where)) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (__Pyx_fix_up_extension_type_from_spec(&__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where_spec, __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
   #else
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where = &__pyx_type_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where;
   #endif
   #if !CYTHON_COMPILING_IN_LIMITED_API
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
   #endif
   #if PY_MAJOR_VERSION < 3
   __pyx_ptype_11querysource_7parsers_8abstract___pyx_scope_struct_21_set_where->tp_print = 0;
@@ -29945,7 +30246,7 @@ if (!__Pyx_RefNanny) {
  * from navconfig.logging import logging
  * from asyncdb import AsyncDB             # <<<<<<<<<<<<<<
  * from . import QS_FILTERS, QS_VARIABLES
- * from ..types import strtobool, is_boolean
+ * from ..types import to_flag
  */
   __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -29965,7 +30266,7 @@ if (!__Pyx_RefNanny) {
  * from navconfig.logging import logging
  * from asyncdb import AsyncDB
  * from . import QS_FILTERS, QS_VARIABLES             # <<<<<<<<<<<<<<
- * from ..types import strtobool, is_boolean
+ * from ..types import to_flag
  * from ..models import QueryObject, QueryModel
  */
   __pyx_t_3 = PyList_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
@@ -29976,7 +30277,7 @@ if (!__Pyx_RefNanny) {
   __Pyx_INCREF(__pyx_n_s_QS_VARIABLES);
   __Pyx_GIVEREF(__pyx_n_s_QS_VARIABLES);
   if (__Pyx_PyList_SET_ITEM(__pyx_t_3, 1, __pyx_n_s_QS_VARIABLES)) __PYX_ERR(0, 14, __pyx_L1_error);
-  __pyx_t_2 = __Pyx_Import(__pyx_n_s__48, __pyx_t_3, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_n_s__49, __pyx_t_3, 1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 14, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_3 = __Pyx_ImportFrom(__pyx_t_2, __pyx_n_s_QS_FILTERS); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 14, __pyx_L1_error)
@@ -29992,34 +30293,27 @@ if (!__Pyx_RefNanny) {
   /* "querysource/parsers/abstract.pyx":15
  * from asyncdb import AsyncDB
  * from . import QS_FILTERS, QS_VARIABLES
- * from ..types import strtobool, is_boolean             # <<<<<<<<<<<<<<
+ * from ..types import to_flag             # <<<<<<<<<<<<<<
  * from ..models import QueryObject, QueryModel
  * from ..exceptions import EmptySentence
  */
-  __pyx_t_2 = PyList_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_2 = PyList_New(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_INCREF(__pyx_n_s_strtobool);
-  __Pyx_GIVEREF(__pyx_n_s_strtobool);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_strtobool)) __PYX_ERR(0, 15, __pyx_L1_error);
-  __Pyx_INCREF(__pyx_n_s_is_boolean);
-  __Pyx_GIVEREF(__pyx_n_s_is_boolean);
-  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 1, __pyx_n_s_is_boolean)) __PYX_ERR(0, 15, __pyx_L1_error);
+  __Pyx_INCREF(__pyx_n_s_to_flag);
+  __Pyx_GIVEREF(__pyx_n_s_to_flag);
+  if (__Pyx_PyList_SET_ITEM(__pyx_t_2, 0, __pyx_n_s_to_flag)) __PYX_ERR(0, 15, __pyx_L1_error);
   __pyx_t_3 = __Pyx_Import(__pyx_n_s_types, __pyx_t_2, 2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_strtobool); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_to_flag); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_strtobool, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_ImportFrom(__pyx_t_3, __pyx_n_s_is_boolean); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_is_boolean, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_to_flag, __pyx_t_2) < 0) __PYX_ERR(0, 15, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
   /* "querysource/parsers/abstract.pyx":16
  * from . import QS_FILTERS, QS_VARIABLES
- * from ..types import strtobool, is_boolean
+ * from ..types import to_flag
  * from ..models import QueryObject, QueryModel             # <<<<<<<<<<<<<<
  * from ..exceptions import EmptySentence
  * from ..conf import REDIS_URL
@@ -30046,7 +30340,7 @@ if (!__Pyx_RefNanny) {
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "querysource/parsers/abstract.pyx":17
- * from ..types import strtobool, is_boolean
+ * from ..types import to_flag
  * from ..models import QueryObject, QueryModel
  * from ..exceptions import EmptySentence             # <<<<<<<<<<<<<<
  * from ..conf import REDIS_URL
@@ -30150,10 +30444,10 @@ if (!__Pyx_RefNanny) {
  * cdef tuple END_TOKENS = ('|', '&', '!', '<', '>')
  * cdef tuple KEYWORD_TOKENS = ('::', '@>', '<@', '->', '->>', '>=', '<=', '<>', '!=', '<', '>')
  */
-  __Pyx_INCREF(__pyx_tuple__53);
+  __Pyx_INCREF(__pyx_tuple__54);
   __Pyx_XGOTREF(__pyx_v_11querysource_7parsers_8abstract_START_TOKENS);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_7parsers_8abstract_START_TOKENS, __pyx_tuple__53);
-  __Pyx_GIVEREF(__pyx_tuple__53);
+  __Pyx_DECREF_SET(__pyx_v_11querysource_7parsers_8abstract_START_TOKENS, __pyx_tuple__54);
+  __Pyx_GIVEREF(__pyx_tuple__54);
 
   /* "querysource/parsers/abstract.pyx":24
  * 
@@ -30162,10 +30456,10 @@ if (!__Pyx_RefNanny) {
  * cdef tuple KEYWORD_TOKENS = ('::', '@>', '<@', '->', '->>', '>=', '<=', '<>', '!=', '<', '>')
  * 
  */
-  __Pyx_INCREF(__pyx_tuple__54);
+  __Pyx_INCREF(__pyx_tuple__55);
   __Pyx_XGOTREF(__pyx_v_11querysource_7parsers_8abstract_END_TOKENS);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_7parsers_8abstract_END_TOKENS, __pyx_tuple__54);
-  __Pyx_GIVEREF(__pyx_tuple__54);
+  __Pyx_DECREF_SET(__pyx_v_11querysource_7parsers_8abstract_END_TOKENS, __pyx_tuple__55);
+  __Pyx_GIVEREF(__pyx_tuple__55);
 
   /* "querysource/parsers/abstract.pyx":25
  * cdef tuple START_TOKENS = ('@', '$', '~', '^', '?', '*')
@@ -30174,10 +30468,10 @@ if (!__Pyx_RefNanny) {
  * 
  * 
  */
-  __Pyx_INCREF(__pyx_tuple__64);
+  __Pyx_INCREF(__pyx_tuple__65);
   __Pyx_XGOTREF(__pyx_v_11querysource_7parsers_8abstract_KEYWORD_TOKENS);
-  __Pyx_DECREF_SET(__pyx_v_11querysource_7parsers_8abstract_KEYWORD_TOKENS, __pyx_tuple__64);
-  __Pyx_GIVEREF(__pyx_tuple__64);
+  __Pyx_DECREF_SET(__pyx_v_11querysource_7parsers_8abstract_KEYWORD_TOKENS, __pyx_tuple__65);
+  __Pyx_GIVEREF(__pyx_tuple__65);
 
   /* "querysource/parsers/abstract.pyx":121
  *             )
@@ -30186,7 +30480,7 @@ if (!__Pyx_RefNanny) {
  *         return self.query_parsed
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_9query, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_query, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__66)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_9query, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_query, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__67)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query, __pyx_t_2) < 0) __PYX_ERR(0, 121, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -30195,44 +30489,57 @@ if (!__Pyx_RefNanny) {
   /* "querysource/parsers/abstract.pyx":124
  *         return self.query_parsed
  * 
+ *     cpdef bint is_paged(self):             # <<<<<<<<<<<<<<
+ *         """Return whether pagination was requested (parsed ``paged`` condition).
+ * 
+ */
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_11is_paged, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_is_paged, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__68)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_is_paged, __pyx_t_2) < 0) __PYX_ERR(0, 124, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
+
+  /* "querysource/parsers/abstract.pyx":132
+ *         return self._paged
+ * 
  *     async def get_query(self):             # <<<<<<<<<<<<<<
  *         return await self.build_query()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_11get_query, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_get_query, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__4)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 124, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_13get_query, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_get_query, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__4)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_get_query, __pyx_t_2) < 0) __PYX_ERR(0, 124, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_get_query, __pyx_t_2) < 0) __PYX_ERR(0, 132, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":127
+  /* "querysource/parsers/abstract.pyx":135
  *         return await self.build_query()
  * 
  *     cpdef object sentence(self, str sentence):             # <<<<<<<<<<<<<<
  *         self.query_raw = sentence
  *         return self
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_14sentence, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_sentence, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__68)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 127, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_16sentence, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_sentence, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__70)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_sentence, __pyx_t_2) < 0) __PYX_ERR(0, 127, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_sentence, __pyx_t_2) < 0) __PYX_ERR(0, 135, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":131
+  /* "querysource/parsers/abstract.pyx":139
  *         return self
  * 
  *     @abstractmethod             # <<<<<<<<<<<<<<
  *     async def build_query(self):
  *         """Build a QuerySource Query."""
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_16build_query, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_build_query, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__5)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_18build_query, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_build_query, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__5)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_build_query, __pyx_t_2) < 0) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_build_query, __pyx_t_2) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_abstractmethod); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_abstractmethod); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __Pyx_GetNameInClass(__pyx_t_4, (PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_build_query); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_4, (PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_build_query); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_5 = NULL;
   __pyx_t_6 = 0;
@@ -30253,343 +30560,343 @@ if (!__Pyx_RefNanny) {
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_3, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   }
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_build_query, __pyx_t_2) < 0) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_build_query, __pyx_t_2) < 0) __PYX_ERR(0, 139, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":333
+  /* "querysource/parsers/abstract.pyx":345
  *     # ------------------------------------------------------------------
  * 
  *     async def _parse_hierarchy(self):             # <<<<<<<<<<<<<<
  *         self._parse_hierarchy_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_19_parse_hierarchy, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__parse_hierarchy, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__14)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 333, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_21_parse_hierarchy, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__parse_hierarchy, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 345, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_parse_hierarchy, __pyx_t_2) < 0) __PYX_ERR(0, 333, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_parse_hierarchy, __pyx_t_2) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":336
+  /* "querysource/parsers/abstract.pyx":348
  *         self._parse_hierarchy_sync()
  * 
  *     async def _program_slug(self):             # <<<<<<<<<<<<<<
  *         self._program_slug_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_22_program_slug, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__program_slug, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__15)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 336, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_24_program_slug, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__program_slug, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 348, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_program_slug_2, __pyx_t_2) < 0) __PYX_ERR(0, 336, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_program_slug_2, __pyx_t_2) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":339
+  /* "querysource/parsers/abstract.pyx":351
  *         self._program_slug_sync()
  * 
  *     async def _query_slug(self):             # <<<<<<<<<<<<<<
  *         self._query_slug_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_25_query_slug, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_slug, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__16)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 339, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_27_query_slug, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_slug, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 351, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_slug_2, __pyx_t_2) < 0) __PYX_ERR(0, 339, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_slug_2, __pyx_t_2) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":342
+  /* "querysource/parsers/abstract.pyx":354
  *         self._query_slug_sync()
  * 
  *     async def _query_refresh(self):             # <<<<<<<<<<<<<<
  *         self._query_refresh_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_28_query_refresh, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_refresh, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__17)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 342, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_30_query_refresh, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_refresh, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_refresh, __pyx_t_2) < 0) __PYX_ERR(0, 342, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_refresh, __pyx_t_2) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":345
+  /* "querysource/parsers/abstract.pyx":357
  *         self._query_refresh_sync()
  * 
  *     async def _query_fields(self):             # <<<<<<<<<<<<<<
  *         self._query_fields_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_31_query_fields, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_fields, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__18)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 345, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_33_query_fields, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_fields, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_fields, __pyx_t_2) < 0) __PYX_ERR(0, 345, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_fields, __pyx_t_2) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":348
+  /* "querysource/parsers/abstract.pyx":360
  *         self._query_fields_sync()
  * 
  *     async def _query_limit(self):             # <<<<<<<<<<<<<<
  *         self._query_limit_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_34_query_limit, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_limit, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__19)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 348, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_36_query_limit, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_limit, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_limit, __pyx_t_2) < 0) __PYX_ERR(0, 348, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_limit, __pyx_t_2) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":351
+  /* "querysource/parsers/abstract.pyx":363
  *         self._query_limit_sync()
  * 
  *     async def _offset_pagination(self):             # <<<<<<<<<<<<<<
  *         self._offset_pagination_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_37_offset_pagination, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__offset_paginatio, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__20)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 351, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_39_offset_pagination, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__offset_paginatio, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_offset_pagination, __pyx_t_2) < 0) __PYX_ERR(0, 351, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_offset_pagination, __pyx_t_2) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":354
+  /* "querysource/parsers/abstract.pyx":366
  *         self._offset_pagination_sync()
  * 
  *     async def _grouping(self):             # <<<<<<<<<<<<<<
  *         self._grouping_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_40_grouping, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__grouping, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__21)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 354, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_42_grouping, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__grouping, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 366, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_grouping_2, __pyx_t_2) < 0) __PYX_ERR(0, 354, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_grouping_2, __pyx_t_2) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":357
+  /* "querysource/parsers/abstract.pyx":369
  *         self._grouping_sync()
  * 
  *     async def _ordering(self):             # <<<<<<<<<<<<<<
  *         self._ordering_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_43_ordering, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__ordering, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__22)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 357, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_45_ordering, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__ordering, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__23)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 369, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_ordering_2, __pyx_t_2) < 0) __PYX_ERR(0, 357, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_ordering_2, __pyx_t_2) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":360
+  /* "querysource/parsers/abstract.pyx":372
  *         self._ordering_sync()
  * 
  *     async def _filter_options(self):             # <<<<<<<<<<<<<<
  *         self._filter_options_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_46_filter_options, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__filter_options, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__23)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 360, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_48_filter_options, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__filter_options, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_filter_options_2, __pyx_t_2) < 0) __PYX_ERR(0, 360, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_filter_options_2, __pyx_t_2) < 0) __PYX_ERR(0, 372, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":363
+  /* "querysource/parsers/abstract.pyx":375
  *         self._filter_options_sync()
  * 
  *     async def _query_filter(self):             # <<<<<<<<<<<<<<
  *         self._query_filter_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_49_query_filter, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_filter, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__24)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 363, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_51_query_filter, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__query_filter, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_filter, __pyx_t_2) < 0) __PYX_ERR(0, 363, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_query_filter, __pyx_t_2) < 0) __PYX_ERR(0, 375, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":366
+  /* "querysource/parsers/abstract.pyx":378
  *         self._query_filter_sync()
  * 
  *     async def _qs_filters(self):             # <<<<<<<<<<<<<<
  *         self._qs_filters_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_52_qs_filters, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__qs_filters, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__25)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 366, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_54_qs_filters, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__qs_filters, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_qs_filters, __pyx_t_2) < 0) __PYX_ERR(0, 366, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_qs_filters, __pyx_t_2) < 0) __PYX_ERR(0, 378, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":369
+  /* "querysource/parsers/abstract.pyx":381
  *         self._qs_filters_sync()
  * 
  *     async def _col_definition(self):             # <<<<<<<<<<<<<<
  *         self._col_definition_sync()
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_55_col_definition, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__col_definition, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__26)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 369, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_57_col_definition, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__col_definition, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_col_definition, __pyx_t_2) < 0) __PYX_ERR(0, 369, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_col_definition, __pyx_t_2) < 0) __PYX_ERR(0, 381, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":372
+  /* "querysource/parsers/abstract.pyx":384
  *         self._col_definition_sync()
  * 
  *     cpdef dict get_query_filters(self):             # <<<<<<<<<<<<<<
  *         return self._query_filters
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_58get_query_filters, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_get_query_filters, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__69)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 372, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_60get_query_filters, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_get_query_filters, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__71)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 384, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_get_query_filters, __pyx_t_2) < 0) __PYX_ERR(0, 372, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_get_query_filters, __pyx_t_2) < 0) __PYX_ERR(0, 384, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":379
+  /* "querysource/parsers/abstract.pyx":391
  *     # ------------------------------------------------------------------
  * 
  *     async def set_options(self):             # <<<<<<<<<<<<<<
  *         """Set the options for the query."""
  *         if not self.tablename:
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_60set_options, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_set_options, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__27)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 379, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_62set_options, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_set_options, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__28)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_set_options, __pyx_t_2) < 0) __PYX_ERR(0, 379, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_set_options, __pyx_t_2) < 0) __PYX_ERR(0, 391, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":418
+  /* "querysource/parsers/abstract.pyx":430
  *         return None
  * 
  *     async def _get_operational_value(self, value: object, connection: object) -> object:             # <<<<<<<<<<<<<<
  *         try:
  *             return None
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 418, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_object) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_object) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_63_get_operational_value, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__get_operational, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__33)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_object) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_object) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_65_get_operational_value, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__get_operational, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_get_operational_value, __pyx_t_3) < 0) __PYX_ERR(0, 418, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_get_operational_value, __pyx_t_3) < 0) __PYX_ERR(0, 430, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":424
+  /* "querysource/parsers/abstract.pyx":436
  *             return None
  * 
  *     cpdef str filtering_options(self, str sentence):             # <<<<<<<<<<<<<<
  *         """Add Filter Options."""
  *         if self.filter_options:
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_66filtering_options, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_filtering_options, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__72)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 424, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_68filtering_options, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_filtering_options, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__74)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 436, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_filtering_options, __pyx_t_3) < 0) __PYX_ERR(0, 424, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_filtering_options, __pyx_t_3) < 0) __PYX_ERR(0, 436, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":438
+  /* "querysource/parsers/abstract.pyx":450
  *         return sentence
  * 
  *     async def _parser_conditions(self, conditions: dict):             # <<<<<<<<<<<<<<
  *         redis = self._get_redis()
  *         async with await redis.connection() as conn:
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 438, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_conditions, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 438, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_68_parser_conditions, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__parser_condition, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__34)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 438, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_conditions, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_70_parser_conditions, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__parser_condition, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__35)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_parser_conditions, __pyx_t_2) < 0) __PYX_ERR(0, 438, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_parser_conditions, __pyx_t_2) < 0) __PYX_ERR(0, 450, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":474
+  /* "querysource/parsers/abstract.pyx":486
  *         return False
  * 
  *     async def _process_element(self, name: str, value: object, connection: object):             # <<<<<<<<<<<<<<
  *         """Process a single element and return the key-value pair to be added to the filter."""
  *         comps = field_components(name)
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 474, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name_2, __pyx_n_s_str) < 0) __PYX_ERR(0, 474, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_object) < 0) __PYX_ERR(0, 474, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 474, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_71_process_element, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__process_element, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__37)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 474, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_name_2, __pyx_n_s_str) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_value, __pyx_n_s_object) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_73_process_element, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__process_element, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__38)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_process_element, __pyx_t_3) < 0) __PYX_ERR(0, 474, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_process_element, __pyx_t_3) < 0) __PYX_ERR(0, 486, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":512
+  /* "querysource/parsers/abstract.pyx":524
  *             return name, value
  * 
  *     async def set_conditions(self, conditions: dict, connection: object) -> dict:             # <<<<<<<<<<<<<<
  *         """Check if all conditions are valid and return the value."""
  *         elements = self._merge_conditions_and_filters(conditions)
  */
-  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 512, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 524, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_conditions, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 512, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 512, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 512, __pyx_L1_error)
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_74set_conditions, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_set_conditions, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__40)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 512, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_conditions, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_3, __pyx_n_s_return, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_76set_conditions, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_set_conditions, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__41)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 524, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_2, __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_set_conditions, __pyx_t_2) < 0) __PYX_ERR(0, 512, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_set_conditions, __pyx_t_2) < 0) __PYX_ERR(0, 524, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":531
+  /* "querysource/parsers/abstract.pyx":543
  *         return _filter
  * 
  *     cpdef object where_cond(self, dict where):             # <<<<<<<<<<<<<<
  *         self.filter = where
  *         return self
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_77where_cond, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_where_cond, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__78)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 531, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_79where_cond, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser_where_cond, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__80)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 543, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_where_cond, __pyx_t_2) < 0) __PYX_ERR(0, 531, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_where_cond, __pyx_t_2) < 0) __PYX_ERR(0, 543, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":535
+  /* "querysource/parsers/abstract.pyx":547
  *         return self
  * 
  *     async def _where_element(self, key, value, connection):             # <<<<<<<<<<<<<<
  *         """Process a single element for the WHERE clause."""
  * 
  */
-  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_79_where_element, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__where_element, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__41)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 535, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_81_where_element, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser__where_element, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__42)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 547, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_where_element, __pyx_t_2) < 0) __PYX_ERR(0, 535, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_where_element, __pyx_t_2) < 0) __PYX_ERR(0, 547, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
-  /* "querysource/parsers/abstract.pyx":569
+  /* "querysource/parsers/abstract.pyx":581
  *         return key, result
  * 
  *     async def set_where(self, _filter: dict, connection: object) -> object:             # <<<<<<<<<<<<<<
  *         """Set the WHERE clause conditions in parallel."""
  *         tasks = [self._where_element(key, value, connection) for key, value in _filter.items()]
  */
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 569, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 581, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_filter_3, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_object) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_82set_where, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_set_where, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__45)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_filter_3, __pyx_n_s_dict_2) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_connection, __pyx_n_s_object) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_return, __pyx_n_s_object) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_84set_where, __Pyx_CYFUNCTION_CCLASS | __Pyx_CYFUNCTION_COROUTINE, __pyx_n_s_AbstractParser_set_where, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__46)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 581, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_CyFunction_SetAnnotationsDict(__pyx_t_3, __pyx_t_2);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_set_where, __pyx_t_3) < 0) __PYX_ERR(0, 569, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict((PyObject *)__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser, __pyx_n_s_set_where, __pyx_t_3) < 0) __PYX_ERR(0, 581, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   PyType_Modified(__pyx_ptype_11querysource_7parsers_8abstract_AbstractParser);
 
@@ -30598,7 +30905,7 @@ if (!__Pyx_RefNanny) {
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  * def __setstate_cython__(self, __pyx_state):
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_85__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser___reduce_cython, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__81)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 1, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_87__reduce_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser___reduce_cython, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_reduce_cython, __pyx_t_3) < 0) __PYX_ERR(2, 1, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -30609,7 +30916,7 @@ if (!__Pyx_RefNanny) {
  * def __setstate_cython__(self, __pyx_state):             # <<<<<<<<<<<<<<
  *     raise TypeError, "no default __reduce__ due to non-trivial __cinit__"
  */
-  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_87__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser___setstate_cython, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__83)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 3, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_CyFunction_New(&__pyx_mdef_11querysource_7parsers_8abstract_14AbstractParser_89__setstate_cython__, __Pyx_CYFUNCTION_CCLASS, __pyx_n_s_AbstractParser___setstate_cython, NULL, __pyx_n_s_querysource_parsers_abstract, __pyx_d, ((PyObject *)__pyx_codeobj__85)); if (unlikely(!__pyx_t_3)) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_setstate_cython, __pyx_t_3) < 0) __PYX_ERR(2, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -34410,6 +34717,115 @@ static CYTHON_INLINE int __Pyx_PyErr_GivenExceptionMatches2(PyObject *err, PyObj
 }
 #endif
 
+/* SliceObject */
+  static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(PyObject* obj,
+        Py_ssize_t cstart, Py_ssize_t cstop,
+        PyObject** _py_start, PyObject** _py_stop, PyObject** _py_slice,
+        int has_cstart, int has_cstop, int wraparound) {
+    __Pyx_TypeName obj_type_name;
+#if CYTHON_USE_TYPE_SLOTS
+    PyMappingMethods* mp;
+#if PY_MAJOR_VERSION < 3
+    PySequenceMethods* ms = Py_TYPE(obj)->tp_as_sequence;
+    if (likely(ms && ms->sq_slice)) {
+        if (!has_cstart) {
+            if (_py_start && (*_py_start != Py_None)) {
+                cstart = __Pyx_PyIndex_AsSsize_t(*_py_start);
+                if ((cstart == (Py_ssize_t)-1) && PyErr_Occurred()) goto bad;
+            } else
+                cstart = 0;
+        }
+        if (!has_cstop) {
+            if (_py_stop && (*_py_stop != Py_None)) {
+                cstop = __Pyx_PyIndex_AsSsize_t(*_py_stop);
+                if ((cstop == (Py_ssize_t)-1) && PyErr_Occurred()) goto bad;
+            } else
+                cstop = PY_SSIZE_T_MAX;
+        }
+        if (wraparound && unlikely((cstart < 0) | (cstop < 0)) && likely(ms->sq_length)) {
+            Py_ssize_t l = ms->sq_length(obj);
+            if (likely(l >= 0)) {
+                if (cstop < 0) {
+                    cstop += l;
+                    if (cstop < 0) cstop = 0;
+                }
+                if (cstart < 0) {
+                    cstart += l;
+                    if (cstart < 0) cstart = 0;
+                }
+            } else {
+                if (!PyErr_ExceptionMatches(PyExc_OverflowError))
+                    goto bad;
+                PyErr_Clear();
+            }
+        }
+        return ms->sq_slice(obj, cstart, cstop);
+    }
+#else
+    CYTHON_UNUSED_VAR(wraparound);
+#endif
+    mp = Py_TYPE(obj)->tp_as_mapping;
+    if (likely(mp && mp->mp_subscript))
+#else
+    CYTHON_UNUSED_VAR(wraparound);
+#endif
+    {
+        PyObject* result;
+        PyObject *py_slice, *py_start, *py_stop;
+        if (_py_slice) {
+            py_slice = *_py_slice;
+        } else {
+            PyObject* owned_start = NULL;
+            PyObject* owned_stop = NULL;
+            if (_py_start) {
+                py_start = *_py_start;
+            } else {
+                if (has_cstart) {
+                    owned_start = py_start = PyInt_FromSsize_t(cstart);
+                    if (unlikely(!py_start)) goto bad;
+                } else
+                    py_start = Py_None;
+            }
+            if (_py_stop) {
+                py_stop = *_py_stop;
+            } else {
+                if (has_cstop) {
+                    owned_stop = py_stop = PyInt_FromSsize_t(cstop);
+                    if (unlikely(!py_stop)) {
+                        Py_XDECREF(owned_start);
+                        goto bad;
+                    }
+                } else
+                    py_stop = Py_None;
+            }
+            py_slice = PySlice_New(py_start, py_stop, Py_None);
+            Py_XDECREF(owned_start);
+            Py_XDECREF(owned_stop);
+            if (unlikely(!py_slice)) goto bad;
+        }
+#if CYTHON_USE_TYPE_SLOTS
+        result = mp->mp_subscript(obj, py_slice);
+#else
+        result = PyObject_GetItem(obj, py_slice);
+#endif
+        if (!_py_slice) {
+            Py_DECREF(py_slice);
+        }
+        return result;
+    }
+    obj_type_name = __Pyx_PyType_GetName(Py_TYPE(obj));
+    PyErr_Format(PyExc_TypeError,
+        "'" __Pyx_FMT_TYPENAME "' object is unsliceable", obj_type_name);
+    __Pyx_DECREF_TypeName(obj_type_name);
+bad:
+    return NULL;
+}
+
+/* RaiseUnboundLocalError */
+  static CYTHON_INLINE void __Pyx_RaiseUnboundLocalError(const char *varname) {
+    PyErr_Format(PyExc_UnboundLocalError, "local variable '%s' referenced before assignment", varname);
+}
+
 /* IterFinish */
   static CYTHON_INLINE int __Pyx_IterFinish(void) {
     PyObject* exc_type;
@@ -35303,7 +35719,7 @@ bad:
         if (unlikely(!module_name_str)) { goto modbad; }
         module_name = PyUnicode_FromString(module_name_str);
         if (unlikely(!module_name)) { goto modbad; }
-        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__46);
+        module_dot = PyUnicode_Concat(module_name, __pyx_kp_u__47);
         if (unlikely(!module_dot)) { goto modbad; }
         full_name = PyUnicode_Concat(module_dot, name);
         if (unlikely(!full_name)) { goto modbad; }
@@ -35411,7 +35827,7 @@ static PyObject *__Pyx_ImportDottedModule_WalkParts(PyObject *module, PyObject *
 #endif
 static PyObject *__Pyx__ImportDottedModule(PyObject *name, PyObject *parts_tuple) {
 #if PY_MAJOR_VERSION < 3
-    PyObject *module, *from_list, *star = __pyx_n_s__47;
+    PyObject *module, *from_list, *star = __pyx_n_s__48;
     CYTHON_UNUSED_VAR(parts_tuple);
     from_list = PyList_New(1);
     if (unlikely(!from_list))
@@ -37762,7 +38178,7 @@ __Pyx_PyType_GetName(PyTypeObject* tp)
     if (unlikely(name == NULL) || unlikely(!PyUnicode_Check(name))) {
         PyErr_Clear();
         Py_XDECREF(name);
-        name = __Pyx_NewRef(__pyx_n_s__52);
+        name = __Pyx_NewRef(__pyx_n_s__53);
     }
     return name;
 }

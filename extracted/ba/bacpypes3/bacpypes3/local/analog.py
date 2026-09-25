@@ -6,25 +6,21 @@ from __future__ import annotations
 
 from typing import Callable
 
-from ..debugging import ModuleLogger, bacpypes_debugging
+from ..debugging import bacpypes_debugging, ModuleLogger
 
 # object module provides basic AnalogInputObject
 from ..object import (
     AnalogInputObject as _AnalogInputObject,
-)
-from ..object import (
     AnalogOutputObject as _AnalogOutputObject,
-)
-from ..object import (
     AnalogValueObject as _AnalogValueObject,
 )
-from .cmd import Commandable
-from .cov import COVIncrementCriteria
-from .event import OutOfRangeEventAlgorithm
-from .fault import OutOfRangeFaultAlgorithm
 
 # local object provides dynamically generated propertyList property
 from .object import Object as _Object
+from .cov import COVIncrementCriteria
+from .cmd import Commandable
+from .event import OutOfRangeEventAlgorithm
+from .fault import OutOfRangeFaultAlgorithm
 
 # some debugging
 _debug = 0

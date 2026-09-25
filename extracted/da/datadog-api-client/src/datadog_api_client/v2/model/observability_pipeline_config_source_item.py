@@ -103,6 +103,9 @@ class ObservabilityPipelineConfigSourceItem(ModelComposed):
             This allows downstream components to forward the token to other Splunk HEC destinations.
         :type store_hec_token: bool, optional
 
+        :param max_connection_duration_secs: Maximum duration, in seconds, that a connection can remain open before it is closed. When unset, connections can remain open indefinitely.
+        :type max_connection_duration_secs: int, optional
+
         :param uri_key: Name of the environment variable or secret that holds the WebSocket server URI (`ws://` or `wss://`).
         :type uri_key: str, optional
 
@@ -111,6 +114,9 @@ class ObservabilityPipelineConfigSourceItem(ModelComposed):
 
         :param http_address_key: Environment variable name containing the HTTP server address for receiving OTLP data. Must be a valid environment variable name (alphanumeric characters and underscores only).
         :type http_address_key: str, optional
+
+        :param path: The HTTP path on which the source listens for incoming Prometheus Remote Write requests.
+        :type path: str
         """
         super().__init__(kwargs)
 
@@ -169,6 +175,9 @@ class ObservabilityPipelineConfigSourceItem(ModelComposed):
         from datadog_api_client.v2.model.observability_pipeline_opentelemetry_source import (
             ObservabilityPipelineOpentelemetrySource,
         )
+        from datadog_api_client.v2.model.observability_pipeline_prometheus_remote_write_source import (
+            ObservabilityPipelinePrometheusRemoteWriteSource,
+        )
 
         return {
             "oneOf": [
@@ -190,5 +199,6 @@ class ObservabilityPipelineConfigSourceItem(ModelComposed):
                 ObservabilityPipelineSyslogNgSource,
                 ObservabilityPipelineWebsocketSource,
                 ObservabilityPipelineOpentelemetrySource,
+                ObservabilityPipelinePrometheusRemoteWriteSource,
             ],
         }

@@ -146,6 +146,16 @@ def main(argv: list[str] | None = None) -> int:
     # 0.9.34 used --lane for the reminder, so a frontend sender messaging
     # a backend receiver printed "Your lane is: frontend" — wrong. The
     # reminder must always reflect the RECEIVER's lane.
+    # #66: the bus's signature verdict for THIS delivery, forwarded from the
+    # inbox row the watcher already holds. default=None, and an absent flag
+    # means the monitor did not tell us — which must render as no claim, never
+    # as unsigned. An operator running a template from before 0.9.97 passes
+    # nothing here and gets the no-claim wording, which is what 0.9.97 shipped.
+    # #67: render the notice to stdout instead of delivering it. Verifying
+    # what inject composes previously required delivering it, which fabricates
+    # an arrival in the reader's own transcript.
+    p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--signature-state", default=None)
     p.add_argument("--lane", default=None)
     p.add_argument("--my-lane", default=None)
     p.set_defaults(func=inject)

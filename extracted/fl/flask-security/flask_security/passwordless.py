@@ -5,15 +5,20 @@ flask_security.passwordless
 Flask-Security passwordless module
 
 :copyright: (c) 2012 by Matt Wright.
-:copyright: (c) 2021 by Chris Wagner.
+:copyright: (c) 2021-2026 by Chris Wagner.
 :license: MIT, see LICENSE for more details.
 """
 
 from flask import current_app as app
 
-from .proxies import _security
+from .proxies import _security, _datastore
 from .signals import login_instructions_sent
-from .utils import config_value, get_token_status, send_mail, url_for_security
+from .utils import (
+    _config_value as cv,
+    send_mail,
+    url_for_security,
+    check_and_get_token_status,
+)
 
 
 def send_login_instructions(user):
@@ -25,9 +30,9 @@ def send_login_instructions(user):
     login_link = url_for_security("token_login", token=token, _external=True)
 
     send_mail(
-        config_value("EMAIL_SUBJECT_PASSWORDLESS"),
+        cv("EMAIL_SUBJECT_PASSWORDLESS"),
         user.email,
-        "login_instructions",
+        cv("EMAIL_TEMPLATE_PASSWORDLESS"),
         user=user,
         login_link=login_link,
         login_token=token,
@@ -57,4 +62,10 @@ def login_token_status(token):
 
     :param token: The login token
     """
-    return get_token_status(token, "login", "LOGIN")
+    expired, invalid, data = check_and_get_token_status(
+        token, "login", cv("LOGIN_WITHIN")
+    )
+    if invalid or not data:
+        return expired, invalid, None
+    user = _datastore.find_user(fs_uniquifier=data[0])
+    return expired, invalid, user

@@ -80,13 +80,10 @@ class TestFlagsThatMeantTwoThings:
         assert ns.organization == "hs"
         assert ns.github_org == "havilandsoftware"
 
-    def test_platform_init_no_longer_forces_localhost(self):
-        """It defaulted to http://localhost:8000, overriding the global --api-url
-        — so `--api-url https://www.inno.day platform init` posted to localhost."""
-        ns = create_parser().parse_args(
-            ["--api-url", "https://www.inno.day", "platform", "init"]
-        )
-        assert getattr(ns, "api_url", None) == "https://www.inno.day"
+    def test_platform_init_is_gone(self):
+        """Platform setup is operator work, not a CLI command (PF-457)."""
+        with pytest.raises(SystemExit):
+            create_parser().parse_args(["platform", "init"])
 
     def test_projects_delete_accepts_the_cwd(self):
         """It required --project-id even inside a workspace — the one command

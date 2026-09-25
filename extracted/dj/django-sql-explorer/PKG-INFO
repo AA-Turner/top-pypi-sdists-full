@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-sql-explorer
-Version: 5.3
+Version: 5.3.1
 Summary: SQL Reporting that Just Works. Fast, simple, and confusion-free.Write and share queries in a delightful SQL editor, with AI assistance
 Home-page: https://www.sqlexplorer.io
 Author: Chris Clark
@@ -46,6 +46,22 @@ Provides-Extra: uploads
 Requires-Dist: python-dateutil>=2.9; extra == "uploads"
 Requires-Dist: pandas>=2.2; extra == "uploads"
 Requires-Dist: boto3>=1.30.0; extra == "uploads"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: https://readthedocs.org/projects/django-sql-explorer/badge/?version=latest
    :target: https://django-sql-explorer.readthedocs.io/en/latest/?badge=latest

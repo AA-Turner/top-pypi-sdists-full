@@ -219,7 +219,7 @@ class GlobalRunManager:
       )
 
       if (
-          mlrun.orchestrator == mlrun_types.Orchestrator.GKE.value
+          mlrun.orchestrator == mlrun_types.Orchestrator.GKE
           and not host_utils.is_master_host(
               mlrun.framework, mlrun.serving_engine
           )
@@ -305,6 +305,22 @@ class GlobalRunManager:
     ):
       labels["accelerator_orchestrator"] = (
           mlrun.accelerator_orchestrator.value.lower()
+      )
+
+    if (
+        mlrun.application_framework
+        != mlrun_types.ApplicationFramework.NONE
+    ):
+      labels["application_framework"] = (
+          mlrun.application_framework.value.lower()
+      )
+
+    if (
+        mlrun.rl_orchestrator
+        != mlrun_types.RlOrchestrator.NONE
+    ):
+      labels["rl_orchestrator"] = (
+          mlrun.rl_orchestrator.value.lower()
       )
     try:
       response = self._control_plane_client.create_ml_run(  # pyrefly: ignore[missing-attribute]

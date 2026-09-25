@@ -123,6 +123,21 @@ class RESTClient(HTTPClient):
         return current
 
     async def run(self):
+        # When an `apikey` credential is present, resolve it (it's an env
+        # var NAME, e.g. "YOUTOOZ_API_KEY") and populate `self.auth` so
+        # HTTPService's request-building code sends it as
+        # "Authorization: Bearer <value>" (self.token_type defaults to
+        # "Bearer"). Mirrors the pattern used by DialPad/ASPX/AutoTask —
+        # RESTClient previously never did this, so `credentials: {apikey: ...}`
+        # was silently a no-op for any RESTClient-based task.
+        #
+        # NOTE: deliberately NOT using self.processing_credentials() here —
+        # it resolves keys listed in self._credentials (CredentialsInterface
+        # defaults that to {"username": str, "password": str}), so it would
+        # silently skip an "apikey" key entirely. get_env_value() resolves
+        # the env var name directly, independent of that schema.
+        if apikey := self.credentials.get("apikey"):
+            self.auth = {"apikey": self.get_env_value(apikey)}
         self.url = self.build_url(
             self.url,
             args=self.arguments,

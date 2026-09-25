@@ -1,11 +1,13 @@
 """Helpers related to sending/receiving HTTP requests."""
 
+import contextvars
 import datetime
 import json
 import logging
 import os
 import re
 import ssl
+import threading
 import typing
 
 from decimal import Decimal
@@ -203,12 +205,35 @@ def parameters_to_tuples(
 
 
 class SFPoolManager:
-    def __init__(  # type: ignore[no-untyped-def]
+    """Sends HTTP requests over a urllib3 manager.
+
+    The pool options of the ``Configuration`` this instance belongs to are held in
+    ``pool_kwargs`` and put in scope for the duration of each request, where the manager
+    picks them up to resolve a pool. urllib3 folds them into its connection pool key, so
+    configurations that disagree about TLS verification, trust store or client certificate
+    never share a connection pool, while equivalent ones keep sharing connections.
+    """
+
+    def __init__(self, manager: urllib3.PoolManager, pool_kwargs: dict[str, typing.Any]) -> None:
+        self._manager = manager
+        self._pool_kwargs = pool_kwargs
+
+    # Having this typed is non-trivial across multiple
+    #  urllib3 major versions
+    def _send(  # type: ignore[no-untyped-def]
         self,
-        manager_class: typing.Union[type[urllib3.ProxyManager], type[urllib3.PoolManager]],
-        **cp_kwargs,
+        method: str,
+        url: str,
+        fields,
+        headers: typing.Optional[dict[str, str]],
+        urlopen_kw: dict[str, typing.Any],
     ):
-        self._manager = manager_class(**cp_kwargs)
+        """Send one request with this configuration's pool options in scope."""
+        token = _POOL_KWARGS.set(self._pool_kwargs)
+        try:
+            return self._manager.request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
+        finally:
+            _POOL_KWARGS.reset(token)
 
     # Having this typed is non-trivial across multiple
     #  urllib3 major versions
@@ -231,7 +256,7 @@ class SFPoolManager:
             headers.update(get_session_headers(root.token_type, root._session_token, root.external_session_id))
         logger.debug("making an http %s call to '%s'", method.upper(), url)
         try:
-            r = self._manager.request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
+            r = self._send(method, url, fields, headers, urlopen_kw)
         except urllib3.exceptions.MaxRetryError as e:
             if (
                 isinstance(e.reason, urllib3.exceptions.SSLError)
@@ -269,12 +294,41 @@ class SFPoolManager:
                     raise Exception("session token is missing right after renewal")
                 headers.update(get_session_headers(root.token_type, root._session_token, root.external_session_id))
             logger.debug("repeating an http with new session token %s call to '%s'", method.upper(), url)
-            r = self._manager.request(method=method, url=url, fields=fields, headers=headers, **urlopen_kw)
+            r = self._send(method, url, fields, headers, urlopen_kw)
         return r
 
 
-# Use a connection pool singleton for every resource
-CONNECTION_POOL: typing.Optional[SFPoolManager] = None
+# The pool options of the request being sent, published by SFPoolManager for the manager to read.
+_POOL_KWARGS: contextvars.ContextVar[typing.Optional[dict[str, typing.Any]]] = contextvars.ContextVar(
+    "snowflake_core_pool_kwargs", default=None
+)
+
+
+class _PoolManager(urllib3.PoolManager):
+    """A manager that resolves pools with the pool options of the configuration being served.
+
+    urllib3 resolves a pool from the host alone, which would hand a configuration a pool that
+    was built for a different one.
+    """
+
+    def connection_from_host(
+        self,
+        host: Optional[str],
+        port: Optional[int] = None,
+        scheme: Optional[str] = "http",
+        pool_kwargs: Optional[dict[str, typing.Any]] = None,
+    ) -> urllib3.HTTPConnectionPool:
+        return super().connection_from_host(host, port, scheme, pool_kwargs or _POOL_KWARGS.get())
+
+
+class _ProxyManager(_PoolManager, urllib3.ProxyManager):
+    """A :class:`_PoolManager` that reaches its hosts through a proxy."""
+
+
+# urllib3 managers are shared across the process. There is one manager per distinct proxy.
+_ManagerKey = tuple[str, frozenset[tuple[str, str]]]
+MANAGERS: dict[Optional[_ManagerKey], urllib3.PoolManager] = {}
+_MANAGERS_LOCK = threading.Lock()
 
 
 def get_session_headers(
@@ -314,58 +368,54 @@ def _resolve_ca_cert(configuration: "Configuration") -> Optional[str]:
     return configuration.ssl_ca_cert
 
 
-# TODO: We could create the single connection pool at import time
-#  instead of having this function at all
-# TODO: Configuration classes have no single parent class
-def create_connection_pool(  # type: ignore[no-untyped-def]
-    configuration, pools_size: int = 4, maxsize: typing.Optional[int] = None
-) -> SFPoolManager:
-    # TODO: locking?
-    global CONNECTION_POOL
-    if CONNECTION_POOL is None:
-        # urllib3.PoolManager will pass all kw parameters to connectionpool
-        # https://github.com/shazow/urllib3/blob/f9409436f83aeb79fbaf090181cd81b784f1b8ce/urllib3/poolmanager.py#L75  # noqa: E501
-        # https://github.com/shazow/urllib3/blob/f9409436f83aeb79fbaf090181cd81b784f1b8ce/urllib3/connectionpool.py#L680  # noqa: E501
-        # maxsize is the number of requests to host that are allowed in parallel
-        # Custom SSL certificates and client certificates: http://urllib3.readthedocs.io/en/latest/advanced-usage.html  # noqa: E501
+def _manager_key(proxy_kwargs: Optional[dict[str, typing.Any]]) -> Optional[_ManagerKey]:
+    """Return the key under which the manager for these proxy settings is registered."""
+    if proxy_kwargs is None:
+        return None
+    # Header dicts are turned into frozensets to be hashable, the way urllib3 does it in
+    # poolmanager._default_key_normalizer().
+    return proxy_kwargs["proxy_url"], frozenset((proxy_kwargs["proxy_headers"] or {}).items())
 
-        # cert_reqs
-        if configuration.verify_ssl:
-            cert_reqs = ssl.CERT_REQUIRED
-        else:
-            cert_reqs = ssl.CERT_NONE
 
-        addition_pool_args = {}
-        if configuration.assert_hostname is not None:
-            addition_pool_args["assert_hostname"] = configuration.assert_hostname
+def _get_manager(proxy_kwargs: Optional[dict[str, typing.Any]]) -> urllib3.PoolManager:
+    """Return the manager for these proxy settings, creating it on first use."""
+    key = _manager_key(proxy_kwargs)
+    manager = MANAGERS.get(key)
+    if manager is not None:
+        return manager
+    with _MANAGERS_LOCK:
+        manager = MANAGERS.get(key)
+        if manager is None:
+            manager = _PoolManager() if proxy_kwargs is None else _ProxyManager(**proxy_kwargs)
+            logger.debug("created a new urllib3 manager")
+            MANAGERS[key] = manager
+    return manager
 
-        if configuration.retries is not None:
-            addition_pool_args["retries"] = configuration.retries
 
-        if configuration.socket_options is not None:
-            addition_pool_args["socket_options"] = configuration.socket_options
+def _pool_kwargs(configuration: "Configuration", maxsize: typing.Optional[int] = None) -> dict[str, typing.Any]:
+    """Collect the connection pool options of a single configuration."""
+    if maxsize is None:
+        maxsize = configuration.connection_pool_maxsize or 4
 
-        if maxsize is None:
-            if configuration.connection_pool_maxsize is not None:
-                maxsize = configuration.connection_pool_maxsize
-            else:
-                maxsize = 4
+    pool_kwargs: dict[str, typing.Any] = {
+        "maxsize": maxsize,
+        "cert_reqs": ssl.CERT_REQUIRED if configuration.verify_ssl else ssl.CERT_NONE,
+        "ca_certs": _resolve_ca_cert(configuration),
+        "cert_file": configuration.cert_file,
+        "key_file": configuration.key_file,
+    }
+    if configuration.assert_hostname is not None:
+        pool_kwargs["assert_hostname"] = configuration.assert_hostname
 
-        # https pool manager
-        cp_kwargs = {
-            "num_pools": pools_size,
-            "maxsize": maxsize,
-            "cert_reqs": cert_reqs,
-            "ca_certs": _resolve_ca_cert(configuration),
-            "cert_file": configuration.cert_file,
-            "key_file": configuration.key_file,
-            **addition_pool_args,
-        }
-        if proxy_kw := _proxy_setup(configuration):
-            manager_class = urllib3.ProxyManager
-            cp_kwargs.update(proxy_kw)
-        else:
-            manager_class = urllib3.PoolManager  # type: ignore[assignment]
-        logger.debug("created a new SFPoolManager")
-        CONNECTION_POOL = SFPoolManager(manager_class=manager_class, **cp_kwargs)
-    return CONNECTION_POOL
+    if configuration.retries is not None:
+        pool_kwargs["retries"] = configuration.retries
+
+    if configuration.socket_options is not None:
+        pool_kwargs["socket_options"] = configuration.socket_options
+
+    return pool_kwargs
+
+
+def create_connection_pool(configuration: "Configuration", maxsize: typing.Optional[int] = None) -> SFPoolManager:
+    """Return the pool manager that ``configuration`` should send its requests through."""
+    return SFPoolManager(_get_manager(_proxy_setup(configuration)), _pool_kwargs(configuration, maxsize))

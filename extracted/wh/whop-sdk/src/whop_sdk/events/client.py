@@ -96,7 +96,7 @@ class EventsClient:
             Full event names to filter by, comma-separated (payment.completed, pixel.lead, pixel.page, pixel.custom:<name>) — the same vocabulary the events / people metrics use.
 
         source : typing.Optional[str]
-            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter. A whop:... source combined with non-conversion event names (event=pixel.page) instead lists the events whose ad click resolved to that entity — the page views an ad drove.
+            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct, unknown). Selects conversions credited to this source.
 
         attribution_model : typing.Optional[ListEventsRequestAttributionModel]
             Attribution model for the source filter (defaults to last_touch).
@@ -138,7 +138,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -277,7 +277,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -350,7 +350,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -396,7 +396,7 @@ class EventsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -478,7 +478,7 @@ class AsyncEventsClient:
             Full event names to filter by, comma-separated (payment.completed, pixel.lead, pixel.page, pixel.custom:<name>) — the same vocabulary the events / people metrics use.
 
         source : typing.Optional[str]
-            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter. A whop:... source combined with non-conversion event names (event=pixel.page) instead lists the events whose ad click resolved to that entity — the page views an ad drove.
+            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct, unknown). Selects conversions credited to this source.
 
         attribution_model : typing.Optional[ListEventsRequestAttributionModel]
             Attribution model for the source filter (defaults to last_touch).
@@ -522,7 +522,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -670,7 +670,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -751,7 +751,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -806,7 +806,7 @@ class AsyncEventsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -4,6 +4,7 @@ from enum import Enum
 class ListRunsSortType0Item(str, Enum):
     DATE_ADDED = "date_added"
     DURATION = "duration"
+    NUMBER = "number"
     TIME_ENDED = "time_ended"
     TIME_STARTED = "time_started"
 

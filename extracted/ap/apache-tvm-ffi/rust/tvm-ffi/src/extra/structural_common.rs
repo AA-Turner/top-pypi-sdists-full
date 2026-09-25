@@ -19,12 +19,95 @@
 
 use crate::any::{Any, AnyView};
 use crate::error::Error;
-use crate::object::{self, ObjectCore};
-use crate::tvm_ffi_sys::{TVMFFIAny, TVMFFIGetTypeInfo, TVMFFITypeIndex};
+use crate::function::Function;
+use crate::object::{self, ObjectCore, ObjectRefCore};
+use crate::reflection::FieldGetter;
+use crate::tvm_ffi_sys::{
+    TVMFFIAny, TVMFFIByteArray, TVMFFIGetTypeInfo, TVMFFITypeIndex, TVMFFITypeKeyToIndex,
+};
 
 /// Add one structural traversal frame to an error's backtrace.
 pub(crate) fn with_structural_error_context(error: Error, operation: &str, frame: &str) -> Error {
     Error::with_appended_backtrace(error, &format!("[native structural {operation}] {frame}\n"))
+}
+
+#[cold]
+pub(crate) fn with_visit_error_context(error: Error, raw: TVMFFIAny) -> Error {
+    if raw.type_index < TVMFFITypeIndex::kTVMFFIStaticObjectBegin as i32 {
+        return error;
+    }
+    let context = (|| {
+        let mut context_type = 0;
+        unsafe {
+            crate::check_safe_call!(TVMFFITypeKeyToIndex(
+                &TVMFFIByteArray::from_str("ffi.VisitErrorContext"),
+                &mut context_type,
+            ))
+            .ok()?;
+        }
+        let node = StructuralView::from_raw(raw).cast::<object::ObjectRef>()?;
+        let mut previous = error.extra_context();
+        let mut nodes = Vec::new();
+        if let Some(prior) = previous.as_ref() {
+            if AnyView::from(prior).type_index() == context_type {
+                let object = &**object::ObjectRef::data(prior);
+                let records = FieldGetter::new(context_type, "reverse_visit_pattern")
+                    .ok()?
+                    .get_any(object)
+                    .ok()?;
+                let size = Function::get_global("ffi.ListSize")
+                    .ok()?
+                    .call_tuple((records.clone(),))
+                    .ok()?
+                    .try_as::<i64>()?;
+                let get_item = Function::get_global("ffi.ListGetItem").ok()?;
+                if size > 0 {
+                    let last = get_item
+                        .call_tuple((records.clone(), size - 1))
+                        .ok()?
+                        .try_as::<object::ObjectRef>();
+                    // Callback, policy and default descent can report the same frame.
+                    if last.is_some_and(|last| last.same_as(&node)) {
+                        return None;
+                    }
+                }
+                for i in 0..size {
+                    nodes.push(get_item.call_tuple((records.clone(), i)).ok()?);
+                }
+                previous = FieldGetter::new(context_type, "prev_error_context")
+                    .ok()?
+                    .get::<_, Option<object::ObjectRef>>(object)
+                    .ok()?;
+            }
+        }
+        nodes.push(Any::from(node));
+        let records = Function::get_global("ffi.List")
+            .ok()?
+            .call_packed(&nodes.iter().map(AnyView::from).collect::<Vec<_>>())
+            .ok()?;
+        Function::get_global("ffi.MakeObjectFromPackedArgs")
+            .ok()?
+            .call_tuple((
+                context_type,
+                crate::String::from("reverse_visit_pattern"),
+                records,
+                crate::String::from("prev_error_context"),
+                previous,
+            ))
+            .ok()?
+            .try_as::<object::ObjectRef>()
+    })();
+    // Diagnostic enrichment must not replace the original error on failure.
+    match context {
+        Some(context) => Error::new_with_cause_and_extra_context(
+            error.kind(),
+            error.message(),
+            error.backtrace(),
+            error.cause_chain().as_ref(),
+            Some(&context),
+        ),
+        None => error,
+    }
 }
 
 // Generate the tuple arities supported by the standard library (1 through 12).
@@ -64,18 +147,34 @@ macro_rules! impl_callback_chain_tuple_arities {
 
 pub(crate) use impl_callback_chain_tuple_arities;
 
-/// A borrowed value shared by structural visit and map callbacks.
+/// A borrowed value shared by structural visit, walk, map, and mutate callbacks.
 ///
-/// This type centralizes the audited unsafe operations used to cast FFI
-/// values and borrow object nodes. The public APIs expose it as `VisitValue`
-/// or `MapValue` according to the callback context.
+/// Use `&StructuralView` for an erased callback argument. [`Self::as_node`]
+/// borrows an object node, while [`Self::cast`] returns a typed value (acquiring
+/// ownership for object handles). This view does not grant in-place permission;
+/// consuming mutation callbacks use [`crate::MutateValue`] instead.
 #[repr(transparent)]
-pub struct StructuralValue(TVMFFIAny);
+pub struct StructuralView(TVMFFIAny);
 
-impl StructuralValue {
+impl<'a> From<&'a StructuralView> for AnyView<'a> {
+    #[inline]
+    fn from(value: &'a StructuralView) -> Self {
+        // SAFETY: the view cannot outlive the borrowed structural value.
+        unsafe { AnyView::from_raw_ffi_any(value.raw()) }
+    }
+}
+
+impl StructuralView {
     #[inline]
     pub(crate) fn from_raw(raw: TVMFFIAny) -> Self {
         Self(raw)
+    }
+
+    #[inline]
+    pub(crate) fn from_any(value: &Any) -> &Self {
+        // SAFETY: StructuralView is transparent over TVMFFIAny. The owning
+        // Any keeps its contents live for the lifetime of this shared borrow.
+        unsafe { &*std::ptr::from_ref(value.as_raw_ffi_any()).cast::<Self>() }
     }
 
     #[inline]

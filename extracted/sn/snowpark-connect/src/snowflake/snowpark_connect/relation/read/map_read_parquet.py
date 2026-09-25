@@ -817,6 +817,77 @@ def _discover_parquet_column_types(
     )
 
 
+def _limit_infer_schema_files(
+    snowpark_options: dict,
+    stage_file: str,
+    stage_path: str,
+) -> dict | None:
+    """Return snowpark_options with INFER_SCHEMA limited to one stage file.
+
+    Uses ``detach_infer_schema_options`` (the canonical private-copy idiom)
+    to pre-populate ``INFER_SCHEMA_OPTIONS["FILES"]`` with a single file
+    so Snowpark uses it instead of resolving the entire directory.
+
+    ``stage_file`` is a raw LIST result — for internal stages this is
+    ``"stage_name/dir/file.parquet"``; for external stages it can be a
+    full URL like ``"s3://bucket/prefix/dir/file.parquet"``.
+    ``stage_path`` is the quoted stage path used by Snowpark (e.g.
+    ``'@"stage_name"/dir/'``).  The relative portion is computed by
+    stripping the normalized stage prefix from the LIST result.
+
+    Note: this intentionally does NOT reuse ``extract_relative_file_path``
+    (read/utils.py:424) because the inputs differ — that helper operates
+    on *quoted Snowpark stage paths* (``'@stage/dir/file.parquet'``),
+    while this function operates on *raw LIST results* (unquoted, may be
+    cloud URLs like ``s3://…``). The two path forms require different
+    stripping logic.
+
+    Returns ``None`` when a reliable relative path cannot be computed.
+    """
+    import re
+
+    # Strip @, quotes from stage_path: '@"stage_name"/parquet/SS/' → 'stage_name/parquet/SS'
+    normalized = re.sub(r'[@"\']', "", stage_path).rstrip("/")
+
+    # Internal stages: LIST returns "stage_name/parquet/SS/file.parquet".
+    # Require an exact prefix match with a path boundary (trailing /) to avoid
+    # matching siblings like "stage/foo_v2/..." when normalized is "stage/foo".
+    if stage_file == normalized or stage_file.startswith(normalized + "/"):
+        relative = stage_file[len(normalized) :].lstrip("/")
+        return (
+            detach_infer_schema_options(snowpark_options, files=[relative])
+            if relative
+            else None
+        )
+
+    # External stages: LIST returns "s3://bucket/.../parquet/SS/file.parquet".
+    # Extract the subdirectory portion from the stage path (everything after
+    # the stage name), then locate it in the URL to compute the relative path.
+    # This handles Hive-partitioned dirs where basename alone is insufficient
+    # (e.g. FILES must be "dt=2024-01-01/data.parquet", not just "data.parquet").
+    slash_pos = normalized.find("/")
+    if slash_pos >= 0:
+        subdir = normalized[slash_pos + 1 :]  # e.g. "parquet/STORE_SALES"
+        marker = "/" + subdir + "/"
+        idx = stage_file.find(marker)
+        if idx >= 0:
+            relative = stage_file[idx + len(marker) :]
+            if relative:
+                return detach_infer_schema_options(snowpark_options, files=[relative])
+    else:
+        # Stage path has no subdirectory (e.g. '@stage/'). For internal stages
+        # basename is safe; for external stages (cloud URLs) we cannot reliably
+        # determine the relative path so skip the optimisation.
+        if "://" not in stage_file:
+            basename = (
+                stage_file.rsplit("/", 1)[-1] if "/" in stage_file else stage_file
+            )
+            if basename:
+                return detach_infer_schema_options(snowpark_options, files=[basename])
+
+    return None
+
+
 def _get_parquet_file_schema(
     session: Session,
     path: str,
@@ -1486,6 +1557,7 @@ def map_read_parquet(
     skip_partition_discovery: bool = False,
     pd_direct=None,
     pd_read_reason: str = "ELIGIBLE",
+    first_stage_file: str | None = None,
 ) -> DataFrameContainer:
     """Read Parquet file into a Snowpark DataFrame."""
 
@@ -1797,8 +1869,35 @@ def map_read_parquet(
         file_format_options.get("USE_VECTORIZED_SCANNER", "true")
     ).lower() in ("true", "1")
 
+    # SNOW-3748555: when mergeSchema is off (the default), limit
+    # INFER_SCHEMA to a single file instead of the whole directory.
+    # Snowpark's DataFrameReader resolves a directory prefix to *all*
+    # files and passes every one to INFER_SCHEMA's FILES parameter,
+    # which forces Snowflake to read the Parquet footer of every file.
+    # For 100K-file stages this takes 38s (Large) / 508s (adaptive).
+    # When mergeSchema is off, all files share the same schema, so
+    # reading one file is sufficient — matching OSS Spark's default
+    # (mergeSchema=false reads a single file footer since Spark 1.5).
+    #
+    # Pre-populate INFER_SCHEMA_OPTIONS["FILES"] with the first data
+    # file from the upstream compression-detection LIST (no extra
+    # round-trip). The LIST does not apply pathGlobFilter/PATTERN,
+    # but under the mergeSchema=false contract all files share the
+    # same schema, so the picked file's schema is correct regardless.
+    # FILES and PATTERN are mutually exclusive in Snowpark's
+    # _infer_schema_for_file_format, so they cannot conflict.
+    # Only applied for single-path stage reads (first_stage_file is
+    # None for local reads).
+    infer_opts = snowpark_options
+    if not merge_schema and first_stage_file and len(paths) == 1:
+        limited = _limit_infer_schema_files(
+            snowpark_options, first_stage_file, paths[0]
+        )
+        if limited is not None:
+            infer_opts = limited
+
     # base_df is lazy — only used for schema fields and sampling.
-    base_df = session.read.options(snowpark_options).parquet(paths[0])
+    base_df = session.read.options(infer_opts).parquet(paths[0])
     discovered_types = _discover_parquet_column_types(
         base_df,
         session,

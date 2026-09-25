@@ -28,10 +28,20 @@ class _Item:
     url: str
 
 
+class _MmConfig:
+    limits = {"image": 8, "video": 2}
+
+    def get_limit_per_prompt(self, modality):
+        return self.limits[modality]
+
+
 class _ModelConfig:
     dtype = "bf16"
     is_multimodal_model = True
     allowed_local_media_path = ""
+
+    def get_multimodal_config(self):
+        return _MmConfig()
 
 
 class _Engine:
@@ -133,6 +143,15 @@ class TestProbe:
         hello = {k.encode(): v.encode() for k, v in fingerprint().to_hello().items()}
         assert run(processor(FakeRedis(hello=hello)).probe()) is False
 
+    def test_silent_redis_is_not_advertised(self, monkeypatch):
+        monkeypatch.setattr(mm_processor, "CONTROL_TIMEOUT_S", 0.01)
+
+        class Hangs(FakeRedis):
+            async def hgetall(self, key):
+                await asyncio.sleep(10)
+
+        assert run(processor(Hangs()).probe()) is False
+
     def test_matching_hello_advertises_and_adopts_schemes(self):
         hello = {k.encode(): v.encode() for k, v in fingerprint().to_hello().items()}
         hello[b"schema"] = str(proto.SCHEMA_VERSION).encode()
@@ -176,6 +195,26 @@ class TestSubmitAndWait:
         with pytest.raises(mm_processor.MmProcessorUnavailable, match="sidecar_unavailable"):
             run(processor(client)._submit_and_wait(self.job()))
 
+    def test_silent_redis_is_retryable(self, monkeypatch):
+        monkeypatch.setattr(mm_processor, "CONTROL_TIMEOUT_S", 0.01)
+
+        class Hangs(FakeRedis):
+            async def llen(self, key):
+                await asyncio.sleep(10)
+
+        with pytest.raises(mm_processor.MmProcessorUnavailable, match="sidecar_unavailable"):
+            run(processor(Hangs())._submit_and_wait(self.job()))
+
+    def test_unanswered_result_wait_is_retryable(self, monkeypatch):
+        monkeypatch.setattr(mm_processor, "CONTROL_TIMEOUT_S", 0.01)
+
+        class Hangs(FakeRedis):
+            async def brpop(self, key, timeout):
+                await asyncio.sleep(10)
+
+        with pytest.raises(mm_processor.MmProcessorUnavailable, match="sidecar_unavailable"):
+            run(processor(Hangs())._submit_and_wait(self.job()))
+
     def test_client_error_codes_become_value_errors(self):
         client = FakeRedis(
             responder=lambda job: proto.failure(job.job_id, "domain_not_allowed", "x")
@@ -186,6 +225,27 @@ class TestSubmitAndWait:
     def test_retryable_error_codes_stay_unavailable(self):
         client = FakeRedis(responder=lambda job: proto.failure(job.job_id, "expired", "late"))
         with pytest.raises(mm_processor.MmProcessorUnavailable, match="expired"):
+            run(processor(client)._submit_and_wait(self.job()))
+
+    def test_an_oversized_result_is_the_callers_error(self):
+        client = FakeRedis(
+            responder=lambda job: proto.failure(
+                job.job_id, proto.CODE_RESULT_TOO_LARGE, "encoded media result is 9 bytes"
+            )
+        )
+        with pytest.raises(ValueError, match="^media_too_large: encoded media result is 9 bytes"):
+            run(processor(client)._submit_and_wait(self.job()))
+
+    def test_an_undelivered_result_is_retryable_at_once(self):
+        client = FakeRedis(
+            responder=lambda job: proto.failure(
+                job.job_id, proto.CODE_RESULT_PUSH_FAILED, "ConnectionResetError: reset"
+            )
+        )
+        with pytest.raises(
+            mm_processor.MmProcessorUnavailable,
+            match="^sidecar_push_failed: ConnectionResetError: reset",
+        ):
             run(processor(client)._submit_and_wait(self.job()))
 
     def test_undecodable_result_is_retryable(self):
@@ -247,7 +307,15 @@ class TestItemCap:
         client = FakeRedis(responder=ok_result)
         p = processor(client, max_items=1)
         items = [_Item("image", "https://a/1.png"), _Item("image", "https://a/2.png")]
-        with pytest.raises(ValueError, match="SMG_VLLM_MM_MAX_ITEMS"):
+        with pytest.raises(ValueError, match="2 image items, above this worker's limit of 1"):
+            run(p.process([1, 2, 3], None, items, 0.0))
+        assert client.pushed == []
+
+    def test_cap_defaults_to_what_the_engine_accepts(self):
+        client = FakeRedis(responder=ok_result)
+        p = processor(client)
+        items = [_Item("video", f"https://a/{i}.mp4") for i in range(3)]
+        with pytest.raises(ValueError, match="3 video items, above this worker's limit of 2"):
             run(p.process([1, 2, 3], None, items, 0.0))
         assert client.pushed == []
 
@@ -275,3 +343,26 @@ class TestBuild:
         assert p._timeout_ms == 1000
         assert p._max_queue == 8
         assert p._keys.prefix == "smg:mm:v1:ns-1"
+
+    def test_flag_settings_reach_the_redis_processor(self, monkeypatch):
+        monkeypatch.setattr(mm_processor, "engine_fingerprint", lambda engine: fingerprint())
+        urls = []
+        monkeypatch.setattr(mm_processor, "_redis_client", lambda url: urls.append(url))
+        env = {
+            "SMG_VLLM_MM_PROCESSOR": "off",
+            "SMG_VLLM_MM_SIDECAR_TIMEOUT_MS": "1000",
+            "SMG_VLLM_MM_SIDECAR_NAMESPACE": "ns-env",
+        }
+        settings = mm_processor.MmSettings(
+            processor="redis",
+            redis_url="redis://cache:6379/2",
+            sidecar_timeout_ms=250,
+            sidecar_max_queue=4,
+            sidecar_namespace="ns-flag",
+        )
+        p = mm_processor.build_mm_processor(_Engine(), env=env, settings=settings)
+        assert p.name == "redis"
+        assert urls == ["redis://cache:6379/2"]
+        assert p._timeout_ms == 250
+        assert p._max_queue == 4
+        assert p._keys.prefix == "smg:mm:v1:ns-flag"

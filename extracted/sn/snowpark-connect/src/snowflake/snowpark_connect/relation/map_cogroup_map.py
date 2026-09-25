@@ -46,8 +46,18 @@ def map_co_group_map(
     """
     from snowflake.snowpark_connect.relation.map_relation import map_relation
 
-    input_container = map_relation(rel.co_group_map.input)
-    other_container = map_relation(rel.co_group_map.other)
+    # cogroup processes two DataFrames that are later combined via UNION ALL +
+    # a UDTF keyed by a grouping expression — functionally a join-like
+    # operation where the optimizer may benefit from cardinality estimates on
+    # the inputs (e.g. to size hash tables or choose a distribution strategy).
+    # Treat it the same as map_join for NDV purposes.
+    from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+        _join_context,
+    )
+
+    with _join_context():
+        input_container = map_relation(rel.co_group_map.input)
+        other_container = map_relation(rel.co_group_map.other)
 
     input_typer = ExpressionTyper(input_container.dataframe)
     other_typer = ExpressionTyper(other_container.dataframe)

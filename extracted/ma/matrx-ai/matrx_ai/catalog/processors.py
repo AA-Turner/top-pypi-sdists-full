@@ -373,6 +373,50 @@ def _anthropic_budget_thinking(
     return params
 
 
+def _always_on_thinking_floor(
+    params: dict[str, Any],
+    ctx: ProcessorContext,
+    *,
+    effort_level: str | None,
+    key: str,
+    requested: Any,
+) -> dict[str, Any]:
+    """processor_config.thinking_always_on: the NEAREST honest equivalent of "off".
+
+    Claude Opus 5.5 and Fable 5.1 (and Mythos 5 / 5.1) reject
+    ``thinking: {"type": "disabled"}`` and have no way to switch reasoning off.
+    Omitting the block is not "off" either — it runs the model's DEFAULT effort
+    (medium on Opus 5.5), i.e. more thinking than the caller asked for. Per THE
+    EQUIVALENCE LAW (nearest is the default), the closest thing to "no thinking"
+    that the model accepts is adaptive thinking at the lowest effort with nothing
+    displayed. If the caller also named an effort (e.g. include_thoughts=False with
+    reasoning_effort="high") that effort is kept — they asked for depth, just not
+    to see it. This is a CONVERSION (``mapped``): logged on the server, silent to
+    the client, like every other conversion.
+    """
+    effort = _apply_effort_ceiling(effort_level or "low", ctx)
+    ctx.adjustments.append(
+        Adjustment(
+            key=key,
+            action="mapped",
+            canonical_value=requested,
+            sent_value={"thinking": "adaptive", "effort": effort, "display": "omitted"},
+            reason=(
+                "this model's thinking is always on and cannot be disabled "
+                "(thinking.type='disabled' is rejected); sent the nearest equivalent: "
+                f"adaptive thinking at effort '{effort}' with display omitted"
+            ),
+        )
+    )
+    params["thinking"] = {"type": "adaptive", "display": "omitted"}
+    existing = params.get("output_config")
+    if isinstance(existing, dict):
+        existing["effort"] = effort
+    else:
+        params["output_config"] = {"effort": effort}
+    return params
+
+
 def _anthropic_adaptive_thinking(
     canonical: dict[str, Any], params: dict[str, Any], ctx: ProcessorContext
 ) -> dict[str, Any]:
@@ -384,11 +428,20 @@ def _anthropic_adaptive_thinking(
 
     effort_level: str | None = None
     thinking_off = False
+    # processor_config.thinking_always_on — the model rejects thinking.type
+    # "disabled" (Opus 5.5, Fable 5.1, Mythos 5 / 5.1). Every "off" signal below
+    # then converts to the nearest accepted equivalent instead of omitting the
+    # block (which would silently run the model's DEFAULT, deeper, effort).
+    always_on = bool(ctx.config.get("thinking_always_on"))
 
     # Priority 1: reasoning_effort ("none" is an explicit off switch).
     explicit = _explicit_effort(canonical)
     if explicit is not None:
         if explicit == "none":
+            if always_on:
+                return _always_on_thinking_floor(
+                    params, ctx, effort_level=None, key="reasoning_effort", requested="none"
+                )
             return params
         effort_level = _ANTHROPIC_ADAPTIVE_EFFORT.get(explicit)
 
@@ -412,8 +465,22 @@ def _anthropic_adaptive_thinking(
 
     # Priority 4: include_thoughts=False disables thinking outright.
     if canonical.get("include_thoughts") is False:
+        if always_on:
+            return _always_on_thinking_floor(
+                params, ctx, effort_level=effort_level, key="include_thoughts", requested=False
+            )
         return params
-    if thinking_off or effort_level is None:
+    if thinking_off:
+        if always_on:
+            return _always_on_thinking_floor(
+                params,
+                ctx,
+                effort_level=None,
+                key="thinking_budget",
+                requested=canonical.get("thinking_budget"),
+            )
+        return params
+    if effort_level is None:
         return params
 
     # ai_047: engine-side ceiling — the second gate behind ui_values.

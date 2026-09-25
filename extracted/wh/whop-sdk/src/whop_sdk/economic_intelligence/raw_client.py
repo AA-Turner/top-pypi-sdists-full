@@ -20,6 +20,7 @@ from ..types.economic_intelligence import EconomicIntelligence
 from ..types.v1error_response import V1ErrorResponse
 from .types.list_economic_intelligence_request_status import ListEconomicIntelligenceRequestStatus
 from .types.list_economic_intelligence_response import ListEconomicIntelligenceResponse
+from .types.update_economic_intelligence_request_sentiment import UpdateEconomicIntelligenceRequestSentiment
 from .types.update_economic_intelligence_request_status import UpdateEconomicIntelligenceRequestStatus
 from pydantic import ValidationError
 
@@ -36,6 +37,7 @@ class RawEconomicIntelligenceClient:
         *,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListEconomicIntelligenceRequestStatus] = None,
+        input: typing.Optional[str] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
@@ -52,6 +54,9 @@ class RawEconomicIntelligenceClient:
 
         status : typing.Optional[ListEconomicIntelligenceRequestStatus]
             Filter recommendations by their current status.
+
+        input : typing.Optional[str]
+            What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -75,10 +80,12 @@ class RawEconomicIntelligenceClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "economic_intelligence",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
                 "status": status,
+                "input": input,
                 "first": first,
                 "after": after,
                 "last": last,
@@ -104,6 +111,7 @@ class RawEconomicIntelligenceClient:
                     _get_next = lambda: self.list(
                         account_id=account_id,
                         status=status,
+                        input=input,
                         first=first,
                         after=_parsed_next,
                         last=last,
@@ -164,122 +172,39 @@ class RawEconomicIntelligenceClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def create(
-        self,
-        *,
-        input: str,
-        account_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[EconomicIntelligence]:
-        """
-        Generates a recommendation based on your input. Returns immediately; poll the list endpoint until its `status` is `ready`.
-
-        Parameters
-        ----------
-        input : str
-            What the owner wants, in their own words. Up to 1000 characters.
-
-        account_id : typing.Optional[str]
-            Account ID, prefixed `biz_`. Defaults to the API key's own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[EconomicIntelligence]
-            recommendation queued
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "economic_intelligence",
-            method="POST",
-            json={
-                "account_id": account_id,
-                "input": input,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    EconomicIntelligence,
-                    parse_obj_as(
-                        type_=EconomicIntelligence,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        V1ErrorResponse,
-                        parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def update(
         self,
         id: str,
         *,
-        status: UpdateEconomicIntelligenceRequestStatus,
         account_id: typing.Optional[str] = None,
-        reason: typing.Optional[str] = OMIT,
+        input: typing.Optional[str] = OMIT,
+        sentiment: typing.Optional[UpdateEconomicIntelligenceRequestSentiment] = OMIT,
+        status: typing.Optional[UpdateEconomicIntelligenceRequestStatus] = OMIT,
+        user_feedback: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[EconomicIntelligence]:
         """
-        Approves or rejects a recommendation and requests replacements.
+        Updates a recommendation status, records feedback, or both. Send `sentiment` to rate it. Include `status: superseded` to retire it and request replacements; a rating alone leaves its status unchanged.
 
         Parameters
         ----------
         id : str
             Recommendation ID, prefixed `reca_`.
 
-        status : UpdateEconomicIntelligenceRequestStatus
-            Use `executed` to record approval, or `superseded` to reject the recommendation.
-
         account_id : typing.Optional[str]
             Account ID, prefixed `biz_`. Defaults to the API key's own account.
 
-        reason : typing.Optional[str]
-            Why the recommendation was rejected. Used as feedback when replenishing recommendations.
+        input : typing.Optional[str]
+            What you want the replacement recommendation for, in your own words. Up to 1000 characters. Sent when superseding, it directs the generation that replaces the rejected recommendation.
+
+        sentiment : typing.Optional[UpdateEconomicIntelligenceRequestSentiment]
+            A signed-in user can rate a recommendation as `positive` or `negative`. Can be sent alone or together with status.
+
+        status : typing.Optional[UpdateEconomicIntelligenceRequestStatus]
+            Use `executed` to record approval, or `superseded` to reject the recommendation.
+
+        user_feedback : typing.Optional[str]
+            An optional explanation of the rating or rejection. Negative feedback informs replacement recommendations.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -291,13 +216,16 @@ class RawEconomicIntelligenceClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"economic_intelligence/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             params={
                 "account_id": account_id,
             },
             json={
-                "reason": reason,
+                "input": input,
+                "sentiment": sentiment,
                 "status": status,
+                "user_feedback": user_feedback,
             },
             headers={
                 "content-type": "application/json",
@@ -378,6 +306,7 @@ class AsyncRawEconomicIntelligenceClient:
         *,
         account_id: typing.Optional[str] = None,
         status: typing.Optional[ListEconomicIntelligenceRequestStatus] = None,
+        input: typing.Optional[str] = None,
         first: typing.Optional[int] = None,
         after: typing.Optional[str] = None,
         last: typing.Optional[int] = None,
@@ -394,6 +323,9 @@ class AsyncRawEconomicIntelligenceClient:
 
         status : typing.Optional[ListEconomicIntelligenceRequestStatus]
             Filter recommendations by their current status.
+
+        input : typing.Optional[str]
+            What you want recommendations for, in your own words. Up to 1000 characters. Narrows the list to the recommendations that address it.
 
         first : typing.Optional[int]
             Number of results to return from the start of the range.
@@ -417,10 +349,12 @@ class AsyncRawEconomicIntelligenceClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "economic_intelligence",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
                 "status": status,
+                "input": input,
                 "first": first,
                 "after": after,
                 "last": last,
@@ -448,6 +382,7 @@ class AsyncRawEconomicIntelligenceClient:
                         return await self.list(
                             account_id=account_id,
                             status=status,
+                            input=input,
                             first=first,
                             after=_parsed_next,
                             last=last,
@@ -509,122 +444,39 @@ class AsyncRawEconomicIntelligenceClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def create(
-        self,
-        *,
-        input: str,
-        account_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[EconomicIntelligence]:
-        """
-        Generates a recommendation based on your input. Returns immediately; poll the list endpoint until its `status` is `ready`.
-
-        Parameters
-        ----------
-        input : str
-            What the owner wants, in their own words. Up to 1000 characters.
-
-        account_id : typing.Optional[str]
-            Account ID, prefixed `biz_`. Defaults to the API key's own account.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[EconomicIntelligence]
-            recommendation queued
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "economic_intelligence",
-            method="POST",
-            json={
-                "account_id": account_id,
-                "input": input,
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    EconomicIntelligence,
-                    parse_obj_as(
-                        type_=EconomicIntelligence,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        V1ErrorResponse,
-                        parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def update(
         self,
         id: str,
         *,
-        status: UpdateEconomicIntelligenceRequestStatus,
         account_id: typing.Optional[str] = None,
-        reason: typing.Optional[str] = OMIT,
+        input: typing.Optional[str] = OMIT,
+        sentiment: typing.Optional[UpdateEconomicIntelligenceRequestSentiment] = OMIT,
+        status: typing.Optional[UpdateEconomicIntelligenceRequestStatus] = OMIT,
+        user_feedback: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[EconomicIntelligence]:
         """
-        Approves or rejects a recommendation and requests replacements.
+        Updates a recommendation status, records feedback, or both. Send `sentiment` to rate it. Include `status: superseded` to retire it and request replacements; a rating alone leaves its status unchanged.
 
         Parameters
         ----------
         id : str
             Recommendation ID, prefixed `reca_`.
 
-        status : UpdateEconomicIntelligenceRequestStatus
-            Use `executed` to record approval, or `superseded` to reject the recommendation.
-
         account_id : typing.Optional[str]
             Account ID, prefixed `biz_`. Defaults to the API key's own account.
 
-        reason : typing.Optional[str]
-            Why the recommendation was rejected. Used as feedback when replenishing recommendations.
+        input : typing.Optional[str]
+            What you want the replacement recommendation for, in your own words. Up to 1000 characters. Sent when superseding, it directs the generation that replaces the rejected recommendation.
+
+        sentiment : typing.Optional[UpdateEconomicIntelligenceRequestSentiment]
+            A signed-in user can rate a recommendation as `positive` or `negative`. Can be sent alone or together with status.
+
+        status : typing.Optional[UpdateEconomicIntelligenceRequestStatus]
+            Use `executed` to record approval, or `superseded` to reject the recommendation.
+
+        user_feedback : typing.Optional[str]
+            An optional explanation of the rating or rejection. Negative feedback informs replacement recommendations.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -636,13 +488,16 @@ class AsyncRawEconomicIntelligenceClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"economic_intelligence/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             params={
                 "account_id": account_id,
             },
             json={
-                "reason": reason,
+                "input": input,
+                "sentiment": sentiment,
                 "status": status,
+                "user_feedback": user_feedback,
             },
             headers={
                 "content-type": "application/json",

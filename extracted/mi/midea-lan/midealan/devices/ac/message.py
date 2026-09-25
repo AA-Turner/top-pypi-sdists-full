@@ -28,8 +28,6 @@ _LOGGER = logging.getLogger(__name__)
 # "silent"/"low"/"medium"/"high"/"auto"/"custom" with bool values.
 CapabilityValue = bool | int | list[str] | dict[str, dict[str, float] | bool]
 
-A1_MIN_BODY_LENGTH = 18
-
 BB_AC_MODES = [0, 3, 1, 2, 4, 5]
 BB_MIN_BODY_LENGTH = 21
 BB_FRESH_AIR_SWITCH_INDEX = 45
@@ -44,14 +42,15 @@ BB_INDOOR_TEMPERATURE_HIGH_INDEX = 8
 BB_INDOOR_HUMIDITY_INDEX = 30
 BB_SN8_FLAG_INDEX = 80
 BB_OUTDOOR_TEMPERATURE_HIGH_INDEX = 6
-CONFORT_MODE_MIN_LENGTH = 16
-CONFORT_MODE_MIN_LENGTH2 = 23
-SMART_DRY_MIN_LENGTH = 20
-SWING_LR_MIN_LENGTH = 21
-FRESH_AIR_C0_MIN_LENGTH = 29
+
+A0_A1_C0_MIN_BODY_LENGTH = 18
+CONFORT_MODE_MIN_LENGTH2 = 25
+SMART_DRY_MIN_LENGTH = 22
+SWING_LR_MIN_LENGTH = 22
+FRESH_AIR_C0_MIN_LENGTH = 30
 ECO_MODE_MIN_SUBPROTOCOL_LENGTH = 27
 FRESH_AIR_LENGTH = 2
-FROST_PROTECT_MIN_LENGTH = 22
+FROST_PROTECT_MIN_LENGTH = 24
 INDIRECT_WIND_VALUE = 0x02
 MAX_MSG_SERIAL_NUM = 254
 OUT_SILENT_VALUE = 0x03
@@ -108,6 +107,46 @@ NEW_PROTOCOL_MAX_VALID_TEMPERATURE = 40
 NEW_PROTOCOL_LEGACY_SETPOINT_BYTE = 3
 NEW_PROTOCOL_INDOOR_TEMPERATURE_BYTE = 40
 NEW_PROTOCOL_INDOOR_TEMPERATURE_DECIMAL_BYTE = 41
+# Live degerming (sterilize) state rides the 0x7e new-protocol payload on
+# verified hardware: byte 19, bit 0x02. Reported in both B0/B1 bodies and B5
+# notify bodies, unlike self_clean whose B5 occurrence is only a capability
+# flag. Verified on model 22019053 / protocol v3 with device-side toggles.
+NEW_PROTOCOL_DEGERMING_BYTE = 19
+NEW_PROTOCOL_DEGERMING_MASK = 0x02
+# Light sensitivity and the countdown timer slots ride the same 0x7e payload on
+# the same verified hardware: light sensitivity is a 2-bit field (0 = off,
+# 3 = on; the intermediate levels 1/2 exist but are not characterized yet) and
+# the countdown timers are two independent slots, power-on and power-off. The
+# high bit is the armed flag, the lower bits carry hours plus quarter-hours,
+# and byte 6 carries per-slot minute correction nibbles. The indexes below are
+# offsets into the parsed 0x7e payload as exposed by the parser (payload[0] is
+# the leading seq/flag byte, so raw payload byte N sits at index N + 1 - the
+# same convention as NEW_PROTOCOL_DEGERMING_BYTE).
+NEW_PROTOCOL_LIGHT_SENSITIVE_BYTE = 23
+NEW_PROTOCOL_LIGHT_SENSITIVE_MASK = 0xC0
+NEW_PROTOCOL_POWER_ON_TIMER_BYTE = 4
+NEW_PROTOCOL_POWER_OFF_TIMER_BYTE = 5
+NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_BYTE = 6
+NEW_PROTOCOL_TIMER_ARMED_MASK = 0x80
+NEW_PROTOCOL_TIMER_VALUE_MASK = 0x7F
+NEW_PROTOCOL_TIMER_HOUR_SHIFT = 2
+NEW_PROTOCOL_TIMER_QUARTER_MASK = 0x03
+NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_MASK = 0x0F
+NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_MAX = 15
+NEW_PROTOCOL_TIMER_MINUTES_PER_HOUR = 60
+NEW_PROTOCOL_TIMER_MINUTES_PER_QUARTER = 15
+NEW_PROTOCOL_TIMER_POWER_ON_CORRECTION_SHIFT = 4
+# Live self-clean state is carried by the same payload (byte 8 bit 2).
+NEW_PROTOCOL_SELF_CLEAN_BYTE = 8
+NEW_PROTOCOL_SELF_CLEAN_MASK = 0x04
+
+# X40 set packets carry low targets in a legacy extension byte.
+LOW_TARGET_TEMPERATURE_BOUNDARY = 17.0
+LOW_TARGET_TEMPERATURE_OFFSET = 12
+LOW_TARGET_TEMPERATURE_MASK = 0x1F
+LOW_TARGET_C0_EXTENSION_INDEX = 13
+LOW_TARGET_C0_EXTENSION_VALUE = 4
+LOW_TARGET_C0_STANDARD_MAX = LOW_TARGET_TEMPERATURE_BOUNDARY + 0.5
 
 # Capability value semantics (reverse-engineered; see _parse_capabilities).
 # The raw byte of each capability is not a 0/1 flag; each has its own value set.
@@ -220,6 +259,7 @@ class CapabilityTag(IntEnum):
     out_silent = 0x00CD
     ieco = 0x00E3
     pre_cool_hot = 0x0201
+    light_sensitive = 0x0208  # queryType == "light_sensitive"
     pm25_value = 0x020B
     wind_speed = 0x0210
     eco = 0x0212
@@ -482,136 +522,231 @@ class ToggleDisplay(MessageACBase):
         )
 
 
-class PropertiesQuery(MessageACBase):
-    """AC message new protocol query.
+# Module-level shared constants for B1 query splitting.
+#
+# The single CapabilityTag enum above holds every known new-protocol tag. The
+# three frozensets below classify those tags into the datasets that drive B1
+# querying. Because Python IntEnum cannot inherit members, the categories are
+# expressed as frozensets over the one master enum rather than as separate
+# enums.
 
-    A single B1 query carries a list of new-protocol tags. The device answers
-    with an empty parameter list when a request carries a tag it does not
-    support, which suppresses every other tag in the same request. The base
-    list therefore holds only tags every new-protocol device is known to
-    answer, while status feature tags that some devices reject (self_clean,
-    rate_select, ...) are appended automatically from the merged capabilities
-    map (B5 capabilities overlaid with the user's customize overrides): any
-    capability key that names a CapabilityTag member and is truthy is added.
+# COMMON_TAGS: tags valid as both a B5 capability and a B1 property. Shared base
+# included by both PROPERTIES_TAGS and (by exclusion) CAPABILITY_ONLY_TAGS.
+COMMON_TAGS: frozenset[int] = frozenset(
+    {
+        CapabilityTag.wind_ud_angle,  # 0x0009
+        CapabilityTag.wind_lr_angle,  # 0x000A
+        CapabilityTag.breezeless,  # 0x0018
+        CapabilityTag.self_clean,  # 0x0039
+        CapabilityTag.indirect_wind,  # 0x0042
+        CapabilityTag.gentle_wind_sense,  # 0x0043
+        CapabilityTag.rate_select,  # 0x0048
+        CapabilityTag.fresh_air_2,  # 0x004B
+        CapabilityTag.wind_around,  # 0x0059
+        CapabilityTag.jet_cool,  # 0x0067
+        CapabilityTag.out_silent,  # 0x00CD
+        CapabilityTag.ieco,  # 0x00E3
+        CapabilityTag.anion,  # 0x021E
+        CapabilityTag.sound,  # 0x022C
+    },
+)
+
+# PROPERTIES_TAGS: the B1 allowlist. Only these tags are ever placed in a B1
+# query. COMMON_TAGS plus the property-only tags below, all parsed from B1
+# bodies and proven on real devices.
+PROPERTIES_TAGS: frozenset[int] = COMMON_TAGS | frozenset(
+    {
+        CapabilityTag.indoor_humidity,  # 0x0015
+        CapabilityTag.prompt_tone,  # 0x001A
+        CapabilityTag.screen_display,  # 0x0017
+        CapabilityTag.error_code,  # 0x003F
+        CapabilityTag.fresh_air_1,  # 0x0233
+        CapabilityTag.degerming,  # 0x005A
+        CapabilityTag.light_sensitive,  # 0x0208
+    },
+)
+
+# CAPABILITY_ONLY_TAGS: tags that only ever appear in B5 capability
+# advertisements, never as valid B1 query tags. Devices reply with an empty
+# list when queried with one, suppressing all other tags in the same request.
+# COMMON_TAGS are intentionally excluded (they are also valid B1 properties).
+CAPABILITY_ONLY_TAGS: frozenset[int] = frozenset(
+    {
+        CapabilityTag.nobody_energy_save,  # 0x0030
+        CapabilityTag.wind_straight,  # 0x0032
+        CapabilityTag.wind_avoid,  # 0x0033
+        CapabilityTag.prevent_super_cool,  # 0x0049
+        CapabilityTag.parent_control,  # 0x0051
+        CapabilityTag.prevent_straight_wind_lr,  # 0x0058
+        CapabilityTag.temperature,  # 0x0225
+        CapabilityTag.twins_machine,  # 0x0232
+        CapabilityTag.body_check,  # 0x0234
+        CapabilityTag.wind_speed,  # 0x0210
+        CapabilityTag.eco,  # 0x0212
+        CapabilityTag.b5_8_heat,  # 0x0213
+        CapabilityTag.mode,  # 0x0214
+        CapabilityTag.wind_swing,  # 0x0215
+        CapabilityTag.electricity,  # 0x0216
+        CapabilityTag.filter_remind,  # 0x0217
+        CapabilityTag.ptc,  # 0x0219
+        CapabilityTag.strong_wind,  # 0x021A
+        CapabilityTag.humidity,  # 0x021F
+        CapabilityTag.filter_check,  # 0x0221
+        CapabilityTag.fahrenheit,  # 0x0222
+        CapabilityTag.screen_display_capability,  # 0x0224
+    },
+)
+
+# Default properties queried by PropertiesDefaultQuery (8 properties).
+# These are known to be supported by all new-protocol devices and are all
+# members of PROPERTIES_TAGS.
+_B1_DEFAULT_PROPERTIES: tuple[int, ...] = (
+    int(CapabilityTag.indirect_wind),
+    int(CapabilityTag.breezeless),
+    int(CapabilityTag.indoor_humidity),
+    int(CapabilityTag.screen_display),
+    int(CapabilityTag.fresh_air_1),
+    int(CapabilityTag.fresh_air_2),
+    int(CapabilityTag.wind_lr_angle),
+    int(CapabilityTag.wind_ud_angle),
+)
+
+# Maximum properties per B1 query batch. Verified device boundary on COLMO CA3
+# (22019053/22019061, raw B1 frames): <= 9 property IDs per query answer
+# normally, >= 10 are suppressed as a whole (only the 0x7e block survives),
+# independent of which tags are present. 9 also stays within the 11-property
+# bound reported for other families in #1031.
+_B1_MAX_PROPERTIES_PER_BATCH = 9
+
+# Number of dynamic capability-property batches (PropertiesCapsQuery + ...1).
+# Two batches cover the current collectable capability pool (PROPERTIES_TAGS
+# minus the default properties) with headroom for future property tags.
+_B1_MAX_CAPABILITY_BATCHES = 2
+
+
+def format_property_tags(tags: "list[int] | tuple[int, ...]") -> str:
+    """Render B1 property tags as a readable "name(0xHHHH)" list for logs.
+
+    Unknown tag values (not in CapabilityTag) fall back to just their hex.
+    """
+    names: list[str] = []
+    for tag in tags:
+        try:
+            names.append(f"{CapabilityTag(tag).name}(0x{tag:04X})")
+        except ValueError:
+            names.append(f"0x{tag:04X}")
+    return ", ".join(names)
+
+
+class PropertiesDefaultQuery(MessageACBase):
+    """AC new-protocol query for default properties only.
+
+    Queries the 8 fixed default properties that all new-protocol devices
+    support. This query is always sent and never includes capability-based
+    properties, ensuring it cannot fail due to unsupported tags.
     """
 
-    # Tags that only ever appear in B5 capability advertisements, never as valid
-    # B1 query tags in any Lua protocol. B5 parsing echoes several of these as
-    # capability keys named after the tag; they must never be appended to a B1
-    # query or the device replies with an empty list and suppresses every other
-    # tag in the same request. See docs/protocol/ac_newprotocol_tags.md.
-    _CAPABILITY_ONLY_TAGS: frozenset[int] = frozenset(
-        {
-            CapabilityTag.wind_speed,  # 0x0210
-            CapabilityTag.eco,  # 0x0212
-            CapabilityTag.b5_8_heat,  # 0x0213
-            CapabilityTag.mode,  # 0x0214
-            CapabilityTag.wind_swing,  # 0x0215
-            CapabilityTag.electricity,  # 0x0216
-            CapabilityTag.filter_remind,  # 0x0217
-            CapabilityTag.ptc,  # 0x0219
-            CapabilityTag.strong_wind,  # 0x021A
-            CapabilityTag.humidity,  # 0x021F
-            CapabilityTag.filter_check,  # 0x0221
-            CapabilityTag.fahrenheit,  # 0x0222
-            CapabilityTag.screen_display_capability,  # 0x0224
-        },
-    )
+    def __init__(self, protocol_version: int) -> None:
+        """Initialize default properties query."""
+        super().__init__(
+            protocol_version=protocol_version,
+            message_type=MessageType.query,
+            body_type=ListTypes.B1,
+        )
+        self.properties: tuple[int, ...] = _B1_DEFAULT_PROPERTIES
 
-    _default_properties: tuple[int, ...] = (
-        CapabilityTag.indirect_wind,
-        CapabilityTag.breezeless,
-        CapabilityTag.indoor_humidity,
-        CapabilityTag.screen_display,
-        CapabilityTag.fresh_air_1,
-        CapabilityTag.fresh_air_2,
-        CapabilityTag.wind_lr_angle,
-        CapabilityTag.wind_ud_angle,
-    )
+    @property
+    def _body(self) -> bytearray:
+        params = self.properties
+        _body = bytearray([len(params)])
+        for param in params:
+            _body.extend([param & 0xFF, param >> 8])
+        return _body
 
-    _capability_properties: tuple[int, ...] = (
-        CapabilityTag.self_clean,
-        CapabilityTag.rate_select,
-        CapabilityTag.out_silent,
-        CapabilityTag.ieco,
-        CapabilityTag.sound,
-        CapabilityTag.error_code,
-    )
+
+class _PropertiesCapsQueryBase(MessageACBase):
+    """Base class for capability-based properties queries.
+
+    Subclasses (PropertiesCapsQuery, PropertiesCapsQuery1) query capability-based
+    properties in separate batches to prevent an unsupported property from
+    suppressing default properties.
+    """
 
     def __init__(
         self,
         protocol_version: int,
         *,
-        capabilities: dict[str, CapabilityValue] | None = None,
+        properties_subset: list[int],
     ) -> None:
-        """Initialize AC message new protocol query.
+        """Initialize capability properties query.
 
-        `capabilities` is the device's merged capability map (B5-parsed values
-        overlaid with the user's customize overrides). Every capability key that
-        names a CapabilityTag member and is truthy is appended to the query,
-        so a device that never advertised a feature (or that a user disabled via
-        customize) is not asked for it.
+        Args:
+            protocol_version: Protocol version.
+            properties_subset: List of capability property tags (as integers)
+                to include in this query batch.
+
         """
         super().__init__(
             protocol_version=protocol_version,
             message_type=MessageType.query,
             body_type=ListTypes.B1,
         )
-        self._capabilities = capabilities or {}
-        # `_body` is read several times per send (encode -> frame -> CRC), so
-        # the build log is emitted only on the first read to avoid duplicates.
-        self._build_logged = False
+        self.properties: tuple[int, ...] = tuple(sorted(properties_subset))
 
     @property
     def _body(self) -> bytearray:
-        params = list(self._default_properties)
-        default_tags = frozenset(self._default_properties)
-        properties_tags = frozenset(self._capability_properties)
-
-        # Auto-append tags from the merged capabilities map. A capability key is
-        # queried only when it names a CapabilityTag member and its value is
-        # truthy, so a device that never advertised a feature (or that a user
-        # disabled via customize) is not asked for it. Tags are sorted by value
-        # so the produced body is deterministic.
-        properties_query: list[CapabilityTag] = []
-        additional_tags: list[CapabilityTag] = []
-        for key, value in self._capabilities.items():
-            if not value:
-                continue  # Skip falsy values (0, False, None).
-            try:
-                tag = CapabilityTag[key]
-            except KeyError:
-                continue  # Key does not name a CapabilityTag member.
-            if tag in default_tags:
-                continue
-            if tag in self._CAPABILITY_ONLY_TAGS:
-                continue  # B5-advertisement-only; never valid as a B1 query tag.
-            if tag in properties_tags:
-                properties_query.append(tag)
-            else:
-                additional_tags.append(tag)
-        # Sort each list, then extend params with both in sorted order
-        properties_query.sort()
-        additional_tags.sort()
-        # Merge both lists and sort together to maintain overall tag value order
-        appended_tags = properties_query + additional_tags
-        appended_tags.sort()
-        params.extend(appended_tags)
-        if not self._build_logged:
-            self._build_logged = True
-            _LOGGER.debug(
-                "PropertiesQuery build: default_properties=%s "
-                "capability_properties=%s additional_tags=%s capabilities=%s",
-                [CapabilityTag(tag).name for tag in default_tags],
-                [tag.name for tag in properties_query],
-                [tag.name for tag in additional_tags],
-                self._capabilities,
-            )
-
+        params = self.properties
         _body = bytearray([len(params)])
         for param in params:
             _body.extend([param & 0xFF, param >> 8])
         return _body
+
+    @staticmethod
+    def collect_capability_properties(
+        capabilities: dict[str, CapabilityValue],
+    ) -> list[int]:
+        """Collect capability properties from capabilities dict.
+
+        Returns a sorted list of capability property tag integers that should
+        be queried based on the device's advertised capabilities.
+
+        Uses an allowlist model: a tag is collected only if it is a member of
+        PROPERTIES_TAGS (the B1-queryable allowlist) and is not already in
+        _B1_DEFAULT_PROPERTIES (queried by PropertiesDefaultQuery). Any tag not
+        in PROPERTIES_TAGS (capability-only or unknown) is never queried in B1.
+
+        Args:
+            capabilities: Device capabilities dict from B5 + customize.
+
+        Returns:
+            Sorted list of capability property tags to query.
+
+        """
+        properties: list[int] = []
+        default_tags = frozenset(_B1_DEFAULT_PROPERTIES)
+
+        for key, value in capabilities.items():
+            if not value:
+                continue  # Skip falsy values
+            try:
+                tag = int(CapabilityTag[key])
+            except KeyError:
+                continue  # Not a valid tag name
+            if tag not in PROPERTIES_TAGS:
+                continue  # Not a B1-queryable property (capability-only)
+            if tag in default_tags:
+                continue  # Already in default query
+            properties.append(tag)
+
+        return sorted(properties)
+
+
+class PropertiesCapsQuery(_PropertiesCapsQueryBase):
+    """First dynamic capability properties query batch."""
+
+
+class PropertiesCapsQuery1(_PropertiesCapsQueryBase):
+    """Second dynamic capability properties query batch."""
 
 
 class MessageSubProtocol(MessageACBase):
@@ -897,6 +1032,13 @@ class StateSet(MessageACBase):
         boost_mode_1 = 0x02 if self.boost_mode else 0
         # Byte 17 natural_wind
         natural_wind = 0x40 if self.natural_wind else 0
+        # Lua bodyBytes[18] extends the normal target field below 17 C.
+        low_target_temperature = (
+            (int(self.target_temperature) - LOW_TARGET_TEMPERATURE_OFFSET)
+            & LOW_TARGET_TEMPERATURE_MASK
+            if self.target_temperature < LOW_TARGET_TEMPERATURE_BOUNDARY
+            else 0
+        )
         # Byte 21 frost_protect
         frost_protect = 0x80 if self.frost_protect else 0
         # Byte 22 comfort_mode
@@ -921,7 +1063,7 @@ class StateSet(MessageACBase):
                 0x00,
                 0x00,
                 natural_wind,
-                0x00,
+                low_target_temperature,
                 0x00,
                 0x00,
                 frost_protect,
@@ -952,6 +1094,8 @@ class PropertiesSet(MessageACBase):
         self.out_silent: bool | None = None
         self.sound: bool | None = None
         self.self_clean: bool | None = None
+        self.degerming: bool | None = None
+        self.light_sensitive: bool | None = None
         self.ieco: bool | None = None
         self.ieco_number: int = 1
 
@@ -1068,6 +1212,25 @@ class PropertiesSet(MessageACBase):
                     value=bytearray([0x01 if self.self_clean else 0x00]),
                 ),
             )
+        if self.degerming is not None:
+            pack_count += 1
+            payload.extend(
+                NewProtocolMessageBody.pack(
+                    param=CapabilityTag.degerming,
+                    value=bytearray([0x01 if self.degerming else 0x00]),
+                ),
+            )
+        if self.light_sensitive is not None:
+            pack_count += 1
+            payload.extend(
+                NewProtocolMessageBody.pack(
+                    param=CapabilityTag.light_sensitive,
+                    # The payload carries a 2-bit level; the vendor app only
+                    # uses 0x00 (off) and 0x03 (on) - verified with LAN set
+                    # frames on both models.
+                    value=bytearray([0x03 if self.light_sensitive else 0x00]),
+                ),
+            )
         if self.rate_select is not None:
             pack_count += 1
             payload.extend(
@@ -1130,9 +1293,7 @@ class XA0Body(MessageBody):
         self.prevent_cold = (body[10] & 0x08) >> 3  # preventCold
         self.full_dust = ((body[13] & 0x20) >> 5) > 0  # dust_full_time
         # comfortPowerSave
-        self.comfort_mode = (
-            (body[14] & 0x1) > 0 if len(body) > CONFORT_MODE_MIN_LENGTH else False
-        )
+        self.comfort_mode = (body[14] & 0x1) > 0
         # smartDryValue
         self.smart_dry = (body[13] & 0x7F) > 0
         # swingLRUnderSwitch
@@ -1190,6 +1351,35 @@ class XA1Body(XMessageBody):
 class PropertiesBody(NewProtocolMessageBody):
     """AC Bx message body. body[0] b0/b1, body[1] propertyNumber, cursor 2."""
 
+    @staticmethod
+    def _parse_countdown_timer(value: int, minute_correction: int) -> int:
+        """Decode an armed countdown timer into minutes (0 = not armed)."""
+        if not (value & NEW_PROTOCOL_TIMER_ARMED_MASK):
+            return 0
+        hours = (value & NEW_PROTOCOL_TIMER_VALUE_MASK) >> NEW_PROTOCOL_TIMER_HOUR_SHIFT
+        quarter_hours = value & NEW_PROTOCOL_TIMER_QUARTER_MASK
+        return (
+            hours * NEW_PROTOCOL_TIMER_MINUTES_PER_HOUR
+            + quarter_hours * NEW_PROTOCOL_TIMER_MINUTES_PER_QUARTER
+            + NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_MAX
+            - minute_correction
+        )
+
+    def _parse_queried_states(self, params: dict[int, bytearray]) -> None:
+        """Parse live states from queried property tags (B0/B1 bodies only).
+
+        A B5 body carries these tags as capability flags rather than live
+        state, so it is filtered out here; the 0x7e payload carries the same
+        states for every body type (parsed in __init__ below).
+        """
+        if CapabilityTag.degerming in params and self.body_type != ListTypes.B5:
+            # Queried degerming state (0x00 off / 0x01 on).
+            self.degerming_active = params[CapabilityTag.degerming][0] > 0
+        if CapabilityTag.light_sensitive in params and self.body_type != ListTypes.B5:
+            # Queried light sensitivity level (0 = off, 1-3 = on, matching the
+            # 0x7e payload byte).
+            self.light_sensitive_active = params[CapabilityTag.light_sensitive][0] > 0
+
     def __init__(
         self,
         body: bytearray,
@@ -1237,6 +1427,54 @@ class PropertiesBody(NewProtocolMessageBody):
             # A B5 body carries this tag as a capability flag (always 1 when the
             # model supports self-clean), so only B0/B1 bodies report live state.
             self.self_clean_active: bool = params[CapabilityTag.self_clean][0] > 0
+        self._parse_queried_states(params)
+        if (
+            NEW_PROTOCOL_TEMPERATURE_TAG in params
+            and len(params[NEW_PROTOCOL_TEMPERATURE_TAG]) > NEW_PROTOCOL_DEGERMING_BYTE
+        ):
+            # Live degerming (sterilize) state. A B5 notify body carries the
+            # live value as well (verified with state toggles),
+            # so no body-type filter is applied here. The notify payload's raw
+            # head differs from B0/B1, but this slice keeps index 19 valid.
+            self.degerming_active = (
+                params[NEW_PROTOCOL_TEMPERATURE_TAG][NEW_PROTOCOL_DEGERMING_BYTE]
+                & NEW_PROTOCOL_DEGERMING_MASK
+            ) > 0
+        if (
+            NEW_PROTOCOL_TEMPERATURE_TAG in params
+            and len(params[NEW_PROTOCOL_TEMPERATURE_TAG])
+            > NEW_PROTOCOL_LIGHT_SENSITIVE_BYTE
+        ):
+            # Light sensitivity, the two countdown timer slots and the live
+            # self-clean state share the 0x7e payload with the state bytes
+            # above and, like degerming, are reported in B0/B1 bodies as
+            # well as B5 notify bodies.
+            new_protocol_data = params[NEW_PROTOCOL_TEMPERATURE_TAG]
+            self.light_sensitive_active = (
+                new_protocol_data[NEW_PROTOCOL_LIGHT_SENSITIVE_BYTE]
+                & NEW_PROTOCOL_LIGHT_SENSITIVE_MASK
+            ) > 0
+            self.power_on_timer: int = self._parse_countdown_timer(
+                new_protocol_data[NEW_PROTOCOL_POWER_ON_TIMER_BYTE],
+                (
+                    new_protocol_data[NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_BYTE]
+                    >> NEW_PROTOCOL_TIMER_POWER_ON_CORRECTION_SHIFT
+                ),
+            )
+            self.power_off_timer: int = self._parse_countdown_timer(
+                new_protocol_data[NEW_PROTOCOL_POWER_OFF_TIMER_BYTE],
+                new_protocol_data[NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_BYTE]
+                & NEW_PROTOCOL_TIMER_MINUTE_CORRECTION_MASK,
+            )
+            # The live self-clean state is carried by this payload too. The
+            # property tag above only advertises the capability in B5
+            # bodies, so this byte is what updates B5 notifies as well;
+            # both sources agree within a frame (verified against app
+            # driven start/cancel captures).
+            self.self_clean_active = (
+                new_protocol_data[NEW_PROTOCOL_SELF_CLEAN_BYTE]
+                & NEW_PROTOCOL_SELF_CLEAN_MASK
+            ) > 0
         if (
             CapabilityTag.ieco in params
             and self.body_type != ListTypes.B5
@@ -1523,9 +1761,26 @@ class StateBody(XMessageBody):
         super().__init__(body)
         self.power = (body[1] & 0x1) > 0  # powerValue
         self.mode = (body[2] & 0xE0) >> 5  # modeValue
-        self.target_temperature = (
+        target_temperature = (
             (body[2] & 0x0F) + 16.0 + (0.5 if body[0x02] & 0x10 > 0 else 0.0)
         )  # temperature + smallTemperature
+        # C0 low-temperature replies keep 17/17.5 in byte 2 and store
+        # 16/16.5 in byte 13.
+        low_target_temperature = (
+            body[LOW_TARGET_C0_EXTENSION_INDEX] & LOW_TARGET_TEMPERATURE_MASK
+        )
+        if (
+            low_target_temperature == LOW_TARGET_C0_EXTENSION_VALUE
+            and LOW_TARGET_TEMPERATURE_BOUNDARY
+            <= target_temperature
+            <= LOW_TARGET_C0_STANDARD_MAX
+        ):
+            target_temperature = (
+                low_target_temperature
+                + LOW_TARGET_TEMPERATURE_OFFSET
+                + (target_temperature - LOW_TARGET_TEMPERATURE_BOUNDARY)
+            )
+        self.target_temperature = target_temperature
         self.fan_speed = body[3] & 0x7F  # fanspeedValue
         self.swing_vertical = (body[7] & 0x0C) > 0  # swingUDValue
         self.swing_horizontal = (body[7] & 0x03) > 0  # swingLRValue
@@ -1828,6 +2083,13 @@ class SubProtocolBody(MessageBody):
 class MessageACResponse(MessageResponse):
     """AC message response."""
 
+    # Populated dynamically by MessageResponse.set_attr().
+    degerming_active: bool
+    light_sensitive_active: bool
+    power_on_timer: int
+    power_off_timer: int
+    self_clean_active: bool
+
     def __init__(
         self,
         message: bytearray,
@@ -1838,23 +2100,28 @@ class MessageACResponse(MessageResponse):
         super().__init__(message)
         # dataType 0x05 and messageBytes[0] 0xA0
         if self.message_type == MessageType.notify2 and self.body_type == ListTypes.A0:
-            self.set_body(XA0Body(super().body))
+            if len(super().body) < A0_A1_C0_MIN_BODY_LENGTH:
+                _LOGGER.debug(
+                    "Skipping A0 body too short to parse (%d < %d bytes): %s",
+                    len(super().body),
+                    A0_A1_C0_MIN_BODY_LENGTH,
+                    super().body.hex(),
+                )
+            else:
+                self.set_body(XA0Body(super().body))
         # dataType 0x04 and messageBytes[0] 0xA1
-        elif (
-            self.message_type == MessageType.notify1
-            and self.body_type == ListTypes.A1
-            and len(super().body) >= A1_MIN_BODY_LENGTH
-        ):
-            self.set_body(XA1Body(super().body))
         elif (
             self.message_type == MessageType.notify1 and self.body_type == ListTypes.A1
         ):
-            _LOGGER.debug(
-                "Skipping notify1 A1 body too short to parse (%d < %d bytes): %s",
-                len(super().body),
-                A1_MIN_BODY_LENGTH,
-                super().body.hex(),
-            )
+            if len(super().body) < A0_A1_C0_MIN_BODY_LENGTH:
+                _LOGGER.debug(
+                    "Skipping notify1 A1 body too short to parse (%d < %d bytes): %s",
+                    len(super().body),
+                    A0_A1_C0_MIN_BODY_LENGTH,
+                    super().body.hex(),
+                )
+            else:
+                self.set_body(XA1Body(super().body))
         # parse CapabilitiesQuery/CapabilitiesAdditionalQuery response
         # dataType 0x03 and messageBytes[0] 0xB5
         elif self.message_type == MessageType.query and self.body_type == ListTypes.B5:
@@ -1876,7 +2143,15 @@ class MessageACResponse(MessageResponse):
             self.message_type in [MessageType.query, MessageType.set]
             and self.body_type == ListTypes.C0
         ):
-            self.set_body(StateBody(super().body))
+            if len(super().body) < A0_A1_C0_MIN_BODY_LENGTH:
+                _LOGGER.debug(
+                    "Skipping C0 body too short to parse (%d < %d bytes): %s",
+                    len(super().body),
+                    A0_A1_C0_MIN_BODY_LENGTH,
+                    super().body.hex(),
+                )
+            else:
+                self.set_body(StateBody(super().body))
         # messageBytes[0] 0xC1
         elif self.message_type == MessageType.query and self.body_type == ListTypes.C1:
             self.set_body(GroupBody(super().body, power_analysis_method))

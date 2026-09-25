@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: passagemath-plot
-Version: 10.8.11
+Version: 10.8.12
 Summary: passagemath: Plotting and graphics with Matplotlib, Three.JS, etc.
 Author-email: The Sage Developers <sage-support@googlegroups.com>
 Maintainer: Matthias Köppe, passagemath contributors
@@ -35,8 +35,8 @@ Requires-Dist: cysignals!=1.12.4; sys_platform == "win32"
 Requires-Dist: cysignals>=1.12.6; python_version >= "3.14"
 Requires-Dist: cysignals!=1.12.0,>=1.11.2
 Requires-Dist: memory_allocator<0.2
-Requires-Dist: passagemath-categories~=10.8.11.0
-Requires-Dist: passagemath-modules~=10.8.11.0
+Requires-Dist: passagemath-categories~=10.8.12.0
+Requires-Dist: passagemath-modules~=10.8.12.0
 Requires-Dist: numpy>=2.1
 Requires-Dist: scipy>=1.11
 Requires-Dist: pillow>=7.2.0
@@ -44,7 +44,7 @@ Requires-Dist: matplotlib>=3.7.0
 Requires-Dist: jupyter-threejs-sage
 Provides-Extra: test
 Requires-Dist: passagemath-plot[tachyon]; sys_platform != "win32" and extra == "test"
-Requires-Dist: passagemath-repl~=10.8.11.0; extra == "test"
+Requires-Dist: passagemath-repl~=10.8.12.0; extra == "test"
 Provides-Extra: dot2tex
 Requires-Dist: dot2tex>=2.12.0; extra == "dot2tex"
 Provides-Extra: jsmol
@@ -53,14 +53,14 @@ Provides-Extra: matplotlib
 Provides-Extra: playwright
 Requires-Dist: playwright; extra == "playwright"
 Provides-Extra: tachyon
-Requires-Dist: passagemath-tachyon~=10.8.11.0; extra == "tachyon"
+Requires-Dist: passagemath-tachyon~=10.8.12.0; extra == "tachyon"
 Provides-Extra: threejs
 Provides-Extra: graphs
-Requires-Dist: passagemath-graphs~=10.8.11.0; extra == "graphs"
+Requires-Dist: passagemath-graphs~=10.8.12.0; extra == "graphs"
 Provides-Extra: polyhedra
-Requires-Dist: passagemath-polyhedra~=10.8.11.0; extra == "polyhedra"
+Requires-Dist: passagemath-polyhedra~=10.8.12.0; extra == "polyhedra"
 Provides-Extra: symbolics
-Requires-Dist: passagemath-symbolics~=10.8.11.0; extra == "symbolics"
+Requires-Dist: passagemath-symbolics~=10.8.12.0; extra == "symbolics"
 
 ===============================================================================================
  passagemath: Plotting and graphics with Matplotlib, Three.JS, etc.

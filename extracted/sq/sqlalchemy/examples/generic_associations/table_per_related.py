@@ -17,6 +17,12 @@ is completely automated.
 
 """
 
+from __future__ import annotations
+
+from typing import Any
+from typing import ClassVar
+from typing import TYPE_CHECKING
+
 from sqlalchemy import create_engine
 from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
@@ -34,8 +40,8 @@ class Base(DeclarativeBase):
 
     """
 
-    @declared_attr
-    def __tablename__(cls):
+    @declared_attr.directive
+    def __tablename__(cls) -> str:
         return cls.__name__.lower()
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -55,7 +61,7 @@ class Address:
     city: Mapped[str]
     zip: Mapped[str]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "%s(street=%r, city=%r, zip=%r)" % (
             self.__class__.__name__,
             self.street,
@@ -64,14 +70,33 @@ class Address:
         )
 
 
+if TYPE_CHECKING:
+
+    class AddressWithParent(Address):
+        """Type stub for Address subclasses created by HasAddresses.
+
+        Inherits street, city, zip from Address.
+
+        Allows mypy to understand when <class>.Address is created,
+        it will have `parent_id` and `parent` attributes.
+        If you won't use `parent_id` attribute directly,
+        there's no need to specify here, included for completeness.
+        """
+
+        parent_id: int
+        parent: HasAddresses
+
+
 class HasAddresses:
     """HasAddresses mixin, creates a new Address class
     for each parent.
 
     """
 
+    Address: ClassVar[type]
+
     @declared_attr
-    def addresses(cls):
+    def addresses(cls: type[Any]) -> Mapped[list[AddressWithParent]]:
         cls.Address = type(
             f"{cls.__name__}Address",
             (Address, Base),

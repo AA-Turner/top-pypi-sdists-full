@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: manygo
-Version: 0.2.0
+Version: 0.3.0
 Summary: Python library with helpers for packaging golang source code
 Project-URL: Repository, https://github.com/jmelahman/manygo
 Author-email: Jamison Lahman <jamison@lahman.dev>
@@ -11,7 +11,6 @@ Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12

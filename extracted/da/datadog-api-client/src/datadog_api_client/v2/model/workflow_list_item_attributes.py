@@ -15,12 +15,14 @@ from datadog_api_client.model_utils import (
 
 
 if TYPE_CHECKING:
+    from datadog_api_client.v2.model.workflow_run_as_user_mode import WorkflowRunAsUserMode
     from datadog_api_client.v2.model.spec import Spec
 
 
 class WorkflowListItemAttributes(ModelNormal):
     @cached_property
     def openapi_types(_):
+        from datadog_api_client.v2.model.workflow_run_as_user_mode import WorkflowRunAsUserMode
         from datadog_api_client.v2.model.spec import Spec
 
         return {
@@ -28,6 +30,8 @@ class WorkflowListItemAttributes(ModelNormal):
             "description": (str,),
             "name": (str,),
             "published": (bool,),
+            "run_as_user_mode": (WorkflowRunAsUserMode,),
+            "sensitive_privileges": (bool,),
             "spec": (Spec,),
             "tags": ([str],),
             "updated_at": (datetime,),
@@ -38,6 +42,8 @@ class WorkflowListItemAttributes(ModelNormal):
         "description": "description",
         "name": "name",
         "published": "published",
+        "run_as_user_mode": "runAsUserMode",
+        "sensitive_privileges": "sensitivePrivileges",
         "spec": "spec",
         "tags": "tags",
         "updated_at": "updatedAt",
@@ -53,6 +59,8 @@ class WorkflowListItemAttributes(ModelNormal):
         created_at: Union[datetime, UnsetType] = unset,
         description: Union[str, UnsetType] = unset,
         published: Union[bool, UnsetType] = unset,
+        run_as_user_mode: Union[WorkflowRunAsUserMode, UnsetType] = unset,
+        sensitive_privileges: Union[bool, UnsetType] = unset,
         spec: Union[Spec, UnsetType] = unset,
         tags: Union[List[str], UnsetType] = unset,
         updated_at: Union[datetime, UnsetType] = unset,
@@ -73,6 +81,12 @@ class WorkflowListItemAttributes(ModelNormal):
         :param published: Whether the workflow is published. Unpublished workflows can only be run manually. Automatic triggers such as Schedule do not fire until the workflow is published.
         :type published: bool, optional
 
+        :param run_as_user_mode: The effective type of identity used to run the workflow.
+        :type run_as_user_mode: WorkflowRunAsUserMode, optional
+
+        :param sensitive_privileges: Whether the workflow requires sensitive privileges to run. Only the workflow owner can update this field. This allows it to run actions that use `Execution Policies <https://docs.datadoghq.com/actions/private_actions/execution_policies/>`_.
+        :type sensitive_privileges: bool, optional
+
         :param spec: A complete Workflow Automation definition, including its triggers, steps, and connections.
         :type spec: Spec, optional
 
@@ -88,6 +102,10 @@ class WorkflowListItemAttributes(ModelNormal):
             kwargs["description"] = description
         if published is not unset:
             kwargs["published"] = published
+        if run_as_user_mode is not unset:
+            kwargs["run_as_user_mode"] = run_as_user_mode
+        if sensitive_privileges is not unset:
+            kwargs["sensitive_privileges"] = sensitive_privileges
         if spec is not unset:
             kwargs["spec"] = spec
         if tags is not unset:

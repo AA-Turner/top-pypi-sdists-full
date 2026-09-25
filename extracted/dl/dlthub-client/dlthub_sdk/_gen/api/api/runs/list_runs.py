@@ -12,11 +12,12 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.list_page_detailed_run_response import ListPageDetailedRunResponse
 from ...models.list_runs_order_type_0_item import ListRunsOrderType0Item
-from ...models.list_runs_response_200 import ListRunsResponse200
 from ...models.list_runs_sort_type_0_item import ListRunsSortType0Item
 from ...models.run_status import RunStatus
 from ...models.script_type import ScriptType
+from ...models.trigger_kind import TriggerKind
 from ...types import UNSET, Response, Unset
 
 
@@ -28,15 +29,20 @@ def _get_kwargs(
     q: None | str | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
     script_id: None | Unset | UUID = UNSET,
+    prev_run_id: None | Unset | UUID = UNSET,
     script_type: list[ScriptType] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
+    trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[str] | None | Unset = UNSET,
     profile: list[str] | None | Unset = UNSET,
+    duration_min: float | None | Unset = UNSET,
+    duration_max: float | None | Unset = UNSET,
     start: datetime.datetime | None | Unset = UNSET,
     end: datetime.datetime | None | Unset = UNSET,
     tz: str | Unset = "UTC",
     sort: list[ListRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -74,6 +80,15 @@ def _get_kwargs(
         json_script_id = script_id
     params["script_id"] = json_script_id
 
+    json_prev_run_id: None | str | Unset
+    if isinstance(prev_run_id, Unset):
+        json_prev_run_id = UNSET
+    elif isinstance(prev_run_id, UUID):
+        json_prev_run_id = str(prev_run_id)
+    else:
+        json_prev_run_id = prev_run_id
+    params["prev_run_id"] = json_prev_run_id
+
     json_script_type: list[str] | None | Unset
     if isinstance(script_type, Unset):
         json_script_type = UNSET
@@ -97,6 +112,19 @@ def _get_kwargs(
         json_trigger = trigger
     params["trigger"] = json_trigger
 
+    json_trigger_kind: list[str] | None | Unset
+    if isinstance(trigger_kind, Unset):
+        json_trigger_kind = UNSET
+    elif isinstance(trigger_kind, list):
+        json_trigger_kind = []
+        for trigger_kind_type_0_item_data in trigger_kind:
+            trigger_kind_type_0_item = trigger_kind_type_0_item_data.value
+            json_trigger_kind.append(trigger_kind_type_0_item)
+
+    else:
+        json_trigger_kind = trigger_kind
+    params["trigger_kind"] = json_trigger_kind
+
     json_triggered_by: list[str] | None | Unset
     if isinstance(triggered_by, Unset):
         json_triggered_by = UNSET
@@ -116,6 +144,20 @@ def _get_kwargs(
     else:
         json_profile = profile
     params["profile"] = json_profile
+
+    json_duration_min: float | None | Unset
+    if isinstance(duration_min, Unset):
+        json_duration_min = UNSET
+    else:
+        json_duration_min = duration_min
+    params["duration_min"] = json_duration_min
+
+    json_duration_max: float | None | Unset
+    if isinstance(duration_max, Unset):
+        json_duration_max = UNSET
+    else:
+        json_duration_max = duration_max
+    params["duration_max"] = json_duration_max
 
     json_start: None | str | Unset
     if isinstance(start, Unset):
@@ -163,6 +205,13 @@ def _get_kwargs(
         json_order = order
     params["order"] = json_order
 
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
     params["include_system_runs"] = include_system_runs
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -185,11 +234,11 @@ def _parse_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListRunsResponse200
+    | ListPageDetailedRunResponse
     | None
 ):
     if response.status_code == 200:
-        response_200 = ListRunsResponse200.from_dict(response.json())
+        response_200 = ListPageDetailedRunResponse.from_dict(response.json())
 
         return response_200
 
@@ -226,7 +275,7 @@ def _build_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListRunsResponse200
+    | ListPageDetailedRunResponse
 ]:
     return Response(
         status_code=HTTPStatus(response.status_code),
@@ -245,32 +294,38 @@ def sync_detailed(
     q: None | str | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
     script_id: None | Unset | UUID = UNSET,
+    prev_run_id: None | Unset | UUID = UNSET,
     script_type: list[ScriptType] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
+    trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[str] | None | Unset = UNSET,
     profile: list[str] | None | Unset = UNSET,
+    duration_min: float | None | Unset = UNSET,
+    duration_max: float | None | Unset = UNSET,
     start: datetime.datetime | None | Unset = UNSET,
     end: datetime.datetime | None | Unset = UNSET,
     tz: str | Unset = "UTC",
     sort: list[ListRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListRunsResponse200
+    | ListPageDetailedRunResponse
 ]:
     """ListRuns
 
     Gets the job runs of a workspace as a paginated list, newest first.
 
     Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, or a time window; sort with paired `sort` and `order` lists.
+    profile, upstream run (`prev_run_id`, giving the runs one run triggered), or a
+    time window; sort with paired `sort` and `order` lists.
 
-    System runs, such as the dashboard job, are excluded unless `script_id` names one
-    or `include_system_runs` is set.
+    System runs, such as the dashboard job, are excluded unless `script_id` or
+    `prev_run_id` names one, or `include_system_runs` is set.
 
     Requires READ permission on the organization level.
 
@@ -279,18 +334,26 @@ def sync_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        q (None | str | Unset): Case-insensitive substring match on `name`.
+        q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
+            names the run produced. A numeric value also matches the exact run number.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
         script_id (None | Unset | UUID): Exact match on `script_id`.
+        prev_run_id (None | Unset | UUID): Exact match on `prev_run_id`.
         script_type (list[ScriptType] | None | Unset): Exact match on `script_type`. Repeat the
             parameter to match any of several values.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
+        trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
+            fired them, whatever its expression. `manual` means a person started the run.
         triggered_by (list[str] | None | Unset): Exact match on `triggered_by`. Repeat the
             parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
             match any of several values.
+        duration_min (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
+        duration_max (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
         start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
             interpreted in `tz`. E.g. `2026-03-01T00:00:00`.
         end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
@@ -301,6 +364,9 @@ def sync_detailed(
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListRunsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
             and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
 
@@ -309,7 +375,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListRunsResponse200]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDetailedRunResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -318,15 +384,20 @@ def sync_detailed(
         q=q,
         status=status,
         script_id=script_id,
+        prev_run_id=prev_run_id,
         script_type=script_type,
         trigger=trigger,
+        trigger_kind=trigger_kind,
         triggered_by=triggered_by,
         profile=profile,
+        duration_min=duration_min,
+        duration_max=duration_max,
         start=start,
         end=end,
         tz=tz,
         sort=sort,
         order=order,
+        cursor=cursor,
         include_system_runs=include_system_runs,
     )
 
@@ -346,22 +417,27 @@ def sync(
     q: None | str | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
     script_id: None | Unset | UUID = UNSET,
+    prev_run_id: None | Unset | UUID = UNSET,
     script_type: list[ScriptType] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
+    trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[str] | None | Unset = UNSET,
     profile: list[str] | None | Unset = UNSET,
+    duration_min: float | None | Unset = UNSET,
+    duration_max: float | None | Unset = UNSET,
     start: datetime.datetime | None | Unset = UNSET,
     end: datetime.datetime | None | Unset = UNSET,
     tz: str | Unset = "UTC",
     sort: list[ListRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListRunsResponse200
+    | ListPageDetailedRunResponse
     | None
 ):
     """ListRuns
@@ -369,10 +445,11 @@ def sync(
     Gets the job runs of a workspace as a paginated list, newest first.
 
     Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, or a time window; sort with paired `sort` and `order` lists.
+    profile, upstream run (`prev_run_id`, giving the runs one run triggered), or a
+    time window; sort with paired `sort` and `order` lists.
 
-    System runs, such as the dashboard job, are excluded unless `script_id` names one
-    or `include_system_runs` is set.
+    System runs, such as the dashboard job, are excluded unless `script_id` or
+    `prev_run_id` names one, or `include_system_runs` is set.
 
     Requires READ permission on the organization level.
 
@@ -381,18 +458,26 @@ def sync(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        q (None | str | Unset): Case-insensitive substring match on `name`.
+        q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
+            names the run produced. A numeric value also matches the exact run number.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
         script_id (None | Unset | UUID): Exact match on `script_id`.
+        prev_run_id (None | Unset | UUID): Exact match on `prev_run_id`.
         script_type (list[ScriptType] | None | Unset): Exact match on `script_type`. Repeat the
             parameter to match any of several values.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
+        trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
+            fired them, whatever its expression. `manual` means a person started the run.
         triggered_by (list[str] | None | Unset): Exact match on `triggered_by`. Repeat the
             parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
             match any of several values.
+        duration_min (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
+        duration_max (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
         start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
             interpreted in `tz`. E.g. `2026-03-01T00:00:00`.
         end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
@@ -403,6 +488,9 @@ def sync(
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListRunsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
             and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
 
@@ -411,7 +499,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListRunsResponse200
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDetailedRunResponse
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -421,15 +509,20 @@ def sync(
         q=q,
         status=status,
         script_id=script_id,
+        prev_run_id=prev_run_id,
         script_type=script_type,
         trigger=trigger,
+        trigger_kind=trigger_kind,
         triggered_by=triggered_by,
         profile=profile,
+        duration_min=duration_min,
+        duration_max=duration_max,
         start=start,
         end=end,
         tz=tz,
         sort=sort,
         order=order,
+        cursor=cursor,
         include_system_runs=include_system_runs,
     ).parsed
 
@@ -443,32 +536,38 @@ async def asyncio_detailed(
     q: None | str | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
     script_id: None | Unset | UUID = UNSET,
+    prev_run_id: None | Unset | UUID = UNSET,
     script_type: list[ScriptType] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
+    trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[str] | None | Unset = UNSET,
     profile: list[str] | None | Unset = UNSET,
+    duration_min: float | None | Unset = UNSET,
+    duration_max: float | None | Unset = UNSET,
     start: datetime.datetime | None | Unset = UNSET,
     end: datetime.datetime | None | Unset = UNSET,
     tz: str | Unset = "UTC",
     sort: list[ListRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListRunsResponse200
+    | ListPageDetailedRunResponse
 ]:
     """ListRuns
 
     Gets the job runs of a workspace as a paginated list, newest first.
 
     Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, or a time window; sort with paired `sort` and `order` lists.
+    profile, upstream run (`prev_run_id`, giving the runs one run triggered), or a
+    time window; sort with paired `sort` and `order` lists.
 
-    System runs, such as the dashboard job, are excluded unless `script_id` names one
-    or `include_system_runs` is set.
+    System runs, such as the dashboard job, are excluded unless `script_id` or
+    `prev_run_id` names one, or `include_system_runs` is set.
 
     Requires READ permission on the organization level.
 
@@ -477,18 +576,26 @@ async def asyncio_detailed(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        q (None | str | Unset): Case-insensitive substring match on `name`.
+        q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
+            names the run produced. A numeric value also matches the exact run number.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
         script_id (None | Unset | UUID): Exact match on `script_id`.
+        prev_run_id (None | Unset | UUID): Exact match on `prev_run_id`.
         script_type (list[ScriptType] | None | Unset): Exact match on `script_type`. Repeat the
             parameter to match any of several values.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
+        trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
+            fired them, whatever its expression. `manual` means a person started the run.
         triggered_by (list[str] | None | Unset): Exact match on `triggered_by`. Repeat the
             parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
             match any of several values.
+        duration_min (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
+        duration_max (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
         start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
             interpreted in `tz`. E.g. `2026-03-01T00:00:00`.
         end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
@@ -499,6 +606,9 @@ async def asyncio_detailed(
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListRunsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
             and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
 
@@ -507,7 +617,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListRunsResponse200]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDetailedRunResponse]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -516,15 +626,20 @@ async def asyncio_detailed(
         q=q,
         status=status,
         script_id=script_id,
+        prev_run_id=prev_run_id,
         script_type=script_type,
         trigger=trigger,
+        trigger_kind=trigger_kind,
         triggered_by=triggered_by,
         profile=profile,
+        duration_min=duration_min,
+        duration_max=duration_max,
         start=start,
         end=end,
         tz=tz,
         sort=sort,
         order=order,
+        cursor=cursor,
         include_system_runs=include_system_runs,
     )
 
@@ -542,22 +657,27 @@ async def asyncio(
     q: None | str | Unset = UNSET,
     status: list[RunStatus] | None | Unset = UNSET,
     script_id: None | Unset | UUID = UNSET,
+    prev_run_id: None | Unset | UUID = UNSET,
     script_type: list[ScriptType] | None | Unset = UNSET,
     trigger: list[str] | None | Unset = UNSET,
+    trigger_kind: list[TriggerKind] | None | Unset = UNSET,
     triggered_by: list[str] | None | Unset = UNSET,
     profile: list[str] | None | Unset = UNSET,
+    duration_min: float | None | Unset = UNSET,
+    duration_max: float | None | Unset = UNSET,
     start: datetime.datetime | None | Unset = UNSET,
     end: datetime.datetime | None | Unset = UNSET,
     tz: str | Unset = "UTC",
     sort: list[ListRunsSortType0Item] | None | Unset = UNSET,
     order: list[ListRunsOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_system_runs: bool | Unset = False,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListRunsResponse200
+    | ListPageDetailedRunResponse
     | None
 ):
     """ListRuns
@@ -565,10 +685,11 @@ async def asyncio(
     Gets the job runs of a workspace as a paginated list, newest first.
 
     Search with `q` over the job name; filter by status, job, job type, trigger,
-    profile, or a time window; sort with paired `sort` and `order` lists.
+    profile, upstream run (`prev_run_id`, giving the runs one run triggered), or a
+    time window; sort with paired `sort` and `order` lists.
 
-    System runs, such as the dashboard job, are excluded unless `script_id` names one
-    or `include_system_runs` is set.
+    System runs, such as the dashboard job, are excluded unless `script_id` or
+    `prev_run_id` names one, or `include_system_runs` is set.
 
     Requires READ permission on the organization level.
 
@@ -577,18 +698,26 @@ async def asyncio(
         limit (int | Unset): Maximum number of items to return. At most 1000. Default: 100.
         offset (int | Unset): Number of items to skip. At most 10000; a list reports its total up
             to 10001, so narrow with filters instead of paging deeper. Default: 0.
-        q (None | str | Unset): Case-insensitive substring match on `name`.
+        q (None | str | Unset): Case-insensitive substring match on the job name and the pipeline
+            names the run produced. A numeric value also matches the exact run number.
         status (list[RunStatus] | None | Unset): Exact match on `status`. Repeat the parameter to
             match any of several values.
         script_id (None | Unset | UUID): Exact match on `script_id`.
+        prev_run_id (None | Unset | UUID): Exact match on `prev_run_id`.
         script_type (list[ScriptType] | None | Unset): Exact match on `script_type`. Repeat the
             parameter to match any of several values.
         trigger (list[str] | None | Unset): Exact match on `trigger`. Repeat the parameter to
             match any of several values.
+        trigger_kind (list[TriggerKind] | None | Unset): Match runs by the kind of trigger that
+            fired them, whatever its expression. `manual` means a person started the run.
         triggered_by (list[str] | None | Unset): Exact match on `triggered_by`. Repeat the
             parameter to match any of several values.
         profile (list[str] | None | Unset): Exact match on `profile`. Repeat the parameter to
             match any of several values.
+        duration_min (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
+        duration_max (float | None | Unset): Inclusive range over `duration`, given as
+            `duration_min` and `duration_max`. Either bound may stand alone.
         start (datetime.datetime | None | Unset): Start of period. Naive datetime (no offset),
             interpreted in `tz`. E.g. `2026-03-01T00:00:00`.
         end (datetime.datetime | None | Unset): End of period. Naive datetime (no offset),
@@ -599,6 +728,9 @@ async def asyncio(
             given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListRunsOrderType0Item] | None | Unset): Sort directions, one per `sort` key
             and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_system_runs (bool | Unset): Include runs of system jobs such as the dashboard.
             Default: False.
 
@@ -607,7 +739,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListRunsResponse200
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageDetailedRunResponse
     """
     return (
         await asyncio_detailed(
@@ -618,15 +750,20 @@ async def asyncio(
             q=q,
             status=status,
             script_id=script_id,
+            prev_run_id=prev_run_id,
             script_type=script_type,
             trigger=trigger,
+            trigger_kind=trigger_kind,
             triggered_by=triggered_by,
             profile=profile,
+            duration_min=duration_min,
+            duration_max=duration_max,
             start=start,
             end=end,
             tz=tz,
             sort=sort,
             order=order,
+            cursor=cursor,
             include_system_runs=include_system_runs,
         )
     ).parsed

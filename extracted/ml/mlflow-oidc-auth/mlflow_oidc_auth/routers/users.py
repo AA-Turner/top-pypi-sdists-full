@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 from mlflow.exceptions import MlflowException
 
 from mlflow_oidc_auth.audit import emit_audit_event
-from mlflow_oidc_auth.config import config
 from mlflow_oidc_auth.dependencies import check_admin_permission
 from mlflow_oidc_auth.logger import get_logger
 from mlflow_oidc_auth.models import (
@@ -18,8 +17,8 @@ from mlflow_oidc_auth.models import (
 )
 from mlflow_oidc_auth.models.scim import UserActiveRequest
 from mlflow_oidc_auth.orphans import delete_user_reporting_orphans, report_orphans
-from mlflow_oidc_auth.ownership import MANUAL, evaluate_write
-from mlflow.protos.databricks_pb2 import INVALID_STATE, ErrorCode
+from mlflow_oidc_auth.ownership import MANUAL, OWNER_PATTERN
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE, ErrorCode
 from mlflow_oidc_auth.store import store
 from mlflow_oidc_auth.user import create_user, generate_token
 from mlflow_oidc_auth.utils import get_is_admin, get_username
@@ -45,6 +44,8 @@ CURRENT_USER = "/current"
 USERNAME = "/{username}"
 USERS_DETAILS = "/details"
 USER_ACTIVE = "/{username}/active"
+USER_SESSIONS = "/{username}/sessions"
+USER_SESSION = "/{username}/sessions/{session_pk}"
 
 #: Fields of each object returned by ``GET /users/details`` and ``PATCH /users/{username}/active``.
 USER_DETAIL_FIELDS = ("username", "display_name", "is_admin", "is_service_account", "active", "managed_by")
@@ -262,6 +263,7 @@ async def create_new_user(
             display_name=user_request.display_name,
             is_admin=user_request.is_admin,
             is_service_account=user_request.is_service_account,
+            written_by="manual",
         )
 
         if status:
@@ -293,7 +295,8 @@ async def create_new_user(
 )
 async def set_user_ownership(
     username: str = Body(..., description="The user whose ownership is being changed"),
-    managed_by: str = Body(..., description="The new owner: 'manual', 'scim', or 'oidc:<provider-id>'"),
+    managed_by: str = Body(..., description="The new owner: 'manual', 'scim', 'oidc:<provider-id>' or 'saml:<provider-id>'"),
+    memberships: bool = Body(False, description="Also hand every group membership of the user to the new owner"),
     admin_username: str = Depends(check_admin_permission),
 ) -> JSONResponse:
     """Hand a user row to a different source (issue #319).
@@ -306,9 +309,14 @@ async def set_user_ownership(
     and become editable again. ``mlflow-oidc db reconcile-ownership`` does the same thing in
     bulk, for an operator who does have a shell.
 
+    With ``memberships: true`` the user's group memberships (#360), which carry their own owner,
+    are handed over too — otherwise a decommissioned source's grants could not be removed by any
+    other source under ``enforce``.
+
     Parameters:
         username: The user whose ownership is being changed.
         managed_by: The new owner.
+        memberships: Whether to re-own the user's group memberships as well.
         admin_username: The authenticated administrator (injected).
 
     Returns:
@@ -318,36 +326,44 @@ async def set_user_ownership(
         HTTPException: 400 if the owner is not one a source presents, 404 if there is no such
             user.
     """
-    if not re.fullmatch(r"manual|scim|oidc:[A-Za-z0-9._-]+", managed_by or ""):
-        raise HTTPException(status_code=400, detail="managed_by must be 'manual', 'scim', or 'oidc:<provider-id>'")
+    if not re.fullmatch(OWNER_PATTERN, managed_by or ""):
+        raise HTTPException(status_code=400, detail="managed_by must be 'manual', 'scim', 'oidc:<provider-id>' or 'saml:<provider-id>'")
 
     try:
         store.get_user_profile(username)
     except MlflowException:
         raise HTTPException(status_code=404, detail=f"User {username} not found")
 
-    previous = store.get_user_profile(username).managed_by
-    store.update_user(username=username, managed_by=managed_by, written_by="manual", admin_override=True)
+    try:
+        # One transaction for the user row and its memberships: a failure in either half leaves
+        # both as they were.
+        result = store.hand_over_user(username, managed_by, memberships=memberships is True, actor=admin_username)
+    except Exception as e:
+        logger.error("Handing %s to %s failed: %s", username, managed_by, type(e).__name__)
+        emit_audit_event(
+            "user.ownership_set",
+            actor=admin_username,
+            resource_type="user",
+            resource_id=username,
+            detail={"to": managed_by, "memberships": memberships is True, "applied": False},
+            status="error",
+        )
+        raise HTTPException(status_code=500, detail="Failed to change ownership; nothing was changed")
+    previous = result["previous"]
+    detail = {"from": previous, "to": managed_by}
+    content = {"username": username, "managed_by": managed_by, "previous": previous}
+    if memberships is True:
+        detail["memberships"] = [{"group": group, "from": owner} for group, owner in result["memberships"]]
+        content["memberships"] = detail["memberships"]
     emit_audit_event(
         "user.ownership_set",
         actor=admin_username,
         resource_type="user",
         resource_id=username,
-        detail={"from": previous, "to": managed_by},
+        detail=detail,
     )
     logger.info("Administrator %s set ownership of %s from %s to %s", admin_username, username, previous, managed_by)
-    return JSONResponse(content={"username": username, "managed_by": managed_by, "previous": previous}, status_code=200)
-
-
-def _audit_delete_conflict(username: str, decision, admin_username: str) -> None:
-    emit_audit_event(
-        "user.ownership_conflict",
-        actor=admin_username,
-        resource_type="user",
-        resource_id=username,
-        detail={"owner": decision.owner, "written_by": MANUAL, "reason": decision.reason, "permitted": decision.allowed, "operation": "delete"},
-        status="success" if decision.allowed else "denied",
-    )
+    return JSONResponse(content=content, status_code=200)
 
 
 @users_router.delete(
@@ -397,31 +413,27 @@ async def delete_user(
         if not detail:
             raise HTTPException(status_code=404, detail=f"User {username} not found")
 
-        decision = evaluate_write(
-            detail.get("managed_by"),
-            MANUAL,
-            enforcement=config.MANAGED_BY_ENFORCEMENT,
-            admin_override=admin_override is True,
-            fields={"deleted"},
-            target_is_admin=bool(detail.get("is_admin")),
-        )
-        if decision.conflict and not decision.allowed:
-            _audit_delete_conflict(username, decision, admin_username)
-            raise HTTPException(status_code=409, detail=f"User {username} is managed by {decision.owner!r}: {decision.reason}")
-
+        # The ownership guard (#360) runs inside the delete, as ``manual``: refused under enforce
+        # unless ``admin_override``, recorded as ``user.ownership_conflict`` (``operation: delete``)
+        # either way, and before anything else — so a refused delete detects and hands over nothing.
         # Orphan detection and the ORPHAN_FALLBACK_PRINCIPAL hand-over run inside the delete's own
         # transaction, before the cascade removes the grants they read: a refused delete (the last
         # active administrator) rolls the hand-over back too. They never block the delete (#324).
         try:
-            delete_user_reporting_orphans(username, actor=admin_username, source="admin", store=store)
+            delete_user_reporting_orphans(
+                username,
+                actor=admin_username,
+                source="admin",
+                store=store,
+                written_by=MANUAL,
+                admin_override=admin_override is True,
+            )
         except MlflowException as e:
-            if e.error_code == ErrorCode.Name(INVALID_STATE):
+            # The ownership guard (INVALID_PARAMETER_VALUE) and the last-active-admin invariant
+            # (INVALID_STATE): both a refusal, never a 500.
+            if e.error_code in (ErrorCode.Name(INVALID_STATE), ErrorCode.Name(INVALID_PARAMETER_VALUE)):
                 raise HTTPException(status_code=409, detail=e.message)
             raise
-        if decision.conflict:
-            # A permitted cross-source delete (report mode, or the override), recorded only once
-            # the delete has committed.
-            _audit_delete_conflict(username, decision, admin_username)
         emit_audit_event(
             "user.delete",
             actor=admin_username,
@@ -514,6 +526,82 @@ async def set_user_active(
 
     updated = store.get_user_detail(target)
     return JSONResponse(content={key: updated[key] for key in USER_DETAIL_FIELDS})
+
+
+def _require_user_detail(username: str) -> dict:
+    detail = store.get_user_detail(username)
+    if detail is None:
+        raise HTTPException(status_code=404, detail=f"User {username} not found")
+    return detail
+
+
+@users_router.get(
+    USER_SESSIONS,
+    summary="List a user's live sessions",
+    description="Lists a user's live server-side sessions. Returns a short id prefix and an opaque `pk`, never the session id. Admins only.",
+)
+async def list_user_sessions(username: str, admin_username: str = Depends(check_admin_permission)) -> JSONResponse:
+    """A user's live sessions, newest first (issue #325).
+
+    The full session id is a bearer credential, so it is never returned: ``session_id_prefix``
+    tells sessions apart and ``pk`` addresses one for revocation. ``last_seen_at`` is recorded
+    only where something writes it; the per-request authentication path does not.
+
+    Raises:
+        HTTPException: 404 for an unknown user.
+    """
+    target = _require_user_detail(username)["username"]
+    return JSONResponse(
+        content={"sessions": [summary.to_json() for summary in store.list_live_auth_session_details(target)]}, headers={"Cache-Control": "no-store"}
+    )
+
+
+@users_router.delete(
+    USER_SESSION,
+    summary="Revoke one of a user's sessions",
+    description="Revokes one live session of this user, addressed by the `pk` from the session list. Admins only.",
+)
+async def revoke_user_session(username: str, session_pk: int, admin_username: str = Depends(check_admin_permission)) -> JSONResponse:
+    """Revoke one session (issue #325). Effective on the session's next request.
+
+    Raises:
+        HTTPException: 404 for an unknown user, or a ``pk`` that is not a live session of *this*
+            user — another user's session reads exactly like one that does not exist.
+    """
+    target = _require_user_detail(username)["username"]
+    if not store.revoke_auth_session_by_pk(target, session_pk):
+        raise HTTPException(status_code=404, detail="Session not found")
+    emit_audit_event(
+        "session.revoked",
+        actor=admin_username,
+        resource_type="user",
+        resource_id=target,
+        detail={"source": "admin", "sessions": 1, "session_pk": session_pk, "reason": "admin_revoke"},
+    )
+    return JSONResponse(content={"revoked": 1})
+
+
+@users_router.delete(
+    USER_SESSIONS,
+    summary="Revoke all of a user's sessions",
+    description="Revokes every live session of this user. Their access tokens are not affected. Admins only.",
+)
+async def revoke_user_sessions(username: str, admin_username: str = Depends(check_admin_permission)) -> JSONResponse:
+    """Sign a user out everywhere (issue #325). Their account, grants and access token are untouched.
+
+    Raises:
+        HTTPException: 404 for an unknown user.
+    """
+    target = _require_user_detail(username)["username"]
+    count = store.revoke_all_auth_sessions(target)
+    emit_audit_event(
+        "session.revoked",
+        actor=admin_username,
+        resource_type="user",
+        resource_id=target,
+        detail={"source": "admin", "sessions": count, "reason": "admin_revoke_all"},
+    )
+    return JSONResponse(content={"revoked": count})
 
 
 @users_router.get(

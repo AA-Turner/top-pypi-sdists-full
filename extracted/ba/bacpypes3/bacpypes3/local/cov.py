@@ -1,21 +1,21 @@
 """
 Change Of Value
 """
-
 from __future__ import annotations
 
 import asyncio
+
 from typing import Callable, List
 
+from ..debugging import bacpypes_debugging, ModuleLogger
+from ..primitivedata import ObjectType
+from ..basetypes import PropertyValue
+from ..constructeddata import Any
 from ..apdu import (
     ConfirmedCOVNotificationRequest,
     UnconfirmedCOVNotificationRequest,
 )
-from ..basetypes import PropertyValue
-from ..constructeddata import Any
-from ..debugging import ModuleLogger, bacpypes_debugging
 from ..object import DeviceObject
-from ..primitivedata import ObjectType
 
 # some debugging
 _debug = 0

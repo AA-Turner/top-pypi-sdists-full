@@ -395,7 +395,7 @@ def pull(
         output: Save to this path instead of printing the URL.
         split: Download a specific split (e.g. train, test).
     """
-    import urllib.request
+    from dreadnode.core.tls import download_platform_file
 
     api, profile = platform.connect()
     vref = ensure_version(api, "dataset", ArtifactRef.parse(ref, profile.org_key))
@@ -407,7 +407,7 @@ def pull(
 
     if output:
         console.print(f"Downloading {vref.format()}...")
-        urllib.request.urlretrieve(url, str(output))  # noqa: S310
+        download_platform_file(url, output)
         print_success(f"Saved to {output}")
     else:
         console.print(f"[dim]Download URL (expires {result.get('expires_at', 'soon')}):[/dim]")

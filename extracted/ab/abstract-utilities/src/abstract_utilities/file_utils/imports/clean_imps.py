@@ -1,3 +1,4 @@
+from ..._frames import light_stack
 from .imports import (
     imports,
     re,
@@ -193,7 +194,7 @@ from .constants import (
 # ============================================================
 def get_caller_path(i=None):
     i = i or 1
-    frame = inspect.stack()[i]
+    frame = light_stack()[i]
     return os.path.abspath(frame.filename)
 
 

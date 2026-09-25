@@ -78,3 +78,13 @@ class DataDiffMismatchingKeyTypesError(Exception):
 # _parse_key_range_result — keeps the exception contract for existing callers.
 class DataDiffUnsupportedKeyValueError(ValueError):
     "Raised when a key column holds values that cannot be mapped to a bisectable range (e.g. text keys with '.', accents or other non-ASCII characters)."
+
+
+# Subclasses AssertionError because it replaces the bare assert previously used by
+# DiffResultWrapper._get_stats — callers catching AssertionError keep working.
+class DataDiffDuplicateKeyError(AssertionError):
+    "Raised when computing diff stats finds the same key twice in one table. `table_index` is 1 or 2."
+
+    def __init__(self, message: str, table_index: int) -> None:
+        super().__init__(message)
+        self.table_index = table_index

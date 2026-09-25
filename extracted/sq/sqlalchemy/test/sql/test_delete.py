@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy import String
 from sqlalchemy import testing
 from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import default
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
@@ -17,6 +18,7 @@ from sqlalchemy.testing import expect_deprecated
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing.schema import Column
 from sqlalchemy.testing.schema import Table
+from .test_update import _FilterByDMLSuite
 
 
 class _DeleteTestBase:
@@ -162,6 +164,63 @@ class DeleteFromCompileTest(
             stmt,
             "DELETE FROM mytable , myothertable "
             "WHERE mytable.myid = myothertable.otherid",
+        )
+
+    def test_delete_explicit_using(self):
+        table1, table2 = self.tables.mytable, self.tables.myothertable
+
+        stmt = table1.delete().using(table2).where(table1.c.myid == 7)
+        self.assert_compile(
+            stmt,
+            "DELETE FROM mytable , myothertable "
+            "WHERE mytable.myid = :myid_1",
+            checkparams={"myid_1": 7},
+        )
+
+    def test_delete_explicit_using_dedupe_implicit_from(self):
+        table1, table2 = self.tables.mytable, self.tables.myothertable
+
+        stmt = (
+            table1.delete()
+            .using(table2)
+            .where(table1.c.myid == table2.c.otherid)
+        )
+        self.assert_compile(
+            stmt,
+            "DELETE FROM mytable , myothertable "
+            "WHERE mytable.myid = myothertable.otherid",
+        )
+
+    def test_delete_explicit_using_join_mysql(self):
+        table1, table2 = self.tables.mytable, self.tables.myothertable
+
+        stmt = (
+            table1.delete()
+            .using(table1.outerjoin(table2, table1.c.myid == table2.c.otherid))
+            .where(table2.c.othername == None)
+        )
+        self.assert_compile(
+            stmt,
+            "DELETE FROM mytable USING mytable LEFT OUTER JOIN myothertable "
+            "ON mytable.myid = myothertable.otherid "
+            "WHERE myothertable.othername IS NULL",
+            dialect=mysql.dialect(),
+        )
+
+    def test_delete_explicit_using_join_postgresql(self):
+        table1, table2 = self.tables.mytable, self.tables.myothertable
+
+        stmt = (
+            table1.delete()
+            .using(table2.outerjoin(table1, table1.c.myid == table2.c.otherid))
+            .where(table2.c.othername == None)
+        )
+        self.assert_compile(
+            stmt,
+            "DELETE FROM mytable USING myothertable LEFT OUTER JOIN mytable "
+            "ON mytable.myid = myothertable.otherid "
+            "WHERE myothertable.othername IS NULL",
+            dialect=postgresql.dialect(),
         )
 
     def test_correlation_to_extra(self):
@@ -381,3 +440,44 @@ class DeleteFromRoundTripTest(fixtures.TablesTest):
     def _assert_table(self, connection, table, expected):
         stmt = table.select().order_by(table.c.id)
         eq_(connection.execute(stmt).fetchall(), expected)
+
+
+class DeleteFilterByTest(_FilterByDMLSuite):
+    @testing.fixture
+    def one_table_statement(self):
+        users = self.tables.users
+
+        return users.delete()
+
+    @testing.fixture
+    def two_table_statement(self):
+        users = self.tables.users
+        addresses = self.tables.addresses
+
+        return users.delete().where(users.c.id == addresses.c.user_id)
+
+    @testing.fixture
+    def three_table_statement(self):
+        users = self.tables.users
+        addresses = self.tables.addresses
+        dingalings = self.tables.dingalings
+
+        return (
+            users.delete()
+            .where(users.c.id == addresses.c.user_id)
+            .where(addresses.c.id == dingalings.c.address_id)
+        )
+
+    @testing.fixture
+    def four_table_statement(self):
+        users = self.tables.users
+        addresses = self.tables.addresses
+        dingalings = self.tables.dingalings
+        departments = self.tables.departments
+
+        return (
+            users.delete()
+            .where(users.c.id == addresses.c.user_id)
+            .where(addresses.c.id == dingalings.c.address_id)
+            .where(departments.c.id == users.c.department_id)
+        )

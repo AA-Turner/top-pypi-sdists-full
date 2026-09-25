@@ -130,6 +130,7 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "ad_campaigns",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -224,6 +225,7 @@ class RawAdCampaignsClient:
         account_id: typing.Optional[str] = OMIT,
         bid_type: typing.Optional[CreateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[CreateAdCampaignsRequestBudgetType] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
@@ -253,7 +255,10 @@ class RawAdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign's budget, in the ad account's currency. Required when budget_optimization is `ad_campaign`; omit when each ad group sets its own budget.
+            The campaign's budget in USD, which is what it is stored and billed in. Required when budget_optimization is `ad_campaign` (or send budget_amount_local instead); omit when each ad group sets its own budget.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign's budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[CreateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Defaults to `ad_group`.
@@ -283,11 +288,13 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "ad_campaigns",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
                 "bid_type": bid_type,
                 "budget_amount": budget_amount,
+                "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
                 "desired_cost_per_result": desired_cost_per_result,
@@ -385,6 +392,7 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "stats_from": stats_from,
@@ -445,6 +453,7 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="DELETE",
             request_options=request_options,
         )
@@ -484,6 +493,7 @@ class RawAdCampaignsClient:
         *,
         bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[UpdateAdCampaignsRequestBudgetType] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
@@ -505,7 +515,10 @@ class RawAdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign budget, in the account's currency. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+            The campaign budget in USD, which is what it is stored and billed in. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount; an amount equal to the current budget_amount_local keeps the stored USD budget as is. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[UpdateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign is live on the ad network; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
@@ -538,10 +551,12 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "bid_type": bid_type,
                 "budget_amount": budget_amount,
+                "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
                 "ends_at": ends_at,
@@ -607,6 +622,7 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}/duplicate",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "count": count,
@@ -689,6 +705,7 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}/pause",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -702,71 +719,6 @@ class RawAdCampaignsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        V1ErrorResponse,
-                        parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def retry_payment(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[AdCampaign]:
-        """
-        Retries billing for an ad campaign whose payment previously failed.
-
-        Parameters
-        ----------
-        id : str
-            The ad campaign ID.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[AdCampaign]
-            payment retried
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"ad_campaigns/{encode_path_param(id)}/retry_payment",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    AdCampaign,
-                    parse_obj_as(
-                        type_=AdCampaign,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -806,6 +758,7 @@ class RawAdCampaignsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}/unpause",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -924,6 +877,7 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "ad_campaigns",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -1021,6 +975,7 @@ class AsyncRawAdCampaignsClient:
         account_id: typing.Optional[str] = OMIT,
         bid_type: typing.Optional[CreateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[CreateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[CreateAdCampaignsRequestBudgetType] = OMIT,
         desired_cost_per_result: typing.Optional[float] = OMIT,
@@ -1050,7 +1005,10 @@ class AsyncRawAdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign's budget, in the ad account's currency. Required when budget_optimization is `ad_campaign`; omit when each ad group sets its own budget.
+            The campaign's budget in USD, which is what it is stored and billed in. Required when budget_optimization is `ad_campaign` (or send budget_amount_local instead); omit when each ad group sets its own budget.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign's budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[CreateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Defaults to `ad_group`.
@@ -1080,11 +1038,13 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "ad_campaigns",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
                 "bid_type": bid_type,
                 "budget_amount": budget_amount,
+                "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
                 "desired_cost_per_result": desired_cost_per_result,
@@ -1182,6 +1142,7 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "stats_from": stats_from,
@@ -1242,6 +1203,7 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="DELETE",
             request_options=request_options,
         )
@@ -1281,6 +1243,7 @@ class AsyncRawAdCampaignsClient:
         *,
         bid_type: typing.Optional[UpdateAdCampaignsRequestBidType] = OMIT,
         budget_amount: typing.Optional[float] = OMIT,
+        budget_amount_local: typing.Optional[float] = OMIT,
         budget_optimization: typing.Optional[UpdateAdCampaignsRequestBudgetOptimization] = OMIT,
         budget_type: typing.Optional[UpdateAdCampaignsRequestBudgetType] = OMIT,
         ends_at: typing.Optional[str] = OMIT,
@@ -1302,7 +1265,10 @@ class AsyncRawAdCampaignsClient:
             How delivery bids in the ad auction: `minimum_cost` gets the most results for the budget, `average_target` holds an average cost per result, `maximum_target` never bids above a cap. Switching to `minimum_cost` clears the cap amounts stored on the campaign's ad groups. Only for campaigns that own the budget.
 
         budget_amount : typing.Optional[float]
-            The campaign budget, in the account's currency. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+            The campaign budget in USD, which is what it is stored and billed in. Interpreted as daily or lifetime per the campaign's budget type, including a budget_type sent in the same request.
+
+        budget_amount_local : typing.Optional[float]
+            The campaign budget stated in the account's ads reporting currency (`budget_currency` on the response) instead of USD. Converted to USD at the current exchange rate and stored as budget_amount; an amount equal to the current budget_amount_local keeps the stored USD budget as is. Provide this or budget_amount, not both.
 
         budget_optimization : typing.Optional[UpdateAdCampaignsRequestBudgetOptimization]
             Which level owns the budget: the whole campaign (`ad_campaign`) or each ad group individually (`ad_group`). Only changeable before the campaign is live on the ad network; switching to `ad_campaign` requires budget_amount in the same request, and switching to `ad_group` clears the campaign budget.
@@ -1335,10 +1301,12 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "bid_type": bid_type,
                 "budget_amount": budget_amount,
+                "budget_amount_local": budget_amount_local,
                 "budget_optimization": budget_optimization,
                 "budget_type": budget_type,
                 "ends_at": ends_at,
@@ -1404,6 +1372,7 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}/duplicate",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "count": count,
@@ -1488,6 +1457,7 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}/pause",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -1501,71 +1471,6 @@ class AsyncRawAdCampaignsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        V1ErrorResponse,
-                        parse_obj_as(
-                            type_=V1ErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def retry_payment(
-        self, id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[AdCampaign]:
-        """
-        Retries billing for an ad campaign whose payment previously failed.
-
-        Parameters
-        ----------
-        id : str
-            The ad campaign ID.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[AdCampaign]
-            payment retried
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"ad_campaigns/{encode_path_param(id)}/retry_payment",
-            method="POST",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    AdCampaign,
-                    parse_obj_as(
-                        type_=AdCampaign,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -1607,6 +1512,7 @@ class AsyncRawAdCampaignsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"ad_campaigns/{encode_path_param(id)}/unpause",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )

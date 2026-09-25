@@ -14,6 +14,7 @@ logical plans) includes::
     ALTER TABLE <tbl> CREATE BRANCH IF NOT EXISTS <name>
     ALTER TABLE <tbl> CREATE OR REPLACE BRANCH <name>
     ALTER TABLE <tbl> CREATE BRANCH <name> AS OF VERSION <snapshot_id>
+    ALTER TABLE <tbl> REPLACE BRANCH <name> [AS OF VERSION <snapshot_id>]
     ALTER TABLE <tbl> DROP BRANCH <name>
     ALTER TABLE <tbl> DROP BRANCH IF EXISTS <name>
 
@@ -23,6 +24,7 @@ Snowflake's surface (internal design doc, branch section) uses the same
 
     ALTER ICEBERG TABLE <tbl> CREATE BRANCH '<name>'
     ALTER ICEBERG TABLE <tbl> CREATE BRANCH '<name>' AS OF VERSION <id>
+    ALTER ICEBERG TABLE <tbl> REPLACE BRANCH '<name>' [AS OF VERSION <id>]
     ALTER ICEBERG TABLE <tbl> DROP BRANCH '<name>'
     ALTER ICEBERG TABLE <tbl> DROP BRANCH IF EXISTS '<name>'
 
@@ -43,12 +45,16 @@ Translation policy
   statement (server-supported from 10.29.100).
 * Other ``BranchOptions`` bindings (``numSnapshots``, retention knobs) raise
   ``UNSUPPORTED_OPERATION``.
-* Bare ``REPLACE BRANCH`` (without ``CREATE``) raises ``UNSUPPORTED_OPERATION``
-  for the same semantic reasons as tag DDL.
-* Creating a branch named ``main`` (exact match, Iceberg's default ref name)
-  raises ``UNSUPPORTED_OPERATION`` — Snowflake rejects CREATE BRANCH for the
-  built-in ``main`` ref. Other case variants (e.g. ``MAIN``) are distinct
-  under Iceberg's case-sensitive branch naming and are passed through.
+* Bare ``REPLACE BRANCH`` (without ``CREATE``) maps one-to-one onto Snowflake's
+  own ``REPLACE BRANCH``, with the optional ``AS OF VERSION <id>`` carried
+  through. Both sides fail when the branch is missing -- Iceberg by definition,
+  Snowflake with ``ICEBERG_BRANCH_NOT_FOUND`` (004595) -- so no lowering to
+  ``CREATE OR REPLACE`` is needed and none is done.
+* Naming a branch ``main`` (exact match, Iceberg's default ref name) raises
+  ``UNSUPPORTED_OPERATION`` for both CREATE and REPLACE — Snowflake rejects the
+  built-in ``main`` ref either way (004232, "Reference names ... cannot be
+  'main'"). Other case variants (e.g. ``MAIN``) are distinct under Iceberg's
+  case-sensitive branch naming and are passed through.
 * The emitted SQL always uses ``ALTER ICEBERG TABLE``.
 
 JVM source
@@ -120,7 +126,6 @@ def _branch_options_has_unsupported_binding(options: TypingAny) -> str | None:
 
 def _build_create_branch_action(
     *,
-    branch_name: str,
     create: bool,
     replace: bool,
     if_not_exists: bool,
@@ -133,26 +138,7 @@ def _build_create_branch_action(
             action += " IF NOT EXISTS"
         return action
     if replace:
-        telemetry.report_iceberg_wap(
-            op="unsupported",
-            surface="sql_call",
-            ref_type="branch",
-            outcome="rejected",
-            error_code="UNSUPPORTED_OPERATION",
-            detail="replace_branch",
-        )
-        exception = AnalysisException(
-            f"Iceberg 'ALTER TABLE … REPLACE BRANCH {branch_name!r}' (without "
-            "CREATE) is not translated by Snowpark Connect: Snowflake does "
-            "not expose a bare REPLACE form for BRANCH, and automatically "
-            "lowering this to 'CREATE OR REPLACE' would change the semantics "
-            "(Iceberg's bare REPLACE BRANCH fails if the branch is missing). "
-            "If create-or-update semantics are acceptable, rewrite the "
-            "statement as 'CREATE OR REPLACE BRANCH'; otherwise use "
-            "Snowflake-native DDL directly."
-        )
-        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-        raise exception
+        return "REPLACE BRANCH"
     exception = AnalysisException(
         "Internal: Iceberg CreateOrReplaceBranch plan has neither "
         "'create' nor 'replace' flag set; this is a parser invariant "
@@ -165,27 +151,40 @@ def _build_create_branch_action(
 def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> str:
     """Translate ``ALTER TABLE … CREATE/REPLACE BRANCH …`` to Snowflake SQL."""
     branch_name = normalize_branch_name(rel.branch())
+    create = bool(rel.create())
+    replace = bool(rel.replace())
+    if_not_exists = bool(rel.ifNotExists())
+
+    # Both rejections below are reachable from REPLACE as well as CREATE, so
+    # quote the verb the customer actually wrote back at them.
+    replace_only = replace and not create
+    ddl_action = "replace" if replace_only else "create"
+    verb = "REPLACE BRANCH" if replace_only else "CREATE BRANCH"
+
     if branch_name in _RESERVED_BRANCH_NAMES:
         telemetry.report_iceberg_wap(
             op="unsupported",
             surface="sql_call",
             ref_type="branch",
+            ddl_action=ddl_action,
             outcome="rejected",
             error_code="UNSUPPORTED_OPERATION",
             detail="reserved_main",
         )
+        remediation = (
+            "To move the built-in main ref to an earlier snapshot, use "
+            "Snowflake-native branch management DDL directly."
+            if replace_only
+            else "Choose a different branch name or use Snowflake-native "
+            "branch management DDL directly."
+        )
         exception = AnalysisException(
             f"Iceberg branch name {branch_name!r} is reserved by Snowflake "
-            "(the built-in main branch ref cannot be created via CREATE "
-            "BRANCH). Choose a different branch name or use Snowflake-native "
-            "branch management DDL directly."
+            f"(the built-in main branch ref cannot be targeted by {verb}). "
+            f"{remediation}"
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
-
-    create = bool(rel.create())
-    replace = bool(rel.replace())
-    if_not_exists = bool(rel.ifNotExists())
 
     options = rel.branchOptions()
     unsupported = _branch_options_has_unsupported_binding(options)
@@ -194,13 +193,13 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
             op="unsupported",
             surface="sql_call",
             ref_type="branch",
-            ddl_action="create",
+            ddl_action=ddl_action,
             outcome="rejected",
             error_code="UNSUPPORTED_OPERATION",
             detail=unsupported,
         )
         exception = AnalysisException(
-            f"Iceberg 'ALTER TABLE … CREATE BRANCH {branch_name!r}' with "
+            f"Iceberg 'ALTER TABLE … {verb} {branch_name!r}' with "
             f"{unsupported} binding is not translated by Snowpark Connect: "
             "Snowflake's documented branch DDL surface supports bare "
             "CREATE BRANCH / DROP BRANCH and snapshot-pinned "
@@ -218,7 +217,6 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
         snapshot_id = None
 
     action = _build_create_branch_action(
-        branch_name=branch_name,
         create=create,
         replace=replace,
         if_not_exists=if_not_exists,
@@ -228,7 +226,7 @@ def translate_create_or_replace_branch(rel: TypingAny, table_name_sql: str) -> s
         op="branch_ddl",
         surface="sql_call",
         ref_type="branch",
-        ddl_action="create",
+        ddl_action=ddl_action,
     )
     sql = f"ALTER ICEBERG TABLE {table_name_sql} {action} {quoted_branch}"
     if snapshot_id is not None:

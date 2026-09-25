@@ -83,7 +83,7 @@ class AudiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -150,7 +150,7 @@ class AudiencesClient:
             CSV audiences only. The uploaded customer CSV — a file id (`file_...`) returned by `POST /files`.
 
         filters : typing.Optional[typing.Dict[str, typing.Any]]
-            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Date filters must be rolling windows — `first_seen_within_days` or `last_seen_within_days` — so the audience re-anchors on every refresh; fixed dates such as `first_seen_after` are rejected. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
+            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Activity dates `event_from` and `event_to` are inclusive and remain fixed on refresh. Use `event_within_days`, `first_seen_within_days` or `last_seen_within_days` for a rolling window. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
 
         name : typing.Optional[str]
             Audience display name. Required for custom audiences; lookalike names are generated from the source audience.
@@ -178,7 +178,7 @@ class AudiencesClient:
         from whop_sdk.audiences import CreateAudiencesRequestEngagement
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -237,7 +237,7 @@ class AudiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -283,7 +283,7 @@ class AudiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -319,7 +319,7 @@ class AudiencesClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -396,7 +396,7 @@ class AsyncAudiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -470,7 +470,7 @@ class AsyncAudiencesClient:
             CSV audiences only. The uploaded customer CSV — a file id (`file_...`) returned by `POST /files`.
 
         filters : typing.Optional[typing.Dict[str, typing.Any]]
-            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Date filters must be rolling windows — `first_seen_within_days` or `last_seen_within_days` — so the audience re-anchors on every refresh; fixed dates such as `first_seen_after` are rejected. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
+            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Activity dates `event_from` and `event_to` are inclusive and remain fixed on refresh. Use `event_within_days`, `first_seen_within_days` or `last_seen_within_days` for a rolling window. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
 
         name : typing.Optional[str]
             Audience display name. Required for custom audiences; lookalike names are generated from the source audience.
@@ -500,7 +500,7 @@ class AsyncAudiencesClient:
         from whop_sdk.audiences import CreateAudiencesRequestEngagement
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -569,7 +569,7 @@ class AsyncAudiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -623,7 +623,7 @@ class AsyncAudiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -669,7 +669,7 @@ class AsyncAudiencesClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-15",
+            "2026-09-23",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

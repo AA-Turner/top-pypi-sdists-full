@@ -144,6 +144,25 @@ CLIENT_FLOW_HOOK_EVENTS: frozenset[str] = frozenset(
 )
 
 
+def status_category(status_code: int) -> str:
+    """Map an HTTP status to its ``CLIENT_FLOW_ERROR_CATEGORIES`` member. Lives
+    here (stdlib-only, already inside the hook import closure) rather than in
+    ``error_classification`` so the relay's non-2xx path does not drag the MCP
+    client stack into the packaged hook."""
+    category = "other"
+    if status_code == 401:
+        category = "http_401"
+    elif status_code == 403:
+        category = "http_403"
+    elif status_code == 404:
+        category = "http_404"
+    elif 400 <= status_code < 500:
+        category = "http_4xx"
+    elif 500 <= status_code < 600:
+        category = "http_5xx"
+    return category
+
+
 def build_envelope(flows: list[dict[str, Any]], dropped: int) -> dict[str, Any]:
     """Wire envelope attached to existing request bodies as ``client_flows``.
 

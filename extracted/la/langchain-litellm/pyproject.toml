@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-litellm"
-version = "0.8.0"
+version = "0.9.0"
 
 description = "An integration package connecting LiteLLM and LangChain"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Akshay Dongare"}]
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -19,7 +19,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -30,6 +29,7 @@ classifiers = [
 ]
 dependencies = [
     "langchain-core>=1.6.1,<2.0.0",
+    # 1.82.7 and 1.82.8 were compromised.
     "litellm>=1.83.14,<2.0.0,!=1.82.7,!=1.82.8",
     "httpx>=0.28.1,<0.29.0",
     "pydantic>=2.10.0,<3.0.0",
@@ -96,6 +96,7 @@ typing = [
 
 [tool.mypy]
 disallow_untyped_defs = "True"
+mypy_path = "scripts"  # so `make lint_tests` resolves what the tests import from there
 
 [[tool.mypy.overrides]]
 module = [
@@ -180,6 +181,7 @@ ignore-words-list = "hel"  # "hel" + "lo" is a streaming chunk split across two 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = "--strict-markers --strict-config --durations=5"
+pythonpath = ["scripts"]  # plain modules, not a package; tests import them by name
 markers = [
     "compile: mark placeholder test used to compile integration tests without running them",
     "integration: mark test as an integration test",

@@ -562,7 +562,7 @@ def inspect_launcher_identities(
         kind: sum(finding.kind == kind for finding in result.findings)
         for kind in ("hidden_symlink", "windows_cmd", "windows_lnk")
     }
-    logger.info(
+    logger.debug(
         "launcher_inspection_complete",
         directories=result.directories,
         entries=result.entries,

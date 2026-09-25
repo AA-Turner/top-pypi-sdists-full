@@ -12,15 +12,13 @@ class LocalPropertyIdentifier(PropertyIdentifier):
 
 local_vendor_info = VendorInfo(999, property_identifier=LocalPropertyIdentifier)
 
-from . import (
-    analog,
-    binary,
-    cmd,
-    cov,
-    device,
-    event,
-    fault,
-    networkport,
-    object,
-    schedule,
-)
+from . import object
+from . import cmd
+from . import cov
+from . import device
+from . import analog
+from . import binary
+from . import event
+from . import fault
+from . import networkport
+from . import schedule

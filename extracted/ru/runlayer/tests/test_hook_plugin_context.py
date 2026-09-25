@@ -245,30 +245,40 @@ class TestBuildPluginContext:
 
 
 class TestDispatchInjection:
-    @pytest.mark.parametrize("event", ["SessionStart", "UserPromptSubmit"])
-    def test_claude_code_gets_additional_context(
-        self, home, monkeypatch, capsys, event
-    ):
+    def test_claude_code_gets_additional_context(self, home, monkeypatch, capsys):
         _write_claude_json(home, {"runlayer-plugin": {"url": PLUGIN_URL}})
-        forwarded = _dispatch(monkeypatch, event=event, client=CLAUDE, cwd=home)
+        forwarded = _dispatch(
+            monkeypatch, event="SessionStart", client=CLAUDE, cwd=home
+        )
         out = json.loads(capsys.readouterr().out)
-        assert out["hookSpecificOutput"]["hookEventName"] == event
+        assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
         assert (
             'MCP server "runlayer-plugin"'
             in (out["hookSpecificOutput"]["additionalContext"])
         )
-        assert forwarded == [("claude_code", event)]
+        assert forwarded == [("claude_code", "SessionStart")]
 
-    @pytest.mark.parametrize("event", ["SessionStart", "UserPromptSubmit"])
-    def test_codex_gets_additional_context(self, home, monkeypatch, capsys, event):
+    def test_codex_gets_additional_context(self, home, monkeypatch, capsys):
         _write_codex_toml(home, {"runlayer-plugin": PLUGIN_URL})
-        forwarded = _dispatch(monkeypatch, event=event, client=CODEX, cwd=home)
+        forwarded = _dispatch(monkeypatch, event="SessionStart", client=CODEX, cwd=home)
         out = json.loads(capsys.readouterr().out)
-        assert out["hookSpecificOutput"]["hookEventName"] == event
+        assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
         assert (
             "mcp__runlayer-plugin__" in (out["hookSpecificOutput"]["additionalContext"])
         )
-        assert forwarded == [("codex", event)]
+        assert forwarded == [("codex", "SessionStart")]
+
+    @pytest.mark.parametrize("client", [CLAUDE, CODEX])
+    def test_prompt_submit_does_not_inject(self, home, monkeypatch, capsys, client):
+        # SessionStart re-fires after compaction, so per-prompt injection only
+        # repeats context the model already has.
+        _write_claude_json(home, {"runlayer-plugin": {"url": PLUGIN_URL}})
+        _write_codex_toml(home, {"runlayer-plugin": PLUGIN_URL})
+        forwarded = _dispatch(
+            monkeypatch, event="UserPromptSubmit", client=client, cwd=home
+        )
+        assert capsys.readouterr().out == ""
+        assert forwarded == [(client.value, "UserPromptSubmit")]
 
     @pytest.mark.parametrize("client", [CLAUDE, CODEX])
     @pytest.mark.parametrize("event", ["SessionStart", "UserPromptSubmit"])
@@ -294,11 +304,15 @@ class TestDispatchInjection:
 
 class TestAllowWithContext:
     @pytest.mark.parametrize("client", [CLAUDE, CODEX])
-    @pytest.mark.parametrize("event", ["SessionStart", "UserPromptSubmit"])
-    def test_context_shape_for_supported_clients(self, client, event):
-        out = json.loads(HookResponse(client, event).allow_with_context("x") or "")
+    def test_context_shape_for_supported_clients(self, client):
+        out = json.loads(
+            HookResponse(client, "SessionStart").allow_with_context("x") or ""
+        )
         assert out == {
-            "hookSpecificOutput": {"hookEventName": event, "additionalContext": "x"}
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": "x",
+            }
         }
 
     @pytest.mark.parametrize(
@@ -306,7 +320,9 @@ class TestAllowWithContext:
         [
             (CLAUDE, "PreToolUse"),
             (CLAUDE, "SubagentStart"),
+            (CLAUDE, "UserPromptSubmit"),
             (CODEX, "PreToolUse"),
+            (CODEX, "UserPromptSubmit"),
             (Client.CURSOR, "UserPromptSubmit"),
         ],
     )

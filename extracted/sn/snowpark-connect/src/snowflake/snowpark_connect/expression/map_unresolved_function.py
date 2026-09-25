@@ -89,6 +89,7 @@ from snowflake.snowpark_connect.constants import (
 from snowflake.snowpark_connect.date_time_format_mapping import (
     spark_format_needs_udf,
     spark_format_to_legacy_prefix_regex,
+    spark_legacy_parse_has_bracket_literals,
     validate_spark_datetime_format,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -161,6 +162,7 @@ from snowflake.snowpark_connect.utils.datetime_format_udf import (
     get_java_format_date_udf,
     get_java_format_timestamp_ltz_udf,
     get_java_format_timestamp_ntz_udf,
+    get_java_parse_datetime_legacy_udf,
     get_java_parse_datetime_udf,
     substitute_proleptic_year,
 )
@@ -688,6 +690,36 @@ def _has_unsupported_pcre_syntax(pattern_col: snowpark.Column) -> bool:
             return True
 
     return False
+
+
+def _has_posix_character_class(pattern_str: str) -> bool:
+    """POSIX named class, e.g. [[:space:]] — legal Snowflake SQL, illegal java.util.regex."""
+    return "[:" in pattern_str
+
+
+def _has_java_whitespace_shorthand(pattern_str: str) -> bool:
+    r"""Java \s / \S only — proven Spark RLIKE miss vs Snowflake regexp_instr on tabs."""
+    return r"\s" in pattern_str or r"\S" in pattern_str
+
+
+def _rlike_use_java_pattern(pattern_col: snowpark.Column) -> bool:
+    """Opt-in Java Pattern for Spark RLIKE with \\s/\\S.
+
+    Flag is session-scoped and defaults false (no fleet change).
+    """
+    from snowflake.snowpark_connect.config import (
+        is_use_java_regex_for_rlike_whitespace_enabled,
+    )
+
+    if not is_use_java_regex_for_rlike_whitespace_enabled():
+        return False
+    try:
+        pattern_str = str(pattern_col._expression.value)
+    except (AttributeError, TypeError):
+        return False
+    if _has_posix_character_class(pattern_str):
+        return False
+    return _has_java_whitespace_shorthand(pattern_str)
 
 
 def _validate_regex_group_index(
@@ -9171,77 +9203,92 @@ def map_unresolved_function(
             text = snowpark_args[0]
             pattern = snowpark_args[1]
 
-            flag_pyspark_regex_pattern = r"\(\?([a-z]+)\)"
-            begin_flag_pyspark = "(?"
-
-            # resolve regex pattern and params
-            if isinstance(pattern._expression, Literal):
-                # Fast path: pattern is a literal, resolve flags and empty-pattern handling at compile time
-                pattern_value = pattern._expression.value
-                if not pattern_value:
-                    regex_pattern = snowpark_fn.lit(
-                        ".*" if pattern_value == "" else None
-                    )
-                    regex_params = snowpark_fn.lit("c")
-                elif not pattern_value.startswith(begin_flag_pyspark):
-                    regex_pattern = snowpark_fn.lit(pattern_value)
-                    regex_params = snowpark_fn.lit("c")
-                else:
-                    flags = "".join(
-                        re.findall(flag_pyspark_regex_pattern, pattern_value)
-                    )
-                    stripped_pattern = re.sub(
-                        flag_pyspark_regex_pattern, "", pattern_value
-                    )
-                    regex_pattern = snowpark_fn.lit(stripped_pattern)
-                    regex_params = snowpark_fn.lit(flags if flags else "c")
+            if _rlike_use_java_pattern(pattern):
+                # Opt-in: Java \\s matches tab like Spark. Must run before (?i) strip.
+                # F.expr RLIKE literals are unescape-protected in map_sql_expr when
+                # this flag is on; Column.rlike already sends \\s via protobuf.
+                rlike_udf = register_cached_java_udf(
+                    "com.snowflake.snowpark_connect.udfs.RegexpUdfs.rlike",
+                    ["STRING", "STRING"],
+                    "BOOLEAN",
+                )
+                result_exp = snowpark_fn.when(
+                    snowpark_fn.is_null(text), None
+                ).otherwise(rlike_udf(text, pattern))
             else:
-                # Slow path: pattern is a column expression, must handle at runtime
-                regex_pattern = (
-                    snowpark_fn.when(pattern == "", ".*")
-                    .when(
-                        pattern.startswith(begin_flag_pyspark),
-                        snowpark_fn.regexp_replace(pattern, flag_pyspark_regex_pattern),
-                    )
-                    .otherwise(pattern)
-                )
-                regex_params = snowpark_fn.when(
-                    pattern.startswith(begin_flag_pyspark),
-                    snowpark_fn.array_to_string(
-                        snowpark_fn.call_function(
-                            "regexp_substr_all",
-                            pattern,
-                            flag_pyspark_regex_pattern,
-                            1,
-                            1,
-                            "e",
-                            1,
-                        ),
-                        snowpark_fn.lit(""),
-                    ),
-                ).otherwise("c")
+                flag_pyspark_regex_pattern = r"\(\?([a-z]+)\)"
+                begin_flag_pyspark = "(?"
 
-            result_exp = (
-                snowpark_fn.when(snowpark_fn.is_null(text), None)
-                .when(
-                    text == "",
-                    snowpark_fn.call_function(
-                        "rlike", text, regex_pattern, regex_params
-                    ),
-                )
-                .otherwise(
-                    snowpark_fn.call_function(
-                        "regexp_instr",
-                        text,
-                        regex_pattern,
-                        1,
-                        1,
-                        0,
-                        regex_params,
+                # resolve regex pattern and params
+                if isinstance(pattern._expression, Literal):
+                    # Fast path: pattern is a literal, resolve flags and empty-pattern handling at compile time
+                    pattern_value = pattern._expression.value
+                    if not pattern_value:
+                        regex_pattern = snowpark_fn.lit(
+                            ".*" if pattern_value == "" else None
+                        )
+                        regex_params = snowpark_fn.lit("c")
+                    elif not pattern_value.startswith(begin_flag_pyspark):
+                        regex_pattern = snowpark_fn.lit(pattern_value)
+                        regex_params = snowpark_fn.lit("c")
+                    else:
+                        flags = "".join(
+                            re.findall(flag_pyspark_regex_pattern, pattern_value)
+                        )
+                        stripped_pattern = re.sub(
+                            flag_pyspark_regex_pattern, "", pattern_value
+                        )
+                        regex_pattern = snowpark_fn.lit(stripped_pattern)
+                        regex_params = snowpark_fn.lit(flags if flags else "c")
+                else:
+                    # Slow path: pattern is a column expression, must handle at runtime
+                    regex_pattern = (
+                        snowpark_fn.when(pattern == "", ".*")
+                        .when(
+                            pattern.startswith(begin_flag_pyspark),
+                            snowpark_fn.regexp_replace(
+                                pattern, flag_pyspark_regex_pattern
+                            ),
+                        )
+                        .otherwise(pattern)
                     )
-                    > 0
+                    regex_params = snowpark_fn.when(
+                        pattern.startswith(begin_flag_pyspark),
+                        snowpark_fn.array_to_string(
+                            snowpark_fn.call_function(
+                                "regexp_substr_all",
+                                pattern,
+                                flag_pyspark_regex_pattern,
+                                1,
+                                1,
+                                "e",
+                                1,
+                            ),
+                            snowpark_fn.lit(""),
+                        ),
+                    ).otherwise("c")
+
+                result_exp = (
+                    snowpark_fn.when(snowpark_fn.is_null(text), None)
+                    .when(
+                        text == "",
+                        snowpark_fn.call_function(
+                            "rlike", text, regex_pattern, regex_params
+                        ),
+                    )
+                    .otherwise(
+                        snowpark_fn.call_function(
+                            "regexp_instr",
+                            text,
+                            regex_pattern,
+                            1,
+                            1,
+                            0,
+                            regex_params,
+                        )
+                        > 0
+                    )
                 )
-            )
             result_type = FieldType(
                 BooleanType(), _binary_nullable(snowpark_typed_args)
             )
@@ -16415,6 +16462,35 @@ def _parse_datetime_via_java_udf(
     )
 
 
+def _parse_datetime_via_legacy_sdf(
+    col: Column, spark_format: str, ansi_enabled: bool, target_kind: str
+) -> Column:
+    """Parse with SimpleDateFormat like Spark timeParserPolicy=LEGACY.
+
+    No y-to-u rewrite. ``S`` is millisecond; ``[`` / ``]`` are literals.
+    """
+    parse_udf = get_java_parse_datetime_legacy_udf()
+    value_str = snowpark_fn.cast(col, StringType())
+    return parse_udf(
+        value_str,
+        snowpark_fn.lit(spark_format),
+        snowpark_fn.lit(ansi_enabled),
+        snowpark_fn.lit(target_kind),
+    )
+
+
+def _wrap_parsed_canonical(canonical: Column, target_kind: str) -> Column:
+    if target_kind == "date":
+        return snowpark_fn.to_date(canonical)
+    if target_kind == "timestamp_ltz":
+        return snowpark_fn.builtin("to_timestamp_ltz")(canonical)
+    if target_kind == "unix":
+        return snowpark_fn.date_part(
+            "epoch_second", snowpark_fn.builtin("to_timestamp_ltz")(canonical)
+        ).cast(LongType())
+    return snowpark_fn.builtin("to_timestamp_ntz")(canonical)
+
+
 def _try_udf_parse_result(
     col: Column,
     fmt_expr: expressions_proto.Expression,
@@ -16438,20 +16514,19 @@ def _try_udf_parse_result(
     if fmt_str is None:
         return None
     _validate_and_wrap_datetime_format(fmt_str)
+    if _is_legacy_time_parser_policy() and spark_legacy_parse_has_bracket_literals(
+        fmt_str
+    ):
+        canonical = _parse_datetime_via_legacy_sdf(
+            col, fmt_str, raise_on_unparseable, target_kind
+        )
+        return _wrap_parsed_canonical(canonical, target_kind)
     if not spark_format_needs_udf(fmt_str):
         return None
     canonical = _parse_datetime_via_java_udf(
         col, fmt_str, raise_on_unparseable, target_kind
     )
-    if target_kind == "date":
-        return snowpark_fn.to_date(canonical)
-    if target_kind == "timestamp_ltz":
-        return snowpark_fn.builtin("to_timestamp_ltz")(canonical)
-    if target_kind == "unix":
-        return snowpark_fn.date_part(
-            "epoch_second", snowpark_fn.builtin("to_timestamp_ltz")(canonical)
-        ).cast(LongType())
-    return snowpark_fn.builtin("to_timestamp_ntz")(canonical)
+    return _wrap_parsed_canonical(canonical, target_kind)
 
 
 def _calculate_total_months(interval_arg):

@@ -306,6 +306,7 @@ def _collect_diagnostics(quick: bool, proxy: str | None = None) -> dict:
     # Omitted entirely off Linux, where it carries no signal.
     if platform.system() == "Linux":
         from .browser import (
+            _MAC_FONT_TELLS,
             _OFFICE_FONT_TELLS,
             _WINDOWS_FONT_TELLS,
             _count_fonts_present,
@@ -313,11 +314,16 @@ def _collect_diagnostics(quick: bool, proxy: str | None = None) -> dict:
 
         # Strict count, not "any one present" — real font installs are atomic
         # (you have the whole pack or none), so report how complete the set is.
+        # Both Windows and macOS sets are counted unconditionally: `info` has no
+        # persona flag, so we report each raw count and let the user read the one
+        # for the persona they spoof.
         win_n = _count_fonts_present(_WINDOWS_FONT_TELLS)
         office_n = _count_fonts_present(_OFFICE_FONT_TELLS)
+        mac_n = _count_fonts_present(_MAC_FONT_TELLS)
         diag["fonts"] = {
             "windows": None if win_n is None else [win_n, len(_WINDOWS_FONT_TELLS)],
             "office": None if office_n is None else [office_n, len(_OFFICE_FONT_TELLS)],
+            "macos": None if mac_n is None else [mac_n, len(_MAC_FONT_TELLS)],
         }
 
     diag["license"] = license_info
@@ -477,6 +483,17 @@ def _print_diagnostics(diag: dict) -> None:
             # persona (~53% of real machines have none), so no install nudge.
             verdict = "ok" if n == total else "absent" if n == 0 else "partial"
             print(f"Office fonts: {verdict} ({n}/{total})")
+        mac = diag["fonts"].get("macos")
+        if mac is None:
+            print("Mac fonts: unknown (fc-list unavailable)")
+        else:
+            n, total = mac
+            verdict = "ok" if n == total else "missing" if n == 0 else "partial"
+            print(f"Mac fonts: {verdict} ({n}/{total})")
+            if n < total:
+                # Phrased conditionally: some Mac fonts also ship on a Windows box,
+                # so a partial count is expected unless macOS is the intended persona.
+                print(f"           {ARROW} if spoofing macOS on this host, copy the real Mac fonts (Helvetica Neue, Menlo, SF/Apple system fonts)")
 
     lic = diag["license"]
     tier = lic["tier"]

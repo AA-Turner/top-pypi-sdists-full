@@ -25,8 +25,6 @@ sys.path.insert(0, os.path.abspath("../.."))  # examples
 # sys.path.insert(0, os.path.abspath("."))
 
 
-os.environ["DISABLE_SQLALCHEMY_CEXT_RUNTIME"] = "true"
-
 # -- General configuration --------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -248,11 +246,11 @@ copyright = "2007-2026, the SQLAlchemy authors and contributors"  # noqa
 # built documents.
 #
 # The short X.Y version.
-version = "2.0"
+version = "2.1"
 # The full version, including alpha/beta/rc tags.
-release = "2.0.54"
+release = "2.1.0"
 
-release_date = "September 15, 2026"
+release_date = "September 24, 2026"
 
 site_base = os.environ.get("RTD_SITE_BASE", "https://www.sqlalchemy.org")
 site_adapter_template = "docs_adapter.mako"

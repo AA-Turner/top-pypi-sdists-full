@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from dreadnode import Dreadnode
 from dreadnode.agents import Agent
 from dreadnode.agents.tools import Toolset, tool_method
+from dreadnode.core.tls import cached_platform_ssl_context
 from dreadnode.generators.generator import GeneratedMessage, GenerateParams, Generator, Usage
 from dreadnode.generators.message import Message
 from dreadnode.tools.task import finish_task, give_up_on_task
@@ -209,6 +210,7 @@ class _WorldsHTTPToolset(Toolset):
                 else None
             )
             self._client = httpx.AsyncClient(
+                verify=cached_platform_ssl_context(),
                 base_url=self.server_url,
                 timeout=30.0,
                 headers=headers,

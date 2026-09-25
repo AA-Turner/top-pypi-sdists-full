@@ -3154,6 +3154,24 @@ class TestCodexInstall:
         # No duplicate hooks = true lines.
         assert content.count("hooks = true") == 1
 
+    def test_session_start_refires_after_compaction(self, tmp_path, monkeypatch):
+        # Plugin routing context is injected only on SessionStart, so it must
+        # re-fire when compaction or /clear drops it from the window.
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        codex_dir = tmp_path / ".codex"
+        codex_dir.mkdir()
+
+        install_client(
+            Client.CODEX,
+            scope=InstallScope.USER,
+            include_pipeline=True,
+            hook_command="/usr/local/bin/aiwatch-hook",
+        )
+
+        hooks = json.loads((codex_dir / "hooks.json").read_text())["hooks"]
+        sources = set(hooks["SessionStart"][0]["matcher"].split("|"))
+        assert {"startup", "resume", "clear", "compact"} <= sources
+
 
 # ── Hermes install ───────────────────────────────────────────────────
 

@@ -333,4 +333,69 @@ public class PageWrapperTests
 
         await Assert.ThrowsAsync<PlaywrightException>(() => human.ContentAsync());
     }
+
+    // #549: locator-arg APIs must hand Playwright the raw locator, not our decorator.
+    private static (HumanizedPage human, FakeProxy pageRec) BuildBarePage()
+    {
+        var (mouse, _) = Fake.Of<IMouse>();
+        var (keyboard, _) = Fake.Of<IKeyboard>();
+        var (page, pageRec) = Fake.Of<IPage>();
+        pageRec.On("Mouse", mouse);
+        pageRec.On("Keyboard", keyboard);
+        return (new HumanizedPage(page, new HumanCursor(page), FastConfig()), pageRec);
+    }
+
+    private static HumanizedLocator WrapRaw(ILocator raw)
+    {
+        var (page, _) = Fake.Of<IPage>();
+        return new HumanizedLocator(raw, new HumanCursor(page), FastConfig());
+    }
+
+    [Fact]
+    public async Task AddAndRemoveLocatorHandler_unwrap_locator_arg()
+    {
+        var (human, pageRec) = BuildBarePage();
+        var (rawLoc, _) = Fake.Of<ILocator>();
+        var arg = WrapRaw(rawLoc);
+
+        await human.AddLocatorHandlerAsync(arg, () => Task.CompletedTask);
+        Assert.Same(rawLoc, pageRec.Last("AddLocatorHandlerAsync")!.Args[0]);
+
+        await human.RemoveLocatorHandlerAsync(arg);
+        Assert.Same(rawLoc, pageRec.Last("RemoveLocatorHandlerAsync")!.Args[0]);
+    }
+
+    [Fact]
+    public async Task AddLocatorHandler_rewraps_callback_locator()
+    {
+        var (mouse, _) = Fake.Of<IMouse>();
+        var (keyboard, _) = Fake.Of<IKeyboard>();
+        var (page, pageRec) = Fake.Of<IPage>();
+        pageRec.On("Mouse", mouse);
+        pageRec.On("Keyboard", keyboard);
+        var (rawCallbackLoc, _) = Fake.Of<ILocator>();
+        // Fake Playwright fires the registered handler with a raw matched locator.
+        pageRec.On("AddLocatorHandlerAsync", args => ((Func<ILocator, Task>)args[1]!)(rawCallbackLoc));
+        var human = new HumanizedPage(page, new HumanCursor(page), FastConfig());
+
+        var (rawLoc, _) = Fake.Of<ILocator>();
+        ILocator? received = null;
+        await human.AddLocatorHandlerAsync(WrapRaw(rawLoc), loc => { received = loc; return Task.CompletedTask; });
+
+        Assert.Same(rawLoc, pageRec.Last("AddLocatorHandlerAsync")!.Args[0]); // input unwrapped
+        Assert.IsType<HumanizedLocator>(received);                            // callback re-wrapped
+    }
+
+    [Fact]
+    public async Task Screenshot_unwraps_masked_locators()
+    {
+        var (human, pageRec) = BuildBarePage();
+        pageRec.On("ScreenshotAsync", Task.FromResult(System.Array.Empty<byte>()));
+        var (rawLoc, _) = Fake.Of<ILocator>();
+
+        await human.ScreenshotAsync(new PageScreenshotOptions { Mask = new[] { WrapRaw(rawLoc) } });
+
+        var opts = (PageScreenshotOptions)pageRec.Last("ScreenshotAsync")!.Args[0]!;
+        Assert.Same(rawLoc, opts.Mask!.First());
+    }
 }

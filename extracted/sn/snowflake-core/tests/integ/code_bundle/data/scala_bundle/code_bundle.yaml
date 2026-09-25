@@ -18,6 +18,3 @@ bundle:
     - SPARK_LOCAL_IP: 127.0.0.1
     - SNOWPARK_SUBMIT_SPARK_APPLICATION_ID: SSA_TEST_1234
 
-  telemetry_options:
-    log_level: DEBUG
-    trace_level: ALWAYS

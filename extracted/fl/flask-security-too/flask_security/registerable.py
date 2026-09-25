@@ -5,7 +5,7 @@ flask_security.registerable
 Flask-Security registerable module
 
 :copyright: (c) 2012 by Matt Wright.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -21,7 +21,7 @@ from .proxies import _security, _datastore
 from .recoverable import generate_reset_link
 from .signals import user_registered, user_not_registered
 from .utils import (
-    config_value as cv,
+    _config_value as cv,
     do_flash,
     get_message,
     hash_password,
@@ -71,7 +71,7 @@ def register_user(registration_form):
         send_mail(
             cv("EMAIL_SUBJECT_REGISTER"),
             user.email,
-            "welcome",
+            cv("REGISTER_EMAIL_TEMPLATE"),
             user=user,
             confirmation_link=confirmation_link,
             confirmation_token=token,
@@ -163,7 +163,7 @@ def register_existing(
             send_mail(
                 cv("EMAIL_SUBJECT_REGISTER"),
                 form.existing_email_user.email,
-                "welcome_existing",
+                cv("REGISTER_EMAIL_EXISTING_TEMPLATE"),
                 user=form.existing_email_user,
                 recovery_link=recovery_link,
                 reset_link=reset_link,
@@ -183,11 +183,12 @@ def register_existing(
             existing_username=True,
             form_data=form.to_dict(only_user=False),
         )
+        assert form.email.data
         if cv("SEND_REGISTER_EMAIL"):
             send_mail(
                 cv("EMAIL_SUBJECT_REGISTER"),
                 form.email.data,
-                "welcome_existing_username",
+                cv("REGISTER_EMAIL_EXISTING_USERNAME_TEMPLATE"),
                 email=form.email.data,
                 username=form.username.data if hasattr(form, "username") else None,
             )

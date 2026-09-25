@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pypaperless"
-version = "6.0.1"
+version = "6.0.2"
 license = {text = "MIT"}
 description = "Little api client for paperless(-ngx)."
 readme = "README.md"
@@ -24,7 +24,7 @@ classifiers = [
 requires-python = ">=3.13"
 dependencies = [
     "httpx>=0.28.1",
-    "pydantic>=2.13.4",
+    "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
 ]
 
@@ -32,18 +32,18 @@ dependencies = [
 dev = [
     "codespell>=2.4.3",
     "covdefaults>=2.3.0",
-    "coverage>=7.15.4",
+    "coverage>=7.16.1",
     "mypy>=2.3.1",
-    "prek>=0.4.14",
+    "prek>=0.5.3",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "pytest-httpx>=0.36.2",
-    "ruff>=0.16.3",
+    "ruff>=0.16.8",
     "yamllint>=1.38.0",
 ]
 docs = [
-    "zensical>=0.0.55",
+    "zensical>=0.0.64",
 ]
 
 [project.urls]

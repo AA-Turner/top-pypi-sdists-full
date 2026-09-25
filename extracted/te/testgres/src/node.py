@@ -74,17 +74,13 @@ from testgres.operations.os_ops import OsCommandResult
 from testgres.operations.os_ops import OsProcessController
 from testgres.operations.local_ops import LocalOperations
 
+import ipaddress
 import logging
 import signal
 import subprocess
 
 import time
 import typing
-
-try:
-    from collections.abc import Iterable
-except ImportError:
-    from collections import Iterable
 
 # we support both pg8000 and psycopg2
 try:
@@ -95,8 +91,6 @@ except ImportError:
     except ImportError:
         raise ImportError("You must have psycopg2 or pg8000 modules installed")
 
-from six import raise_from, iteritems, text_type
-
 
 InternalError = pglib.InternalError
 ProgrammingError = pglib.ProgrammingError
@@ -106,7 +100,7 @@ OperationalError = pglib.OperationalError
 assert TimeoutException == QueryTimeoutException
 
 
-class ProcessProxy(object):
+class ProcessProxy:
     """
     Wrapper for psutil.Process
 
@@ -150,7 +144,7 @@ class ProcessProxy(object):
         return self._ptype
 
 
-class PostgresNode(object):
+class PostgresNode:
     # a max number of node start attempts
     _C_MAX_START_ATEMPTS = 5
 
@@ -756,7 +750,6 @@ class PostgresNode(object):
 
         # host is tricky
         try:
-            import ipaddress
             ipaddress.ip_address(master.host)
             conninfo["hostaddr"] = master.host
         except ValueError:
@@ -1072,7 +1065,7 @@ class PostgresNode(object):
 
         lines = [line]
 
-        for option, value in iteritems(kwargs):
+        for option, value in kwargs.items():
             if isinstance(value, bool):
                 value = 'on' if value else 'off'
             elif not str(value).replace('.', '', 1).isdigit():
@@ -1086,7 +1079,7 @@ class PostgresNode(object):
         config_name = self._os_ops.build_path(self.data_dir, filename)
         conf_text = ''
         for line in lines:
-            conf_text += text_type(line) + '\n'
+            conf_text += str(line) + '\n'
         self._os_ops.write(config_name, conf_text)
 
         return self
@@ -1368,7 +1361,7 @@ class PostgresNode(object):
         assert from_exception is None or isinstance(from_exception, Exception)
         assert type(msg) is str
         files = self._collect_special_files()
-        raise_from(StartNodeException(msg, files), from_exception)
+        raise StartNodeException(msg, files) from from_exception
 
     def stop(
         self,
@@ -1471,7 +1464,7 @@ class PostgresNode(object):
         except ExecUtilException as e:
             msg = 'Cannot restart node'
             files = self._collect_special_files()
-            raise_from(StartNodeException(msg, files), e)
+            raise StartNodeException(msg, files) from e
 
         self._maybe_start_logger()
 
@@ -1715,7 +1708,7 @@ class PostgresNode(object):
         ]  # yapf: disable
 
         # set variables before execution
-        for key, value in iteritems(variables):
+        for key, value in variables.items():
             psql_params.extend(["--set", '{}={}'.format(key, value)])
 
         # select query source
@@ -2067,12 +2060,11 @@ class PostgresNode(object):
 
         """
         if self._pg_version >= utils.PgVer('9.6'):
-            if isinstance(standbys, Iterable):
+            if isinstance(standbys, typing.Iterable):
                 standbys = First(1, standbys)
         else:
-            if isinstance(standbys, Iterable):
-                standbys = u", ".join(u"\"{}\"".format(r.name)
-                                      for r in standbys)
+            if isinstance(standbys, typing.Iterable):
+                standbys = ", ".join("\"{}\"".format(r.name) for r in standbys)
             else:
                 raise TestgresException(
                     "Feature isn't supported in "
@@ -2112,7 +2104,7 @@ class PostgresNode(object):
                 max_attempts=0,
             )
         except Exception as e:
-            raise_from(CatchUpException("Failed to catch up."), e)
+            raise CatchUpException("Failed to catch up.") from e
 
     def publish(self, name, **kwargs):
         """
@@ -2283,7 +2275,7 @@ class PostgresNode(object):
             "-U", username or self._os_ops.username
         ] + options  # yapf: disable
 
-        for key, value in iteritems(kwargs):
+        for key, value in kwargs.items():
             # rename keys for pgbench
             key = key.replace('_', '-')
 

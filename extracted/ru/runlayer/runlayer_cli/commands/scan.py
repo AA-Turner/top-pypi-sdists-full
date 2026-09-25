@@ -737,6 +737,47 @@ def _run_scan(
                 fg=typer.colors.YELLOW,
             )
 
+        if submission.manifest_regressed:
+            scopes = ", ".join(
+                scope for scope, _last_accepted_at in submission.manifest_regressed
+            )
+            # ISO-8601 UTC strings from one backend sort lexicographically.
+            last_accepted_at = max(
+                accepted_at for _scope, accepted_at in submission.manifest_regressed
+            )
+            typer.secho(
+                f"{WARN} Scan manifest rejected: {scopes} predate the last "
+                f"accepted scan (started {last_accepted_at})",
+                fg=typer.colors.YELLOW,
+            )
+
+        if submission.manifest_superseded and not quiet:
+            scopes = ", ".join(
+                scope for scope, _last_accepted_at in submission.manifest_superseded
+            )
+            last_accepted_at = max(
+                accepted_at for _scope, accepted_at in submission.manifest_superseded
+            )
+            typer.echo(
+                f"Manifest superseded by a newer scan (started {last_accepted_at}) "
+                f"for {scopes}"
+            )
+
+        if submission.positives_superseded and not quiet:
+            identifiers = [
+                identifier for _kind, identifier in submission.positives_superseded
+            ]
+            shown = ", ".join(identifiers[:5])
+            if len(identifiers) > 5:
+                shown += f", +{len(identifiers) - 5} more"
+            count = len(identifiers)
+            noun = "finding" if count == 1 else "findings"
+            typer.secho(
+                f"{WARN} {count} device-scoped {noun} superseded by a newer scan "
+                f"on this device and not recorded: {shown}",
+                fg=typer.colors.YELLOW,
+            )
+
         # The WARN lines above already told the user what happened; here we only
         # act on the exit-code policy the orchestrator computed.
         exit_code = submission.exit_code

@@ -15,6 +15,7 @@ from sqlalchemy.testing.exclusions import only_on
 from sqlalchemy.testing.exclusions import skip_if
 from sqlalchemy.testing.exclusions import SpecPredicate
 from sqlalchemy.testing.exclusions import succeeds_if
+from sqlalchemy.testing.exclusions import warns_if
 from sqlalchemy.testing.requirements import SuiteRequirements
 
 
@@ -90,6 +91,19 @@ class DefaultRequirements(SuiteRequirements):
         )
 
     @property
+    def repeated_remote_col_foreign_keys(self):
+        """Target database must support a FOREIGN KEY constraint which names
+        the same *remote* column more than once, e.g.
+        ``FOREIGN KEY (a, b) REFERENCES r (c, c)``.
+
+        PostgreSQL rejects this as it requires a unique constraint on the
+        repeated remote column pair.
+
+        """
+
+        return only_on(["sqlite"], "not supported by database")
+
+    @property
     def foreign_keys_reflect_as_index(self):
         return only_on(["mysql", "mariadb"])
 
@@ -130,6 +144,20 @@ class DefaultRequirements(SuiteRequirements):
         """target platform supports IF NOT EXISTS / IF EXISTS for tables."""
 
         return only_on(["postgresql", "mysql", "mariadb", "sqlite"])
+
+    @property
+    def create_table_as(self):
+        """target platform supports CREATE TABLE AS SELECT."""
+
+        return only_on(
+            ["postgresql", "mysql", "mariadb", "sqlite", "mssql", "oracle"]
+        )
+
+    @property
+    def create_temp_table_as(self):
+        """target platform supports CREATE TEMPORARY TABLE AS SELECT."""
+
+        return only_on(["postgresql", "mysql", "mariadb", "sqlite", "mssql"])
 
     @property
     def index_ddl_if_exists(self):
@@ -339,8 +367,13 @@ class DefaultRequirements(SuiteRequirements):
     def non_broken_binary(self):
         """target DBAPI must work fully with binary values"""
 
+        # for pymssql
         # see https://github.com/pymssql/pymssql/issues/504
-        return skip_if(["mssql+pymssql"])
+        #
+        # for mssqlpython:
+        # Streaming parameters is not yet supported. Parameter size must be
+        # less than 8192 bytes
+        return skip_if(["mssql+pymssql", "mssql+mssqlpython"])
 
     @property
     def binary_comparisons(self):
@@ -532,7 +565,7 @@ class DefaultRequirements(SuiteRequirements):
 
     @property
     def returning_star(self):
-        """backend supports RETURNING *"""
+        """backend supports ``RETURNING *``"""
 
         return skip_if(["oracle", "mssql"])
 
@@ -756,6 +789,11 @@ class DefaultRequirements(SuiteRequirements):
         )
 
     @property
+    def create_or_replace_view(self):
+        """target database supports CREATE OR REPLACE VIEW"""
+        return only_on(["postgresql", "mysql", "mariadb", "oracle", "mssql"])
+
+    @property
     def table_value_constructor(self):
         return only_on(["postgresql", "mssql"])
 
@@ -766,6 +804,17 @@ class DefaultRequirements(SuiteRequirements):
             ["mssql", "mysql", "mariadb<10.3", "sqlite"],
             "no FOR UPDATE NOWAIT support",
         )
+
+    @property
+    def unusual_column_name_characters(self):
+        """target database allows column names that have unusual characters
+        in them, such as dots, spaces, slashes, or percent signs.
+
+        The column names are as always in such a case quoted, however the
+        DB still needs to support those characters in the name somehow.
+
+        """
+        return exclusions.skip_if("+mssqlpython", "waiting on GH issue 464")
 
     @property
     def subqueries(self):
@@ -805,8 +854,7 @@ class DefaultRequirements(SuiteRequirements):
                 and (
                     (
                         config.db.dialect._is_mariadb
-                        and config.db.dialect._mariadb_normalized_version_info
-                        >= (10, 2)
+                        and config.db.dialect.server_version_info >= (10, 2)
                     )
                 ),
                 "mariadb>10.2",
@@ -946,6 +994,21 @@ class DefaultRequirements(SuiteRequirements):
             ],
             "Backend does not support window functions",
         )
+
+    @property
+    def window_range(self):
+        """Target backend supports RANGE in window functions with int frames"""
+        return skip_if(["mssql"])
+
+    @property
+    def window_range_numeric(self):
+        """Target backend supports non-integer values in RANGE"""
+        return skip_if(["mssql"])
+
+    @property
+    def window_range_non_numeric(self):
+        """Target backend supports non-numeric values in RANGE"""
+        return only_if(["postgresql"])
 
     @property
     def two_phase_transactions(self):
@@ -1194,6 +1257,24 @@ class DefaultRequirements(SuiteRequirements):
         return skip_if(["mssql", "sqlite"])
 
     @property
+    def aggregate_order_by(self):
+        """target database can use ORDER BY or equivalent in an aggregate
+        function, and dialect supports aggregate_order_by().
+
+        """
+
+        return only_on(
+            [
+                "postgresql",
+                "sqlite >= 3.44.0",
+                "mysql",
+                "mariadb",
+                "oracle",
+                "mssql",
+            ]
+        )
+
+    @property
     def tuple_valued_builtin_functions(self):
         return only_on(
             lambda config: self._sqlite_json(config)
@@ -1214,17 +1295,15 @@ class DefaultRequirements(SuiteRequirements):
                         not config.db.dialect._is_mariadb
                         and against(config, "mysql >= 5.7")
                     )
-                    or (
-                        config.db.dialect._mariadb_normalized_version_info
-                        >= (10, 2, 7)
-                    )
+                    or (config.db.dialect.server_version_info >= (10, 2, 7))
                 ),
                 "mariadb>=10.2.7",
                 "postgresql >= 9.3",
                 self._sqlite_json,
                 "mssql",
+                "oracle>=21",
             ]
-        )
+        ) + skip_if("oracle+cx_oracle")
 
     @property
     def json_index_supplementary_unicode_element(self):
@@ -1277,8 +1356,16 @@ class DefaultRequirements(SuiteRequirements):
                     return False
 
     @property
+    def sqlite_jsonb(self):
+        return only_on("sqlite >= 3.45")
+
+    @property
     def sqlite_memory(self):
         return only_on(self._sqlite_memory_db)
+
+    @property
+    def sqlite_file(self):
+        return only_on(self._sqlite_file_db)
 
     def _sqlite_partial_idx(self, config):
         if not against(config, "sqlite"):
@@ -1311,6 +1398,7 @@ class DefaultRequirements(SuiteRequirements):
                 and not config.db.dialect._is_mariadb,
                 "postgresql >= 9.3",
                 "sqlite >= 3.9",
+                "oracle>=21",
             ]
         )
 
@@ -1590,15 +1678,11 @@ class DefaultRequirements(SuiteRequirements):
 
         """
 
-        return exclusions.open()
+        return fails_on("+mssqlpython<1.15")
 
     @property
     def fetch_null_from_numeric(self):
         return skip_if(("mssql+pyodbc", None, None, "crashes due to bug #351"))
-
-    @property
-    def float_is_numeric(self):
-        return exclusions.fails_if(["oracle"])
 
     @property
     def duplicate_key_raises_integrity_error(self):
@@ -1654,7 +1738,7 @@ class DefaultRequirements(SuiteRequirements):
     def async_dialect_with_await_close(self):
         """dialect's cursor has a close() method called with await"""
 
-        return only_on(["+aioodbc", "+aiomysql", "+asyncmy"])
+        return only_on(["+aioodbc", "+aiosqlite", "+aiomysql", "+asyncmy"])
 
     def _has_oracle_test_dblink(self, key):
         def check(config):
@@ -1801,7 +1885,7 @@ class DefaultRequirements(SuiteRequirements):
                 config, "mssql+aioodbc"
             ):
                 return False
-            if config.db.dialect._dbapi_version() < (4, 0, 19):
+            if config.db.dialect.dbapi_version < (4, 0, 19):
                 return False
             with config.db.connect() as conn:
                 driver_connection = conn.connection.driver_connection
@@ -1902,14 +1986,14 @@ class DefaultRequirements(SuiteRequirements):
         return (
             against(config, ["mysql", "mariadb"])
             and config.db.dialect._is_mariadb
-            and config.db.dialect._mariadb_normalized_version_info >= (10, 2)
+            and config.db.dialect.server_version_info >= (10, 2)
         )
 
     def _mariadb_105(self, config):
         return (
             against(config, ["mysql", "mariadb"])
             and config.db.dialect._is_mariadb
-            and config.db.dialect._mariadb_normalized_version_info >= (10, 5)
+            and config.db.dialect.server_version_info >= (10, 5)
         )
 
     def _mariadb_130(self, config):
@@ -1924,9 +2008,7 @@ class DefaultRequirements(SuiteRequirements):
         # 2. it enforces check constraints
         if exclusions.against(config, ["mysql", "mariadb"]):
             if config.db.dialect._is_mariadb:
-                norm_version_info = (
-                    config.db.dialect._mariadb_normalized_version_info
-                )
+                norm_version_info = config.db.dialect.server_version_info
                 return norm_version_info >= (10, 2)
             else:
                 norm_version_info = config.db.dialect.server_version_info
@@ -2038,15 +2120,16 @@ class DefaultRequirements(SuiteRequirements):
         return only_if(go)
 
     @property
-    def oracle5x(self):
-        return only_if(
-            lambda config: against(config, "oracle+cx_oracle")
-            and config.db.dialect.cx_oracle_ver < (6,)
-        )
-
-    @property
     def computed_columns(self):
-        return skip_if(["postgresql < 12", "sqlite < 3.31", "mysql < 5.7"])
+        return (
+            skip_if("postgresql < 12")
+            + warns_if(
+                "postgresql < 18",
+                r".*PostgreSQL version does not support VIRTUAL",
+                assert_=False,
+            )
+            + skip_if(["sqlite < 3.31", "mysql < 5.7"])
+        )
 
     @property
     def python_profiling_backend(self):
@@ -2058,11 +2141,11 @@ class DefaultRequirements(SuiteRequirements):
 
     @property
     def computed_columns_virtual(self):
-        return self.computed_columns + skip_if(["postgresql"])
+        return self.computed_columns + skip_if(["postgresql<18"])
 
     @property
     def computed_columns_default_persisted(self):
-        return self.computed_columns + only_if("postgresql")
+        return self.computed_columns + only_if("postgresql<18")
 
     @property
     def computed_columns_reflect_persisted(self):
@@ -2189,7 +2272,7 @@ class DefaultRequirements(SuiteRequirements):
 
     @property
     def reflect_table_options(self):
-        return only_on(["mysql", "mariadb", "oracle", "sqlite"])
+        return only_on(["mysql", "mariadb", "oracle", "postgresql", "sqlite"])
 
     @property
     def materialized_views(self):

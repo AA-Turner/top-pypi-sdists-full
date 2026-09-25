@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Unit tests for SamplerV2 post-processor and static conversion method."""
+"""Unit tests for client-side Sampler post-processor and static conversion method."""
 
 from dataclasses import asdict
 
@@ -155,10 +155,22 @@ class TestQuantumProgramItemResultToSamplerPubResult(IBMTestCase):
         )
         self.assertEqual(result.metadata["compilation"]["stretch_values"], expected_stretch_values)
 
+    def test_simulation_info_in_metadata(self):
+        """For simulator results (plain dict metadata), metadata is stored under ``executor``."""
+        meas = np.array([[False], [True]])
+        sim_metadata = {"backend": "fake_sherbrooke", "shots": 512}
+        item = QuantumProgramItemResult({"meas": meas}, sim_metadata)
+
+        result = quantum_program_item_result_to_sampler_pub_result(item, (), 0)
+
+        self.assertIn("executor", result.metadata)
+        self.assertEqual(result.metadata["executor"], sim_metadata)
+        self.assertNotIn("compilation", result.metadata)
+
 
 @ddt
-class TestSamplerV2PostProcessor(IBMTestCase):
-    """Test SamplerV2 post-processor function.
+class TestSamplerPostProcessor(IBMTestCase):
+    """Test client-side Sampler post-processor function.
 
     This class contains basic smoke tests to verify the post-processor function
     works correctly and delegates to the static method appropriately.
@@ -456,7 +468,7 @@ class TestSamplerV2PostProcessor(IBMTestCase):
         self.assertEqual(result.metadata, {})
 
 
-class TestSamplerV2PostProcessorFlattening(IBMTestCase):
+class TestSamplerPostProcessorFlattening(IBMTestCase):
     """Test that sampler_v2_post_processor_v0_1 flattens twirling axes correctly.
 
     When twirling is enabled, the executor returns data with shape

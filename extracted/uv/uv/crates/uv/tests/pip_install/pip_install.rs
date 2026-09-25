@@ -2845,7 +2845,7 @@ fn install_git_checkout_marker_symlink() -> Result<()> {
 
     // A repository-controlled checkout marker must not truncate an external file; see
     // astral-sh/uv#21857.
-    assert_snapshot!(fs::read_to_string(victim.path())?, @"");
+    assert_snapshot!(fs::read_to_string(victim.path())?, @"external contents");
 
     Ok(())
 }
@@ -3176,7 +3176,7 @@ fn install_git_public_https_missing_branch_or_tag() {
     ----- stderr -----
     error: Failed to download and build `uv-public-pypackage @ git+https://github.com/astral-test/uv-public-pypackage@2.0.0`
       cause: Git operation failed
-      cause: failed to clone into: [CACHE_DIR]/git-v0/db/8dab139913c4b566
+      cause: failed to clone into: [CACHE_DIR]/git-v1/db/8dab139913c4b566
       cause: failed to fetch branch or tag `2.0.0`
       cause: process didn't exit successfully: `git fetch [...]` (exit code: 128)
              --- stderr
@@ -3308,7 +3308,7 @@ fn install_git_public_https_missing_commit() {
     ----- stderr -----
     error: Failed to download and build `uv-public-pypackage @ git+https://github.com/astral-test/uv-public-pypackage@79a935a7a1a0ad6d0bdf72dce0e16cb0a24a1b3b`
       cause: Git operation failed
-      cause: failed to clone into: [CACHE_DIR]/git-v0/db/8dab139913c4b566
+      cause: failed to clone into: [CACHE_DIR]/git-v1/db/8dab139913c4b566
       cause: failed to fetch commit `79a935a7a1a0ad6d0bdf72dce0e16cb0a24a1b3b`
       cause: process didn't exit successfully: `git fetch [...]` (exit code: 128)
              --- stderr
@@ -3512,7 +3512,7 @@ fn install_git_private_https_pat_not_authorized() {
     ----- stderr -----
     error: Failed to download and build `uv-private-pypackage @ git+https://git:****@github.com/astral-test/uv-private-pypackage`
       cause: Git operation failed
-      cause: failed to clone into: [CACHE_DIR]/git-v0/db/8401f5508e3e612d
+      cause: failed to clone into: [CACHE_DIR]/git-v1/db/8401f5508e3e612d
       cause: process didn't exit successfully: `git fetch --force --update-head-ok 'https://git:****@github.com/astral-test/uv-private-pypackage' '+HEAD:refs/remotes/origin/HEAD'` (exit status: 128)
              --- stderr
              remote: Invalid username or token. Password authentication is not supported for Git operations.
@@ -3601,7 +3601,7 @@ fn install_git_private_https_interactive() {
     ----- stderr -----
     error: Failed to download and build `uv-private-pypackage @ git+https://github.com/astral-test/uv-private-pypackage`
       cause: Git operation failed
-      cause: failed to clone into: [CACHE_DIR]/git-v0/db/8401f5508e3e612d
+      cause: failed to clone into: [CACHE_DIR]/git-v1/db/8401f5508e3e612d
       cause: process didn't exit successfully: `/usr/bin/git fetch --force --update-head-ok 'https://github.com/astral-test/uv-private-pypackage' '+HEAD:refs/remotes/origin/HEAD'` (exit status: 128)
              --- stderr
              fatal: could not read Username for 'https://github.com': terminal prompts disabled
@@ -5001,7 +5001,7 @@ fn install_git_source_respects_offline_mode() {
     ----- stderr -----
     error: Failed to download and build `uv-public-pypackage @ git+https://github.com/astral-test/uv-public-pypackage`
       cause: Git operation failed
-      cause: failed to clone into: [CACHE_DIR]/git-v0/db/8dab139913c4b566
+      cause: failed to clone into: [CACHE_DIR]/git-v1/db/8dab139913c4b566
       cause: Remote Git fetches are not allowed because network connectivity is disabled (i.e., with `--offline`)
     "
     );
@@ -11776,6 +11776,59 @@ fn direct_url_json_direct_url() -> Result<()> {
 
     let direct_url_content = fs_err::read_to_string(direct_url.path())?;
     insta::assert_snapshot!(direct_url_content, @r#"{"url":"https://files.pythonhosted.org/packages/1f/e5/5b016c945d745f8b108e759d428341488a6aee8f51f07c6c4e33498bb91f/source_distribution-0.0.3.tar.gz","archive_info":{}}"#);
+
+    Ok(())
+}
+
+#[test]
+fn direct_url_json_query() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(
+        "six @ https://username:password@files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl?st=2026-09-15T16:34:14Z&sig=abc%2Bdef%3D",
+    )?;
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--strict"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + six==1.17.0 (from https://username:****@files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl?st=2026-09-15T16%3A34%3A14Z&sig=****)
+    ");
+
+    let direct_url = context.venv.child(if cfg!(windows) {
+        "Lib\\site-packages\\six-1.17.0.dist-info\\direct_url.json"
+    } else {
+        "lib/python3.12/site-packages/six-1.17.0.dist-info/direct_url.json"
+    });
+    direct_url.assert(predicates::path::is_file());
+
+    let direct_url_content = fs_err::read_to_string(direct_url.path())?;
+    insta::assert_snapshot!(direct_url_content, @r#"{"url":"https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl?st=2026-09-15T16:34:14Z&sig=abc%2Bdef%3D","archive_info":{}}"#);
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--dry-run")
+        .arg("--strict"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked 1 package in [TIME]
+    Would make no changes
+    ");
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg("requirements.txt")
+        .arg("--strict"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Checked 1 package in [TIME]
+    ");
 
     Ok(())
 }

@@ -1248,6 +1248,7 @@ class HyperPodPropertiesInputTypeDef(TypedDict):
 
 class IamPropertiesInputTypeDef(TypedDict):
     glueLineageSyncEnabled: NotRequired[bool]
+    roleArn: NotRequired[str]
 
 
 class LakehousePropertiesInputTypeDef(TypedDict):
@@ -5501,6 +5502,7 @@ class CreateEnvironmentBlueprintInputTypeDef(TypedDict):
     provisioningProperties: ProvisioningPropertiesTypeDef
     description: NotRequired[str]
     userParameters: NotRequired[Sequence[CustomParameterTypeDef]]
+    blueprintCategory: NotRequired[Literal["TOOLING"]]
 
 
 CreateEnvironmentBlueprintOutputTypeDef = TypedDict(
@@ -5514,6 +5516,7 @@ CreateEnvironmentBlueprintOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "userParameters": list[CustomParameterTypeDef],
         "glossaryTerms": list[str],
+        "blueprintCategory": Literal["TOOLING"],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -5529,6 +5532,7 @@ EnvironmentBlueprintSummaryTypeDef = TypedDict(
         "description": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "updatedAt": NotRequired[datetime],
+        "blueprintCategory": NotRequired[Literal["TOOLING"]],
     },
 )
 GetEnvironmentBlueprintOutputTypeDef = TypedDict(
@@ -5542,6 +5546,7 @@ GetEnvironmentBlueprintOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "userParameters": list[CustomParameterTypeDef],
         "glossaryTerms": list[str],
+        "blueprintCategory": Literal["TOOLING"],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -5555,6 +5560,7 @@ class UpdateEnvironmentBlueprintInputTypeDef(TypedDict):
     description: NotRequired[str]
     provisioningProperties: NotRequired[ProvisioningPropertiesTypeDef]
     userParameters: NotRequired[Sequence[CustomParameterTypeDef]]
+    blueprintCategory: NotRequired[Literal["TOOLING"]]
 
 
 UpdateEnvironmentBlueprintOutputTypeDef = TypedDict(
@@ -5568,6 +5574,7 @@ UpdateEnvironmentBlueprintOutputTypeDef = TypedDict(
         "deploymentProperties": DeploymentPropertiesTypeDef,
         "userParameters": list[CustomParameterTypeDef],
         "glossaryTerms": list[str],
+        "blueprintCategory": Literal["TOOLING"],
         "createdAt": datetime,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,

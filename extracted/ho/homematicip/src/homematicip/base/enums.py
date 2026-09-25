@@ -277,6 +277,7 @@ class DeviceType(AutoNameEnum):
     RAIN_SENSOR = auto()
     REMOTE_CONTROL_8 = auto()
     REMOTE_CONTROL_8_MODULE = auto()
+    REMOTE_CONTROL_COMPACT = auto()
     RGBW_DIMMER = auto()
     LIGHT_STRIP_DIMMER = auto()
     ROOM_CONTROL_DEVICE = auto()
@@ -350,6 +351,7 @@ class GroupType(AutoNameEnum):
     EXTENDED_LINKED_NOTIFICATION = auto()
     EXTENDED_LINKED_SHUTTER = auto()
     EXTENDED_LINKED_SWITCHING = auto()
+    EXTENDED_LINKED_VENTILATION = auto()
     HEATING = auto()
     HEATING_CHANGEOVER = auto()
     HEATING_COOLING_DEMAND = auto()
@@ -377,6 +379,7 @@ class GroupType(AutoNameEnum):
     SMOKE_ALARM_DETECTION_RULE = auto()
     SWITCHING = auto()
     SWITCHING_PROFILE = auto()
+    VENTILATION_PROFILE = auto()
     DEMAND_CONTROLLED_VENTILATION_GROUP = auto()
 
 

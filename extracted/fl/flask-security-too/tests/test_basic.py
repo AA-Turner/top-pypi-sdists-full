@@ -4,12 +4,11 @@ test_basic
 
 Test common functionality
 
-:copyright: (c) 2019-2024 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
 import base64
-from datetime import datetime, timedelta, timezone
 import json
 import re
 import pytest
@@ -19,7 +18,6 @@ from flask import Blueprint, g
 from flask_security import uia_email_mapper
 from flask_security.decorators import auth_required
 from flask_principal import identity_loaded
-from freezegun import freeze_time
 
 from tests.conftest import v2_param
 from tests.test_utils import (
@@ -37,6 +35,7 @@ from tests.test_utils import (
     logout,
     populate_data,
     verify_token,
+    get_existing_session,
 )
 
 
@@ -207,6 +206,40 @@ def test_redirect_allow_subdomains(app, client, get_message):
     assert get_message("INVALID_REDIRECT") in response.data
     response = client.post("/login?next=http://bigidea.org/imin", data=data)
     assert response.location == "http://bigidea.org/imin"
+
+
+@pytest.mark.settings(
+    redirect_base_domain="myfrontend.org", redirect_allowed_subdomains=["."]
+)
+def test_redirect_allow_base_domain(app, client, get_message):
+    app.config["SERVER_NAME"] = "myflaskapp.org"
+    data = dict(email="matt@lp.com", password="password")
+    response = client.post("/login?next=http://nope.myfrontend.org", data=data)
+    assert get_message("INVALID_REDIRECT") in response.data
+    response = client.post("/login?next=http://myfrontend.org/imin", data=data)
+    assert response.location == "http://myfrontend.org/imin"
+
+
+@pytest.mark.settings(
+    redirect_base_domain="myfrontend.org", redirect_allowed_subdomains=[]
+)
+def test_redirect_disallow_base_domain_without_dot(app, client, get_message):
+    app.config["SERVER_NAME"] = "myflaskapp.org"
+    data = dict(email="matt@lp.com", password="password")
+    response = client.post("/login?next=http://myfrontend.org/imin", data=data)
+    assert get_message("INVALID_REDIRECT") in response.data
+
+
+@pytest.mark.settings(
+    redirect_base_domain="myapp.org:8080", redirect_allowed_subdomains=["."]
+)
+def test_redirect_allow_other_ports(app, client, get_message):
+    app.config["SERVER_NAME"] = "myapp.org"
+    data = dict(email="matt@lp.com", password="password")
+    response = client.post("/login?next=http://nope.myapp.org:8080", data=data)
+    assert get_message("INVALID_REDIRECT") in response.data
+    response = client.post("/login?next=http://myapp.org:8080/imin", data=data)
+    assert response.location == "http://myapp.org:8080/imin"
 
 
 @pytest.mark.settings(
@@ -533,13 +566,13 @@ def test_logout_post(client):
 
 def test_logout_with_next_invalid(client, get_message):
     authenticate(client)
-    response = client.get("/logout?next=http://google.com")
+    response = client.post("/logout?next=http://google.com")
     assert "google.com" not in response.location
 
 
 def test_logout_with_next(client):
     authenticate(client)
-    response = client.get("/logout?next=/page1", follow_redirects=True)
+    response = client.post("/logout?next=/page1", follow_redirects=True)
     assert b"Page 1" in response.data
 
 
@@ -673,7 +706,7 @@ def test_multiple_role_required(clients):
         authenticate(clients, user)
         response = clients.get("/admin_and_editor", follow_redirects=True)
         assert b"Unauthorized" in response.data
-        clients.get("/logout")
+        clients.post("/logout")
 
     authenticate(clients, "dave@lp.com")
     response = clients.get("/admin_and_editor", follow_redirects=True)
@@ -689,6 +722,13 @@ def test_ok_json_auth(client):
 def test_invalid_json_auth(client):
     response = json_authenticate(client, password="junk")
     assert b'"code": 400' in response.data
+
+
+def test_isstring_non_string_email(client):
+    response = client.post(
+        "/login", json=dict(email={"not": "a string"}, password="password")
+    )
+    assert response.status_code == 400
 
 
 def test_token_auth_via_querystring_valid_token(client):
@@ -727,35 +767,6 @@ def test_token_auth_invalid_for_session_auth(client):
     headers = {"Authentication-Token": token, "Accept": "application/json"}
     response = client.get("/session", headers=headers)
     assert response.status_code == 401
-
-
-def test_per_user_expired_token(app, client_nc):
-    # Test expiry in auth_token using callable
-    with freeze_time("2024-01-01"):
-
-        def exp(user):
-            assert user.email == "matt@lp.com"
-            return int((datetime.now(timezone.utc) + timedelta(days=1)).timestamp())
-
-        app.config["SECURITY_TOKEN_EXPIRE_TIMESTAMP"] = exp
-
-        response = json_authenticate(client_nc)
-        token = response.json["response"]["user"]["authentication_token"]
-
-    verify_token(client_nc, token, status=401)
-
-
-def test_per_user_not_expired_token(app, client_nc):
-    # Test expiry in auth_token using callable
-    def exp(user):
-        assert user.email == "matt@lp.com"
-        return int((datetime.now(timezone.utc) + timedelta(days=1)).timestamp())
-
-    app.config["SECURITY_TOKEN_EXPIRE_TIMESTAMP"] = exp
-
-    response = json_authenticate(client_nc)
-    token = response.json["response"]["user"]["authentication_token"]
-    verify_token(client_nc, token)
 
 
 def test_garbled_auth_token(app, client_nc):
@@ -1056,6 +1067,23 @@ def test_remember_token(client):
     assert client.get_cookie("remember_token")
     response = client.get("/profile", follow_redirects=True)
     assert b"Profile Page" in response.data
+
+
+def test_remember_fresh(client):
+    # authenticating via remember cookie shouldn't be considered fresh
+    response = authenticate(client, follow_redirects=False, remember=True)
+    client.delete_cookie("session")
+    assert not client.get_cookie("session")
+    assert client.get_cookie("remember_token")
+
+    # this should magically log us in
+    response = client.get("/profile", follow_redirects=True)
+    assert b"Profile Page" in response.data
+
+    sess = get_existing_session(client)
+    assert sess
+    response = client.get("/fresh", headers={"Content-Type": "application/json"})
+    assert response.json["response"]["reauth_required"]
 
 
 def test_request_loader_does_not_fail_with_invalid_token(client):

@@ -316,9 +316,9 @@ class GCPCloudRunBackend:
         service_url, id_token = self._get_url_and_token(service_name)
 
         if exec_id and job_id and call_id:
-            logger.debug(f'ExecutorID {exec_id} | JobID {job_id} - Invoking function call {call_id}')
+            logger.debug(f'{utils.log_prefix(exec_id, job_id)} - Invoking function call {call_id}')
         elif exec_id and job_id:
-            logger.debug(f'ExecutorID {exec_id} | JobID {job_id} - Invoking function')
+            logger.debug(f'{utils.log_prefix(exec_id, job_id)} - Invoking function')
         else:
             logger.debug('Invoking function')
 
@@ -409,8 +409,9 @@ class GCPCloudRunBackend:
         svc_res['spec']['template']['spec']['containerConcurrency'] = 1
         svc_res['spec']['template']['spec']['serviceAccountName'] = self.service_account
         svc_res['spec']['template']['metadata']['labels']['lithops-version'] = __version__.replace('.', '-')
-        svc_res['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/minScale'] = str(self.cr_config['min_workers'])
-        svc_res['spec']['template']['metadata']['annotations']['autoscaling.knative.dev/maxScale'] = str(self.cr_config['max_workers'])
+        annotations = svc_res['spec']['template']['metadata']['annotations']
+        annotations['autoscaling.knative.dev/minScale'] = str(self.cr_config['min_workers'])
+        annotations['autoscaling.knative.dev/maxScale'] = str(self.cr_config['max_workers'])
 
         container = svc_res['spec']['template']['spec']['containers'][0]
         container['image'] = img_name

@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
-if TYPE_CHECKING:
-    from ..models.error_response_400_extra import ErrorResponse400Extra
-
 
 T = TypeVar("T", bound="ErrorResponse400")
 
@@ -22,13 +18,13 @@ class ErrorResponse400:
     Attributes:
         code (str | Unset): Machine-readable error code; see ``ErrorCode`` for known values.
         detail (str | Unset):
-        extra (ErrorResponse400Extra | Unset): Additional error details (free-form)
+        extra (Any | Unset): Additional error details (free-form)
         status_code (int | Unset):
     """
 
     code: str | Unset = UNSET
     detail: str | Unset = UNSET
-    extra: ErrorResponse400Extra | Unset = UNSET
+    extra: Any | Unset = UNSET
     status_code: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -37,9 +33,7 @@ class ErrorResponse400:
 
         detail = self.detail
 
-        extra: dict[str, Any] | Unset = UNSET
-        if not isinstance(self.extra, Unset):
-            extra = self.extra.to_dict()
+        extra = self.extra
 
         status_code = self.status_code
 
@@ -59,19 +53,12 @@ class ErrorResponse400:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.error_response_400_extra import ErrorResponse400Extra
-
         d = dict(src_dict)
         code = d.pop("code", UNSET)
 
         detail = d.pop("detail", UNSET)
 
-        _extra = d.pop("extra", UNSET)
-        extra: ErrorResponse400Extra | Unset
-        if isinstance(_extra, Unset):
-            extra = UNSET
-        else:
-            extra = ErrorResponse400Extra.from_dict(_extra)
+        extra = d.pop("extra", UNSET)
 
         status_code = d.pop("status_code", UNSET)
 

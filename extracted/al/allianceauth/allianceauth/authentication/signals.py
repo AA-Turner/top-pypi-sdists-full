@@ -95,11 +95,8 @@ def record_character_ownership(sender, instance, created, *args, **kwargs):
             query = Q(owner_hash=instance.character_owner_hash)
         # purge ownership records if the hash or auth user account has changed
         CharacterOwnership.objects.filter(character__character_id=instance.character_id).exclude(query).delete()
-        # create character if needed
-        if EveCharacter.objects.filter(character_id=instance.character_id).exists() is False:
-            logger.debug(f'Token is for a new character. Creating model for {instance.character_name} ({instance.character_id})')
-            EveCharacter.objects.create_character(instance.character_id)
-        char = EveCharacter.objects.get(character_id=instance.character_id)
+        # create character if needed (race-safe: a concurrent token save may create it first)
+        char = EveCharacter.objects.get_or_create_esi(instance.character_id)
         # check if we need to create ownership
         if instance.user and not CharacterOwnership.objects.filter(
                 character__character_id=instance.character_id).exists():

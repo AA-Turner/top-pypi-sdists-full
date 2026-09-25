@@ -7277,6 +7277,40 @@ class TestSubmitScanResults:
         assert order == ["plugins", "servers", "skills"]
         assert client.method_calls[-1][0] == "submit_scan_manifest"
 
+    def test_superseded_positives_are_reported_but_do_not_fail(self):
+        """Dropped device-scoped findings surface on the result; exit stays 0."""
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        def submit_plugins(*_args, superseded=None, **_kwargs):
+            assert superseded is not None
+            superseded.append(("plugin", "plug-a"))
+            return "success"
+
+        def submit_skills(*_args, **kwargs):
+            # Skills have no device-location rule; nothing to supersede.
+            assert "superseded" not in kwargs
+            return "success"
+
+        with (
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_plugins",
+                side_effect=submit_plugins,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_skills",
+                side_effect=submit_skills,
+            ),
+        ):
+            submission = submit_scan_results(
+                client,
+                _submission_scan_result(skills=1, plugins=1),
+            )
+
+        assert submission.positives_superseded == [("plugin", "plug-a")]
+        assert submission.failed_submissions == []
+        assert submission.exit_code == 0
+
     def test_disabled_authority_surfaces_are_incomplete(self):
         client = mock.MagicMock()
         client.submit_scan_manifest.return_value = {"reconciled": 0}
@@ -7324,6 +7358,139 @@ class TestSubmitScanResults:
 
         assert failed.failed_submissions == ["scan manifest"]
         assert failed.exit_code == EXIT_SUBMIT_FAILED
+
+    @staticmethod
+    def _manifest_status_client(status_code: int, **response_kwargs):
+        client = mock.MagicMock()
+        request = httpx.Request("POST", "https://example.com/ai-watch/scan-manifest")
+        response = httpx.Response(status_code, request=request, **response_kwargs)
+        client.submit_scan_manifest.side_effect = httpx.HTTPStatusError(
+            "conflict", request=request, response=response
+        )
+        return client
+
+    def test_manifest_409_from_legacy_backend_is_superseded_not_failed(self):
+        """No ``conflicting_scopes``: the backend cannot tell a sibling's scan apart."""
+        client = self._manifest_status_client(
+            409,
+            json={
+                "detail": {
+                    "code": "scan_ordering_conflict",
+                    "last_accepted_at": "2026-09-23T10:00:00+00:00",
+                }
+            },
+        )
+
+        with structlog.testing.capture_logs() as logs:
+            submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == []
+        assert submission.exit_code == 0
+        assert submission.manifest_superseded == [
+            ("manifest", "2026-09-23T10:00:00+00:00")
+        ]
+        assert submission.manifest_regressed == []
+        superseded_logs = [
+            log for log in logs if log["event"] == "scan_manifest_superseded"
+        ]
+        assert [log["legacy_backend"] for log in superseded_logs] == [True]
+
+    def test_manifest_409_without_json_body_is_a_failed_submission(self):
+        """A proxy 409 carries no ordering verdict; it is a plain failure."""
+        client = self._manifest_status_client(409, content=b"not json")
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == ["scan manifest"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+        assert submission.manifest_superseded == []
+        assert submission.manifest_regressed == []
+
+    def test_manifest_409_with_other_code_is_a_failed_submission(self):
+        """Only ``scan_ordering_conflict`` can mean superseded."""
+        client = self._manifest_status_client(
+            409,
+            json={"detail": {"code": "something_else", "message": "nope"}},
+        )
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == ["scan manifest"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+        assert submission.manifest_superseded == []
+        assert submission.manifest_regressed == []
+
+    def test_manifest_409_with_conflicting_scopes_is_a_regression(self):
+        """A current backend only 409s on this profile's own regression."""
+        client = self._manifest_status_client(
+            409,
+            json={
+                "detail": {
+                    "code": "scan_ordering_conflict",
+                    "last_accepted_at": "2026-09-23T10:00:00+00:00",
+                    "conflicting_scopes": ["plugin/device"],
+                }
+            },
+        )
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == ["scan manifest"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+        assert submission.manifest_regressed == [
+            ("plugin/device", "2026-09-23T10:00:00+00:00")
+        ]
+        assert submission.manifest_superseded == []
+
+    def test_manifest_409_with_empty_conflicting_scopes_is_a_regression(self):
+        client = self._manifest_status_client(
+            409,
+            json={
+                "detail": {
+                    "code": "scan_ordering_conflict",
+                    "last_accepted_at": "2026-09-23T10:00:00+00:00",
+                    "conflicting_scopes": [],
+                }
+            },
+        )
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == ["scan manifest"]
+        assert submission.manifest_regressed == [
+            ("manifest", "2026-09-23T10:00:00+00:00")
+        ]
+
+    def test_manifest_200_superseded_entries_are_recorded(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {
+            "entries_reconciled": 1,
+            "installations_updated": 0,
+            "superseded": [
+                {
+                    "category": "plugin",
+                    "surface": "device",
+                    "last_accepted_at": "2026-09-23T10:00:00+00:00",
+                }
+            ],
+        }
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == []
+        assert submission.exit_code == 0
+        assert submission.manifest_superseded == [
+            ("plugin/device", "2026-09-23T10:00:00+00:00")
+        ]
+
+    def test_manifest_500_is_still_a_failed_submission(self):
+        client = self._manifest_status_client(500, content=b"boom")
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        assert submission.failed_submissions == ["scan manifest"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+        assert submission.manifest_superseded == []
 
     def test_all_success_records_response(self):
         client = mock.MagicMock()

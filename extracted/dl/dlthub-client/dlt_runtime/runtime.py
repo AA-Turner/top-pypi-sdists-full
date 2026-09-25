@@ -46,7 +46,7 @@ from dlthub_sdk._gen.api.models import (
     CreateWorkspaceResponse409,
     CurrentUserResponse,
     ErrorCode,
-    ListOrganizationsResponse200,
+    ListPageOrganizationResponse,
     OrganizationMeResponse,
     OrganizationResponse,
     PrincipalKind,
@@ -339,7 +339,7 @@ class RuntimeAuthService:
             orgs_response = list_organizations.sync_detailed(client=client)
 
         orgs_page = orgs_response.parsed
-        if not isinstance(orgs_page, ListOrganizationsResponse200):
+        if not isinstance(orgs_page, ListPageOrganizationResponse):
             raise exception_from_response(error_message, orgs_response)
         orgs = list(orgs_page.items) if orgs_page.items else []
 

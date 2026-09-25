@@ -1,6 +1,6 @@
 [project]
 name = "dlthub-client"
-version = "0.28.4"
+version = "0.28.5"
 description = "CLI tool for accessing dltHub runtime"
 authors = [{ name = "dltHub Inc.", email = "services@dlthub.com" }]
 requires-python = ">=3.10, <3.15"
@@ -76,7 +76,7 @@ constraint-dependencies = [
     "aiohttp>=3.14.1",
     "pyasn1>=0.6.4",
     "pygments>=2.20.0",
-    "gitpython>=3.1.58",
+    "gitpython>=3.1.59",
     "idna>=3.15",
     "pymdown-extensions>=11.0.1",
     "requests>=2.33.0",
@@ -84,9 +84,7 @@ constraint-dependencies = [
 ]
 
 [tool.uv.sources]
-# dlt = { path = "../../dlt/.worktrees/feat-3913-split-dlthub/", editable = true }
-# dlt = { git = "https://github.com/dlt-hub/dlt.git", rev = "feat/workspace-manifest-concept" }
-# dlt = { url="https://github.com/dlt-hub/dlt/archive/refs/heads/chore/cli-patches.zip?v=4"}
+dlt = { url="https://github.com/dlt-hub/dlt/archive/refs/tags/1.30.1a0.zip"}
 
 # mark as OSS dlt extension
 [project.entry-points.dlt]

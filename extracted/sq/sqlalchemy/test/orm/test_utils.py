@@ -1,4 +1,6 @@
 import re
+import typing
+from typing import Optional
 
 from sqlalchemy import Column
 from sqlalchemy import event
@@ -11,7 +13,9 @@ from sqlalchemy import select
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import true
+from sqlalchemy import union
 from sqlalchemy.engine import result
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.ext.hybrid import hybrid_method
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import aliased
@@ -22,6 +26,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm import synonym
 from sqlalchemy.orm import util as orm_util
 from sqlalchemy.orm import with_polymorphic
+from sqlalchemy.orm import WriteOnlyMapped
 from sqlalchemy.orm.path_registry import PathRegistry
 from sqlalchemy.orm.path_registry import PathToken
 from sqlalchemy.orm.path_registry import RootRegistry
@@ -29,6 +34,7 @@ from sqlalchemy.testing import assert_raises
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import expect_raises
+from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
@@ -618,6 +624,34 @@ class AliasedClassTest(fixtures.MappedTest, AssertsCompiledSQL):
             inspect(Point),
         )
 
+    def test_aliased_select_raises(self):
+        """test for #6274"""
+
+        class Point:
+            pass
+
+        self._fixture(Point)
+
+        with expect_raises_message(
+            ArgumentError, r"use the \.subquery\(\) method"
+        ):
+            aliased(select(Point.x).filter(Point.id == 1))
+
+    def test_aliased_compound_select_raises(self):
+        """test for #6274"""
+
+        class Point:
+            pass
+
+        self._fixture(Point)
+
+        q1 = select(Point.x).filter(Point.id == 1)
+        q2 = select(Point.y).filter(Point.id == 2)
+        with expect_raises_message(
+            ArgumentError, r"use the \.subquery\(\) method"
+        ):
+            aliased(union(q1, q2))
+
     def test_aliased_select_subquery(self):
         """test for #6274"""
 
@@ -757,6 +791,42 @@ class IsAliasOfSelectableTest(fixtures.TestBase):
         selectable, target = testing.resolve_lambda(make_selectables, **t)
 
         eq_(orm_util._is_alias_of_selectable(selectable, target), expected)
+
+
+class UnresolvedAnnotationIsMappedTest(fixtures.TestBase):
+    """test the _unresolved_annotation_is_mapped() function used to decide
+    if an un-resolvable annotation is reported as a mapping error,
+    #13602"""
+
+    @testing.combinations(
+        ("Mapped[Undef]", True),
+        ("Mapped[list[Undef] | None]", True),
+        ("WriteOnlyMapped[list[Undef]]", True),
+        ("DynamicMapped[Undef]", True),
+        ("orm.Mapped[Undef]", True),
+        ("Undef", False),
+        ("list[Undef]", False),
+        ("Undef | None", False),
+        ("Undef | __annotationlib_name_1__", False),
+        argnames="annotation, expected",
+    )
+    @testing.variation("form", ["str", "forward_ref"])
+    def test_string_forms(self, annotation, expected, form):
+        if form.forward_ref:
+            annotation = typing.ForwardRef(annotation)
+
+        eq_(orm_util._unresolved_annotation_is_mapped(annotation), expected)
+
+    @testing.combinations(
+        (Mapped[int], True),
+        (WriteOnlyMapped[int], True),
+        (Optional[Mapped[int]], False),
+        (typing.List[Mapped[int]], False),
+        (int, False),
+        argnames="annotation, expected",
+    )
+    def test_resolved_forms(self, annotation, expected):
+        eq_(orm_util._unresolved_annotation_is_mapped(annotation), expected)
 
 
 class IdentityKeyTest(_fixtures.FixtureTest):
@@ -1217,6 +1287,113 @@ class PathRegistryTest(_fixtures.FixtureTest):
             p2,
         )
         eq_(PathRegistry.deserialize([(User, "addresses")]), p3)
+
+    @testing.combinations(
+        (
+            lambda umapper: PathRegistry.coerce(
+                (umapper, umapper.attrs.addresses)
+            ),
+            "User.addresses",
+        ),
+        (
+            lambda umapper: PathRegistry.coerce((umapper,)),
+            "User",
+        ),
+        (
+            lambda ualias: PathRegistry.coerce((ualias,)),
+            "aliased(User)",
+        ),
+        (
+            lambda umapper, amapper: PathRegistry.coerce(
+                (umapper, umapper.attrs.addresses, amapper)
+            ),
+            "User.addresses",
+        ),
+        (
+            lambda ualias, umapper, amapper: PathRegistry.coerce(
+                (ualias, umapper.attrs.addresses, amapper)
+            ),
+            "aliased(User).addresses",
+        ),
+        (
+            lambda umapper, aalias: PathRegistry.coerce(
+                (umapper, umapper.attrs.addresses, aalias)
+            ),
+            "User.addresses.of_type(aliased(Address))",
+        ),
+        (
+            lambda: RootRegistry(),
+            "",
+        ),
+        (
+            lambda umapper, omapper, imapper: PathRegistry.coerce(
+                (
+                    umapper,
+                    umapper.attrs.orders,
+                    omapper,
+                    omapper.attrs["items"],
+                    imapper,
+                )
+            ),
+            "User.orders -> Order.items",
+        ),
+        (
+            lambda umapper, omapper, oalias, imapper: PathRegistry.coerce(
+                (
+                    umapper,
+                    umapper.attrs.orders,
+                    oalias,
+                    omapper.attrs["items"],
+                    imapper,
+                )
+            ),
+            "User.orders.of_type(aliased(Order)) -> aliased(Order).items",
+        ),
+        (
+            lambda umapper, omapper, owpoly, imapper: PathRegistry.coerce(
+                (
+                    umapper,
+                    umapper.attrs.orders,
+                    owpoly,
+                    omapper.attrs["items"],
+                    imapper,
+                )
+            ),
+            "User.orders.of_type(with_polymorphic(Order, []))"
+            " -> with_polymorphic(Order, []).items",
+        ),
+        argnames="path_reg,expected",
+    )
+    def test_path_string(self, path_reg, expected):
+        umapper = inspect(self.classes.User)
+        amapper = inspect(self.classes.Address)
+        omapper = inspect(self.classes.Order)
+        imapper = inspect(self.classes.Item)
+        auser = aliased(self.classes.User)
+        ualias = inspect(auser)
+        aaddress = aliased(self.classes.Address)
+        aorder = aliased(self.classes.Order)
+        aalias = inspect(aaddress)
+        oalias = inspect(aorder)
+
+        # this is a "fake" with_polymorphic but we expect it to trip the
+        # _is_with_polymorphic flag.  if this changes, then we need to bring
+        # in the full polymorphic fixture
+        wpolyorder = with_polymorphic(self.classes.Order, [self.classes.Order])
+        owpoly = inspect(wpolyorder)
+
+        p1 = testing.resolve_lambda(
+            path_reg,
+            umapper=umapper,
+            amapper=amapper,
+            ualias=ualias,
+            aalias=aalias,
+            oalias=oalias,
+            owpoly=owpoly,
+            omapper=omapper,
+            imapper=imapper,
+        )
+        eq_(p1.path_string(), expected)
 
 
 class PathRegistryInhTest(_poly_fixtures._Polymorphic):

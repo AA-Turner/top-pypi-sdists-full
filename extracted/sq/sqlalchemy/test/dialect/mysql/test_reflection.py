@@ -7,6 +7,7 @@ from sqlalchemy import DDL
 from sqlalchemy import DefaultClause
 from sqlalchemy import event
 from sqlalchemy import exc
+from sqlalchemy import Float
 from sqlalchemy import ForeignKey
 from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import Index
@@ -298,7 +299,7 @@ class ReflectionTest(fixtures.TestBase, AssertsCompiledSQL):
         col = insp.get_columns("t1")[0]
         if hasattr(expected, "match"):
             assert expected.match(col["default"])
-        elif isinstance(datatype_inst, (Integer, Numeric)):
+        elif isinstance(datatype_inst, (Integer, Numeric, Float)):
             pattern = re.compile(r"\'?%s\'?" % expected)
             assert pattern.match(col["default"])
         else:
@@ -868,7 +869,11 @@ class ReflectionTest(fixtures.TestBase, AssertsCompiledSQL):
             else:
                 default = er["default"]
 
-            if default is not None and connection.dialect._is_mariadb_102:
+            if (
+                default is not None
+                and connection.dialect.is_mariadb
+                and connection.dialect.server_version_info > (10, 2)
+            ):
                 default = default.replace(
                     "CURRENT_TIMESTAMP", "current_timestamp()"
                 )
@@ -1493,6 +1498,22 @@ class RawReflectionTest(fixtures.TestBase):
         m = regex.match("  PRIMARY KEY (`id`)")
         eq_(m.group("type"), "PRIMARY")
         eq_(m.group("columns"), "`id`")
+
+    @testing.combinations(
+        # 60 single quotes is a valid SQL string (29 '' pairs inside outer
+        # quotes); the previous ambiguous pattern backtracked on this input
+        ("  KEY (`id`) COMMENT " + ("'" * 60), "'" * 60),
+        # odd quotes followed by a non-quote: uncloseable, should not match
+        ("  KEY (`id`) COMMENT " + ("'" * 59) + "x", None),
+        argnames="line,expected_comment",
+    )
+    def test_key_reflection_comment_many_quotes(self, line, expected_comment):
+        regex = self.parser._re_key
+        m = regex.match(line)
+        eq_(
+            m.group("comment") if m is not None else None,
+            expected_comment,
+        )
 
     def test_key_reflection_columns(self):
         regex = self.parser._re_key

@@ -122,6 +122,18 @@ def create_platform_http_session(
     return session
 
 
+def download_platform_file(url: str, destination: Path) -> None:
+    """Stream a platform/operator artifact to disk using verified native trust."""
+    with (
+        create_platform_http_session(cached_platform_ssl_context()) as session,
+        session.get(url, stream=True, timeout=120) as response,
+    ):
+        response.raise_for_status()
+        with destination.open("wb") as output:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                output.write(chunk)
+
+
 def format_tls_error(error: BaseException | str, error_type: str | None = None) -> str | None:
     """Return an actionable message when an error chain contains a TLS verification failure."""
     parts = [error_type or "", str(error)]

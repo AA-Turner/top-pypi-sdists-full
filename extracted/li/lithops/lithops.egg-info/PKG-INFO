@@ -1,17 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lithops
-Version: 3.7.0
-Summary: Lithops lets you transparently run your Python applications in the Cloud
-Home-page: https://github.com/lithops-cloud/lithops
-Author: Gil Vernik, Josep Sampe
-Author-email: gilv@ibm.com, josep.sampe@gmail.com
-License: UNKNOWN
-Platform: UNKNOWN
+Version: 3.8.0
+Summary: Run unmodified Python code at massive scale on any cloud, with no servers to manage
+Author-email: Gil Vernik <gilv@ibm.com>, Josep Sampe <josep.sampe@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/lithops-cloud/lithops
+Project-URL: Documentation, https://lithops-cloud.github.io/docs/
+Project-URL: Source, https://github.com/lithops-cloud/lithops
+Project-URL: Issues, https://github.com/lithops-cloud/lithops/issues
+Project-URL: Changelog, https://github.com/lithops-cloud/lithops/blob/master/CHANGELOG.md
+Keywords: serverless,distributed-computing,parallel-computing,multicloud,faas,kubernetes,hpc,big-data,aws-lambda,map-reduce
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,24 +22,128 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: System :: Distributed Computing
-Requires-Python: >=3.6
-Provides-Extra: aliyun
-Provides-Extra: all
-Provides-Extra: aws
-Provides-Extra: azure
-Provides-Extra: ceph
-Provides-Extra: gcp
-Provides-Extra: ibm
-Provides-Extra: joblib
-Provides-Extra: knative
-Provides-Extra: kubernetes
-Provides-Extra: minio
-Provides-Extra: multiprocessing
-Provides-Extra: oracle
-Provides-Extra: plotting
-Provides-Extra: redis
-Provides-Extra: tests
+Requires-Python: >=3.10
 License-File: LICENSE
-
-UNKNOWN
-
+Requires-Dist: Click
+Requires-Dist: tabulate
+Requires-Dist: six
+Requires-Dist: PyYAML
+Requires-Dist: pika
+Requires-Dist: tqdm
+Requires-Dist: tblib
+Requires-Dist: requests
+Requires-Dist: paramiko
+Requires-Dist: cloudpickle
+Requires-Dist: ps-mem
+Requires-Dist: psutil
+Provides-Extra: ibm
+Requires-Dist: ibm-cos-sdk; extra == "ibm"
+Requires-Dist: ibm-code-engine-sdk; extra == "ibm"
+Requires-Dist: ibm-vpc; extra == "ibm"
+Requires-Dist: kubernetes; extra == "ibm"
+Provides-Extra: aws
+Requires-Dist: boto3; extra == "aws"
+Provides-Extra: gcp
+Requires-Dist: httplib2; extra == "gcp"
+Requires-Dist: google-cloud-storage; extra == "gcp"
+Requires-Dist: google-cloud-pubsub; extra == "gcp"
+Requires-Dist: google-api-python-client; extra == "gcp"
+Requires-Dist: google-auth; extra == "gcp"
+Provides-Extra: azure
+Requires-Dist: azure-mgmt-resource; extra == "azure"
+Requires-Dist: azure-mgmt-compute; extra == "azure"
+Requires-Dist: azure-mgmt-network; extra == "azure"
+Requires-Dist: azure-identity; extra == "azure"
+Requires-Dist: azure-storage-blob; extra == "azure"
+Requires-Dist: azure-storage-queue; extra == "azure"
+Provides-Extra: aliyun
+Requires-Dist: alibabacloud-fc20230330>=4.7.0; extra == "aliyun"
+Requires-Dist: oss2; extra == "aliyun"
+Provides-Extra: ceph
+Requires-Dist: boto3; extra == "ceph"
+Provides-Extra: knative
+Requires-Dist: kubernetes; extra == "knative"
+Provides-Extra: kubernetes
+Requires-Dist: kubernetes; extra == "kubernetes"
+Provides-Extra: minio
+Requires-Dist: boto3; extra == "minio"
+Provides-Extra: redis
+Requires-Dist: redis; extra == "redis"
+Provides-Extra: multiprocessing
+Requires-Dist: redis; extra == "multiprocessing"
+Requires-Dist: pynng; extra == "multiprocessing"
+Provides-Extra: joblib
+Requires-Dist: joblib; extra == "joblib"
+Requires-Dist: diskcache; extra == "joblib"
+Requires-Dist: numpy; extra == "joblib"
+Requires-Dist: redis; extra == "joblib"
+Provides-Extra: plotting
+Requires-Dist: pandas; extra == "plotting"
+Requires-Dist: matplotlib; extra == "plotting"
+Requires-Dist: seaborn; extra == "plotting"
+Requires-Dist: numpy; extra == "plotting"
+Provides-Extra: oracle
+Requires-Dist: oci; extra == "oracle"
+Provides-Extra: tests
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-timeout; extra == "tests"
+Requires-Dist: kubernetes; extra == "tests"
+Requires-Dist: pika; extra == "tests"
+Requires-Dist: ibm-cos-sdk; extra == "tests"
+Requires-Dist: ibm-cloud-sdk-core; extra == "tests"
+Requires-Dist: joblib; extra == "tests"
+Requires-Dist: diskcache; extra == "tests"
+Requires-Dist: numpy; extra == "tests"
+Requires-Dist: redis; extra == "tests"
+Requires-Dist: pandas; extra == "tests"
+Requires-Dist: matplotlib; extra == "tests"
+Requires-Dist: seaborn; extra == "tests"
+Requires-Dist: flask; extra == "tests"
+Requires-Dist: gevent; extra == "tests"
+Requires-Dist: scikit-learn; extra == "tests"
+Provides-Extra: telemetry
+Requires-Dist: prometheus-client; extra == "telemetry"
+Requires-Dist: opentelemetry-sdk; extra == "telemetry"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "telemetry"
+Provides-Extra: dev
+Requires-Dist: ruff<0.17,>=0.16; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Provides-Extra: all
+Requires-Dist: alibabacloud-fc20230330>=4.7.0; extra == "all"
+Requires-Dist: azure-identity; extra == "all"
+Requires-Dist: azure-mgmt-compute; extra == "all"
+Requires-Dist: azure-mgmt-network; extra == "all"
+Requires-Dist: azure-mgmt-resource; extra == "all"
+Requires-Dist: azure-storage-blob; extra == "all"
+Requires-Dist: azure-storage-queue; extra == "all"
+Requires-Dist: boto3; extra == "all"
+Requires-Dist: diskcache; extra == "all"
+Requires-Dist: flask; extra == "all"
+Requires-Dist: gevent; extra == "all"
+Requires-Dist: google-api-python-client; extra == "all"
+Requires-Dist: google-auth; extra == "all"
+Requires-Dist: google-cloud-pubsub; extra == "all"
+Requires-Dist: google-cloud-storage; extra == "all"
+Requires-Dist: httplib2; extra == "all"
+Requires-Dist: ibm-cloud-sdk-core; extra == "all"
+Requires-Dist: ibm-code-engine-sdk; extra == "all"
+Requires-Dist: ibm-cos-sdk; extra == "all"
+Requires-Dist: ibm-vpc; extra == "all"
+Requires-Dist: joblib; extra == "all"
+Requires-Dist: kubernetes; extra == "all"
+Requires-Dist: matplotlib; extra == "all"
+Requires-Dist: numpy; extra == "all"
+Requires-Dist: oci; extra == "all"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http; extra == "all"
+Requires-Dist: opentelemetry-sdk; extra == "all"
+Requires-Dist: oss2; extra == "all"
+Requires-Dist: pandas; extra == "all"
+Requires-Dist: pika; extra == "all"
+Requires-Dist: prometheus-client; extra == "all"
+Requires-Dist: pynng; extra == "all"
+Requires-Dist: pytest; extra == "all"
+Requires-Dist: pytest-timeout; extra == "all"
+Requires-Dist: redis; extra == "all"
+Requires-Dist: scikit-learn; extra == "all"
+Requires-Dist: seaborn; extra == "all"
+Dynamic: license-file

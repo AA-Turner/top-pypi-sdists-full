@@ -8,7 +8,7 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 class UpdateDisputesRequestEvidenceRefundPolicyAttachment(UniversalBaseModel):
     """
-    The refund policy document.
+    The refund policy document. Defaults to the account's return policy when not set.
     """
 
     direct_upload_id: typing.Optional[str] = pydantic.Field(default=None)

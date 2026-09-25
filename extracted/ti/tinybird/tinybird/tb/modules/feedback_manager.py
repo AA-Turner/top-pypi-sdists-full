@@ -749,6 +749,11 @@ STEP 3: ADD KEY TO SERVICE ACCOUNT
     )
     warning_confirm_delete_pipe = prompt_message('Do you want to remove the pipe "{pipe}"?')
     warning_confirm_copy_pipe = prompt_message('Do you want to run a copy job from the pipe "{pipe}"?')
+    warning_confirm_on_demand_compute_differs_from_datafile = warning_message(
+        "The local datafile of pipe '{pipe}' does not set ON_DEMAND_COMPUTE true, but --on-demand-compute was passed.\n"
+        "On-demand compute uses dedicated resources that are billed separately from your regular usage.\n\n"
+        "Do you want to proceed?"
+    )
     warning_confirm_sink_job = prompt_message('Do you want to run a sink job from the pipe "{pipe}"?')
     warning_confirm_clear_workspace = prompt_message(
         "Do you want to remove all pipes and Data Sources from this workspace?"

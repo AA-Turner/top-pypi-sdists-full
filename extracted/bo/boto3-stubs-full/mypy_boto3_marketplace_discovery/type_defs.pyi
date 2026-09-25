@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_marketplace_discovery.type_defs import AmazonMachineImageOperatingSystemTypeDef
+    from mypy_boto3_marketplace_discovery.type_defs import AmazonMachineImageEbsVolumeTypeDef
 
-    data: AmazonMachineImageOperatingSystemTypeDef = ...
+    data: AmazonMachineImageEbsVolumeTypeDef = ...
     ```
 """
 
@@ -34,6 +34,7 @@ from .literals import (
     RateCardConstraintTypeType,
     ResourceContentTypeType,
     ResourceTypeType,
+    SaasQuickLaunchStatusType,
     SearchFacetTypeType,
     SearchFilterTypeType,
     SearchListingsSortByType,
@@ -48,9 +49,11 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AmazonMachineImageEbsVolumeTypeDef",
     "AmazonMachineImageFulfillmentOptionTypeDef",
     "AmazonMachineImageOperatingSystemTypeDef",
     "AmazonMachineImageRecommendationTypeDef",
+    "AmazonMachineImageSecurityGroupTypeDef",
     "ApiFulfillmentOptionTypeDef",
     "AwsSupportedServiceTypeDef",
     "ByolPricingTermTypeDef",
@@ -155,13 +158,20 @@ __all__ = (
     "VariablePaymentTermTypeDef",
 )
 
+class AmazonMachineImageEbsVolumeTypeDef(TypedDict):
+    volumeTypes: list[str]
+    iops: NotRequired[int]
+
 class AmazonMachineImageOperatingSystemTypeDef(TypedDict):
     operatingSystemFamilyName: str
     operatingSystemName: str
     operatingSystemVersion: NotRequired[str]
 
-class AmazonMachineImageRecommendationTypeDef(TypedDict):
-    instanceType: str
+class AmazonMachineImageSecurityGroupTypeDef(TypedDict):
+    protocol: str
+    fromPort: int
+    toPort: int
+    cidrIpAddresses: list[str]
 
 class AwsSupportedServiceTypeDef(TypedDict):
     supportedServiceType: str
@@ -188,6 +198,9 @@ class CloudFormationFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionVersion: NotRequired[str]
     releaseNotes: NotRequired[str]
     usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    shortDescription: NotRequired[str]
+    longDescription: NotRequired[str]
 
 class ConstraintsTypeDef(TypedDict):
     multipleDimensionSelection: RateCardConstraintTypeType
@@ -245,11 +258,15 @@ class SaasFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionId: str
     fulfillmentOptionType: FulfillmentOptionTypeType
     fulfillmentOptionDisplayName: str
+    quickLaunch: SaasQuickLaunchStatusType
     fulfillmentUrl: NotRequired[str]
     usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    launchUrl: NotRequired[str]
 
 class GetListingInputTypeDef(TypedDict):
     listingId: str
+    locale: NotRequired[str]
 
 class ListingBadgeTypeDef(TypedDict):
     displayName: str
@@ -287,6 +304,7 @@ class SellerInformationTypeDef(TypedDict):
 
 class GetOfferInputTypeDef(TypedDict):
     offerId: str
+    locale: NotRequired[str]
 
 class PurchaseOptionBadgeTypeDef(TypedDict):
     displayName: str
@@ -294,6 +312,7 @@ class PurchaseOptionBadgeTypeDef(TypedDict):
 
 class GetOfferSetInputTypeDef(TypedDict):
     offerSetId: str
+    locale: NotRequired[str]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -302,11 +321,13 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class GetOfferTermsInputTypeDef(TypedDict):
     offerId: str
+    locale: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
 class GetProductInputTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
 
 class HelmOperatingSystemTypeDef(TypedDict):
     operatingSystemFamilyName: str
@@ -314,6 +335,7 @@ class HelmOperatingSystemTypeDef(TypedDict):
 
 class ListFulfillmentOptionsInputTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -424,16 +446,9 @@ class UseCaseTypeDef(TypedDict):
     displayName: str
     value: str
 
-class AmazonMachineImageFulfillmentOptionTypeDef(TypedDict):
-    fulfillmentOptionId: str
-    fulfillmentOptionName: str
-    fulfillmentOptionType: FulfillmentOptionTypeType
-    fulfillmentOptionDisplayName: str
-    operatingSystems: list[AmazonMachineImageOperatingSystemTypeDef]
-    fulfillmentOptionVersion: NotRequired[str]
-    recommendation: NotRequired[AmazonMachineImageRecommendationTypeDef]
-    releaseNotes: NotRequired[str]
-    usageInstructions: NotRequired[str]
+class AmazonMachineImageRecommendationTypeDef(TypedDict):
+    instanceType: str
+    securityGroups: NotRequired[list[AmazonMachineImageSecurityGroupTypeDef]]
 
 class ApiFulfillmentOptionTypeDef(TypedDict):
     fulfillmentOptionId: str
@@ -522,10 +537,12 @@ class ProductInformationTypeDef(TypedDict):
 
 class GetOfferTermsInputPaginateTypeDef(TypedDict):
     offerId: str
+    locale: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFulfillmentOptionsInputPaginateTypeDef(TypedDict):
     productId: str
+    locale: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class HelmFulfillmentOptionTypeDef(TypedDict):
@@ -540,10 +557,12 @@ class HelmFulfillmentOptionTypeDef(TypedDict):
     usageInstructions: NotRequired[str]
 
 class ListPurchaseOptionsInputPaginateTypeDef(TypedDict):
+    locale: NotRequired[str]
     filters: NotRequired[Sequence[PurchaseOptionFilterTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPurchaseOptionsInputTypeDef(TypedDict):
+    locale: NotRequired[str]
     filters: NotRequired[Sequence[PurchaseOptionFilterTypeDef]]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -595,20 +614,25 @@ class SageMakerModelFulfillmentOptionTypeDef(TypedDict):
     releaseNotes: NotRequired[str]
     usageInstructions: NotRequired[str]
     recommendation: NotRequired[SageMakerModelRecommendationTypeDef]
+    supportedContentTypes: NotRequired[list[str]]
+    supportedResponseMimeTypes: NotRequired[list[str]]
 
 class SearchFacetsInputPaginateTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     facetTypes: NotRequired[Sequence[SearchFacetTypeType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class SearchFacetsInputTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     facetTypes: NotRequired[Sequence[SearchFacetTypeType]]
     nextToken: NotRequired[str]
 
 class SearchListingsInputPaginateTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     sortBy: NotRequired[SearchListingsSortByType]
@@ -616,6 +640,7 @@ class SearchListingsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class SearchListingsInputTypeDef(TypedDict):
+    locale: NotRequired[str]
     searchText: NotRequired[str]
     filters: NotRequired[Sequence[SearchFilterTypeDef]]
     maxResults: NotRequired[int]
@@ -625,6 +650,23 @@ class SearchListingsInputTypeDef(TypedDict):
 
 class UseCaseEntryTypeDef(TypedDict):
     useCase: UseCaseTypeDef
+
+class AmazonMachineImageFulfillmentOptionTypeDef(TypedDict):
+    fulfillmentOptionId: str
+    fulfillmentOptionName: str
+    fulfillmentOptionType: FulfillmentOptionTypeType
+    fulfillmentOptionDisplayName: str
+    operatingSystems: list[AmazonMachineImageOperatingSystemTypeDef]
+    architecture: str
+    fulfillmentOptionVersion: NotRequired[str]
+    recommendation: NotRequired[AmazonMachineImageRecommendationTypeDef]
+    releaseNotes: NotRequired[str]
+    usageInstructions: NotRequired[str]
+    availableFromTime: NotRequired[datetime]
+    accessUrlTemplate: NotRequired[str]
+    amiAlias: NotRequired[str]
+    ebsVolume: NotRequired[AmazonMachineImageEbsVolumeTypeDef]
+    shortDescription: NotRequired[str]
 
 FixedUpfrontPricingTermTypeDef = TypedDict(
     "FixedUpfrontPricingTermTypeDef",
@@ -679,6 +721,7 @@ class TermTemplateTypeDef(TypedDict):
     paymentScheduleTermTemplate: NotRequired[PaymentScheduleTermTemplateTypeDef]
 
 class GetProductOutputTypeDef(TypedDict):
+    locale: str
     productId: str
     catalog: str
     productName: str
@@ -693,6 +736,7 @@ class GetProductOutputTypeDef(TypedDict):
     promotionalMedia: list[PromotionalMediaTypeDef]
     resources: list[ResourceTypeDef]
     sellerEngagements: list[SellerEngagementTypeDef]
+    listingId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FulfillmentOptionTypeDef(TypedDict):
@@ -731,6 +775,7 @@ UsageBasedPricingTermTypeDef = TypedDict(
 )
 
 class GetListingOutputTypeDef(TypedDict):
+    locale: str
     associatedEntities: list[ListingAssociatedEntityTypeDef]
     badges: list[ListingBadgeTypeDef]
     catalog: str
@@ -769,6 +814,7 @@ class ListingSummaryTypeDef(TypedDict):
     associatedEntities: list[ListingSummaryAssociatedEntityTypeDef]
 
 class GetOfferOutputTypeDef(TypedDict):
+    locale: str
     offerId: str
     catalog: str
     offerName: str
@@ -783,6 +829,7 @@ class GetOfferOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetOfferSetOutputTypeDef(TypedDict):
+    locale: str
     offerSetId: str
     catalog: str
     offerSetName: str
@@ -819,6 +866,7 @@ RenewalTermTypeDef = TypedDict(
 )
 
 class ListFulfillmentOptionsOutputTypeDef(TypedDict):
+    locale: str
     fulfillmentOptions: list[FulfillmentOptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -850,6 +898,7 @@ class OfferTermTypeDef(TypedDict):
     netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
 
 class GetOfferTermsOutputTypeDef(TypedDict):
+    locale: str
     offerTerms: list[OfferTermTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

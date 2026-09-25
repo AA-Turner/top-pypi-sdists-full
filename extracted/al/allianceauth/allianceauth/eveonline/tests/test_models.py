@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, PropertyMock, patch
 
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.utils import IntegrityError
 from django.test import TestCase
 
 from esi.exceptions import HTTPNotModified
@@ -362,6 +363,75 @@ class EveCharacterTestCase(TestCase):
         self.assertEqual(my_character.corporation_name, 'Created Corp')
         self.assertEqual(my_character.alliance_name, 'Created Alliance')
         self.assertEqual(my_character.faction_name, 'Created Faction')
+
+    @patch('allianceauth.eveonline.models.open_api_provider.get_affiliations')
+    def test_update_character_survives_alliance_creation_race(self, mock_get_affiliations) -> None:
+        """Regression test for the multi-worker race condition.
+
+        Two update tasks can run for the same character concurrently. Both see the
+        alliance as missing, both call ``create_alliance()``, and the loser's INSERT
+        raises ``IntegrityError`` on the unique ``alliance_id`` constraint
+        (``1062, "Duplicate entry ... for key
+        'eveonline_eveallianceinfo_alliance_id_fbfbea3c_uniq'"``).
+        ``update_character()`` must recover by returning the alliance the winning
+        worker committed instead of propagating the error.
+        """
+        my_character = EveCharacter.objects.create(
+            character_id=1001,
+            character_name='Race Victim',
+            corporation_id=2001,
+            corporation_name='Dummy Corp 1',
+            corporation_ticker='DC1',
+            alliance_id=None,
+        )
+        # Corporation already exists so only the alliance path exercises the race.
+        EveCorporationInfo.objects.create(
+            corporation_id=2002,
+            corporation_name='Dummy Corp 2',
+            corporation_ticker='DC2',
+            member_count=1,
+            ceo_id=3,
+        )
+        # The alliance the *other* worker wins the race to create.
+        winning_alliance = EveAllianceInfo.objects.create(
+            alliance_id=3001,
+            alliance_name='Winner Alliance',
+            alliance_ticker='WIN',
+            executor_corp_id=2002,
+        )
+        mock_get_affiliations.return_value = (
+            [
+                SimpleNamespace(
+                    character_id=1001,
+                    corporation_id=2002,
+                    alliance_id=3001,
+                    faction_id=None,
+                )
+            ],
+            response_stub(),
+        )
+
+        # Simulate the race: the first get() misses, create_alliance() then loses
+        # the unique-constraint race (IntegrityError), and the follow-up get()
+        # finds the row the winning worker committed.
+        with patch.object(
+            EveAllianceInfo.objects,
+            'get',
+            side_effect=[EveAllianceInfo.DoesNotExist, winning_alliance],
+        ), patch.object(
+            EveAllianceInfo.objects,
+            'create_alliance',
+            side_effect=IntegrityError(
+                "(1062, \"Duplicate entry '3001' for key "
+                "'eveonline_eveallianceinfo_alliance_id_fbfbea3c_uniq'\")"
+            ),
+        ):
+            result = my_character.update_character()
+
+        result.refresh_from_db()
+        self.assertEqual(result.alliance_id, 3001)
+        self.assertEqual(result.alliance_name, 'Winner Alliance')
+        self.assertEqual(result.alliance_ticker, 'WIN')
 
     def test_image_url(self) -> None:
         self.assertEqual(

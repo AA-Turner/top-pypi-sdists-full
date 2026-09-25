@@ -183,24 +183,6 @@ def _nss_read_csv(
             multi_line=nss_multiline,
             record_delimiter=nss_record_delimiter,
         )
-    # options.config is seeded with the _corrupt_record default, so inspect the raw
-    # request options to tell an explicit .option from the default; otherwise the
-    # default masks spark.sql.columnNameOfCorruptRecord (SNOW-3899671).
-    has_explicit_corrupt_record_option = any(
-        key.lower() == "columnnameofcorruptrecord"
-        for key in rel.read.data_source.options
-    )
-    corrupt_record_column_name = (
-        options.config.get("columnnameofcorruptrecord", "_corrupt_record")
-        if has_explicit_corrupt_record_option
-        else (
-            get_string_session_config_param("spark.sql.columnNameOfCorruptRecord")
-            or "_corrupt_record"
-        )
-    )
-    if corrupt_record_column_name == "":
-        corrupt_record_column_name = None
-
     # STAGE_FILE_READER produces the file's data columns directly from DATA_SCHEMA
     # — no per-schema decoder UDTF. Filter to Spark CSV read options (also collapses
     # the 2-char COPY-escaped escape/quote/sep back to a single char for Spark).
@@ -212,6 +194,7 @@ def _nss_read_csv(
         normalize_stage_paths,
         py_schema_as_nullable,
         raise_if_locations_unsupported,
+        resolve_corrupt_record_column,
         snowpark_types_from_columns,
     )
     from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
@@ -221,6 +204,9 @@ def _nss_read_csv(
     stage_paths = normalize_stage_paths(paths)
     # Scalar LOCATION for the single-path case.
     stage_path = stage_paths[0]
+    corrupt_record_column_name = resolve_corrupt_record_column(
+        rel.read.data_source.options, options.config
+    )
 
     # Filter to Spark CSV read options once and reuse for BOTH inference and the read, so the
     # inferred column layout matches the read: header/sep/delimiter/quote/escape must reach

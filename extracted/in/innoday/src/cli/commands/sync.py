@@ -24,6 +24,7 @@ from src.cli.commands.boards import (
     DEFAULT_SYNC_WAIT_TIMEOUT,
     wait_and_report_board_sync,
 )
+from src.cli.utils import guidance
 from src.cli.utils.formatters import (
     format_error,
     format_info,
@@ -163,11 +164,7 @@ class SyncCommands:
 
         # Check organization is configured
         if not config.get_current_organization():
-            console.print(
-                format_error(
-                    "Organization not configured. Run 'innoday config init' first."
-                )
-            )
+            console.print(format_error(guidance.NO_PROJECT))
             return 1
 
         async with InnoDayAPIClient(
@@ -634,11 +631,7 @@ class SyncCommands:
         org_id = config.get_organization_id(org_alias)
 
         if not org_id:
-            console.print(
-                format_error(
-                    "Organization ID not found. Please reconfigure with 'innoday config init'."
-                )
-            )
+            console.print(format_error(guidance.org_not_found(org_alias)))
             return 1
 
         # Resolve the org's single active board registration

@@ -97,6 +97,7 @@ class WorkerLifecycleManager:
         ``GATED_OFF`` state and their modules are not imported.
         """
         from dreadnode.capabilities.flags import evaluate_when
+        from dreadnode.capabilities.loader import reset_worker_modules
 
         self._registry = registry
         started_at = time.perf_counter()
@@ -120,6 +121,7 @@ class WorkerLifecycleManager:
 
         async with asyncio.TaskGroup() as tg:
             for cap_name, cap in registry.capabilities.items():
+                reset_worker_modules(cap_name)
                 resolved = cap.resolved_flags
                 for worker_def in cap.worker_defs:
                     qualified = f"{cap_name}:{worker_def.name}"

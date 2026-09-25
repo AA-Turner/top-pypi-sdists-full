@@ -34,6 +34,7 @@ class RunPhase(enum.Enum):
   # Run is failed.
   PHASE_FAILED = "FAILED"
 
+
 # TODO([INTERNAL]): Separate vLLM into a serving engine enum.
 class Framework(enum.Enum):
   JAX = "JAX"
@@ -50,13 +51,28 @@ class AcceleratorOrchestrator(enum.Enum):
   PATHWAYS = "PATHWAYS"
 
 
+class ApplicationFramework(enum.Enum):
+  """Enumeration of supported application frameworks."""
+
+  NONE = "NONE"
+  MAXTEXT = "MAXTEXT"
+  AXLEARN = "AXLEARN"
+  MAXDIFFUSION = "MAXDIFFUSION"
+
+
+class RlOrchestrator(enum.Enum):
+  """Enumeration of supported RL orchestrators."""
+
+  NONE = "NONE"
+  TUNIX = "TUNIX"
+
+
 class Orchestrator(str, enum.Enum):
   """Enumeration of supported workload orchestrators."""
 
   GKE = "GKE"
   SLURM = "SLURM"
-  GCE = "GCE"
-  UNKNOWN = "UNKNOWN"
+  CUSTOM = "CUSTOM"
 
 
 class ConfigDict(dict):
@@ -128,7 +144,11 @@ class MLRun:
   framework: Framework = Framework.JAX
   serving_engine: ServingEngine = ServingEngine.NONE
   metrics_exporter_config: dict[str, Any] | None = None
-  accelerator_orchestrator: AcceleratorOrchestrator = AcceleratorOrchestrator.NONE
+  accelerator_orchestrator: AcceleratorOrchestrator = (
+      AcceleratorOrchestrator.NONE
+  )
+  application_framework: ApplicationFramework = ApplicationFramework.NONE
+  rl_orchestrator: RlOrchestrator = RlOrchestrator.NONE
 
   def __post_init__(self) -> None:
     gcp.validate_region(self.location)

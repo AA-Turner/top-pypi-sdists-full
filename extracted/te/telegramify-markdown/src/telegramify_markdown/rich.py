@@ -20,8 +20,7 @@ import pyromark
 
 from telegramify_markdown.converter import (
     STANDARD_OPTIONS,
-    _escape_latex,
-    _preprocess_spoilers,
+    _parse,
     _validate_telegram_emoji,
 )
 
@@ -106,14 +105,12 @@ class _RichHtmlWalker:
         self._code_block_lang = ""
         self._code_block_parts: list[str] = []
 
-        self._in_table = False
         self._in_table_head = False
         self._in_table_cell = False
         self._table_alignments: tuple = ()
         self._table_rows: list[list[tuple[str, bool]]] = []
         self._current_row: list[tuple[str, bool]] = []
         self._cell_parts: list[str] = []
-        self._cell_col = 0
 
         self._image: _ImageCapture | None = None
 
@@ -216,7 +213,6 @@ class _RichHtmlWalker:
             self._in_table_head = True
         elif tag == "TableRow":
             self._current_row = []
-            self._cell_col = 0
         elif tag == "TableCell":
             self._cell_parts = []
             self._in_table_cell = True
@@ -258,6 +254,12 @@ class _RichHtmlWalker:
         elif tag == "Strikethrough":
             self._close_inline()
         elif tag == "Paragraph":
+            self._close_paragraph()
+            self._leave_block()
+        elif tag == "HtmlBlock":
+            # Must pair with _on_start's _enter_block, otherwise _block_depth
+            # never returns to 0 and everything after this merges into a single
+            # RichBlock in walk_blocks, defeating the byte and block budgets.
             self._close_paragraph()
             self._leave_block()
         elif tag == "Item":
@@ -435,15 +437,12 @@ class _RichHtmlWalker:
 
     def _on_start_table(self, alignments) -> None:
         self._close_paragraph()
-        self._in_table = True
         self._table_alignments = alignments if isinstance(alignments, tuple) else ()
         self._table_rows = []
-        self._emit("")
 
     def _on_end_table_cell(self) -> None:
         content = "".join(self._cell_parts)
         self._current_row.append((content, self._in_table_head))
-        self._cell_col += 1
         self._cell_parts = []
         self._in_table_cell = False
 
@@ -451,10 +450,8 @@ class _RichHtmlWalker:
         if self._current_row:
             self._table_rows.append(self._current_row)
         self._current_row = []
-        self._cell_col = 0
 
     def _on_end_table(self) -> None:
-        self._in_table = False
         rows: list[str] = []
         for row in self._table_rows:
             cells: list[str] = []
@@ -576,12 +573,7 @@ def richify(
     if mode != "html":
         raise ValueError("mode must be 'html' or 'markdown'")
 
-    preprocessed = markdown
-    if latex_escape:
-        preprocessed = _escape_latex(preprocessed)
-    preprocessed = _preprocess_spoilers(preprocessed)
-
-    events = pyromark.events_with_range(preprocessed, options=RICH_OPTIONS)
+    _, events = _parse(markdown, RICH_OPTIONS, latex_escape=latex_escape)
     html_text = _RichHtmlWalker().walk(events)
     return InputRichMessage(
         html=html_text,
@@ -596,11 +588,7 @@ def _walk_blocks_from_markdown(
     latex_escape: bool = False,
 ) -> list[RichBlock]:
     """预处理 + 解析 + walk，返回 RichBlock 列表。"""
-    preprocessed = markdown
-    if latex_escape:
-        preprocessed = _escape_latex(preprocessed)
-    preprocessed = _preprocess_spoilers(preprocessed)
-    events = pyromark.events_with_range(preprocessed, options=RICH_OPTIONS)
+    _, events = _parse(markdown, RICH_OPTIONS, latex_escape=latex_escape)
     return _RichHtmlWalker().walk_blocks(events)
 
 
@@ -634,17 +622,10 @@ def _split_html(
     html_content = rich_message.html
     assert html_content is not None
 
-    # 快速路径: 不需要拆分
-    byte_len = len(html_content.encode("utf-8"))
-    if byte_len <= byte_limit:
-        # 还需要检查 block 数，但无法精确得知 block 数不做 re-walk
-        # 对于单 payload 直接返回（richify 的输出最多 ~500 block 时才到这里）
-        # 实际 re-walk 以确保 block 数正确
-        pass
-
-    # 用简化的 walker 从 HTML 重构 block 列表不可行（会违反 single-parse-boundary）
-    # 但 split_rich 接受的是已构建的 InputRichMessage，无法回溯到 markdown 源
-    # 因此对于 split_rich(已构建 payload) 的情况，用标签启发式拆分
+    # split_rich() receives an already-built payload and cannot get back to the
+    # markdown source, so top-level blocks are recovered heuristically from tags.
+    # For exact block boundaries use telegramify_rich(), which consumes the
+    # walk_blocks result directly.
     blocks = _heuristic_html_blocks(html_content)
 
     return _bin_blocks(
@@ -679,17 +660,17 @@ def _heuristic_html_blocks(html_content: str) -> list[RichBlock]:
     while pos < length:
         # 找到下一个 < 标签
         if html_content[pos] != "<":
-            # 不应该出现，但容错: 收集到下一个 <
+            # Bare text between blocks, as in caller-written HTML, is a block too
             next_tag = html_content.find("<", pos)
             if next_tag == -1:
-                # 剩余文本作为一个 block
-                fragment = html_content[pos:]
+                next_tag = length
+            fragment = html_content[pos:next_tag]
+            if fragment.strip():
                 blocks.append(RichBlock(
                     html=fragment,
                     byte_len=len(fragment.encode("utf-8")),
                     block_count=1,
                 ))
-                break
             pos = next_tag
             continue
 
@@ -888,17 +869,20 @@ def _bin_blocks(
                 current_bytes = 0
                 current_block_count = 0
 
-            split_blocks = _split_oversized_block(block, byte_limit)
-            if split_blocks:
-                for split_block in split_blocks:
-                    _flush_chunk(chunks, [split_block], mode, is_rtl, skip_entity_detection)
-            else:
-                logger.warning(
-                    "单个 block 超过字节限制 (%d > %d)，独立发出。Telegram 可能拒绝。",
-                    block.byte_len,
-                    byte_limit,
-                )
-                _flush_chunk(chunks, [block], mode, is_rtl, skip_entity_detection)
+            split_blocks = _split_oversized_block(block, byte_limit) or [block]
+            for split_block in split_blocks:
+                # A split can still leave an atomic child over the limit -- a
+                # single 40KB list item, say. Warn per surviving part rather
+                # than only when splitting fails outright, otherwise a partial
+                # success hides the payload Telegram will reject.
+                if split_block.byte_len > byte_limit:
+                    logger.warning(
+                        "Rich block exceeds the byte limit (%d > %d) and cannot be "
+                        "split further; sending it alone. Telegram may reject it.",
+                        split_block.byte_len,
+                        byte_limit,
+                    )
+                _flush_chunk(chunks, [split_block], mode, is_rtl, skip_entity_detection)
             continue
 
         # 检查是否会超出预算
@@ -936,21 +920,39 @@ def _flush_chunk(
         chunks.append(InputRichMessage(markdown=joined, is_rtl=is_rtl, skip_entity_detection=skip_entity_detection))
 
 
-def _split_oversized_block(block: RichBlock, byte_limit: int) -> list[RichBlock]:
-    """Split oversized paragraph/pre blocks while preserving valid Rich HTML."""
+# Telegram's nesting limit. Deeper containers are emitted unsplit, with the
+# over-limit warning, which also keeps the split recursion shallow.
+_MAX_SPLIT_DEPTH = 16
+
+
+def _split_oversized_block(
+    block: RichBlock, byte_limit: int, depth: int = 0
+) -> list[RichBlock]:
+    """Split an oversized block while preserving valid Rich HTML.
+
+    Leaf blocks (``<p>`` / ``<pre>``) split by text; container blocks
+    (``<blockquote>`` / ``<ul>`` / ``<ol>`` / ``<table>``) split by direct child,
+    each part re-wrapped in the original open and close tags. An empty list means
+    the block could not be split, and the caller emits it as-is with a warning.
+    """
     html_text = block.html
 
     paragraph = _extract_wrapped_text(html_text, "p")
     if paragraph is not None:
         budget = byte_limit - len("<p></p>".encode("utf-8"))
-        return [
-            _make_block(f"<p>{_escape_text(part)}</p>")
-            for part in _split_text_by_escaped_utf8_bytes(
-                _html_fragment_to_text(paragraph),
-                budget,
+        parts = _split_inline_html(paragraph, budget)
+        if parts is None:
+            logger.warning(
+                "Paragraph cannot be split without breaking a tag; splitting its "
+                "plain text instead, which drops its formatting."
             )
-            if part
-        ]
+            parts = [
+                _escape_text(part)
+                for part in _split_text_by_escaped_utf8_bytes(
+                    _html_fragment_to_text(paragraph), budget
+                )
+            ]
+        return [_make_block(f"<p>{part}</p>") for part in parts if part]
 
     pre = _extract_pre_text(html_text)
     if pre is not None:
@@ -965,7 +967,131 @@ def _split_oversized_block(block: RichBlock, byte_limit: int) -> list[RichBlock]
             if part
         ]
 
+    container = _extract_container(html_text)
+    if container is not None and depth < _MAX_SPLIT_DEPTH:
+        return _split_container(*container, byte_limit=byte_limit, depth=depth)
+
     return []
+
+
+# The attribute part tolerates a quoted value containing '>'. richify() always
+# escapes attributes, but split_rich() is public and may be handed HTML the
+# caller wrote, where a naive [^>]* would cut the open tag in the wrong place.
+_CONTAINER_OPEN_RE = re.compile(
+    r"""<(blockquote|ul|ol|table)(?:\s(?:"[^"]*"|'[^']*'|[^>"'])*)?>"""
+)
+_OL_START_RE = re.compile(r"""(?<![-\w])start\s*=\s*(?:"(\d+)"|'(\d+)')""")
+_OL_ANY_START_RE = re.compile(r"(?<![-\w])start\s*=")
+
+
+def _extract_container(html_text: str) -> tuple[str, str, str, str] | None:
+    """If the fragment is exactly one splittable container, return
+    (open tag, inner HTML, close tag, tag name)."""
+    match = _CONTAINER_OPEN_RE.match(html_text)
+    if not match:
+        return None
+    tag = match.group(1)
+    close_tag = f"</{tag}>"
+    if not html_text.endswith(close_tag):
+        return None
+    # The close tag must pair with this open tag, not with a nested element
+    # of the same name
+    if _find_tag_end(html_text, 0, tag) != len(html_text):
+        return None
+    return match.group(0), html_text[match.end() : -len(close_tag)], close_tag, tag
+
+
+def _split_container(
+    open_tag: str,
+    inner: str,
+    close_tag: str,
+    tag: str,
+    *,
+    byte_limit: int,
+    depth: int,
+) -> list[RichBlock]:
+    """Split a container by direct child, re-wrapping each part in its tags."""
+    children = _heuristic_html_blocks(inner)
+    if not children:
+        return []
+
+    # An <ol> continuation renumbers its opening tag, and a wider start number
+    # is a longer tag than the one we started from. Budget against the widest
+    # tag any part could get, or the last part overflows by those extra digits.
+    total_items = sum(1 for child in children if child.html.startswith("<li"))
+    widest_open = max(
+        len(open_tag.encode("utf-8")),
+        len(_reopen_tag(open_tag, tag, total_items).encode("utf-8")),
+    )
+    budget = byte_limit - widest_open - len(close_tag.encode("utf-8"))
+    if budget <= 0:
+        return []
+
+    # Split any single oversized child first, otherwise binning just produces
+    # one oversized bin
+    expanded: list[RichBlock] = []
+    for child in children:
+        if child.byte_len > budget:
+            pieces = _split_oversized_block(child, budget, depth + 1)
+            expanded.extend(pieces or [child])
+        else:
+            expanded.append(child)
+
+    groups: list[list[RichBlock]] = []
+    current: list[RichBlock] = []
+    current_bytes = 0
+    for child in expanded:
+        if current and current_bytes + child.byte_len > budget:
+            groups.append(current)
+            current = []
+            current_bytes = 0
+        current.append(child)
+        current_bytes += child.byte_len
+    if current:
+        groups.append(current)
+
+    if len(groups) <= 1:
+        return []
+
+    blocks: list[RichBlock] = []
+    items_before = 0
+    for group in groups:
+        blocks.append(
+            _make_block(
+                _reopen_tag(open_tag, tag, items_before)
+                + "".join(child.html for child in group)
+                + close_tag
+            )
+        )
+        # Count direct children only: <li> inside a nested list does not
+        # consume an outer ordinal
+        items_before += sum(1 for child in group if child.html.startswith("<li"))
+    return blocks
+
+
+def _reopen_tag(open_tag: str, tag: str, items_before: int) -> str:
+    """Continue an ordered list from the previous part's numbering instead of
+    restarting at 1.
+
+    The start value is rewritten in place so any other attribute on the tag
+    survives. When the tag carries a ``start`` this cannot parse, the tag is
+    returned untouched: restarting the numbering is a display nit, whereas
+    appending a second ``start`` would emit invalid HTML.
+    """
+    if tag != "ol" or items_before == 0:
+        return open_tag
+    match = _OL_START_RE.search(open_tag)
+    if match:
+        group = 1 if match.group(1) is not None else 2
+        continued = int(match.group(group)) + items_before
+        return (
+            open_tag[: match.start(group)]
+            + str(continued)
+            + open_tag[match.end(group) :]
+        )
+    if _OL_ANY_START_RE.search(open_tag):
+        return open_tag
+    return f'<ol start="{1 + items_before}"' + open_tag[len("<ol") :]
 
 
 def _make_block(html_text: str) -> RichBlock:
@@ -989,6 +1115,94 @@ def _extract_pre_text(html_text: str) -> tuple[str, str, str] | None:
     if not match:
         return None
     return match.group(1), match.group(2), match.group(3)
+
+
+# One token of inline Rich HTML: a tag (a quoted attribute value may hold '>'),
+# a character reference, a whitespace run, or a run of other text. Runs stay
+# short so that a part can end close to its byte budget.
+_INLINE_TOKEN_RE = re.compile(
+    r"""</?([A-Za-z][A-Za-z0-9-]*)(?:\s(?:"[^"]*"|'[^']*'|[^>"'])*)?/?>"""
+    r"|&(?:#\d+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);"
+    r"|\s{1,64}"
+    r"|[^<&\s]{1,64}"
+    r"|[<&]"
+)
+_VOID_TAGS = frozenset({"br", "hr", "img", "wbr"})
+
+
+def _inline_tokens(fragment: str) -> list[tuple[str, str, str]]:
+    """(token, kind, lowercase tag name or "") per inline token."""
+    tokens = []
+    for match in _INLINE_TOKEN_RE.finditer(fragment):
+        token, name = match.group(0), (match.group(1) or "").lower()
+        if not name:
+            kind = "space" if token.isspace() else "text"
+        elif token.startswith("</"):
+            kind = "close"
+        elif name == "br":
+            kind = "br"
+        elif token.endswith("/>") or name in _VOID_TAGS:
+            kind = "void"
+        else:
+            kind = "open"
+        tokens.append((token, kind, name))
+    return tokens
+
+
+def _split_inline_html(fragment: str, budget: int) -> list[str] | None:
+    """Split inline Rich HTML into parts of at most ``budget`` UTF-8 bytes each.
+
+    A cut closes the tags open at that point and reopens them at the start of
+    the next part, so every part is well-formed and keeps its formatting. Cuts
+    prefer the point after a ``<br/>``, then after whitespace, then any token
+    boundary. Returns None when the fragment is not well-formed, or when a part
+    cannot hold one token beside the tags it has to reopen and close.
+    """
+    tokens = _inline_tokens(fragment)
+    parts: list[str] = []
+    carried: tuple[tuple[str, str], ...] = ()  # (open tag, closer) open at the cut
+    start = 0
+    while start < len(tokens):
+        stack = carried
+        size = sum(len(open_tag.encode("utf-8")) for open_tag, _ in stack)
+        reserve = sum(len(closer) for _, closer in stack)
+        line_cut = space_cut = None
+        end = start
+        while end < len(tokens):
+            token, kind, name = tokens[end]
+            token_size = len(token.encode("utf-8"))
+            if kind == "close":
+                if not stack or stack[-1][1] != f"</{name}>":
+                    return None
+                next_stack, next_reserve = stack[:-1], reserve - len(stack[-1][1])
+            elif kind == "open":
+                closer = f"</{name}>"
+                next_stack, next_reserve = stack + ((token, closer),), reserve + len(closer)
+            else:
+                next_stack, next_reserve = stack, reserve
+            if size + token_size + next_reserve > budget:
+                break
+            size, stack, reserve = size + token_size, next_stack, next_reserve
+            end += 1
+            if kind == "br":
+                line_cut = (end, stack)
+            elif kind == "space":
+                space_cut = (end, stack)
+        if end == len(tokens):
+            if stack:
+                return None
+            cut, cut_stack = end, stack
+        elif end == start:
+            return None
+        else:
+            cut, cut_stack = line_cut or space_cut or (end, stack)
+        parts.append(
+            "".join(open_tag for open_tag, _ in carried)
+            + "".join(token for token, _, _ in tokens[start:cut])
+            + "".join(closer for _, closer in reversed(cut_stack))
+        )
+        start, carried = cut, cut_stack
+    return parts
 
 
 def _split_text_by_utf8_bytes(text: str, byte_limit: int) -> list[str]:

@@ -26,6 +26,9 @@ class _FakeConn:
     def command(self, statement):
         self.commands.append(statement)
 
+    def insert(self, _table, _rows):
+        self.commands.append("INSERT")
+
     def query(self, _query):
         return [
             {"version": v, "script": f"script{v}", "md5": f"md5{v}"}
@@ -206,6 +209,28 @@ def test_build_status_classifies_every_state():
     assert by_version[4].state == STATUS_UNKNOWN
 
 
+def test_build_status_has_down():
+    incoming = [
+        Migration(version=1, md5="a", script="s1"),  # applied, has down
+        Migration(version=2, md5="b", script="s2"),  # pending, has down
+        Migration(version=3, md5="c", script="s3"),  # pending, no down
+    ]
+    applied = {
+        1: ("a", "2024-01-01 00:00:00"),
+        4: ("d", "2024-01-04 00:00:00"),  # unknown: never has_down
+    }
+
+    # pylint: disable=protected-access
+    rows = Migrator._build_status(incoming, applied, {1, 2, 4})
+    by_version = {r.version: r for r in rows}
+
+    assert by_version[1].has_down is True
+    assert by_version[2].has_down is True
+    assert by_version[3].has_down is False
+    assert by_version[4].has_down is False
+    assert not Migrator._build_status(incoming, applied)[0].has_down
+
+
 def test_build_status_empty():
     # pylint: disable=protected-access
     assert not Migrator._build_status([], {})
@@ -294,3 +319,225 @@ def test_rollback_dry_run_executes_nothing():
     assert rolled == [2]
     assert not any("DROP TABLE" in c for c in conn.commands)
     assert not any("DELETE WHERE version" in c for c in conn.commands)
+
+
+class _RecordingConn:
+    """Connection stub that records every statement, query and insert."""
+
+    def __init__(self, rows=None):
+        self.commands = []
+        self.inserts = []
+        self.queries = []
+        self._rows = rows or []
+
+    def command(self, statement):
+        self.commands.append(statement)
+
+    def query(self, statement):
+        self.queries.append(statement)
+        return self._rows
+
+    def insert(self, table, rows):
+        self.inserts.append((table, rows))
+
+
+class _FailingConn(_RecordingConn):
+    def command(self, statement):
+        super().command(statement)
+        raise RuntimeError("Code: 81. DB::Exception: Database meta does not exist")
+
+
+def test_default_schema_table_is_schema_versions():
+    conn = _RecordingConn()
+    Migrator(conn).init_schema()
+
+    assert len(conn.commands) == 1
+    ddl = conn.commands[0]
+    assert ddl.startswith('CREATE TABLE IF NOT EXISTS "schema_versions" (')
+    assert "ENGINE = MergeTree" in ddl
+    assert "ON CLUSTER" not in ddl
+
+
+def test_default_cluster_schema_keeps_zookeeper_path():
+    conn = _RecordingConn()
+    Migrator(conn).init_schema("company_cluster")
+
+    ddl = conn.commands[0]
+    assert 'ON CLUSTER "company_cluster"' in ddl
+    assert (
+        "ENGINE = ReplicatedMergeTree('/clickhouse/tables/{database}/{table}', "
+        "'{replica}')" in ddl
+    )
+
+
+def test_custom_table_name_is_quoted_everywhere():
+    conn = _RecordingConn()
+    migrator = Migrator(conn, migrations_table="my_versions")
+
+    migrator.init_schema()
+    migrator.optimize_schema_table()
+    migrator.query_applied_migrations()
+    migrator.rollback_migration({}, to_version=0)
+    migrator._insert_schema_version(  # pylint: disable=protected-access
+        Migration(version=1, md5="a", script="s")
+    )
+
+    assert 'CREATE TABLE IF NOT EXISTS "my_versions" (' in conn.commands[0]
+    assert 'OPTIMIZE TABLE "my_versions" FINAL' in conn.commands
+    assert all('"my_versions"' in q for q in conn.queries)
+    assert conn.inserts[0][0] == '"my_versions"'
+
+
+def test_db_table_value_is_split_and_quoted():
+    conn = _RecordingConn()
+    migrator = Migrator(conn, migrations_table="meta.my_versions")
+
+    assert migrator.migrations_table_database == "meta"
+    assert migrator.migrations_table_name == "my_versions"
+
+    migrator.init_schema()
+    assert 'CREATE TABLE IF NOT EXISTS "meta"."my_versions" (' in conn.commands[0]
+
+
+def test_quoted_db_table_value_is_unquoted_before_requoting():
+    migrator = Migrator(_RecordingConn(), migrations_table='"my.db".`my.table`')
+
+    assert migrator.migrations_table_database == "my.db"
+    assert migrator.migrations_table_name == "my.table"
+
+
+def test_custom_engine_wins_over_cluster_default():
+    conn = _RecordingConn()
+    engine = "ReplicatedMergeTree('/ch/{shard}/tables/{database}/{table}', '{replica}')"
+    Migrator(conn, migrations_table_engine=engine).init_schema("company_cluster")
+
+    ddl = conn.commands[0]
+    assert f"ENGINE = {engine}" in ddl
+    assert 'ON CLUSTER "company_cluster"' in ddl
+    assert "/clickhouse/tables/" not in ddl
+
+
+def test_custom_engine_is_used_without_cluster():
+    conn = _RecordingConn()
+    Migrator(conn, migrations_table_engine="Memory").init_schema()
+
+    assert "ENGINE = Memory" in conn.commands[0]
+
+
+def test_init_schema_in_another_database_explains_failure():
+    migrator = Migrator(_FailingConn(), migrations_table="meta.my_versions")
+
+    with pytest.raises(MigrationException, match="is not created automatically"):
+        migrator.init_schema()
+
+
+def test_init_schema_in_migrated_database_does_not_wrap_error():
+    migrator = Migrator(_FailingConn())
+
+    with pytest.raises(RuntimeError):
+        migrator.init_schema()
+
+
+def test_fake_migration_deletes_from_the_custom_table():
+    conn = _RecordingConn()
+    migrator = Migrator(conn, migrations_table="meta.my_versions")
+
+    migrator.apply_migration(
+        [Migration(version=1, md5="a", script="SELECT 1")], True, fake=True
+    )
+
+    assert any(
+        'ALTER TABLE "meta"."my_versions" DELETE WHERE version = 1' in c
+        for c in conn.commands
+    )
+    assert conn.inserts[0][0] == '"meta"."my_versions"'
+
+
+def _migs(*versions):
+    return [Migration(v, f"md5{v}", f"SELECT {v};") for v in versions]
+
+
+def test_apply_to_version_filters_pending():
+    conn = _FakeConn([])
+    migrator = Migrator(conn)
+
+    applied = migrator.apply_migration(_migs(1, 2, 3, 4), True, to_version=2)
+
+    assert [m.version for m in applied] == [1, 2]
+    assert "SELECT 3;" not in conn.commands
+    assert "SELECT 2;" in conn.commands
+
+
+def test_apply_to_version_only_pending_above_applied():
+    conn = _FakeConn([1])
+    migrator = Migrator(conn)
+
+    applied = migrator.apply_migration(_migs(1, 2, 3, 4), True, to_version=3)
+
+    assert [m.version for m in applied] == [2, 3]
+
+
+def test_apply_to_version_equal_to_highest_applied_is_noop():
+    conn = _FakeConn([1, 2])
+    migrator = Migrator(conn)
+
+    assert not migrator.apply_migration(_migs(1, 2, 3), True, to_version=2)
+    assert "SELECT 3;" not in conn.commands
+
+
+def test_apply_to_version_below_highest_applied_points_to_down():
+    conn = _FakeConn([1, 2, 3])
+    migrator = Migrator(conn)
+
+    with pytest.raises(MigrationException, match="down"):
+        migrator.apply_migration(_migs(1, 2, 3, 4), True, to_version=2)
+
+    assert not any(c.startswith("SELECT") for c in conn.commands)
+
+
+def test_apply_to_unknown_version_fails():
+    conn = _FakeConn([])
+    migrator = Migrator(conn)
+
+    with pytest.raises(MigrationException, match="not among the local"):
+        migrator.apply_migration(_migs(1, 2, 4), True, to_version=3)
+
+    assert not conn.commands
+
+
+def test_apply_to_version_still_checks_md5_above_target():
+    conn = _FakeConn([1, 2])
+    migrator = Migrator(conn)
+    incoming = _migs(1, 2, 3)
+    incoming[1] = Migration(2, "different", "SELECT 2;")
+
+    with pytest.raises(MigrationException, match="md5"):
+        migrator.apply_migration(incoming, True, to_version=1)
+
+
+def test_apply_to_version_still_checks_missing_migrations():
+    conn = _FakeConn([1, 2, 3])
+    migrator = Migrator(conn)
+
+    with pytest.raises(MigrationException, match="gone missing"):
+        migrator.apply_migration(_migs(1, 2), True, to_version=2)
+
+
+def test_apply_to_version_dry_run_executes_nothing():
+    conn = _FakeConn([])
+    migrator = Migrator(conn, dryrun=True)
+
+    applied = migrator.apply_migration(_migs(1, 2, 3), True, to_version=2)
+
+    assert [m.version for m in applied] == [1, 2]
+    assert not any(c.startswith("SELECT") for c in conn.commands)
+
+
+def test_apply_to_version_fake_marks_only_up_to_target():
+    conn = _FakeConn([])
+    migrator = Migrator(conn)
+
+    applied = migrator.apply_migration(_migs(1, 2, 3), True, fake=True, to_version=2)
+
+    assert [m.version for m in applied] == [1, 2]
+    assert "SELECT 3;" not in conn.commands

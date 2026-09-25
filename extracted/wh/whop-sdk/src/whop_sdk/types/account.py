@@ -14,6 +14,8 @@ from .account_home_preferences_item import AccountHomePreferencesItem
 from .account_onboarding_type import AccountOnboardingType
 from .account_opengraph_image_variant import AccountOpengraphImageVariant
 from .account_parent import AccountParent
+from .account_partner import AccountPartner
+from .account_partner_reward import AccountPartnerReward
 from .account_payment_controls import AccountPaymentControls
 from .account_recommended_action import AccountRecommendedAction
 from .account_required_action import AccountRequiredAction
@@ -25,6 +27,7 @@ from .account_tax_type import AccountTaxType
 from .account_three_ds_level import AccountThreeDsLevel
 from .account_wallet import AccountWallet
 from .file import File
+from .trading_account import TradingAccount
 from .user_summary import UserSummary
 
 
@@ -55,6 +58,11 @@ class Account(UniversalBaseModel):
     Whether pending funds may be transferred from this platform account to its connected accounts.
     """
 
+    cancellation_policy: typing.Optional[File] = pydantic.Field(default=None)
+    """
+    The account's cancellation policy document, or `null` if they have not published one.
+    """
+
     capabilities: typing.Optional[AccountCapabilities] = pydantic.Field(default=None)
     """
     Payment rails enabled for this account, each `active`, `inactive`, or `pending` (onboarding or review in progress). Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise.
@@ -62,7 +70,7 @@ class Account(UniversalBaseModel):
 
     cards: typing.Optional[AccountCards] = pydantic.Field(default=None)
     """
-    Whop Cards application details for the account. Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise, or when the account has no card application.
+    Whop Cards application details for the account. Returned on `list`, `retrieve`, and `me` for callers with `company:balance:read` scope; `null` otherwise, or when the account has no card application or blocking application review.
     """
 
     collect_vat_id: bool = pydantic.Field()
@@ -171,6 +179,11 @@ class Account(UniversalBaseModel):
     Parent account for connected accounts, or `null` for standalone accounts.
     """
 
+    partner: typing.Optional[AccountPartner] = pydantic.Field(default=None)
+    """
+    The account's active first-tier partner. Present on retrieve responses; null when no active first-tier partner is attributed to the account. Omitted from other responses.
+    """
+
     payment_controls: typing.Optional[AccountPaymentControls] = pydantic.Field(default=None)
     """
     Payment health controls currently applied to the account. Computed only on `retrieve` and `me` for callers with `company:balance:read` scope; `null` otherwise.
@@ -208,6 +221,7 @@ class Account(UniversalBaseModel):
     The account's return policy document, or `null` if they have not published one.
     """
 
+    rewards: typing.Optional[typing.List[AccountPartnerReward]] = None
     route: str = pydantic.Field()
     """
     Account public route identifier.
@@ -216,6 +230,11 @@ class Account(UniversalBaseModel):
     send_customer_emails: bool = pydantic.Field()
     """
     Whether Whop sends transactional emails to customers on behalf of this account.
+    """
+
+    shipping_policy: typing.Optional[File] = pydantic.Field(default=None)
+    """
+    The account's shipping policy document, or `null` if they have not published one.
     """
 
     show_joined_whops: bool = pydantic.Field()
@@ -246,7 +265,7 @@ class Account(UniversalBaseModel):
 
     status_reason: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Why the account was suspended, in language safe to show the account owner. Computed on `retrieve`, `me`, and `suspend`; `null` otherwise, when `status` is not `suspended`, and when the suspension was recorded without a reason.
+    Why the account was suspended, as the label shown to the account owner, such as `Suspended - Fraudulent payment activity`. Computed on `retrieve`, `me`, and `suspend`; `null` otherwise, when `status` is not `suspended`, and when the suspension was recorded without a reason.
     """
 
     store_page_config: AccountStorePageConfig = pydantic.Field()
@@ -294,6 +313,11 @@ class Account(UniversalBaseModel):
     total_usd: typing.Optional[str] = pydantic.Field(default=None)
     """
     Total USD value across balances with known exchange rates. Computed only on single-account reads (`retrieve` and `me`); `null` on list responses, writes, missing balance-read permission, or unavailable balance source.
+    """
+
+    trading: typing.Optional[TradingAccount] = pydantic.Field(default=None)
+    """
+    Live trading state. Opt in with `include_trading=true` on single-account reads; `null` otherwise, without trading permission, or without an Ethereum wallet. Provider failures return an error, not a zero balance.
     """
 
     use_logo_as_opengraph_image_fallback: bool = pydantic.Field()

@@ -12,6 +12,8 @@ from sqlalchemy import select
 from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects.mysql import mysqldb
+from sqlalchemy.dialects.mysql import pymysql
 from sqlalchemy.dialects.mysql.pymysql import _connection_ping_reconnects_true
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.testing import assert_raises_message
@@ -101,18 +103,22 @@ class BackendDialectTest(
         """
         engine = testing_engine()
         _server_version = [None]
-        with mock.patch.object(
-            engine.dialect,
-            "_get_server_version_info",
-            lambda conn: engine.dialect._parse_server_version(
-                _server_version[0]
+        with (
+            mock.patch.object(
+                engine.dialect,
+                "_get_server_version_info",
+                lambda conn: engine.dialect._parse_server_version(
+                    _server_version[0]
+                ),
             ),
-        ), mock.patch.object(
-            engine.dialect, "_set_mariadb", lambda *arg: None
-        ), mock.patch.object(
-            engine.dialect,
-            "get_isolation_level",
-            lambda *arg: "REPEATABLE READ",
+            mock.patch.object(
+                engine.dialect, "_set_mariadb", lambda *arg: None
+            ),
+            mock.patch.object(
+                engine.dialect,
+                "get_isolation_level",
+                lambda *arg: "REPEATABLE READ",
+            ),
         ):
 
             def go(server_version):
@@ -509,6 +515,51 @@ class DialectTest(fixtures.TestBase):
         eq_(detected, "utf8mb4")
 
 
+class DBAPIVersionTest(fixtures.TestBase):
+    """test :meth:`.Dialect.retrieve_dbapi_version` for the mysqldb family
+    of dialects."""
+
+    def test_mysqlclient(self):
+        """mysqlclient publishes version_info only"""
+
+        dbapi = mock.Mock(spec=["version_info", "paramstyle"])
+        dbapi.version_info = (2, 2, 7, "final", 0)
+        dbapi.paramstyle = "format"
+
+        dialect = mysqldb.MySQLDialect_mysqldb(dbapi=dbapi)
+        eq_(dialect.dbapi_version, (2, 2, 7))
+
+    def test_mysql_python(self):
+        """the legacy MySQL-python published __version__"""
+
+        dbapi = mock.Mock(spec=["__version__", "paramstyle"])
+        dbapi.__version__ = "1.2.5"
+        dbapi.paramstyle = "format"
+
+        dialect = mysqldb.MySQLDialect_mysqldb(dbapi=dbapi)
+        eq_(dialect.dbapi_version, (1, 2, 5))
+
+    def test_pymysql(self):
+        """pymysql's __version__ / version_info are mysqlclient
+        compatibility values; VERSION_STRING is its own"""
+
+        dbapi = mock.Mock(
+            spec=[
+                "VERSION_STRING",
+                "__version__",
+                "version_info",
+                "paramstyle",
+            ]
+        )
+        dbapi.VERSION_STRING = "1.2.0"
+        dbapi.__version__ = "2.2.8"
+        dbapi.version_info = (2, 2, 8, "final", 1)
+        dbapi.paramstyle = "format"
+
+        dialect = pymysql.MySQLDialect_pymysql(dbapi=dbapi)
+        eq_(dialect.dbapi_version, (1, 2, 0))
+
+
 class ParseVersionTest(fixtures.TestBase):
     def test_mariadb_madness(self):
         mysql_dialect = make_url("mysql+mysqldb://").get_dialect()()
@@ -544,37 +595,33 @@ class ParseVersionTest(fixtures.TestBase):
         )
 
     @testing.combinations(
-        ((10, 2, 7), "10.2.7-MariaDB", (10, 2, 7), True),
+        ((10, 2, 7), "10.2.7-MariaDB", True),
         (
             (10, 2, 7),
             "5.6.15.10.2.7-MariaDB",
-            (5, 6, 15, 10, 2, 7),
             True,
         ),
-        ((5, 0, 51, 24), "5.0.51a.24+lenny5", (5, 0, 51, 24), False),
-        ((10, 2, 10), "10.2.10-MariaDB", (10, 2, 10), True),
-        ((5, 7, 20), "5.7.20", (5, 7, 20), False),
-        ((5, 6, 15), "5.6.15", (5, 6, 15), False),
+        ((5, 0, 51, 24), "5.0.51a.24+lenny5", False),
+        ((10, 2, 10), "10.2.10-MariaDB", True),
+        ((5, 7, 20), "5.7.20", False),
+        ((5, 6, 15), "5.6.15", False),
         (
             (10, 2, 6),
             "10.2.6.MariaDB.10.2.6+maria~stretch-log",
-            (10, 2, 6, 10, 2, 6),
             True,
         ),
         (
             (10, 1, 9),
             "10.1.9-MariaDBV1.0R050D002-20170809-1522",
-            (10, 1, 9, 20170809, 1522),
             True,
         ),
     )
     def test_mariadb_normalized_version(
-        self, expected, raw_version, version, is_mariadb
+        self, expected, raw_version, is_mariadb
     ):
         dialect = mysql.dialect()
-        eq_(dialect._parse_server_version(raw_version), version)
-        dialect.server_version_info = version
-        eq_(dialect._mariadb_normalized_version_info, expected)
+        eq_(dialect._parse_server_version(raw_version), expected)
+        eq_(dialect.server_version_info, expected)
         assert dialect._is_mariadb is is_mariadb
 
     @testing.combinations(

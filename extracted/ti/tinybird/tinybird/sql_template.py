@@ -18,7 +18,7 @@ from tinybird.context import (
 )
 
 from .datatypes import testers
-from .tornado_template import VALID_CUSTOM_FUNCTION_NAMES, SecurityException, Template
+from .tornado_template import SAFE_BUILTINS, VALID_CUSTOM_FUNCTION_NAMES, SecurityException, Template
 
 VALID_ACTIVATE_FEATURES = frozenset(["analyzer", "parallel_replicas", "optimize_aggregation_in_order"])
 
@@ -1375,7 +1375,7 @@ _namespace = {
     # they raise a pretty non understandable error but if someone
     # is using them they know what they are trying to do
     # read https://anee.me/escaping-python-jails-849c65cf306e on how to escape from python jails
-    "__buildins__": {},
+    "__builtins__": SAFE_BUILTINS,
     "__import__": {},
     "__debug__": {},
     "__doc__": {},
@@ -1385,6 +1385,9 @@ _namespace = {
     "close": None,
     "print": None,
     "input": None,
+    # Keep customer parameters named `type`/`dir` usable without restoring the unsafe builtins.
+    "type": None,
+    "dir": None,
 }
 
 
@@ -1478,6 +1481,8 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
             # the generated source code.
             "__name__": self.name.replace(".", "_"),
             "__loader__": ObjectDict(get_source=lambda name: self.code),
+            # Set again after kwargs so request parameters can't override it
+            "__builtins__": SAFE_BUILTINS,
             "max_threads": set_max_threads,
             "tb_secret": set_tb_secret,
             "tb_var": set_tb_secret,

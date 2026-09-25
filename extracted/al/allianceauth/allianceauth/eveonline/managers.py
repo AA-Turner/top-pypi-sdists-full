@@ -63,24 +63,15 @@ class EveCharacterManager(Manager["EveCharacter"]):
         faction_model = _eve_faction_model()
 
         corporation_id = character.corporation_id
-        try:
-            corporation_obj = corporation_model.objects.get(corporation_id=corporation_id)
-        except corporation_model.DoesNotExist:
-            corporation_obj = corporation_model.objects.create_corporation(corporation_id=corporation_id)
+        corporation_obj = corporation_model.objects.get_or_create_esi(corporation_id=corporation_id)
 
         if character.alliance_id:
-            try:
-                alliance_obj = alliance_model.objects.get(alliance_id=character.alliance_id)
-            except alliance_model.DoesNotExist:
-                alliance_obj = alliance_model.objects.create_alliance(alliance_id=character.alliance_id)
+            alliance_obj = alliance_model.objects.get_or_create_esi(alliance_id=character.alliance_id)
         else:
             alliance_obj = None
 
         if character.faction_id:
-            try:
-                faction_obj = faction_model.objects.get(faction_id=character.faction_id)
-            except faction_model.DoesNotExist:
-                faction_obj = faction_model.objects.create_faction(faction_id=character.faction_id)
+            faction_obj = faction_model.objects.get_or_create_esi(faction_id=character.faction_id)
         else:
             faction_obj = None
 
@@ -105,6 +96,16 @@ class EveCharacterManager(Manager["EveCharacter"]):
             last_updated_affiliations=datetime.strptime(affilation_response.headers.get("Date"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc),
             last_updated_other=datetime.strptime(character_response.headers.get("Last-Modified"), "%a, %d %b %Y %H:%M:%S GMT").replace(tzinfo=timezone.utc)
         )
+
+    def get_or_create_esi(self, character_id: "CharacterID") -> "EveCharacter":
+        try:
+            return self.get(character_id=character_id)
+        except self.model.DoesNotExist:
+            try:
+                with transaction.atomic():
+                    return self.create_character(character_id=character_id)
+            except IntegrityError:
+                return self.get(character_id=character_id)
 
     def update_character(self, character_id) -> "EveCharacter":
         return self.get(character_id=character_id).update_character()
@@ -131,10 +132,7 @@ class EveAllianceManager(Manager["EveAllianceInfo"]):
         faction_model = _eve_faction_model()
 
         if alliance.faction_id:
-            try:
-                faction_obj = faction_model.objects.get(faction_id=alliance.faction_id)
-            except faction_model.DoesNotExist:
-                faction_obj = faction_model.objects.create_faction(faction_id=alliance.faction_id)
+            faction_obj = faction_model.objects.get_or_create_esi(faction_id=alliance.faction_id)
         else:
             faction_obj = None
 
@@ -184,18 +182,12 @@ class EveCorporationManager(Manager["EveCorporationInfo"]):
         faction_model = _eve_faction_model()
 
         if corporation.alliance_id:
-            try:
-                alliance_obj = alliance_model.objects.get(alliance_id=corporation.alliance_id)
-            except alliance_model.DoesNotExist:
-                alliance_obj = alliance_model.objects.create_alliance(alliance_id=corporation.alliance_id)
+            alliance_obj = alliance_model.objects.get_or_create_esi(alliance_id=corporation.alliance_id)
         else:
             alliance_obj = None
 
         if corporation.faction_id:
-            try:
-                faction_obj = faction_model.objects.get(faction_id=corporation.faction_id)
-            except faction_model.DoesNotExist:
-                faction_obj = faction_model.objects.create_faction(faction_id=corporation.faction_id)
+            faction_obj = faction_model.objects.get_or_create_esi(faction_id=corporation.faction_id)
         else:
             faction_obj = None
 

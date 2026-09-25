@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 from pydantic import ValidationError
 from ..interfaces.ParrotBot import ParrotBot
+from ..interfaces.parrot import ParrotAgentConfigMixin
 from ..interfaces.flow import FlowComponent
 from ..exceptions import ComponentError, ConfigError
 import re
@@ -20,7 +21,9 @@ from parrot.models.responses import AgentResponse, AIMessage
 from parrot.models.basic import CompletionUsage
 from pathlib import Path
 import shutil
-class ProductReportBot(ParrotBot, FlowComponent):
+
+
+class ProductReportBot(ParrotAgentConfigMixin, ParrotBot, FlowComponent):
     """
     ProductReportBot Component
 
@@ -44,6 +47,13 @@ class ProductReportBot(ParrotBot, FlowComponent):
     |   models                   |   No     | List of specific product models to process (required when type="single").                   |
     |   report_types             |   No     | List of report types to generate: ["PDF", "PPT", "PODCAST"] (default: all).                |
     |   llm_config               |   No     | LLM configuration dictionary with llm, model, temperature, etc.                             |
+    |   save_to_database        |   No     | Persist the report to <program>.products_informations (default true) |
+|   agent_class              |   No     | Dotted path to a custom agent class, e.g. "agents.epson_product.EpsonProductReport" (resolved from PLUGINS_DIR). Default: parrot ProductReport. |
+    |   agent_name               |   No     | Name given to the agent instance (default: "ProductReportBot").                              |
+    |   agent_id                 |   No     | Agent identifier; also used as sub-directory for generated podcasts (default: "product_report_bot"). |
+    |   product_prompt           |   No     | Prompt file (in <program>/prompts/) used to build the product report (default: "product_info.txt"). |
+    |   podcast_prompt           |   No     | Podcast instructions file in <program>/prompts/product_report_bot/ (default: "product_conversation.txt"). |
+    |   podcast                  |   No     | Podcast overrides applied to the agent: speakers, speech_context, speech_system_prompt, speech_length, num_speakers. |
 
     **Returns**
 
@@ -77,6 +87,16 @@ class ProductReportBot(ParrotBot, FlowComponent):
           temperature: 0.0
         ```
     """
+
+    #: LLM defaults for this component. Deliberately different from
+    #: ParrotAgent's google default — FEAT-557 Q2 keeps them distinct. The YAML
+    #: `llm_config` merges over these inside ParrotAgentConfigMixin.
+    llm_config_defaults = {
+        'llm': 'openai',
+        'model': 'gpt-4o',
+        'temperature': 0.0,
+        'max_tokens': 8192,
+    }
     _version = "1.0.0"
 
     def __init__(
@@ -95,6 +115,15 @@ class ProductReportBot(ParrotBot, FlowComponent):
         self.model_column: str = kwargs.get('model_column', 'model')  # Column name for model in DataFrame
         self.destination: str = kwargs.get('destination', None)  # Custom destination directory
         self.url_prefix: Optional[str] = kwargs.get('url_prefix', None)  # Optional URL prefix for output paths
+        # Custom agent and prompt configuration
+        self.agent_class: Optional[str] = kwargs.get('agent_class', None)
+        self.agent_name: str = kwargs.get('agent_name', 'ProductReportBot')
+        self.agent_id: str = kwargs.get('agent_id', 'product_report_bot')
+        self.product_prompt: str = kwargs.get('product_prompt', 'product_info.txt')
+        self.podcast_prompt: str = kwargs.get('podcast_prompt', 'product_conversation.txt')
+        # `podcast` is parsed by ParrotAgentConfigMixin into self.podcast_config
+        # (a PodcastConfig model) during super().__init__() below.
+        self.save_to_database: bool = kwargs.get('save_to_database', True)
         
         # ParrotBot attributes (needed for proper initialization)
         self._bot_name = kwargs.get('bot_name', 'ProductReportBot')
@@ -122,6 +151,8 @@ class ProductReportBot(ParrotBot, FlowComponent):
         
         # LLM configuration - merge llm_config with defaults and assign to self.llm
         # (Must be after super().__init__() in case parent classes initialize llm)
+        # self.llm stays a plain dict: _generate_single_product_report reads
+        # self.llm['model'] / self.llm['llm'] directly.
         default_llm_config = {
             'llm': 'google',
             'model': 'gemini-2.5-flash',
@@ -129,12 +160,12 @@ class ProductReportBot(ParrotBot, FlowComponent):
         }
         self.llm = {**default_llm_config, **self.llm_config}
         self.podcast_script_model: Optional[str] = (
-            self.llm_config.get('podcast_script_model')
+            self.agent_llm_config.podcast_script_model
             or kwargs.get('podcast_script_model')
             or self.llm.get('model')
         )
         self.podcast_tts_model: Optional[str] = (
-            self.llm_config.get('podcast_tts_model')
+            self.agent_llm_config.podcast_tts_model
             or kwargs.get('podcast_tts_model')
             or "gemini-2.5-flash-preview-tts"
         )
@@ -148,9 +179,16 @@ class ProductReportBot(ParrotBot, FlowComponent):
     async def start(self, **kwargs):
         """
         Start the ProductReportBot component.
-        
+
         Initializes the ProductReport agent with the specified configuration.
         """
+        if self.notification_config is not None:
+            # Secret-shaped fields only; row placeholders like {model} survive
+            # until send time.
+            self.resolve_notification_secrets(self.mask_replacement_recursively)
+            self.load_card_templates(
+                self._taskstore.path.joinpath(self._program, 'templates')
+            )
         # Call ParrotBot's start method to handle prompt loading
         await super().start(**kwargs)
         
@@ -230,16 +268,8 @@ class ProductReportBot(ParrotBot, FlowComponent):
     async def _initialize_product_report_agent(self):
         """Initialize the ProductReport agent with configuration."""
         try:
-            # Default LLM configuration
-            default_llm_config = {
-                'llm': 'openai',
-                'model': 'gpt-4o',
-                'temperature': 0.0,
-                'max_tokens': 8192
-            }
-
-            # Merge with provided configuration
-            final_llm_config = {**default_llm_config, **self.llm_config}
+            # LLM defaults live in llm_config_defaults (class attribute); the
+            # YAML llm_config merges over them inside the mixin.
 
             # Use system_prompt if available, otherwise use a default
             system_prompt = getattr(self, 'system_prompt', None)
@@ -256,20 +286,22 @@ class ProductReportBot(ParrotBot, FlowComponent):
                 Provide a thorough, professional analysis based on the product data provided.
                 """
 
-            # Create ProductReport agent with correct parameters
-            self._product_report_agent = ProductReport(
-                name='ProductReportBot',
-                agent_id='product_report_bot',
-                use_llm=final_llm_config['llm'],
-                llm=final_llm_config['llm'],  # provider
-                model=final_llm_config['model'],
+            agent_cls = self.resolve_agent_class(ProductReport)
+            agent_kwargs: Dict[str, Any] = self.agent_constructor_kwargs(
+                name=self.agent_name,
+                agent_id=self.agent_id,
                 system_prompt=system_prompt,
-                static_dir=self._taskstore.path  # Pass taskstore path as base for SQL files
             )
+            if issubclass(agent_cls, ProductReport):
+                # Pass taskstore path as base for SQL files
+                agent_kwargs['static_dir'] = self._taskstore.path
+            self._product_report_agent = agent_cls(**agent_kwargs)
+            self._logger.info(f"ProductReportBot: using agent class {agent_cls.__module__}.{agent_cls.__name__}")
 
-            # Set additional configuration if needed
-            self._product_report_agent.temperature = final_llm_config['temperature']
-            self._product_report_agent.max_tokens = final_llm_config['max_tokens']
+            # temperature/max_tokens now travel in agent_kwargs. Parrot resolves
+            # them once in Chatbot.__init__ (abstract.py:507-520), so the previous
+            # post-construction setattr never actually reached the LLM.
+            self.apply_podcast_config(self._product_report_agent)
 
             # Configure the agent with error handling for database issues
             try:
@@ -301,12 +333,19 @@ class ProductReportBot(ParrotBot, FlowComponent):
         """
         try:
             if self.type == 'program':
+                if not hasattr(self._product_report_agent, 'create_product_report'):
+                    raise ConfigError(
+                        f"ProductReportBot: agent '{self.agent_class}' does not implement create_product_report(); "
+                        "use type: single"
+                    )
                 result = await self.program_reports()
             elif self.type == 'single':
                 result = await self.single_reports()
             else:
                 raise ComponentError(f"ProductReportBot: Unknown type '{self.type}'")
             
+            await self._notify_run_summary(result)
+
             self._result = result
             self.add_metric("NUMROWS", len(result.index))
             self.add_metric("NUMCOLS", len(result.columns))
@@ -405,6 +444,7 @@ class ProductReportBot(ParrotBot, FlowComponent):
                             'created_at': response.created_at,
                             'files': response.files
                         }
+                        report_dict['notifications'] = await self._notify_report(report_dict)
                         reports_data.append(report_dict)
                         
                 except Exception as e:
@@ -413,8 +453,8 @@ class ProductReportBot(ParrotBot, FlowComponent):
                     error_dict = {
                         'model': model,
                         'program_slug': self.program_slug,
-                        'agent_id': 'product_report_bot',
-                        'agent_name': 'ProductReportBot',
+                        'agent_id': self.agent_id,
+                        'agent_name': self.agent_name,
                         'status': 'error',
                         'transcript': None,
                         'pdf_path': None,
@@ -425,8 +465,11 @@ class ProductReportBot(ParrotBot, FlowComponent):
                         'files': [],
                         'error': str(e)
                     }
+                    error_dict['notifications'] = await self._notify_report(
+                        error_dict, error=str(e)
+                    )
                     reports_data.append(error_dict)
-            
+
             df = pd.DataFrame(reports_data)
             self._logger.info(f"Generated {len(df)} product reports for models: {self.models}")
             
@@ -435,6 +478,62 @@ class ProductReportBot(ParrotBot, FlowComponent):
         except Exception as e:
             self._logger.error(f"Error generating single reports: {str(e)}")
             raise ComponentError(f"Failed to generate single reports: {str(e)}")
+
+    async def _notify_report(self, report: Dict[str, Any], error: str = None) -> Optional[str]:
+        """Deliver one product's report, returning the outcomes as JSON.
+
+        A no-op unless a `notification` block is configured with
+        `mode: per_row` (the default).
+        """
+        config = self.notification_config
+        if config is None or config.mode != "per_row":
+            return None
+        if not self.should_notify(error is None):
+            return None
+        context = {
+            **(getattr(self, "_variables", None) or {}),
+            "task": self.StepName or "",
+            "program": self._program,
+            **{k: v for k, v in report.items() if k != "notifications"},
+            "result": report.get("transcript") or "",
+            "error": error or "",
+        }
+        outcomes = await self.send_configured_notifications(
+            self._product_report_agent, context
+        )
+        return json.dumps([outcome.model_dump() for outcome in outcomes])
+
+    async def _notify_run_summary(self, df: pd.DataFrame) -> None:
+        """Deliver a single notification describing the whole run."""
+        config = self.notification_config
+        if config is None or config.mode != "summary" or df.empty:
+            return
+        success_count = int((df.get("status") == "success").sum()) if "status" in df else len(df)
+        if not self.should_notify(success_count > 0):
+            return
+        context = {
+            **(getattr(self, "_variables", None) or {}),
+            "task": self.StepName or "",
+            "program": self._program,
+            "count": len(df),
+            "success_count": success_count,
+            "error_count": len(df) - success_count,
+            "results": df.head(config.summary_max_rows).to_string(index=False),
+            "result": "",
+            "error": "",
+        }
+        for column in {c for ch in config.channels for c in ch.attach_columns}:
+            if column in df.columns:
+                values = [v for v in df[column].tolist() if v]
+                if values:
+                    context[column] = values[: config.max_attachments]
+        outcomes = await self.send_configured_notifications(
+            self._product_report_agent, context
+        )
+        self._logger.info(
+            "ProductReportBot: summary notification sent — %s",
+            ", ".join(f"{o.provider}={o.status}" for o in outcomes) or "no channels",
+        )
 
     async def _generate_single_product_report(self, model: str, program_slug: str) -> Optional[ProductResponse]:
         try:
@@ -465,7 +564,7 @@ class ProductReportBot(ParrotBot, FlowComponent):
 
                 # ========= FORMATO DE PROMPT CON VARIABLES (sin duplicar 'model') =========
                 # Load prompt from taskstore instead of hardcoded parrot location
-                prompt_content = self._load_prompt_from_taskstore("product_info.txt")
+                prompt_content = self._load_prompt_from_taskstore(self.product_prompt)
 
                 # Evitar conflicto: str.format() got multiple values for keyword argument 'model'
                 ctx = {**info_dict}
@@ -616,7 +715,7 @@ class ProductReportBot(ParrotBot, FlowComponent):
                     # Load podcast instructions from taskstore (in product_report_bot subdirectory)
                     try:
                         podcast_instructions = self._load_prompt_from_taskstore(
-                            'product_conversation.txt',
+                            self.podcast_prompt,
                             subdirectory='product_report_bot'
                         )
                     except ConfigError as prompt_err:
@@ -695,7 +794,13 @@ class ProductReportBot(ParrotBot, FlowComponent):
             response.script_path = report_paths.get('script_path')
             
             # Save to database
-            await self._save_to_database(response, model, program_slug)
+            if self.save_to_database:
+                await self._save_to_database(response, model, program_slug)
+            else:
+                self._logger.info(
+                    "ProductReportBot: save_to_database=false — keeping generated "
+                    "files only for %s", model
+                )
             
             return response
             
@@ -793,6 +898,7 @@ class ProductReportBot(ParrotBot, FlowComponent):
         """Generate podcast script + audio using configurable models without modifying parrot."""
         speakers = []
         for _, speaker in self._product_report_agent.speakers.items():
+            speaker = dict(speaker)
             speaker['gender'] = speaker.get('gender', 'neutral').lower()
             speakers.append(FictionalSpeaker(**speaker))
             if len(speakers) > num_speakers:

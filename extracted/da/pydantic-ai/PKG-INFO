@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 2.49.0
+Version: 2.50.0
 Summary: AI Agent Framework, the Pydantic way
 Project-URL: Homepage, https://pydantic.dev/docs/ai/
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -27,63 +27,63 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,web]==2.49.0
+Requires-Dist: pydantic-ai-slim[anthropic,cli,evals,google,logfire,mcp,openai,web]==2.50.0
 Provides-Extra: ag-ui
-Requires-Dist: pydantic-ai-slim[ag-ui]==2.49.0; extra == 'ag-ui'
+Requires-Dist: pydantic-ai-slim[ag-ui]==2.50.0; extra == 'ag-ui'
 Provides-Extra: bedrock
-Requires-Dist: pydantic-ai-slim[bedrock]==2.49.0; extra == 'bedrock'
+Requires-Dist: pydantic-ai-slim[bedrock]==2.50.0; extra == 'bedrock'
 Provides-Extra: bedrock-mantle
-Requires-Dist: pydantic-ai-slim[bedrock-mantle]==2.49.0; extra == 'bedrock-mantle'
+Requires-Dist: pydantic-ai-slim[bedrock-mantle]==2.50.0; extra == 'bedrock-mantle'
 Provides-Extra: cohere
-Requires-Dist: pydantic-ai-slim[cohere]==2.49.0; extra == 'cohere'
+Requires-Dist: pydantic-ai-slim[cohere]==2.50.0; extra == 'cohere'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==2.49.0; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==2.50.0; extra == 'dbos'
 Provides-Extra: duckduckgo
-Requires-Dist: pydantic-ai-slim[duckduckgo]==2.49.0; extra == 'duckduckgo'
+Requires-Dist: pydantic-ai-slim[duckduckgo]==2.50.0; extra == 'duckduckgo'
 Provides-Extra: exa
-Requires-Dist: pydantic-ai-slim[exa]==2.49.0; extra == 'exa'
+Requires-Dist: pydantic-ai-slim[exa]==2.50.0; extra == 'exa'
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==2.49.0; extra == 'examples'
+Requires-Dist: pydantic-ai-examples==2.50.0; extra == 'examples'
 Provides-Extra: google-realtime
-Requires-Dist: pydantic-ai-slim[google-realtime]==2.49.0; extra == 'google-realtime'
+Requires-Dist: pydantic-ai-slim[google-realtime]==2.50.0; extra == 'google-realtime'
 Provides-Extra: groq
-Requires-Dist: pydantic-ai-slim[groq]==2.49.0; extra == 'groq'
+Requires-Dist: pydantic-ai-slim[groq]==2.50.0; extra == 'groq'
 Provides-Extra: huggingface
-Requires-Dist: pydantic-ai-slim[huggingface]==2.49.0; extra == 'huggingface'
+Requires-Dist: pydantic-ai-slim[huggingface]==2.50.0; extra == 'huggingface'
 Provides-Extra: mcp-tasks
-Requires-Dist: pydantic-ai-slim[mcp-tasks]==2.49.0; extra == 'mcp-tasks'
+Requires-Dist: pydantic-ai-slim[mcp-tasks]==2.50.0; extra == 'mcp-tasks'
 Provides-Extra: mistral
-Requires-Dist: pydantic-ai-slim[mistral]==2.49.0; extra == 'mistral'
+Requires-Dist: pydantic-ai-slim[mistral]==2.50.0; extra == 'mistral'
 Provides-Extra: openai-realtime
-Requires-Dist: pydantic-ai-slim[openai-realtime]==2.49.0; extra == 'openai-realtime'
+Requires-Dist: pydantic-ai-slim[openai-realtime]==2.50.0; extra == 'openai-realtime'
 Provides-Extra: openrouter
-Requires-Dist: pydantic-ai-slim[openrouter]==2.49.0; extra == 'openrouter'
+Requires-Dist: pydantic-ai-slim[openrouter]==2.50.0; extra == 'openrouter'
 Provides-Extra: prefect
-Requires-Dist: pydantic-ai-slim[prefect]==2.49.0; extra == 'prefect'
+Requires-Dist: pydantic-ai-slim[prefect]==2.50.0; extra == 'prefect'
 Provides-Extra: realtime
-Requires-Dist: pydantic-ai-slim[realtime]==2.49.0; extra == 'realtime'
+Requires-Dist: pydantic-ai-slim[realtime]==2.50.0; extra == 'realtime'
 Provides-Extra: retries
-Requires-Dist: pydantic-ai-slim[retries]==2.49.0; extra == 'retries'
+Requires-Dist: pydantic-ai-slim[retries]==2.50.0; extra == 'retries'
 Provides-Extra: sentence-transformers
-Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.49.0; extra == 'sentence-transformers'
+Requires-Dist: pydantic-ai-slim[sentence-transformers]==2.50.0; extra == 'sentence-transformers'
 Provides-Extra: spec
-Requires-Dist: pydantic-ai-slim[spec]==2.49.0; extra == 'spec'
+Requires-Dist: pydantic-ai-slim[spec]==2.50.0; extra == 'spec'
 Provides-Extra: tavily
-Requires-Dist: pydantic-ai-slim[tavily]==2.49.0; extra == 'tavily'
+Requires-Dist: pydantic-ai-slim[tavily]==2.50.0; extra == 'tavily'
 Provides-Extra: temporal
-Requires-Dist: pydantic-ai-slim[temporal]==2.49.0; extra == 'temporal'
+Requires-Dist: pydantic-ai-slim[temporal]==2.50.0; extra == 'temporal'
 Provides-Extra: typesafe
-Requires-Dist: pydantic-ai-slim[typesafe]==2.49.0; extra == 'typesafe'
+Requires-Dist: pydantic-ai-slim[typesafe]==2.50.0; extra == 'typesafe'
 Provides-Extra: ui
-Requires-Dist: pydantic-ai-slim[ui]==2.49.0; extra == 'ui'
+Requires-Dist: pydantic-ai-slim[ui]==2.50.0; extra == 'ui'
 Provides-Extra: voyageai
-Requires-Dist: pydantic-ai-slim[voyageai]==2.49.0; extra == 'voyageai'
+Requires-Dist: pydantic-ai-slim[voyageai]==2.50.0; extra == 'voyageai'
 Provides-Extra: web-fetch
-Requires-Dist: pydantic-ai-slim[web-fetch]==2.49.0; extra == 'web-fetch'
+Requires-Dist: pydantic-ai-slim[web-fetch]==2.50.0; extra == 'web-fetch'
 Provides-Extra: xai
-Requires-Dist: pydantic-ai-slim[xai]==2.49.0; extra == 'xai'
+Requires-Dist: pydantic-ai-slim[xai]==2.50.0; extra == 'xai'
 Provides-Extra: xai-realtime
-Requires-Dist: pydantic-ai-slim[xai-realtime]==2.49.0; extra == 'xai-realtime'
+Requires-Dist: pydantic-ai-slim[xai-realtime]==2.50.0; extra == 'xai-realtime'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -113,7 +113,7 @@ Description-Content-Type: text/markdown
 
 **Pydantic AI** is the Python AI SDK: a typed, [extensible](https://pydantic.dev/docs/ai/guides/extensibility/) agent loop with [every model](https://pydantic.dev/docs/ai/models/overview/) a string swap away. The same agent [runs everywhere you need it](https://pydantic.dev/docs/ai/overview/interfaces/): behind a [web frontend](https://pydantic.dev/docs/ai/integrations/ui/overview/), in the [terminal](https://pydantic.dev/docs/ai/integrations/cli/), on a [voice call](https://pydantic.dev/docs/ai/realtime/overview/), on a [durable background queue](https://pydantic.dev/docs/ai/capabilities/durable_execution/overview/), in [GitHub Actions](https://pydantic.dev/docs/ai/harness/gh-aw/), or as a plain object you call [`run()`](https://pydantic.dev/docs/ai/core-concepts/agent/#running-agents) on. [Image generation](https://pydantic.dev/docs/ai/guides/image-generation/) and [embeddings](https://pydantic.dev/docs/ai/guides/embeddings/) come in the same box; [Pydantic Graph](https://pydantic.dev/docs/ai/graph/graph/) and [Pydantic Evals](https://pydantic.dev/docs/ai/evals/evals/) are separate packages, for typed control flow and for testing agent behavior the way pytest tests code.
 
-**[Pydantic AI Harness](https://github.com/pydantic/pydantic-ai-harness)** has everything an agent needs for complex, long-running work, snapped on as [capabilities](https://pydantic.dev/docs/ai/capabilities/overview/), from [memory](https://pydantic.dev/docs/ai/harness/memory/), [guardrails](https://pydantic.dev/docs/ai/harness/guardrails/), and [sub-agents](https://pydantic.dev/docs/ai/harness/subagents/) to [planning](https://pydantic.dev/docs/ai/harness/planning/), [context management](https://pydantic.dev/docs/ai/harness/compaction/), and [storage](https://pydantic.dev/docs/ai/core-concepts/storage/), up to a complete [coding agent](https://pydantic.dev/docs/ai/harness/coder/).
+**[Pydantic AI Harness](https://github.com/pydantic/pydantic-ai-harness)** has everything an agent needs for complex, long-running work, snapped on as [capabilities](https://pydantic.dev/docs/ai/capabilities/overview/), from [memory](https://pydantic.dev/docs/ai/harness/memory/), [guardrails](https://pydantic.dev/docs/ai/harness/guardrails/), and [sub-agents](https://pydantic.dev/docs/ai/harness/subagents/) to [planning](https://pydantic.dev/docs/ai/harness/planning/), [context management](https://pydantic.dev/docs/ai/harness/compaction/), and [persistence](https://pydantic.dev/docs/ai/core-concepts/persistence/), up to a complete [coding agent](https://pydantic.dev/docs/ai/harness/coder/).
 
 [Pydantic Logfire](https://pydantic.dev/logfire?utm_source=github&utm_medium=readme&utm_campaign=pydantic-ai) is the AI observability platform that sees your whole app, not just the LLM calls, and the [Pydantic AI Gateway](https://pydantic.dev/ai-gateway?utm_source=github&utm_medium=readme&utm_campaign=pydantic-ai) is one key for every model with real-time cost monitoring and budget control; the Gateway self-hosts if you would rather, and our [instrumentation](https://pydantic.dev/docs/ai/integrations/logfire/) is plain OpenTelemetry, so any backend you already run works. Underneath both, [genai-prices](https://github.com/pydantic/genai-prices) keeps model pricing current, and [Monty](https://github.com/pydantic/monty) is the sandboxed Python interpreter that runs model-written code.
 

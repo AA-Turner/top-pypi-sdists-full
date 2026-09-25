@@ -1665,10 +1665,10 @@ class EagerTest(_fixtures.FixtureTest, testing.AssertsCompiledSQL):
                 testing.db,
                 go,
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses WHERE :param_1 = "
+                    "SELECT addresses.id, "
+                    "addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses WHERE :param_1 = "
                     "addresses.user_id",
                     {"param_1": 8},
                 ),
@@ -1716,10 +1716,10 @@ class EagerTest(_fixtures.FixtureTest, testing.AssertsCompiledSQL):
                 testing.db,
                 go,
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS "
-                    "addresses_user_id, addresses.email_address AS "
-                    "addresses_email_address FROM addresses WHERE :param_1 = "
+                    "SELECT addresses.id, "
+                    "addresses.user_id, "
+                    "addresses.email_address "
+                    "FROM addresses WHERE :param_1 = "
                     "addresses.user_id",
                     {"param_1": 8},
                 ),
@@ -3122,15 +3122,98 @@ class EagerTest(_fixtures.FixtureTest, testing.AssertsCompiledSQL):
                     {"id_1": 7},
                 ),
                 (
-                    "SELECT orders.id AS orders_id, "
-                    "orders.user_id AS orders_user_id, "
-                    "orders.address_id AS orders_address_id, "
-                    "orders.description AS orders_description, "
-                    "orders.isopen AS orders_isopen FROM orders "
+                    "SELECT orders.id, "
+                    "orders.user_id, "
+                    "orders.address_id, "
+                    "orders.description, "
+                    "orders.isopen FROM orders "
                     "WHERE :param_1 = orders.user_id",
                     {"param_1": 7},
                 ),
             ],
+        )
+
+    @testing.fixture
+    def issue_11226_fixture(self):
+        users, items, order_items, Order, Item, User, orders = (
+            self.tables.users,
+            self.tables.items,
+            self.tables.order_items,
+            self.classes.Order,
+            self.classes.Item,
+            self.classes.User,
+            self.tables.orders,
+        )
+
+        self.mapper_registry.map_imperatively(
+            User,
+            users,
+        )
+        self.mapper_registry.map_imperatively(
+            Order,
+            orders,
+            properties=dict(
+                items=relationship(
+                    Item, secondary=order_items, order_by=items.c.id
+                ),
+                user=relationship(User),
+            ),
+        )
+        self.mapper_registry.map_imperatively(Item, items)
+
+    def test_nested_for_group_by(self, issue_11226_fixture):
+        """test issue #11226"""
+
+        Order, Item = self.classes("Order", "Item")
+
+        stmt = (
+            select(Order, func.count(Item.id))
+            .join(Order.items)
+            .group_by(Order.id)
+            .options(joinedload(Order.user))
+        )
+
+        # the query has a many-to-one joinedload, but also a GROUP BY.
+        # eager loading needs to use nested form so that the eager joins
+        # can be added to the outside of the GROUP BY query.
+        # change #11226 liberalizes the conditions where we do nested form
+        # to include non-multi-row eager loads, when the columns list is
+        # otherwise sensitive to more columns being added.
+        self.assert_compile(
+            stmt,
+            "SELECT anon_1.id, anon_1.user_id, anon_1.address_id, "
+            "anon_1.description, anon_1.isopen, anon_1.count_1, "
+            "users_1.id AS id_1, users_1.name "
+            "FROM (SELECT orders.id AS id, orders.user_id AS user_id, "
+            "orders.address_id AS address_id, "
+            "orders.description AS description, orders.isopen AS isopen, "
+            "count(items.id) AS count_1 "
+            "FROM orders "
+            "JOIN order_items AS order_items_1 "
+            "ON orders.id = order_items_1.order_id "
+            "JOIN items ON items.id = order_items_1.item_id "
+            "GROUP BY orders.id) "
+            "AS anon_1 "
+            "LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.user_id",
+        )
+
+    def test_nested_for_distinct(self, issue_11226_fixture):
+        """test issue #11226"""
+
+        Order, Item = self.classes("Order", "Item")
+
+        stmt = select(Order).distinct().options(joinedload(Order.user))
+
+        self.assert_compile(
+            stmt,
+            "SELECT anon_1.id, anon_1.user_id, anon_1.address_id, "
+            "anon_1.description, anon_1.isopen, "
+            "users_1.id AS id_1, users_1.name "
+            "FROM (SELECT DISTINCT orders.id AS id, "
+            "orders.user_id AS user_id, orders.address_id AS address_id, "
+            "orders.description AS description, orders.isopen AS isopen "
+            "FROM orders) AS anon_1 "
+            "LEFT OUTER JOIN users AS users_1 ON users_1.id = anon_1.user_id",
         )
 
 
@@ -6739,9 +6822,10 @@ class DeepOptionsTest(_fixtures.FixtureTest):
 
         assert_raises_message(
             sa.exc.ArgumentError,
-            r"Mapped class Mapper\[Order\(orders\)\] does not apply to any of "
-            "the "
-            r"root entities in this query, e.g. Mapper\[User\(users\)\]. "
+            r"Mapped class Order referenced in option "
+            r"joinedload\(Order.items\) "
+            r"does not apply to any of the root entities in this query, "
+            r"e.g. User. "
             "Please specify the full path from one of the root entities "
             "to the target attribute.",
             sess.query(User)
@@ -6949,8 +7033,8 @@ class SecondaryOptionsTest(fixtures.MappedTest):
             testing.db,
             lambda: c1.child2,
             CompiledSQL(
-                "SELECT child2.id AS child2_id, base.id AS base_id, "
-                "base.type AS base_type "
+                "SELECT child2.id, base.id, "
+                "base.type "
                 "FROM base JOIN child2 ON base.id = child2.id "
                 "WHERE base.id = :pk_1",
                 {"pk_1": 4},
@@ -6987,8 +7071,8 @@ class SecondaryOptionsTest(fixtures.MappedTest):
             testing.db,
             lambda: c1.child2,
             CompiledSQL(
-                "SELECT child2.id AS child2_id, base.id AS base_id, "
-                "base.type AS base_type "
+                "SELECT child2.id, base.id, "
+                "base.type "
                 "FROM base JOIN child2 ON base.id = child2.id "
                 "WHERE base.id = :pk_1",
                 {"pk_1": 4},
@@ -7030,9 +7114,9 @@ class SecondaryOptionsTest(fixtures.MappedTest):
             testing.db,
             lambda: c1.child2,
             CompiledSQL(
-                "SELECT child2.id AS child2_id, base.id AS base_id, "
-                "base.type AS base_type, "
-                "related_1.id AS related_1_id FROM base JOIN child2 "
+                "SELECT child2.id, base.id, "
+                "base.type, "
+                "related_1.id FROM base JOIN child2 "
                 "ON base.id = child2.id "
                 "LEFT OUTER JOIN related AS related_1 "
                 "ON base.id = related_1.id WHERE base.id = :pk_1",

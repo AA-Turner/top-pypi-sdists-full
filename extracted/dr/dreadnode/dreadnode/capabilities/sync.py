@@ -247,12 +247,26 @@ class CapabilitySyncClient:
         workspace: str,
         cache_dir: Path,
         runtime_id: str,
+        on_progress: t.Callable[[str, int, int], None] | None = None,
     ) -> None:
         self._api = api
         self._org = org
         self._workspace = workspace
         self._runtime_id = runtime_id
         self._cache_dir = cache_dir
+        # Called with (capability name, 1-based position, total) as each
+        # capability is reached, so a caller can report "2 of 3" while the
+        # bundles come down one at a time.
+        self._on_progress = on_progress
+
+    def _report_progress(self, name: str, index: int, total: int) -> None:
+        if self._on_progress is None:
+            return
+        # A progress listener must never be able to fail a sync.
+        try:
+            self._on_progress(name, index, total)
+        except Exception:
+            logger.debug("Capability sync progress listener failed for '{}'", name)
 
     async def sync(self) -> SyncResult:
         """Sync runtime capabilities from the platform.
@@ -289,8 +303,9 @@ class CapabilitySyncClient:
         resolved_names: set[str] = set()
 
         # 2. Sync each resolved capability
-        for cap_info in resolved_caps:
+        for position, cap_info in enumerate(resolved_caps, start=1):
             name = cap_info["name"]
+            self._report_progress(name, position, len(resolved_caps))
             resolved_names.add(name)
             encoded = encode_capability_dirname(name)
             cap_dir = self._cache_dir / encoded

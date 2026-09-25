@@ -7,7 +7,6 @@ from .deployment_upload_body import DeploymentUploadBody
 from .dispatch_run_request import DispatchRunRequest
 from .error_code import ErrorCode
 from .error_response_400 import ErrorResponse400
-from .error_response_400_extra import ErrorResponse400Extra
 from .interactive_url_response import InteractiveUrlResponse
 from .plain_public_variable import PlainPublicVariable
 from .plain_variable_upsert import PlainVariableUpsert
@@ -31,7 +30,6 @@ __all__ = (
     "DispatchRunRequest",
     "ErrorCode",
     "ErrorResponse400",
-    "ErrorResponse400Extra",
     "InteractiveUrlResponse",
     "PlainPublicVariable",
     "PlainVariableUpsert",

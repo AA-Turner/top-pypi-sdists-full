@@ -1,17 +1,30 @@
 """
 Event
 """
-
 from __future__ import annotations
 
 import asyncio
-from typing import Any as _Any
-from typing import Callable, Dict, Optional, Tuple
+from typing import Any as _Any, Callable, Dict, Optional, Tuple
 
-from ..apdu import (
-    APDU,
-    ConfirmedEventNotificationRequest,
-    UnconfirmedEventNotificationRequest,
+from ..debugging import bacpypes_debugging, ModuleLogger, DebugContents
+from ..pdu import (
+    Address,
+    LocalBroadcast,
+    LocalStation,
+    RemoteBroadcast,
+    RemoteStation,
+)
+from ..primitivedata import (
+    Atomic,
+    BitString,
+    Boolean,
+    CharacterString,
+    Double,
+    Integer,
+    Real,
+    Unsigned,
+    Date,
+    Time,
 )
 from ..basetypes import (
     BinaryPV,
@@ -39,7 +52,6 @@ from ..basetypes import (
     TimeStamp,
 )
 from ..constructeddata import Any, ListOf
-from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
 from ..object import (
     AccessDoorObject,
     AccessPointObject,
@@ -57,6 +69,7 @@ from ..object import (
     CharacterStringValueObject,
     CredentialDataInputObject,
     EscalatorObject,
+    EventEnrollmentObject as _EventEnrollmentObject,
     GlobalGroupObject,
     IntegerValueObject,
     LargeAnalogValueObject,
@@ -75,33 +88,16 @@ from ..object import (
     StagingObject,
     TimerObject,
 )
-from ..object import (
-    EventEnrollmentObject as _EventEnrollmentObject,
+from ..apdu import (
+    APDU,
+    ConfirmedEventNotificationRequest,
+    UnconfirmedEventNotificationRequest,
 )
-from ..pdu import (
-    Address,
-    LocalBroadcast,
-    LocalStation,
-    RemoteBroadcast,
-    RemoteStation,
-)
-from ..primitivedata import (
-    Atomic,
-    BitString,
-    Boolean,
-    CharacterString,
-    Date,
-    Double,
-    Integer,
-    Real,
-    Time,
-    Unsigned,
-)
-from .fault import FaultAlgorithm, OutOfRangeFaultAlgorithm
 from .object import (
     Algorithm,
     Object,
 )
+from .fault import FaultAlgorithm, OutOfRangeFaultAlgorithm
 
 # some debugging
 _debug = 0
@@ -217,7 +213,7 @@ class EventAlgorithm(Algorithm, DebugContents):
                         "cascade_algorithm_inhibit %r %r", old_value, new_value
                     )
 
-                config_object.eventAlgorithmInhibit = new_value
+                setattr(config_object, "eventAlgorithmInhibit", new_value)
 
             # add the property value monitor function
             eair_object._property_monitors[eair.propertyIdentifier].append(
@@ -615,14 +611,14 @@ class EventAlgorithm(Algorithm, DebugContents):
             # Notify Type will be ALARM or EVENT and not ACK_NOTIFICATION, so this
             # is always CHANGE_OF_RELIABILITY, Clause 13.9.1.1.7
             notification_parameters["eventType"] = EventType.changeOfReliability
-            notification_parameters["eventValues"] = (
-                self.fault_notification_parameters()
-            )
+            notification_parameters[
+                "eventValues"
+            ] = self.fault_notification_parameters()
         else:
             notification_parameters["eventType"] = self.event_type
-            notification_parameters["eventValues"] = (
-                self.event_notification_parameters()
-            )
+            notification_parameters[
+                "eventValues"
+            ] = self.event_notification_parameters()
 
         # pass these parameters to send out confirmed or unconfirmed event
         # notification requests
@@ -1204,7 +1200,9 @@ class CommandFailureEventAlgorithm(EventAlgorithm):
         super().__init__(monitoring_object, monitored_object)
 
         if monitoring_object:
-            fpr: DeviceObjectPropertyReference = monitoring_object.eventParameters.commandFailure.feedbackPropertyReference
+            fpr: DeviceObjectPropertyReference = (
+                monitoring_object.eventParameters.commandFailure.feedbackPropertyReference
+            )
 
             # resolve the fpr.objectIdentifier to point to an object
             fpr_object: Optional[Object] = None

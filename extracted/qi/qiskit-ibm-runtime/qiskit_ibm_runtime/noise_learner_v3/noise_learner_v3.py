@@ -18,7 +18,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from ..base_primitive import get_mode_service_backend
-from ..fake_provider.local_service import QiskitRuntimeLocalService
 from ..options_models.converters import to_runtime_options
 from ..options_models.noise_learner_v3 import NoiseLearnerV3Options
 from ..utils.default_session import get_cm_session
@@ -82,9 +81,9 @@ class NoiseLearnerV3:
         # Coerced to `NoiseLearnerV3Options` via `__setattr__()`.
         self.options = options if options is not None else NoiseLearnerV3Options()  # type: ignore[assignment]
 
-        self._session, self._service, self._backend = get_mode_service_backend(mode)
+        self._mode, self._service, self._backend = get_mode_service_backend(mode)
 
-        if isinstance(self._service, QiskitRuntimeLocalService):
+        if self._service.is_local:
             raise ValueError("``NoiseLearnerV3`` is currently not supported in local mode.")
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -101,7 +100,22 @@ class NoiseLearnerV3:
                 raise TypeError(f"Expected NoiseLearnerV3Options or dict, got {type(value)}")
         super().__setattr__(name, value)
 
-    def run(self, instructions: Iterable[CircuitInstruction]) -> RuntimeJobV2:
+    def backend(self) -> BackendV2:
+        """Return the backend the primitive query will be run on."""
+        return self._backend
+
+    @property
+    def mode(self) -> Session | Batch | None:
+        """Return the execution mode used by this primitive.
+
+        Returns:
+            Mode used by this primitive, or ``None`` if an execution mode is not used.
+        """
+        return self._mode
+
+    def run(
+        self, instructions: Iterable[CircuitInstruction], dry_run: bool = False
+    ) -> RuntimeJobV2:
         """Submit a request to the noise learner program.
 
         Two protocols are supported:
@@ -120,6 +134,12 @@ class NoiseLearnerV3:
 
         Args:
             instructions: The instructions to learn the noise of.
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
 
         Returns:
             The submitted job.
@@ -147,8 +167,8 @@ class NoiseLearnerV3:
             raise ValueError(f"No converters for schema version {self._SCHEMA_VERSION}.")
 
         params = converter.encoder(instructions, self.options)
-        if self._session:
-            _run = self._session._run
+        if self._mode:
+            _run = self._mode._run
         else:
             _run = self._service._run
 
@@ -165,13 +185,17 @@ class NoiseLearnerV3:
         inputs = params.model_dump(mode="json")
         inputs["version"] = 3
 
-        return _run(
-            program_id=self._PROGRAM_ID,
-            options=to_runtime_options(self.options.environment, self._backend),
-            inputs=inputs,
-            calibration_id=getattr(self._backend, "calibration_id", None),
+        # 'EnvironmentOptions.max_execution_time' is deprecated, and when users set it there, they
+        # get a warning. Hence, in case both are set, we make 'ExecutorOptions.max_execution_time'
+        # prevail
+        max_execution_time = (
+            self.options.max_execution_time or self.options.environment.max_execution_time
         )
 
-    def backend(self) -> BackendV2:
-        """Return the backend the primitive query will be run on."""
-        return self._backend
+        return _run(
+            program_id=self._PROGRAM_ID,
+            options=to_runtime_options(self.options.environment, self._backend, max_execution_time),
+            inputs=inputs,
+            calibration_id=getattr(self._backend, "calibration_id", None),
+            dry_run=dry_run,
+        )

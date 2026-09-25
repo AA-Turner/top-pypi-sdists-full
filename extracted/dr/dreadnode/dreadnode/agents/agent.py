@@ -141,8 +141,9 @@ def _replayable(messages: list[Message]) -> list[Message]:
     turn sends an empty text block, which some providers reject outright
     (see ``CacheControlOnEmptyTextFixup``) and none can use (ENG-7585).
 
-    Reasoning lives in ``metadata``, not ``content``, so a thinking-only
-    message is still replayable and must survive this filter.
+    Reasoning lives in ``metadata``, which ``Message.to_openai`` does not
+    serialise, so a thinking-only message survives this filter to stay in the
+    trajectory record — not because the reasoning itself is sent back.
     """
 
     def carries_nothing(message: Message) -> bool:
@@ -409,7 +410,7 @@ class Agent(Executor[AgentEvent, Trajectory]):
         messages = sanitize_orphan_tool_messages(messages)
 
         try:
-            if self.cache is not None and self.generator.supports_prompt_caching():
+            if self.cache is not None and await self.generator.supports_prompt_caching():
                 messages = caching.apply_cache_mode_to_messages(self.cache, [messages])[0]
             logger.trace(f"Generating with model '{self.generator.model}'. Messages: {messages!r}")
 

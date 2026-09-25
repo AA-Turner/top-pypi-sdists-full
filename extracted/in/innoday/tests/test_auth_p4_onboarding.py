@@ -195,8 +195,8 @@ class TestUsersLockdown:
 
 
 class TestUsersTeamSecretGate:
-    """POST /users carries an EXPLICIT route-level team-secret requirement
-    (defense-in-depth on top of TeamSecretMiddleware). When TEAM_ACCESS_SECRET
+    """POST /users carries a route-level team-secret requirement -- one of the
+    Tier C routes that keep it (PF-455). When TEAM_ACCESS_SECRET
     is set, the request must present a matching X-Team-Secret header even with
     a valid platform-member Bearer token; unset, the gate is a no-op."""
 

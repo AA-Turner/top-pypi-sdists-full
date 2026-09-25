@@ -21,7 +21,7 @@ class CalculationInput(BaseModelObject):
     # The literal is to show typical values of type.
     type: Literal["ts", "const", "result"] | str | None = None
     value: str | float | int | NodeUntypedId | JsonValue | None = None
-    param: JsonValue | None = None
+    param: str
 
 
 class CalculationStep(BaseModelObject):
@@ -93,8 +93,19 @@ class ChartScheduledCalculationRequest(ChartScheduledCalculation, UpdatableReque
     nonce: str
 
     def as_update(self, mode: Literal["patch", "replace"]) -> dict[str, Any]:
-        # The excluded fields are immutable, i.e., the cannot be updated.
-        return self.model_dump(exclude={"nonce", "period", "offset", "window_size"}, exclude_none=True, by_alias=True)
+        # The excluded fields are immutable and cannot be updated.
+        return self.model_dump(
+            exclude={
+                "nonce",
+                "period",
+                "offset",
+                "window_size",
+                "target_timeseries_external_id",
+                "target_timeseries_instance_id",
+            },
+            exclude_none=True,
+            by_alias=True,
+        )
 
 
 class ChartScheduledCalculationListResponse(ChartScheduledCalculation):

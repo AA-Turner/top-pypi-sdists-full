@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rfdetr
-Version: 1.10.1
+Version: 1.11.0
 Summary: RF-DETR
 Author-email: "Roboflow, Inc" <develop@roboflow.com>
 License: Apache License 2.0
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development
 Classifier: Topic :: Scientific/Engineering
@@ -42,14 +43,22 @@ Provides-Extra: train
 Requires-Dist: peft; extra == "train"
 Requires-Dist: pytorch_lightning!=2.6.2,!=2.6.3,<3,>=2.6; extra == "train"
 Requires-Dist: torchmetrics[detection]<1.9.0,>=1.8.2; extra == "train"
+Requires-Dist: hotcoco==1.0.1; extra == "train"
 Requires-Dist: faster-coco-eval>=1.7.2; extra == "train"
+Requires-Dist: ultrafast-pycocotools<0.2,>=0.1.10; extra == "train"
+Requires-Dist: vernier<0.6,>=0.5.3; extra == "train"
 Requires-Dist: pycocotools; extra == "train"
 Requires-Dist: scipy; extra == "train"
+Requires-Dist: simplejpeg<2,>=1.9; extra == "train"
 Requires-Dist: torch-hungarian==0.1.0rc0; extra == "train"
 Requires-Dist: roboflow; extra == "train"
+Provides-Extra: cuda
+Requires-Dist: transformer-engine[pytorch]<3,>=2.19; (sys_platform == "linux" and platform_machine == "x86_64") and extra == "cuda"
 Provides-Extra: augment
 Requires-Dist: albumentations<3.0.0,>=1.4.24; extra == "augment"
 Requires-Dist: kornia<1,>=0.7; extra == "augment"
+Provides-Extra: data
+Requires-Dist: webdataset<2,>=1.0; extra == "data"
 Provides-Extra: onnx
 Requires-Dist: onnx<2.0,>=1.16.0; extra == "onnx"
 Requires-Dist: onnxsim>=0.7.0; extra == "onnx"
@@ -61,6 +70,8 @@ Provides-Extra: tensorrt
 Requires-Dist: onnxruntime-gpu; extra == "tensorrt"
 Requires-Dist: tensorrt>=8.6.1; extra == "tensorrt"
 Requires-Dist: polygraphy; extra == "tensorrt"
+Requires-Dist: onnxconverter-common; extra == "tensorrt"
+Requires-Dist: onnx<2.0,>=1.16.0; extra == "tensorrt"
 Provides-Extra: tensorrt-bench
 Requires-Dist: pycuda>=2024.1; extra == "tensorrt-bench"
 Provides-Extra: tflite
@@ -74,9 +85,14 @@ Requires-Dist: tf-keras>=2.16.0; (python_version >= "3.12" and python_version < 
 Requires-Dist: tensorflow>=2.16.0; (python_version >= "3.12" and python_version < "3.13") and extra == "tflite"
 Provides-Extra: executorch
 Requires-Dist: executorch<2.0,>=1.3; python_version < "3.14" and extra == "executorch"
+Provides-Extra: coreai
+Requires-Dist: coreai-torch<0.5,>=0.4.2; (python_version >= "3.11" and python_version < "3.14" and ((sys_platform == "darwin" and platform_machine == "arm64") or (sys_platform == "linux" and platform_machine == "x86_64"))) and extra == "coreai"
 Provides-Extra: coreml
 Requires-Dist: coremltools<10.0,>=8.0; extra == "coreml"
-Requires-Dist: torch<2.12; extra == "coreml"
+Provides-Extra: openvino
+Requires-Dist: openvino<2027.0,>=2024.0; extra == "openvino"
+Provides-Extra: litert
+Requires-Dist: litert-torch<1.0,>=0.9.4; extra == "litert"
 Provides-Extra: loggers
 Requires-Dist: tensorboard>=2.13.0; extra == "loggers"
 Requires-Dist: protobuf>=3.20.0; extra == "loggers"
@@ -103,6 +119,8 @@ Dynamic: license-file
 [![version](https://badge.fury.io/py/rfdetr.svg)](https://badge.fury.io/py/rfdetr) [![downloads](https://img.shields.io/pypi/dm/rfdetr)](https://pypistats.org/packages/rfdetr) [![codecov](https://codecov.io/gh/roboflow/rf-detr/graph/badge.svg?token=K8V4ARR3XV)](https://codecov.io/gh/roboflow/rf-detr) [![python-version](https://img.shields.io/pypi/pyversions/rfdetr)](https://badge.fury.io/py/rfdetr) [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](https://github.com/roboflow/rf-detr/blob/main/LICENSE)
 
 [![arXiv](https://img.shields.io/badge/arXiv-2511.09554-b31b1b.svg)](https://arxiv.org/abs/2511.09554) [![hf space](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/SkalskiP/RF-DETR) [![colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/roboflow-ai/notebooks/blob/main/notebooks/how-to-finetune-rf-detr-on-detection-dataset.ipynb) [![roboflow](https://raw.githubusercontent.com/roboflow-ai/notebooks/main/assets/badges/roboflow-blogpost.svg)](https://blog.roboflow.com/rf-detr) [![discord](https://img.shields.io/discord/1159501506232451173?logo=discord&label=discord&labelColor=fff&color=5865f2&link=https%3A%2F%2Fdiscord.gg%2FGbfgXGJ8Bk)](https://discord.gg/GbfgXGJ8Bk)
+
+[![Papers with Code leaderboard](https://paperswithcode.co/api/v1/papers/2511.09554/leaderboard-badge.svg?eval=821&live=1)](https://paperswithcode.co/api/v1/papers/2511.09554/leaderboard-badge-link?eval=821)
 
 <a href="https://trendshift.io/repositories/14379?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-14379" target="_blank" rel="noopener noreferrer">
 <img src="https://trendshift.io/api/badge/repositories/14379" alt="roboflow%2Frf-detr | Trendshift" width="250" height="55"/>
@@ -421,6 +439,12 @@ If you find our work helpful for your research, please consider citing the follo
 ## Contribute
 
 We welcome and appreciate all contributions! If you notice any issues or bugs, have questions, or would like to suggest new features, please [open an issue](https://github.com/roboflow/rf-detr/issues/new) or pull request. By sharing your ideas and improvements, you help make RF-DETR better for everyone.
+
+## Project Activity
+
+<img src="https://raw.githubusercontent.com/roboflow/rf-detr/develop/docs/assets/weekly-metrics.svg" alt="Weekly Activity and Growth Metrics" role="img" width="100%" />
+
+PyPI downloads cover completed Monday-to-Sunday periods and exclude known mirrors. New stars are calculated from consecutive scheduled GitHub snapshots.
 
 <p align="center">
     <a href="https://youtube.com/roboflow"><img src="https://media.roboflow.com/notebooks/template/icons/purple/youtube.png?ik-sdk-version=javascript-1.4.3&updatedAt=1672949634652" width="3%"/></a>

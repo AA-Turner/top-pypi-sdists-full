@@ -332,6 +332,9 @@ class _AppModelCatalogContext:
 class _AppModelUiHost:
     _app: "DreadnodeTextualApp"
 
+    def refresh_model_context(self) -> None:
+        self._app.watch_model_name(self._app.model_name)
+
     def model_browser_open(self) -> bool:
         from dreadnode.app.tui.screens import ModelBrowserScreen
 
@@ -1583,6 +1586,17 @@ class DreadnodeTextualApp(App[None]):
         from dreadnode.app.tui.model_variants import get_model_max_input_tokens
 
         self.model_max_tokens = get_model_max_input_tokens(value) or 0
+        if self.is_running:
+            self._load_model_context_limit(value)
+
+    @work(exclusive=True, group="model-context-limit", exit_on_error=False)
+    async def _load_model_context_limit(self, model: str) -> None:
+        from dreadnode.app.model_catalog import load_gateway_model_info
+        from dreadnode.app.tui.model_variants import get_model_max_input_tokens
+
+        await load_gateway_model_info()
+        if self.model_name == model:
+            self.model_max_tokens = get_model_max_input_tokens(model) or 0
 
     def __init__(
         self,
@@ -1983,6 +1997,7 @@ class DreadnodeTextualApp(App[None]):
     # ==================================================================
 
     def on_mount(self) -> None:
+        self._load_model_context_limit(self.model_name)
         enable_tui_capture()
         install_stdlib_intercept()
         self._set_composer_enabled(False)
@@ -4389,6 +4404,8 @@ class DreadnodeTextualApp(App[None]):
 
     def _on_model_changed(self, new_model: str) -> None:
         """Restore per-model variant state after model switch."""
+        if new_model == self.model_name:
+            self.watch_model_name(new_model)
         self.model = new_model
         active = self._active_session()
         if active is not None:

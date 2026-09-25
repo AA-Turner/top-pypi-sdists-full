@@ -8,14 +8,17 @@ import logging
 import asyncio
 import json
 import copy
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
+from fastmcp.exceptions import ToolError
+from googleapiclient.errors import HttpError
 from mcp.types import ToolAnnotations
 
 from auth.service_decorator import require_google_service
 from core.server import server
 from core.utils import handle_http_errors, UserInputError, StringList
 from core.comments import create_comment_tools
+from gdrive.drive_helpers import move_new_file_to_folder
 from gsheets.sheets_helpers import (
     CONDITION_TYPES,
     MAX_READ_SHEET_ROWS,
@@ -32,6 +35,7 @@ from gsheets.sheets_helpers import (
     _format_conditional_rules_section,
     _format_named_ranges_list,
     _format_sheet_error_section,
+    _normalize_chips_input,
     _parse_a1_range,
     _parse_condition_values,
     _parse_gradient_points,
@@ -210,6 +214,7 @@ async def read_sheet_values(
     include_hyperlinks: bool = False,
     include_notes: bool = False,
     include_formulas: bool = False,
+    include_smart_chips: bool = False,
 ) -> str:
     """
     Reads values from a specific range in a Google Sheet.
@@ -227,6 +232,8 @@ async def read_sheet_values(
         include_formulas (bool): If True, also fetch raw formula strings for cells that
             contain formulas. Useful for identifying cross-sheet references before writing
             back to a range. Defaults to False to avoid an extra API request.
+        include_smart_chips (bool): If True, also fetch smart chips metadata (Drive files/folders
+            and People chips) for the range. Defaults to False to avoid expensive includeGridData requests.
 
     Returns:
         str: The formatted values from the specified range.
@@ -254,13 +261,14 @@ async def read_sheet_values(
     values = result.get("values", [])
     resolved_range = result.get("range", range_name)
 
-    hyperlink_section, notes_section = await _fetch_grid_metadata(
+    hyperlink_section, notes_section, smart_chips_section = await _fetch_grid_metadata(
         service,
         spreadsheet_id,
         resolved_range,
         values,
         include_hyperlinks=include_hyperlinks,
         include_notes=include_notes,
+        include_smart_chips=include_smart_chips,
     )
 
     formula_section = ""
@@ -326,6 +334,7 @@ async def read_sheet_values(
         + notes_section
         + formula_section
         + detailed_errors_section
+        + smart_chips_section
     )
 
 
@@ -464,6 +473,177 @@ async def modify_sheet_values(
         )
 
     return text_output
+
+
+# Not in the API docs: the PR author's manual testing hit a 10-chip cap per batchUpdate.
+MAX_DRIVE_CHIPS_PER_BATCH = 8
+
+
+async def _insert_smart_chips_impl(
+    service,
+    user_google_email: str,
+    spreadsheet_id: str,
+    range_name: str,
+    chips: Union[str, dict, List[Any]],
+    chip_type: Optional[str] = None,
+) -> str:
+    """Internal implementation for insert_smart_chips.
+
+    Args:
+        service: Google Sheets API service client.
+        user_google_email: The user's Google email address.
+        spreadsheet_id: The ID of the spreadsheet.
+        range_name: Target range or cell (e.g., "Sheet1!F3", "F3:F23").
+        chips: Smart chip(s) specification (string, list, 2D list, dict).
+        chip_type: Optional explicit chip type ("drive" or "person").
+
+    Returns:
+        Confirmation message of the operation.
+    """
+    logger.info(
+        f"[insert_smart_chips] Invoked. Email: '{user_google_email}', Spreadsheet: {spreadsheet_id}, Range: {range_name}"
+    )
+
+    metadata = await asyncio.to_thread(
+        service.spreadsheets()
+        .get(
+            spreadsheetId=spreadsheet_id,
+            fields="sheets(properties(sheetId,title))",
+        )
+        .execute
+    )
+    grid_range = _parse_a1_range(range_name, metadata.get("sheets", []))
+    sheet_id = grid_range["sheetId"]
+    end_row = grid_range.get("endRowIndex")
+    end_col = grid_range.get("endColumnIndex")
+
+    cell_updates = _normalize_chips_input(
+        chips=chips,
+        start_row=grid_range.get("startRowIndex"),
+        end_row=end_row - 1 if end_row is not None else None,
+        start_col=grid_range.get("startColumnIndex"),
+        end_col=end_col - 1 if end_col is not None else None,
+        default_chip_type=chip_type,
+    )
+
+    if not cell_updates:
+        return f"No smart chips to insert for range '{range_name}' in spreadsheet {spreadsheet_id}."
+
+    total_inserted = sum(len(c[2].get("chipRuns", [])) for c in cell_updates)
+
+    batches = []
+    current_batch = []
+    current_chip_count = 0
+    for update in cell_updates:
+        cell_chips = len(update[2].get("chipRuns", []))
+        if cell_chips > MAX_DRIVE_CHIPS_PER_BATCH:
+            raise UserInputError(
+                f"Number of chips in a single cell ({cell_chips}) exceeds the "
+                f"per-batch limit ({MAX_DRIVE_CHIPS_PER_BATCH})."
+            )
+        if current_batch and (
+            current_chip_count + cell_chips > MAX_DRIVE_CHIPS_PER_BATCH
+        ):
+            batches.append(current_batch)
+            current_batch = [update]
+            current_chip_count = cell_chips
+        else:
+            current_batch.append(update)
+            current_chip_count += cell_chips
+    if current_batch:
+        batches.append(current_batch)
+
+    written_cells = 0
+    for batch in batches:
+        requests = []
+        for r_idx, c_idx, cell_data in batch:
+            requests.append(
+                {
+                    "updateCells": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": r_idx,
+                            "endRowIndex": r_idx + 1,
+                            "startColumnIndex": c_idx,
+                            "endColumnIndex": c_idx + 1,
+                        },
+                        "rows": [{"values": [cell_data]}],
+                        "fields": "userEnteredValue,chipRuns",
+                    }
+                }
+            )
+        try:
+            await asyncio.to_thread(
+                service.spreadsheets()
+                .batchUpdate(spreadsheetId=spreadsheet_id, body={"requests": requests})
+                .execute
+            )
+        except HttpError as error:
+            if not written_cells:
+                raise
+            # Earlier batches are already committed, so say which cells changed.
+            raise ToolError(
+                f"Wrote smart chips to {written_cells} of {len(cell_updates)} cells in "
+                f"range '{range_name}' before the Sheets API rejected a batch: {error}"
+            ) from error
+        written_cells += len(batch)
+
+    logger.info(
+        f"[insert_smart_chips] Successfully inserted {total_inserted} smart chips for {user_google_email}."
+    )
+    return (
+        f"Successfully inserted {total_inserted} smart chip(s) into range '{range_name}' "
+        f"in spreadsheet {spreadsheet_id} for {user_google_email}."
+    )
+
+
+@server.tool(
+    title="Insert Smart Chips",
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=True,
+        openWorldHint=True,
+    ),
+)
+@handle_http_errors("insert_smart_chips", service_type="sheets")
+@require_google_service("sheets", "sheets_write")
+async def insert_smart_chips(
+    service,
+    user_google_email: str,
+    spreadsheet_id: str,
+    range_name: str,
+    chips: Union[str, dict, List[Any]],
+    chip_type: Optional[str] = None,
+) -> str:
+    """
+    Inserts Google Workspace Smart Chips (Drive files/folders or People) into a Google Sheet cell or range.
+
+    Args:
+        user_google_email (str): The user's Google email address. Required.
+        spreadsheet_id (str): The ID of the spreadsheet. Required.
+        range_name (str): Target cell or range (e.g., "Sheet1!F3", "Sheet1!F3:F23", "F3"). Required.
+        chips (Union[str, dict, List[Any]]): Smart chip(s) to insert:
+            - A single URL or email string for a single cell (e.g., "https://drive.google.com/drive/folders/123", "user@example.com").
+            - A list of URLs or emails for a single cell (multiple chips) or across cells (e.g., ["https://...", "https://..."]).
+            - A 2D list of URLs/emails matching a grid range. For a single-row or single-column
+              range, each inner list is instead the chips for one cell (e.g., [["a@x.com", "b@x.com"]]
+              puts both chips in the first cell of "A1:C1").
+            - A dict or list of dicts with explicit properties (e.g., {"type": "drive", "uri": "..."}, {"type": "person", "email": "..."}).
+            - A JSON-encoded string representing any of the above formats.
+        chip_type (Optional[str]): Explicit chip type if passing raw strings: "drive" (default for URLs/IDs) or "person" (default for emails).
+
+    Returns:
+        str: Confirmation message of the successful insertion.
+    """
+    return await _insert_smart_chips_impl(
+        service=service,
+        user_google_email=user_google_email,
+        spreadsheet_id=spreadsheet_id,
+        range_name=range_name,
+        chips=chips,
+        chip_type=chip_type,
+    )
 
 
 # Internal implementation function for testing
@@ -1215,6 +1395,7 @@ async def create_spreadsheet(
     user_google_email: str,
     title: str,
     sheet_names: Optional[StringList] = None,
+    folder_id: str = "root",
 ) -> str:
     """
     Creates a new Google Spreadsheet.
@@ -1223,12 +1404,15 @@ async def create_spreadsheet(
         user_google_email (str): The user's Google email address. Required.
         title (str): The title of the new spreadsheet. Required.
         sheet_names (Optional[List[str]]): List of sheet names to create. If not provided, creates one sheet with default name.
+        folder_id (str): The ID of the parent folder. Defaults to 'root'. For shared
+            drives, this must be a folder ID within the shared drive.
 
     Returns:
         str: Information about the newly created spreadsheet including ID, URL, and locale.
     """
     logger.info(
-        f"[create_spreadsheet] Invoked. Email: '{user_google_email}', title_len={len(title)}"
+        f"[create_spreadsheet] Invoked. Email: '{user_google_email}', "
+        f"title_len={len(title)}, folder_id='{folder_id}'"
     )
 
     spreadsheet_body = {"properties": {"title": title}}
@@ -1252,8 +1436,13 @@ async def create_spreadsheet(
     spreadsheet_url = spreadsheet.get("spreadsheetUrl")
     locale = properties.get("locale", "Unknown")
 
+    placement_note = await move_new_file_to_folder(
+        user_google_email, spreadsheet_id, folder_id, "create_spreadsheet"
+    )
+
     text_output = (
-        f"Successfully created spreadsheet '{title}' for {user_google_email}. "
+        f"Successfully created spreadsheet '{title}' for {user_google_email}."
+        f"{placement_note} "
         f"ID: {spreadsheet_id} | URL: {spreadsheet_url} | Locale: {locale}"
     )
 

@@ -23,6 +23,7 @@ from flask_security import (
     tf_profile_changed,
     uia_email_mapper,
 )
+from flask_security.utils import localize_callback
 from tests.test_utils import (
     SmsBadSender,
     SmsTestSender,
@@ -30,7 +31,6 @@ from tests.test_utils import (
     capture_flashes,
     capture_send_code_requests,
     check_location,
-    check_xlation,
     get_form_action,
     get_form_input_value,
     get_session,
@@ -91,29 +91,35 @@ def tf_in_session(session):
     )
 
 
-@pytest.mark.settings(two_factor_always_validate=False)
-def test_always_validate(app, client, get_message):
+@pytest.mark.settings(
+    two_factor_always_validate=False, two_factor_validity_cookie_name="tfv"
+)
+def test_validity_cookie(app, client, get_message):
     tf_authenticate(app, client, remember=True)
-    assert client.get_cookie("tf_validity")
+    assert client.get_cookie("tfv")
 
+    # logout shouldn't delete cookie so we can log in again with just password
     logout(client)
 
     data = dict(email="gal@lp.com", password="password")
     response = client.post("/login", data=data, follow_redirects=True)
     assert b"Welcome gal@lp.com" in response.data
     assert response.status_code == 200
-
     logout(client)
+
+    # ensure the cookie is for a specific user
     data = dict(email="gal2@lp.com", password="password")
     response = client.post("/login", data=data, follow_redirects=True)
     assert b"Please enter your authentication code" in response.data
 
-    # make sure the cookie doesn't affect the JSON request
-    client.delete_cookie("tf_validity")
-    # Test JSON (this authenticates gal@lp.com)
+    client.delete_cookie("tfv")
+
+    # Same tests as above with JSON (this authenticates gal@lp.com)
     tf_authenticate(app, client, json=True, remember=True)
+    assert client.get_cookie("tfv")
     logout(client)
 
+    # shouldn't require tf
     data = dict(email="gal@lp.com", password="password")
     response = client.post(
         "/login",
@@ -121,7 +127,6 @@ def test_always_validate(app, client, get_message):
         follow_redirects=True,
     )
     assert response.status_code == 200
-    # verify logged in
     is_authenticated(client, get_message)
     logout(client)
 
@@ -139,7 +144,10 @@ def test_always_validate(app, client, get_message):
 
 @pytest.mark.settings(two_factor_always_validate=False)
 def test_do_not_remember_tf_validity(app, client):
+    # If 'remember' not set during login - no cookie should be sent
+    # and tf should be required every time.
     tf_authenticate(app, client)
+    assert not client.get_cookie("tf_validity")
     logout(client)
 
     data = dict(email="gal@lp.com", password="password")
@@ -166,7 +174,7 @@ def test_do_not_remember_tf_validity(app, client):
 
 
 @pytest.mark.settings(
-    two_factor_always_validate=False, two_factor_login_validity="-1 minutes"
+    two_factor_always_validate=False, two_factor_login_validity=timedelta(minutes=-1)
 )
 def test_tf_expired_cookie(app, client):
     tf_authenticate(app, client, remember=True)
@@ -421,9 +429,11 @@ def test_two_factor_flag(app, clients, get_message, outbox, signals):
     # make sure two_factor_verify_code_form is set
     assert b'name="code"' in response.data
 
-    code = outbox[1].body.split()[-1]
+    matcher = re.match(r".*code: ([0-9]+).*", outbox[1].body, re.IGNORECASE | re.DOTALL)
     # submit right token and show appropriate response
-    response = client.post("/tf-validate", data=dict(code=code), follow_redirects=True)
+    response = client.post(
+        "/tf-validate", data=dict(code=matcher.group(1)), follow_redirects=True
+    )
     assert b"You successfully changed your two-factor method" in response.data
 
     # Test change two_factor password confirmation view to authenticator
@@ -707,6 +717,7 @@ def test_rescue_json(app, client, outbox):
     assert outbox[0].recipients == ["gal2@lp.com"]
     assert outbox[0].sender == "no-reply@localhost"
     assert outbox[0].subject == "Two-Factor Login"
+    assert "This code will expire in 5 minutes" in outbox[0].body
     matcher = re.match(r".*code: ([0-9]+).*", outbox[0].body, re.IGNORECASE | re.DOTALL)
     response = client.post("/tf-validate", json=dict(code=matcher.group(1)))
     assert response.status_code == 200
@@ -946,6 +957,28 @@ def test_opt_in_nc(app, client_nc, get_message, signals):
     assert response.json["response"]["tf_phone_number"] == "+442083661177"
 
 
+def test_opt_in_nc_non_string_code(app, client_nc):
+    """
+    Test tf-setup with dict code.
+    It should be rejected cleanly by the IsStringOrInt validator to prevent
+    a passlib crash.
+    """
+    response = json_authenticate(client_nc, "jill@lp.com")
+    token = response.json["response"]["user"]["authentication_token"]
+    headers = {"Authentication-Token": token, "Accept": "application/json"}
+
+    SmsSenderFactory.createSender("test")
+    data = dict(setup="sms", phone="+442083661177")
+    response = client_nc.post("/tf-setup", json=data, headers=headers)
+    state_token = response.json["response"]["tf_state_token"]
+
+    response = client_nc.post(
+        f"/tf-setup/{state_token}", json=dict(code={"not": "a code"}), headers=headers
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.settings(token_max_age=timedelta(days=4))
 def test_opt_in_nc_expired(app, client_nc, get_message):
     """
     Test tf-setup without cookies - expired token
@@ -972,8 +1005,7 @@ def test_opt_in_nc_expired(app, client_nc, get_message):
     )
     assert response.status_code == 400
     assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
-        "TWO_FACTOR_SETUP_EXPIRED",
-        within=app.config["SECURITY_TWO_FACTOR_SETUP_WITHIN"],
+        "TWO_FACTOR_SETUP_EXPIRED", within="30 minutes"
     )
 
 
@@ -1555,9 +1587,11 @@ def test_no_sms(app, get_message, outbox):
     msg = b"Enter code to complete setup"
     assert msg in response.data
 
-    code = outbox[0].body.split()[-1]
+    matcher = re.match(r".*code: ([0-9]+).*", outbox[0].body, re.IGNORECASE | re.DOTALL)
     # submit right token and show appropriate response
-    response = client.post("/tf-validate", data=dict(code=code), follow_redirects=True)
+    response = client.post(
+        "/tf-validate", data=dict(code=matcher.group(1)), follow_redirects=True
+    )
     assert b"You successfully changed your two-factor method" in response.data
 
     with app.app_context():
@@ -1580,18 +1614,18 @@ def test_post_setup_redirect(app, client):
     assert check_location(app, response.location, "/post_setup_view")
 
 
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
-@pytest.mark.babel()
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_xlation(app, client, get_message_local):
     # Test method translation
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
 
     # login as gal2 which has 'authenticator' set up
     response = authenticate(client, email="gal2@lp.com", follow_redirects=True)
     with app.test_request_context():
-        existing = (
-            "Veuillez saisir votre code d'authentification généré via: authentificateur"
+        existing = localize_callback(
+            "Please enter your authentication code generated via: %(method)s",
+            method="authenticator",
         )
+        assert "OKAY!" in existing
         assert markupsafe.escape(existing).encode() in response.data
     with app.app_context():
         # generate 'code' as authenticator would and complete authentication
@@ -1600,7 +1634,10 @@ def test_xlation(app, client, get_message_local):
     client.post("/tf-validate", data=dict(code=code), follow_redirects=True)
     response = client.get("/tf-setup", follow_redirects=True)
     with app.test_request_context():
-        existing = "Méthode à deux facteurs actuellement configurée : authentificateur"
+        existing = localize_callback(
+            "Currently setup two-factor method: %(method)s", method="authenticator"
+        )
+        assert "OKAY!" in existing
         assert markupsafe.escape(existing).encode() in response.data
 
 

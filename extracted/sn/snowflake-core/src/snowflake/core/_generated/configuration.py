@@ -16,6 +16,8 @@ import sys
 import certifi
 import urllib3
 
+from snowflake.core._logging import _SecureFileHandler
+
 
 JSON_SCHEMA_VALIDATION_KEYWORDS = {
     "multipleOf",
@@ -253,6 +255,10 @@ class Configuration:
         If the logger_file is None, then add stream handler and remove file
         handler. Otherwise, add file handler and remove stream handler.
 
+        The file is opened with mode 0o600, is not followed if it is a
+        symlink, and must be owned by the current user; a PermissionError is
+        raised otherwise.
+
         :param value: The logger_file path.
         :type: str
         """
@@ -260,7 +266,7 @@ class Configuration:
         if self.__logger_file:
             # If set logging file,
             # then add file handler and remove stream handler.
-            self.logger_file_handler = logging.FileHandler(self.__logger_file)
+            self.logger_file_handler = _SecureFileHandler(self.__logger_file)
             self.logger_file_handler.setFormatter(self.logger_formatter)
             for _, logger in self.logger.items():
                 logger.addHandler(self.logger_file_handler)

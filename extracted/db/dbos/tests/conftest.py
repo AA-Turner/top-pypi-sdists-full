@@ -35,7 +35,13 @@ from opentelemetry.sdk._logs.export import (
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-from dbos import DBOS, DBOSClient, DBOSConfig, run_dbos_database_migrations
+from dbos import (
+    DBOS,
+    DBOSClient,
+    DBOSConfig,
+    _workflow_commands,
+    run_dbos_database_migrations,
+)
 from dbos._core import execute_dequeued_workflow
 from dbos._schemas.system_database import SystemSchema
 from dbos._sys_db import SystemDatabase
@@ -182,6 +188,16 @@ def reset_global_params() -> None:
     GlobalParams.app_version = os.environ.get("DBOS__APPVERSION", "")
     GlobalParams.executor_id = os.environ.get("DBOS__VMID") or "local"
     GlobalParams.app_name = None
+
+
+@pytest.fixture(autouse=True, scope="session")
+def fast_timeout_sweep() -> Generator[None, Any, None]:
+    """Sweep for timed-out workflows every 100ms: the product's 1s poll would
+    dominate every test that waits for a timeout."""
+    original = _workflow_commands._SWEEP_POLLING_INTERVAL_SEC
+    _workflow_commands._SWEEP_POLLING_INTERVAL_SEC = 0.1
+    yield
+    _workflow_commands._SWEEP_POLLING_INTERVAL_SEC = original
 
 
 @pytest.fixture(autouse=True)
@@ -411,6 +427,19 @@ def queue_entries_are_cleaned_up(dbos: DBOS) -> bool:
                 break
         time.sleep(1)
     return success
+
+
+def explain_with_index_scans_only(
+    dbos: DBOS, table: str, statement: str, parameters: Any
+) -> list[str]:
+    """EXPLAIN with seq and bitmap scans off, so a plan test checks the index covers the
+    query rather than a cost race that index bloat or the visibility map can flip."""
+    with dbos._sys_db.engine.begin() as conn:
+        conn.exec_driver_sql(f'ANALYZE "{dbos._sys_db.schema}".{table}')
+        conn.exec_driver_sql("SET LOCAL enable_seqscan = off")
+        conn.exec_driver_sql("SET LOCAL enable_bitmapscan = off")
+        rows = conn.exec_driver_sql(f"EXPLAIN {statement}", parameters).fetchall()
+    return [str(row[0]) for row in rows]
 
 
 def retry_until_success(

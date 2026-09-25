@@ -57,3 +57,17 @@ def seconds(value: Any) -> float | None:
         The duration in seconds, or ``None`` for anything unset.
     """
     return value / 1000 if isinstance(value, (int, float)) else None
+
+
+def data(value: Any) -> Any:
+    """Narrow a job-defined value the generated model may leave unset.
+
+    Args:
+        value: What the payload carries.
+
+    Returns:
+        The value as JSON carried it, or ``None`` when it was unset. Admits
+        every JSON shape by type, so a falsy result — ``0``, ``false``, ``[]``
+        — survives where a truthiness test would drop it.
+    """
+    return value if isinstance(value, (str, int, float, list, dict)) else None

@@ -3,6 +3,7 @@
 import asyncio
 import json
 import typing as t
+from functools import cache
 from pathlib import Path
 
 import cyclopts
@@ -868,11 +869,9 @@ def _discover_attacks() -> dict[str, str]:
     return registry
 
 
-# Create auto-discovered attack registry
-_ATTACK_REGISTRY: dict[str, str] = _discover_attacks()
-
-# Merge auto-discovered attacks with legacy ones for backward compatibility
-_ATTACK_REGISTRY.update(_LEGACY_ATTACK_REGISTRY)
+@cache
+def _get_attack_registry() -> dict[str, str]:
+    return _discover_attacks() | _LEGACY_ATTACK_REGISTRY
 
 
 def _discover_transforms() -> dict[str, str]:
@@ -912,9 +911,6 @@ def _discover_transforms() -> dict[str, str]:
 
     return registry
 
-
-# Auto-discovered transform registry (replaces manual curation)
-_TRANSFORM_REGISTRY: dict[str, str] = _discover_transforms()
 
 # Legacy manual registry for compatibility (will be removed)
 _LEGACY_TRANSFORM_REGISTRY: dict[str, str] = {
@@ -974,8 +970,12 @@ _LEGACY_TRANSFORM_REGISTRY: dict[str, str] = {
     "reasoning_hijack": "dreadnode.transforms.reasoning_attacks:reasoning_hijack",
 }
 
+
 # Merge auto-discovered transforms with legacy ones for backward compatibility
-_TRANSFORM_REGISTRY.update(_LEGACY_TRANSFORM_REGISTRY)
+@cache
+def _get_transform_registry() -> dict[str, str]:
+    return _discover_transforms() | _LEGACY_TRANSFORM_REGISTRY
+
 
 # Goal categories matching the SDK's GoalCategory enum
 _GOAL_CATEGORIES = [
@@ -999,12 +999,12 @@ _GOAL_CATEGORIES = [
 
 def _resolve_attack(name: str) -> t.Any:
     """Import and return an attack factory by short name."""
-    if name not in _ATTACK_REGISTRY:
+    if name not in _get_attack_registry():
         raise ValueError(
             f"--attack {name!r} is not a known attack. "
             "See `dn airt list-attacks` for available values."
         )
-    module_path, attr_name = _ATTACK_REGISTRY[name].rsplit(":", 1)
+    module_path, attr_name = _get_attack_registry()[name].rsplit(":", 1)
     import importlib
 
     module = importlib.import_module(module_path)
@@ -1028,12 +1028,12 @@ def _resolve_transforms(names: list[str], *, adapter_model: str | None = None) -
             transforms.append(adapt_language(locale, adapter_model=adapter_model))
             continue
 
-        if name not in _TRANSFORM_REGISTRY:
+        if name not in _get_transform_registry():
             raise ValueError(
                 f"--transform {name!r} is not a known transform. "
                 "See `dn airt list-transforms` for available values."
             )
-        module_path, attr_name = _TRANSFORM_REGISTRY[name].rsplit(":", 1)
+        module_path, attr_name = _get_transform_registry()[name].rsplit(":", 1)
         import importlib
 
         module = importlib.import_module(module_path)
@@ -1839,9 +1839,9 @@ def _attack_rows() -> list[dict[str, t.Any]]:
             "name": name,
             "description": _ATTACK_DESCRIPTIONS.get(name, ("", None))[0],
             "default_iterations": _ATTACK_DESCRIPTIONS.get(name, ("", None))[1],
-            "factory": _ATTACK_REGISTRY[name],
+            "factory": _get_attack_registry()[name],
         }
-        for name in sorted(_ATTACK_REGISTRY)
+        for name in sorted(_get_attack_registry())
     ]
 
 
@@ -1952,12 +1952,12 @@ _TRANSFORM_LIST_ROW_FIELDS: tuple[str, ...] = (
 
 def _transform_rows() -> list[dict[str, t.Any]]:
     rows: list[dict[str, t.Any]] = []
-    for name in sorted(_TRANSFORM_REGISTRY):
+    for name in sorted(_get_transform_registry()):
         # Get description from manual registry or generate one from the module/function name
         description = _TRANSFORM_DESCRIPTIONS.get(name, "")
         if not description:
             # Generate description from function name and module
-            factory_path = _TRANSFORM_REGISTRY[name]
+            factory_path = _get_transform_registry()[name]
             if ":" in factory_path:
                 module_path, func_name = factory_path.split(":", 1)
                 module_name = module_path.split(".")[-1]
@@ -1968,7 +1968,7 @@ def _transform_rows() -> list[dict[str, t.Any]]:
             {
                 "name": name,
                 "description": description,
-                "factory": _TRANSFORM_REGISTRY[name],
+                "factory": _get_transform_registry()[name],
                 "requires_attacker_model": False,
             }
         )

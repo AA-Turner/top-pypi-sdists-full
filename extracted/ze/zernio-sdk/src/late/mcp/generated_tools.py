@@ -6964,6 +6964,54 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Per-creative performance inside TikTok Smart+ ads",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_insights_get_tik_tok_smart_plus_material_report(
+        account_id: str,
+        ad_account_id: str,
+        start_date: str,
+        end_date: str,
+        level: str = "ad",
+        smart_plus_ad_ids: str | None = None,
+        ad_group_ids: str | None = None,
+        page: int = 1,
+        page_size: int = 100,
+    ) -> str:
+        """Per-creative performance inside TikTok Smart+ ads
+
+        Args:
+            account_id: A tiktok or tiktokads account ID (required)
+            ad_account_id: TikTok advertiser ID (required)
+            start_date: YYYY-MM-DD, in the advertiser's time zone (required)
+            end_date: YYYY-MM-DD, on or after startDate (required)
+            level: Key each row by Smart+ ad or by ad group
+            smart_plus_ad_ids: Comma-separated Smart+ ad ids to filter by (up to 100)
+            ad_group_ids: Comma-separated ad group ids to filter by (up to 100)
+            page
+            page_size"""
+        client = _get_client()
+        try:
+            response = client.ad_insights.get_tik_tok_smart_plus_material_report(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                start_date=start_date,
+                end_date=end_date,
+                level=level,
+                smart_plus_ad_ids=smart_plus_ad_ids,
+                ad_group_ids=ad_group_ids,
+                page=page,
+                page_size=page_size,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # AD_LIBRARY
 
     @mcp.tool(
@@ -11257,7 +11305,7 @@ def register_generated_tools(mcp, _get_client):
           oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
           internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
           missing_google_permissions, missing_tiktok_permissions, platform_requires_destination,
-          reconnect_account_mismatch, invalid_request
+          reconnect_account_mismatch, instagram_login_method_mismatch, invalid_request
 
         Access and limits:
           profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
@@ -11301,6 +11349,11 @@ def register_generated_tools(mcp, _get_client):
         3. `missing_tiktok_permissions` means the TikTok authorization left out a permission the
         already-connected account needs, so nothing was changed and it keeps working as before.
         It is user-fixable: connect again and accept every permission on TikTok's screen.
+
+        4. `instagram_login_method_mismatch` means an Instagram Login authorization landed on a
+        profile whose Instagram account is connected through Facebook Login, so nothing was
+        changed and it keeps working as before. To refresh it, connect again with
+        `loginMethod=facebook_login`. To move it to Instagram Login, disconnect it first.
                 headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
                 login_method: Instagram only. Which of the two Instagram connection methods to use. Ignored for every other platform.
 
@@ -11467,14 +11520,21 @@ def register_generated_tools(mcp, _get_client):
         gives one, `details.disableReason`. Unsettled and in-grace accounts
         are accepted, matching the `selectable` flag of `GET /v1/ads/accounts`.
         Setting a scope also removes already synced ads from de-scoped ad
-        accounts. For multiple accounts use `adAccountIds` instead.
+        accounts. On Meta the scope also decides which ad accounts Zernio
+        subscribes to ad-account webhooks: only the scoped ones, instead of
+        every ad account the login can reach. The scope is kept when this
+        call returns an `authUrl`, so the Meta Ads account created after
+        OAuth is scoped (and only its scoped ad accounts synced and
+        subscribed) from the start. For multiple accounts use `adAccountIds` instead.
                 ad_account_ids: Scope ad sync to multiple platform ad accounts (same platform
         support and id shapes as `adAccountId`). Repeat the param
         (`?adAccountIds=act_1&adAccountIds=act_2`) or comma-separate
         (`?adAccountIds=act_1,act_2`). Persisted server-side; latest call
         wins, and de-scoped ad accounts have their synced ads removed.
+        On Meta only the scoped ad accounts get webhook subscriptions,
+        including when the call starts a fresh OAuth.
         Omitting both `adAccountId` and `adAccountIds` keeps any previously
-        persisted scope unchanged."""
+        persisted scope unchanged (no scope means every reachable ad account)."""
         client = _get_client()
         try:
             response = client.connect.connect_ads(
@@ -22442,6 +22502,8 @@ def register_generated_tools(mcp, _get_client):
         is_active: bool = True,
         custom_headers: dict[str, Any] | None = None,
         disabled_resource_groups: list[str] | None = None,
+        profile_ids: list[str] | None = None,
+        account_ids: list[str] | None = None,
     ) -> str:
         """Create webhook
 
@@ -22452,7 +22514,9 @@ def register_generated_tools(mcp, _get_client):
             events: Events to subscribe to (at least one required) (required)
             is_active: Enable or disable webhook delivery. Defaults to `true` when omitted.
             custom_headers: Custom headers to include in webhook requests
-            disabled_resource_groups: Resource groups this subscription does not receive (opt-out denylist). Omit or send an empty array to receive every event in `events`. Listing a group here drops its events before delivery and on every replay path. Set at creation it applies to everything this subscription ever receives; changed later via PUT it applies to events emitted after the change, with a five-minute tail for events already queued (see that operation). When the caller is a restricted (zrk_) key, that key's own disabled groups are unioned into whatever you send here, so a restricted key can never create a subscription wider than itself."""
+            disabled_resource_groups: Resource groups this subscription does not receive (opt-out denylist). Omit or send an empty array to receive every event in `events`. Listing a group here drops its events before delivery and on every replay path. Set at creation it applies to everything this subscription ever receives; changed later via PUT it applies to events emitted after the change, with a five-minute tail for events already queued (see that operation). When the caller is a restricted (zrk_) key, that key's own disabled groups are unioned into whatever you send here, so a restricted key can never create a subscription wider than itself.
+            profile_ids: Profiles this subscription receives events for. Omit or send an empty array to receive every profile. Every id must be a profile in your team, otherwise the request fails with 404 `profile_not_found` and nothing is created. Typical use is routing the profile that holds test accounts to a staging endpoint.
+            account_ids: Connected accounts this subscription receives events for. Omit or send an empty array to receive every account. Every id must be an account in your team, otherwise the request fails with 404 `account_not_found` and nothing is created. Combine with `profileIds` to narrow further; both must match."""
         client = _get_client()
         try:
             response = client.webhooks.create_webhook_settings(
@@ -22463,6 +22527,8 @@ def register_generated_tools(mcp, _get_client):
                 is_active=is_active,
                 custom_headers=custom_headers,
                 disabled_resource_groups=disabled_resource_groups,
+                profile_ids=profile_ids,
+                account_ids=account_ids,
             )
             return _format_response(response)
         except Exception as e:
@@ -22486,6 +22552,8 @@ def register_generated_tools(mcp, _get_client):
         is_active: bool | None = None,
         custom_headers: dict[str, Any] | None = None,
         disabled_resource_groups: list[str] | None = None,
+        profile_ids: list[str] | None = None,
+        account_ids: list[str] | None = None,
     ) -> str:
         """Update webhook
 
@@ -22498,7 +22566,9 @@ def register_generated_tools(mcp, _get_client):
             events: Events to subscribe to. Must contain at least one event if provided.
             is_active: Enable or disable webhook delivery
             custom_headers: Custom headers to include in webhook requests
-            disabled_resource_groups: Replaces the subscription's denylist. Send an empty array to clear it and receive every event in `events` again. Omitting the field leaves the current denylist untouched. Applies to events emitted after the update; already-queued events can still deliver for up to five minutes after they were enqueued. When the caller is a restricted (zrk_) key, that key's own disabled groups are unioned back in either way, so a restricted key can neither clear nor widen a subscription past its own groups."""
+            disabled_resource_groups: Replaces the subscription's denylist. Send an empty array to clear it and receive every event in `events` again. Omitting the field leaves the current denylist untouched. Applies to events emitted after the update; already-queued events can still deliver for up to five minutes after they were enqueued. When the caller is a restricted (zrk_) key, that key's own disabled groups are unioned back in either way, so a restricted key can neither clear nor widen a subscription past its own groups.
+            profile_ids: Replaces the subscription's profile allowlist. Send an empty array to receive every profile again. Omitting the field leaves the current list untouched. Every id must be a profile in your team, otherwise the request fails with 404 `profile_not_found` and nothing changes. Applies to events emitted after the update. Sending the stored list back unchanged is accepted without re-validation, so an endpoint stays editable after a listed profile is deleted.
+            account_ids: Replaces the subscription's account allowlist. Send an empty array to receive every account again. Omitting the field leaves the current list untouched. Every id must be an account in your team, otherwise the request fails with 404 `account_not_found` and nothing changes. Sending the stored list back unchanged is accepted without re-validation."""
         client = _get_client()
         try:
             response = client.webhooks.update_webhook_settings(
@@ -22511,6 +22581,8 @@ def register_generated_tools(mcp, _get_client):
                 is_active=is_active,
                 custom_headers=custom_headers,
                 disabled_resource_groups=disabled_resource_groups,
+                profile_ids=profile_ids,
+                account_ids=account_ids,
             )
             return _format_response(response)
         except Exception as e:

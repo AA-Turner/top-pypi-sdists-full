@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import assert_type
 from typing import List
 
 from sqlalchemy import ForeignKey
@@ -20,11 +21,11 @@ class Milestone:
     id: Mapped[int] = mapped_column(primary_key=True)
 
     @declared_attr
-    def users(self) -> Mapped[List["User"]]:
+    def users(cls) -> Mapped[List["User"]]:
         return relationship("User")
 
     @declared_attr
-    def user_ids(self) -> AssociationProxy[List[int]]:
+    def user_ids(cls) -> AssociationProxy[List[int]]:
         return association_proxy("users", "id")
 
 
@@ -42,5 +43,4 @@ bm = BranchMilestone()
 
 x1 = bm.user_ids
 
-# EXPECTED_TYPE: list[int]
-reveal_type(x1)
+assert_type(x1, list[int])

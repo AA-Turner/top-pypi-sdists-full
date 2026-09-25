@@ -1,5 +1,8 @@
 """Built-in samplers for optimization studies."""
 
+import importlib
+import typing as t
+
 from dreadnode.samplers.boundary import BoundarySampler
 from dreadnode.samplers.fuzzing import (
     FuzzingSampler,
@@ -26,7 +29,6 @@ from dreadnode.samplers.mapelites import (
     MutationTarget,
     mapelites_sampler,
 )
-from dreadnode.samplers.optuna import OptunaSampler
 from dreadnode.samplers.random import RandomImageSampler, RandomSampler
 from dreadnode.samplers.registry import (
     SAMPLER_REGISTRY,
@@ -40,6 +42,9 @@ from dreadnode.samplers.strategy import (
     StrategyStore,
     strategy_library_sampler,
 )
+
+if t.TYPE_CHECKING:
+    from dreadnode.samplers.optuna import OptunaSampler
 
 __all__ = [
     "SAMPLER_REGISTRY",
@@ -72,3 +77,11 @@ __all__ = [
     "register_sampler",
     "strategy_library_sampler",
 ]
+
+
+def __getattr__(name: str) -> t.Any:
+    if name == "OptunaSampler":
+        component = importlib.import_module("dreadnode.samplers.optuna").OptunaSampler
+        globals()[name] = component
+        return component
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

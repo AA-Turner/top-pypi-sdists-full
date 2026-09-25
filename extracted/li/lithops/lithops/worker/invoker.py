@@ -14,54 +14,74 @@
 # limitations under the License.
 #
 import os
+import json
 import time
 import logging
 from types import SimpleNamespace
+from typing import Any, Dict
 
+from lithops.constants import (
+    MONITORING_QUEUES_ENV,
+    SESSION_ID_ENV,
+    WORKER_ENV,
+)
 from lithops.serverless import ServerlessHandler
-from lithops.monitor import JobMonitor
+from lithops.monitoring import JobMonitor
 from lithops.storage import InternalStorage
 from lithops.config import extract_serverless_config, extract_storage_config
 from lithops.invokers import FaaSInvoker
+from lithops.utils import (
+    monitoring_queues,
+    remote_invoker_queue_name,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-def function_invoker(job_payload):
+def function_invoker(job_payload: Dict[str, Any]) -> None:
     """
-    Method used as a remote invoker
+    Entry point of the remote invoker: invokes a whole job from a worker,
+    instead of from the client
     """
     config = job_payload['config']
     job = SimpleNamespace(**job_payload['job'])
 
-    env = {'LITHOPS_WORKER': 'True', 'PYTHONUNBUFFERED': 'True',
-           '__LITHOPS_SESSION_ID': job.job_key}
-    os.environ.update(env)
+    # This invoker watches the calls of the client's executor, but it cannot
+    # read the client's queue: a message taken from a queue is gone, and the
+    # two would end up splitting the statuses between them. It takes a queue
+    # of its own, and the calls report to both
+    invoker_queue = remote_invoker_queue_name(job.executor_id)
+
+    os.environ.update({
+        WORKER_ENV: 'True',
+        'PYTHONUNBUFFERED': 'True',
+        SESSION_ID_ENV: job.job_key,
+        # The job this invoker spawns reports to the queues of the client and
+        # to this invoker's own, and an executor created here extends that
+        # chain rather than replacing it
+        MONITORING_QUEUES_ENV: json.dumps(
+            monitoring_queues(job.executor_id) + [invoker_queue]
+        ),
+    })
 
     backend = config['lithops']['backend']
     config[backend]['invoke_pool_threads'] = 128
 
-    # Create the internal_storage handler
     storage_config = extract_storage_config(config)
     internal_storage = InternalStorage(storage_config)
 
-    # Create the compute handler
     serverless_config = extract_serverless_config(config)
     compute_handler = ServerlessHandler(serverless_config, storage_config)
-
-    # Create the monitoring system
-    monitoring_backend = config['lithops']['monitoring'].lower()
-    monitoring_config = config.get(monitoring_backend)
 
     job_monitor = JobMonitor(
         executor_id=job.executor_id,
         internal_storage=internal_storage,
-        backend=monitoring_backend,
-        config=monitoring_config
+        config=config,
+        queue_name=invoker_queue,
     )
+    job_monitor.prepare()
 
-    # Create the invoker
     invoker = FaaSRemoteInvoker(
         config,
         job.executor_id,
@@ -74,12 +94,13 @@ def function_invoker(job_payload):
 
 class FaaSRemoteInvoker(FaaSInvoker):
     """
-    Module responsible to perform the invocations against the serverless compute backend
+    Module responsible to perform the invocations against the serverless
+    compute backend
     """
 
-    def run_job(self, job):
+    def run_job(self, job: SimpleNamespace) -> None:
         """
-        Run a job
+        Invokes every task of the job and waits until they are all submitted
         """
         futures = self._run_job(job)
         self.job_monitor.start(
@@ -89,11 +110,17 @@ class FaaSRemoteInvoker(FaaSInvoker):
             generate_tokens=True
         )
 
+        # stop() drops whatever is still pending, so wait until the async
+        # invokers have picked every chunk up before stopping them
         while self.pending_calls_q.qsize() > 0:
             time.sleep(1)
 
-        self.job_monitor.stop()  # Stop job monitor thread
-        self.stop()  # Stop async invokers threads
-        time.sleep(5)
+        self.job_monitor.stop()
+        # Waits for the invocations still in flight, which this worker must not
+        # be frozen in the middle of
+        self.stop(wait=True)
+        # The queue belongs to this invoker, and nothing else will come back
+        # to delete it once the worker is gone
+        self.job_monitor.cleanup()
 
         logger.info('Remote Invoker Finished')

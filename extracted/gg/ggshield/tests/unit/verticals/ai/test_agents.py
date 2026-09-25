@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import patch
@@ -13,6 +14,8 @@ from ggshield.verticals.ai.agents.claude_code import Claude, _mangle_server_name
 from ggshield.verticals.ai.agents.codex import Codex
 from ggshield.verticals.ai.agents.copilot import Copilot
 from ggshield.verticals.ai.agents.cursor import Cursor, _parse_tool_arguments
+from ggshield.verticals.ai.agents.junie import Junie
+from ggshield.verticals.ai.agents.kiro import Kiro
 from ggshield.verticals.ai.agents.vibe import Vibe
 from ggshield.verticals.ai.agents.vscode import VSCode
 from ggshield.verticals.ai.models import (
@@ -1632,7 +1635,8 @@ class TestVSCodeParseMcpActivity:
         assert req.tool == "tool_name"
         assert req.server == "server2"
 
-    def test_unknown_server_falls_back_to_cfg_name(self):
+    def test_unknown_server_reports_the_raw_tool_name(self):
+        """An unsplittable name is reported as-is, for the API to resolve."""
         vscode = VSCode()
         discovery = _ai_discovery(servers=[])
         payload = _payload(
@@ -1642,8 +1646,21 @@ class TestVSCodeParseMcpActivity:
 
         req = vscode.parse_mcp_activity(payload, discovery)
 
-        assert req.server == "unknown"
-        assert req.tool == "tool_name"
+        assert req.server == ""
+        assert req.tool == "mcp_unknown_tool_name"
+
+    def test_empty_tool_name_is_reported_without_a_server(self):
+        """A payload with no tool name must not break the hook."""
+        vscode = VSCode()
+        payload = _payload(
+            vscode,
+            raw={"tool_name": "", "cwd": "/tmp", "tool_input": {}},
+        )
+
+        req = vscode.parse_mcp_activity(payload, _ai_discovery(servers=[]))
+
+        assert req.server == ""
+        assert req.tool == ""
 
 
 # ===========================================================================
@@ -1924,3 +1941,350 @@ class TestSubscriptionEmail:
         WHEN subscription_email is read
         THEN None is returned, never a stand-in from git config"""
         assert agent.subscription_email() is None
+
+
+# ===========================================================================
+# Kiro
+# ===========================================================================
+
+
+class TestKiro:
+    def test_config_folder(self, tmp_path: Path):
+        with patch(
+            "ggshield.verticals.ai.agents.kiro.get_user_home_dir", return_value=tmp_path
+        ):
+            assert Kiro().config_folder == tmp_path / ".kiro"
+
+    def test_mcp_files(self):
+        kiro = Kiro()
+        assert kiro.project_mcp_file(Path("/tmp/project")) == (
+            Path("/tmp/project") / ".kiro" / "settings" / "mcp.json"
+        )
+        assert kiro.user_mcp_file.parts[-3:] == (".kiro", "settings", "mcp.json")
+
+    def test_settings_template_matcher_is_a_regex(self):
+        """GIVEN the installed hook file
+        WHEN its matchers are read
+        THEN they are regexes: Kiro drops a hook whose matcher does not compile,
+        and a bare "*" does not, so it would install a hook that never runs."""
+        hooks = Kiro().settings_template["hooks"]
+        matchers = {hook["trigger"]: hook.get("matcher") for hook in hooks}
+
+        assert matchers == {
+            "UserPromptSubmit": None,
+            "PreToolUse": ".*",
+            "PostToolUse": ".*",
+        }
+
+    def test_settings_locate_matches_on_the_trigger(self):
+        """GIVEN hooks that all carry the same matcher
+        WHEN one is located for an update
+        THEN the trigger is what tells them apart."""
+        kiro = Kiro()
+        candidates = [
+            {"trigger": "PreToolUse", "name": "ggshield-pre-tool"},
+            {"trigger": "PostToolUse", "name": "ggshield-post-tool"},
+        ]
+
+        found = kiro.settings_locate(candidates, {"trigger": "PostToolUse"})
+
+        assert found is candidates[1]
+        assert kiro.settings_locate(candidates, {"trigger": "SessionStart"}) is None
+
+    def test_user_mcp_configurations_include_powers(self, tmp_path: Path):
+        """GIVEN an mcp.json holding the user's own servers and a power's
+        WHEN the user-scoped configurations are discovered
+        THEN both are reported: a power's server is a live server too."""
+        settings = tmp_path / ".kiro" / "settings"
+        settings.mkdir(parents=True)
+        (settings / "mcp.json").write_text(
+            json.dumps(
+                {
+                    "mcpServers": {"mine": {"command": "uvx", "args": ["mine"]}},
+                    "powers": {
+                        "mcpServers": {
+                            "from-power": {"url": "https://example.test/mcp"}
+                        }
+                    },
+                }
+            )
+        )
+
+        with patch(
+            "ggshield.verticals.ai.agents.kiro.get_user_home_dir", return_value=tmp_path
+        ):
+            configurations = list(Kiro()._get_user_mcp_configurations())
+
+        assert {c.name for c in configurations} == {"mine", "from-power"}
+        assert all(c.scope == Scope.USER and c.agent == "kiro" for c in configurations)
+
+    def test_user_mcp_configurations_read_powers_nested_per_power(self, tmp_path: Path):
+        """GIVEN an mcp.json that keys the powers block by power
+        WHEN the user-scoped configurations are discovered
+        THEN their servers are still reported."""
+        settings = tmp_path / ".kiro" / "settings"
+        settings.mkdir(parents=True)
+        (settings / "mcp.json").write_text(
+            json.dumps(
+                {
+                    "powers": {
+                        "aws-docs": {"mcpServers": {"docs": {"command": "uvx"}}},
+                        "notes": {"mcpServers": {"notes": {"command": "notes-mcp"}}},
+                    }
+                }
+            )
+        )
+
+        with patch(
+            "ggshield.verticals.ai.agents.kiro.get_user_home_dir", return_value=tmp_path
+        ):
+            configurations = list(Kiro()._get_user_mcp_configurations())
+
+        assert {c.name for c in configurations} == {"docs", "notes"}
+
+    def test_project_mcp_configurations(self, tmp_path: Path):
+        """GIVEN a workspace holding .kiro/settings/mcp.json
+        WHEN its configurations are discovered
+        THEN the servers are reported against that project."""
+        settings = tmp_path / ".kiro" / "settings"
+        settings.mkdir(parents=True)
+        (settings / "mcp.json").write_text(
+            json.dumps({"mcpServers": {"pg": {"command": "postgres-mcp"}}})
+        )
+
+        configurations = list(Kiro()._get_project_mcp_configurations(tmp_path))
+
+        assert [c.name for c in configurations] == ["pg"]
+        assert configurations[0].scope == Scope.PROJECT
+        assert configurations[0].project == str(tmp_path)
+
+    def test_iter_history_events_yields_only_mcp_tool_calls(self, tmp_path: Path):
+        """GIVEN a session transcript holding first-party and MCP tool calls
+        WHEN its history is walked
+        THEN only the MCP calls are reported, in either spelling, with their
+        arguments and the time they were made."""
+        session = tmp_path / ".kiro" / "sessions" / "a1b2" / "sess_1"
+        session.mkdir(parents=True)
+        lines = [
+            {
+                "id": "1",
+                "timestamp": "2026-09-01T14:29:42.409Z",
+                "payload": {"type": "user"},
+            },
+            {
+                "id": "2",
+                "timestamp": "2026-09-01T14:29:43.000Z",
+                "payload": {
+                    "type": "tool_call",
+                    "toolName": "read_file",
+                    "args": {"path": "/p/a.py"},
+                },
+            },
+            {
+                "id": "3",
+                "timestamp": "2026-09-01T14:29:44.000Z",
+                "payload": {
+                    "type": "tool_call",
+                    "toolName": "@probe-time/get_current_time",
+                    "args": {"timezone": "UTC"},
+                },
+            },
+            {
+                "id": "4",
+                "timestamp": "2026-09-01T14:29:45.000Z",
+                "payload": {
+                    "type": "tool_call",
+                    "toolName": "mcp_probe_time_get_current_time",
+                    "args": {},
+                },
+            },
+        ]
+        (session / "messages.jsonl").write_text(
+            "\n".join(json.dumps(line) for line in lines)
+        )
+        cfg = _cfg(name="probe-time", agent="kiro")
+        discovery = _ai_discovery(
+            servers=[MCPServer(name="probe-time", configurations=[cfg], tools=[])]
+        )
+
+        with patch(
+            "ggshield.verticals.ai.agents.kiro.get_user_home_dir", return_value=tmp_path
+        ):
+            events = list(Kiro().iter_history_events(discovery))
+
+        assert [(e.server, e.tool) for e in events] == [
+            ("probe-time", "get_current_time"),
+            ("probe-time", "get_current_time"),
+        ]
+        assert events[0].input == {"timezone": "UTC"}
+        assert events[0].timestamp == datetime(
+            2026, 9, 1, 14, 29, 44, tzinfo=timezone.utc
+        )
+        assert all(e.agent == "kiro" for e in events)
+
+    def test_iter_history_events_survives_a_broken_transcript(self, tmp_path: Path):
+        """GIVEN a transcript holding a truncated line and an undated tool call
+        WHEN its history is walked
+        THEN the unusable lines are skipped rather than aborting the walk."""
+        session = tmp_path / ".kiro" / "sessions" / "a1b2" / "sess_1"
+        session.mkdir(parents=True)
+        (session / "messages.jsonl").write_text(
+            "{not json\n"
+            + json.dumps(
+                {"payload": {"type": "tool_call", "toolName": "@srv/tool", "args": {}}}
+            )
+            + "\n"
+            + json.dumps(
+                {
+                    "timestamp": "2026-09-01T14:29:44.000Z",
+                    "payload": {
+                        "type": "tool_call",
+                        "toolName": "@srv/tool",
+                        "args": {},
+                    },
+                }
+            )
+        )
+
+        with patch(
+            "ggshield.verticals.ai.agents.kiro.get_user_home_dir", return_value=tmp_path
+        ):
+            events = list(Kiro().iter_history_events(None))
+
+        assert [(e.server, e.tool) for e in events] == [("srv", "tool")]
+
+    def test_parse_mcp_activity_splits_both_spellings(self):
+        """GIVEN the CLI's "@server/tool" and the IDE's "mcp_server_tool"
+        WHEN the MCP activity is parsed
+        THEN both resolve to the same server and tool."""
+        kiro = Kiro()
+        cfg = _cfg(name="probe-time", agent="kiro")
+        discovery = _ai_discovery(
+            servers=[MCPServer(name="probe-time", configurations=[cfg], tools=[])]
+        )
+
+        cli = kiro.parse_mcp_activity(
+            _payload(kiro, raw={"tool_name": "@probe-time/get_current_time"}), discovery
+        )
+        ide = kiro.parse_mcp_activity(
+            _payload(kiro, raw={"tool_name": "mcp_probe_time_get_current_time"}),
+            discovery,
+        )
+
+        for request in (cli, ide):
+            assert request.server == "probe-time"
+            assert request.tool == "get_current_time"
+            assert request.agent == "kiro"
+
+
+# ===========================================================================
+# Junie CLI
+# ===========================================================================
+
+
+class TestJunie:
+    def test_config_folder_and_mcp_files(self, tmp_path: Path):
+        with patch(
+            "ggshield.verticals.ai.agents.junie.get_user_home_dir",
+            return_value=tmp_path,
+        ):
+            junie = Junie()
+            assert junie.config_folder == tmp_path / ".junie"
+            assert junie.user_mcp_file == tmp_path / ".junie" / "mcp" / "mcp.json"
+        assert Junie().project_mcp_file(Path("/tmp/project")) == (
+            Path("/tmp/project") / ".junie" / "mcp" / "mcp.json"
+        )
+
+    def test_settings_template_covers_the_two_scannable_events(self):
+        """GIVEN the installed hook file
+        WHEN its events are read
+        THEN it hooks the prompt and the tool call, and carries no matcher:
+        Junie matches one against the tool name and refuses an entry whose
+        matcher matches nothing."""
+        hooks = Junie().settings_template["hooks"]
+
+        assert sorted(hooks) == ["PreToolUse", "UserPromptSubmit"]
+        for entries in hooks.values():
+            assert entries == [{"hooks": [{"type": "command", "command": "<COMMAND>"}]}]
+
+    def test_settings_locate_finds_the_entry_by_its_nested_command(self):
+        """GIVEN matcher entries that carry no matcher of ours
+        WHEN one is located for an update
+        THEN the ggshield command one list down identifies it, so a second
+        install updates the entry instead of appending a duplicate."""
+        junie = Junie()
+        candidates = [
+            {"hooks": [{"type": "command", "command": "somebody-elses-hook"}]},
+            {
+                "hooks": [
+                    {"type": "command", "command": "/usr/bin/ggshield secret scan"}
+                ]
+            },
+        ]
+
+        template = {"hooks": [{"type": "command", "command": "<COMMAND>"}]}
+
+        assert junie.settings_locate(candidates, template) is candidates[1]
+        assert junie.settings_locate(candidates[:1], template) is None
+
+    def test_local_install_warns_that_junie_ignores_it(self):
+        """GIVEN a project-scoped install
+        WHEN the post-install warning is read
+        THEN it says Junie will not load it: a repository must not be able to
+        run shell commands on checkout."""
+        assert "ignores" in (Junie().post_install_warning("local") or "")
+        assert "Early Access" in (Junie().post_install_warning("global") or "")
+
+    def test_discover_project_directories_reads_the_session_index(self, tmp_path: Path):
+        """GIVEN a session index naming one project twice and one broken line
+        WHEN the project directories are discovered
+        THEN each existing project is yielded once and the broken line is
+        skipped: a running CLI appends to this file, so a half-written last
+        line is expected."""
+        project = tmp_path / "project"
+        project.mkdir()
+        sessions = tmp_path / ".junie" / "sessions"
+        sessions.mkdir(parents=True)
+        (sessions / "index.jsonl").write_text(
+            "\n".join(
+                [
+                    json.dumps({"sessionId": "a", "projectDir": str(project)}),
+                    json.dumps({"sessionId": "b", "projectDir": str(project)}),
+                    json.dumps(
+                        {"sessionId": "c", "projectDir": str(tmp_path / "gone")}
+                    ),
+                    '{"sessionId": "d", "projectDir": "/half-writt',
+                ]
+            )
+        )
+
+        with patch(
+            "ggshield.verticals.ai.agents.junie.get_user_home_dir",
+            return_value=tmp_path,
+        ):
+            assert list(Junie().discover_project_directories()) == [project.resolve()]
+
+    def test_discover_project_directories_survives_no_index(self, tmp_path: Path):
+        with patch(
+            "ggshield.verticals.ai.agents.junie.get_user_home_dir",
+            return_value=tmp_path,
+        ):
+            assert list(Junie().discover_project_directories()) == []
+
+    def test_parse_mcp_activity_reports_the_whole_tool_name(self):
+        """GIVEN an MCP tool call
+        WHEN the activity is parsed
+        THEN the whole name is the tool and no server is claimed: how Junie
+        spells an MCP tool in a hook payload is unverified, and a split would
+        be a guess."""
+        junie = Junie()
+        payload = _payload(
+            junie,
+            raw={"tool_name": "github/create_issue", "cwd": "/tmp", "tool_input": {}},
+        )
+
+        request = junie.parse_mcp_activity(payload, _ai_discovery(servers=[]))
+
+        assert request.server == ""
+        assert request.tool == "github/create_issue"
+        assert request.agent == "junie"

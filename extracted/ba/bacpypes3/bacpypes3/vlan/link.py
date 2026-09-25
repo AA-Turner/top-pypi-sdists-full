@@ -10,8 +10,9 @@ instance which references a NetworkServiceAccessPoint.
 
 from __future__ import annotations
 
-from ..comm import Client, Server, bind
-from ..debugging import ModuleLogger, bacpypes_debugging
+from ..debugging import bacpypes_debugging, ModuleLogger
+
+from ..comm import bind, Client, Server
 from ..pdu import PDU, LocalStation
 from ..vlan import VirtualNode
 

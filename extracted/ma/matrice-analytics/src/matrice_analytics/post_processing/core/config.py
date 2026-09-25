@@ -1120,6 +1120,9 @@ def filter_config_kwargs(config_class: type, kwargs: Dict[str, Any]) -> Dict[str
 #: The value is ``"module:ClassName"`` and is imported only on first use, so listing a use
 #: case here does not drag its module into every import of this package.
 _GENERIC_CONFIG_CLASSES: Dict[str, str] = {
+    "alerts_verification": (
+        "matrice_analytics.post_processing.usecases.alerts_verification:AlertsVerificationConfig"
+    ),
     "vehicle_speed_estimation": (
         "matrice_analytics.post_processing.usecases.vehicle_speed_estimation_config:"
         "VehicleSpeedEstimationConfig"

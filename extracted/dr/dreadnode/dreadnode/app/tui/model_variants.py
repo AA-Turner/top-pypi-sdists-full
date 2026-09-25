@@ -151,17 +151,11 @@ def cycle_variant(
 # ---------------------------------------------------------------------------
 
 
-_model_max_cache: dict[str, int | None] = {}
-
-
 def get_model_max_input_tokens(model: str) -> int | None:
     """Look up the max input token limit for a model via litellm metadata.
 
-    Returns None if the model is unknown. Results are cached per model string.
+    Returns None if the model is unknown. Reads the shared metadata cache.
     """
-    if model in _model_max_cache:
-        return _model_max_cache[model]
-
     result: int | None = None
     try:
         import os
@@ -171,26 +165,15 @@ def get_model_max_input_tokens(model: str) -> int | None:
         os.environ.setdefault("LITELLM_LOG", "ERROR")
         os.environ.setdefault("LITELLM_SUPPRESS_DEBUG_INFO", "1")
 
-        import litellm
+        from dreadnode.app.model_catalog import resolve_model_info
 
-        # Strip dn/ proxy prefix for lookup
-        lookup = model
-        lookup = lookup.removeprefix("dn/")
-
-        while lookup not in litellm.model_cost:
-            if "/" not in lookup:
-                break
-            lookup = "/".join(lookup.split("/")[1:])
-
-        if lookup in litellm.model_cost:
-            info = litellm.model_cost[lookup]
-            max_input = info.get("max_input_tokens") or info.get("max_tokens", 0)
-            if max_input and max_input > 0:
-                result = int(max_input)
+        info = resolve_model_info(model)
+        max_input = info.get("max_input_tokens") or info.get("max_tokens", 0)
+        if max_input and max_input > 0:
+            result = int(max_input)
     except Exception:  # noqa: S110
         pass
 
-    _model_max_cache[model] = result
     return result
 
 

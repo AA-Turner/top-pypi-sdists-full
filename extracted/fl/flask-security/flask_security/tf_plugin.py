@@ -19,7 +19,7 @@ from flask import request, redirect, session
 
 from .decorators import unauth_csrf
 from .forms import (
-    build_form_from_request,
+    _build_form_from_request,
     get_form_field_xlate,
     Form,
     RadioField,
@@ -30,13 +30,12 @@ from .utils import (
     _,
     base_render_json,
     check_and_get_token_status,
-    config_value as cv,
+    _config_value as cv,
     do_flash,
     get_message,
-    get_within_delta,
     get_url,
     login_user,
-    propagate_next,
+    _propagate_next,
     simple_render_json,
     url_for_security,
 )
@@ -49,10 +48,12 @@ if t.TYPE_CHECKING:  # pragma: no cover
 
 
 class TwoFactorSelectForm(Form):
-    which = RadioField(get_form_field_xlate(_("Available Second Factor Methods:")))
-    submit = SubmitField(get_form_field_xlate(_("Select")))
+    which: RadioField = RadioField(
+        get_form_field_xlate(_("Available Second Factor Methods:"))
+    )
+    submit: SubmitField = SubmitField(get_form_field_xlate(_("Select")))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
 
 
@@ -61,7 +62,7 @@ def tf_select() -> ResponseValue:
     # Ask user which MFA method they want to use.
     # This is used when a user has setup more than one type of 2FA.
     form = t.cast(
-        TwoFactorSelectForm, build_form_from_request("two_factor_select_form")
+        TwoFactorSelectForm, _build_form_from_request("two_factor_select_form")
     )
 
     # This endpoint is unauthenticated - make sure we're in a valid state
@@ -85,7 +86,7 @@ def tf_select() -> ResponseValue:
         if tf_impl:
             json_payload = {"tf_required": True}
             response = tf_impl.tf_login(
-                user, json_payload, next_loc=propagate_next(request.url, None)
+                user, json_payload, next_loc=_propagate_next(request.url, None)
             )
         if not response:  # pragma no cover
             # This really can't happen unless between the time the started logging in
@@ -280,7 +281,7 @@ def tf_validity_token_status(token):
     :param token: The Two-Factor Validity token
     """
     return check_and_get_token_status(
-        token, "tf_validity", get_within_delta("TWO_FACTOR_LOGIN_VALIDITY")
+        token, "tf_validity", cv("TWO_FACTOR_LOGIN_VALIDITY")
     )
 
 
@@ -290,7 +291,7 @@ def tf_verify_validity_token(fs_uniquifier: str) -> bool:
 
     :param fs_uniquifier: The ``fs_uniquifier`` of the submitting user.
     """
-    token = request.cookies.get("tf_validity", default=None)
+    token = request.cookies.get(cv("TWO_FACTOR_VALIDITY_COOKIE_NAME"), default=None)
     if token is None:
         return False
 
@@ -302,15 +303,15 @@ def tf_verify_validity_token(fs_uniquifier: str) -> bool:
 
 
 def tf_set_validity_token_cookie(response: Response, token: str) -> Response:
-    """Sets the Two-Factor validity token for a specific user given that is
-    configured and the user selects remember me
-
-    :param response: The response with which to set the set_cookie
-    :param token: validity token
-    """
+    """Sets the Two-Factor validity cookie"""
     cookie_kwargs = cv("TWO_FACTOR_VALIDITY_COOKIE")
-    max_age = int(get_within_delta("TWO_FACTOR_LOGIN_VALIDITY").total_seconds())
-    response.set_cookie("tf_validity", value=token, max_age=max_age, **cookie_kwargs)
+    max_age = int(cv("TWO_FACTOR_LOGIN_VALIDITY").total_seconds())
+    response.set_cookie(
+        cv("TWO_FACTOR_VALIDITY_COOKIE_NAME"),
+        value=token,
+        max_age=max_age,
+        **cookie_kwargs,
+    )
     # This is likely overkill since so far we only return this on a POST which is
     # unlikely to be cached.
     response.vary.add("Cookie")

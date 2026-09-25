@@ -257,7 +257,7 @@ class PickleTest(fixtures.MappedTest):
         self.mapper_registry.map_imperatively(
             User,
             users,
-            properties={"addresses": relationship(Address, lazy="noload")},
+            properties={"addresses": relationship(Address, lazy="raise")},
         )
         self.mapper_registry.map_imperatively(Address, addresses)
 
@@ -445,7 +445,7 @@ class PickleTest(fixtures.MappedTest):
         self.mapper_registry.map_imperatively(
             User,
             users,
-            properties={"addresses": relationship(Address, lazy="noload")},
+            properties={"addresses": relationship(Address)},
         )
         self.mapper_registry.map_imperatively(Address, addresses)
 
@@ -461,7 +461,7 @@ class PickleTest(fixtures.MappedTest):
         self.mapper_registry.map_imperatively(
             User,
             users,
-            properties={"addresses": relationship(Address, lazy="noload")},
+            properties={"addresses": relationship(Address)},
         )
         self.mapper_registry.map_imperatively(Address, addresses)
 

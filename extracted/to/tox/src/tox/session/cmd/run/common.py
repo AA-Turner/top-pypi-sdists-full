@@ -9,7 +9,6 @@ from argparse import Action, ArgumentError, ArgumentParser, Namespace
 from concurrent.futures import FIRST_COMPLETED, CancelledError, Future, ThreadPoolExecutor
 from concurrent.futures import wait as wait_futures
 from fnmatch import fnmatchcase
-from operator import itemgetter
 from pathlib import Path
 from signal import SIGINT, Handlers, signal
 from threading import Event, Thread
@@ -28,7 +27,7 @@ from tox.tox_env.errors import Fail
 from tox.util.graph import stable_topological_sort
 from tox.util.spinner import MISS_DURATION, Spinner
 from tox.util.typing_compat import override
-from tox.util.venv_redirect import record_venv_redirect
+from tox.util.venv_redirect import record_venv_redirect, venv_redirect_path
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Sequence
@@ -237,6 +236,7 @@ def execute(state: State, max_workers: int | None, has_spinner: bool, live: bool
     to_run_list: list[str] = list(state.envs.iter())
     for name in to_run_list:
         cast("RunToxEnv", state.envs[name]).mark_active()
+    _venv_redirect_enabled(state, _env_dirs(state))  # reject a conflicting setting before any environment runs
 
     scheduler_error: list[BaseException] = []
 
@@ -305,6 +305,24 @@ def execute(state: State, max_workers: int | None, has_spinner: bool, live: bool
     return exit_code
 
 
+def _env_dirs(state: State) -> dict[str, Path]:
+    return {name: state.envs[name].env_dir for name in state.envs.iter(only_active=False)}
+
+
+def _venv_redirect_enabled(state: State, env_dirs: dict[str, Path]) -> bool:
+    redirect = venv_redirect_path(state.conf.core.get("tox_root", Path))
+    at_redirect = [name for name, env_dir in env_dirs.items() if env_dir == redirect]
+    if (setting := state.conf.core.get_optional("venv_redirect", bool)) is None:
+        return not at_redirect  # unset: an environment living at .venv is the project's .venv
+    if setting and at_redirect:
+        msg = (
+            f"venv_redirect is true, but tox environment {at_redirect[0]} lives at {redirect}, where the redirect file"
+            " goes; set venv_redirect to false or leave it unset"
+        )
+        raise HandledError(msg)
+    return setting
+
+
 def _order_results(state: State, results: list[ToxEnvRunResult], to_run_list: list[str]) -> list[ToxEnvRunResult]:
     name_to_run = {r.name: r for r in results}
     ordered: list[ToxEnvRunResult] = [
@@ -321,28 +339,22 @@ def _order_results(state: State, results: list[ToxEnvRunResult], to_run_list: li
 
 
 def _record_venv_redirect(state: State) -> None:
+    env_dirs = _env_dirs(state)
+    if not _venv_redirect_enabled(state, env_dirs) or (target := _venv_redirect_target(state, env_dirs)) is None:
+        return
     core = state.conf.core
-    if not core.get("venv_redirect", bool):
-        return
-    env_dirs = {name: state.envs[name].env_dir for name in state.envs.iter(only_active=False)}
-    if (target := _venv_redirect_target(state, env_dirs)) is None:
-        return
     work_dir, ours = core.get("work_dir", Path), set(env_dirs.values())
     record_venv_redirect(core.get("tox_root", Path), target, lambda path: path in ours or path.is_relative_to(work_dir))
 
 
 def _venv_redirect_target(state: State, env_dirs: dict[str, Path]) -> Path | None:
-    usable = {name: env_dir for name, env_dir in env_dirs.items() if (env_dir / "pyvenv.cfg").exists()}
-    if (pinned := state.conf.core.get_optional("venv_redirect_env", str)) is not None:
-        if pinned not in env_dirs:
-            logger.warning("venv_redirect_env names %s, which is not a tox environment", pinned)
-        return usable.get(pinned)
-    # prefer what someone edits code against: an environment named dev, then a develop install, then env list order
-    ranked = [
-        ((name == "dev", _installs_develop(state.envs[name]), -at), env_dir)
-        for at, (name, env_dir) in enumerate(usable.items())
-    ]
-    return max(ranked, key=itemgetter(0))[1] if ranked else None
+    # the pick depends on the configuration alone, so it stays the same whichever environments ran
+    if (pinned := state.conf.core.get_optional("venv_redirect_env", str)) is not None and pinned not in env_dirs:
+        logger.warning("venv_redirect_env names %s, which is not a tox environment", pinned)
+        return None
+    develop = next((name for name in env_dirs if _installs_develop(state.envs[name])), None)
+    name = pinned or ("dev" if "dev" in env_dirs else develop)
+    return env_dirs[name] if name is not None and (env_dirs[name] / "pyvenv.cfg").exists() else None
 
 
 def _installs_develop(env: ToxEnv) -> bool:

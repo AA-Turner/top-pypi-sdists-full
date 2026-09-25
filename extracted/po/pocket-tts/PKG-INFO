@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pocket-tts
-Version: 3.2.0
+Version: 3.3.0
 Summary: Kyutai's pocket-sized text-to-speech!
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10

@@ -2,11 +2,16 @@ import struct
 import zlib
 from collections import defaultdict
 from enum import Enum, Flag, auto
+from importlib.metadata import PackageNotFoundError, version
 from io import BufferedWriter, RawIOBase
 from typing import IO, Any, Dict, List, OrderedDict, Union
 
-from .__init__ import __version__
 from .exceptions import UnsupportedCompressionError
+
+try:
+    __version__ = version("mcap")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
 
 try:
     import lz4.frame  # type: ignore
@@ -493,6 +498,16 @@ class Writer:
 
         self.__chunk_indices.append(chunk_index)
         self.__chunk_builder.reset()
+
+    def flush(self):
+        """Finishes the chunk in progress, if any, writes everything buffered so far to
+        the output stream, and flushes the stream. This does not fsync the underlying file.
+        A chunk with no messages is not written. Compression works per chunk, so flushing
+        often reduces the compression ratio.
+        """
+        self.__finalize_chunk()
+        self.__flush()
+        self.__stream.flush()
 
     def __maybe_finalize_chunk(self):
         if self.__chunk_builder and self.__chunk_builder.count > self.__chunk_size:

@@ -1208,7 +1208,8 @@ class ModelResolver:  # noqa: PLR0904
             file_path, fragment = joined_path.split("#", 1)
             ref = f"{file_path}#{fragment}"
             if (
-                self.root_id_base_path
+                file_path
+                and self.root_id_base_path
                 and not self.base_url
                 and not (is_url(joined_path) or Path(self._base_path, file_path).is_file())
             ):
@@ -1299,16 +1300,19 @@ class ModelResolver:  # noqa: PLR0904
         resolved_file = resolved_path.split("#", maxsplit=1)[0]
         return current_file != resolved_file
 
+    def ref_original_name(self, ref: str, path: str) -> str:
+        """Return the model name a reference derives before its schema is parsed."""
+        split_ref = ref.rsplit("/", 1)
+        if len(split_ref) == 1:
+            return Path(split_ref[0].rstrip("#") if self.is_external_root_ref(path) else split_ref[0]).stem
+        return Path(split_ref[1].rstrip("#")).stem if self.is_external_root_ref(path) else split_ref[1]
+
     def add_ref(self, ref: str, resolved: bool = False) -> Reference:  # noqa: FBT001, FBT002
         """Add a reference and return the Reference object."""
         path = self.resolve_ref(ref) if not resolved else ref
         if reference := self.references.get(path):
             return reference
-        split_ref = ref.rsplit("/", 1)
-        if len(split_ref) == 1:
-            original_name = Path(split_ref[0].rstrip("#") if self.is_external_root_ref(path) else split_ref[0]).stem
-        else:
-            original_name = Path(split_ref[1].rstrip("#")).stem if self.is_external_root_ref(path) else split_ref[1]
+        original_name = self.ref_original_name(ref, path) or self.ref_original_name(path, path)
         # For PrimaryFirst strategy, use unique=True for external references
         # so that definitions in the main input file get priority for clean names
         use_unique = self.naming_strategy == NamingStrategy.PrimaryFirst and self._is_external_path(path)

@@ -37,7 +37,10 @@ from src.middleware.rbac import (
     resolve_organization,
     verify_org_membership,
 )
-from src.utils.license_utils import ensure_top_tier_license
+from src.services.organization_creation import AliasTaken
+from src.services.organization_creation import (
+    create_organization as create_org_with_owner,
+)
 
 router = APIRouter(prefix="/api/v1/organizations", tags=["organizations"])
 
@@ -238,58 +241,20 @@ async def create_organization(
 
     The creating user becomes the owner of the organization.
     """
-    # Validate / generate alias
-    if organization.alias:
-        if session.exec(
-            select(Organization).where(Organization.alias == organization.alias)
-        ).first():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Organization with alias '{organization.alias}' already exists",
-            )
-    else:
-        base_alias = Organization.generate_alias(organization.name)
-        alias, counter = base_alias, 1
-        while session.exec(
-            select(Organization).where(Organization.alias == alias)
-        ).first():
-            alias = f"{base_alias}-{counter}"
-            counter += 1
-        organization.alias = alias
-
-    # Create organization
-    db_organization = Organization(
-        id=str(uuid4()),
-        **organization.model_dump(),
-        settings={},
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-    )
-
-    session.add(db_organization)
-
-    # Add creator as owner
-    membership = OrganizationMembership(
-        id=str(uuid4()),
-        organization_id=db_organization.id,
-        user_id=current_user.id,
-        role=OrganizationRole.ADMIN,
-        is_owner=True,
-        is_active=True,
-        joined_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-    )
-
-    session.add(membership)
-    session.commit()
-    session.refresh(db_organization)
-
-    # Every organization gets an active license by default (top tier for now —
-    # see ensure_top_tier_license). Without this, ticket/board/user creation
-    # 402s immediately for a brand-new org.
-    ensure_top_tier_license(db_organization.id, session)
-    # ensure_top_tier_license commits, which expires session-loaded objects.
-    session.refresh(db_organization)
+    fields = organization.model_dump()
+    try:
+        db_organization = create_org_with_owner(
+            session,
+            owner=current_user,
+            name=fields.pop("name"),
+            alias=fields.pop("alias"),
+            **fields,
+        )
+    except AliasTaken as taken:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Organization with alias '{taken}' already exists",
+        )
 
     org_dict = db_organization.model_dump()
     org_dict["is_platform_org"] = is_platform_organization(db_organization)

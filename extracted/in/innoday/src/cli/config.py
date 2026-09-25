@@ -40,8 +40,8 @@ console = Console()
 _notices = Console(stderr=True)
 
 # The deployed API, and the one place its address is written down. It was
-# spelled out in four (here, `commands/init.py`, and twice in
-# `commands/config.py`) while `src/mcp/server.py` carried a fifth that
+# spelled out in four (here, a since-deleted `commands/init.py`, and twice
+# in `commands/config.py`) while `src/mcp/server.py` carried a fifth that
 # disagreed (`http://localhost:8000`) -- so "what does a fresh install point
 # at" had two answers depending on which door you came through.
 DEFAULT_API_URL = "https://www.inno.day"

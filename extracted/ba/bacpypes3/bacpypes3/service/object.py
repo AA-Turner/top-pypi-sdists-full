@@ -17,13 +17,12 @@ from ..apdu import (
     ReadRangeACK,
     ReadRangeRequest,
     SimpleAckPDU,
-    WritePropertyMultipleError,
     WritePropertyRequest,
+    WritePropertyMultipleError,
 )
 from ..basetypes import (
     DateTime,
     ErrorType,
-    ObjectPropertyReference,
     PropertyIdentifier,
     PropertyReference,
     Range,
@@ -34,6 +33,7 @@ from ..basetypes import (
     ReadAccessResultElement,
     ReadAccessResultElementChoice,
     ReadAccessSpecification,
+    ObjectPropertyReference,
 )
 from ..constructeddata import Any, Array, List, SequenceOf
 from ..debugging import ModuleLogger, bacpypes_debugging
@@ -61,7 +61,7 @@ class ReadWritePropertyServices:
     _debug: Callable[..., None]
 
     device_object: Optional[DeviceObject]
-    device_info_cache: DeviceInfoCache  # noqa: F821
+    device_info_cache: "DeviceInfoCache"  # noqa: F821
 
     async def read_property(
         self,
@@ -496,7 +496,7 @@ class ReadWritePropertyMultipleServices:
     _debug: Callable[..., None]
 
     device_object: Optional[DeviceObject]
-    device_info_cache: DeviceInfoCache  # noqa: F821
+    device_info_cache: "DeviceInfoCache"  # noqa: F821
 
     async def read_property_multiple(
         self,
@@ -1000,7 +1000,7 @@ class ReadRangeServices:
     _debug: Callable[..., None]
 
     device_object: Optional[DeviceObject]
-    device_info_cache: DeviceInfoCache  # noqa: F821
+    device_info_cache: "DeviceInfoCache"  # noqa: F821
 
     async def read_range(
         self,

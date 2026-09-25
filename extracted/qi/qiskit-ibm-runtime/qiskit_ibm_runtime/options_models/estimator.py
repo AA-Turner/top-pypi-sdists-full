@@ -10,7 +10,7 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Options for the executor-based EstimatorV2."""
+"""Options for the client-side Estimator."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ from .twirling import TwirlingOptions
 
 
 class EstimatorOptions(BaseOptionsModel):
-    """Options for the executor-based EstimatorV2."""
+    """Options for the client-side Estimator."""
 
     default_precision: Annotated[float, Field(gt=0)] = 0.015625
     """The default precision to use for any PUB or ``run()`` call that does not specify one.
@@ -65,13 +65,10 @@ class EstimatorOptions(BaseOptionsModel):
     """Dynamical decoupling options."""
 
     simulator: SimulatorOptions = SimulatorOptions()
-    """Simulator options."""
+    """Options related to local mode simulations."""
 
     experimental: dict = {}
     """Experimental options."""
-
-    max_execution_time: int | None = None
-    """Maximum execution time in seconds, based on system execution time (not wall clock time)."""
 
     environment: EnvironmentOptions = EnvironmentOptions()
     """Options related to the execution environment."""
@@ -84,13 +81,22 @@ class EstimatorOptions(BaseOptionsModel):
 
     Higher levels generate more accurate results, at the expense of longer processing times. The
     supported values are:
+
     * 0: No mitigation.
     * 1: Minimal mitigation costs. Mitigate error associated with readout errors.
     * 2: Medium mitigation costs. Typically reduces bias in estimators but is not guaranteed to be
-        zero bias.
+      zero bias.
 
     Refer to the
     `Configure error mitigation for IBM Quantum Compute (formerly Qiskit Runtime)
     <https://quantum.cloud.ibm.com/docs/guides/configure-error-mitigation>`_ guide for more
     information about the error mitigation methods used at each level.
+    """
+
+    max_execution_time: int | None = None
+    """Maximum execution time in seconds.
+
+    This value bounds system execution time (not wall clock time). System execution time is the
+    amount of time that the system is dedicated to processing your job. If a job exceeds this time
+    limit, it is forcibly cancelled.
     """

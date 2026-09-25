@@ -123,6 +123,7 @@ class Device(BaseDevice):
         "IFeatureDeviceCoProError": ["coProFaulty"],
         "IFeatureDeviceCoProRestart": ["coProRestartNeeded"],
         "IFeatureDeviceCoProUpdate": ["coProUpdateFailure"],
+        "IFeatureDeviceDaliBusError": ["daliBusState"],
         "IFeatureDeviceIdentify": [],
         "IFeatureDeviceMountingModuleError": ["mountingModuleError"],
         "IFeatureDeviceOverheated": ["deviceOverheated"],
@@ -149,6 +150,8 @@ class Device(BaseDevice):
         # "IOptionalFeatureColorTemperatureDynamicDaylight": false,
         "IOptionalFeatureControlsMountingOrientation": ["controlsMountingOrientation"],
         "IOptionalFeatureDeviceErrorLockJammed": ["lockJammed"],
+        "IOptionalFeatureDeviceInputLayoutMode": ["inputLayoutMode"],
+        "IOptionalFeatureDimmerState": [],
         "IOptionalFeatureDisplayContrast": [],
         "IOptionalFeatureDutyCycle": ["dutyCycle"],
         "IOptionalFeatureFilteredMulticastRouter": ["filteredMulticastRoutingEnabled"],
@@ -1182,6 +1185,10 @@ class RemoteControl8(PushButton):
 
 class RemoteControl8Module(RemoteControl8):
     """HMIP-MOD-RC8 (Open Collector Module Sender - 8x)"""
+
+
+class RemoteControlCompact(PushButton):
+    """ELV-SH-CRC (Compact Remote Control - 1 button)"""
 
 
 class RgbwDimmer(Device):
@@ -3074,6 +3081,10 @@ class WallMountedGlassSwitch(Device):
 
 class WallMountedKeyPad(Device):
     pass
+
+
+class WallMountedUniversalActuator(Device):
+    """HmIP-WUA (Wall Mounted Universal Actuator)"""
 
 
 class WateringActuator(Device):

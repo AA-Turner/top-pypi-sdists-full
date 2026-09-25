@@ -43,7 +43,12 @@ from dbos._utils import (
     retriable_sqlite_exception,
 )
 
-from ._context import DBOSContext, get_local_dbos_context, validate_workflow_attributes
+from ._context import (
+    DBOSContext,
+    WorkflowIDReusePolicy,
+    get_local_dbos_context,
+    validate_workflow_attributes,
+)
 from ._dbos_config import _validate_observability_query_timeout_sec
 from ._error import (
     DBOSAwaitedWorkflowCancelledError,
@@ -57,6 +62,7 @@ from ._error import (
     DBOSUnexpectedStepError,
     DBOSWorkflowCancelledError,
     DBOSWorkflowConflictIDError,
+    DBOSWorkflowIDInUseError,
 )
 from ._logger import dbos_logger
 from ._outcome import NoResult
@@ -311,6 +317,8 @@ class OperationResultInternal(TypedDict):
     error: Optional[str]  # Serialized
     serialization: Optional[str]
     started_at_epoch_ms: int
+    # The child workflow this step started or attached to, if any.
+    child_workflow_id: Optional[str]
 
 
 class GetEventWorkflowContext(TypedDict):
@@ -855,6 +863,18 @@ class SystemDatabase(ABC):
         names = [value] if isinstance(value, str) else value
         return sa.or_(col.in_(names), col.is_(None))
 
+    def _in_flight_status_prover(self) -> sa.ColumnElement[bool]:
+        """SQLite only: a literal copy of the in-flight partial indexes' predicate for its
+        prepare-time prover. Omitted on Postgres, whose planner would count it twice."""
+        if self.engine.dialect.name != "sqlite":
+            return sa.true()
+        return SystemSchema.workflow_status.c.status.in_(
+            [
+                sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
+                sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
+            ]
+        )
+
     @contextmanager
     def _observability_query(
         self, *, capped: bool = True
@@ -929,28 +949,22 @@ class SystemDatabase(ABC):
         conn: Union[sa.Connection, Session],
         *,
         owner_xid: Optional[str],
-    ) -> tuple[WorkflowStatuses, Optional[int], bool]:
-        """Insert or update workflow status using PostgreSQL upsert operations."""
+        reuse_policy: Optional[WorkflowIDReusePolicy] = None,
+    ) -> tuple[WorkflowStatuses, bool]:
+        """Insert a workflow's status row, or return the existing row unchanged."""
+        # Without an owner_xid the check below cannot tell a fresh insert from an existing row.
+        assert (
+            reuse_policy != "reject" or owner_xid is not None
+        ), "workflow_id_reuse_policy 'reject' requires an owner_xid"
         wf_status: WorkflowStatuses = status["status"]
-        workflow_deadline_epoch_ms: Optional[int] = status["workflow_deadline_epoch_ms"]
         should_execute = True
         _enqueued_statuses = [
             WorkflowStatusString.ENQUEUED.value,
             WorkflowStatusString.DELAYED.value,
         ]
 
-        # Values to update when a row already exists for this workflow.
-        # recovery_attempts is absent by design: only the queue's claim counts a dispatch.
-        update_values: dict[str, Any] = {
-            "updated_at": self._now_ms_sql(),
-        }
-        # Don't update an existing executor ID when enqueueing a workflow.
-        if wf_status not in _enqueued_statuses:
-            update_values["executor_id"] = status["executor_id"]
-
         cmd = (
-            self.dialect.insert(SystemSchema.workflow_status)
-            .values(
+            self.dialect.insert(SystemSchema.workflow_status).values(
                 workflow_uuid=status["workflow_uuid"],
                 status=status["status"],
                 name=status["name"],
@@ -977,18 +991,17 @@ class SystemDatabase(ABC):
                 schedule_name=status["schedule_name"],
                 debounce_deadline_epoch_ms=status["debounce_deadline_epoch_ms"],
                 is_debounced=status["is_debounced"],
-                # Absent from update_values: a re-enqueue must not re-own a claimed row.
                 application_name=status["application_name"],
             )
+            # A no-op update, so an existing row comes back unchanged for the caller to inspect.
             .on_conflict_do_update(
                 index_elements=["workflow_uuid"],
-                set_=update_values,
+                set_={"owner_xid": SystemSchema.workflow_status.c.owner_xid},
             )
         )
 
         cmd = cmd.returning(
             SystemSchema.workflow_status.c.status,
-            SystemSchema.workflow_status.c.workflow_deadline_epoch_ms,
             SystemSchema.workflow_status.c.name,
             SystemSchema.workflow_status.c.class_name,
             SystemSchema.workflow_status.c.config_name,
@@ -1005,11 +1018,8 @@ class SystemDatabase(ABC):
             )
             .on_conflict_do_nothing(index_elements=["workflow_uuid"])
         )
-        # Two statements, not a data-modifying CTE: at scale the CTE costs more
-        # than the round trip it saves.
         try:
             results = conn.execute(cmd)
-            conn.execute(inputs_insert)
         except DBAPIError as dbapi_error:
             # Unique constraint violation for the deduplication ID
             if self._is_unique_constraint_violation(dbapi_error):
@@ -1030,7 +1040,11 @@ class SystemDatabase(ABC):
             # Check the started workflow matches the expected name, class_name, config_name, and queue_name
             # A mismatch indicates a workflow starting with the same UUID but different functions, which would throw an exception.
             wf_status = m["status"]
-            workflow_deadline_epoch_ms = m["workflow_deadline_epoch_ms"]
+            # A row carrying another owner_xid was already there; a retried commit carries ours.
+            if reuse_policy == "reject" and m["owner_xid"] != owner_xid:
+                raise DBOSWorkflowIDInUseError(
+                    status["workflow_uuid"], m["status"], m["name"]
+                )
             err_msg: Optional[str] = None
             if m["name"] != status["name"]:
                 err_msg = f"Workflow already exists with a different function name: {m['name']}, but the provided function name is: {status['name']}"
@@ -1051,7 +1065,9 @@ class SystemDatabase(ABC):
 
             status["serialization"] = m["serialization"]
 
-        return wf_status, workflow_deadline_epoch_ms, should_execute
+        # After the checks above, so a rejected start writes no inputs.
+        conn.execute(inputs_insert)
+        return wf_status, should_execute
 
     @db_retry()
     def dead_letter_workflows(
@@ -1436,6 +1452,189 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.workflow_uuid.in_(workflow_ids)
                 )
             )
+
+    @db_retry()
+    def rewind_workflow(
+        self,
+        workflow_id: str,
+        start_step: int,
+        *,
+        application_version: Optional[str] = None,
+        queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
+    ) -> None:
+        """Drop a workflow's history from start_step onwards and re-enqueue it under
+        the same workflow ID, so a replay re-executes everything from that step.
+
+        Unlike fork_workflow this writes no new workflow: peers keep addressing the same
+        ID, and the workflow's mailbox, events, and streams are not copied anywhere.
+        Unlike resume_workflows it applies only to workflows in a terminal state.
+
+        When a workflow is rewound, all events and state from the specified start_step
+        onwards are discarded, effectively rewinding the workflow to that point.
+
+        Messages the discarded run consumed or received after the rewind point are
+        deleted.
+
+        Stream entries written by the discarded run remain in place,
+        with the exception of the close sentinel that has to be removed
+        so new entries can be appended.
+        """
+        if start_step < 1:
+            raise ValueError(f"start_step must be >= 1, got {start_step}")
+
+        weh = SystemSchema.workflow_events_history
+        events = SystemSchema.workflow_events
+
+        with self.engine.begin() as c:
+            # Check the workflow exists and is in a terminal state
+            status = c.execute(
+                sa.select(SystemSchema.workflow_status.c.status).where(
+                    SystemSchema.workflow_status.c.workflow_uuid == workflow_id
+                )
+            ).scalar()
+            if status is None:
+                raise DBOSNonExistentWorkflowError("target", workflow_id)
+            if workflow_is_active(status):
+                raise DBOSException(
+                    f"Cannot rewind {workflow_id} ({status}): only a workflow in a "
+                    "terminal state can be rewound, so cancel it first"
+                )
+
+            # Rollback workflows events to the latest published value
+            # before the rewind, using the workflow_events_history as an undo log.
+            # Then rewind the workflow events history as well.
+            discarded = weh.alias("discarded")
+
+            def published_past_cut(key: Any) -> Any:
+                """Whether this key was published at or past the cut."""
+                return (
+                    sa.select(sa.literal(1))
+                    .where(
+                        (discarded.c.workflow_uuid == workflow_id)
+                        & (discarded.c.key == key)
+                        & (discarded.c.function_id >= start_step)
+                    )
+                    .exists()
+                )
+
+            # First delete all events published after the rewind point.
+            c.execute(
+                sa.delete(events).where(
+                    (events.c.workflow_uuid == workflow_id)
+                    & published_past_cut(events.c.key)
+                )
+            )
+
+            # Then restore events, if any, as published before the rewind point.
+            surviving = (
+                sa.select(
+                    weh.c.workflow_uuid,
+                    weh.c.key,
+                    weh.c.value,
+                    weh.c.serialization,
+                    sa.func.row_number()
+                    .over(
+                        partition_by=weh.c.key,
+                        order_by=weh.c.function_id.desc(),
+                    )
+                    .label("rn"),
+                )
+                .where(
+                    (weh.c.workflow_uuid == workflow_id)
+                    & (weh.c.function_id < start_step)
+                    & published_past_cut(weh.c.key)
+                )
+                .subquery("surviving")
+            )
+            c.execute(
+                sa.insert(events).from_select(
+                    ["workflow_uuid", "key", "value", "serialization"],
+                    sa.select(
+                        surviving.c.workflow_uuid,
+                        surviving.c.key,
+                        surviving.c.value,
+                        surviving.c.serialization,
+                    ).where(surviving.c.rn == 1),
+                )
+            )
+
+            # Clear streams' close sentinels
+            closed_value, closed_serialization = serialize_value(
+                _dbos_stream_closed_sentinel,
+                WorkflowSerializationFormat.PORTABLE,
+                self.serializer,
+            )
+            c.execute(
+                sa.delete(SystemSchema.streams).where(
+                    (SystemSchema.streams.c.workflow_uuid == workflow_id)
+                    & (SystemSchema.streams.c.function_id >= start_step)
+                    & (SystemSchema.streams.c.value == closed_value)
+                    & (SystemSchema.streams.c.serialization == closed_serialization)
+                )
+            )
+
+            # Discard steps and workflow events history
+            for table in (SystemSchema.operation_outputs, weh):
+                c.execute(
+                    sa.delete(table).where(
+                        (table.c.workflow_uuid == workflow_id)
+                        & (table.c.function_id >= start_step)
+                    )
+                )
+
+            # Delete messages consumed or received after the rewind point
+            c.execute(
+                sa.delete(SystemSchema.notifications).where(
+                    (SystemSchema.notifications.c.destination_uuid == workflow_id)
+                    & (
+                        (
+                            SystemSchema.notifications.c.consumed_by_function_id
+                            >= start_step
+                        )
+                        | (SystemSchema.notifications.c.consumed == False)
+                    )
+                )
+            )
+
+            c.execute(
+                sa.delete(SystemSchema.workflow_output).where(
+                    SystemSchema.workflow_output.c.workflow_uuid == workflow_id
+                )
+            )
+
+            # Re-enqueue the workflow
+            version_update = (
+                {"application_version": application_version}
+                if application_version is not None
+                else {}
+            )
+            result = c.execute(
+                sa.update(SystemSchema.workflow_status)
+                .where(SystemSchema.workflow_status.c.workflow_uuid == workflow_id)
+                .where(SystemSchema.workflow_status.c.status == status)
+                .values(
+                    status=WorkflowStatusString.ENQUEUED.value,
+                    **version_update,
+                    queue_name=(
+                        queue_name if queue_name is not None else INTERNAL_QUEUE_NAME
+                    ),
+                    queue_partition_key=queue_partition_key,
+                    recovery_attempts=0,
+                    workflow_deadline_epoch_ms=None,
+                    deduplication_id=None,
+                    started_at_epoch_ms=None,
+                    updated_at=self._now_ms_sql(),
+                    completed_at=None,
+                    output=None,
+                    error=None,
+                )
+            )
+            if result.rowcount != 1:
+                raise DBOSException(
+                    f"Workflow {workflow_id} changed status while being rewound; "
+                    "retry the rewind"
+                )
 
     def fork_workflow(
         self,
@@ -2616,6 +2815,12 @@ class SystemDatabase(ABC):
         # Apply filters
         if status:
             query = query.where(SystemSchema.workflow_status.c.status.in_(status))
+            # In-flight-only aggregates (the queues page) can then run index-only on idx_workflow_status_in_flight_v2.
+            if set(status) <= {
+                WorkflowStatusString.ENQUEUED.value,
+                WorkflowStatusString.PENDING.value,
+            }:
+                query = query.where(self._in_flight_status_prover())
         if start_time:
             query = query.where(
                 SystemSchema.workflow_status.c.created_at
@@ -2783,7 +2988,7 @@ class SystemDatabase(ABC):
             raise ValueError("time_bucket_size_ms must be > 0")
 
         # operation_outputs has no explicit status column; derive it from
-        # whether `error` is populated. Bookkeeping rows from record_child_workflow
+        # whether `error` is populated. Child-workflow bookkeeping rows
         # have NULL error and NULL output, so they appear as SUCCESS here —
         # callers can filter them by function_name.
         status_expr = sa.case(
@@ -2961,6 +3166,7 @@ class SystemDatabase(ABC):
                     completed_at_epoch_ms=completed_at_epoch_ms,
                     output=output,
                     error=error,
+                    child_workflow_id=result["child_workflow_id"],
                     serialization=result["serialization"],
                     # Mirrors the parent: only the running application records its steps.
                     application_name=self.app_name,
@@ -3061,54 +3267,6 @@ class SystemDatabase(ABC):
                 c.execute(sql)
 
         record()
-
-    @db_retry()
-    def record_child_workflow(
-        self,
-        parentUUID: str,
-        childUUID: str,
-        functionID: int,
-        functionName: str,
-        *,
-        started_at_epoch_ms: int,
-    ) -> None:
-        # An empty child id is never valid; fail loudly instead of silently wedging the parent on recovery.
-        if not childUUID:
-            raise DBOSException(
-                f"Attempted to record an empty child workflow ID for parent "
-                f"{parentUUID} (function {functionID}, {functionName})."
-            )
-        # Spans the launch only: the parent does not wait for the child here.
-        sql = sa.insert(SystemSchema.operation_outputs).values(
-            workflow_uuid=parentUUID,
-            function_id=functionID,
-            function_name=functionName,
-            child_workflow_id=childUUID,
-            started_at_epoch_ms=started_at_epoch_ms,
-            completed_at_epoch_ms=int(time.time() * 1000),
-            retention_timestamp=self._now_ms_sql(),
-            application_name=self.app_name,
-        )
-        try:
-            with self.engine.begin() as c:
-                c.execute(sql)
-        except DBAPIError as dbapi_error:
-            if self._is_unique_constraint_violation(dbapi_error):
-                # Same child means an idempotent db_retry; a different child means nondeterminism (a real conflict).
-                with self.engine.begin() as c:
-                    existing = c.execute(
-                        sa.select(
-                            SystemSchema.operation_outputs.c.child_workflow_id
-                        ).where(
-                            SystemSchema.operation_outputs.c.workflow_uuid
-                            == parentUUID,
-                            SystemSchema.operation_outputs.c.function_id == functionID,
-                        )
-                    ).fetchone()
-                if existing is not None and existing[0] == childUUID:
-                    return
-                raise DBOSWorkflowConflictIDError(parentUUID)
-            raise
 
     @abstractmethod
     def _is_unique_constraint_violation(self, dbapi_error: DBAPIError) -> bool:
@@ -3436,6 +3594,7 @@ class SystemDatabase(ABC):
                 "output": None,
                 "error": None,
                 "serialization": None,
+                "child_workflow_id": None,
             }
             self._record_operation_result_txn(
                 output, int(time.time() * 1000), conn=conn
@@ -3550,7 +3709,7 @@ class SystemDatabase(ABC):
                         .scalar_subquery()
                     ),
                 )
-                .values(consumed=True)
+                .values(consumed=True, consumed_by_function_id=function_id)
                 .returning(
                     SystemSchema.notifications.c.message,
                     SystemSchema.notifications.c.serialization,
@@ -3575,6 +3734,7 @@ class SystemDatabase(ABC):
                     "output": sermsg,
                     "serialization": serialization,
                     "error": None,
+                    "child_workflow_id": None,
                 },
                 int(time.time() * 1000),
                 conn=c,
@@ -3904,6 +4064,7 @@ class SystemDatabase(ABC):
                         "output": DBOSPortableJSON.serialize(end_time),
                         "error": None,
                         "serialization": DBOSPortableJSON.name(),
+                        "child_workflow_id": None,
                     },
                     completed_at_epoch_ms=(
                         int(end_time * 1000) if project_completion_time else None
@@ -3980,6 +4141,7 @@ class SystemDatabase(ABC):
                 "output": None,
                 "error": None,
                 "serialization": None,
+                "child_workflow_id": None,
             }
             self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
         # Notify only after commit, so a woken get_event sees the value.
@@ -4242,6 +4404,7 @@ class SystemDatabase(ABC):
                     "output": serval,
                     "serialization": serialization,
                     "error": None,
+                    "child_workflow_id": None,
                 }
             )
         return value
@@ -4350,19 +4513,13 @@ class SystemDatabase(ABC):
         # Recursive-CTE loose index scan: neither Postgres nor SQLite can skip to the
         # next distinct value inside a plain SELECT DISTINCT, which degenerates into a
         # scan of every ENQUEUED row. Each iteration here is instead one index seek on
-        # idx_workflow_status_partition_dequeue_v2, so cost scales with the number of
+        # idx_workflow_status_partition_dequeue_v3, so cost scales with the number of
         # partitions rather than the backlog depth.
         ws = SystemSchema.workflow_status
         base_filter = sa.and_(
             ws.c.queue_name == queue_name,
             ws.c.status == WorkflowStatusString.ENQUEUED.value,
-            # Redundant literal IN mirroring the index's own predicate: SQLite's partial-index prover runs at prepare time, so it can't see bound params and can't derive IN membership from =.
-            ws.c.status.in_(
-                [
-                    sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
-                    sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
-                ]
-            ),
+            self._in_flight_status_prover(),
             # Only partitions this application can actually dequeue from.
             self._name_filter(ws.c.application_name, self.app_name),
         )
@@ -4421,6 +4578,48 @@ class SystemDatabase(ABC):
                     ),
                 )
             )
+
+    def cancel_timed_out_workflows(self, limit: int) -> list[str]:
+        """Cancel up to limit of this application's active workflows whose deadline has passed.
+        Returns the IDs of the workflows cancelled."""
+        ws = SystemSchema.workflow_status
+        now_ms = int(time.time() * 1000)
+        timed_out = (
+            sa.select(ws.c.workflow_uuid)
+            .where(
+                # Literals, so SQLite's prover matches idx_workflow_status_deadline's IN predicate.
+                ws.c.status.in_(
+                    [
+                        sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
+                        sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
+                        sa.literal_column(f"'{WorkflowStatusString.DELAYED.value}'"),
+                    ]
+                ),
+                ws.c.workflow_deadline_epoch_ms.isnot(None),
+                ws.c.workflow_deadline_epoch_ms <= now_ms,
+                self._name_filter(ws.c.application_name, self.app_name),
+            )
+            .order_by(ws.c.workflow_deadline_epoch_ms)
+            .limit(limit)
+            # A row a dequeue or a peer's sweep holds is left for the next sweep.
+            .with_for_update(skip_locked=True)
+        )
+        with self.engine.begin() as c:
+            cancelled_at = self._now_ms_sql()
+            rows = c.execute(
+                sa.update(ws)
+                .where(ws.c.workflow_uuid.in_(timed_out))
+                .values(
+                    status=WorkflowStatusString.CANCELLED.value,
+                    queue_name=None,
+                    deduplication_id=None,
+                    started_at_epoch_ms=None,
+                    updated_at=cancelled_at,
+                    completed_at=cancelled_at,
+                )
+                .returning(ws.c.workflow_uuid)
+            ).fetchall()
+        return [row[0] for row in rows]
 
     def start_queued_workflows(
         self,
@@ -4484,13 +4683,14 @@ class SystemDatabase(ABC):
                 """Workflows already running, which peer workers count against too.
 
                 Kept as its own query per scope: the partition-scoped predicate rides
-                idx_workflow_status_partition_dequeue_v2, which a queue-wide scan loses.
+                idx_workflow_status_partition_dequeue_v3, which a queue-wide scan loses.
                 """
                 query = (
                     sa.select(sa.func.count())
                     .select_from(ws)
                     .where(ws.c.queue_name == queue.name)
                     .where(ws.c.status == WorkflowStatusString.PENDING.value)
+                    .where(self._in_flight_status_prover())
                     .where(self._name_filter(ws.c.application_name, self.app_name))
                 )
                 if partition_scoped:
@@ -4589,6 +4789,7 @@ class SystemDatabase(ABC):
                     SystemSchema.workflow_status.c.status
                     == WorkflowStatusString.ENQUEUED.value
                 )
+                .where(self._in_flight_status_prover())
                 .where(version_predicate)
                 .where(
                     self._name_filter(
@@ -4721,13 +4922,7 @@ class SystemDatabase(ABC):
                     ws.c.application_version == app_version,
                     ws.c.application_version.is_(None),
                 )
-            # Redundant literal IN mirroring idx_workflow_status_partition_dequeue_v2's predicate: SQLite's partial-index prover runs at prepare time, so it can't see bound params and can't derive IN membership from =.
-            status_prover = ws.c.status.in_(
-                [
-                    sa.literal_column(f"'{WorkflowStatusString.ENQUEUED.value}'"),
-                    sa.literal_column(f"'{WorkflowStatusString.PENDING.value}'"),
-                ]
-            )
+            status_prover = self._in_flight_status_prover()
             enq = sa.and_(
                 ws.c.queue_name == queue.name,
                 ws.c.status == WorkflowStatusString.ENQUEUED.value,
@@ -4951,6 +5146,7 @@ class SystemDatabase(ABC):
                     "output": serval,
                     "serialization": serialization,
                     "error": None,
+                    "child_workflow_id": None,
                 }
             )
         return result
@@ -5001,6 +5197,7 @@ class SystemDatabase(ABC):
                     "output": serval,
                     "serialization": serialization,
                     "error": None,
+                    "child_workflow_id": None,
                 },
             )
         return result
@@ -5011,20 +5208,72 @@ class SystemDatabase(ABC):
         status: WorkflowStatusInternal,
         *,
         owner_xid: Optional[str],
-    ) -> tuple[WorkflowStatuses, Optional[int], bool]:
+        reuse_policy: Optional[WorkflowIDReusePolicy] = None,
+    ) -> tuple[WorkflowStatuses, bool]:
         """
         Record the initial status and inputs for a workflow, and indicate if this is a new record
         """
         with self.engine.begin() as conn:
-            wf_status, workflow_deadline_epoch_ms, should_execute = (
-                self._insert_workflow_status(
-                    status,
-                    conn,
-                    owner_xid=owner_xid,
-                )
+            wf_status, should_execute = self._insert_workflow_status(
+                status,
+                conn,
+                owner_xid=owner_xid,
+                reuse_policy=reuse_policy,
             )
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
-        return wf_status, workflow_deadline_epoch_ms, should_execute
+        return wf_status, should_execute
+
+    @db_retry()
+    def init_child_workflow(
+        self,
+        status: WorkflowStatusInternal,
+        *,
+        owner_xid: str,
+        parent_workflow_id: str,
+        parent_function_id: int,
+        function_name: str,
+        started_at_epoch_ms: int,
+        reuse_policy: Optional[WorkflowIDReusePolicy] = None,
+    ) -> tuple[WorkflowStatuses, bool]:
+        """Insert a child's status row and record it as the parent's step in one transaction, so a crash leaves both or neither."""
+        child_workflow_id = status["workflow_uuid"]
+        with self.engine.begin() as conn:
+            result = self._insert_workflow_status(
+                status,
+                conn,
+                owner_xid=owner_xid,
+                reuse_policy=reuse_policy,
+            )
+            inserted = conn.execute(
+                self.dialect.insert(SystemSchema.operation_outputs)
+                .values(
+                    workflow_uuid=parent_workflow_id,
+                    function_id=parent_function_id,
+                    function_name=function_name,
+                    child_workflow_id=child_workflow_id,
+                    # Spans the launch only: the parent does not wait for the child here.
+                    started_at_epoch_ms=started_at_epoch_ms,
+                    completed_at_epoch_ms=int(time.time() * 1000),
+                    retention_timestamp=self._now_ms_sql(),
+                    application_name=self.app_name,
+                )
+                .on_conflict_do_nothing()
+                .returning(SystemSchema.operation_outputs.c.function_id)
+            ).fetchone()
+            if inserted is None:
+                existing = conn.execute(
+                    sa.select(SystemSchema.operation_outputs.c.child_workflow_id).where(
+                        SystemSchema.operation_outputs.c.workflow_uuid
+                        == parent_workflow_id,
+                        SystemSchema.operation_outputs.c.function_id
+                        == parent_function_id,
+                    )
+                ).fetchone()
+                # Same child means an idempotent db_retry; a different child means nondeterminism.
+                if existing is None or existing[0] != child_workflow_id:
+                    raise DBOSWorkflowConflictIDError(parent_workflow_id)
+        DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_INITWF_COMMIT)
+        return result
 
     def _max_partition_key_created_at(
         self, keys: List[Tuple[Optional[str], str]]
@@ -5034,7 +5283,7 @@ class SystemDatabase(ABC):
             return {}
         queue_names = {queue_name for queue_name, _ in keys}
         partition_keys = {partition_key for _, partition_key in keys}
-        # One arm per status so idx_workflow_status_partition_dequeue_v2 can seek: a status IN (...) matching that index's own predicate is dropped as redundant, leaving its status column unbound and blocking the seek on queue_partition_key.
+        # One arm per status so idx_workflow_status_partition_dequeue_v3 can seek: a status IN (...) matching that index's own predicate is dropped as redundant, leaving its status column unbound and blocking the seek on queue_partition_key.
         arms = [
             sa.select(
                 SystemSchema.workflow_status.c.queue_name,
@@ -5194,7 +5443,8 @@ class SystemDatabase(ABC):
         conn: Union[sa.Connection, Session],
         *,
         owner_xid: Optional[str] = None,
-    ) -> tuple[WorkflowStatuses, Optional[int], bool]:
+        reuse_policy: Optional[WorkflowIDReusePolicy] = None,
+    ) -> tuple[WorkflowStatuses, bool]:
         """
         Record the initial status and inputs for a workflow using a caller-owned
         SQLAlchemy Connection or ORM Session.
@@ -5208,6 +5458,7 @@ class SystemDatabase(ABC):
             status,
             conn,
             owner_xid=owner_xid,
+            reuse_policy=reuse_policy,
         )
 
     def check_connection(self) -> None:
@@ -5353,6 +5604,7 @@ class SystemDatabase(ABC):
                     "output": None,
                     "error": None,
                     "serialization": None,
+                    "child_workflow_id": None,
                 }
                 self._record_operation_result_txn(
                     output, int(time.time() * 1000), conn=c
@@ -5853,6 +6105,7 @@ class SystemDatabase(ABC):
                     "error": None,
                     "serialization": None,
                     "started_at_epoch_ms": int(time.time() * 1000),
+                    "child_workflow_id": None,
                 }
                 self._record_operation_result_txn(result, int(time.time() * 1000), c)
                 return True
@@ -7007,6 +7260,7 @@ class SystemDatabase(ABC):
                 "output": (self.serializer.serialize(result)),
                 "serialization": None,
                 "error": None,
+                "child_workflow_id": None,
             }
             self._record_operation_result_txn(output, int(time.time() * 1000), conn=c)
         DebugTriggers.debug_trigger_point(DebugTriggers.DEBUG_TRIGGER_STEP_COMMIT)

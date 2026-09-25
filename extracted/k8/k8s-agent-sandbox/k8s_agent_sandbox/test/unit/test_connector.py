@@ -12,10 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Unit tests for synchronous sandbox connectivity."""
+
+import io
+import subprocess
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import requests
 
@@ -24,12 +28,15 @@ from k8s_agent_sandbox.connector import (
     GatewayConnectionStrategy,
     LocalTunnelConnectionStrategy,
     InClusterConnectionStrategy,
+    SandboxdPodTunnelStrategy,
     SandboxConnector,
 )
+from k8s_agent_sandbox.exceptions import SandboxPortForwardError
 from k8s_agent_sandbox.models import (
     SandboxDirectConnectionConfig,
     SandboxGatewayConnectionConfig,
     SandboxLocalTunnelConnectionConfig,
+    SandboxdPodTunnelConnectionConfig,
     SandboxInClusterConnectionConfig,
 )
 
@@ -145,6 +152,164 @@ class TestExistingStrategiesDefaultHeaderInjection(unittest.TestCase):
             config=SandboxLocalTunnelConnectionConfig(),
         )
         self.assertTrue(s.should_inject_router_headers())
+
+
+class TestPortForwardCleanup(unittest.TestCase):
+    def test_local_tunnel_retains_process_when_terminate_fails(self):
+        strategy = LocalTunnelConnectionStrategy(
+            sandbox_id="sandbox-1",
+            namespace="agents",
+            config=SandboxLocalTunnelConnectionConfig(),
+        )
+        process = MagicMock()
+        process.terminate.side_effect = [RuntimeError("terminate failed"), None]
+        strategy.port_forward_process = process
+        strategy.base_url = "http://127.0.0.1:18080"
+
+        strategy.close()
+
+        self.assertIs(strategy.port_forward_process, process)
+        self.assertEqual(strategy.base_url, "http://127.0.0.1:18080")
+
+        strategy.close()
+
+        self.assertIsNone(strategy.port_forward_process)
+        self.assertIsNone(strategy.base_url)
+
+    def test_sandboxd_tunnel_retains_process_when_kill_fails(self):
+        strategy = SandboxdPodTunnelStrategy(
+            sandbox_id="sandbox-1",
+            namespace="agents",
+            config=SandboxdPodTunnelConnectionConfig(),
+        )
+        process = MagicMock()
+        process.wait.side_effect = [
+            subprocess.TimeoutExpired(cmd="kubectl", timeout=2),
+            None,
+        ]
+        process.kill.side_effect = RuntimeError("kill failed")
+        strategy.port_forward_process = process
+        strategy.base_url = "http://127.0.0.1:18080"
+        strategy.grpc_target = "127.0.0.1:19090"
+
+        strategy.close()
+
+        self.assertIs(strategy.port_forward_process, process)
+        self.assertEqual(strategy.base_url, "http://127.0.0.1:18080")
+        self.assertEqual(strategy.grpc_target, "127.0.0.1:19090")
+
+        strategy.close()
+
+        self.assertIsNone(strategy.port_forward_process)
+        self.assertIsNone(strategy.base_url)
+        self.assertIsNone(strategy.grpc_target)
+
+    def test_local_tunnel_retains_process_when_kill_wait_times_out(self):
+        strategy = LocalTunnelConnectionStrategy(
+            sandbox_id="sandbox-1",
+            namespace="agents",
+            config=SandboxLocalTunnelConnectionConfig(),
+        )
+        process = MagicMock()
+        process.wait.side_effect = [
+            subprocess.TimeoutExpired(cmd="kubectl", timeout=2),
+            subprocess.TimeoutExpired(cmd="kubectl", timeout=2),
+            None,
+        ]
+        strategy.port_forward_process = process
+        strategy.base_url = "http://127.0.0.1:18080"
+
+        strategy.close()
+
+        self.assertEqual(
+            process.wait.call_args_list,
+            [call(timeout=2), call(timeout=2)],
+        )
+        self.assertIs(strategy.port_forward_process, process)
+        self.assertEqual(strategy.base_url, "http://127.0.0.1:18080")
+
+        strategy.close()
+
+        self.assertIsNone(strategy.port_forward_process)
+        self.assertIsNone(strategy.base_url)
+
+    def test_sandboxd_tunnel_retains_process_when_kill_wait_times_out(self):
+        strategy = SandboxdPodTunnelStrategy(
+            sandbox_id="sandbox-1",
+            namespace="agents",
+            config=SandboxdPodTunnelConnectionConfig(),
+        )
+        process = MagicMock()
+        process.wait.side_effect = [
+            subprocess.TimeoutExpired(cmd="kubectl", timeout=2),
+            subprocess.TimeoutExpired(cmd="kubectl", timeout=2),
+            None,
+        ]
+        strategy.port_forward_process = process
+        strategy.base_url = "http://127.0.0.1:18080"
+        strategy.grpc_target = "127.0.0.1:19090"
+
+        strategy.close()
+
+        self.assertEqual(
+            process.wait.call_args_list,
+            [call(timeout=2), call(timeout=2)],
+        )
+        self.assertIs(strategy.port_forward_process, process)
+        self.assertEqual(strategy.base_url, "http://127.0.0.1:18080")
+        self.assertEqual(strategy.grpc_target, "127.0.0.1:19090")
+
+        strategy.close()
+
+        self.assertIsNone(strategy.port_forward_process)
+        self.assertIsNone(strategy.base_url)
+        self.assertIsNone(strategy.grpc_target)
+
+    @patch("k8s_agent_sandbox.connector.subprocess.Popen")
+    def test_local_tunnel_does_not_overwrite_process_after_failed_cleanup(
+        self, popen
+    ):
+        strategy = LocalTunnelConnectionStrategy(
+            sandbox_id="sandbox-1",
+            namespace="agents",
+            config=SandboxLocalTunnelConnectionConfig(),
+        )
+        process = MagicMock()
+        process.poll.return_value = 1
+        process.terminate.side_effect = RuntimeError("terminate failed")
+        strategy.port_forward_process = process
+        strategy.base_url = "http://127.0.0.1:18080"
+
+        with self.assertRaisesRegex(SandboxPortForwardError, "existing port-forward"):
+            strategy.connect()
+
+        popen.assert_not_called()
+        self.assertIs(strategy.port_forward_process, process)
+
+    @patch("k8s_agent_sandbox.connector.subprocess.Popen")
+    def test_sandboxd_tunnel_does_not_overwrite_process_after_failed_cleanup(
+        self, popen
+    ):
+        strategy = SandboxdPodTunnelStrategy(
+            sandbox_id="sandbox-1",
+            namespace="agents",
+            config=SandboxdPodTunnelConnectionConfig(),
+            get_pod_name=lambda: "sandbox-1",
+        )
+        process = MagicMock()
+        process.poll.return_value = 1
+        process.terminate.side_effect = RuntimeError("terminate failed")
+        strategy.port_forward_process = process
+        strategy.base_url = "http://127.0.0.1:18080"
+        strategy.grpc_target = "127.0.0.1:19090"
+
+        with self.assertRaisesRegex(
+            SandboxPortForwardError, "existing sandboxd port-forward"
+        ):
+            strategy.connect()
+
+        popen.assert_not_called()
+        self.assertIs(strategy.port_forward_process, process)
 
 
 class TestSandboxConnectorStrategySelection(unittest.TestCase):
@@ -405,6 +570,34 @@ class TestSandboxConnectorErrorHandling(unittest.TestCase):
         self.assertEqual(connector._pod_ip, "10.0.0.5")
         self.assertTrue(connector._pod_ip_resolved)
         connector.session.close.assert_not_called()
+
+    def test_streaming_client_error_closes_response(self):
+        from k8s_agent_sandbox.connector import SandboxRequestError
+        connector = self._make_connector()
+        response = self._error_response(404)
+        connector.session.request.return_value = response
+
+        with self.assertRaises(SandboxRequestError):
+            connector.send_request("GET", "download/missing.txt", stream=True)
+
+        response.close.assert_called_once_with()
+        connector.session.close.assert_not_called()
+
+    def test_streaming_client_error_preserves_response_body(self):
+        from k8s_agent_sandbox.connector import SandboxRequestError
+
+        connector = self._make_connector()
+        response = requests.Response()
+        response.status_code = 404
+        response.url = "http://sandbox/download/missing.txt"
+        response.request = requests.Request("GET", response.url).prepare()
+        response.raw = io.BytesIO(b"missing file")
+        connector.session.request.return_value = response
+
+        with self.assertRaises(SandboxRequestError) as ctx:
+            connector.send_request("GET", "download/missing.txt", stream=True)
+
+        self.assertEqual(ctx.exception.response.text, "missing file")
 
     def test_server_error_clears_pod_ip_but_keeps_tunnel(self):
         from k8s_agent_sandbox.connector import SandboxRequestError

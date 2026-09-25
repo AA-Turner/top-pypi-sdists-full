@@ -20,7 +20,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.providers.base_translator import BaseTranslator
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
 # ============================================================================
 # CEREBRAS TRANSLATOR
@@ -157,8 +157,11 @@ class CerebrasTranslator(BaseTranslator):
         all_tools = self.build_provider_tools(config, "cerebras")
         if all_tools:
             cerebras_request["tools"] = all_tools
-            if config.tool_choice:
-                cerebras_request["tool_choice"] = config.tool_choice
+            tool_choice = resolve_structural_setting(
+                config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+            )
+            if tool_choice:
+                cerebras_request["tool_choice"] = tool_choice
             # parallel_tool_calls defaults to True; only emit when explicitly
             # disabled (matches the OpenAI translator). The native Cerebras SDK
             # accepts this kwarg; GLM 4.7 / gpt-oss support parallel tool calls.

@@ -160,7 +160,7 @@ def tmap_trajectory_attack(
         for i, trial in enumerate(trials[-context_depth:], 1):
             response = ""
             if trial.evaluation_result and trial.evaluation_result.samples:
-                response = trial.evaluation_result.samples[0].output[:300]  # ty: ignore[not-subscriptable]
+                response = str(trial.evaluation_result.samples[0].output)[:300]
             trajectory_lines.append(
                 f"Gen {i}: score={trial.score:.2f}\n"
                 f"  Prompt: {trial.candidate[:200]}\n"

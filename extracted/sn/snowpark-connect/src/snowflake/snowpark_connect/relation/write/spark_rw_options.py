@@ -86,6 +86,16 @@ def build_spark_rw_options_params_v2(
     return _to_spark_rw_options_json(options)
 
 
+def _filter_v1_write_options(options: dict[str, str]) -> dict[str, str]:
+    """Drop the non-write-option keys the V1 proto mixes into the options map.
+
+    The V1 ``DataFrameWriter`` crams table properties and SCOS-internal keys
+    (``_V1_NON_WRITE_OPTIONS``) into the same map as real write options; both the
+    GS-forwarding payload and the write-option telemetry derive from this split.
+    """
+    return {k: v for k, v in options.items() if k.lower() not in _V1_NON_WRITE_OPTIONS}
+
+
 def build_spark_rw_options_params_v1(
     options: dict[str, str],
 ) -> dict[str, str] | None:
@@ -94,7 +104,20 @@ def build_spark_rw_options_params_v1(
     V1 proto mixes table properties and internal options with write options
     in a single map. Filters out non-write-option keys before forwarding.
     """
-    forwarded = {
-        k: v for k, v in options.items() if k.lower() not in _V1_NON_WRITE_OPTIONS
-    }
-    return _to_spark_rw_options_json(forwarded)
+    return _to_spark_rw_options_json(_filter_v1_write_options(options))
+
+
+def iceberg_write_option_keys(
+    options: dict[str, str],
+    *,
+    is_v1: bool,
+) -> list[str]:
+    """Return the write-option keys to record in telemetry (SNOW-4141266).
+
+    Applies the same split as GS-forwarding: the V1 proto mixes table properties
+    and SCOS-internal keys into the options map, so those (``_V1_NON_WRITE_OPTIONS``)
+    are excluded; the V2 map is already just the ``.option(...)`` bag.
+    """
+    if is_v1:
+        return list(_filter_v1_write_options(options))
+    return list(options)

@@ -98,7 +98,7 @@ class RawEventsClient:
             Full event names to filter by, comma-separated (payment.completed, pixel.lead, pixel.page, pixel.custom:<name>) — the same vocabulary the events / people metrics use.
 
         source : typing.Optional[str]
-            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter. A whop:... source combined with non-conversion event names (event=pixel.page) instead lists the events whose ad click resolved to that entity — the page views an ad drove.
+            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct, unknown). Selects conversions credited to this source.
 
         attribution_model : typing.Optional[ListEventsRequestAttributionModel]
             Attribution model for the source filter (defaults to last_touch).
@@ -137,6 +137,7 @@ class RawEventsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "events",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "identifier": identifier,
@@ -332,6 +333,7 @@ class RawEventsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "events",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -431,6 +433,7 @@ class RawEventsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "events/pulse",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "event": event,
@@ -511,6 +514,7 @@ class RawEventsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "events/validate_pixel",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -647,7 +651,7 @@ class AsyncRawEventsClient:
             Full event names to filter by, comma-separated (payment.completed, pixel.lead, pixel.page, pixel.custom:<name>) — the same vocabulary the events / people metrics use.
 
         source : typing.Optional[str]
-            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct). Restricts the list to conversion targets attributed to that source — the debuggability twin of a metric cell's source parameter. A whop:... source combined with non-conversion event names (event=pixel.page) instead lists the events whose ad click resolved to that entity — the page views an ad drove.
+            Canonical source path, exact or with a trailing :* prefix (whop:<campaign>:*, ext:meta:*, referrer:<domain>, direct, unknown). Selects conversions credited to this source.
 
         attribution_model : typing.Optional[ListEventsRequestAttributionModel]
             Attribution model for the source filter (defaults to last_touch).
@@ -686,6 +690,7 @@ class AsyncRawEventsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "events",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "identifier": identifier,
@@ -884,6 +889,7 @@ class AsyncRawEventsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "events",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -983,6 +989,7 @@ class AsyncRawEventsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "events/pulse",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "event": event,
@@ -1066,6 +1073,7 @@ class AsyncRawEventsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "events/validate_pixel",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,

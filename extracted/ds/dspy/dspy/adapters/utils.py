@@ -208,7 +208,8 @@ def parse_value(value, annotation):
             if v in allowed:
                 return v
 
-        raise ValueError(f"{value!r} is not one of {allowed!r}")
+            # Coerce string forms of non-string members (e.g. "2" for Literal[1, 2, 3]) below.
+            value = v
 
     if not isinstance(value, str):
         return TypeAdapter(annotation).validate_python(value)
@@ -231,7 +232,7 @@ def parse_value(value, annotation):
             try:
                 # For dspy.Type, try parsing from the original value in case it has a custom parser
                 return TypeAdapter(annotation).validate_python(value)
-            except Exception:
+            except pydantic.ValidationError:
                 raise e
         raise
 
@@ -267,7 +268,7 @@ def get_field_description_string(fields: dict) -> str:
         field_message += f" ({get_annotation_name(v.annotation)})"
         desc = v.json_schema_extra["desc"] if v.json_schema_extra["desc"] != f"${{{k}}}" else ""
 
-        custom_types = DspyType.extract_custom_type_from_annotation(v.annotation)
+        custom_types = DspyType.extract_custom_type_from_annotation(v.rebuild_annotation())
         for custom_type in custom_types:
             if len(custom_type.description()) > 0:
                 desc += f"\n    Type description of {get_annotation_name(custom_type)}: {custom_type.description()}"

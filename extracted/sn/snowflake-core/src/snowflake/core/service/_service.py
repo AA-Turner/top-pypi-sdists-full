@@ -694,13 +694,32 @@ class ServiceResource(SchemaObjectReferenceMixin[ServiceCollection]):
         return PollingOperation(future, transform)
 
 
-def ServiceSpec(spec: str) -> Union[ServiceSpecInlineText, ServiceSpecStageFile]:
-    """Infers whether a specification is a stage file or inline text.
+def ServiceSpec(spec: str, force_inline: bool = False) -> Union[ServiceSpecInlineText, ServiceSpecStageFile]:
+    """Infer whether a specification is a stage file or inline text.
 
     Any spec that starts with '@' is parsed as a stage file, otherwise it is passed as an inline text.
+
+    Note: this function infers inline-text vs. stage-file handling from the first character of ``spec``. If ``spec``
+    may contain untrusted input and your application expects the inline-text branch, pass ``force_inline=True`` to
+    guarantee inline-text handling regardless of the string's content, while still getting this function's YAML
+    validation and normalization.
+
+    Parameters
+    __________
+    spec: str
+        The specification to parse, either a stage file path prefixed with ``'@'`` or inline YAML text.
+    force_inline: bool, optional
+        If ``True``, always treat ``spec`` as inline text and validate it as such, even if it starts with ``'@'``.
+        Defaults to ``False``.
+
+    Returns
+    _______
+    Union[ServiceSpecInlineText, ServiceSpecStageFile]
+        A ``ServiceSpecStageFile`` if ``spec`` starts with ``'@'`` and ``force_inline`` is ``False``, otherwise a
+        ``ServiceSpecInlineText``.
     """
     spec = dedent(spec).rstrip()
-    if spec.startswith("@"):
+    if not force_inline and spec.startswith("@"):
         stage, spec_file = _parse_spec_path(spec[1:])
         return ServiceSpecStageFile(stage=stage, spec_file=spec_file)
     else:

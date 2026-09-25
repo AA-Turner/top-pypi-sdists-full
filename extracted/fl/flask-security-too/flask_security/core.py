@@ -22,12 +22,10 @@ import warnings
 
 from flask import current_app, g, session
 from flask_login import AnonymousUserMixin, LoginManager
-from flask_login import UserMixin as BaseUserMixin
 from flask_login import current_user
 from flask_principal import Identity, Principal, RoleNeed, UserNeed, identity_loaded
-from itsdangerous import URLSafeTimedSerializer
+from itsdangerous import URLSafeTimedSerializer, URLSafeSerializer
 from passlib.context import CryptContext
-from werkzeug.datastructures import ImmutableList
 from werkzeug.local import LocalProxy
 
 from .babel import FsDomain
@@ -44,6 +42,7 @@ from .forms import (
     ForgotPasswordForm,
     Form,
     LoginForm,
+    LogoutForm,
     PasswordlessLoginForm,
     RegisterForm,
     RegisterFormMixin,
@@ -55,9 +54,9 @@ from .forms import (
     TwoFactorRescueForm,
     UsernameRecoveryForm,
     VerifyForm,
-    build_username_field,
-    build_register_form,
-    build_login_form,
+    _build_username_field,
+    _build_register_form,
+    _build_login_form,
 )
 from .json import setup_json
 from .mail_util import MailUtil
@@ -72,6 +71,7 @@ from .recovery_codes import (
 )
 from .signals import user_failed_authn
 from .tf_plugin import TfPlugin, TwoFactorSelectForm
+from .tokens import RefreshTokenForm
 from .twofactor import tf_send_security_token
 from .unified_signin import (
     UnifiedSigninForm,
@@ -92,13 +92,13 @@ from .webauthn_util import WebauthnUtil
 from .username_util import UsernameUtil
 from .totp import Totp
 from .utils import _
-from .utils import config_value as cv
+from .utils import _config_value as cv
 from .utils import (
-    FsPermNeed,
-    add_cache_control,
-    csrf_cookie_handler,
-    default_render_template,
-    default_want_json,
+    _FsPermNeed,
+    _add_cache_control,
+    _csrf_cookie_handler,
+    _default_render_template,
+    _default_want_json,
     get_identity_attribute,
     get_identity_attributes,
     get_message,
@@ -112,16 +112,52 @@ from .utils import (
     url_for_security,
     verify_and_update_password,
 )
-from .views import create_blueprint, default_render_json
+from .views import _create_blueprint, default_render_json
 
 if t.TYPE_CHECKING:  # pragma: no cover
     import flask
     from flask import Request
     from flask.typing import ResponseValue
-    import flask_login.mixins
     from authlib.integrations.flask_client import OAuth
     from .datastore import UserDatastore
 
+    # flask_login isn't typed yet
+    class BaseUserMixin:
+        # __hash__ = object.__hash__
+
+        @property
+        def is_active(self) -> bool:
+            return True
+
+        @property
+        def is_authenticated(self) -> bool:
+            return self.is_active
+
+        @property
+        def is_anonymous(self) -> bool:
+            return False
+
+        def get_id(self) -> str: ...
+
+        def __eq__(self, other: object) -> bool:
+            """
+            Checks the equality of two `UserMixin` objects using `get_id`.
+            """
+            if isinstance(other, UserMixin):
+                return self.get_id() == other.get_id()
+            return NotImplemented
+
+        def __ne__(self, other: object) -> bool:
+            """
+            Checks the inequality of two `UserMixin` objects using `get_id`.
+            """
+            equal = self.__eq__(other)
+            if equal is NotImplemented:
+                return NotImplemented
+            return not equal
+
+else:
+    from flask_login import UserMixin as BaseUserMixin
 
 # List of authentication mechanisms supported.
 AUTHN_MECHANISMS = ("basic", "session", "token")
@@ -139,6 +175,7 @@ _default_config: dict[str, t.Any] = {
     "SUBDOMAIN": None,
     "FLASH_MESSAGES": True,
     "RETURN_GENERIC_RESPONSES": False,
+    "INPUT_NORMALIZE_FORM": "NFKD",
     "USE_REGISTER_V2": True,
     "I18N_DOMAIN": "flask_security",
     "I18N_DIRNAME": "builtin",
@@ -193,7 +230,9 @@ _default_config: dict[str, t.Any] = {
     "TWO_FACTOR_SELECT_URL": "/tf-select",
     "TWO_FACTOR_POST_SETUP_VIEW": ".two_factor_setup",  # endpoint or URL
     "TWO_FACTOR_ERROR_VIEW": ".login",
-    "LOGOUT_METHODS": ["GET", "POST"],
+    "LOGOUT_METHODS": ["POST"],
+    "LOGOUT_CSRF": False,
+    "LOGOUT_USER_TEMPLATE": "security/logout_user.html",
     "POST_LOGIN_VIEW": "/",
     "POST_LOGOUT_VIEW": "/",
     "LOGIN_ERROR_VIEW": None,  # spa
@@ -234,38 +273,47 @@ _default_config: dict[str, t.Any] = {
     "CHANGEABLE": False,
     "TWO_FACTOR": False,
     "SEND_REGISTER_EMAIL": True,
+    "REGISTER_EMAIL_EXISTING_USERNAME_TEMPLATE": "security/email/"
+    "welcome_existing_username",
+    "REGISTER_EMAIL_EXISTING_TEMPLATE": "security/email/welcome_existing",
+    "REGISTER_EMAIL_TEMPLATE": "security/email/welcome",
     "SEND_PASSWORD_CHANGE_EMAIL": True,
     "SEND_PASSWORD_RESET_EMAIL": True,
     "SEND_PASSWORD_RESET_NOTICE_EMAIL": True,
-    "LOGIN_WITHIN": "1 days",
+    "LOGIN_WITHIN": timedelta(days=1),
     "CHANGE_EMAIL": False,
     "CHANGE_EMAIL_TEMPLATE": "security/change_email.html",
-    "CHANGE_EMAIL_WITHIN": "2 hours",
+    "CHANGE_EMAIL_WITHIN": timedelta(hours=2),
     "CHANGE_EMAIL_URL": "/change-email",
     "CHANGE_EMAIL_CONFIRM_URL": "/change-email-confirm",
     "CHANGE_EMAIL_ERROR_VIEW": None,  # spa
     "POST_CHANGE_EMAIL_VIEW": None,  # spa
     "CHANGE_EMAIL_SALT": "change-email-salt",
     "CHANGE_EMAIL_SUBJECT": _("Confirm your new email address"),
+    "CHANGE_EMAIL_EMAIL_TEMPLATE": "security/email/change_email_instructions",
     "CHANGE_USERNAME": False,
     "CHANGE_USERNAME_TEMPLATE": "security/change_username.html",
+    "CHANGE_USERNAME_EMAIL_TEMPLATE": "security/email/change_username_notice",
     "CHANGE_USERNAME_URL": "/change-username",
     "POST_CHANGE_USERNAME_VIEW": None,
     "SEND_USERNAME_CHANGE_EMAIL": True,
     "TWO_FACTOR_AUTHENTICATOR_VALIDITY": 120,
+    "TWO_FACTOR_EMAIL_TEMPLATE": "security/email/two_factor_instructions",
     "TWO_FACTOR_MAIL_VALIDITY": 300,
     "TWO_FACTOR_SMS_VALIDITY": 120,
     "TWO_FACTOR_ALWAYS_VALIDATE": True,
-    "TWO_FACTOR_LOGIN_VALIDITY": "30 days",
+    "TWO_FACTOR_LOGIN_VALIDITY": timedelta(days=30),
     "TWO_FACTOR_VALIDITY_SALT": "tf-validity-salt",
+    "TWO_FACTOR_VALIDITY_COOKIE_NAME": "tf_validity",
     "TWO_FACTOR_VALIDITY_COOKIE": {
         "httponly": True,
-        "secure": False,
+        "secure": True,
         "samesite": "Strict",
     },
     "TWO_FACTOR_SETUP_SALT": "tf-setup-salt",
-    "TWO_FACTOR_SETUP_WITHIN": "30 minutes",
+    "TWO_FACTOR_SETUP_WITHIN": timedelta(minutes=30),
     "TWO_FACTOR_RESCUE_EMAIL": True,
+    "TWO_FACTOR_RESCUE_EMAIL_TEMPLATE": "security/email/two_factor_rescue",
     "MULTI_FACTOR_RECOVERY_CODES": False,
     "MULTI_FACTOR_RECOVERY_CODES_N": 5,
     "MULTI_FACTOR_RECOVERY_CODES_URL": "/mf-recovery-codes",
@@ -280,8 +328,8 @@ _default_config: dict[str, t.Any] = {
     "OAUTH_RESPONSE_URL": "/login/oauthresponse",
     "OAUTH_VERIFY_START_URL": "/login/oauth-verify-start",
     "OAUTH_VERIFY_RESPONSE_URL": "/login/oauth-verify-response",
-    "CONFIRM_EMAIL_WITHIN": "5 days",
-    "RESET_PASSWORD_WITHIN": "1 days",
+    "CONFIRM_EMAIL_WITHIN": timedelta(days=2),
+    "RESET_PASSWORD_WITHIN": timedelta(days=1),
     "LOGIN_WITHOUT_CONFIRMATION": False,
     "AUTO_LOGIN_AFTER_CONFIRM": False,
     "AUTO_LOGIN_AFTER_RESET": False,
@@ -291,8 +339,21 @@ _default_config: dict[str, t.Any] = {
     "TWO_FACTOR_RESCUE_MAIL": "no-reply@localhost",
     "TOKEN_AUTHENTICATION_KEY": "auth_token",
     "TOKEN_AUTHENTICATION_HEADER": "Authentication-Token",
-    "TOKEN_MAX_AGE": None,
+    "TOKEN_MAX_AGE": timedelta(minutes=15),
     "TOKEN_EXPIRE_TIMESTAMP": lambda user: 0,
+    "REFRESH_TOKEN": False,
+    "REFRESH_TOKEN_SALT": "refresh-token-salt",
+    "REFRESH_TOKEN_MAX_AGE": timedelta(days=90),
+    "REFRESH_TOKEN_MAX_IDLE": timedelta(days=7),
+    "REFRESH_TOKEN_CLEANUP_EXPIRED": True,
+    "REFRESH_TOKEN_CLEANUP_REVOKED": False,
+    "REFRESH_TOKEN_URL": "/refresh-token",
+    "REFRESH_TOKEN_COOKIE_NAME": "fs_refresh",
+    "REFRESH_TOKEN_COOKIE": {
+        "samesite": "Strict",
+        "httponly": True,
+        "secure": True,
+    },
     "CONFIRM_SALT": "confirm-salt",
     "RESET_SALT": "reset-salt",
     "LOGIN_SALT": "login-salt",
@@ -312,6 +373,11 @@ _default_config: dict[str, t.Any] = {
     "EMAIL_HTML": True,
     "EMAIL_SUBJECT_TWO_FACTOR": _("Two-Factor Login"),
     "EMAIL_SUBJECT_TWO_FACTOR_RESCUE": _("Two-Factor Rescue"),
+    "EMAIL_TEMPLATE_PASSWORDLESS": "security/email/login_instructions",
+    "EMAIL_TEMPLATE_CONFIRM": "security/email/confirmation_instructions",
+    "EMAIL_TEMPLATE_PASSWORD_RESET": "security/email/reset_instructions",
+    "EMAIL_TEMPLATE_PASSWORD_RESET_NOTICE": "security/email/reset_notice",
+    "EMAIL_TEMPLATE_PASSWORD_CHANGE_NOTICE": "security/email/change_notice",
     "USER_IDENTITY_ATTRIBUTES": [
         {"email": {"mapper": uia_email_mapper, "case_insensitive": True}}
     ],
@@ -338,6 +404,7 @@ _default_config: dict[str, t.Any] = {
     "UNIFIED_SIGNIN": False,
     "USERNAME_RECOVERY": False,
     "USERNAME_RECOVERY_TEMPLATE": "security/recover_username.html",
+    "USERNAME_RECOVERY_EMAIL_TEMPLATE": "security/email/username_recovery",
     "USERNAME_RECOVERY_URL": "/recover-username",
     "US_SETUP_SALT": "us-setup-salt",
     "US_SIGNIN_URL": "/us-signin",
@@ -354,7 +421,8 @@ _default_config: dict[str, t.Any] = {
     "US_MFA_REQUIRED": ["password", "email"],
     "US_TOKEN_VALIDITY": 120,
     "US_EMAIL_SUBJECT": _("Verification Code"),
-    "US_SETUP_WITHIN": "30 minutes",
+    "US_EMAIL_TEMPLATE": "security/email/us_instructions",
+    "US_SETUP_WITHIN": timedelta(minutes=30),
     "US_SIGNIN_REPLACES_LOGIN": False,
     "CACHE_CONTROL": {"private": True, "no-store": True},
     "CSRF_PROTECT_MECHANISMS": AUTHN_MECHANISMS,
@@ -363,7 +431,7 @@ _default_config: dict[str, t.Any] = {
     "CSRF_COOKIE": {
         "samesite": "Strict",
         "httponly": False,
-        "secure": False,
+        "secure": True,
     },
     "CSRF_HEADER": "X-XSRF-Token",
     "CSRF_COOKIE_REFRESH_EACH_REQUEST": False,
@@ -371,9 +439,9 @@ _default_config: dict[str, t.Any] = {
     "JOIN_USER_ROLES": True,
     "USERNAME_ENABLE": False,
     "USERNAME_REQUIRED": False,
+    "USERNAME_ALLOWED_CHARS": ["L", "N"],
     "USERNAME_MIN_LENGTH": 4,
     "USERNAME_MAX_LENGTH": 32,
-    "USERNAME_NORMALIZE_FORM": "NFKD",
     "WEBAUTHN": False,
     "WAN_CHALLENGE_BYTES": None,  # uses system default
     "WAN_POST_REGISTER_VIEW": ".wan_register",  # endpoint or URL
@@ -382,11 +450,11 @@ _default_config: dict[str, t.Any] = {
     "WAN_REGISTER_TIMEOUT": 60000,  # milliseconds
     "WAN_REGISTER_TEMPLATE": "security/wan_register.html",
     "WAN_REGISTER_URL": "/wan-register",
-    "WAN_REGISTER_WITHIN": "30 minutes",
+    "WAN_REGISTER_WITHIN": timedelta(minutes=30),
     "WAN_SIGNIN_TIMEOUT": 60000,  # milliseconds
     "WAN_SIGNIN_TEMPLATE": "security/wan_signin.html",
     "WAN_SIGNIN_URL": "/wan-signin",
-    "WAN_SIGNIN_WITHIN": "1 minutes",
+    "WAN_SIGNIN_WITHIN": timedelta(minutes=1),
     "WAN_DELETE_URL": "/wan-delete",
     "WAN_VERIFY_URL": "/wan-verify",
     "WAN_VERIFY_TEMPLATE": "security/wan_verify.html",
@@ -394,6 +462,8 @@ _default_config: dict[str, t.Any] = {
     "WAN_ALLOW_AS_MULTI_FACTOR": True,
     "WAN_ALLOW_USER_HINTS": True,
     "WAN_ALLOW_AS_VERIFY": ["first", "secondary"],
+    "WAN_NAME_ALLOWED_CHARS": ["L", "N", "Pc", "Pd", "Zs"],
+    "WAN_NAME_MAX_LENGTH": 64,
     "ZXCVBN_MINIMUM_SCORE": 3,
 }
 
@@ -497,6 +567,14 @@ _default_messages = {
     "EMAIL_NOT_PROVIDED": (_("Email not provided"), "error"),
     "INVALID_EMAIL_ADDRESS": (_("Invalid email address"), "error"),
     "INVALID_CODE": (_("Invalid code"), "error"),
+    "INVALID_INPUT": (
+        _("Value entered is not valid for the field"),
+        "error",
+    ),
+    "INVALID_INPUT_LENGTH": (
+        _("Value entered must be less than %(length) characters"),
+        "error",
+    ),
     "PASSWORD_NOT_PROVIDED": (_("Password not provided"), "error"),
     "PASSWORD_INVALID_LENGTH": (
         _("Password must be at least %(length)s characters"),
@@ -535,6 +613,7 @@ _default_messages = {
     "PASSWORD_CHANGE": (_("You successfully changed your password."), "success"),
     "LOGIN": (_("Please log in to access this page."), "info"),
     "REFRESH": (_("Please reauthenticate to access this page."), "info"),
+    "REFRESH_TOKEN_INVALID": (_("Refresh token is invalid (%(reason)s)"), "error"),
     "REAUTHENTICATION_SUCCESSFUL": (_("Reauthentication successful"), "info"),
     "ANONYMOUS_USER_REQUIRED": (
         _("You can only access this endpoint when not logged in."),
@@ -581,10 +660,6 @@ _default_messages = {
         ),
         "error",
     ),
-    "USERNAME_ILLEGAL_CHARACTERS": (
-        _("Username contains illegal characters"),
-        "error",
-    ),
     "USERNAME_DISALLOWED_CHARACTERS": (
         _("Username can contain only letters and numbers"),
         "error",
@@ -608,6 +683,13 @@ _default_messages = {
     ),
     "WEBAUTHN_NAME_NOT_FOUND": (
         _("%(name)s not registered with current user."),
+        "error",
+    ),
+    "WEBAUTHN_NAME_DISALLOWED_CHARACTERS": (
+        _(
+            "Passkey nicknames can contain only letters, numbers,"
+            " and limited punctuation."
+        ),
         "error",
     ),
     "WEBAUTHN_CREDENTIAL_DELETED": (
@@ -733,9 +815,12 @@ def _request_loader(request):
 
     try:
         tdata = parse_auth_token(token)
+        # Fallback to fs_uniquifier - allows upgrading to token_uniquifier while
+        # old tokens still work.
+        user = None
         if hasattr(_security.datastore.user_model, "fs_token_uniquifier"):
             user = _security.datastore.find_user(fs_token_uniquifier=tdata["uid"])
-        else:
+        if not user:
             user = _security.datastore.find_user(fs_uniquifier=tdata["uid"])
     except Exception:
         return None
@@ -763,7 +848,7 @@ def _on_identity_loaded(sender, identity):
         for role in getattr(current_user, "roles", []):
             identity.provides.add(RoleNeed(role.name))
             for fsperm in role.get_permissions():
-                identity.provides.add(FsPermNeed(fsperm))
+                identity.provides.add(_FsPermNeed(fsperm))
 
     identity.user = current_user
 
@@ -823,7 +908,7 @@ def _get_hashing_context(app: flask.Flask) -> CryptContext:
     return CryptContext(schemes=schemes, deprecated=deprecated)
 
 
-def _get_serializer(app, name):
+def _get_serializer(app, name, serializer=URLSafeTimedSerializer):
     secret_key = app.config.get("SECRET_KEY")
     derived_keys = app.config.get("SECRET_KEY_FALLBACKS")
 
@@ -831,7 +916,7 @@ def _get_serializer(app, name):
         derived_keys if isinstance(derived_keys, list) else []
     )
     salt = cv(f"{name.upper()}_SALT", app=app)
-    return URLSafeTimedSerializer(secret_keys, salt=salt)
+    return serializer(secret_keys, salt=salt)
 
 
 def _context_processor():
@@ -852,18 +937,22 @@ class RoleMixin:
         permissions: list[str] | None
         update_datetime: datetime
 
-        def __init__(self, **kwargs): ...
+        def __init__(self, **kwargs: t.Any): ...
 
-    def __eq__(self, other):
-        return self.name == other or self.name == getattr(other, "name", None)
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, RoleMixin) or isinstance(other, str):
+            return self.name == other or self.name == getattr(other, "name", None)
+        return NotImplemented  # pragma: no cover
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def __ne__(self, other: object) -> bool:
+        if isinstance(other, RoleMixin) or isinstance(other, str):
+            return not self.__eq__(other)
+        return NotImplemented  # pragma: no cover
 
-    def __hash__(self):
-        return hash(self.name)
+    def __hash__(self) -> int:
+        return hash(self.name)  # pragma: no cover
 
-    def get_permissions(self) -> set:
+    def get_permissions(self) -> set[str]:
         """
         Return set of permissions associated with role.
 
@@ -903,8 +992,9 @@ class UserMixin(BaseUserMixin):
         update_datetime: datetime
         roles: list[RoleMixin]
         webauthn: list[WebAuthnMixin]
+        refresh_trackers: list[RefreshTrackerMixin]
 
-        def __init__(self, **kwargs): ...
+        def __init__(self, **kwargs: t.Any): ...
 
     def get_id(self) -> str:
         """Returns the user identification attribute. 'Alternative-token' for
@@ -943,20 +1033,18 @@ class UserMixin(BaseUserMixin):
             Remove session id (never set or used); added fs_paa (last authentication
             timestamp)
         """
+        from .proxies import _datastore
 
-        tdata: dict[str, t.Any] = dict(ver=str(5))
-        if hasattr(self, "fs_token_uniquifier"):
-            if not self.fs_token_uniquifier:
-                raise ValueError()
-            tdata["uid"] = str(self.fs_token_uniquifier)
-        else:
-            tdata["uid"] = str(self.fs_uniquifier)
-        # Set the primary authenticated at variable. This is equivalent to
-        # what we set in the session.
-        tdata["fs_paa"] = time.time()  # equivalent of session["fs_paa"]
-        tdata["exp"] = int(cv("TOKEN_EXPIRE_TIMESTAMP")(self))  # if >0 then shorter of
-        # :data:SECURITY_MAX_AGE and this.
-
+        uid = getattr(self, _datastore.get_token_uniquifier_name())
+        if not uid:
+            raise ValueError()
+        tdata: dict[str, t.Any] = {
+            "ver": str(5),
+            "uid": uid,
+            "fs_paa": time.time(),  # equivalent of session["fs_paa"]
+            "exp": int(cv("TOKEN_EXPIRE_TIMESTAMP")(self)),  # if >0 then shorter of
+            # :data:SECURITY_MAX_AGE and this.
+        }
         # Let application add things
         self.augment_auth_token(tdata)
 
@@ -1232,7 +1320,7 @@ class WebAuthnMixin:
         lastuse_datetime: datetime
         usage: str
 
-        def __init__(self, **kwargs): ...
+        def __init__(self, **kwargs: t.Any): ...
 
     def get_user_mapping(self) -> dict[str, t.Any]:
         """
@@ -1245,11 +1333,26 @@ class WebAuthnMixin:
         return dict(id=self.user_id)  # type: ignore
 
 
+class RefreshTrackerMixin:
+    if t.TYPE_CHECKING:  # pragma: no cover
+        # These are defined in the application's Model files.
+        id: int
+        name: str
+        # refresh_family and gen track rotation and lets the app react
+        refresh_family: str
+        gen: int
+        expires_at: datetime
+        revoked_at: datetime | None
+        last_used_at: datetime
+
+        def __init__(self, **kwargs: t.Any): ...
+
+
 class AnonymousUser(AnonymousUserMixin):
     """AnonymousUser definition"""
 
     def __init__(self):
-        self.roles = ImmutableList()
+        self.roles = list()
 
     def has_role(self, *args):
         """Returns `False`"""
@@ -1263,6 +1366,7 @@ class Security:
     :param datastore: An instance of a user datastore.
     :param register_blueprint: to register the Security blueprint or not.
     :param login_form: set form for the login view
+    :param logout_form: set form for the logout view
     :param verify_form: set form for reauthentication due to freshness check
     :param change_email_form: set form for changing email address
     :param register_form: set form for the register view when
@@ -1282,6 +1386,7 @@ class Security:
     :param two_factor_select_form: set form for selecting between active 2FA methods
     :param mf_recovery_codes_form: set form for retrieving and setting recovery codes
     :param mf_recovery_form: set form for multi factor recovery
+    :param refresh_token_form: set form for the refresh token view
     :param username_recovery_form: set form for the username recovery view
     :param us_signin_form: set form for the unified sign in view
     :param us_setup_form: set form for the unified sign in setup view
@@ -1359,6 +1464,9 @@ class Security:
         ``register_form`` default value is RegisterFormV2 and
         ``confirm_register_form`` default is now ``None``.
 
+    .. versionadded:: 5.9.0
+        ``refresh_token_form``, ``logout_form``
+
     .. deprecated:: 4.0.0
         ``send_mail`` and ``send_mail_task``. Replaced with ``mail_util_cls``.
         ``two_factor_verify_password_form`` removed.
@@ -1380,6 +1488,7 @@ class Security:
         register_blueprint: bool = True,
         *,
         login_form: t.Type[LoginForm] = LoginForm,
+        logout_form: t.Type[LogoutForm] = LogoutForm,
         verify_form: t.Type[VerifyForm] = VerifyForm,
         change_email_form: t.Type[ChangeEmailForm] = ChangeEmailForm,
         change_username_form: t.Type[ChangeUsernameForm] = ChangeUsernameForm,
@@ -1398,6 +1507,7 @@ class Security:
         two_factor_select_form: t.Type[TwoFactorSelectForm] = TwoFactorSelectForm,
         mf_recovery_codes_form: t.Type[MfRecoveryCodesForm] = MfRecoveryCodesForm,
         mf_recovery_form: t.Type[MfRecoveryForm] = MfRecoveryForm,
+        refresh_token_form: t.Type[RefreshTokenForm] = RefreshTokenForm,
         us_signin_form: t.Type[UnifiedSigninForm] = UnifiedSigninForm,
         us_setup_form: t.Type[UnifiedSigninSetupForm] = UnifiedSigninSetupForm,
         us_setup_validate_form: t.Type[
@@ -1417,7 +1527,7 @@ class Security:
         mail_util_cls: t.Type[MailUtil] = MailUtil,
         password_util_cls: t.Type[PasswordUtil] = PasswordUtil,
         phone_util_cls: t.Type[PhoneUtil] = PhoneUtil,
-        render_template: t.Callable[..., str] = default_render_template,
+        render_template: t.Callable[..., str] = _default_render_template,
         totp_cls: t.Type[Totp] = Totp,
         username_recovery_form: t.Type[UsernameRecoveryForm] = UsernameRecoveryForm,
         username_util_cls: t.Type[UsernameUtil] = UsernameUtil,
@@ -1450,8 +1560,9 @@ class Security:
 
         # Forms - we create a list from constructor.
         # BC - in init_app we will allow override of class.
-        self.forms = {
+        self.forms: dict[str, FormInfo] = {
             "login_form": FormInfo(cls=login_form),
+            "logout_form": FormInfo(cls=logout_form),
             "verify_form": FormInfo(cls=verify_form),
             "confirm_register_form": FormInfo(cls=confirm_register_form),
             "register_form": FormInfo(cls=register_form),
@@ -1468,6 +1579,7 @@ class Security:
             "two_factor_select_form": FormInfo(cls=two_factor_select_form),
             "mf_recovery_codes_form": FormInfo(cls=mf_recovery_codes_form),
             "mf_recovery_form": FormInfo(cls=mf_recovery_form),
+            "refresh_token_form": FormInfo(cls=refresh_token_form),
             "username_recovery_form": FormInfo(cls=username_recovery_form),
             "us_signin_form": FormInfo(cls=us_signin_form),
             "us_setup_form": FormInfo(cls=us_setup_form),
@@ -1493,7 +1605,7 @@ class Security:
             [dict[str, t.Any], int, dict[str, str] | None, UserMixin | None],
             ResponseValue,
         ] = default_render_json
-        self._want_json: t.Callable[[Request], bool] = default_want_json
+        self._want_json: t.Callable[[Request], bool] = _default_want_json
 
         # Type attributes that we don't initialize until init_app time.
         self.remember_token_serializer: URLSafeTimedSerializer
@@ -1505,6 +1617,7 @@ class Security:
         self.tf_setup_serializer: URLSafeTimedSerializer
         self.tf_validity_serializer: URLSafeTimedSerializer
         self.wan_serializer: URLSafeTimedSerializer
+        self.refresh_token_serializer: URLSafeSerializer
         self.principal: Principal
         self.pwd_context: CryptContext
         self.hashing_context: CryptContext
@@ -1518,7 +1631,7 @@ class Security:
             naive_utcnow  # can be changed in init_app()
         )
 
-        self.login_manager: flask_login.LoginManager
+        self.login_manager: LoginManager
         self._mail_util: MailUtil
         self._phone_util: PhoneUtil
         self._password_util: PasswordUtil
@@ -1535,6 +1648,7 @@ class Security:
         self.registerable: bool = False
         self.changeable: bool = False
         self.recoverable: bool = False
+        self.refresh_token: bool = False
         self.two_factor: bool = False
         self.unified_signin: bool = False
         self.passwordless: bool = False
@@ -1597,6 +1711,7 @@ class Security:
         # BC - we allow forms to be set from config
         form_names = [
             "login_form",
+            "logout_form",
             "verify_form",
             "change_email_form",
             "confirm_register_form",
@@ -1613,6 +1728,7 @@ class Security:
             "two_factor_select_form",
             "mf_recovery_form",
             "mf_recovery_codes_form",
+            "refresh_token_form",
             "username_recovery_form",
             "us_signin_form",
             "us_setup_form",
@@ -1676,6 +1792,7 @@ class Security:
             "confirmable",
             "changeable",
             "recoverable",
+            "refresh_token",
             "two_factor",
             "unified_signin",
             "username_recovery",
@@ -1714,6 +1831,34 @@ class Security:
                     " must have one and only one key."
                 )
 
+        if not isinstance(cv("TOKEN_MAX_AGE", app=app), timedelta):
+            app.config["SECURITY_TOKEN_MAX_AGE"] = timedelta(
+                seconds=cv("TOKEN_MAX_AGE", app=app)
+            )
+
+        within_conversion = [
+            "LOGIN_WITHIN",
+            "CHANGE_EMAIL_WITHIN",
+            "CONFIRM_EMAIL_WITHIN",
+            "RESET_PASSWORD_WITHIN",
+            "TWO_FACTOR_SETUP_WITHIN",
+            "US_SETUP_WITHIN",
+            "WAN_REGISTER_WITHIN",
+            "WAN_SIGNIN_WITHIN",
+            "TWO_FACTOR_LOGIN_VALIDITY",
+        ]
+        for key in within_conversion:
+            within_value = cv(key, app=app)
+            if not isinstance(within_value, timedelta):
+                values = within_value.split()
+                app.config[f"SECURITY_{key}"] = timedelta(**{values[1]: int(values[0])})
+                warnings.warn(
+                    f"Non timedelta values for SECURITY_{key} are"
+                    f"deprecated as of 5.9",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
         self.login_manager = _get_login_manager(app, self)
         self._phone_util = self._phone_util_cls(app)
         self._mail_util = self._mail_util_cls(app)
@@ -1730,6 +1875,9 @@ class Security:
         self.tf_setup_serializer = _get_serializer(app, "two_factor_setup")
         self.tf_validity_serializer = _get_serializer(app, "two_factor_validity")
         self.wan_serializer = _get_serializer(app, "wan")
+        self.refresh_token_serializer = _get_serializer(
+            app, "refresh_token", URLSafeSerializer
+        )
         self.principal = _get_principal(app)
         self.pwd_context = _get_pwd_context(app)
         self.hashing_context = _get_hashing_context(app)
@@ -1782,22 +1930,22 @@ class Security:
             # Add dynamic fields - probably overkill to check if these are our forms.
             fcls = self.forms["register_form"].cls
             if fcls and issubclass(fcls, RegisterFormMixin):
-                fcls.username = build_username_field(app)
+                fcls.username = _build_username_field(app)
             fcls = self.forms["confirm_register_form"].cls
             if fcls and issubclass(fcls, RegisterFormMixin):
-                fcls.username = build_username_field(app)
+                fcls.username = _build_username_field(app)
 
         fcls = self.forms["login_form"].cls
         if fcls and issubclass(fcls, LoginForm):
-            build_login_form(app=app, fcls=fcls)
+            _build_login_form(app=app, fcls=fcls)
 
         # new unified RegisterForm
         fcls = self.forms["register_form"].cls
         if fcls and issubclass(fcls, RegisterFormV2):
-            build_register_form(app=app, fcls=fcls)
+            _build_register_form(app=app, fcls=fcls)
         fcls = self.forms["change_username_form"].cls
         if fcls and issubclass(fcls, ChangeUsernameForm):
-            fcls.username = build_username_field(app=app)
+            fcls.username = _build_username_field(app=app)
 
         # initialize two-factor plugins. Note that each implementation likely
         # has its own feature flag which will control whether it is active or not.
@@ -1815,12 +1963,12 @@ class Security:
         # register our blueprint/endpoints
         bp = None
         if self.register_blueprint:
-            bp = create_blueprint(app, self, __name__)
+            bp = _create_blueprint(app, self, __name__)
             self.two_factor_plugins.create_blueprint(app, bp, self)
             if self.oauthglue:
                 self.oauthglue._create_blueprint(app, bp)
             if cv("CACHE_CONTROL", app=app):
-                bp.after_request(add_cache_control)
+                bp.after_request(_add_cache_control)
             app.register_blueprint(bp)
             app.context_processor(_context_processor)
 
@@ -1894,9 +2042,10 @@ class Security:
 
         if cv("WEBAUTHN", app=app):
             self._check_modules("webauthn", "WEBAUTHN")
+            self._check_modules("nh3", "WEBAUTHN")
 
         if cv("USERNAME_ENABLE", app=app) and self._username_util_cls == UsernameUtil:
-            self._check_modules("bleach", "USERNAME_ENABLE")
+            self._check_modules("nh3", "USERNAME_ENABLE")
 
         # Register so other packages can reference our translations.
         app.jinja_env.globals["_fsdomain"] = self.i18n_domain.gettext
@@ -1975,13 +2124,12 @@ class Security:
             )
 
         if csrf:
-            csrf.exempt("flask_security.views.logout")
             # Add configured header to WTF_CSRF_HEADERS
             if ch := cv("CSRF_HEADER", app=app):
                 if ch not in app.config["WTF_CSRF_HEADERS"]:
                     app.config["WTF_CSRF_HEADERS"].append(ch)
         if cv("CSRF_COOKIE_NAME", app=app):
-            app.after_request(csrf_cookie_handler)
+            app.after_request(_csrf_cookie_handler)
 
     def set_form_info(self, name: str, form_info: FormInfo) -> None:
         """Set form instantiation info.
@@ -2228,6 +2376,9 @@ class Security:
 
     def login_context_processor(self, fn: t.Callable[[], dict[str, t.Any]]) -> None:
         self._add_ctx_processor("login", fn)
+
+    def logout_context_processor(self, fn: t.Callable[[], dict[str, t.Any]]) -> None:
+        self._add_ctx_processor("logout", fn)
 
     def register_context_processor(self, fn: t.Callable[[], dict[str, t.Any]]) -> None:
         self._add_ctx_processor("register", fn)

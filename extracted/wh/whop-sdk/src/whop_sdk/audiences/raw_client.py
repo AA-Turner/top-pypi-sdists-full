@@ -80,6 +80,7 @@ class RawAudiencesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "audiences",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -180,7 +181,7 @@ class RawAudiencesClient:
             CSV audiences only. The uploaded customer CSV — a file id (`file_...`) returned by `POST /files`.
 
         filters : typing.Optional[typing.Dict[str, typing.Any]]
-            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Date filters must be rolling windows — `first_seen_within_days` or `last_seen_within_days` — so the audience re-anchors on every refresh; fixed dates such as `first_seen_after` are rejected. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
+            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Activity dates `event_from` and `event_to` are inclusive and remain fixed on refresh. Use `event_within_days`, `first_seen_within_days` or `last_seen_within_days` for a rolling window. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
 
         name : typing.Optional[str]
             Audience display name. Required for custom audiences; lookalike names are generated from the source audience.
@@ -204,6 +205,7 @@ class RawAudiencesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "audiences",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -302,6 +304,7 @@ class RawAudiencesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"audiences/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="DELETE",
             request_options=request_options,
         )
@@ -356,6 +359,7 @@ class RawAudiencesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"audiences/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "filters": filters,
@@ -421,6 +425,7 @@ class RawAudiencesClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"audiences/{encode_path_param(id)}/add_people",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "file_id": file_id,
@@ -521,6 +526,7 @@ class AsyncRawAudiencesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "audiences",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -624,7 +630,7 @@ class AsyncRawAudiencesClient:
             CSV audiences only. The uploaded customer CSV — a file id (`file_...`) returned by `POST /files`.
 
         filters : typing.Optional[typing.Dict[str, typing.Any]]
-            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Date filters must be rolling windows — `first_seen_within_days` or `last_seen_within_days` — so the audience re-anchors on every refresh; fixed dates such as `first_seen_after` are rejected. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
+            Filter audiences only. The People filters that define membership, keyed exactly as `GET /people` accepts them — for example `{"os": "iOS", "country": "US"}`. Activity dates `event_from` and `event_to` are inclusive and remain fixed on refresh. Use `event_within_days`, `first_seen_within_days` or `last_seen_within_days` for a rolling window. Source values are canonical source paths (`whop:<campaign>:<group>:<ad>`, `ext:<platform>:...`, `referrer:<domain>`, `direct`), exact or with a trailing `:*` wildcard.
 
         name : typing.Optional[str]
             Audience display name. Required for custom audiences; lookalike names are generated from the source audience.
@@ -648,6 +654,7 @@ class AsyncRawAudiencesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "audiences",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -746,6 +753,7 @@ class AsyncRawAudiencesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"audiences/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="DELETE",
             request_options=request_options,
         )
@@ -800,6 +808,7 @@ class AsyncRawAudiencesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"audiences/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "filters": filters,
@@ -865,6 +874,7 @@ class AsyncRawAudiencesClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"audiences/{encode_path_param(id)}/add_people",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "file_id": file_id,

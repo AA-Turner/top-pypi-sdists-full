@@ -125,6 +125,8 @@ class Weblate:
             ]
             self.backoff_factor = backoff_factor
 
+        self._validate_api_key()
+
         retry_config = Retry(
             total=self.retry_total,
             backoff_factor=self.backoff_factor,
@@ -133,11 +135,20 @@ class Weblate:
             raise_on_status=False,
         )
         self.adapter = HTTPAdapter(pool_connections=1, max_retries=retry_config)
+        self.session.mount("http://", self.adapter)
+        self.session.mount("https://", self.adapter)
 
         if not self.url.endswith("/"):
             self.url += "/"
         self.api_origin = self.get_origin(self.parse_request_url(self.url))
         self.validate_authenticated_transport()
+
+    def _validate_api_key(self) -> None:
+        """Reject API keys that can not be safely used in an HTTP header."""
+        if "\r" in self.key or "\n" in self.key:
+            raise WeblateException(
+                "API key must not contain carriage returns or line feeds."
+            )
 
     @staticmethod
     def is_loopback_host(hostname: str | None) -> bool:
@@ -218,7 +229,7 @@ class Weblate:
 
         # Since Weblate 5.10
         if "errors" in response_json:
-            return ", ".join(error["detail"] for error in response_json["errors"])
+            return ", ".join(item["detail"] for item in response_json["errors"])
 
         # Weblate before 5.10
         if "detail" in response_json:
@@ -339,9 +350,6 @@ class Weblate:
             files=files,
         )
         try:
-            self.session.mount(
-                f"{self.parse_request_url(path).scheme}://", self.adapter
-            )
             response = self.session.request(
                 method,
                 path,

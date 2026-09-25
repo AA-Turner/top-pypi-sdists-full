@@ -475,15 +475,98 @@ class TypeCompileTest(fixtures.TestBase, AssertsCompiledSQL):
         self.assert_compile(type_, sql_text)
 
 
-class INETMariadbTest(fixtures.TestBase, AssertsCompiledSQL):
-    __dialect__ = mariadb.MariaDBDialect()
+class UUIDTest(fixtures.TestBase, AssertsCompiledSQL):
+    @testing.combinations(
+        (sqltypes.Uuid(), (10, 6, 5), "CHAR(32)"),
+        (sqltypes.Uuid(native_uuid=False), (10, 6, 5), "CHAR(32)"),
+        (sqltypes.Uuid(), (10, 7, 0), "UUID"),
+        (sqltypes.Uuid(native_uuid=False), (10, 7, 0), "CHAR(32)"),
+        (sqltypes.UUID(), (10, 6, 5), "UUID"),
+        (sqltypes.UUID(), (10, 7, 0), "UUID"),
+        argnames="type_, version, res",
+    )
+    @testing.variation("use_mariadb", [True, False])
+    def test_mariadb_uuid_combinations(self, type_, version, res, use_mariadb):
+        if use_mariadb:
+            dialect = mariadb.MariaDBDialect()
+        else:
+            dialect = mysql.MySQLDialect(is_mariadb=True)
+            dialect._set_mariadb(True, "10.2.0")
+
+        dialect.server_version_info = version
+        dialect._initialize_mariadb(None)
+        self.assert_compile(type_, res, dialect=dialect)
+
+    @testing.combinations(
+        (sqltypes.Uuid(),),
+        (sqltypes.Uuid(native_uuid=False),),
+    )
+    def test_mysql_uuid_combinations(self, type_):
+        dialect = mysql.MySQLDialect()
+        self.assert_compile(type_, "CHAR(32)", dialect=dialect)
+
+
+class INETTest(fixtures.TestBase, AssertsCompiledSQL):
+    __only_on__ = ("mariadb",)
+    __backend__ = True
 
     @testing.combinations(
         (mariadb.INET4(), "INET4"),
         (mariadb.INET6(), "INET6"),
+        argnames="type_, res",
     )
-    def test_mariadb_inet6(self, type_, res):
-        self.assert_compile(type_, res)
+    @testing.variation("use_mariadb", [True, False])
+    def test_mariadb_inet6(self, type_, res, use_mariadb):
+        self.assert_compile(
+            type_, res, dialect="mariadb" if use_mariadb else "mysql"
+        )
+
+    @testing.fixture
+    def inet_table(self, metadata):
+        inet_table = Table(
+            "inet_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("ip4", mariadb.INET4()),
+            Column("ip6", mariadb.INET6()),
+        )
+        return inet_table
+
+    @testing.fixture
+    def mysql_url_mariadb(self, testing_engine):
+        url = testing.db.url
+
+        url = url.set(drivername=f"mysql+{url.get_driver_name()}")
+
+        return testing_engine(url)
+
+    def test_inet(self, inet_table):
+        self._roundtrip(inet_table, testing.db)
+
+    def test_inet_w_mysql_url(self, mysql_url_mariadb, inet_table):
+        db = mysql_url_mariadb
+
+        self._roundtrip(inet_table, db)
+
+    def _roundtrip(self, inet_table, db):
+
+        with db.begin() as conn:
+            inet_table.create(conn)
+
+            conn.execute(
+                inet_table.insert(),
+                {
+                    "ip4": "192.168.1.1",
+                    "ip6": "2001:db8:85a3:0:0:8a2e:370:7334",
+                },
+            )
+
+            eq_(
+                conn.execute(
+                    select(inet_table.c.ip4, inet_table.c.ip6)
+                ).first(),
+                ("192.168.1.1", "2001:db8:85a3::8a2e:370:7334"),
+            )
 
 
 class TypeRoundTripTest(fixtures.TestBase, AssertsExecutionResults):

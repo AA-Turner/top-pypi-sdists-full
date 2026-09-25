@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Any
+from typing import assert_type
 from typing import TYPE_CHECKING
+from typing import Unpack
 
 from sqlalchemy import Column
 from sqlalchemy import create_engine
@@ -12,9 +14,11 @@ from sqlalchemy import Result
 from sqlalchemy import select
 from sqlalchemy import String
 from sqlalchemy import Table
+from sqlalchemy.engine.cursor import CursorResult
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
+from sqlalchemy.sql.lambdas import StatementLambdaElement
 
 
 class Base(DeclarativeBase):
@@ -49,11 +53,9 @@ s6 = lambda_stmt(lambda: select(User)) + (lambda s: s.where(User.id == 5))
 
 
 if TYPE_CHECKING:
-    # EXPECTED_TYPE: StatementLambdaElement
-    reveal_type(s5)
+    assert_type(s5, StatementLambdaElement)
 
-    # EXPECTED_TYPE: StatementLambdaElement
-    reveal_type(s6)
+    assert_type(s6, StatementLambdaElement)
 
 
 e = create_engine("sqlite://")
@@ -62,15 +64,13 @@ with e.connect() as conn:
     result = conn.execute(s6)
 
     if TYPE_CHECKING:
-        # EXPECTED_TYPE: CursorResult[Any]
-        reveal_type(result)
+        assert_type(result, CursorResult[Unpack[tuple[Any, ...]]])
 
     # we can type these like this
-    my_result: Result[Tuple[User]] = conn.execute(s6)
+    my_result: Result[User] = conn.execute(s6)
 
     if TYPE_CHECKING:
         # pyright and mypy disagree on the specific type here,
         # mypy sees Result as we said, pyright seems to upgrade it to
         # CursorResult
-        # EXPECTED_RE_TYPE: .*(?:Cursor)?Result\[Tuple\[.*User\]\]
-        reveal_type(my_result)
+        assert_type(my_result, Result[User])

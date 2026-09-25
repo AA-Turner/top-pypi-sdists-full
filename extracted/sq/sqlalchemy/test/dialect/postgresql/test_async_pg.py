@@ -272,7 +272,6 @@ class AsyncPgTest(fixtures.TestBase):
             )
         ).scalar()
         eq_(trans_exists, 0)
-        await engine.dispose()
 
     @async_test
     async def test_failed_commit_recover(self, metadata, async_testing_engine):
@@ -362,7 +361,6 @@ class AsyncPgTest(fixtures.TestBase):
         "setup_asyncpg_jsonb_codec",
         argnames="methname",
     )
-    @testing.requires.python38
     @async_test
     async def test_codec_registration(
         self, metadata, async_testing_engine, methname

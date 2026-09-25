@@ -36,7 +36,6 @@ SCANNED = (
     _ROOT / "src/services/release_content.py",
     _ROOT / "src/services/summary_line.py",
     _ROOT / "src/cli/commands/releases.py",
-    _ROOT / "src/routers/webui/data.py",
 )
 
 

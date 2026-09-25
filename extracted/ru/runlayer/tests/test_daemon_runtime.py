@@ -82,7 +82,10 @@ def test_credential_cache_refreshes_on_ttl_and_invalidation() -> None:
     assert len(managed_loads) == 2
 
 
-def test_401_invalidates_cached_credentials(monkeypatch) -> None:
+def _post_401_through_cache(monkeypatch, response: httpx.Response) -> list[str]:
+    """Load credentials through the daemon cache, POST once into ``response``
+    (a 401), then load again; returns the two secrets seen so the caller can
+    tell whether the 401 invalidated the cache."""
     managed = runtime.ManagedConfigCache(lambda: {})
     credentials = runtime.CredentialCache(managed)
     loads: list[int] = []
@@ -93,15 +96,11 @@ def test_401_invalidates_cached_credentials(monkeypatch) -> None:
 
     monkeypatch.setattr(relay, "_load_credentials_uncached", load_credentials)
     monkeypatch.setattr(relay, "_maybe_attach_device", lambda payload: payload)
-    client = httpx.Client(
-        transport=httpx.MockTransport(
-            lambda _request: httpx.Response(401, text="unauthorized")
-        )
-    )
+    client = httpx.Client(transport=httpx.MockTransport(lambda _request: response))
     relay.set_credential_cache(credentials)
     relay.set_shared_http_client_provider(lambda: client)
     try:
-        assert relay._load_credentials()[1] == "secret-1"
+        first = relay._load_credentials()[1]
         with pytest.raises(relay.RelayError, match="HTTP 401"):
             relay._post(
                 "https://api.example.com",
@@ -109,11 +108,31 @@ def test_401_invalidates_cached_credentials(monkeypatch) -> None:
                 "{}",
                 target="enforce",
             )
-        assert relay._load_credentials()[1] == "secret-2"
+        second = relay._load_credentials()[1]
     finally:
         client.close()
+    return [first, second]
 
-    assert len(loads) == 2
+
+def test_runlayer_401_invalidates_cached_credentials(monkeypatch) -> None:
+    """The backend's own 401 (JSON envelope + request id, as its error
+    handlers always answer) is a credential verdict: drop the cached secret."""
+    response = httpx.Response(
+        401,
+        json={"detail": "unauthorized"},
+        headers={"X-Request-ID": "req-1", "X-Runlayer-Origin": "backend"},
+    )
+    assert _post_401_through_cache(monkeypatch, response) == ["secret-1", "secret-2"]
+
+
+def test_intermediary_401_keeps_cached_credentials(monkeypatch) -> None:
+    """A 401 minted by a proxy on the path (HTML body, no Runlayer markers)
+    says nothing about the credential; invalidating would make the daemon
+    re-read keychain/MDM on every proxy hiccup for no gain."""
+    response = httpx.Response(
+        401, text="<html>unauthorized</html>", headers={"server": "proxy/1.0"}
+    )
+    assert _post_401_through_cache(monkeypatch, response) == ["secret-1", "secret-1"]
 
 
 class _CountingHTTPServer(ThreadingHTTPServer):

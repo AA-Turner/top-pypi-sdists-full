@@ -23,13 +23,11 @@ extend-select = [
     "T20",
     "E711",
     "E712",
-    "E731",
     "E741",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"pywa/types/__init__.py" = ["I001"]
-"pywa_async/types/__init__.py" = ["I001"]
+"pywa*/types/__init__.py" = ["I001"]
 "pywa/cli.py" = ["T201"]
 "tests/test_flows.py" = ["E712"]
 "tests/smoke_test.py" = ["T201"]
@@ -45,9 +43,9 @@ include = ["pywa_async/**"]
 invalid-method-override = "ignore"
 
 [tool.coverage.run]
-source = [
-    "pywa",
-    "pywa_async",
+include = [
+    "pywa/*",
+    "pywa_async/*",
 ]
 omit = ["pywa/__main__.py"]
 
@@ -63,7 +61,7 @@ exclude_lines = [
 
 [project]
 name = "pywa"
-version = "4.4.0"
+version = "4.5.0"
 description = "🚀 Build WhatsApp Bots in Python • Fast, Effortless, Powerful"
 readme = "README.md"
 license = "MIT"

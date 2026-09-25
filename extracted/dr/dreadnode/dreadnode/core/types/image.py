@@ -3,11 +3,10 @@ import io
 import typing as t
 from pathlib import Path
 
-import numpy as np
-
 from dreadnode.core.types import DataType
 
 if t.TYPE_CHECKING:
+    import numpy as np
     from PIL.Image import Image as PILImage
 
 ImageDataType: t.TypeAlias = "np.ndarray[t.Any, t.Any] | PILImage | t.Any"
@@ -58,6 +57,8 @@ class Image(DataType):
         self, data: ImageDataOrPathType, format_hint: str | None
     ) -> dict[str, t.Any]:
         """Extract metadata from source without full conversion."""
+        import numpy as np
+
         metadata = {"source-type": "unknown"}
 
         if isinstance(data, (str, Path)):
@@ -113,6 +114,7 @@ class Image(DataType):
             - range: [0.0, 1.0]
             - format: HWC (Height, Width, Channels) or HW for grayscale
         """
+        import numpy as np
 
         # Handle numpy arrays directly to preserve precision
         if isinstance(data, np.ndarray):
@@ -142,6 +144,8 @@ class Image(DataType):
         self, array: "np.ndarray[t.Any, t.Any]", mode: str | None
     ) -> tuple["np.ndarray[t.Any, np.dtype[np.float32]]", str]:
         """Convert numpy array directly to canonical format without PIL roundtrip."""
+        import numpy as np
+
         # Make a copy and ensure valid format
         arr = self._ensure_valid_image_array(array.copy())
 
@@ -162,6 +166,8 @@ class Image(DataType):
         self, array: "np.ndarray[t.Any, t.Any]"
     ) -> "np.ndarray[t.Any, t.Any]":
         """Smart normalization to [0,1] range based on data characteristics."""
+        import numpy as np
+
         if array.dtype.kind == "f":  # Already float
             # Already in [0,1]
             if array.max() <= 1.0 and array.min() >= 0.0:
@@ -186,6 +192,7 @@ class Image(DataType):
 
     def _to_pil_from_any(self, data: ImageDataOrPathType) -> "PILImage":
         """Convert any supported input type to PIL Image."""
+        import numpy as np
         import PIL.Image
 
         if isinstance(data, PIL.Image.Image):
@@ -211,6 +218,7 @@ class Image(DataType):
 
     def _numpy_to_pil(self, array: "np.ndarray[t.Any, t.Any]") -> "PILImage":
         """Convert numpy array to PIL Image with proper handling."""
+        import numpy as np
         import PIL.Image
 
         # Make a copy to avoid modifying input
@@ -240,6 +248,8 @@ class Image(DataType):
         self, array: "np.ndarray[t.Any, t.Any]"
     ) -> "np.ndarray[t.Any, t.Any]":
         """Ensure numpy array is in valid image format (HWC or HW)."""
+        import numpy as np
+
         if array.ndim == 2:  # Grayscale
             return array
 
@@ -303,18 +313,20 @@ class Image(DataType):
         resized_pil = pil_img.resize((width, height), resample=resample)
         return Image(resized_pil, mode=self._mode, caption=self._caption, format=self._format)
 
-    def to_numpy(self, dtype: t.Any = np.float32) -> "np.ndarray[t.Any, t.Any]":
+    def to_numpy(self, dtype: t.Any = "float32") -> "np.ndarray[t.Any, t.Any]":
         """
         Returns the image as a NumPy array with specified dtype.
 
         Args:
-            dtype: Target dtype. Common options:
+            dtype: Target dtype (defaults to float32). Common options:
                 - np.float32/np.float64: Values in [0.0, 1.0] (recommended)
                 - np.uint8: Values in [0, 255]
 
         Returns:
             NumPy array in HWC format (or HW for grayscale)
         """
+        import numpy as np
+
         arr = self._canonical_array.copy()
 
         if np.issubdtype(dtype, np.integer):
@@ -328,6 +340,8 @@ class Image(DataType):
 
     def to_pil(self) -> "PILImage":
         """Returns the image as a Pillow Image object."""
+        import numpy as np
+
         if self._pil_cache is None:
             # Convert canonical array to PIL
             arr = (self._canonical_array * 255).astype(np.uint8)

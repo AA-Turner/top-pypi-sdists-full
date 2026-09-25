@@ -166,3 +166,47 @@ def test_copilot_does_not_inherit_vscode_source(fake_home: Path) -> None:
 
     [source] = Copilot().agent_activity_sources
     assert isinstance(source, CopilotActivitySource)
+
+
+def test_kiro_agent_ships_raw_transcript_lines(fake_home: Path) -> None:
+    """Both Kiro surfaces write the same session store, so one source covers
+    the IDE and the CLI."""
+    from ggshield.verticals.ai.agents.kiro import Kiro
+
+    for session_id in ("sess_1", "sess_2"):
+        session = fake_home / ".kiro" / "sessions" / "a1b2" / session_id
+        session.mkdir(parents=True)
+        (session / "messages.jsonl").write_text(
+            json.dumps({"id": session_id, "payload": {"type": "user"}}) + "\n"
+        )
+
+    events = list(Kiro().iter_agent_activity_events())
+
+    assert len(events) == 2
+    assert {event.agent_name for event in events} == {"kiro"}
+    assert {event.source_kind for event in events} == {"5_session_transcript"}
+    # The workspace hash and the session id stay in the path, so an event can be
+    # traced back to the session it came from.
+    assert all(event.source_path.startswith("sessions/a1b2/sess_") for event in events)
+
+
+def test_junie_agent_ships_raw_session_events(fake_home: Path) -> None:
+    """Junie writes one event stream per session, keyed by session id."""
+    from ggshield.verticals.ai.agents.junie import Junie
+
+    for session_id in ("sess-1", "sess-2"):
+        session = fake_home / ".junie" / "sessions" / session_id
+        session.mkdir(parents=True)
+        (session / "events.jsonl").write_text(
+            json.dumps({"id": session_id, "type": "user_prompt"}) + "\n"
+        )
+
+    events = list(Junie().iter_agent_activity_events())
+
+    assert len(events) == 2
+    assert {event.agent_name for event in events} == {"junie"}
+    assert {event.source_kind for event in events} == {"5_session_events"}
+    assert {event.source_path for event in events} == {
+        "sessions/sess-1/events.jsonl",
+        "sessions/sess-2/events.jsonl",
+    }

@@ -392,4 +392,30 @@ public class LocatorWrapperTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => human.ClickAsync());
     }
+
+    // #549: Filter's Has/HasNot must reach Playwright unwrapped.
+    [Fact]
+    public void Filter_unwraps_Has_and_HasNot_and_rewraps_result()
+    {
+        var (page, _, _) = BuildPage();
+        var (inner, innerRec) = Fake.Of<ILocator>();
+        var (resultLoc, _) = Fake.Of<ILocator>();
+        innerRec.On("Filter", resultLoc);
+
+        var cursor = new HumanCursor(page);
+        var (rawHas, _) = Fake.Of<ILocator>();
+        var (rawHasNot, _) = Fake.Of<ILocator>();
+        var human = new HumanizedLocator(inner, cursor, FastConfig());
+
+        var result = human.Filter(new LocatorFilterOptions
+        {
+            Has = new HumanizedLocator(rawHas, cursor, FastConfig()),
+            HasNot = new HumanizedLocator(rawHasNot, cursor, FastConfig()),
+        });
+
+        var opts = (LocatorFilterOptions)innerRec.Last("Filter")!.Args[0]!;
+        Assert.Same(rawHas, opts.Has);            // raw locator reached Playwright
+        Assert.Same(rawHasNot, opts.HasNot);
+        Assert.IsType<HumanizedLocator>(result);  // returned locator stays humanized
+    }
 }

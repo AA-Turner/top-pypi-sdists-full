@@ -11,6 +11,7 @@ Flask-Security two_factor module
 from __future__ import annotations
 
 import typing as t
+from datetime import timedelta
 
 from flask import current_app, redirect, request, session
 
@@ -26,13 +27,14 @@ from .utils import (
     _,
     SmsSenderFactory,
     base_render_json,
-    config_value as cv,
+    _config_value as cv,
     do_flash,
     get_message,
     localize_callback,
     json_error_response,
     send_mail,
     url_for_security,
+    _td_format,
 )
 from .signals import (
     tf_code_confirmed,
@@ -47,7 +49,9 @@ if t.TYPE_CHECKING:  # pragma: no cover
     from flask.typing import ResponseValue
 
 
-def tf_send_security_token(user, method, totp_secret, phone_number):
+def tf_send_security_token(
+    user: UserMixin, method: str, totp_secret: str, phone_number: str | None
+) -> None:
     """Sends the security token via email/sms for the specified user.
 
     :param user: The user to send the code to
@@ -62,19 +66,23 @@ def tf_send_security_token(user, method, totp_secret, phone_number):
     Flask-Security code should NOT call this directly -
     call :meth:`.UserMixin.tf_send_security_token`
     """
-    token_to_be_sent = _security.totp_factory.generate_totp_password(totp_secret)
+    token_to_be_sent: str | None = _security.totp_factory.generate_totp_password(
+        totp_secret
+    )
     if method == "email" or method == "mail":
         send_mail(
             cv("EMAIL_SUBJECT_TWO_FACTOR"),
             user.email,
-            "two_factor_instructions",
+            cv("TWO_FACTOR_EMAIL_TEMPLATE"),
             user=user,
             token=token_to_be_sent,
             username=user.calc_username(),
+            within=_td_format(timedelta(seconds=cv("TWO_FACTOR_MAIL_VALIDITY"))),
         )
     elif method == "sms":
         m, c = get_message("USE_CODE", code=token_to_be_sent)
         from_number = cv("SMS_SERVICE_CONFIG")["PHONE_NUMBER"]
+        assert phone_number
         to_number = phone_number
         sms_sender = SmsSenderFactory.createSender(cv("SMS_SERVICE"))
         sms_sender.send_sms(from_number=from_number, to_number=to_number, msg=m)
@@ -84,7 +92,7 @@ def tf_send_security_token(user, method, totp_secret, phone_number):
         token_to_be_sent = None
 
     tf_security_token_sent.send(
-        current_app._get_current_object(),
+        current_app._get_current_object(),  # type: ignore[attr-defined]
         _async_wrapper=current_app.ensure_sync,
         user=user,
         method=method,
@@ -94,7 +102,7 @@ def tf_send_security_token(user, method, totp_secret, phone_number):
     )
 
 
-def complete_two_factor_process(user, primary_method, totp_secret, is_changing):
+def _complete_two_factor_process(user, primary_method, totp_secret, is_changing):
     """clean session according to process (login or changing two-factor method)
     and perform action accordingly
     """
@@ -126,7 +134,7 @@ def complete_two_factor_process(user, primary_method, totp_secret, is_changing):
     return completion_message, token
 
 
-def set_rescue_options(form: TwoFactorRescueForm, user: UserMixin) -> dict[str, str]:
+def _set_rescue_options(form: TwoFactorRescueForm, user: UserMixin) -> dict[str, str]:
     # Based on config - set up options for rescue.
     # Note that this modifies the passed in Form as well as returns
     # a dict that can be returned as part of a JSON response.
@@ -155,20 +163,20 @@ def set_rescue_options(form: TwoFactorRescueForm, user: UserMixin) -> dict[str, 
     return recovery_options
 
 
-def tf_disable(user):
+def tf_disable(user: UserMixin) -> None:
     """Disable two factor for user"""
     tf_clean_session()
     _datastore.tf_reset(user)
     tf_disabled.send(
-        current_app._get_current_object(),
+        current_app._get_current_object(),  # type: ignore[attr-defined]
         _async_wrapper=current_app.ensure_sync,
         user=user,
     )
 
 
-def is_tf_setup(user):
+def is_tf_setup(user: UserMixin) -> bool:
     """Return True is user account is setup for 2FA."""
-    return user.tf_totp_secret and user.tf_primary_method
+    return bool(user.tf_totp_secret and user.tf_primary_method)
 
 
 class CodeTfPlugin(TfPluginBase):

@@ -29,6 +29,7 @@ from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import in_
 from sqlalchemy.testing import not_in
+from sqlalchemy.testing.assertions import uses_deprecated
 from sqlalchemy.testing.assertsql import CompiledSQL
 from sqlalchemy.testing.entities import ComparableEntity
 from sqlalchemy.testing.fixtures import fixture_session
@@ -1093,8 +1094,7 @@ class M2OwNoUseGetCascadeTest(
             sess.flush,
             # looking for other bs'
             CompiledSQL(
-                "SELECT b.id AS b_id, b.email AS b_email "
-                "FROM b WHERE :param_1 = b.email",
+                "SELECT b.id, b.email " "FROM b WHERE :param_1 = b.email",
                 lambda ctx: [{"param_1": "x"}],
             ),
             CompiledSQL(
@@ -1126,8 +1126,7 @@ class M2OwNoUseGetCascadeTest(
             # we would like it to be able to skip this SELECT but this is not
             # implemented right now
             CompiledSQL(
-                "SELECT a.id AS a_id, a.email AS a_email FROM a "
-                "WHERE a.email = :param_1",
+                "SELECT a.id, a.email FROM a " "WHERE a.email = :param_1",
                 [{"param_1": "x"}],
             ),
             CompiledSQL(
@@ -4078,6 +4077,9 @@ class PartialFlushTest(fixtures.MappedTest):
             Column("parent_id", Integer, ForeignKey("parent.id")),
         )
 
+    @uses_deprecated(
+        "The `objects` parameter of `Session.flush` is deprecated"
+    )
     def test_o2m_m2o(self):
         base, noninh_child = self.tables.base, self.tables.noninh_child
 
@@ -4131,6 +4133,9 @@ class PartialFlushTest(fixtures.MappedTest):
         assert c2 in sess and c2 not in sess.new
         assert b1 in sess and b1 in sess.new
 
+    @uses_deprecated(
+        "The `objects` parameter of `Session.flush` is deprecated"
+    )
     def test_circular_sort(self):
         """test ticket 1306"""
 

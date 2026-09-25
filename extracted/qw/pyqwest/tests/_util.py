@@ -3,9 +3,24 @@ from __future__ import annotations
 import contextlib
 import socket
 import struct
+import subprocess
+import sys
 import threading
-from collections.abc import Iterator
+import traceback
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from pathlib import Path
 from queue import Empty, Queue
+
+import anyio
+import outcome
+import pytest
+import trio
+
+
+async def hanging_body() -> AsyncIterator[bytes]:
+    """A request body that never yields a chunk."""
+    await anyio.Event().wait()
+    yield b""
 
 
 @contextlib.contextmanager
@@ -16,6 +31,24 @@ def raw_server(response: bytes, *, reset: bool = False) -> Iterator[str]:
     difference between a truncated response being a protocol violation and
     being a broken connection.
     """
+
+    def handle(conn: socket.socket) -> None:
+        conn.recv(65536)
+        conn.sendall(response)
+        if reset:
+            # SO_LINGER with a zero timeout makes close() send RST rather
+            # than FIN, so the peer sees a connection reset.
+            conn.setsockopt(
+                socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+            )
+
+    with one_connection_server(handle) as url:
+        yield url
+
+
+@contextlib.contextmanager
+def one_connection_server(handle: Callable[[socket.socket], None]) -> Iterator[str]:
+    """Runs `handle` on the first connection to a local port, then closes it."""
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
     listener.listen(1)
@@ -23,14 +56,7 @@ def raw_server(response: bytes, *, reset: bool = False) -> Iterator[str]:
 
     def serve() -> None:
         with listener, contextlib.closing(listener.accept()[0]) as conn:
-            conn.recv(65536)
-            conn.sendall(response)
-            if reset:
-                # SO_LINGER with a zero timeout makes close() send RST rather
-                # than FIN, so the peer sees a connection reset.
-                conn.setsockopt(
-                    socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
-                )
+            handle(conn)
 
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
@@ -102,3 +128,43 @@ class SyncRequestBody(Iterator[bytes]):
             return
         self._closed = True
         self._queue.put(None)
+
+
+def run_child(script: str, *args: str, prints: str) -> None:
+    """Runs `script` from this directory in a fresh interpreter.
+
+    Fails unless it exits cleanly after printing only `prints`.
+    """
+    __tracebackhide__ = True
+    proc = subprocess.run(  # noqa: S603
+        [sys.executable, "-X", "faulthandler", Path(__file__).with_name(script), *args],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=60,
+        check=False,
+    )
+    if proc.returncode != 0 or proc.stdout.split() != [prints]:
+        pytest.fail(f"exit {proc.returncode}\nstdout: {proc.stdout!r}\n{proc.stderr}")
+
+
+RUN_TIMEOUT = 30
+
+
+def run_trio(main: Callable[..., Awaitable[object]], *args: object) -> object:
+    """`trio.run(main, *args)`, failing with the run's stack instead of hanging
+    if it never ends.
+    """
+    __tracebackhide__ = True
+    result: list[outcome.Outcome[object]] = []
+    thread = threading.Thread(
+        target=lambda: result.append(outcome.capture(trio.run, main, *args)),
+        daemon=True,
+    )
+    thread.start()
+    thread.join(timeout=RUN_TIMEOUT)
+    if not result:
+        frame = sys._current_frames().get(thread.ident or 0)  # noqa: SLF001
+        stack = "".join(traceback.format_stack(frame)) if frame else ""
+        pytest.fail(f"trio run did not finish within {RUN_TIMEOUT} seconds\n{stack}")
+    return result[0].unwrap()

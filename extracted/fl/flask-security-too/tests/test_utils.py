@@ -56,12 +56,14 @@ def authenticate(
     return client.post(endpoint or "/login", data=data, **kwargs)
 
 
-def json_authenticate(client, email="matt@lp.com", password="password", endpoint=None):
+def json_authenticate(
+    client, email="matt@lp.com", password="password", endpoint=None, headers=None
+):
     data = dict(email=email, password=password)
 
     # Get auth token always
     ep = endpoint or "/login?include_auth_token"
-    return client.post(ep, content_type="application/json", json=data)
+    return client.post(ep, content_type="application/json", json=data, headers=headers)
 
 
 def is_authenticated(client, get_message, auth_token=None):
@@ -104,7 +106,7 @@ def verify_token(client_nc, token, status=None):
 
 
 def logout(client, endpoint=None, **kwargs):
-    return client.get(endpoint or "/logout", **kwargs)
+    return client.post(endpoint or "/logout", **kwargs)
 
 
 def json_logout(client, token, endpoint=None):
@@ -285,6 +287,7 @@ def create_users(app, ds, count=None):
         totp_secret = None
         if app.config.get("SECURITY_TWO_FACTOR", None) and u[6]:
             totp_secret = app.security._totp_factory.generate_totp_secret()
+        phone_number = "650-277-7098" if u[6] == "sms" else None
         user = ds.create_user(
             email=u[0],
             username=u[1],
@@ -293,6 +296,7 @@ def create_users(app, ds, count=None):
             security_number=u[5],
             tf_primary_method=u[6],
             tf_totp_secret=totp_secret,
+            tf_phone_number=phone_number,
         )
         ds.commit()
         for role in roles:

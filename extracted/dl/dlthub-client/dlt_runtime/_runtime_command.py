@@ -130,6 +130,7 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _resolve_trigger_selectors,
     _resolve_workspace_id,
     _resolve_workspace_name,
+    _run_id_from_ref,
     _scope_caller_info_to_org,
     _sole_active_org_id,
     _tls_verify,
@@ -1139,6 +1140,14 @@ def deploy_manifest(
 ) -> None:
     for w in warn_missing_profiles():
         fmt.warning(w)
+    if show_manifest:
+        manifest, _, _, warnings = _generate_local_manifest(
+            deployment or DEFAULT_DEPLOYMENT_MODULE
+        )
+        fmt.echo(yaml.dump(dict(manifest), default_flow_style=False, sort_keys=False))
+        for w in warnings:
+            fmt.warning(w)
+        return
 
     _sync_deployment(
         level="minimal",
@@ -1156,10 +1165,6 @@ def deploy_manifest(
     manifest, manifest_hash, api_jobs, warnings = _generate_local_manifest(
         deployment or DEFAULT_DEPLOYMENT_MODULE
     )
-
-    if show_manifest:
-        fmt.echo(yaml.dump(dict(manifest), default_flow_style=False, sort_keys=False))
-        return
 
     for w in warnings:
         fmt.warning(w)
@@ -1292,10 +1297,11 @@ def get_job_run_info(
     api_client: ApiClient,
 ) -> None:
     if script_path_or_job_name is None:
-        raise ValueError("Script path or job name is required")
-    script_path_or_job_name = _resolve_job_ref_from_server(
-        script_path_or_job_name, auth_service=auth_service, api_client=api_client
-    )
+        raise ValueError("Script path, job name, or run id is required")
+    if _run_id_from_ref(script_path_or_job_name, run_number) is None:
+        script_path_or_job_name = _resolve_job_ref_from_server(
+            script_path_or_job_name, auth_service=auth_service, api_client=api_client
+        )
     run = _fetch_job_run_info(
         api_client,
         auth_service,
@@ -1355,28 +1361,28 @@ def _fetch_run_logs(
 ) -> None:
     """Get logs for a run of job (latest if run number not provided)."""
     if script_path_or_job_name is None:
-        raise ValueError("Script path or job name is required")
-    script_path_or_job_name = _resolve_job_ref_from_server(
-        script_path_or_job_name, auth_service=auth_service, api_client=api_client
-    )
-    if run_number is None:
-        run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
-    else:
-        run_id = _resolve_run_id_by_number(
-            api_client=api_client,
-            auth_service=auth_service,
-            script_path_or_job_name=script_path_or_job_name,
-            run_number=run_number,
+        raise ValueError("Script path, job name, or run id is required")
+    run_id = _run_id_from_ref(script_path_or_job_name, run_number)
+    if run_id is None:
+        script_path_or_job_name = _resolve_job_ref_from_server(
+            script_path_or_job_name, auth_service=auth_service, api_client=api_client
         )
-        with handle_client_exceptions():
-            get_run_result = get_run.sync_detailed(
-                client=api_client,
-                workspace_id=_to_uuid(auth_service.workspace_id),
-                run_id=run_id,
+        if run_number is None:
+            run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
+        else:
+            run_id = _resolve_run_id_by_number(
+                api_client=api_client,
+                auth_service=auth_service,
+                script_path_or_job_name=script_path_or_job_name,
+                run_number=run_number,
             )
-        if not isinstance(get_run_result.parsed, get_run.DetailedRunResponse):
-            raise exception_from_response("Failed to get run status", get_run_result)
-        run = get_run_result.parsed
+            run = _fetch_run_detail(
+                run_id, auth_service=auth_service, api_client=api_client
+            )
+    else:
+        run = _fetch_run_detail(
+            run_id, auth_service=auth_service, api_client=api_client
+        )
 
     run_id = run.id
     run_status = run.status
@@ -1542,38 +1548,49 @@ def _request_run_cancel(
 ) -> None:
     """Request the cancellation of a run, for a script or workspace if script is not provided"""
     if script_path_or_job_name is None:
-        raise ValueError("Script path or job name is required")
-    script_path_or_job_name = _resolve_job_ref_from_server(
-        script_path_or_job_name, auth_service=auth_service, api_client=api_client
-    )
+        raise ValueError("Script path, job name, or run id is required")
     terminal_states = {
         RunStatus.FAILED,
         RunStatus.CANCELLED,
         RunStatus.COMPLETED,
         RunStatus.SKIPPED,
     }
-    if run_number is None:
-        run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
+    run_id: UUID
+    run_no: Optional[int] = run_number
+    # Only the by-number path lacks the run itself, so the terminal-state guard
+    # below covers a run addressed by id exactly as it covers the latest one.
+    run: Optional["get_run.DetailedRunResponse"] = None
+    ref_run_id = _run_id_from_ref(script_path_or_job_name, run_number)
+    if ref_run_id is not None:
+        run = _fetch_run_detail(
+            ref_run_id, auth_service=auth_service, api_client=api_client
+        )
+    else:
+        script_path_or_job_name = _resolve_job_ref_from_server(
+            script_path_or_job_name, auth_service=auth_service, api_client=api_client
+        )
+        if run_number is None:
+            run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
+        else:
+            run_id = _resolve_run_id_by_number(
+                api_client=api_client,
+                auth_service=auth_service,
+                script_path_or_job_name=script_path_or_job_name,
+                run_number=run_number,
+            )
+    if run is not None:
         if run.status in terminal_states:
             raise NoRunnableRun(
                 f"Run # {run.number} is already in a terminal state: {run.status}"
             )
         run_id = run.id
         run_no = run.number
-    else:
-        run_id = _resolve_run_id_by_number(
-            api_client=api_client,
-            auth_service=auth_service,
-            script_path_or_job_name=script_path_or_job_name,
-            run_number=run_number,
-        )
-        run_no = run_number
 
     with handle_client_exceptions():
         cancel_run_result = cancel_run.sync_detailed(
             client=api_client,
             workspace_id=_to_uuid(auth_service.workspace_id),
-            run_id=_to_uuid(run_id),
+            run_id=run_id,
         )
     if isinstance(cancel_run_result.parsed, cancel_run.DetailedRunResponse):
         fmt.echo(f"Successfully requested cancellation of run # {run_no}")
@@ -2313,19 +2330,21 @@ def show_job_run(
 ) -> None:
     """Show the URL of the job run page in the web GUI."""
     if selector_or_job_name is None:
-        raise ValueError("Job name, script path, or selector is required")
-    job_ref = _resolve_job_ref_from_server(
-        selector_or_job_name, auth_service=auth_service, api_client=api_client
-    )
-    if run_number is None:
-        run_id = _get_latest_run(api_client, auth_service, job_ref).id
-    else:
-        run_id = _resolve_run_id_by_number(
-            api_client=api_client,
-            auth_service=auth_service,
-            script_path_or_job_name=job_ref,
-            run_number=run_number,
+        raise ValueError("Job name, script path, selector, or run id is required")
+    run_id = _run_id_from_ref(selector_or_job_name, run_number)
+    if run_id is None:
+        job_ref = _resolve_job_ref_from_server(
+            selector_or_job_name, auth_service=auth_service, api_client=api_client
         )
+        if run_number is None:
+            run_id = _get_latest_run(api_client, auth_service, job_ref).id
+        else:
+            run_id = _resolve_run_id_by_number(
+                api_client=api_client,
+                auth_service=auth_service,
+                script_path_or_job_name=job_ref,
+                run_number=run_number,
+            )
     url = urls.job_run_url(auth_service.workspace_id, run_id)
     _print_show_url("Job run", url, _browser_url_for(url, auth_service))
 

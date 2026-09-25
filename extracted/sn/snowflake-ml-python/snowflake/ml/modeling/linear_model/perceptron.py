@@ -60,8 +60,8 @@ DATAFRAME_TYPE = Union[DataFrame, pd.DataFrame]
 
 INFER_SIGNATURE_MAX_ROWS = 100
 
-SKLEARN_LOWER, SKLEARN_UPPER = ('1.4', '1.9')
-# Modeling library estimators require a smaller sklearn version range.
+SKLEARN_LOWER, SKLEARN_UPPER = ('1.4', '2')
+# Modeling library estimators support the same upper bound as the package requirement.
 if not version.Version(SKLEARN_LOWER) <= version.Version(sklearn.__version__) < version.Version(SKLEARN_UPPER):
     raise Exception(
         f"To use the modeling library, install scikit-learn version >= {SKLEARN_LOWER} and < {SKLEARN_UPPER}"
@@ -246,7 +246,7 @@ class Perceptron(BaseTransformer):
         self.set_sample_weight_col(sample_weight_col)
         self._use_external_memory_version = False
         self._batch_size = -1        
-        deps: Set[str] = set([f'numpy=={np.__version__}', f'scikit-learn=={sklearn.__version__}', f'cloudpickle=={cp.__version__}'])
+        deps: Set[str] = set([f'numpy=={np.__version__}', f'scikit-learn=={sklearn.__version__}', f'cloudpickle=={cp.__version__}', f'pandas=={pd.__version__}'])
         
         self._deps = list(deps)
         

@@ -22,6 +22,7 @@ from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
     global_config,
     is_iceberg_sql_extensions_enabled,
+    is_use_java_regex_for_rlike_whitespace_enabled,
 )
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -43,6 +44,111 @@ from snowflake.snowpark_connect.utils.telemetry import (
 from .typer import ExpressionTyper
 
 DECIMAL_RE = re.compile(r"decimal\((\d+), *(\d+)\)")
+
+# Spark SQL unescape drops unknown escapes (``\s`` → ``s``, ``\d`` → ``d``).
+# ``Column.rlike`` never hits this (protobuf literal). ``F.expr`` does.
+# Already-doubled ``\\s`` is left alone (negative lookbehind). Rewrite only the
+# RLIKE/REGEXP *pattern* string, not other literals in the same expression.
+_JAVA_REGEX_SHORTHAND_PROTECT_RE = re.compile(r"(?<!\\)\\([sSdDwW])")
+_RLIKE_IN_SQL_RE = re.compile(
+    r"(?i)(?<![A-Za-z0-9_])(?:rlike|regexp_like|regexp)(?![A-Za-z0-9_])"
+)
+
+
+def _consume_sql_string_literal(sql: str, start: int) -> tuple[str, int]:
+    """Return ``(literal_including_quotes, index_after)`` starting at ``start``."""
+    quote = sql[start]
+    i = start + 1
+    n = len(sql)
+    while i < n:
+        ch = sql[i]
+        if ch == "\\" and i + 1 < n:
+            i += 2
+            continue
+        if ch == quote:
+            return sql[start : i + 1], i + 1
+        i += 1
+    return sql[start:], n
+
+
+def _protect_quoted_sql_literal(quoted: str) -> str:
+    """Double Java shorthands inside a quoted SQL string (quotes kept)."""
+    if len(quoted) < 2:
+        return quoted
+    return (
+        quoted[0]
+        + _JAVA_REGEX_SHORTHAND_PROTECT_RE.sub(r"\\\\\1", quoted[1:-1])
+        + quoted[-1]
+    )
+
+
+def _protect_java_regex_shorthands_in_sql(sql: str) -> str:
+    """Double Java regex shorthands in RLIKE/REGEXP pattern literals only."""
+    out: list[str] = []
+    i = 0
+    n = len(sql)
+    while i < n:
+        match = _RLIKE_IN_SQL_RE.match(sql, i)
+        if match is None:
+            out.append(sql[i])
+            i += 1
+            continue
+        out.append(sql[match.start() : match.end()])
+        i = match.end()
+        while i < n and sql[i].isspace():
+            out.append(sql[i])
+            i += 1
+        if i < n and sql[i] == "(":
+            out.append("(")
+            i += 1
+            depth = 1
+            in_quote: str | None = None
+            escaped = False
+            while i < n and depth > 0:
+                ch = sql[i]
+                if in_quote is not None:
+                    out.append(ch)
+                    if escaped:
+                        escaped = False
+                    elif ch == "\\":
+                        escaped = True
+                    elif ch == in_quote:
+                        in_quote = None
+                    i += 1
+                    continue
+                if ch in "'\"":
+                    in_quote = ch
+                    out.append(ch)
+                    i += 1
+                    continue
+                if ch == "(":
+                    depth += 1
+                    out.append(ch)
+                    i += 1
+                    continue
+                if ch == ")":
+                    depth -= 1
+                    out.append(ch)
+                    i += 1
+                    continue
+                if ch == "," and depth == 1:
+                    out.append(ch)
+                    i += 1
+                    while i < n and sql[i].isspace():
+                        out.append(sql[i])
+                        i += 1
+                    if i < n and sql[i] in "'\"":
+                        literal, i = _consume_sql_string_literal(sql, i)
+                        out.append(_protect_quoted_sql_literal(literal))
+                    break
+                out.append(ch)
+                i += 1
+            continue
+        if i < n and sql[i] in "'\"":
+            literal, i = _consume_sql_string_literal(sql, i)
+            out.append(_protect_quoted_sql_literal(literal))
+    return "".join(out)
+
 
 _INTERVAL_YEARMONTH_PATTERN_RE = re.compile(r"interval (year|month)( to (year|month))?")
 _INTERVAL_DAYTIME_PATTERN_RE = re.compile(
@@ -117,6 +223,13 @@ def sql_parser():
     _get_sql_conf().get().setConfString(
         "spark.sql.ansi.doubleQuotedIdentifiers",
         "true" if global_config.spark_sql_ansi_doubleQuotedIdentifiers else "false",
+    )
+    # Parser-level: SparkSqlParser.unescapeSQLString consults this at parse
+    # time. Always set (not conditionally) so a prior request on this thread
+    # cannot leak Spark 2.0 unescape into a session that set the 1.6 flag.
+    _get_sql_conf().get().setConfString(
+        "spark.sql.parser.escapedStringLiterals",
+        "true" if global_config.spark_sql_parser_escapedStringLiterals else "false",
     )
 
     # Forward count-related legacy configs to JVM parser
@@ -269,6 +382,17 @@ def map_sql_expr(
     from snowflake.snowpark_connect.expression.map_expression import map_expression
 
     sql = exp.expression_string.expression
+    # Flag-gated: Heidelberg DisState is F.expr("msg rlike '^Atm\\s*\\d+…'").
+    # Without this, Spark unescape eats \\s/\\d, the Java rlike gate never
+    # fires, and regexp_instr returns 0 rows for tab-separated Atm lines.
+    # Skip when escapedStringLiterals is true: the JVM parser keeps
+    # backslashes, so doubling would leave a literal \\s in the regex.
+    if (
+        _RLIKE_IN_SQL_RE.search(sql)
+        and is_use_java_regex_for_rlike_whitespace_enabled()
+        and not global_config.spark_sql_parser_escapedStringLiterals
+    ):
+        sql = _protect_java_regex_shorthands_in_sql(sql)
     logical_plan = sql_parser().parseExpression(sql)
 
     with push_sql_scope():

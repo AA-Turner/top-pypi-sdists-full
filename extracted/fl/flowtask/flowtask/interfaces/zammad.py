@@ -1,3 +1,5 @@
+from fnmatch import fnmatch
+from pathlib import Path
 from navigator.conf import (
     ZAMMAD_INSTANCE,
     ZAMMAD_TOKEN,
@@ -7,7 +9,7 @@ from navigator.conf import (
     ZAMMAD_ORGANIZATION,
     ZAMMAD_DEFAULT_ROLE,
 )
-from ..exceptions import ComponentError
+from ..exceptions import ComponentError, DataNotFound
 from .http import HTTPService
 
 
@@ -105,3 +107,91 @@ class zammad(HTTPService):
         except Exception as e:
             error = str(e)
         return result, error
+
+    async def get_ticket_attachments(self, **kwargs):
+        """get_ticket_attachments.
+
+        Download every attachment of a Zammad ticket into a local directory.
+
+        Attachments live on the ticket's articles, so this walks
+        ``/api/v1/ticket_articles/by_ticket/<ticket_id>`` and then fetches each
+        attachment from ``/api/v1/ticket_attachment/<ticket>/<article>/<id>``.
+
+        Args:
+            ticket_id: Id of the Zammad ticket whose attachments are extracted.
+            directory: Destination directory; created if missing.
+            filter: Optional list of fnmatch patterns to select filenames.
+
+        Returns:
+            A tuple ``(downloaded, error)`` where ``downloaded`` is the list of
+            saved attachments (``ticket_id``, ``article_id``, ``attachment_id``,
+            ``filename``, ``filepath``, ``size``).
+
+        Raises:
+            DataNotFound: When the ticket has no articles or no attachment
+                matched the requested filter.
+            ComponentError: When an attachment download fails.
+        """
+        ticket_id = kwargs.pop("ticket_id", None)
+        if ticket_id in (None, ""):
+            return None, "Zammad: 'ticket_id' is a required argument"
+        directory = Path(str(kwargs.pop("directory", "/tmp/zammad"))).resolve()
+        directory.mkdir(parents=True, exist_ok=True)
+        patterns: list = kwargs.pop("filter", None)
+
+        # 1) list every article of the ticket (attachments live on articles)
+        self.download = False
+        self.accept = "application/json"
+        self.method = "get"
+        self.url = f"{ZAMMAD_INSTANCE}api/v1/ticket_articles/by_ticket/{ticket_id}"
+        try:
+            articles, error = await self.async_request(self.url, self.method)
+        except Exception as exc:  # noqa: BLE001
+            return None, f"Zammad: cannot list articles of ticket {ticket_id}: {exc}"
+        if error:
+            return None, f"Zammad: cannot list articles of ticket {ticket_id}: {error}"
+        if not articles:
+            raise DataNotFound(f"Zammad: ticket {ticket_id} has no articles")
+
+        # 2) download each attachment
+        downloaded: list = []
+        try:
+            for article in articles:
+                article_id = article.get("id")
+                for attachment in article.get("attachments") or []:
+                    filename = attachment.get("filename")
+                    if patterns and not any(fnmatch(filename, pat) for pat in patterns):
+                        continue
+                    self.url = (
+                        f"{ZAMMAD_INSTANCE}api/v1/ticket_attachment/"
+                        f"{ticket_id}/{article_id}/{attachment.get('id')}"
+                    )
+                    self.download = True
+                    self.filename = directory.joinpath(f"{article_id}_{filename}")
+                    self.destination = {"overwrite": True}
+                    try:
+                        _, error = await self.async_request(self.url, "get")
+                    except Exception as exc:  # noqa: BLE001
+                        raise ComponentError(
+                            f"Zammad: error downloading {filename} "
+                            f"from ticket {ticket_id}: {exc}"
+                        ) from exc
+                    if error:
+                        raise ComponentError(
+                            f"Zammad: error downloading {filename} "
+                            f"from ticket {ticket_id}: {error}"
+                        )
+                    downloaded.append({
+                        "ticket_id": ticket_id,
+                        "article_id": article_id,
+                        "attachment_id": attachment.get("id"),
+                        "filename": filename,
+                        "filepath": str(self.filename),
+                        "size": attachment.get("size"),
+                    })
+        finally:
+            # `download` forces octet-stream headers for the rest of the session.
+            self.download = False
+        if not downloaded:
+            raise DataNotFound(f"Zammad: no attachments found on ticket {ticket_id}")
+        return downloaded, None

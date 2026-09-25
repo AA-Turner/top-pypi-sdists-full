@@ -16,9 +16,10 @@ the API gate could name any user id and be treated as them. It is **removed** �
 identity now comes only from a token.)
 
 **``X-Team-Secret`` is not an identity mechanism and is not part of path 3.** It
-is an API *door key* — ``TeamSecretMiddleware`` compares a header against the
-``TEAM_ACCESS_SECRET`` env var and calls ``next()``; it resolves no user, no org,
-and never touches the database. It can stay indefinitely. Naming path 3
+is a second lock on a few platform-lifecycle routes — ``require_team_secret``
+compares a header against the ``TEAM_ACCESS_SECRET`` env var; it resolves no
+user, no org, and never touches the database. (It was a global gate on every
+route until PF-455.) Naming path 3
 "X-Team-Secret + X-User-ID" (as this docstring used to) conflated the two and led
 to the mistaken belief that retiring the door key was coupled to auth or to RLS.
 

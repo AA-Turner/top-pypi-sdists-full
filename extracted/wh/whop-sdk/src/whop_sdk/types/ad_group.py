@@ -17,6 +17,7 @@ from .ad_group_frequency_cap import AdGroupFrequencyCap
 from .ad_group_message_apps_item import AdGroupMessageAppsItem
 from .ad_group_optimization_goal import AdGroupOptimizationGoal
 from .ad_group_placement import AdGroupPlacement
+from .ad_group_platform import AdGroupPlatform
 from .ad_group_regions import AdGroupRegions
 from .ad_group_result_event import AdGroupResultEvent
 from .ad_group_status import AdGroupStatus
@@ -52,7 +53,17 @@ class AdGroup(UniversalBaseModel):
 
     budget_amount: typing.Optional[float] = pydantic.Field(default=None)
     """
-    This ad group's budget, in the ad account's currency. `null` when the budget is set on the campaign instead.
+    This ad group's budget in USD, which is what it is stored and billed in. `null` when the budget is set on the campaign instead.
+    """
+
+    budget_amount_local: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    The same budget stated in `budget_currency` at today's exchange rate, for display in the account's ads reporting currency. `null` when `budget_amount` is.
+    """
+
+    budget_currency: str = pydantic.Field()
+    """
+    The ISO 4217 code `budget_amount_local` is in: the account's `ads_reporting_currency` preference. `usd` unless the account changed it.
     """
 
     budget_type: typing.Optional[AdGroupBudgetType] = pydantic.Field(default=None)
@@ -260,6 +271,11 @@ class AdGroup(UniversalBaseModel):
     """
 
     placements: typing.List[AdGroupPlacement]
+    platform: AdGroupPlatform = pydantic.Field()
+    """
+    The ad platform this ad group runs on.
+    """
+
     purchase_value: float = pydantic.Field()
     """
     USD value of pixel-attributed purchases.

@@ -5,7 +5,13 @@ litellm IDs, and infers providers from model strings.  No TUI / Rich
 dependencies — safe to import from CLI, server, or library code.
 """
 
-from __future__ import annotations
+import asyncio
+import hashlib
+import os
+import typing as t
+from time import monotonic
+
+from loguru import logger
 
 # ---------------------------------------------------------------------------
 # Provider inference
@@ -236,3 +242,153 @@ def resolve_model(raw: str) -> str:
     if key in _FRIENDLY_TO_ID:
         return _FRIENDLY_TO_ID[key]
     return raw
+
+
+# ---------------------------------------------------------------------------
+# Model info resolution
+# ---------------------------------------------------------------------------
+
+# Successful tables are shared across callers; credentials are fingerprinted so
+# rotation bypasses both old metadata and failed-request cooldowns.
+_GatewayKey = tuple[str, str]
+_gateway_info: dict[_GatewayKey, dict[str, dict[str, t.Any]]] = {}
+_gateway_retry_at: dict[_GatewayKey, float] = {}
+_gateway_loads: dict[tuple[asyncio.AbstractEventLoop, _GatewayKey], asyncio.Task[None]] = {}
+_GATEWAY_RETRY_SECONDS = 30.0
+
+
+def _gateway_config(api_base: str | None, api_key: str | None) -> tuple[str, str | None]:
+    from dreadnode.generators.proxy import DREADNODE_LLM_API_KEY_ENV, DREADNODE_LLM_BASE_ENV
+
+    base = api_base or os.environ.get(DREADNODE_LLM_BASE_ENV, "").strip()
+    key = api_key or os.environ.get(DREADNODE_LLM_API_KEY_ENV, "").strip() or None
+    return base.rstrip("/"), key
+
+
+def _gateway_cache_key(api_base: str, api_key: str | None) -> _GatewayKey:
+    return api_base.rstrip("/"), hashlib.sha256((api_key or "").encode()).hexdigest()
+
+
+async def _fetch_gateway_info(api_base: str, api_key: str | None) -> None:
+    import httpx
+
+    from dreadnode.core.tls import create_platform_ssl_context
+
+    key = _gateway_cache_key(api_base, api_key)
+    started = monotonic()
+    try:
+        ssl_context = await asyncio.to_thread(create_platform_ssl_context)
+        async with httpx.AsyncClient(verify=ssl_context, timeout=10) as client:
+            response = await client.get(
+                api_base + "/model/info",
+                headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
+            )
+            response.raise_for_status()
+            table: dict[str, dict[str, t.Any]] = {}
+            for entry in response.json()["data"]:
+                name = entry.get("model_name")
+                info = entry.get("model_info")
+                if isinstance(name, str) and isinstance(info, dict):
+                    table[name] = info
+    except Exception:
+        _gateway_retry_at[key] = monotonic() + _GATEWAY_RETRY_SECONDS
+        logger.debug(
+            "Gateway model info unavailable at '{}' after {:.2f}s",
+            api_base,
+            monotonic() - started,
+        )
+    else:
+        _gateway_info[key] = table
+        _gateway_retry_at.pop(key, None)
+        logger.debug(
+            "Gateway model info loaded from '{}' in {:.2f}s ({} models)",
+            api_base,
+            monotonic() - started,
+            len(table),
+        )
+
+
+async def load_gateway_model_info(
+    *, api_base: str | None = None, api_key: str | None = None
+) -> None:
+    """Populate metadata without blocking the event loop; retry failures after 30s.
+
+    Concurrent callers on an event loop share a request. Cancelling a caller
+    leaves the shared request running for the remaining consumers.
+    """
+    api_base, api_key = _gateway_config(api_base, api_key)
+    if not api_base:
+        return
+    key = _gateway_cache_key(api_base, api_key)
+    if key in _gateway_info or monotonic() < _gateway_retry_at.get(key, 0):
+        return
+    pending_key = (asyncio.get_running_loop(), key)
+    task = _gateway_loads.get(pending_key)
+    if task is None:
+        task = asyncio.create_task(_fetch_gateway_info(api_base, api_key))
+        _gateway_loads[pending_key] = task
+        task.add_done_callback(lambda _: _gateway_loads.pop(pending_key, None))
+    await asyncio.shield(task)
+
+
+def resolve_model_info(
+    model: str,
+    *,
+    api_base: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, t.Any]:
+    """Everything we know about a model id *we* use, as a litellm model-info dict.
+
+    Our chat models are Dreadnode aliases (``dn/claude-sonnet-5``) that only the
+    gateway can resolve — it owns the mapping to the real deployment, and that
+    mapping is not guessable: ``dn/glm-5.2`` routes to ``openrouter/z-ai/glm-5.1``
+    and ``dn/grok-4-20-reasoning`` to ``xai/grok-4.3``. litellm's client-side
+    table is keyed by public model names and cannot know any of them.
+
+    Callers used to strip segments off the alias until something matched. For a
+    provider prefix that is mostly harmless — ``anthropic/claude-sonnet-4-5``
+    is not in litellm's table but ``claude-sonnet-4-5`` is, and it is the same
+    model — so that fallback stays. For ``dn/`` it is not: the alias is opaque,
+    and stripping it lands on whatever public model happens to share the name.
+    ``dn/deepseek-v4-flash`` resolved to public ``deepseek-v4-flash``, priced
+    132% high; ``dn/deepseek-v4-pro`` 24% low (ENG-8431). So a ``dn/`` model is
+    the gateway's to answer or nobody's.
+
+    ``api_base``/``api_key`` default to the platform proxy the process is
+    already configured for, so a caller holding nothing but a model string
+    can read cached gateway metadata. This function never fetches metadata;
+    async consumers should await ``load_gateway_model_info`` first.
+
+    Returns ``{}`` when nothing knows the model. Callers must treat that as
+    "unknown" rather than as a value — an honest gap is recoverable, a
+    confidently wrong number is not.
+    """
+    api_base, api_key = _gateway_config(api_base, api_key)
+    if api_base:
+        info = _gateway_info.get(_gateway_cache_key(api_base, api_key), {}).get(model)
+        if info:
+            return info
+
+    try:
+        import litellm
+    except Exception:
+        return {}
+
+    info = litellm.model_cost.get(model)
+    if info:
+        return dict(info)
+
+    # A `dn/` alias that the gateway could not answer is unknown, full stop.
+    if model.startswith("dn/"):
+        return {}
+
+    # Provider prefixes: litellm's table is patchy about carrying them, so fall
+    # back to the bare name the way every caller used to do for itself.
+    lookup = model
+    while "/" in lookup:
+        lookup = lookup.split("/", 1)[1]
+        info = litellm.model_cost.get(lookup)
+        if info:
+            return dict(info)
+
+    return {}

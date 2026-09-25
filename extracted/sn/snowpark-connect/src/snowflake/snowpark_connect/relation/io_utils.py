@@ -62,6 +62,19 @@ SUPPORTED_COMPRESSION_PER_FORMAT = {
         "NONE",
         "UNCOMPRESSED",
     },
+    # Same codec set as csv/json/text: GS's FileFormat.validateCompressionOptions accepts
+    # these for every non-Parquet FILE FORMAT type and disallows only SNAPPY/LZO.
+    "xml": {
+        "AUTO",
+        "GZIP",
+        "BZ2",
+        "BROTLI",
+        "ZSTD",
+        "DEFLATE",
+        "RAW_DEFLATE",
+        "NONE",
+        "UNCOMPRESSED",
+    },
 }
 
 

@@ -149,6 +149,12 @@ from matrice_analytics.post_processing.usecases.age_gender_detection import (
 from matrice_analytics.post_processing.usecases.age_gender_detection import (
     AgeGenderUseCase as AgeGenderUseCase,
 )
+from matrice_analytics.post_processing.usecases.alerts_verification import (
+    AlertsVerificationConfig as AlertsVerificationConfig,
+)
+from matrice_analytics.post_processing.usecases.alerts_verification import (
+    AlertsVerificationUseCase as AlertsVerificationUseCase,
+)
 from matrice_analytics.post_processing.usecases.animal_detection import (
     AnimalDetectionConfig as AnimalDetectionConfig,
 )

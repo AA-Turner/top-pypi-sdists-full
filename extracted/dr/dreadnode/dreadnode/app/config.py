@@ -10,8 +10,10 @@ import yaml
 from pydantic import BaseModel, Field, PrivateAttr
 
 if t.TYPE_CHECKING:
+    from concurrent.futures import Future
+
     from dreadnode.app.api.client import ApiClient
-    from dreadnode.app.api.models import User, Workspace
+    from dreadnode.app.api.models import Organization, Project, User, Workspace
 
 # Default path for user configuration
 DEFAULT_CONFIG_PATH = Path.home() / ".dreadnode" / "config.yaml"
@@ -75,6 +77,14 @@ _TRANSIENT_ERROR_NAMES = frozenset(
         "RemoteProtocolError",
     }
 )
+
+
+# Keep startup retries brief while allowing independent reads to recover in parallel.
+_SCOPE_RETRY_INITIAL_DELAY = 0.1
+_SCOPE_RETRY_MAX_DELAY = 1.0
+_SCOPE_RETRY_BUDGET_SEC = 8.0
+_SCOPE_CALL_TIMEOUT_SEC = 5.0
+_ScopeResult = t.TypeVar("_ScopeResult")
 
 
 def _is_transient_network_error(exc: BaseException) -> bool:
@@ -249,53 +259,20 @@ class Profile(BaseModel):
         return copy
 
     def validate_scope(self, api: "ApiClient") -> None:
-        """Validate scope against server, fill gaps.  Mutates private attrs only.
+        """Validate organization, workspace, project, and user concurrently.
 
-        - Confirms organization exists and user has access.
-        - Validates workspace if set, or auto-resolves the default workspace.
-        - Validates project if set (404 → None).
-        - Fetches and caches the authenticated user.
-
-        Retries up to 3 times on transient network errors (connect timeout,
-        connection refused, etc.) to handle flaky sandbox-to-API connectivity.
+        Retry transient failures independently within an eight-second deadline.
+        Runtime configuration can proceed unvalidated after a transport failure
+        or deadline expiry; CLI callers propagate the error. Apply resolved
+        scope and identity only after every required read succeeds.
         """
+        # Lazy imports keep this module cheap on the startup path (ENG-8259).
+        import logging
+        import random
         import time
+        from concurrent.futures import FIRST_EXCEPTION, ThreadPoolExecutor, wait
+        from threading import Event
 
-        max_attempts = 3
-        backoff = [2.0, 5.0]
-
-        for attempt in range(1, max_attempts + 1):
-            try:
-                self._validate_scope_inner(api)
-            except Exception as exc:
-                # Only retry transient network errors, not logic errors
-                if not _is_transient_network_error(exc):
-                    raise
-                if attempt == max_attempts:
-                    raise
-                delay = backoff[attempt - 1]
-                import logging
-
-                logging.getLogger("dreadnode").warning(
-                    "validate_scope attempt %d/%d failed (%s: %s), retrying in %.0fs",
-                    attempt,
-                    max_attempts,
-                    type(exc).__name__,
-                    exc,
-                    delay,
-                )
-                time.sleep(delay)
-            else:
-                return
-
-    def _raise_project_not_found(self, proj_key: str) -> t.NoReturn:
-        """Raise a project not found error."""
-        raise RuntimeError(
-            f"Project '{proj_key}' not found in workspace '{self.workspace_key}' of organization '{self.org_key}'."
-        ) from None
-
-    def _validate_scope_inner(self, api: "ApiClient") -> None:
-        """Core validation logic, separated for retry wrapping."""
         from dreadnode.core.util import valid_key
 
         org_key = self.organization
@@ -307,54 +284,131 @@ class Profile(BaseModel):
                 "The expected characters are lowercase letters, numbers, and hyphens (-)."
             )
 
-        organization = api.get_organization(org_key)
-        if not organization:
-            raise RuntimeError(f"Organization '{org_key}' not found.")
-
         ws_key = self.workspace
-        if ws_key:
-            if not valid_key(ws_key):
-                raise RuntimeError(
-                    f'Invalid Workspace Key: "{ws_key}". '
-                    "The expected characters are lowercase letters, numbers, and hyphens (-)."
-                )
-            workspace = api.get_workspace(org_key, ws_key)
-            if not workspace:
-                raise RuntimeError(f"Workspace '{ws_key}' not found in organization '{org_key}'.")
-        else:
-            workspaces = api.list_workspaces(org_key)
+        if ws_key and not valid_key(ws_key):
+            raise RuntimeError(
+                f'Invalid Workspace Key: "{ws_key}". '
+                "The expected characters are lowercase letters, numbers, and hyphens (-)."
+            )
+
+        proj_key = self.project
+        if proj_key and not valid_key(proj_key):
+            raise RuntimeError(
+                f'Invalid Project Key: "{proj_key}". '
+                "The expected characters are lowercase letters, numbers, and hyphens (-)."
+            )
+
+        deadline = time.monotonic() + _SCOPE_RETRY_BUDGET_SEC
+        stopped = Event()
+
+        def read(call: t.Callable[[float], _ScopeResult]) -> _ScopeResult:
+            delay = _SCOPE_RETRY_INITIAL_DELAY
+            while not stopped.is_set():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                try:
+                    return call(min(_SCOPE_CALL_TIMEOUT_SEC, remaining))
+                except Exception as exc:
+                    if not _is_transient_network_error(exc):
+                        raise
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError("Scope validation deadline exceeded") from exc
+                    sleep_for = min(delay * (0.5 + random.random()), remaining)
+                    logging.getLogger("dreadnode").warning(
+                        "Scope read failed (%s: %s), retrying in %.2fs",
+                        type(exc).__name__,
+                        exc,
+                        sleep_for,
+                    )
+                    # Wake retry sleepers promptly if another read fails.
+                    stopped.wait(sleep_for)
+                    delay = min(delay * 2, _SCOPE_RETRY_MAX_DELAY)
+            raise TimeoutError("Scope validation deadline exceeded")
+
+        def wait_for_reads(*futures: "Future[t.Any]") -> None:
+            done, pending = wait(
+                futures,
+                timeout=max(0.0, deadline - time.monotonic()),
+                return_when=FIRST_EXCEPTION,
+            )
+            for future in done:
+                future.result()  # Propagate terminal errors before reporting a deadline.
+            if pending or time.monotonic() >= deadline:
+                raise TimeoutError("Scope validation deadline exceeded")
+
+        def get_organization(timeout: float) -> "Organization":
+            organization = api.get_organization(org_key, timeout=timeout)
+            if not organization:
+                raise RuntimeError(f"Organization '{org_key}' not found.")
+            return organization
+
+        def get_workspace(timeout: float) -> "Workspace":
+            if ws_key:
+                workspace = api.get_workspace(org_key, ws_key, timeout=timeout)
+                if not workspace:
+                    raise RuntimeError(
+                        f"Workspace '{ws_key}' not found in organization '{org_key}'."
+                    )
+                return workspace
+            workspaces = api.list_workspaces(org_key, timeout=timeout)
             if not workspaces:
                 raise RuntimeError(
                     f"No workspaces found in organization '{org_key}'. "
                     "Create a workspace first or specify one explicitly."
                 )
-            workspace = next(
-                (w for w in workspaces if w.is_default),
-                workspaces[0],
-            )
-            self._workspace = workspace.key
+            return next((w for w in workspaces if w.is_default), workspaces[0])
 
-        proj_key = self.project
-        if proj_key:
-            if not valid_key(proj_key):
-                raise RuntimeError(
-                    f'Invalid Project Key: "{proj_key}". '
-                    "The expected characters are lowercase letters, numbers, and hyphens (-)."
-                )
+        def get_project(workspace_key: str, project_key: str, timeout: float) -> "Project | None":
             try:
-                proj = api.get_project(org_key, self.workspace_key, proj_key)
-                if proj:
-                    self._project_id = str(proj.id)
-                else:
-                    self._raise_project_not_found(proj_key)
-            except RuntimeError as e:
-                if "404" not in str(e):
+                project = api.get_project(org_key, workspace_key, project_key, timeout=timeout)
+            except RuntimeError as exc:
+                if "404" not in str(exc):
                     raise
-                # Project doesn't exist — clear it (404 → None behavior)
-                self._project = None
-                self._project_id = None
+                return None  # An absent project is resolved by the caller's creation flow.
+            if not project:
+                raise RuntimeError(
+                    f"Project '{project_key}' not found in workspace '{workspace_key}' "
+                    f"of organization '{org_key}'."
+                )
+            return project
 
-        self._user = api.get_user()
+        pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="dn-scope")
+        try:
+            org_future = pool.submit(lambda: read(get_organization))
+            user_future = pool.submit(lambda: read(lambda timeout: api.get_user(timeout=timeout)))
+            workspace_future = pool.submit(lambda: read(get_workspace))
+            project_future = (
+                pool.submit(lambda: read(lambda timeout: get_project(ws_key, proj_key, timeout)))
+                if ws_key and proj_key
+                else None
+            )
+            initial_reads = [org_future, user_future, workspace_future]
+            if project_future is not None:
+                initial_reads.append(project_future)
+            wait_for_reads(*initial_reads)
+            workspace = workspace_future.result()
+            if proj_key and project_future is None:
+                project_future = pool.submit(
+                    lambda: read(lambda timeout: get_project(workspace.key, proj_key, timeout))
+                )
+                wait_for_reads(project_future)
+
+            # Worker threads never mutate the profile, including after a timeout.
+            if not ws_key:
+                self._workspace = workspace.key
+            if project_future is not None:
+                project = project_future.result()
+                self._project_id = str(project.id) if project else None
+                if project is None:
+                    self._project = None
+            self._user = user_future.result()
+        finally:
+            stopped.set()
+            # Running synchronous HTTP requests cannot be cancelled. They retain
+            # their transport timeouts, but cannot retry or change profile state.
+            pool.shutdown(wait=False, cancel_futures=True)
 
     def promote_scope_to_defaults(self) -> None:
         """Promote active overrides to saved defaults (for login, workspace switch)."""

@@ -147,7 +147,7 @@ def refusal_aware_attack(
         for i, trial in enumerate(trials, 1):
             response = ""
             if trial.evaluation_result and trial.evaluation_result.samples:
-                response = trial.evaluation_result.samples[0].output[:400]  # ty: ignore[not-subscriptable]
+                response = str(trial.evaluation_result.samples[0].output)[:400]
             if trial.score < 0.5:
                 refusal_entries.append(
                     f"Refusal {i} (score {trial.score:.2f}):\n"

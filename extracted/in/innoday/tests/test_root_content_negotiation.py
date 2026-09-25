@@ -45,10 +45,13 @@ class TestBrowsersGetTheUI:
         assert response.status_code == 307
         assert response.headers["location"] == UI_PREFIX
 
-    def test_the_redirect_lands_somewhere_real(self, client):
-        """A redirect to a 404 would be worse than the JSON it replaced."""
-        response = client.get("/", headers={"accept": BROWSER})
-        assert response.status_code < 400
+    def test_the_redirect_lands_on_the_new_ui(self, client, monkeypatch):
+        """A redirect to a 404 would be worse than the JSON it replaced. The
+        pages are innoday-ui's now, so the second hop leaves this host."""
+        monkeypatch.setenv("APP_URL", "https://ui.example")
+        hop = client.get(UI_PREFIX, follow_redirects=False)
+        assert hop.status_code == 301
+        assert hop.headers["location"] == f"https://ui.example{UI_PREFIX}"
 
 
 class TestApiClientsKeepTheirJson:

@@ -1,6 +1,5 @@
 using System.IO;
 using System.IO.Compression;
-using System.Runtime.InteropServices;
 using CloakBrowser;
 using Xunit;
 
@@ -111,69 +110,5 @@ public class WrapperVersionNewerTests
         // Non-numeric segments parse to 0 rather than throwing.
         Assert.False(Download.WrapperVersionNewer("0.x.0", "0.4.0"));
         Assert.True(Download.WrapperVersionNewer("0.4.0", "0.x.0"));
-    }
-}
-
-/// <summary>
-/// Tests for the archive-extraction path-traversal (zip-slip) guard
-/// <see cref="Download.ResolveSafeEntryPath(string, string)"/>, shared by
-/// <c>ExtractTar</c> and <c>ExtractZip</c>.
-/// </summary>
-public class PathTraversalTests
-{
-    private static string DestDir() =>
-        Path.Combine(Path.GetTempPath(), "cloak-extract-test");
-
-    [Fact]
-    public void Normal_entry_resolves_inside_destination()
-    {
-        var dest = DestDir();
-        var resolved = Download.ResolveSafeEntryPath(dest, "sub/file.txt");
-
-        var destFull = Path.GetFullPath(dest);
-        var expected = Path.GetFullPath(Path.Combine(destFull, "sub/file.txt"));
-
-        Assert.Equal(expected, resolved);
-        // The resolved path stays under the destination directory.
-        Assert.StartsWith(destFull + Path.DirectorySeparatorChar, resolved, System.StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Parent_relative_entry_throws()
-    {
-        var dest = DestDir();
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => Download.ResolveSafeEntryPath(dest, "../evil.txt"));
-        // The message names the offending entry.
-        Assert.Contains("../evil.txt", ex.Message);
-    }
-
-    [Fact]
-    public void Absolute_entry_path_throws()
-    {
-        var dest = DestDir();
-        // An absolute entry path escapes the destination via Path.Combine semantics.
-        var absolute = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? @"C:\Windows\evil.txt"
-            : "/etc/evil.txt";
-
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => Download.ResolveSafeEntryPath(dest, absolute));
-        Assert.Contains(absolute, ex.Message);
-    }
-
-    [Fact]
-    public void Windows_backslash_traversal_throws()
-    {
-        // "..\..\evil" is only a traversal where backslash is a path separator (Windows).
-        // On other platforms backslash is an ordinary filename character, so skip.
-        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return;
-
-        var dest = DestDir();
-        const string entry = @"..\..\evil";
-        var ex = Assert.Throws<System.InvalidOperationException>(
-            () => Download.ResolveSafeEntryPath(dest, entry));
-        Assert.Contains(entry, ex.Message);
     }
 }

@@ -102,6 +102,7 @@ class TTSModel(nn.Module):
         remove_semicolons: bool = False,
         append_terminal_punctuation: bool = True,
         capitalize_first_letter: bool = True,
+        replace_characters: dict[str, str] | None = None,
     ):
         super().__init__()
         self.flow_lm = flow_lm
@@ -119,6 +120,7 @@ class TTSModel(nn.Module):
         self.remove_semicolons = remove_semicolons
         self.append_terminal_punctuation = append_terminal_punctuation
         self.capitalize_first_letter = capitalize_first_letter
+        self.replace_characters = replace_characters or {}
 
     @property
     def device(self) -> torch.device:
@@ -156,6 +158,7 @@ class TTSModel(nn.Module):
             remove_semicolons=config.remove_semicolons,
             append_terminal_punctuation=config.append_terminal_punctuation,
             capitalize_first_letter=config.capitalize_first_letter,
+            replace_characters=config.replace_characters,
         )
         return tts_model
 
@@ -300,14 +303,14 @@ class TTSModel(nn.Module):
         Args:
             language: Optional language identifier to select a predefined config. Incompatible with
                 the `config` argument. Available options
-                are `"english_2026-01"`, `"english_2026-04"`, `"english"`, `"french"`, `"french_24l"`, `"german_24l"`, `"portuguese"`, `"italian"`, `"spanish_24l"`.
-                If neither `config` nor `language` is provided, defaults to `"english", which is the same model as 'english_2026-04'`.
+                are `"english_2026-01"`, `"english_2026-04"`, `"english_2026-09"`, `"english"`, `"french"`, `"french_24l"`, `"german"`, `"german_24l"`, `"portuguese"`, `"portuguese_24l"`, `"italian"`, `"italian_24l"`, `"spanish"`, `"spanish_24l"`, `"dutch"`, `"dutch_24l"`.
+                If neither `config` nor `language` is provided, defaults to `"english", which is the same model as 'english_2026-09'`.
             config: A path to a custom YAML config file: a local path (e.g., `"C://pocket_tts/pocket_tts_config.yaml"`),
                 an `https://` URL, or an `hf://` path (e.g. `"hf://<repo_id>/<path>[@revision]"`).
             temp: Sampling temperature for generation. Higher values produce more
                 diverse but potentially lower quality output. If None, defaults to
                 the model's recommended value from its config file
-                (``default_temperature``, e.g. 0.3 for the English model).
+                (``default_temperature``, 0.3).
             sampler_decode_steps: Number of steps for Lagrangian Self Distillation
                 decoding. More steps can improve quality but increase computation.
             noise_clamp: Maximum value for noise sampling. If None, no clamping
@@ -708,6 +711,7 @@ class TTSModel(nn.Module):
             remove_semicolons=self.remove_semicolons,
             append_terminal_punctuation=self.append_terminal_punctuation,
             capitalize_first_letter=self.capitalize_first_letter,
+            replace_characters=self.replace_characters,
         )
 
         for chunk in chunks:
@@ -719,6 +723,7 @@ class TTSModel(nn.Module):
                 self.remove_semicolons,
                 self.append_terminal_punctuation,
                 self.capitalize_first_letter,
+                self.replace_characters,
             )
             frames_after_eos_guess += 2
             effective_frames = (

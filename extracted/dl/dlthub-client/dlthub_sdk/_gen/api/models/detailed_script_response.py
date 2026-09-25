@@ -30,7 +30,7 @@ class DetailedScriptResponse:
         date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
         date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         id (UUID): The unique ID of the entity
-        job_definition (TJobDefinition):
+        job_definition (TJobDefinition): Full job definition from dlt deployment manifest
         job_definition_engine_version (int): Manifest engine version for future migration
         job_definition_hash (str): Hash of the job definition for change detection
         job_ref (str): Canonical job reference, unique per workspace

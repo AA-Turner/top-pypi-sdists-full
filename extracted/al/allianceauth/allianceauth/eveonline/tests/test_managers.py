@@ -362,6 +362,41 @@ class EveCharacterManagerTestCase(TestCase):
         self.assertEqual(result.character_name, "character.name")
         self.assertIsNone(EveCharacter.objects.get_character_by_id(9999))
 
+    def test_get_or_create_esi_returns_existing_character(self) -> None:
+        character = EveCharacter.objects.create(
+            character_id=1234,
+            character_name="Existing Character",
+            corporation_id=2345,
+            corporation_name="Existing Corp",
+            corporation_ticker="EXC",
+        )
+
+        result = EveCharacter.objects.get_or_create_esi(1234)
+
+        self.assertEqual(result, character)
+
+    def test_get_or_create_esi_handles_integrity_error_for_character(self) -> None:
+        existing = EveCharacter.objects.create(
+            character_id=1234,
+            character_name="Existing Character",
+            corporation_id=2345,
+            corporation_name="Existing Corp",
+            corporation_ticker="EXC",
+        )
+
+        with mock.patch.object(
+            EveCharacter.objects,
+            "get",
+            side_effect=[EveCharacter.DoesNotExist, existing],
+        ), mock.patch.object(
+            EveCharacter.objects,
+            "create_character",
+            side_effect=IntegrityError,
+        ):
+            result = EveCharacter.objects.get_or_create_esi(1234)
+
+        self.assertEqual(result, existing)
+
 
 class EveAllianceManagerTestCase(TestCase):
     @mock.patch("allianceauth.eveonline.managers.open_api_provider.get_alliance")

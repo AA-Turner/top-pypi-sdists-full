@@ -918,11 +918,29 @@ class HumanQuestion(BaseModel):
         return self
 
 
+class ToolApprovalRequest(BaseModel):
+    """The tool call a tool-approval prompt asks a person to allow or deny."""
+
+    tool_name: str
+    arguments: dict[str, t.Any]
+    """Every argument the call will run with, so the person approves exactly what runs."""
+    tool_call_id: str | None = None
+    """The call's id, when the engine exposes one; its tool events carry the same id."""
+    reason: str | None = None
+    """Why the policy asked, when the judge gave a reason."""
+
+
 class HumanPrompt(BaseModel):
     """Bundle of one or more questions sent to a human via ``ask_user``."""
 
     request_id: str
     questions: list[HumanQuestion]
+    tool_approval: ToolApprovalRequest | None = None
+    """Set only by the runtime's permission bridge, never by an agent's ``ask_user``."""
+    source_tool_call_id: str | None = None
+    """Id of the tool call that asked, when the prompt comes from inside a tool call."""
+    source_tool_name: str | None = None
+    """Name of the tool that asked; set whenever ``source_tool_call_id`` is."""
 
     @model_validator(mode="after")
     def _validate_questions(self) -> HumanPrompt:
@@ -1281,6 +1299,28 @@ class WsTicketResponse(BaseModel):
     expires_at: str
 
 
+class RuntimeReloadProgress(BaseModel):
+    """Progress of a capability reload on an already-running runtime.
+
+    Reported separately from ``stage`` because a reload is not a startup: the
+    runtime stays ready and keeps serving throughout, and a caller waiting on
+    ``/api/ready`` must not be told otherwise while one is in flight.
+    """
+
+    active: bool = False
+    """Whether a reload is running right now."""
+    started_sec: float | None = None
+    """When the current or last reload began, as seconds since process start."""
+    finished_sec: float | None = None
+    """When the last reload ended. ``None`` while one is active."""
+    error: str | None = None
+    """Why the last settled reload failed, or ``None`` if it succeeded.
+
+    Meaningful only once ``active`` is false. While reloads overlap it stays
+    ``None`` and is decided when the last of them finishes.
+    """
+
+
 class HealthResponse(BaseModel):
     """Response body for health check.
 
@@ -1304,6 +1344,26 @@ class HealthResponse(BaseModel):
     """How long named startup steps took, in seconds (install steps, per capability)."""
     timing_anchor: str | None = None
     """What ``timings`` count from: ``process`` (kernel start time) or ``import``."""
+    step: str | None = None
+    """The piece of work the runtime is on right now, within ``stage``.
+
+    Present during a reload too, which is why it is phrased as what the runtime
+    is doing rather than where startup has got to. ``None`` between steps and
+    once there is nothing left to report.
+    """
+    step_index: int | None = None
+    """Which item of ``step_total`` this step is on, 1-based.
+
+    Set only where a real count exists — capability downloads are countable,
+    dependency installs are not, and inventing a denominator for them would
+    make the remaining time look knowable when it is not.
+    """
+    step_total: int | None = None
+    """How many items this step covers, when countable."""
+    item: str | None = None
+    """What the step is working on — usually a capability name."""
+    reload: RuntimeReloadProgress | None = None
+    """Capability reload progress. Its steps are reported in ``step`` above."""
 
 
 class ToolInfo(BaseModel):

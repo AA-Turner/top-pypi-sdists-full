@@ -1351,13 +1351,12 @@ class JoinedloadOfTypeOptionsTest(
             asserter_.assert_(
                 CompiledSQL("SELECT a.id FROM a"),
                 CompiledSQL(
-                    "SELECT b.a_id AS b_a_id, b.id AS b_id FROM b WHERE b.a_id"
-                    " IN (__[POSTCOMPILE_primary_keys])"
+                    "SELECT b.a_id, b.id FROM b WHERE b.a_id IN"
+                    " (__[POSTCOMPILE_primary_keys])"
                 ),
                 CompiledSQL(
-                    "SELECT c_1.b_id AS c_1_b_id, c_1.id AS c_1_id, c_1.type"
-                    " AS c_1_type, c_sub_1.id AS c_sub_1_id, c_sub_1.data AS"
-                    " c_sub_1_data FROM c AS c_1 LEFT OUTER JOIN c_sub AS"
+                    "SELECT c_1.b_id, c_1.id, c_1.type, c_sub_1.id,"
+                    " c_sub_1.data FROM c AS c_1 LEFT OUTER JOIN c_sub AS"
                     " c_sub_1 ON c_1.id = c_sub_1.id WHERE c_1.b_id IN"
                     " (__[POSTCOMPILE_primary_keys])"
                 ),
@@ -1490,11 +1489,9 @@ class ChainedLoaderAfterOfTypeTest(
                     " bar_1.id) ON top_abc.id = top_1.top_abc_id"
                 ),
                 CompiledSQL(
-                    "SELECT top.id AS top_id, foo.id AS foo_id,"
-                    " top.top_abc_id AS top_top_abc_id, top.type AS"
-                    " top_type, foo.foo_name AS foo_foo_name FROM top"
-                    " JOIN foo ON top.id = foo.id WHERE top.id IN"
-                    " (__[POSTCOMPILE_primary_keys])"
+                    "SELECT top.id, foo.id, top.top_abc_id, top.type,"
+                    " foo.foo_name FROM top JOIN foo ON top.id = foo.id"
+                    " WHERE top.id IN (__[POSTCOMPILE_primary_keys])"
                 ),
             )
         elif loader.subquery:

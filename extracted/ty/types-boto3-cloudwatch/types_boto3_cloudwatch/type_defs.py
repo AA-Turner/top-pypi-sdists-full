@@ -63,6 +63,8 @@ __all__ = (
     "CloudwatchEventStateTypeDef",
     "CloudwatchEventTypeDef",
     "CompositeAlarmTypeDef",
+    "CreateResourceMetricsConfigurationInputTypeDef",
+    "CreateResourceMetricsConfigurationOutputTypeDef",
     "DashboardEntryTypeDef",
     "DashboardValidationMessageTypeDef",
     "DatapointTypeDef",
@@ -73,6 +75,7 @@ __all__ = (
     "DeleteInsightRulesInputTypeDef",
     "DeleteInsightRulesOutputTypeDef",
     "DeleteMetricStreamInputTypeDef",
+    "DeleteResourceMetricsConfigurationInputTypeDef",
     "DescribeAlarmContributorsInputTypeDef",
     "DescribeAlarmContributorsOutputTypeDef",
     "DescribeAlarmHistoryInputAlarmDescribeHistoryTypeDef",
@@ -128,6 +131,8 @@ __all__ = (
     "GetMetricWidgetImageInputTypeDef",
     "GetMetricWidgetImageOutputTypeDef",
     "GetOTelEnrichmentOutputTypeDef",
+    "GetResourceMetricsConfigurationInputTypeDef",
+    "GetResourceMetricsConfigurationOutputTypeDef",
     "InsightRuleContributorDatapointTypeDef",
     "InsightRuleContributorTypeDef",
     "InsightRuleMetricDatapointTypeDef",
@@ -182,6 +187,9 @@ __all__ = (
     "MuteTargetsOutputTypeDef",
     "MuteTargetsTypeDef",
     "MuteTargetsUnionTypeDef",
+    "OTelEnrichmentMetricSelectorOutputTypeDef",
+    "OTelEnrichmentMetricSelectorTypeDef",
+    "OTelEnrichmentMetricSelectorUnionTypeDef",
     "PaginatorConfigTypeDef",
     "PartialFailureTypeDef",
     "PutAlarmMuteRuleInputTypeDef",
@@ -202,6 +210,10 @@ __all__ = (
     "PutMetricStreamOutputTypeDef",
     "RangeOutputTypeDef",
     "RangeTypeDef",
+    "ResourceMetricSelectionOutputTypeDef",
+    "ResourceMetricSelectionTypeDef",
+    "ResourceMetricSelectionUnionTypeDef",
+    "ResourceMetricsConfigurationTypeDef",
     "ResponseMetadataTypeDef",
     "RuleTypeDef",
     "ScheduleConfigurationTypeDef",
@@ -215,12 +227,18 @@ __all__ = (
     "SingleMetricAnomalyDetectorTypeDef",
     "SingleMetricAnomalyDetectorUnionTypeDef",
     "StartMetricStreamsInputTypeDef",
+    "StartOTelEnrichmentInputTypeDef",
+    "StartOTelEnrichmentOutputTypeDef",
     "StatisticSetTypeDef",
     "StopMetricStreamsInputTypeDef",
     "TagResourceInputTypeDef",
     "TagTypeDef",
     "TimestampTypeDef",
     "UntagResourceInputTypeDef",
+    "UpdateOTelEnrichmentInputTypeDef",
+    "UpdateOTelEnrichmentOutputTypeDef",
+    "UpdateResourceMetricsConfigurationInputTypeDef",
+    "UpdateResourceMetricsConfigurationOutputTypeDef",
     "WaiterConfigTypeDef",
     "WallClockWindowTypeDef",
     "WarmUpConfigurationTypeDef",
@@ -315,6 +333,14 @@ class CompositeAlarmTypeDef(TypedDict):
     ActionsSuppressorExtensionPeriod: NotRequired[int]
 
 
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
 class DashboardEntryTypeDef(TypedDict):
     DashboardName: NotRequired[str]
     DashboardArn: NotRequired[str]
@@ -361,16 +387,12 @@ class PartialFailureTypeDef(TypedDict):
     FailureDescription: NotRequired[str]
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 class DeleteMetricStreamInputTypeDef(TypedDict):
     Name: str
+
+
+class DeleteResourceMetricsConfigurationInputTypeDef(TypedDict):
+    ResourceArn: str
 
 
 class DescribeAlarmContributorsInputTypeDef(TypedDict):
@@ -502,6 +524,15 @@ class GetMetricWidgetImageInputTypeDef(TypedDict):
     OutputFormat: NotRequired[str]
 
 
+class OTelEnrichmentMetricSelectorOutputTypeDef(TypedDict):
+    Namespace: str
+    MetricNames: NotRequired[list[str]]
+
+
+class GetResourceMetricsConfigurationInputTypeDef(TypedDict):
+    ResourceArn: str
+
+
 class InsightRuleContributorDatapointTypeDef(TypedDict):
     Timestamp: datetime
     ApproximateValue: float
@@ -578,6 +609,19 @@ class MetricStreamStatisticsMetricTypeDef(TypedDict):
 
 class MuteTargetsTypeDef(TypedDict):
     AlarmNames: Sequence[str]
+
+
+class OTelEnrichmentMetricSelectorTypeDef(TypedDict):
+    Namespace: str
+    MetricNames: NotRequired[Sequence[str]]
+
+
+class ResourceMetricSelectionOutputTypeDef(TypedDict):
+    IncludeMetrics: list[str]
+
+
+class ResourceMetricSelectionTypeDef(TypedDict):
+    IncludeMetrics: Sequence[str]
 
 
 class ScheduleTypeDef(TypedDict):
@@ -681,11 +725,6 @@ class CloudwatchEventMetricStatsTypeDef(TypedDict):
     metric: NotRequired[CloudwatchEventMetricStatsMetricTypeDef]
 
 
-class DeleteInsightRulesOutputTypeDef(TypedDict):
-    Failures: list[PartialFailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeAlarmContributorsOutputTypeDef(TypedDict):
     AlarmContributors: list[AlarmContributorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -698,17 +737,7 @@ class DescribeAlarmHistoryOutputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class DisableInsightRulesOutputTypeDef(TypedDict):
-    Failures: list[PartialFailureTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class EmptyResponseMetadataTypeDef(TypedDict):
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class EnableInsightRulesOutputTypeDef(TypedDict):
-    Failures: list[PartialFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -726,19 +755,8 @@ class GetDatasetOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetMetricStatisticsOutputTypeDef(TypedDict):
-    Label: str
-    Datapoints: list[DatapointTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetMetricWidgetImageOutputTypeDef(TypedDict):
     MetricWidgetImage: bytes
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetOTelEnrichmentOutputTypeDef(TypedDict):
-    Status: OTelEnrichmentStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -748,15 +766,20 @@ class ListAlarmMuteRulesOutputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class PutAnomalyDetectorOutputTypeDef(TypedDict):
+    AnomalyDetectorId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutMetricStreamOutputTypeDef(TypedDict):
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListDashboardsOutputTypeDef(TypedDict):
     DashboardEntries: list[DashboardEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-
-class PutAnomalyDetectorOutputTypeDef(TypedDict):
-    AnomalyDetectorId: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutDashboardOutputTypeDef(TypedDict):
@@ -764,13 +787,29 @@ class PutDashboardOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class PutManagedInsightRulesOutputTypeDef(TypedDict):
+class GetMetricStatisticsOutputTypeDef(TypedDict):
+    Label: str
+    Datapoints: list[DatapointTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteInsightRulesOutputTypeDef(TypedDict):
     Failures: list[PartialFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class PutMetricStreamOutputTypeDef(TypedDict):
-    Arn: str
+class DisableInsightRulesOutputTypeDef(TypedDict):
+    Failures: list[PartialFailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EnableInsightRulesOutputTypeDef(TypedDict):
+    Failures: list[PartialFailureTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutManagedInsightRulesOutputTypeDef(TypedDict):
+    Failures: list[PartialFailureTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -965,6 +1004,31 @@ class MetricDataResultTypeDef(TypedDict):
     Messages: NotRequired[list[MessageDataTypeDef]]
 
 
+class GetOTelEnrichmentOutputTypeDef(TypedDict):
+    Status: OTelEnrichmentStatusType
+    IncludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
+    ExcludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartOTelEnrichmentOutputTypeDef(TypedDict):
+    IncludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
+    ExcludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateOTelEnrichmentOutputTypeDef(TypedDict):
+    IncludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
+    ExcludeFilters: list[OTelEnrichmentMetricSelectorOutputTypeDef]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class InsightRuleContributorTypeDef(TypedDict):
     Keys: list[str]
     ApproximateAggregateValue: float
@@ -1053,6 +1117,21 @@ class MetricStreamStatisticsConfigurationTypeDef(TypedDict):
 
 
 MuteTargetsUnionTypeDef = Union[MuteTargetsTypeDef, MuteTargetsOutputTypeDef]
+OTelEnrichmentMetricSelectorUnionTypeDef = Union[
+    OTelEnrichmentMetricSelectorTypeDef, OTelEnrichmentMetricSelectorOutputTypeDef
+]
+
+
+class ResourceMetricsConfigurationTypeDef(TypedDict):
+    ResourceArn: str
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    MetricSelections: NotRequired[list[ResourceMetricSelectionOutputTypeDef]]
+
+
+ResourceMetricSelectionUnionTypeDef = Union[
+    ResourceMetricSelectionTypeDef, ResourceMetricSelectionOutputTypeDef
+]
 
 
 class RuleTypeDef(TypedDict):
@@ -1169,6 +1248,41 @@ class GetMetricStreamOutputTypeDef(TypedDict):
 MetricStreamStatisticsConfigurationUnionTypeDef = Union[
     MetricStreamStatisticsConfigurationTypeDef, MetricStreamStatisticsConfigurationOutputTypeDef
 ]
+
+
+class StartOTelEnrichmentInputTypeDef(TypedDict):
+    IncludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
+    ExcludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
+
+
+class UpdateOTelEnrichmentInputTypeDef(TypedDict):
+    IncludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
+    ExcludeFilters: NotRequired[Sequence[OTelEnrichmentMetricSelectorUnionTypeDef]]
+
+
+class CreateResourceMetricsConfigurationOutputTypeDef(TypedDict):
+    ResourceMetricsConfiguration: ResourceMetricsConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetResourceMetricsConfigurationOutputTypeDef(TypedDict):
+    ResourceMetricsConfiguration: ResourceMetricsConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateResourceMetricsConfigurationOutputTypeDef(TypedDict):
+    ResourceMetricsConfiguration: ResourceMetricsConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateResourceMetricsConfigurationInputTypeDef(TypedDict):
+    ResourceArn: str
+    MetricSelections: NotRequired[Sequence[ResourceMetricSelectionUnionTypeDef]]
+
+
+class UpdateResourceMetricsConfigurationInputTypeDef(TypedDict):
+    ResourceArn: str
+    MetricSelections: NotRequired[Sequence[ResourceMetricSelectionUnionTypeDef]]
 
 
 class GetAlarmMuteRuleOutputTypeDef(TypedDict):

@@ -5,11 +5,13 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import pandas as pd
 import typing_extensions as te
 
 from dreadnode.core.metric import MetricSeries
 from dreadnode.evaluations.sample import Sample
+
+if t.TYPE_CHECKING:
+    import pandas as pd
 
 In = te.TypeVar("In", default=t.Any)
 Out = te.TypeVar("Out", default=t.Any)
@@ -136,6 +138,8 @@ class EvalResult(t.Generic[In, Out]):
 
     def to_dataframe(self) -> "pd.DataFrame":
         """Converts the results into a pandas DataFrame for analysis."""
+        import pandas as pd
+
         return pd.DataFrame(self.to_dicts())
 
     def to_jsonl(self, path: str | Path) -> None:

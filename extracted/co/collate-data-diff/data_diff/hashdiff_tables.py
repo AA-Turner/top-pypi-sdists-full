@@ -254,7 +254,10 @@ class HashDiffer(TableDiffer):
                 )
             )
 
-            info_tree.info.set_diff(diff)
+            # Record only how many rows differ. The rows are yielded to the caller; keeping them on the
+            # info tree as well would hold every differing row in memory until the whole diff completes.
+            info_tree.info.diff_count = len(diff)
+            info_tree.info.is_diff = bool(diff)
             info_tree.info.rowcounts = {1: len(rows1), 2: len(rows2)}
 
             logger.info(". " * level + f"Diff found {len(diff)} different rows.")

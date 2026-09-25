@@ -307,6 +307,56 @@ def test_free_license_shows_upgrade_hint(capsys):
 
 
 # ---------------------------------------------------------------------------
+# Font probe — the Linux-only Windows/macOS-persona font check. Forces the Linux
+# branch and mocks fc-list so the count is deterministic on any host.
+# ---------------------------------------------------------------------------
+
+
+def _fonts_linux(mac_present):
+    """Patch context: force the Linux font branch and stub fc-list so the Windows
+    and Office sets read fully present while the mac set reports `mac_present`.
+    """
+    from cloakbrowser.browser import _MAC_FONT_TELLS
+
+    def fake_count(tells):
+        return mac_present if tells is _MAC_FONT_TELLS else len(tells)
+
+    return (
+        patch("cloakbrowser.__main__.platform.system", return_value="Linux"),
+        patch("cloakbrowser.browser._count_fonts_present", side_effect=fake_count),
+    )
+
+
+def test_info_reports_partial_mac_fonts_with_conditional_nudge(capsys):
+    # 5/20 = the Windows-box overlap (Arial, Georgia, Times New Roman, ...).
+    p_platform, p_count = _fonts_linux(5)
+    with p_platform, p_count:
+        _run(Namespace(quick=True, json=False))
+    out = capsys.readouterr().out
+    assert "Mac fonts: partial (5/20)" in out
+    assert "if spoofing macOS on this host" in out
+
+
+def test_info_full_mac_fonts_has_no_nudge(capsys):
+    from cloakbrowser.browser import _MAC_FONT_TELLS
+
+    p_platform, p_count = _fonts_linux(len(_MAC_FONT_TELLS))
+    with p_platform, p_count:
+        _run(Namespace(quick=True, json=False))
+    out = capsys.readouterr().out
+    assert "Mac fonts: ok (20/20)" in out
+    assert "if spoofing macOS on this host" not in out
+
+
+def test_info_json_includes_mac_font_count_on_linux(capsys):
+    p_platform, p_count = _fonts_linux(5)
+    with p_platform, p_count:
+        _run(Namespace(quick=True, json=True))
+    data = json.loads(capsys.readouterr().out)
+    assert data["fonts"]["macos"] == [5, 20]
+
+
+# ---------------------------------------------------------------------------
 # Launch test — exercises the real subprocess path (not --quick) against a stub
 # executable, so the launch-test code is actually covered by CI.
 # ---------------------------------------------------------------------------

@@ -12,7 +12,7 @@ import tempfile
 from configparser import RawConfigParser
 from io import BytesIO
 from operator import itemgetter
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 from time import monotonic
 from typing import TYPE_CHECKING, cast
 from unittest import TestCase
@@ -105,6 +105,21 @@ class DiscoveryTestCase(TestCase):
 
 
 class DiscoveryBaseTest(DiscoveryTestCase):
+    def test_wildcard_replacement_treats_backslashes_literally(self) -> None:
+        checks = (
+            (r"locales/x\g<99>-en.po", r"locales/x\g<99>-*.po"),
+            (r"locales/x\X-en.po", r"locales/x\X-*.po"),
+        )
+        for path, expected in checks:
+            with self.subTest(path=path):
+                pure_path = PurePosixPath(path)
+                finder = Finder(
+                    PurePosixPath(), mock=([(pure_path, pure_path, path)], [])
+                )
+                discovery = BaseDiscovery(finder)
+
+                self.assertEqual(list(discovery.get_masks()), [{"filemask": expected}])
+
     def test_explicit_source_language_template(self) -> None:
         discovery = JSONDiscovery(self.get_finder(["locale/cs.json"]))
         result: ResultDict = {"filemask": "locale/*.json"}
@@ -211,6 +226,21 @@ class DiscoveryBaseTest(DiscoveryTestCase):
     def test_non_english_variant_aliases(self) -> None:
         discovery = AppStoreDiscovery(self.get_finder([]))
         self.assertEqual(discovery.get_language_aliases("cs"), ["cs"])
+
+    def test_encoding_discovery_skips_unreadable_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            missing = root / "a.properties"
+            missing.touch()
+            (root / "b.properties").write_bytes(
+                b"\xff\xfe" + "hello=world".encode("utf-16-le")
+            )
+            finder = Finder(root)
+            missing.unlink()
+            discovery = JavaDiscovery(finder)
+            self.assertEqual(
+                discovery.detect_encoding({"filemask": "*.properties"}), "utf-16"
+            )
 
     def test_encoding_discovery_reads_bounded_sample(self) -> None:
         class DetectionResult:
@@ -1359,6 +1389,21 @@ class ResourceDictionaryTest(DiscoveryTestCase):
 
 
 class XliffTest(DiscoveryTestCase):
+    def test_adjust_format_without_matches(self) -> None:
+        discovery = XliffDiscovery(self.get_finder([]))
+        result: ResultDict = {"filemask": "ghost.xlf"}
+        discovery.adjust_format(result)
+        self.assertEqual(result, {"filemask": "ghost.xlf"})
+
+    def test_existing_hint(self) -> None:
+        discovery = XliffDiscovery(self.get_finder(["ghost.xlf"]))
+        for hint in ("ghost.xlf", "*.xlf"):
+            with self.subTest(hint=hint):
+                self.assertEqual(
+                    list(discovery.get_masks(hint=hint)),
+                    [{"filemask": hint}],
+                )
+
     def test_basic(self) -> None:
         discovery = XliffDiscovery(
             self.get_finder(["locales/cs.xliff", "locales/en.xliff"]),
@@ -2251,6 +2296,40 @@ class YAMLDiscoveryTest(DiscoveryTestCase):
             discovery.adjust_format(result)
 
         self.assertEqual(result["file_format"], "ruby-yaml")
+
+    def test_non_string_yaml_key_keeps_format(self) -> None:
+        for content in ("1: hello\n", "? [en, cs]\n: hello\n"):
+            for with_filemask in (False, True):
+                with (
+                    self.subTest(content=content, with_filemask=with_filemask),
+                    tempfile.TemporaryDirectory() as tmpdir,
+                ):
+                    tmppath = Path(tmpdir)
+                    (tmppath / "en.yml").write_text(content)
+                    discovery = YAMLDiscovery(Finder(tmppath))
+                    result: ResultDict = {
+                        "template": "en.yml",
+                        "file_format": "yaml",
+                    }
+                    if with_filemask:
+                        result["filemask"] = "*.yml"
+                    expected = result.copy()
+
+                    discovery.adjust_format(result)
+
+                    self.assertEqual(result, expected)
+
+    def test_numeric_yaml_key_discovery(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmppath = Path(tmpdir)
+            (tmppath / "en.yml").write_text("1: hello\n")
+            (tmppath / "cs.yml").write_text("1: ahoj\n")
+            discovery = YAMLDiscovery(Finder(tmppath))
+
+            self.assert_discovery(
+                discovery.discover(),
+                [{"filemask": "*.yml", "file_format": "yaml", "template": "en.yml"}],
+            )
 
     def test_parser_error_is_ignored(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

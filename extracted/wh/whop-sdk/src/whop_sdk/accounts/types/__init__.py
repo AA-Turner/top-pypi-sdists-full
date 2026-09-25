@@ -29,14 +29,20 @@ if typing.TYPE_CHECKING:
     from .post_account_updated_payload import PostAccountUpdatedPayload
     from .post_account_updated_payload_api_version import PostAccountUpdatedPayloadApiVersion
     from .post_account_updated_payload_type import PostAccountUpdatedPayloadType
+    from .retry_ads_payment_accounts_response import RetryAdsPaymentAccountsResponse
     from .transfer_ownership_accounts_response import TransferOwnershipAccountsResponse
     from .update_accounts_request_banner_image import UpdateAccountsRequestBannerImage
     from .update_accounts_request_business_address import UpdateAccountsRequestBusinessAddress
+    from .update_accounts_request_cancellation_policy import UpdateAccountsRequestCancellationPolicy
+    from .update_accounts_request_eula import UpdateAccountsRequestEula
     from .update_accounts_request_home_preferences_item import UpdateAccountsRequestHomePreferencesItem
     from .update_accounts_request_logo import UpdateAccountsRequestLogo
     from .update_accounts_request_onboarding_type import UpdateAccountsRequestOnboardingType
     from .update_accounts_request_opengraph_image import UpdateAccountsRequestOpengraphImage
     from .update_accounts_request_opengraph_image_variant import UpdateAccountsRequestOpengraphImageVariant
+    from .update_accounts_request_privacy_policy import UpdateAccountsRequestPrivacyPolicy
+    from .update_accounts_request_return_policy import UpdateAccountsRequestReturnPolicy
+    from .update_accounts_request_shipping_policy import UpdateAccountsRequestShippingPolicy
     from .update_accounts_request_store_page_config import UpdateAccountsRequestStorePageConfig
     from .update_accounts_request_store_page_config_accent_color import UpdateAccountsRequestStorePageConfigAccentColor
     from .update_accounts_request_store_page_config_layout import UpdateAccountsRequestStorePageConfigLayout
@@ -52,6 +58,7 @@ if typing.TYPE_CHECKING:
     )
     from .update_accounts_request_tax_remitted_by import UpdateAccountsRequestTaxRemittedBy
     from .update_accounts_request_tax_type import UpdateAccountsRequestTaxType
+    from .update_accounts_request_terms_of_service import UpdateAccountsRequestTermsOfService
     from .update_accounts_request_three_ds_level import UpdateAccountsRequestThreeDsLevel
 _dynamic_imports: typing.Dict[str, str] = {
     "FormCompanyAccountsRequestBusinessAddress": ".form_company_accounts_request_business_address",
@@ -77,14 +84,20 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostAccountUpdatedPayload": ".post_account_updated_payload",
     "PostAccountUpdatedPayloadApiVersion": ".post_account_updated_payload_api_version",
     "PostAccountUpdatedPayloadType": ".post_account_updated_payload_type",
+    "RetryAdsPaymentAccountsResponse": ".retry_ads_payment_accounts_response",
     "TransferOwnershipAccountsResponse": ".transfer_ownership_accounts_response",
     "UpdateAccountsRequestBannerImage": ".update_accounts_request_banner_image",
     "UpdateAccountsRequestBusinessAddress": ".update_accounts_request_business_address",
+    "UpdateAccountsRequestCancellationPolicy": ".update_accounts_request_cancellation_policy",
+    "UpdateAccountsRequestEula": ".update_accounts_request_eula",
     "UpdateAccountsRequestHomePreferencesItem": ".update_accounts_request_home_preferences_item",
     "UpdateAccountsRequestLogo": ".update_accounts_request_logo",
     "UpdateAccountsRequestOnboardingType": ".update_accounts_request_onboarding_type",
     "UpdateAccountsRequestOpengraphImage": ".update_accounts_request_opengraph_image",
     "UpdateAccountsRequestOpengraphImageVariant": ".update_accounts_request_opengraph_image_variant",
+    "UpdateAccountsRequestPrivacyPolicy": ".update_accounts_request_privacy_policy",
+    "UpdateAccountsRequestReturnPolicy": ".update_accounts_request_return_policy",
+    "UpdateAccountsRequestShippingPolicy": ".update_accounts_request_shipping_policy",
     "UpdateAccountsRequestStorePageConfig": ".update_accounts_request_store_page_config",
     "UpdateAccountsRequestStorePageConfigAccentColor": ".update_accounts_request_store_page_config_accent_color",
     "UpdateAccountsRequestStorePageConfigLayout": ".update_accounts_request_store_page_config_layout",
@@ -94,6 +107,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UpdateAccountsRequestTaxIdentifiersItemTaxIdType": ".update_accounts_request_tax_identifiers_item_tax_id_type",
     "UpdateAccountsRequestTaxRemittedBy": ".update_accounts_request_tax_remitted_by",
     "UpdateAccountsRequestTaxType": ".update_accounts_request_tax_type",
+    "UpdateAccountsRequestTermsOfService": ".update_accounts_request_terms_of_service",
     "UpdateAccountsRequestThreeDsLevel": ".update_accounts_request_three_ds_level",
 }
 
@@ -143,14 +157,20 @@ __all__ = [
     "PostAccountUpdatedPayload",
     "PostAccountUpdatedPayloadApiVersion",
     "PostAccountUpdatedPayloadType",
+    "RetryAdsPaymentAccountsResponse",
     "TransferOwnershipAccountsResponse",
     "UpdateAccountsRequestBannerImage",
     "UpdateAccountsRequestBusinessAddress",
+    "UpdateAccountsRequestCancellationPolicy",
+    "UpdateAccountsRequestEula",
     "UpdateAccountsRequestHomePreferencesItem",
     "UpdateAccountsRequestLogo",
     "UpdateAccountsRequestOnboardingType",
     "UpdateAccountsRequestOpengraphImage",
     "UpdateAccountsRequestOpengraphImageVariant",
+    "UpdateAccountsRequestPrivacyPolicy",
+    "UpdateAccountsRequestReturnPolicy",
+    "UpdateAccountsRequestShippingPolicy",
     "UpdateAccountsRequestStorePageConfig",
     "UpdateAccountsRequestStorePageConfigAccentColor",
     "UpdateAccountsRequestStorePageConfigLayout",
@@ -160,5 +180,6 @@ __all__ = [
     "UpdateAccountsRequestTaxIdentifiersItemTaxIdType",
     "UpdateAccountsRequestTaxRemittedBy",
     "UpdateAccountsRequestTaxType",
+    "UpdateAccountsRequestTermsOfService",
     "UpdateAccountsRequestThreeDsLevel",
 ]

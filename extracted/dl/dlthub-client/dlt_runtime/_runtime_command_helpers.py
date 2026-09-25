@@ -57,6 +57,7 @@ from dlt._workspace.deployment.requirements import (
 )
 from dlt._workspace.deployment.typing import TJobRef, TJobsDeploymentManifest, TTrigger
 from dlt._workspace.exceptions import WorkspaceRunContextNotAvailable
+from dlt.common.json import json as json_dlt
 
 # Current package
 from dlt_runtime import runtime as _runtime_module, urls
@@ -115,10 +116,10 @@ from dlthub_sdk._gen.api.models import (
     DataplaneAccessTokenResponse,
     DataplaneInfo,
     DeployManifestRequest,
+    DeployManifestRequestJobsItem,
     DetailedRunResponse,
     PrincipalKind,
     RunStatus,
-    TJobDefinition as ApiTJobDefinition,
     UploadInitiatedResponse,
     WorkspaceResponse,
 )
@@ -169,6 +170,23 @@ def _to_uuid(value: Union[str, UUID]) -> UUID:
             cmd="dlthub",
             msg=f"Invalid UUID: {value}",
         )
+
+
+def _run_id_from_ref(ref: str, run_number: Optional[int] = None) -> Optional[UUID]:
+    """Extracts job run UUID from `ref` and returns it, mixing with `run_number` is not allowed"""
+    try:
+        run_id = UUID(ref)
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if run_number is not None:
+        raise CliCommandInnerException(
+            cmd="job",
+            msg=(
+                f"Run number {run_number} cannot be combined with run id {ref}."
+                " Pass a run id on its own, or a job reference with a run number."
+            ),
+        )
+    return run_id
 
 
 def _resolve_workspace_id(caller_info: CallerInfo, workspace: str) -> str:
@@ -417,26 +435,34 @@ def _ensure_profile_warning(required_profile: str) -> bool:
         return False
 
 
+def _job_to_api_item(job: Any) -> DeployManifestRequestJobsItem:
+    # manifests keep datetime interval bounds; the opaque request wrapper does not
+    # serialize them, so render JSON-native (isoformat) before wrapping.
+    return DeployManifestRequestJobsItem.from_dict(json.loads(json_dlt.dumps(job)))
+
+
 def _generate_local_manifest(
     name_or_path: str, use_all: bool = True
-) -> tuple[TJobsDeploymentManifest, str, list["ApiTJobDefinition"], list[str]]:
+) -> tuple[
+    TJobsDeploymentManifest, str, list["DeployManifestRequestJobsItem"], list[str]
+]:
     """Generate a deployment manifest locally from a module or file."""
 
     manifest, manifest_hash, warnings = load_manifest_with_warnings(
         name_or_path, use_all=use_all
     )
-    api_jobs = [ApiTJobDefinition.from_dict(job) for job in manifest["jobs"]]
+    api_jobs = [_job_to_api_item(job) for job in manifest["jobs"]]
     return manifest, manifest_hash, api_jobs, warnings
 
 
 def _default_dashboard_manifest_bundle() -> tuple[
-    TJobsDeploymentManifest, str, list["ApiTJobDefinition"], list[str]
+    TJobsDeploymentManifest, str, list["DeployManifestRequestJobsItem"], list[str]
 ]:
     """Build the ad-hoc dashboard-only manifest bundle."""
 
     manifest = default_dashboard_manifest()
     manifest_hash = generate_manifest_hash(manifest)
-    api_jobs = [ApiTJobDefinition.from_dict(job) for job in manifest["jobs"]]
+    api_jobs = [_job_to_api_item(job) for job in manifest["jobs"]]
     return manifest, manifest_hash, api_jobs, []
 
 
@@ -500,7 +526,10 @@ def _resolve_job_ref_from_server(
             workspace_id=_to_uuid(auth_service.workspace_id),
             archived=archived,
         )
-    if isinstance(res.parsed, list_scripts.ListScriptsResponse200) and res.parsed.items:
+    if (
+        isinstance(res.parsed, list_scripts.ListPageDetailedScriptResponse)
+        and res.parsed.items
+    ):
         job_refs = [TJobRef(s.job_ref) for s in res.parsed.items]
         try:
             return str(resolve_job_ref(name_or_ref, job_refs))
@@ -653,7 +682,7 @@ def _get_latest_run(
                     script_id=script.parsed.id,
                     limit=1,
                 )
-            if isinstance(runs.parsed, list_runs.ListRunsResponse200):
+            if isinstance(runs.parsed, list_runs.ListPageDetailedRunResponse):
                 if not runs.parsed.items:
                     raise NoRunsFound("No runs executed for this job")
                 else:
@@ -674,7 +703,7 @@ def _get_latest_run(
                 workspace_id=_to_uuid(auth_service.workspace_id),
                 limit=1,
             )
-        if isinstance(runs.parsed, list_runs.ListRunsResponse200):
+        if isinstance(runs.parsed, list_runs.ListPageDetailedRunResponse):
             if not runs.parsed.items:
                 raise NoRunsFound("No runs executed in this workspace")
             else:
@@ -733,7 +762,7 @@ def _resolve_run_id_by_number(
             script_id=script.parsed.id,
         )
     if (
-        not isinstance(runs.parsed, list_runs.ListRunsResponse200)
+        not isinstance(runs.parsed, list_runs.ListPageDetailedRunResponse)
         or not runs.parsed.items
     ):
         raise exception_from_response("Failed to get runs for script", runs)
@@ -977,7 +1006,10 @@ def _fetch_runtime_info(
             client=api_client,
             workspace_id=_to_uuid(ws_id),
         )
-    if isinstance(scr.parsed, list_scripts.ListScriptsResponse200) and scr.parsed.items:
+    if (
+        isinstance(scr.parsed, list_scripts.ListPageDetailedScriptResponse)
+        and scr.parsed.items
+    ):
         info["job_count"] = len(scr.parsed.items)
 
     # latest run
@@ -1305,16 +1337,18 @@ def _fetch_job_run_info(
     run_number: Optional[int] = None,
 ) -> "get_run.DetailedRunResponse":
     """Resolve and fetch a single run, return DetailedRunResponse."""
-    if run_number is None:
-        run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
-        run_id = run.id
-    else:
-        run_id = _resolve_run_id_by_number(
-            api_client=api_client,
-            auth_service=auth_service,
-            script_path_or_job_name=script_path_or_job_name,
-            run_number=run_number,
-        )
+    run_id = _run_id_from_ref(script_path_or_job_name, run_number)
+    if run_id is None:
+        if run_number is None:
+            run = _get_latest_run(api_client, auth_service, script_path_or_job_name)
+            run_id = run.id
+        else:
+            run_id = _resolve_run_id_by_number(
+                api_client=api_client,
+                auth_service=auth_service,
+                script_path_or_job_name=script_path_or_job_name,
+                run_number=run_number,
+            )
 
     with handle_client_exceptions():
         get_run_result = get_run.sync_detailed(
@@ -1360,7 +1394,7 @@ def _fetch_runs(
             workspace_id=_to_uuid(auth_service.workspace_id),
             script_id=script_id,
         )
-    if not isinstance(list_runs_result.parsed, list_runs.ListRunsResponse200):
+    if not isinstance(list_runs_result.parsed, list_runs.ListPageDetailedRunResponse):
         raise exception_from_response("Failed to list workspace runs", list_runs_result)
 
     items = list(list_runs_result.parsed.items) if list_runs_result.parsed.items else []
@@ -1381,7 +1415,7 @@ def _fetch_deployments(
             workspace_id=_to_uuid(auth_service.workspace_id),
         )
     if isinstance(
-        list_deployments_result.parsed, list_deployments.ListDeploymentsResponse200
+        list_deployments_result.parsed, list_deployments.ListPageDeploymentResponse
     ):
         return (
             list(list_deployments_result.parsed.items)
@@ -1427,7 +1461,7 @@ def _fetch_configurations(
         )
     if isinstance(
         list_configurations_result.parsed,
-        list_configurations.ListConfigurationsResponse200,
+        list_configurations.ListPageConfigurationResponse,
     ) and isinstance(list_configurations_result.parsed.items, list):
         return (
             list(list_configurations_result.parsed.items)
@@ -1478,9 +1512,9 @@ def _fetch_jobs(
             workspace_id=_to_uuid(auth_service.workspace_id),
             archived=archived,
         )
-    if isinstance(res.parsed, list_scripts.ListScriptsResponse200) and isinstance(
-        res.parsed.items, list
-    ):
+    if isinstance(
+        res.parsed, list_scripts.ListPageDetailedScriptResponse
+    ) and isinstance(res.parsed.items, list):
         return list(res.parsed.items) if res.parsed.items else []
     raise exception_from_response("Failed to list jobs", res)
 
@@ -1581,7 +1615,7 @@ def _job_is_paused(job: Any) -> bool:
 def _do_deploy_manifest(
     *,
     manifest_hash: str,
-    api_jobs: list["ApiTJobDefinition"],
+    api_jobs: list["DeployManifestRequestJobsItem"],
     deployment_module: str | None,
     description: str | None,
     dry_run: bool,

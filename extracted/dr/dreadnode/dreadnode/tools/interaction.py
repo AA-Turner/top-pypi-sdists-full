@@ -12,13 +12,14 @@ from uuid import uuid4
 
 from loguru import logger
 
-from dreadnode.agents.tools import Toolset, tool, tool_method
+from dreadnode.agents.tools import Toolset, current_tool_call, tool, tool_method
 from dreadnode.app.api.models import (
     HumanInputResponse,
     HumanPrompt,
     HumanPromptOption,
     HumanQuestion,
     QuestionAnswer,
+    ToolApprovalRequest,
 )
 from dreadnode.core.meta import Config
 
@@ -97,7 +98,14 @@ class RuntimePermissionBridge:
     the eval-worker path (CAP-EGOV-007).
     """
 
-    async def request_tool_approval(self, *, tool_name: str, tool_input: dict[str, t.Any]) -> bool:
+    async def request_tool_approval(
+        self,
+        *,
+        tool_name: str,
+        tool_input: dict[str, t.Any],
+        tool_call_id: str | None = None,
+        reason: str | None = None,
+    ) -> bool:
         handler = get_human_prompt_handler()
         if handler is None:
             # No HITL context registered (e.g. bare-SDK use outside a turn).
@@ -124,6 +132,12 @@ class RuntimePermissionBridge:
                     custom=False,
                 )
             ],
+            tool_approval=ToolApprovalRequest(
+                tool_name=tool_name,
+                arguments=tool_input,
+                tool_call_id=tool_call_id,
+                reason=reason,
+            ),
         )
         response = await handler(prompt)
         if response.action == "cancel" or not response.answers:
@@ -275,9 +289,12 @@ async def ask_user(
     else:
         raise ValueError("ask_user: must provide either ``question`` or ``questions``")
 
+    asking_call = current_tool_call.get()
     prompt = HumanPrompt(
         request_id=request_id or f"req-{uuid4().hex}",
         questions=bundle,
+        source_tool_call_id=asking_call.id if asking_call else None,
+        source_tool_name=asking_call.name if asking_call else None,
     )
 
     prompt_handler = get_human_prompt_handler()

@@ -16,6 +16,7 @@ import threading
 import time
 from pathlib import Path
 
+import httpx
 import pytest
 
 from runlayer_cli import flow_spool, flow_trace
@@ -65,18 +66,43 @@ def state_dir(isolated_credential_state) -> Path:
     return isolated_credential_state / "state"
 
 
+# Response shapes the relay must tell apart. Runlayer's error handlers answer
+# the JSON error envelope with a request id (and, once the origin marker
+# ships, X-Runlayer-Origin); an intermediary (WAF IP-allowlist block, ALB error
+# page, proxy) answers the same status with an HTML page and neither header.
+_RUNLAYER_HEADERS = {"X-Runlayer-Origin": "backend", "X-Request-ID": "req-0001"}
+_LEGACY_RUNLAYER_HEADERS = {"X-Request-ID": "req-legacy"}
+_RUNLAYER_BODY = '{"detail": "Invalid API key"}'
+_WAF_HEADERS = {"server": "awselb/2.0", "content-type": "text/html"}
+_WAF_BODY = "<html>\n<head><title>403 Forbidden</title></head>\n<body></body>\n</html>"
+
+
 class _Resp:
     is_success = False
 
-    def __init__(self, status_code: int, text: str = "") -> None:
+    def __init__(
+        self, status_code: int, text: str = "", headers: dict[str, str] | None = None
+    ) -> None:
         self.status_code = status_code
         self.text = text
+        self.headers = httpx.Headers(headers or {})
 
 
-def _install_api(monkeypatch, status_code: int) -> list[str]:
+def _install_api(
+    monkeypatch,
+    status_code: int,
+    *,
+    intermediary: bool = False,
+    headers: dict[str, str] | None = None,
+) -> list[str]:
     """Route every relay POST to a fake API answering ``status_code``; returns
-    the list of targets posted so tests can count real calls."""
+    the list of targets posted so tests can count real calls. Runlayer-shaped
+    by default; ``intermediary=True`` answers like a WAF/ALB block page;
+    ``headers`` overrides the Runlayer headers (e.g. a backend without the
+    origin marker)."""
     posted: list[str] = []
+    text = _WAF_BODY if intermediary else _RUNLAYER_BODY
+    resp_headers = _WAF_HEADERS if intermediary else (headers or _RUNLAYER_HEADERS)
 
     class _Client:
         def __init__(self, *args, **kwargs) -> None:
@@ -84,7 +110,7 @@ def _install_api(monkeypatch, status_code: int) -> list[str]:
 
         def post_target(self, target, payload, *, timeout=None):
             posted.append(target)
-            return _Resp(status_code, "rejected")
+            return _Resp(status_code, text, resp_headers)
 
     monkeypatch.setattr(relay, "HookAPIClient", _Client)
     monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
@@ -271,19 +297,23 @@ class TestMonitorAllows:
         capsys.readouterr()
         assert posted, "an expired negative cache must let the real call through"
 
-    def test_re_minted_key_bypasses_negative_cache(self, monkeypatch, capsys, state_dir):
+    def test_re_minted_key_bypasses_negative_cache(
+        self, monkeypatch, capsys, state_dir
+    ):
         posted = _install_api(monkeypatch, 401)
         _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.MONITOR)
         capsys.readouterr()
         before = len(posted)
         # The check-in re-minted the key: the record is for the old one.
-        monkeypatch.setattr(relay, "_load_credentials_uncached", lambda: (_HOST, "fresh"))
+        monkeypatch.setattr(
+            relay, "_load_credentials_uncached", lambda: (_HOST, "fresh")
+        )
         _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.MONITOR)
         capsys.readouterr()
         assert len(posted) > before
-        assert _state(state_dir)["fingerprint"] == credential_state.credential_fingerprint(
-            _HOST, "fresh"
-        )
+        assert _state(state_dir)[
+            "fingerprint"
+        ] == credential_state.credential_fingerprint(_HOST, "fresh")
 
     def test_clients_without_message_channel_allow_silently(self, monkeypatch, capsys):
         _install_api(monkeypatch, 401)
@@ -311,6 +341,29 @@ class TestMonitorAllows:
         )
         assert capsys.readouterr().out == ""
 
+    def test_intermediary_401_does_not_arm_the_negative_cache(
+        self, monkeypatch, capsys, state_dir
+    ):
+        """Monitor keeps calling the API through a proxy's 401s: nothing is
+        recorded, so the next hook posts again instead of synthesizing a
+        cached credential rejection for the TTL."""
+        posted = _install_api(monkeypatch, 401, intermediary=True)
+        _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.MONITOR)
+        capsys.readouterr()
+        first_calls = len(posted)
+        _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.MONITOR)
+        capsys.readouterr()
+        assert _state(state_dir) is None
+        assert len(posted) > first_calls, (
+            "an intermediary 401 must not arm the negative cache"
+        )
+        for flow in _flows():
+            # Best-effort Monitor relay: the call was allowed, so the flow is
+            # not a failure and carries no credential-rejection label.
+            assert flow.get("error_type") is None
+            assert flow["status"] == "ok"
+            assert "credential_rejected_cached" not in _step_names(flow)
+
     @pytest.mark.parametrize("status", [403, 500])
     def test_other_http_errors_keep_todays_behaviour(
         self, monkeypatch, capsys, state_dir, status
@@ -337,9 +390,7 @@ class TestMonitorAllows:
 
 
 class TestEnforceStaysFailClosed:
-    def test_enforce_denies_with_hostname_and_admin_guidance(
-        self, monkeypatch, capsys
-    ):
+    def test_enforce_denies_with_hostname_and_admin_guidance(self, monkeypatch, capsys):
         _install_api(monkeypatch, 401)
         with pytest.raises(SystemExit):
             _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.ENFORCE)
@@ -391,17 +442,90 @@ class TestEnforceStaysFailClosed:
         assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny"
         assert "Device hostname" not in _deny_reason(out)
 
-    def test_403_keeps_the_generic_http_deny(self, monkeypatch, capsys, state_dir):
-        """A proxy or WAF can answer 403 per request; it is not a credential
-        answer from the API and must neither arm the cache nor get credential
-        wording."""
+    def test_runlayer_403_keeps_the_generic_http_deny_with_request_id(
+        self, monkeypatch, capsys, state_dir
+    ):
+        """Runlayer's own 403 is not a credential answer: no cache, no
+        credential wording, but the request id and detail ride along so
+        support can find the server-side log line."""
         _install_api(monkeypatch, 403)
         with pytest.raises(SystemExit):
             _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.ENFORCE)
         reason = _deny_reason(capsys.readouterr().out)
         assert "was answered with HTTP 403" in reason
+        assert "Security Violation Detected" in reason
+        assert "- Request ID: req-0001" in reason
+        assert '- Detail: "Invalid API key"' in reason
         assert "credentials" not in reason
+        assert "Block type: Network" not in reason
         assert _state(state_dir) is None
+        flow = _flows()[-1]
+        assert flow["error_type"] == "HookInfraDeny"
+        assert flow["error_category"] == "http_403"
+        assert flow["error_http_status"] == 403
+
+    def test_intermediary_403_is_a_network_block_not_a_policy_violation(
+        self, monkeypatch, capsys, state_dir
+    ):
+        """An AWS WAF source-IP allowlist answers 403 with an HTML page and no
+        Runlayer markers. The deny must say the network rejected it, point at
+        the VPN, and never claim a policy decision."""
+        _install_api(monkeypatch, 403, intermediary=True)
+        with pytest.raises(SystemExit):
+            _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.ENFORCE)
+        out = json.loads(capsys.readouterr().out)
+        assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+        reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "Runlayer Verification Blocked by Network" in reason
+        assert "- Block type: Network" in reason
+        assert "- Tool: Edit" in reason
+        assert "- Device hostname: LAPTOP-42" in reason
+        assert "answered with HTTP 403 by a network device" in reason
+        assert "VPN or zero-trust client" in reason
+        assert "Security Violation Detected" not in reason
+        assert "enforced by Runlayer" not in reason
+        assert "security policy" not in reason
+        assert "Request ID" not in reason
+        assert "<html>" not in reason
+        assert _state(state_dir) is None
+        flow = _flows()[-1]
+        assert flow["error_type"] == "HookNetworkDeny"
+        assert flow["error_category"] == "http_403"
+
+    def test_intermediary_401_is_network_wording_and_arms_nothing(
+        self, monkeypatch, capsys, state_dir
+    ):
+        """A proxy's 401 says nothing about the Runlayer credential: no
+        credential wording, no hostname-and-admin remedy, and the negative
+        cache stays unarmed."""
+        _install_api(monkeypatch, 401, intermediary=True)
+        with pytest.raises(SystemExit):
+            _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.ENFORCE)
+        reason = _deny_reason(capsys.readouterr().out)
+        assert "- Block type: Network" in reason
+        assert "HTTP 401" in reason
+        assert "credentials" not in reason
+        assert "runlayer login" not in reason
+        assert "MDM configuration" not in reason
+        assert _state(state_dir) is None
+        flow = _flows()[-1]
+        assert flow["error_type"] == "HookNetworkDeny"
+        assert flow["error_category"] == "http_401"
+        assert flow["error_http_status"] == 401
+
+    def test_legacy_backend_401_without_marker_still_counts_as_runlayer(
+        self, monkeypatch, capsys, state_dir
+    ):
+        """Backends without the origin marker: request id + JSON envelope is
+        enough to keep the credential behaviour."""
+        _install_api(monkeypatch, 401, headers=_LEGACY_RUNLAYER_HEADERS)
+        with pytest.raises(SystemExit):
+            _run_hook(monkeypatch, _PRE_TOOL, mode=AIWatchMode.ENFORCE)
+        reason = _deny_reason(capsys.readouterr().out)
+        assert "HTTP 401" in reason
+        assert "- Device hostname: LAPTOP-42" in reason
+        assert "Block type: Network" not in reason
+        assert _state(state_dir) is not None
 
 
 class TestProtectUnchanged:
@@ -409,9 +533,7 @@ class TestProtectUnchanged:
     its scanner step stays fail-closed on a credential rejection, exactly as
     on main. Pinned so the Monitor change cannot drift into Protect."""
 
-    def test_protect_source_governance_fails_open_as_before(
-        self, monkeypatch, capsys
-    ):
+    def test_protect_source_governance_fails_open_as_before(self, monkeypatch, capsys):
         posted = _install_api(monkeypatch, 401)
         _run_hook(
             monkeypatch, _CURSOR_MCP, mode=AIWatchMode.PROTECT, client=Client.CURSOR
@@ -482,7 +604,9 @@ class TestCredentialState:
 
     def test_write_failure_never_raises(self, isolated_credential_state):
         isolated_credential_state.mkdir(parents=True, exist_ok=True)
-        (isolated_credential_state / "state").write_text("a file where the dir should be")
+        (isolated_credential_state / "state").write_text(
+            "a file where the dir should be"
+        )
         credential_state.record_rejection(401, _FP)
         assert credential_state.recent_rejection(_FP) is None
         assert credential_state.claim_notice() is False

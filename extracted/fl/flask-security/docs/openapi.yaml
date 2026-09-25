@@ -208,9 +208,24 @@ paths:
                 type: string
     post:
       summary: Log out current user
+      description: >
+        If a refresh-token is supplied, it will be revoked as part
+        of logging the user out. If SECURITY_REFRESH_TOKEN_COOKIE_NAME is configured,
+        the refresh token (as well as the cookie) will be deleted as part of logout.
+        If SECURITY_LOGOUT_CSRF is enabled, a valid CSRF token must be provided and
+        an error can be returned if the token is invalid.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Logout"
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: "#/components/schemas/Logout"
       responses:
         200:
-          description: Successful logout
+          description: Logout response
           content:
             application/json:
               schema:
@@ -225,6 +240,24 @@ paths:
                         type: integer
                         example: 200
                         description: Http status code
+            text/html:
+              schema:
+                description: Unsuccessful logout.
+                type: string
+                example: render_template(SECURITY_LOGOUT_USER_TEMPLATE) with error values
+        302:
+          description: Successful logout
+          headers:
+            Location:
+              description: Redirect to ``SECURITY_POST_LOGOUT_VIEW``
+              schema:
+                type: string
+        400:
+          description: Errors while validating form (CSRF).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultJsonErrorResponse"
   /verify:
     get:
       summary: GET verify/reauthentication form
@@ -2181,7 +2214,31 @@ paths:
                 On form-success: `next` or SECURITY_POST_VERIFY_VIEW
               schema:
                 type: string
-
+  /refresh-token:
+    post:
+      summary: Get a new auth token using a refresh token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshToken"
+      responses:
+        200:
+          description: >
+            Refresh token response. If SECURITY_REFRESH_TOKEN_COOKIE_NAME is configured,
+            the response will NOT include the refresh token. The refresh token will be
+            stored in a cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsonResponseWithToken'
+        400:
+          description: Errors while validating attributes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DefaultJsonErrorResponse"
 
 components:
   schemas:
@@ -2286,6 +2343,11 @@ components:
                         Token to be used in future token-based API calls.
                         Note this only returned from those APIs that accept a
                         'include_auth_token' query param.
+                    refresh_token:
+                      type: string
+                      description: >
+                        A refresh token that can be used to get a new auth token.
+                        This is only returned if the application has enabled refresh tokens.
                 csrf_token:
                   type: string
                   description: Session CSRF token
@@ -2326,6 +2388,12 @@ components:
                 type: string
                 example: "Unauthenticated"
                 description: Error message (localized)
+    Logout:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+
     Verify:
       type: object
       required: [ password ]
@@ -2333,6 +2401,11 @@ components:
         password:
           type: string
           description: Password
+        next:
+          type: string
+          description: >
+            Redirect URL. Overrides SECURITY_POST_VERIFY_VIEW. Invalid
+            (e.g. external) URLs are rejected with INVALID_REDIRECT.
     Register:
       type: object
       required: [email, password]
@@ -2450,6 +2523,11 @@ components:
         passcode:
           type: string
           description: password or code
+        next:
+          type: string
+          description: >
+            Redirect URL. Overrides SECURITY_POST_VERIFY_VIEW. Invalid
+            (e.g. external) URLs are rejected with INVALID_REDIRECT.
     UsSigninVerifySendCode:
       type: object
       required: [chosen_method]
@@ -2723,7 +2801,13 @@ components:
                   type: string
                 wan_state:
                   type: string
-
+    RefreshToken:
+      type: object
+      required: [ refresh_token ]
+      properties:
+        refresh_token:
+          type: string
+          description: The refresh token retrieved from an authentication endpoint.
   headers:
     X-CSRF-Token:
       description: CSRF token

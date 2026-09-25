@@ -35,7 +35,7 @@ class DueDateRuleReorderItem(ModelNormal):
         """
         A reference to a due date rule used for reordering.
 
-        :param id: The ID of the automation rule.
+        :param id: The ID of the due date rule.
         :type id: UUID
 
         :param type: The JSON:API type for due date rules.

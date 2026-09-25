@@ -1,3 +1,4 @@
+from .._frames import light_stack
 from .imports import (
     logging,
     os,
@@ -27,7 +28,7 @@ def _find_caller_frame_index():
     Return the index in inspect.stack() of the first frame
     that’s not in this module or the logging stdlib.
     """
-    for idx, frame_info in enumerate(inspect.stack()):
+    for idx, frame_info in enumerate(light_stack()):
         fn = frame_info.filename
         if not fn.endswith("logging_utils.py") and "logging" not in os.path.basename(fn):
             return idx
@@ -39,7 +40,7 @@ def get_caller_info():
     caller_idx is the index into inspect.stack() where the call came from.
     """
     idx = _find_caller_frame_index()
-    frame = inspect.stack()[idx]
+    frame = light_stack()[idx]
     return frame.filename, idx
 
 def print_or_log(message, logger=True, level="info"):

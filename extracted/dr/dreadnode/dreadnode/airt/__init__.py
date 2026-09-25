@@ -91,6 +91,7 @@ from dreadnode.airt.agentic_suite import (
     scorers_for_category,
     transforms_for_category,
 )
+from dreadnode.airt.agentvigil import agentvigil_attack
 from dreadnode.airt.alignment_faking import alignment_faking_attack
 from dreadnode.airt.analogy_escalation import analogy_escalation_attack
 from dreadnode.airt.aprt_progressive import aprt_progressive_attack
@@ -105,6 +106,7 @@ from dreadnode.airt.crescendo import crescendo_attack
 from dreadnode.airt.deep_inception import deep_inception_attack
 from dreadnode.airt.drattack import drattack
 from dreadnode.airt.echo_chamber import echo_chamber_attack
+from dreadnode.airt.eva import eva_attack
 from dreadnode.airt.evasion import (
     bae_evasion,
     boundary_evasion,
@@ -141,6 +143,7 @@ from dreadnode.airt.inversion import (
     confidence_inversion,
     nes_inversion,
 )
+from dreadnode.airt.iterinject import iterinject_attack
 from dreadnode.airt.j2_meta import j2_meta_attack
 from dreadnode.airt.jbdistill import jbdistill_attack
 from dreadnode.airt.jbfuzz import jbfuzz_attack
@@ -198,6 +201,7 @@ __all__ = [
     "adversarial_reasoning_attack",
     "advpromptier_attack",
     "agent_suite",
+    "agentvigil_attack",
     "alignment_faking_attack",
     "analogy_escalation_attack",
     "approval_bypass",
@@ -227,6 +231,7 @@ __all__ = [
     "echo_chamber_attack",
     "entropy_membership",
     "equation_solving_extraction",
+    "eva_attack",
     "evolutionary_proposer",
     "extract_response_text",
     "extract_tool_calls",
@@ -239,6 +244,7 @@ __all__ = [
     "hopskipjump_evasion",
     "humor_bypass_attack",
     "injection_channels",
+    "iterinject_attack",
     "j2_meta_attack",
     "jacobian_extraction",
     "jbdistill_attack",

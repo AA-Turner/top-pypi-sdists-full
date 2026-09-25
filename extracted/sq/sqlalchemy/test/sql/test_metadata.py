@@ -1,5 +1,7 @@
 from contextlib import contextmanager
+from contextlib import nullcontext
 import pickle
+import re
 
 import sqlalchemy as tsa
 from sqlalchemy import ARRAY
@@ -12,12 +14,17 @@ from sqlalchemy import Column
 from sqlalchemy import column
 from sqlalchemy import ColumnDefault
 from sqlalchemy import Computed
+from sqlalchemy import CreateTable
+from sqlalchemy import CreateView
 from sqlalchemy import desc
+from sqlalchemy import DropTable
 from sqlalchemy import Enum
 from sqlalchemy import event
 from sqlalchemy import exc
+from sqlalchemy import Float
 from sqlalchemy import ForeignKey
 from sqlalchemy import ForeignKeyConstraint
+from sqlalchemy import ForeignKeyTarget
 from sqlalchemy import func
 from sqlalchemy import Identity
 from sqlalchemy import Index
@@ -48,17 +55,21 @@ from sqlalchemy.schema import DropIndex
 from sqlalchemy.sql import naming
 from sqlalchemy.sql import operators
 from sqlalchemy.sql.base import _NONE_NAME
+from sqlalchemy.sql.base import DialectKWArgConst
 from sqlalchemy.sql.elements import literal_column
 from sqlalchemy.sql.schema import _InsertSentinelColumnDefault
 from sqlalchemy.sql.schema import RETAIN_SCHEMA
 from sqlalchemy.testing import assert_raises
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
+from sqlalchemy.testing import combinations
 from sqlalchemy.testing import ComparesTables
 from sqlalchemy.testing import emits_warning
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import eq_ignore_whitespace
+from sqlalchemy.testing import expect_deprecated
 from sqlalchemy.testing import expect_raises_message
+from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
 from sqlalchemy.testing import is_false
@@ -66,7 +77,6 @@ from sqlalchemy.testing import is_not_
 from sqlalchemy.testing import is_true
 from sqlalchemy.testing import mock
 from sqlalchemy.testing import Variation
-from sqlalchemy.testing.assertions import expect_warnings
 
 
 class MetaDataTest(fixtures.TestBase, ComparesTables):
@@ -128,7 +138,7 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
                 eq_(c2.default.name, "foo_seq")
             for a1, a2 in zip(col.foreign_keys, c2.foreign_keys):
                 assert a1 is not a2
-                eq_(a2._colspec, "bat.blah")
+                eq_(a2.target_fullname, "bat.blah")
 
     def test_col_subclass_copy(self):
         class MyColumn(schema.Column):
@@ -317,7 +327,6 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
         eq_(dict(fk1.columns), {})
         eq_(fk1.column_keys, ["foo", "bat"])
         eq_(fk1._col_description, "foo, bat")
-        eq_(fk1._elements, {"foo": fk1.elements[0], "bat": fk1.elements[1]})
 
     def test_fk_constraint_col_collection_no_table_real_cols(self):
         c1 = Column("foo", Integer)
@@ -326,7 +335,6 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
         eq_(dict(fk1.columns), {})
         eq_(fk1.column_keys, ["foo"])
         eq_(fk1._col_description, "foo")
-        eq_(fk1._elements, {"foo": fk1.elements[0]})
 
     def test_fk_constraint_col_collection_added_to_table(self):
         c1 = Column("foo", Integer)
@@ -334,7 +342,6 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
         fk1 = ForeignKeyConstraint(("foo",), ("bar",))
         Table("t", m, c1, fk1)
         eq_(dict(fk1.columns), {"foo": c1})
-        eq_(fk1._elements, {"foo": fk1.elements[0]})
 
     def test_fk_constraint_col_collection_via_fk(self):
         fk = ForeignKey("bar")
@@ -346,7 +353,78 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
         assert fk1 in t1.constraints
         eq_(fk1.column_keys, ["foo"])
         eq_(dict(fk1.columns), {"foo": c1})
-        eq_(fk1._elements, {"foo": fk})
+        eq_(fk1.elements, [fk])
+
+    def test_fk_repeated_col_no_table(self):
+        fk1 = ForeignKeyConstraint(("foo", "foo"), ("bar", "hoho"))
+        eq_(fk1.column_keys, ["foo", "foo"])
+        eq_(fk1._col_description, "foo, foo")
+        eq_(len(fk1.elements), 2)
+
+    @testing.combinations(
+        "string_colargs",
+        "column_colargs",
+        "append_constraint",
+        argnames="type_",
+    )
+    def test_fk_repeated_col_added_to_table(self, type_):
+        """a FOREIGN KEY may name the same local column more than once;
+        the column collection stays parallel to .elements no matter which
+        way the constraint is attached.
+
+        """
+        m = MetaData()
+        Table("b", m, Column("a", Integer), Column("b", Integer))
+
+        if type_ == "string_colargs":
+            c1 = Column("foo", Integer)
+            fk1 = ForeignKeyConstraint(("foo", "foo"), ("b.a", "b.b"))
+            t1 = Table("t", m, c1, fk1)
+        elif type_ == "column_colargs":
+            # the Column objects are not yet attached, so the constraint
+            # auto-attaches on the column attach event as well as when the
+            # Table consumes it
+            c1 = Column("foo", Integer)
+            fk1 = ForeignKeyConstraint((c1, c1), ("b.a", "b.b"))
+            t1 = Table("t", m, c1, fk1)
+        elif type_ == "append_constraint":
+            c1 = Column("foo", Integer)
+            t1 = Table("t", m, c1)
+            fk1 = ForeignKeyConstraint(("foo", "foo"), ("b.a", "b.b"))
+            t1.append_constraint(fk1)
+        else:
+            assert False
+
+        assert fk1 in t1.constraints
+        eq_(list(fk1.columns), [c1, c1])
+        eq_(fk1.column_keys, ["foo", "foo"])
+        eq_(fk1._col_description, "foo, foo")
+        eq_(
+            [(fk.parent, fk.column) for fk in fk1.elements],
+            [(c1, m.tables["b"].c.a), (c1, m.tables["b"].c.b)],
+        )
+
+    def test_fk_repeated_col_copy(self):
+        m = MetaData()
+        Table("b", m, Column("a", Integer), Column("b", Integer))
+        t1 = Table(
+            "t",
+            m,
+            Column("foo", Integer),
+            ForeignKeyConstraint(("foo", "foo"), ("b.a", "b.b")),
+        )
+
+        m2 = MetaData()
+        m.tables["b"].to_metadata(m2)
+        t2 = t1.to_metadata(m2)
+        fk2 = list(t2.foreign_key_constraints)[0]
+
+        eq_(fk2.column_keys, ["foo", "foo"])
+        eq_(list(fk2.columns), [t2.c.foo, t2.c.foo])
+        eq_(
+            [(fk.parent, fk.column) for fk in fk2.elements],
+            [(t2.c.foo, m2.tables["b"].c.a), (t2.c.foo, m2.tables["b"].c.b)],
+        )
 
     def test_fk_no_such_parent_col_error(self):
         meta = MetaData()
@@ -391,7 +469,9 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
         xa = t.alias().c.x
         assert_raises_message(
             exc.ArgumentError,
-            "ForeignKey received Column not bound to a Table, got: .*Alias",
+            "ForeignKey target Column .*x.* is associated with .*Alias.*, "
+            "which is not a Table; a foreign key may only target a Column "
+            "of a Table",
             ForeignKey,
             xa,
         )
@@ -405,7 +485,9 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
 
         assert_raises_message(
             exc.ArgumentError,
-            "ForeignKey received Column not bound to a Table, got: .*Alias",
+            "ForeignKey target Column .*x.* is associated with .*Alias.*, "
+            "which is not a Table; a foreign key may only target a Column "
+            "of a Table",
             ForeignKey,
             Foo(),
         )
@@ -461,13 +543,15 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
             ["b.a"],
         )
 
+        # a repeated local column is supported, but still has to match
+        # the number of referenced columns
         assert_raises_message(
             exc.ArgumentError,
-            "ForeignKeyConstraint with duplicate source column "
-            "references are not supported.",
+            "ForeignKeyConstraint number of constrained columns "
+            "must match the number of referenced columns.",
             ForeignKeyConstraint,
             ["a", "a"],
-            ["b.a", "b.b"],
+            ["b.a"],
         )
 
     def test_pickle_metadata_sequence_restated(self):
@@ -809,6 +893,71 @@ class MetaDataTest(fixtures.TestBase, ComparesTables):
                 MetaData(connection)
             else:
                 MetaData(42)  # type: ignore
+
+    def test_metadata_schemas(self):
+        eq_(MetaData().schemas, ())
+        eq_(MetaData(schema="foo").schemas, ("foo",))
+
+        m1 = MetaData()
+        Table("t", m1, schema="x")
+        Table("t2", m1, schema="y")
+        eq_(sorted(m1.schemas), ["x", "y"])
+
+        m2 = MetaData(schema="w")
+        Table("t", m2, schema="x")
+        Table("t2", m2, schema="y")
+        eq_(sorted(m2.schemas), ["w", "x", "y"])
+
+    def test_get_schema_objects_empty(self):
+        eq_(MetaData().get_schema_objects(Enum), ())
+
+    def test_get_schema_objects(self):
+        class MyEnum(Enum):
+            pass
+
+        m1 = MetaData()
+        e = Enum("a", "b", name="foo")
+        e2 = MyEnum("a", "b", name="foo", schema="t", metadata=m1)
+        s = Sequence("s")
+        Table("t", m1, Column("c", e), Column("s", Integer, s))
+        eq_(m1.get_schema_objects(Enum), (e,))
+        eq_(m1.get_schema_objects(MyEnum), ())
+        eq_(m1.get_schema_objects(Enum, schema="t"), (e2,))
+        eq_(m1.get_schema_objects(MyEnum, schema="t"), (e2,))
+        eq_(m1.get_schema_objects(Sequence), (s,))
+
+    def test_get_schema_object_by_name(self):
+        class MyEnum(Enum):
+            pass
+
+        m1 = MetaData()
+        e = Enum("a", "b", name="foo")
+        e2 = Enum("x", "y", name="bar", metadata=m1)
+        e3 = MyEnum("x", "b", name="foo", schema="t", metadata=m1)
+        e4 = Enum("a", "y", name="baz", schema="t")
+        Table("t", m1, Column("c", e), Column("c2", e4))
+        eq_(m1.get_schema_object_by_name(Enum, "foo"), e)
+        eq_(m1.get_schema_object_by_name(Enum, "bar"), e2)
+        eq_(m1.get_schema_object_by_name(MyEnum, "bar"), None)
+        eq_(m1.get_schema_object_by_name(Enum, "baz"), None)
+        eq_(m1.get_schema_object_by_name(Enum, "foo", schema="t"), e3)
+        eq_(m1.get_schema_object_by_name(Enum, "foo", schema="t"), e3)
+        eq_(m1.get_schema_object_by_name(MyEnum, "foo", schema="t"), e3)
+        eq_(m1.get_schema_object_by_name(Enum, "baz", schema="t"), e4)
+        eq_(m1.get_schema_object_by_name(Enum, "bar", schema="t"), None)
+
+    def test_custom_schematype(self):
+        class FooType(sqltypes.SchemaType, sqltypes.TypeEngine):
+            pass
+
+        m1 = MetaData()
+        t1 = FooType(name="foo")
+        t2 = FooType(name="bar", metadata=m1)
+        Table("t", m1, Column("c", t1))
+        eq_(set(m1.get_schema_objects(FooType)), {t1, t2})
+        eq_(m1.get_schema_object_by_name(FooType, "foo"), t1)
+        eq_(m1.get_schema_object_by_name(FooType, "bar"), t2)
+        eq_(m1.get_schema_object_by_name(Enum, "bar"), None)
 
 
 class ToMetaDataTest(fixtures.TestBase, AssertsCompiledSQL, ComparesTables):
@@ -1804,6 +1953,49 @@ class ToMetaDataTest(fixtures.TestBase, AssertsCompiledSQL, ComparesTables):
 
         eq_(len(t2.indexes), 1)
 
+    @testing.variation("type_", ["create_table_as", "create_view"])
+    def test_table_via_select(self, type_: testing.Variation):
+        meta = MetaData()
+
+        table = Table("mytable", meta, Column("x", Integer))
+
+        m2 = MetaData()
+
+        if type_.create_table_as:
+            target = select(table).into("ctas", metadata=meta)
+        elif type_.create_view:
+            target = CreateView(select(table), "tview", metadata=meta)
+        else:
+            type_.fail()
+
+        is_(target.table.metadata, meta)
+
+        tt2 = target.table.to_metadata(m2)
+        if type_.create_view:
+            is_true(tt2.is_view)
+
+        ttarget = tt2._creator_ddl
+        is_(ttarget.metadata, m2)
+        is_(ttarget.table, tt2)
+
+        if tt2.is_view:
+            is_(tt2._dropper_ddl.element, tt2)
+
+    def test_alternate_create_drop(self):
+        meta = MetaData()
+
+        table = Table("mytable", meta, Column("x", Integer))
+
+        table.set_creator_ddl(CreateTable(table, if_not_exists=True))
+        table.set_dropper_ddl(DropTable(table, if_exists=True))
+
+        m2 = MetaData()
+
+        ttarget = table.to_metadata(m2)
+
+        is_(ttarget._creator_ddl.element, ttarget)
+        is_(ttarget._dropper_ddl.element, ttarget)
+
 
 class InfoTest(fixtures.TestBase):
     def test_metadata_info(self):
@@ -1993,10 +2185,29 @@ class TableTest(fixtures.TestBase, AssertsCompiledSQL):
             {fk1.constraint, fk2.constraint, fk3},
         )
 
+    def test_c_mutator_names_ok(self):
+        m = MetaData()
+        t1 = Table(
+            "t",
+            m,
+            Column("add", Integer),
+            Column("remove", Integer),
+            Column("clear", Integer),
+            Column("extend", Integer),
+        )
+        self.assert_compile(
+            select(t1.c.add, t1.c.remove, t1.c.clear, t1.c.extend),
+            "SELECT t.add, t.remove, t.clear, t.extend FROM t",
+            dialect="default",
+        )
+
     def test_c_immutable(self):
         m = MetaData()
         t1 = Table("t", m, Column("x", Integer), Column("y", Integer))
-        assert_raises(TypeError, t1.c.extend, [Column("z", Integer)])
+
+        # extend() method doesn't exist on readonly collections
+        # to allow columns named 'extend'
+        assert_raises(AttributeError, lambda: t1.c.extend)
 
         def assign():
             t1.c["z"] = Column("z", Integer)
@@ -2042,13 +2253,94 @@ class TableTest(fixtures.TestBase, AssertsCompiledSQL):
                 Column("col", String),
             )
 
+    @testing.combinations(
+        ((0,),), ((0, 1),), ((1, 2),), ((3,),), ((-2,),), argnames="positions"
+    )
+    @testing.variation("add_to_pk", [True, False])
+    @testing.variation("existing_pk", [True, False])
+    def test_insert_column_table(self, positions, add_to_pk, existing_pk):
+        t = Table(
+            "t",
+            MetaData(),
+            Column("a", Integer, primary_key=bool(existing_pk)),
+            Column("b", Integer),
+            Column("c", Integer),
+        )
+        expected_cols = ["a", "b", "c"]
+
+        if existing_pk:
+            expected_pk_cols = ["a"]
+        else:
+            expected_pk_cols = []
+
+        for pos in positions:
+            t.insert_column(
+                Column(f"i{pos}", Integer, primary_key=bool(add_to_pk)), pos
+            )
+            expected_cols.insert(pos, f"i{pos}")
+            if add_to_pk:
+                expected_pk_cols.append(f"i{pos}")
+        eq_([c.key for c in t.c], expected_cols)
+
+        eq_([c.key for c in t.primary_key], expected_pk_cols)
+
+    @testing.combinations(-4, -3, -2, -1, 0, 1, 2, 3)
+    def test_replace_col_with_index(self, new_index):
+        t = Table(
+            "t",
+            MetaData(),
+            Column("a", Integer),
+            Column("b", Integer),
+            Column("c", Integer),
+            Column("d", Integer),
+        )
+        newcol = Column("b", String)
+
+        expected = ["a", "q", "c", "d"]
+        expected.insert(new_index, "b")
+        expected.remove("q")
+
+        t.insert_column(newcol, index=new_index, replace_existing=True)
+        is_(t.c.b, newcol)
+        is_(t.c.b.type._type_affinity, String)
+
+        eq_([c.key for c in t.c], expected)
+
+        effective_positive_index = (
+            new_index if new_index >= 0 else max(0, 4 + new_index)
+        )
+        if effective_positive_index > 1:
+            # because we replaced
+            effective_positive_index -= 1
+
+        is_(t.c[effective_positive_index], newcol)
+
+    @testing.combinations(
+        ((0,),), ((0, 1),), ((1, 2),), ((3,),), argnames="positions"
+    )
+    def test_insert_column_tableclause(self, positions):
+        t = table(
+            "t",
+            column("a", Integer),
+            column("b", Integer),
+            column("c", Integer),
+        )
+
+        expected_cols = ["a", "b", "c"]
+        for pos in positions:
+            t.insert_column(column(f"i{pos}", Integer), pos)
+            expected_cols.insert(pos, f"i{pos}")
+
+        eq_([c.key for c in t.c], expected_cols)
+
     def test_append_column_existing_name(self):
         t = Table("t", MetaData(), Column("col", Integer))
 
         with testing.expect_raises_message(
             exc.DuplicateColumnError,
             r"A column with name 'col' is already present in table 't'. "
-            r"Specify replace_existing=True to Table.append_column\(\) to "
+            r"Specify replace_existing=True to Table.append_column\(\) or "
+            r"Table.insert_column\(\) to "
             r"replace an existing column.",
         ):
             t.append_column(Column("col", String))
@@ -2059,8 +2351,9 @@ class TableTest(fixtures.TestBase, AssertsCompiledSQL):
         with testing.expect_raises_message(
             exc.DuplicateColumnError,
             r"A column with key 'c2' is already present in table 't'. "
-            r"Specify replace_existing=True to Table.append_column\(\) "
-            r"to replace an existing column.",
+            r"Specify replace_existing=True to Table.append_column\(\) or "
+            r"Table.insert_column\(\) to "
+            r"replace an existing column.",
         ):
             t.append_column(Column("col", String, key="c2"))
 
@@ -2295,6 +2588,64 @@ class PKAutoIncrementTest(fixtures.TestBase):
             lambda: pk._autoincrement_column,
         )
 
+    def test_float_illegal_autoinc(self):
+        """test that Float is not acceptable if autoincrement=True
+
+        note this changed in 2.1 with #5252 where Numeric/Float were split out
+
+        """
+        t = Table("t", MetaData(), Column("a", Float, autoincrement=True))
+        pk = PrimaryKeyConstraint(t.c.a)
+        t.append_constraint(pk)
+
+        with expect_raises_message(
+            exc.ArgumentError,
+            "Column type FLOAT on column 't.a' is not compatible "
+            "with autoincrement=True",
+        ):
+            pk._autoincrement_column,
+
+    def test_numeric_nonzero_scale_illegal_autoinc(self):
+        """test that Numeric() with non-zero scale is not acceptable if
+        autoincrement=True"""
+        t = Table(
+            "t", MetaData(), Column("a", Numeric(10, 5), autoincrement=True)
+        )
+        pk = PrimaryKeyConstraint(t.c.a)
+        t.append_constraint(pk)
+
+        with expect_raises_message(
+            exc.ArgumentError,
+            r"Column type NUMERIC\(10, 5\) with non-zero scale 5",
+        ):
+            pk._autoincrement_column,
+
+    def test_numeric_zero_scale_autoinc_not_auto(self):
+        """test that Numeric() is not automatically assigned to
+        autoincrement"""
+        t = Table(
+            "t", MetaData(), Column("a", Numeric(10, 0), primary_key=True)
+        )
+
+        is_(t.autoincrement_column, None)
+
+    def test_integer_autoinc_is_auto(self):
+        """test that Integer() is automatically assigned to autoincrement"""
+        t = Table("t", MetaData(), Column("a", Integer, primary_key=True))
+
+        is_(t.autoincrement_column, t.c.a)
+
+    def test_numeric_zero_scale_autoinc_explicit_ok(self):
+        """test that Numeric() with zero scale is acceptable if
+        autoincrement=True"""
+        t = Table(
+            "t",
+            MetaData(),
+            Column("a", Numeric(10, 0), autoincrement=True, primary_key=True),
+        )
+
+        is_(t.autoincrement_column, t.c.a)
+
     def test_single_integer_default(self):
         t = Table(
             "t",
@@ -2511,11 +2862,45 @@ class SchemaTypeTest(fixtures.TestBase):
             ],
         )
 
+    def test_adapt_to_schema(self):
+        m = MetaData()
+        type_ = self.MyType()
+        t1 = Table("x", m, Column("y", type_), schema="z")
+        eq_(t1.c.y.type.schema, None)
+
+        adapted = t1.c.y.type.adapt(self.MyType)
+
+        eq_(adapted.schema, None)
+
+        adapted2 = t1.c.y.type.adapt(self.MyType, schema="q")
+        eq_(adapted2.schema, "q")
+
     def test_independent_schema(self):
         m = MetaData()
         type_ = self.MyType(schema="q")
         t1 = Table("x", m, Column("y", type_), schema="z")
         eq_(t1.c.y.type.schema, "q")
+
+    @property
+    def inherit_schema_deprecaeted(self):
+        return expect_deprecated(
+            "the ``inherit_schema`` parameter is deprecated"
+        )
+
+    @testing.combinations(
+        {}, {"inherit_schema": True}, {"inherit_schema": False}
+    )
+    def test_inherit_schema_deprecated(self, args):
+        if args.get("inherit_schema", False):
+            dep = self.inherit_schema_deprecaeted
+        else:
+            dep = nullcontext()
+        with dep:
+            typ = self.MyType(**args)
+        with expect_deprecated(
+            "The ``inherit_schema`` property is deprecated"
+        ):
+            eq_(typ.inherit_schema, args.get("inherit_schema", False))
 
     def test_inherit_schema_from_metadata(self):
         """test #6373"""
@@ -2527,7 +2912,8 @@ class SchemaTypeTest(fixtures.TestBase):
     def test_inherit_schema_from_table_override_metadata(self):
         """test #6373"""
         m = MetaData(schema="q")
-        type_ = self.MyType(metadata=m, inherit_schema=True)
+        with self.inherit_schema_deprecaeted:
+            type_ = self.MyType(metadata=m, inherit_schema=True)
         t1 = Table("x", m, Column("y", type_), schema="z")
         eq_(t1.c.y.type.schema, "z")
 
@@ -2538,23 +2924,66 @@ class SchemaTypeTest(fixtures.TestBase):
         t1 = Table("x", m, Column("y", type_), schema="z")
         eq_(t1.c.y.type.schema, "e")
 
+    @combinations({}, {"schema": "m"})
+    def test_inherit_schema_mata(self, arg):
+        m = MetaData(**arg)
+        type_ = self.MyType()
+        t1 = Table("x", m, Column("y", type_), schema="z")
+        eq_(t1.c.y.type.schema, arg.get("schema"))
+
     def test_inherit_schema(self):
         m = MetaData()
-        type_ = self.MyType(schema="q", inherit_schema=True)
+        with self.inherit_schema_deprecaeted:
+            type_ = self.MyType(inherit_schema=True)
         t1 = Table("x", m, Column("y", type_), schema="z")
         eq_(t1.c.y.type.schema, "z")
 
-    def test_independent_schema_enum(self):
-        m = MetaData()
-        type_ = sqltypes.Enum("a", schema="q")
+    @combinations({}, {"schema": "m"}, argnames="meta_kw")
+    @combinations({}, {"schema": "t"}, argnames="table_kw")
+    def test_independent_schema_enum_explicit_schema(self, meta_kw, table_kw):
+        m = MetaData(**meta_kw)
+        type_ = sqltypes.Enum("a", schema="e")
+        t1 = Table("x", m, Column("y", type_), **table_kw)
+        eq_(t1.c.y.type.schema, "e")
+
+    def test_explicit_schema_w_inherit_raises(self):
+        with (
+            expect_raises_message(
+                exc.ArgumentError,
+                "Ambiguously setting inherit_schema=True while also passing "
+                "a schema argument",
+            ),
+            self.inherit_schema_deprecaeted,
+        ):
+            sqltypes.Enum("a", schema="e", inherit_schema=True)
+
+    def test_schema_none_does_not_inherits(self):
+        m = MetaData(schema="m")
+        type_ = sqltypes.Enum("a", schema=None)
+        t1 = Table("x", m, Column("y", type_), schema="z")
+        eq_(t1.c.y.type.schema, None)
+
+    @combinations("set_meta", "no_set_meta")
+    def test_schema_black_schema_set_none(self, case):
+        m = MetaData(schema="m")
+        kw = {"set_meta": {"metadata": m}, "no_set_meta": {}}
+        type_ = sqltypes.Enum("a", schema=None, **kw[case])
+        t1 = Table("x", m, Column("y", type_), schema="z")
+        eq_(t1.c.y.type.schema, None)
+
+    def test_inherit_schema_enum_set_meta(self):
+        m = MetaData(schema="q")
+        type_ = sqltypes.Enum("a", "b", "c", metadata=m)
+        eq_(type_.schema, "q")
         t1 = Table("x", m, Column("y", type_), schema="z")
         eq_(t1.c.y.type.schema, "q")
 
-    def test_inherit_schema_enum(self):
-        m = MetaData()
-        type_ = sqltypes.Enum("a", "b", "c", schema="q", inherit_schema=True)
+    def test_inherit_schema_enum_set_meta_explicit(self):
+        m = MetaData(schema="q")
+        type_ = sqltypes.Enum("a", "b", "c", metadata=m, schema="e")
+        eq_(type_.schema, "e")
         t1 = Table("x", m, Column("y", type_), schema="z")
-        eq_(t1.c.y.type.schema, "z")
+        eq_(t1.c.y.type.schema, "e")
 
     @testing.variation("assign_metadata", [True, False])
     def test_to_metadata_copy_type(self, assign_metadata):
@@ -2570,13 +2999,9 @@ class SchemaTypeTest(fixtures.TestBase):
         m2 = MetaData()
         t2 = t1.to_metadata(m2)
 
-        if assign_metadata:
-            # metadata was transferred
-            # issue #11802
-            is_(t2.c.y.type.metadata, m2)
-        else:
-            # metadata isn't set
-            is_(t2.c.y.type.metadata, None)
+        # metadata was transferred
+        # issue #11802
+        is_(t2.c.y.type.metadata, m2)
 
         # our test type sets table, though
         is_(t2.c.y.type.table, t2)
@@ -2595,21 +3020,9 @@ class SchemaTypeTest(fixtures.TestBase):
         t2 = t1.to_metadata(m2)
         eq_(t2.c.y.type.schema, "z")
 
-    def test_to_metadata_independent_schema(self):
-        m1 = MetaData()
-
-        type_ = self.MyType()
-        t1 = Table("x", m1, Column("y", type_))
-
-        m2 = MetaData()
-        t2 = t1.to_metadata(m2, schema="bar")
-
-        eq_(t2.c.y.type.schema, None)
-
     @testing.combinations(
         ("name", "foobar", "name"),
         ("schema", "someschema", "schema"),
-        ("inherit_schema", True, "inherit_schema"),
         ("metadata", MetaData(), "metadata"),
     )
     def test_copy_args(self, argname, value, attrname):
@@ -2620,25 +3033,29 @@ class SchemaTypeTest(fixtures.TestBase):
 
         eq_(getattr(e1_copy, attrname), value)
 
-    @testing.variation("already_has_a_schema", [True, False])
-    def test_to_metadata_inherit_schema(self, already_has_a_schema):
-        m1 = MetaData()
+    @testing.combinations({}, {"schema": "m"}, argnames="meta_schema")
+    @testing.combinations(True, False, argnames="inherit_schema")
+    @testing.combinations({}, {"schema": "t"}, argnames="table_schema")
+    def test_to_metadata_inherit_schema(
+        self, meta_schema, inherit_schema, table_schema
+    ):
+        m1 = MetaData(**meta_schema)
 
-        if already_has_a_schema:
-            type_ = self.MyType(schema="foo", inherit_schema=True)
-            eq_(type_.schema, "foo")
+        if inherit_schema:
+            with self.inherit_schema_deprecaeted:
+                type_ = self.MyType(inherit_schema=True)
+            schema_from = meta_schema | table_schema
         else:
-            type_ = self.MyType(inherit_schema=True)
+            type_ = self.MyType()
+            schema_from = meta_schema
 
-        t1 = Table("x", m1, Column("y", type_))
-        # note that inherit_schema means the schema mutates to be that
-        # of the table
-        is_(type_.schema, None)
+        t1 = Table("x", m1, Column("y", type_), **table_schema)
+        eq_(type_.schema, schema_from.get("schema"))
 
         m2 = MetaData()
         t2 = t1.to_metadata(m2, schema="bar")
 
-        eq_(t1.c.y.type.schema, None)
+        eq_(t1.c.y.type.schema, schema_from.get("schema"))
         eq_(t2.c.y.type.schema, "bar")
 
     def test_to_metadata_independent_events(self):
@@ -2650,12 +3067,12 @@ class SchemaTypeTest(fixtures.TestBase):
         m2 = MetaData()
         t2 = t1.to_metadata(m2)
 
-        t1.dispatch.before_create(t1, testing.db)
+        t1.dispatch.before_create(t1, testing.db, checkfirst=False)
         eq_(t1.c.y.type.evt_targets, (t1,))
         eq_(t2.c.y.type.evt_targets, ())
 
-        t2.dispatch.before_create(t2, testing.db)
-        t2.dispatch.before_create(t2, testing.db)
+        t2.dispatch.before_create(t2, testing.db, checkfirst=False)
+        t2.dispatch.before_create(t2, testing.db, checkfirst=False)
         eq_(t1.c.y.type.evt_targets, (t1,))
         eq_(t2.c.y.type.evt_targets, (t2, t2))
 
@@ -2670,7 +3087,7 @@ class SchemaTypeTest(fixtures.TestBase):
         is_true(y_copy.type._create_events)
 
         # for PostgreSQL, this will emit CREATE TYPE
-        m.dispatch.before_create(t1, testing.db)
+        m.dispatch.before_create(t1, testing.db, checkfirst=False)
         try:
             eq_(t1.c.y.type.evt_targets, (t1,))
         finally:
@@ -3049,8 +3466,7 @@ class UseExistingTest(testing.AssertsCompiledSQL, fixtures.TablesTest):
             with expect_raises_message(
                 exc.DuplicateColumnError,
                 r"A column with name 'b' is already present in table 'users'. "
-                r"Specify replace_existing=True to Table.append_column\(\) "
-                r"to replace an existing column.",
+                r"Specify replace_existing=True to Table.append_column\(\) ",
             ):
                 t1.append_column(Column("b", String, key="b2"))
             return
@@ -4627,11 +5043,7 @@ class ColumnDefinitionTest(AssertsCompiledSQL, fixtures.TestBase):
         ("info", {"foo": "bar"}),
         argnames="paramname, value",
     )
-    def test_merge_column(
-        self,
-        paramname,
-        value,
-    ):
+    def test_merge_column(self, paramname, value):
         args = []
         params = {}
         if paramname == "type" or isinstance(
@@ -4894,11 +5306,13 @@ class ColumnDefaultsTest(fixtures.TestBase):
         c = self._fixture(insert_default="y")
         assert c.default.arg == "y"
 
-    def test_column_insert_default_predecende_on_default(self):
-        c = self._fixture(insert_default="x", default="y")
-        assert c.default.arg == "x"
-        c = self._fixture(default="y", insert_default="x")
-        assert c.default.arg == "x"
+    def test_column_insert_default_mututally_exclusive(self):
+        with expect_raises_message(
+            exc.ArgumentError,
+            "The 'default' and 'insert_default' parameters of "
+            "Column are mutually exclusive",
+        ):
+            self._fixture(insert_default="x", default="y")
 
 
 class ColumnOptionsTest(fixtures.TestBase):
@@ -5090,13 +5504,38 @@ class DialectKWArgTest(fixtures.TestBase):
 
         class ParticipatingDialect(DefaultDialect):
             construct_arguments = [
-                (schema.Index, {"x": 5, "y": False, "z_one": None}),
+                (
+                    schema.Index,
+                    {
+                        "x": 5,
+                        "y": False,
+                        "z_one": None,
+                        "state": DialectKWArgConst.REFLECTED_ONLY,
+                        "other_state": DialectKWArgConst.REFLECTED_ONLY,
+                    },
+                ),
                 (schema.ForeignKeyConstraint, {"foobar": False}),
+                (schema.Table, {"state": DialectKWArgConst.REFLECTED_ONLY}),
+                (schema.Column, {"state": DialectKWArgConst.REFLECTED_ONLY}),
+                (
+                    schema.Constraint,
+                    {"state": DialectKWArgConst.REFLECTED_ONLY},
+                ),
+                (schema.Sequence, {"state": DialectKWArgConst.REFLECTED_ONLY}),
+                (schema.Identity, {"state": DialectKWArgConst.REFLECTED_ONLY}),
             ]
 
         class ParticipatingDialect2(DefaultDialect):
             construct_arguments = [
-                (schema.Index, {"x": 9, "y": True, "pp": "default"}),
+                (
+                    schema.Index,
+                    {
+                        "x": 9,
+                        "y": True,
+                        "pp": "default",
+                        "state": DialectKWArgConst.REFLECTED_ONLY,
+                    },
+                ),
                 (schema.Table, {"*": None}),
             ]
 
@@ -5557,6 +5996,256 @@ class DialectKWArgTest(fixtures.TestBase):
                 "fallback",
             )
 
+    @testing.combinations(True, False, argnames="value")
+    def test_reflection_only_constructor_option(self, value):
+        with self._fixture():
+            idx = Index("a", "b", participating_state=value, participating_x=7)
+            eq_(idx.dialect_kwargs, {"participating_x": 7})
+            eq_(
+                dict(idx.dialect_options["participating"]),
+                {"x": 7, "y": False, "z_one": None},
+            )
+            eq_(idx.reflect_only_elements, {"participating": {"state": value}})
+
+    def test_reflection_only_absent_dialect(self):
+        """dialects with no reflection-only values present, including ones
+        that aren't installed, give an empty mapping and are not members"""
+
+        with self._fixture():
+            idx = Index("a", "b", participating_state=True)
+            eq_(
+                {
+                    name: (
+                        name in idx.reflect_only_elements,
+                        idx.reflect_only_elements[name],
+                    )
+                    for name in ("participating", "participating2", "nosuch")
+                },
+                {
+                    "participating": (True, {"state": True}),
+                    "participating2": (False, {}),
+                    "nosuch": (False, {}),
+                },
+            )
+
+    def test_get_dialect_option_participating_reflect_only(self):
+        with self._fixture():
+            idx = Index("a", "b", participating_state=True)
+            dialect = mock.Mock()
+            dialect.name = "participating"
+            eq_(
+                idx.get_dialect_option(dialect, "state", else_="absent"),
+                "absent",
+            )
+
+    def test_reflection_only_non_index_construct(self):
+        with self._fixture():
+            t = Table(
+                "t",
+                MetaData(),
+                Column("x", Integer),
+                participating_state=True,
+            )
+            eq_(t.reflect_only_elements, {"participating": {"state": True}})
+            eq_(t.dialect_kwargs, {})
+
+    def test_reflection_only_options(self):
+        with self._fixture():
+            idx = Index(
+                "a",
+                "b",
+                participating_state=True,
+                participating_other_state="second value",
+                participating2_state="other state",
+                participating_x=7,
+            )
+            eq_(idx.dialect_kwargs, {"participating_x": 7})
+            eq_(
+                idx.reflect_only_elements,
+                {
+                    "participating": {
+                        "state": True,
+                        "other_state": "second value",
+                    },
+                    "participating2": {"state": "other state"},
+                },
+            )
+
+    def test_reflection_only_immutable(self):
+        with self._fixture():
+            idx = Index("a", "b", participating_state=True)
+
+            with testing.expect_raises(TypeError):
+                idx.reflect_only_elements["participating"] = {}
+            with testing.expect_raises(TypeError):
+                idx.reflect_only_elements["participating"]["state"] = False
+            with testing.expect_raises(AttributeError):
+                idx.reflect_only_elements = {}
+
+    @testing.combinations(
+        "dialect_kwargs", "dialect_options", argnames="write_path"
+    )
+    def test_reflection_only_assignment(self, write_path):
+        """each write path for a marked argument lands in
+        reflect_only_elements and stays out of the flat kwargs view."""
+
+        with self._fixture():
+            idx = Index("a", "b")
+            if write_path == "dialect_kwargs":
+                idx.dialect_kwargs["participating_state"] = True
+            else:
+                idx.dialect_options["participating"]["state"] = True
+
+            eq_(
+                (idx.reflect_only_elements, idx.dialect_kwargs),
+                ({"participating": {"state": True}}, {}),
+            )
+
+    def test_reflection_only_pickle(self):
+        with self._fixture():
+            t = Table("t", MetaData(), Column("x", Integer))
+            idx = Index(
+                "ix",
+                t.c.x,
+                participating_state=True,
+                participating_x=7,
+            )
+            pickled = pickle.loads(pickle.dumps(idx))
+            eq_(
+                pickled.reflect_only_elements,
+                {"participating": {"state": True}},
+            )
+
+    def test_reflection_only_to_metadata(self):
+        """reflection-only state is carried along for each DialectKWArgs
+        construct copied by Table.to_metadata()."""
+
+        with self._fixture():
+            m = MetaData()
+            Table(
+                "parent",
+                m,
+                Column("id", Integer, primary_key=True),
+                Column("id2", Integer),
+                UniqueConstraint("id", "id2"),
+            )
+            t = Table(
+                "t",
+                m,
+                Column(
+                    "id",
+                    Integer,
+                    Sequence("s", participating_state="sequence"),
+                    primary_key=True,
+                ),
+                Column(
+                    "x",
+                    Integer,
+                    ForeignKey("parent.id", participating_state="fk"),
+                    participating_state="column",
+                ),
+                Column(
+                    "y",
+                    Integer,
+                    Identity(participating_state="identity"),
+                ),
+                Column("p1", Integer),
+                Column("p2", Integer),
+                ForeignKeyConstraint(
+                    ["p1", "p2"],
+                    ["parent.id", "parent.id2"],
+                    participating_state="fkc",
+                ),
+                UniqueConstraint("x", participating_state="unique"),
+                CheckConstraint("x > 5", participating_state="check"),
+                participating_state="table",
+            )
+            t.primary_key.dialect_kwargs["participating_state"] = "pk"
+            Index("ix", t.c.x, participating_state="index")
+
+            copied = t.to_metadata(MetaData())
+
+            constraints = {type(c): c for c in copied.constraints}
+            eq_(
+                [
+                    dict(elem.reflect_only_elements)
+                    for elem in [
+                        copied,
+                        copied.c.x,
+                        # ForeignKey passes its dialect arguments along
+                        # to its ForeignKeyConstraint
+                        next(iter(copied.c.x.foreign_keys)).constraint,
+                        copied.c.id.default,
+                        copied.c.y.server_default,
+                        next(iter(copied.c.p1.foreign_keys)).constraint,
+                        constraints[UniqueConstraint],
+                        constraints[CheckConstraint],
+                        copied.primary_key,
+                        next(iter(copied.indexes)),
+                    ]
+                ],
+                [
+                    {"participating": {"state": state}}
+                    for state in [
+                        "table",
+                        "column",
+                        "fk",
+                        "sequence",
+                        "identity",
+                        "fkc",
+                        "unique",
+                        "check",
+                        "pk",
+                        "index",
+                    ]
+                ],
+            )
+
+    def test_reflection_only_to_metadata_dialect_kwargs(self):
+        """reflection-only state stays out of the dialect_kwargs of the
+        copy."""
+
+        with self._fixture():
+            t = Table("t", MetaData(), Column("x", Integer))
+            Index(
+                "ix",
+                t.c.x,
+                participating_state=True,
+                participating_x=7,
+            )
+            copied_index = next(iter(t.to_metadata(MetaData()).indexes))
+            eq_(
+                (
+                    copied_index.reflect_only_elements,
+                    copied_index.dialect_kwargs,
+                ),
+                ({"participating": {"state": True}}, {"participating_x": 7}),
+            )
+
+    def test_reflection_only_inherited_by_subclass(self):
+        with self._fixture():
+
+            class CustomIndex(Index):
+                pass
+
+            idx = CustomIndex("a", "b", participating_state=True)
+            eq_(idx.reflect_only_elements, {"participating": {"state": True}})
+
+    def test_reflection_only_overridden_by_subclass(self):
+        """a subclass can replace the marker with an ordinary default."""
+
+        with self._fixture():
+
+            class CustomIndex(Index):
+                pass
+
+            CustomIndex.argument_for("participating", "state", False)
+            idx = CustomIndex("a", "b", participating_state=True)
+            eq_(
+                (idx.reflect_only_elements, idx.dialect_kwargs),
+                ({}, {"participating_state": True}),
+            )
+
 
 class NamingConventionTest(fixtures.TestBase, AssertsCompiledSQL):
     __dialect__ = "default"
@@ -5665,7 +6354,8 @@ class NamingConventionTest(fixtures.TestBase, AssertsCompiledSQL):
         is_(const[0].name, None)
 
         self.assert_compile(
-            AddConstraint(const[0]), "ALTER TABLE foo ADD UNIQUE (id)"
+            AddConstraint(const[0]),
+            "ALTER TABLE foo ADD UNIQUE (id)",
         )
 
     @testing.combinations(
@@ -5859,6 +6549,38 @@ class NamingConventionTest(fixtures.TestBase, AssertsCompiledSQL):
             '"fk_address_UserData_UserData2_UserData3_user_data_Data2_Data3" '
             'FOREIGN KEY("UserData", "UserData2", "UserData3") '
             'REFERENCES "user" (data, "Data2", "Data3")',
+            dialect=default.DefaultDialect(),
+        )
+
+    def test_fk_repeated_col_allcols_underscore_name(self):
+        """a repeated local column contributes one token per position,
+        matching how the backend itself names such a constraint.
+
+        """
+        u1 = self._fixture(
+            naming_convention={
+                "fk": "fk_%(table_name)s_%(column_0_N_name)s_"
+                "%(referred_table_name)s_%(referred_column_0_N_name)s"
+            }
+        )
+
+        m1 = u1.metadata
+        a1 = Table(
+            "address",
+            m1,
+            Column("id", Integer, primary_key=True),
+            Column("UserData", String(30), key="user_data"),
+        )
+        fk = ForeignKeyConstraint(
+            ["user_data", "user_data"], ["user.data", "user.data2"]
+        )
+        a1.append_constraint(fk)
+        self.assert_compile(
+            schema.AddConstraint(fk),
+            "ALTER TABLE address ADD CONSTRAINT "
+            '"fk_address_UserData_UserData_user_data_Data2" '
+            'FOREIGN KEY("UserData", "UserData") '
+            'REFERENCES "user" (data, "Data2")',
             dialect=default.DefaultDialect(),
         )
 
@@ -6415,3 +7137,464 @@ class SentinelColTest(fixtures.TestBase):
                 Integer,
                 default=_InsertSentinelColumnDefault(),
             )
+
+
+class ForeignKeyTargetTest(fixtures.TestBase, AssertsCompiledSQL):
+    """test :attr:`.ForeignKey.target_tokens` and the handling of names
+    which contain dots.
+
+    A dotted string can't tell a dot inside of a name apart from the
+    separator between two names, so a ForeignKey whose target table or
+    column name contains a dot has no string representation at all; the
+    individual tokens are always available instead.
+
+    """
+
+    __dialect__ = "default"
+
+    @testing.combinations(
+        ("t1", (None, "t1", None)),
+        ("t1.x", (None, "t1", "x")),
+        ("q.t1.x", ("q", "t1", "x")),
+        # everything to the left of the rightmost two tokens is the schema,
+        # so a dot within the schema name is unambiguous
+        ("otherdb.dbo.t1.x", ("otherdb.dbo", "t1", "x")),
+        argnames="colspec, expected",
+    )
+    def test_tokens_from_string(self, colspec, expected):
+        fk = ForeignKey(colspec)
+        eq_(fk.target_tokens, expected)
+        eq_(fk.target_tokens, ForeignKeyTarget(*expected))
+
+    @testing.combinations(
+        (None, "t1", "x"),
+        ("q", "t1", "x"),
+        (None, "my.tbl", "x"),
+        ("my.schema", "my.tbl", "my.col"),
+        argnames="schema, tname, colname",
+    )
+    def test_tokens_from_column(self, schema, tname, colname):
+        m = MetaData()
+        t1 = Table(tname, m, Column(colname, Integer), schema=schema)
+        fk = ForeignKey(t1.c[colname])
+        eq_(fk.target_tokens, (schema, tname, colname))
+
+    def test_tokens_from_clause_element(self):
+        """a target which is not itself a Core column, such as an ORM
+        attribute, is unwrapped by coercions before it reaches the
+        ForeignKey, so ``__clause_element__()`` never needs handling here"""
+
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer))
+
+        class HasClauseElement:
+            def __clause_element__(self):
+                return t1.c.x
+
+        fk = ForeignKey(HasClauseElement())
+        is_(fk.target_column, t1.c.x)
+        eq_(fk.target_tokens, ForeignKeyTarget(None, "t1", "x"))
+
+    def test_resolve_column_clause_element_target(self):
+        """the target may be a plain ColumnClause rather than a Column"""
+
+        fk = ForeignKey(column("x", Integer))
+        eq_(fk.target_tokens, ForeignKeyTarget(None, "x", None))
+        is_(fk._resolve_column(), fk.target_column)
+
+    def test_tokens_from_unbound_column(self):
+        """a Column not associated with a Table has only its key, which
+        is matched to a table of the same name later on"""
+
+        fk = ForeignKey(Column("x", Integer))
+        eq_(fk.target_tokens, (None, "x", None))
+
+    @testing.combinations(
+        ((None, "t1", "x"), "t1.x"),
+        (("q", "t1", "x"), "q.t1.x"),
+        ((None, "t1", None), "t1"),
+        # a dot within the schema name still round trips
+        (("otherdb.dbo", "t1", "x"), "otherdb.dbo.t1.x"),
+        argnames="tokens, expected",
+    )
+    def test_target_fullname_renderable(self, tokens, expected):
+        eq_(ForeignKey(tokens).target_fullname, expected)
+        eq_(ForeignKeyTarget(*tokens)._as_string(), expected)
+
+    @testing.combinations(
+        (
+            (None, "my.tbl", "x"),
+            "the table name 'my.tbl' contains a dot",
+        ),
+        (
+            (None, "t1", "my.col"),
+            "the column name 'my.col' contains a dot",
+        ),
+        (
+            ("q", "t1", None),
+            "a schema name 'q' is present with no column name",
+        ),
+        argnames="tokens, reason",
+    )
+    def test_target_fullname_not_renderable(self, tokens, reason):
+        fk = ForeignKey(tokens)
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            "Can't render a single string representation for foreign key "
+            "target \\(schema=.*\\); %s" % re.escape(reason),
+        ):
+            fk.target_fullname
+
+    def test_naming_convention_dotted_table(self):
+        """the reported case; %(referred_table_name)s used to be derived
+        by splitting the dotted string, dropping 'my.'"""
+
+        m = MetaData(
+            naming_convention={
+                "fk": "fk_%(table_name)s_%(referred_table_name)s"
+            }
+        )
+        r = Table("my.tbl", m, Column("z", Integer, primary_key=True))
+        t = Table(
+            "t",
+            m,
+            Column("a", Integer),
+            ForeignKeyConstraint(["a"], [r.c.z]),
+        )
+
+        const = next(
+            c for c in t.constraints if isinstance(c, ForeignKeyConstraint)
+        )
+        eq_(const.name, "fk_t_my.tbl")
+        self.assert_compile(
+            CreateTable(t),
+            'CREATE TABLE t (a INTEGER, CONSTRAINT "fk_t_my.tbl" '
+            'FOREIGN KEY(a) REFERENCES "my.tbl" (z))',
+        )
+
+    @testing.combinations(True, False, argnames="use_schema")
+    def test_to_metadata_dotted_table(self, use_schema):
+        m = MetaData()
+        r = Table("my.tbl", m, Column("z", Integer, primary_key=True))
+        t = Table(
+            "t",
+            m,
+            Column("a", Integer),
+            ForeignKeyConstraint(["a"], [r.c.z]),
+        )
+
+        schema = "s" if use_schema else None
+        m2 = MetaData()
+        r2 = r.to_metadata(m2, schema=schema)
+        t2 = t.to_metadata(m2, schema=schema)
+
+        fk = list(t2.c.a.foreign_keys)[0]
+        eq_(fk.target_tokens, (schema, "my.tbl", "z"))
+        is_(fk.column, r2.c.z)
+
+        self.assert_compile(
+            CreateTable(t2),
+            "CREATE TABLE %(sch)st (a INTEGER, FOREIGN KEY(a) "
+            'REFERENCES %(sch)s"my.tbl" (z))'
+            % {"sch": "s." if use_schema else ""},
+        )
+
+    def test_to_metadata_table_only_colspec(self):
+        """a ForeignKey given a table name only used to render as
+        'newschema.t1.None' when copied into a new schema"""
+
+        m = MetaData()
+        t2 = Table("t2", m, Column("x", Integer, ForeignKey("t1")))
+
+        t2c = t2.to_metadata(MetaData(), schema="s")
+        fk = list(t2c.c.x.foreign_keys)[0]
+        eq_(fk.target_tokens, ("s", "t1", None))
+
+    @testing.combinations(
+        ("string", "t1.x", "s.t1.x"),
+        ("tuple", ("t1", "x"), "s.t1.x"),
+        ("column", None, "s.t1.x"),
+        argnames="kind, colspec, expected",
+    )
+    def test_legacy_colspec_accessor(self, kind, colspec, expected):
+        """the legacy ``_colspec`` accessor continues to report a target in
+        its pre-2.1 form, either a dotted string or the target Column, so
+        that third party code branching on
+        ``isinstance(fk._colspec, str)`` keeps working.
+
+        """
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer))
+        if kind == "column":
+            colspec = t1.c.x
+        t2 = Table("t2", m, Column("y", Integer, ForeignKey(colspec)))
+
+        t2c = t2.to_metadata(MetaData(), schema="s")
+        fk = list(t2c.c.y.foreign_keys)[0]
+        eq_(fk._colspec, expected)
+        assert isinstance(fk._colspec, str)
+
+    def test_legacy_colspec_accessor_column_target(self):
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer))
+        t2 = Table("t2", m, Column("y", Integer, ForeignKey(t1.c.x)))
+
+        is_(list(t2.c.y.foreign_keys)[0]._colspec, t1.c.x)
+
+    def test_legacy_colspec_accessor_raises(self):
+        """``_colspec`` has no value to report for a target with no dotted
+        string form"""
+
+        m = MetaData()
+        r = Table("my.tbl", m, Column("z", Integer))
+        t = Table("t", m, Column("a", Integer, ForeignKey(("my.tbl", "z"))))
+
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            "Can't render a single string representation",
+        ):
+            list(t.c.a.foreign_keys)[0]._colspec
+
+        # the target itself is stored in one format, always available
+        eq_(
+            list(t.c.a.foreign_keys)[0]._column_tokens,
+            ForeignKeyTarget(None, "my.tbl", "z"),
+        )
+        is_(list(t.c.a.foreign_keys)[0].column, r.c.z)
+
+    def test_target_tokens_always_tokens(self):
+        """however the target was given, the names of it are reported in
+        exactly one format; nothing has to type test the result"""
+
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer), schema="q")
+
+        for colspec in ("q.t1.x", ("q", "t1", "x"), t1.c.x):
+            fk = ForeignKey(colspec)
+            eq_(fk.target_tokens, ForeignKeyTarget("q", "t1", "x"))
+            assert isinstance(fk.target_tokens, ForeignKeyTarget)
+
+    def test_tokens_track_late_column_setup(self):
+        """the target Column may gain both its name and its Table after the
+        ForeignKey is built -- a declarative mixin using declared_attr does
+        exactly this, so the tokens can't be captured up front.
+
+        .. seealso::
+
+            :meth:`.DeclarativeMixinTest.
+            test_fk_mixin_self_referential_declared_attr`
+
+        """
+        c1 = Column(Integer)
+        fk = ForeignKey(c1)
+
+        # nothing to report yet; the target has no name at all
+        eq_(fk.target_tokens, ForeignKeyTarget(None, None, None))
+
+        c1.name = c1.key = "z"
+        Table("my.tbl", MetaData(), c1, schema="q")
+        eq_(fk.target_tokens, ForeignKeyTarget("q", "my.tbl", "z"))
+
+    def test_target_column(self):
+        """``target_column`` reports the target as given, and is None when
+        the target was named rather than given as a Column; the tokens are
+        the same either way"""
+
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer))
+        expected = ForeignKeyTarget(None, "t1", "x")
+
+        is_(ForeignKey(t1.c.x).target_column, t1.c.x)
+        eq_(ForeignKey(t1.c.x).target_tokens, expected)
+
+        is_(ForeignKey("t1.x").target_column, None)
+        eq_(ForeignKey("t1.x").target_tokens, expected)
+
+        is_(ForeignKey(("t1", "x")).target_column, None)
+        eq_(ForeignKey(("t1", "x")).target_tokens, expected)
+
+    def test_target_column_vs_resolved_column(self):
+        """``target_column`` is the target as specified; ``column`` is the
+        resolved target however it was specified"""
+
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer))
+        t2 = Table("t2", m, Column("y", Integer, ForeignKey("t1.x")))
+
+        fk = list(t2.c.y.foreign_keys)[0]
+        is_(fk.target_column, None)
+        is_(fk.column, t1.c.x)
+
+    @testing.combinations(
+        ("t1.x", "t1"),
+        ("q.t1.x", "q.t1"),
+        ("t1", "t1"),
+        (("my.tbl", "z"), "my.tbl"),
+        (("q", "my.tbl", "z"), "q.my.tbl"),
+        argnames="colspec, expected",
+    )
+    def test_target_table_key(self, colspec, expected):
+        """the key the referenced Table is, or would be, registered under
+        in MetaData.tables -- available before that table exists"""
+
+        eq_(ForeignKey(colspec).target_table_key, expected)
+
+    @testing.combinations(True, False, argnames="use_schema")
+    def test_target_table_key_from_column(self, use_schema):
+        m = MetaData()
+        schema = "q" if use_schema else None
+        t1 = Table("my.tbl", m, Column("z", Integer), schema=schema)
+
+        fk = ForeignKey(t1.c.z)
+        eq_(fk.target_table_key, t1.key)
+        eq_(fk.target_table_key, "q.my.tbl" if use_schema else "my.tbl")
+
+    def test_target_table_key_none_when_unattached(self):
+        """the one case with no key to name"""
+
+        is_(ForeignKey(Column("z", Integer)).target_table_key, None)
+
+    def test_target_fullname_unnamed_target(self):
+        """a target Column with no name yet has nothing to render, and says
+        so rather than raising TypeError on the missing table name"""
+
+        fk = ForeignKey(Column(Integer))
+        eq_(fk.target_tokens, ForeignKeyTarget(None, None, None))
+
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            "Can't render a single string representation for foreign key "
+            r"target \(schema=None, table_name=None, column_name=None\); "
+            "the target has no table name",
+        ):
+            fk.target_fullname
+
+    def test_resolve_column_parent_detached_from_metadata(self):
+        """non-raising resolution reports no column when the *parent* table
+        has been removed from its MetaData, even though the target table is
+        still present"""
+
+        m = MetaData()
+        t1 = Table("t1", m, Column("x", Integer))
+        t2 = Table("t2", m, Column("y", Integer, ForeignKey("t1.x")))
+        fk = list(t2.c.y.foreign_keys)[0]
+
+        m.remove(t2)
+        is_true(t1.key in m.tables)
+        is_false(t2.key in m.tables)
+
+        is_(fk._resolve_column(raiseerr=False), None)
+
+    @testing.combinations(
+        ({},),
+        ({"schema": "s"},),
+        ({"schema": BLANK_SCHEMA},),
+        argnames="kw",
+    )
+    def test_copy_unbound_column_target(self, kw):
+        """copying a constraint whose target Column has no Table can't
+        produce anything meaningful.
+
+        .. versionchanged:: 2.1  this is now refused whether or not a new
+           schema is being applied; previously applying a schema produced the
+           literal target string ``"s.z.None"``.
+
+        """
+        m = MetaData()
+        t = Table(
+            "t", m, Column("a", Integer, ForeignKey(Column("z", Integer)))
+        )
+        const = next(
+            c for c in t.constraints if isinstance(c, ForeignKeyConstraint)
+        )
+
+        with expect_raises_message(
+            exc.InvalidRequestError,
+            "Can't copy ForeignKey object which refers to non-table "
+            "bound Column",
+        ):
+            const._copy(**kw)
+
+    @testing.combinations(
+        (("my.tbl", "z"),),
+        ((None, "my.tbl", "z"),),
+        argnames="tokens",
+    )
+    def test_tuple_argument(self, tokens):
+        m = MetaData()
+        r = Table("my.tbl", m, Column("z", Integer, primary_key=True))
+        t = Table("t", m, Column("a", Integer, ForeignKey(tokens)))
+
+        fk = list(t.c.a.foreign_keys)[0]
+        eq_(fk.target_tokens, (None, "my.tbl", "z"))
+        is_(fk.column, r.c.z)
+
+    def test_tuple_argument_table_only(self):
+        m = MetaData()
+        r = Table("my.tbl", m, Column("a", Integer, primary_key=True))
+        t = Table("t", m, Column("a", Integer, ForeignKey(("my.tbl", None))))
+
+        fk = list(t.c.a.foreign_keys)[0]
+        eq_(fk.target_tokens, (None, "my.tbl", None))
+        is_(fk.column, r.c.a)
+
+    def test_tuple_argument_constraint(self):
+        m = MetaData()
+        r = Table("my.tbl", m, Column("z", Integer, primary_key=True))
+        t = Table(
+            "t",
+            m,
+            Column("a", Integer),
+            ForeignKeyConstraint(["a"], [("my.tbl", "z")]),
+        )
+
+        is_(list(t.c.a.foreign_keys)[0].column, r.c.z)
+        self.assert_compile(
+            CreateTable(t),
+            "CREATE TABLE t (a INTEGER, FOREIGN KEY(a) "
+            'REFERENCES "my.tbl" (z))',
+        )
+
+    @testing.combinations(
+        (("t1",), "must have two tokens .* or three tokens"),
+        (("a", "b", "c", "d"), "must have two tokens .* or three tokens"),
+        (("", "b"), "table_name must be a non-empty string"),
+        ((None, None), "table_name must be a non-empty string"),
+        argnames="tokens, message",
+    )
+    def test_tuple_argument_errors(self, tokens, message):
+        with expect_raises_message(exc.ArgumentError, message):
+            ForeignKey(tokens)
+
+    @testing.combinations(
+        ((None, "t1", "x"), "ForeignKey('t1.x')"),
+        (
+            (None, "my.tbl", "z"),
+            "ForeignKey(ForeignKeyTarget(schema=None, "
+            "table_name='my.tbl', column_name='z'))",
+        ),
+        argnames="tokens, expected",
+    )
+    def test_repr(self, tokens, expected):
+        """repr() has to work whether or not a string form is available,
+        and either way names something the constructor accepts"""
+
+        fk = ForeignKey(tokens)
+        eq_(repr(fk), expected)
+
+        # the repr round trips
+        eq_(eval(repr(fk)).target_tokens, fk.target_tokens)
+
+    def test_no_such_column_error_message(self):
+        m = MetaData()
+        Table("my.tbl", m, Column("q", Integer, primary_key=True))
+
+        t = Table("t", m, Column("a", Integer, ForeignKey(("my.tbl", "z"))))
+
+        with expect_raises_message(
+            exc.NoReferencedColumnError,
+            "Could not initialize target column for ForeignKey "
+            r"\(schema=None, table_name='my.tbl', column_name='z'\) on "
+            "table 't': table 'my.tbl' has no column named 'z'",
+        ):
+            list(t.c.a.foreign_keys)[0].column

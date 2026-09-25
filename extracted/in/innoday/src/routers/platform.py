@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, text
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -16,7 +16,7 @@ from src.domain.organization import (
     OrganizationRole,
 )
 from src.domain.user import User
-from src.middleware.rbac import get_current_user
+from src.middleware.rbac import get_current_user, is_platform_admin_request
 
 router = APIRouter(prefix="/api/v1/platform", tags=["platform"])
 
@@ -539,13 +539,22 @@ async def initialize_platform(
 @router.get(
     "/health",
     summary="Check platform health",
-    description="Check if platform is properly configured and healthy",
+    description=(
+        "Up/down for anyone; the platform checks and integrations only for a "
+        "platform admin"
+    ),
 )
 async def check_platform_health(
-    detailed: bool = False, session: Session = Depends(get_session)
+    request: Request, detailed: bool = False, session: Session = Depends(get_session)
 ):
-    """Check platform health status with optional integration validation"""
-    platform_org = get_platform_organization(session)
+    """Check platform health status with optional integration validation.
+
+    **Anonymous callers get ``{"status": "healthy" | "unhealthy"}`` and nothing
+    else** -- the database round trip only (PF-459). The checks below say
+    whether a platform org and platform users exist, the licence and config
+    state, and which integrations are set up: reconnaissance for a stranger, so
+    they are shown only to a platform member's token.
+    """
 
     # A real round trip, not an inference. This was the literal `True` with the
     # comment "We're here, so DB is working" -- a check that could not fail, and
@@ -557,6 +566,11 @@ async def check_platform_health(
         database_connection = True
     except Exception:
         database_connection = False
+
+    if not is_platform_admin_request(request, session):
+        return {"status": "healthy" if database_connection else "unhealthy"}
+
+    platform_org = get_platform_organization(session)
 
     health_status: Dict[str, Any] = {
         "status": "healthy",

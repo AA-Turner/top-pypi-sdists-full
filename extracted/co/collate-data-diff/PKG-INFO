@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: collate-data-diff
-Version: 0.11.16
+Version: 0.11.17
 Summary: Command-line tool and Python library to efficiently diff rows across two different databases.
 License: MIT
 License-File: LICENSE
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Database :: Database Engines/Servers

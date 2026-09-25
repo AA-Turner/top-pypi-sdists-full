@@ -5,21 +5,25 @@ Batch Read
 from __future__ import annotations
 
 import asyncio
+
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, DefaultDict, Dict, List, Optional, Union
 
-from ..apdu import ErrorRejectAbortNack
-from ..app import Application
+from typing import Any, Callable, Dict, DefaultDict, List, Optional, Union
+
+from ..debugging import bacpypes_debugging, ModuleLogger
+
+from ..pdu import Address
+from ..primitivedata import ObjectIdentifier
 from ..basetypes import (
     ObjectType,
     PropertyIdentifier,
     PropertyReference,
     ServicesSupported,
 )
-from ..debugging import ModuleLogger, bacpypes_debugging
-from ..pdu import Address
-from ..primitivedata import ObjectIdentifier
+from ..apdu import ErrorRejectAbortNack
+from ..app import Application
+
 
 # some debugging
 _debug = 0
@@ -256,7 +260,7 @@ class AddressGroupWorker:
 
         i = 0
         while i < len(self.daopr_list):
-            chunk = self.daopr_list[i : i + chunk_size]
+            chunk = self.daopr_list[i:i+chunk_size]
             if _debug:
                 AddressGroupWorker._debug("    - chunk: %r", chunk)
             i += chunk_size

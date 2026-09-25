@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homematicip
-Version: 2.17.0
+Version: 2.18.0
 Summary: An API for the homematicip cloud
 Author-email: Thomas Hahn <homematicip-rest-api@outlook.com>
 License: GPL-3.0-or-later
@@ -243,6 +243,7 @@ Radio and wired devices are in one list; wired models carry the `HMIPW` prefix. 
 - [x] ALPHA-IP-RBGa (Alpha IP Wall Thermostat Display analog)
 - [ ] ELV-SH-AI8 (Alarmline Interface 8x Inputs) \*powered by HmIP
 - [x] ELV-SH-BS2 (Switch Actuator for brand switches 2x channels) \*powered by HmIP
+- [x] ELV-SH-CRC (Remote Control Compact) \*powered by HmIP
 - [x] ELV-SH-CTH (Temperature and Humidity Sensor Compact) \*powered by HmIP
 - [x] ELV-SH-CTV Tilt Vibration Sensor Compact
 - [x] ELV-SH-DUSI (Ultrasonic Distance Sensor Interface) \*powered by HmIP
@@ -387,7 +388,7 @@ Radio and wired devices are in one list; wired models carry the `HMIPW` prefix. 
 - [ ] HMIP-SWDM-2 (Door / Window Contact - magnetic) New Version
 - [x] HMIP-SWDM-B2 (Door / Window Contact - magnetic) _Silvercrest Edition_
 - [x] HMIP-SWDO (Shutter Contact Optical)
-- [ ] HMIP-SWDO-2 (Shutter Contact Optical) New Version
+- [x] HMIP-SWDO-2 (Shutter Contact Optical) New Version
 - [x] HMIP-SWDO-I (Shutter Contact Optical Invisible)
 - [x] HMIP-SWDO-PL (Shutter Contact Optical Plus)
 - [ ] HMIP-SWDO-PL-2 (Shutter Contact Optical Plus) New Version
@@ -417,7 +418,7 @@ Radio and wired devices are in one list; wired models carry the `HMIPW` prefix. 
 - [x] HMIP-WTH-2 (Wall Mounted Thermostat Pro with Display)
 - [x] HMIP-WTH-B (Wall Mounted Thermostat basic without adjusting wheel)
 - [ ] HMIP-WTH-B-2 (Wall Mounted Thermostat basic without adjusting wheel) New Version
-- [ ] HMIP-WUA (Dimming Actuator, 0-10/1-10-V-Control inputs, 8A 230V)
+- [x] HMIP-WUA (Dimming Actuator, 0-10/1-10-V-Control inputs, 8A 230V)
 - [ ] HMIPW-BRC2 (Homematic IP Wired Remote Control for brand switches – 2x channels)
 - [x] HMIPW-DRAP (Homematic IP Wired Access Point)
 - [x] HMIPW-DRBL4 (Homematic IP Wired Blinds Actuator – 4x channels)

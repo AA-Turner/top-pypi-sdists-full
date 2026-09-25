@@ -106,13 +106,11 @@ _get_assignment_summary = mcp_module.get_assignment_summary
 _get_board_summary_data = mcp_module.get_board_summary_data
 _save_board_summary = mcp_module.save_board_summary
 _save_project_summary = mcp_module.save_project_summary
-_setup_organization = mcp_module.setup_organization
 _list_organizations = mcp_module.list_organizations
 _list_boards = mcp_module.list_boards
 _get_repository_issues = mcp_module.get_repository_issues
 _list_tickets = mcp_module.list_tickets
 _get_board_lists = mcp_module.get_board_lists
-_setup_org_with_env = mcp_module.setup_org_with_env
 _update_ticket = mcp_module.update_ticket
 _create_ticket = mcp_module.create_ticket
 _sync_repository = mcp_module.sync_repository
@@ -277,25 +275,6 @@ class TestOrgToolsSendTeamSecret:
     API even after the team secret is seeded. Regression guard for #338's
     follow-up: these three tools were the ones reading the import-time config
     snapshot and never sending the team secret."""
-
-    @pytest.mark.asyncio
-    async def test_setup_organization_sends_team_secret(self):
-        mcp_module.config.user_id = "user-abc"
-        mcp_module.config.team_secret = "shh-secret"
-        with routed(Canned(201, json={"id": "org-new"})) as calls:
-            await _setup_organization(
-                name="Acme",
-                slug=None,
-                description=None,
-                github_url=None,
-                jira_url=None,
-                user_id="user-abc",
-            )
-
-        assert calls.path() == "/api/v1/organizations"
-        assert calls.headers()["Authorization"] == "Bearer idt_test0.secret"
-        assert "X-User-ID" not in calls.headers()
-        assert calls.headers()["X-Team-Secret"] == "shh-secret"
 
     @pytest.mark.asyncio
     async def test_list_organizations_sends_team_secret(self):
@@ -1523,137 +1502,6 @@ class TestSaveBoardSummary:
                     concerns=None,
                 )
                 mock_claude_cls.assert_not_called()
-
-
-class TestSetupOrgWithEnvSlugValidation:
-    """setup_org_with_env uses `slug` as a filename (env/orgs/<slug>); a slug
-    that isn't a plain org alias must be rejected BEFORE any state is created,
-    so it can't traverse out of env/orgs/ or otherwise write to an unexpected
-    path."""
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "bad_slug",
-        ["../etc", "a/b", "..", "ACME", "a_b", "x.y", "", "-lead", "has space"],
-    )
-    async def test_rejects_unsafe_slug_before_any_api_call(self, bad_slug):
-        with routed(Canned(201, json={"id": "org-1"})) as calls:
-            result = await _setup_org_with_env(
-                slug=bad_slug,
-                org_name="Acme",
-                project_name="Proj",
-                project_alias="PF",
-                board_type="skip",
-            )
-        # Rejected early: an error is returned and NO HTTP client was opened.
-        assert "error" in result
-        assert "slug" in result["error"].lower()
-        calls.constructor.assert_not_called()
-        assert calls.requests == []
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("good_slug", ["acme", "pf", "pf-1", "a1b2"])
-    async def test_accepts_valid_slug(self, good_slug):
-        # A valid slug passes validation and proceeds to open the client (which
-        # we stub to fail fast on the first POST, proving we got past the guard
-        # without needing a real API or touching the filesystem).
-        with patch("httpx.AsyncClient", side_effect=RuntimeError("reached-api")):
-            with pytest.raises(RuntimeError, match="reached-api"):
-                await _setup_org_with_env(
-                    slug=good_slug,
-                    org_name="Acme",
-                    project_name="Proj",
-                    project_alias="PF",
-                    board_type="skip",
-                )
-
-
-class TestSetupOrgWithEnvPartialStatus:
-    """When board registration fails but the org/project were created, the
-    result must be flagged partial -- a caller must not read the populated
-    summary as full success and go straight to sync_all_boards."""
-
-    @pytest.mark.asyncio
-    async def test_board_failure_yields_partial_status(self, tmp_path, monkeypatch):
-        mcp_module.config.user_id = "user-abc"
-        # Run in a temp cwd so env/orgs/<slug> is written under it, not the repo.
-        monkeypatch.chdir(tmp_path)
-
-        # org create OK, project create OK, board register FAILS (500) -- in
-        # order, and each against a path the route table has to serve.
-        responses = [
-            Canned(201, json={"id": "org-1"}),
-            Canned(201, json={"id": "proj-1"}),
-            Canned(500, text="boom"),
-        ]
-        with routed(responses) as calls:
-            # Pass every optional arg explicitly: calling the tool's raw .fn
-            # bypasses pydantic, so an omitted arg stays a Field() sentinel
-            # (truthy) rather than defaulting to None.
-            result = await _setup_org_with_env(
-                slug="acme",
-                org_name="Acme",
-                project_name="Proj",
-                project_alias="PF",
-                board_type="linear",
-                board_url="https://linear.app/acme",
-                board_api_token="lin_api_xxx",
-                board_api_email=None,
-                board_name=None,
-                github_org=None,
-                github_topic=None,
-                user_id=None,
-                organization_id=None,
-            )
-
-        assert result["status"] == "partial"
-        assert result["summary"]["status"] == "partial"
-        assert result["summary"]["board_id"] is None
-        assert "board_warning" in result
-        assert "register_board" in result["summary"]["next_step"]
-        assert calls.paths() == [
-            "/api/v1/organizations",
-            "/api/v1/organizations/org-1/projects",
-            "/api/v1/organizations/org-1/boards",
-        ]
-
-    @pytest.mark.asyncio
-    async def test_env_file_permissions_restricted(self, tmp_path, monkeypatch):
-        """The env file holds a cleartext credential; it must be owner-only."""
-        import os
-        import stat
-
-        mcp_module.config.user_id = "user-abc"
-        monkeypatch.chdir(tmp_path)
-
-        responses = [
-            Canned(201, json={"id": "org-1"}),
-            Canned(201, json={"id": "proj-1"}),
-            Canned(201, json={"id": "board-1"}),
-        ]
-        with routed(responses):
-            result = await _setup_org_with_env(
-                slug="acme",
-                org_name="Acme",
-                project_name="Proj",
-                project_alias="PF",
-                board_type="linear",
-                board_url="https://linear.app/acme",
-                board_api_token="lin_api_xxx",
-                board_api_email=None,
-                board_name=None,
-                github_org=None,
-                github_topic=None,
-                user_id=None,
-                organization_id=None,
-            )
-
-        env_file = tmp_path / "env" / "orgs" / "acme"
-        assert env_file.is_file()
-        assert "BOARD_API_TOKEN=lin_api_xxx" in env_file.read_text()
-        mode = stat.S_IMODE(os.stat(env_file).st_mode)
-        assert mode == 0o600, f"expected 0600, got {oct(mode)}"
-        assert result["status"] == "ok"
 
 
 class TestUpdateTicketUsesApiPut:

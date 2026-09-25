@@ -6,16 +6,26 @@ from typing import TYPE_CHECKING, Any, TypeVar, cast
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
-from ..models.t_job_definition_refresh import TJobDefinitionRefresh
+from ..models.t_job_definition_auto_refresh_pipeline_mode import (
+    TJobDefinitionAutoRefreshPipelineMode,
+)
+from ..models.t_job_definition_incremental_mode import TJobDefinitionIncrementalMode
+from ..models.t_job_definition_refresh_propagation import (
+    TJobDefinitionRefreshPropagation,
+)
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.t_agent_definition import TAgentDefinition
     from ..models.t_deliver_spec import TDeliverSpec
     from ..models.t_entry_point import TEntryPoint
     from ..models.t_execute_spec import TExecuteSpec
     from ..models.t_expose_spec import TExposeSpec
     from ..models.t_interval_spec import TIntervalSpec
+    from ..models.t_job_definition_inputs import TJobDefinitionInputs
+    from ..models.t_job_definition_output import TJobDefinitionOutput
     from ..models.t_require_spec import TRequireSpec
+    from ..models.t_workspace_access import TWorkspaceAccess
 
 
 T = TypeVar("T", bound="TJobDefinition")
@@ -23,41 +33,56 @@ T = TypeVar("T", bound="TJobDefinition")
 
 @_attrs_define
 class TJobDefinition:
-    """
+    """Full job definition from dlt deployment manifest
+
     Attributes:
+        engine_version (int):
         entry_point (TEntryPoint):
         execute (TExecuteSpec):
         job_ref (str):
         triggers (list[str]):
-        allow_external_schedulers (bool | Unset):
+        access (TWorkspaceAccess | Unset):
+        agent (TAgentDefinition | Unset):
+        auto_refresh_pipeline_mode (TJobDefinitionAutoRefreshPipelineMode | Unset):
         config_keys (list[str] | Unset):
         default_trigger (str | Unset):
         deliver (TDeliverSpec | Unset):
         description (str | Unset):
         expose (TExposeSpec | Unset):
         freshness (list[str] | Unset):
+        incremental_mode (TJobDefinitionIncrementalMode | Unset):
+        inputs (TJobDefinitionInputs | Unset):
         interval (TIntervalSpec | Unset):
-        refresh (TJobDefinitionRefresh | Unset):
+        output (TJobDefinitionOutput | Unset):
+        refresh_propagation (TJobDefinitionRefreshPropagation | Unset):
         require (TRequireSpec | Unset):
     """
 
+    engine_version: int
     entry_point: TEntryPoint
     execute: TExecuteSpec
     job_ref: str
     triggers: list[str]
-    allow_external_schedulers: bool | Unset = UNSET
+    access: TWorkspaceAccess | Unset = UNSET
+    agent: TAgentDefinition | Unset = UNSET
+    auto_refresh_pipeline_mode: TJobDefinitionAutoRefreshPipelineMode | Unset = UNSET
     config_keys: list[str] | Unset = UNSET
     default_trigger: str | Unset = UNSET
     deliver: TDeliverSpec | Unset = UNSET
     description: str | Unset = UNSET
     expose: TExposeSpec | Unset = UNSET
     freshness: list[str] | Unset = UNSET
+    incremental_mode: TJobDefinitionIncrementalMode | Unset = UNSET
+    inputs: TJobDefinitionInputs | Unset = UNSET
     interval: TIntervalSpec | Unset = UNSET
-    refresh: TJobDefinitionRefresh | Unset = UNSET
+    output: TJobDefinitionOutput | Unset = UNSET
+    refresh_propagation: TJobDefinitionRefreshPropagation | Unset = UNSET
     require: TRequireSpec | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        engine_version = self.engine_version
+
         entry_point = self.entry_point.to_dict()
 
         execute = self.execute.to_dict()
@@ -66,7 +91,17 @@ class TJobDefinition:
 
         triggers = self.triggers
 
-        allow_external_schedulers = self.allow_external_schedulers
+        access: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.access, Unset):
+            access = self.access.to_dict()
+
+        agent: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.agent, Unset):
+            agent = self.agent.to_dict()
+
+        auto_refresh_pipeline_mode: str | Unset = UNSET
+        if not isinstance(self.auto_refresh_pipeline_mode, Unset):
+            auto_refresh_pipeline_mode = self.auto_refresh_pipeline_mode.value
 
         config_keys: list[str] | Unset = UNSET
         if not isinstance(self.config_keys, Unset):
@@ -88,13 +123,25 @@ class TJobDefinition:
         if not isinstance(self.freshness, Unset):
             freshness = self.freshness
 
+        incremental_mode: str | Unset = UNSET
+        if not isinstance(self.incremental_mode, Unset):
+            incremental_mode = self.incremental_mode.value
+
+        inputs: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.inputs, Unset):
+            inputs = self.inputs.to_dict()
+
         interval: dict[str, Any] | Unset = UNSET
         if not isinstance(self.interval, Unset):
             interval = self.interval.to_dict()
 
-        refresh: str | Unset = UNSET
-        if not isinstance(self.refresh, Unset):
-            refresh = self.refresh.value
+        output: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.output, Unset):
+            output = self.output.to_dict()
+
+        refresh_propagation: str | Unset = UNSET
+        if not isinstance(self.refresh_propagation, Unset):
+            refresh_propagation = self.refresh_propagation.value
 
         require: dict[str, Any] | Unset = UNSET
         if not isinstance(self.require, Unset):
@@ -104,14 +151,19 @@ class TJobDefinition:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
+                "engine_version": engine_version,
                 "entry_point": entry_point,
                 "execute": execute,
                 "job_ref": job_ref,
                 "triggers": triggers,
             }
         )
-        if allow_external_schedulers is not UNSET:
-            field_dict["allow_external_schedulers"] = allow_external_schedulers
+        if access is not UNSET:
+            field_dict["access"] = access
+        if agent is not UNSET:
+            field_dict["agent"] = agent
+        if auto_refresh_pipeline_mode is not UNSET:
+            field_dict["auto_refresh_pipeline_mode"] = auto_refresh_pipeline_mode
         if config_keys is not UNSET:
             field_dict["config_keys"] = config_keys
         if default_trigger is not UNSET:
@@ -124,10 +176,16 @@ class TJobDefinition:
             field_dict["expose"] = expose
         if freshness is not UNSET:
             field_dict["freshness"] = freshness
+        if incremental_mode is not UNSET:
+            field_dict["incremental_mode"] = incremental_mode
+        if inputs is not UNSET:
+            field_dict["inputs"] = inputs
         if interval is not UNSET:
             field_dict["interval"] = interval
-        if refresh is not UNSET:
-            field_dict["refresh"] = refresh
+        if output is not UNSET:
+            field_dict["output"] = output
+        if refresh_propagation is not UNSET:
+            field_dict["refresh_propagation"] = refresh_propagation
         if require is not UNSET:
             field_dict["require"] = require
 
@@ -135,14 +193,20 @@ class TJobDefinition:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.t_agent_definition import TAgentDefinition
         from ..models.t_deliver_spec import TDeliverSpec
         from ..models.t_entry_point import TEntryPoint
         from ..models.t_execute_spec import TExecuteSpec
         from ..models.t_expose_spec import TExposeSpec
         from ..models.t_interval_spec import TIntervalSpec
+        from ..models.t_job_definition_inputs import TJobDefinitionInputs
+        from ..models.t_job_definition_output import TJobDefinitionOutput
         from ..models.t_require_spec import TRequireSpec
+        from ..models.t_workspace_access import TWorkspaceAccess
 
         d = dict(src_dict)
+        engine_version = d.pop("engine_version")
+
         entry_point = TEntryPoint.from_dict(d.pop("entry_point"))
 
         execute = TExecuteSpec.from_dict(d.pop("execute"))
@@ -151,7 +215,28 @@ class TJobDefinition:
 
         triggers = cast(list[str], d.pop("triggers"))
 
-        allow_external_schedulers = d.pop("allow_external_schedulers", UNSET)
+        _access = d.pop("access", UNSET)
+        access: TWorkspaceAccess | Unset
+        if isinstance(_access, Unset):
+            access = UNSET
+        else:
+            access = TWorkspaceAccess.from_dict(_access)
+
+        _agent = d.pop("agent", UNSET)
+        agent: TAgentDefinition | Unset
+        if isinstance(_agent, Unset):
+            agent = UNSET
+        else:
+            agent = TAgentDefinition.from_dict(_agent)
+
+        _auto_refresh_pipeline_mode = d.pop("auto_refresh_pipeline_mode", UNSET)
+        auto_refresh_pipeline_mode: TJobDefinitionAutoRefreshPipelineMode | Unset
+        if isinstance(_auto_refresh_pipeline_mode, Unset):
+            auto_refresh_pipeline_mode = UNSET
+        else:
+            auto_refresh_pipeline_mode = TJobDefinitionAutoRefreshPipelineMode(
+                _auto_refresh_pipeline_mode
+            )
 
         config_keys = cast(list[str], d.pop("config_keys", UNSET))
 
@@ -175,6 +260,20 @@ class TJobDefinition:
 
         freshness = cast(list[str], d.pop("freshness", UNSET))
 
+        _incremental_mode = d.pop("incremental_mode", UNSET)
+        incremental_mode: TJobDefinitionIncrementalMode | Unset
+        if isinstance(_incremental_mode, Unset):
+            incremental_mode = UNSET
+        else:
+            incremental_mode = TJobDefinitionIncrementalMode(_incremental_mode)
+
+        _inputs = d.pop("inputs", UNSET)
+        inputs: TJobDefinitionInputs | Unset
+        if isinstance(_inputs, Unset):
+            inputs = UNSET
+        else:
+            inputs = TJobDefinitionInputs.from_dict(_inputs)
+
         _interval = d.pop("interval", UNSET)
         interval: TIntervalSpec | Unset
         if isinstance(_interval, Unset):
@@ -182,12 +281,19 @@ class TJobDefinition:
         else:
             interval = TIntervalSpec.from_dict(_interval)
 
-        _refresh = d.pop("refresh", UNSET)
-        refresh: TJobDefinitionRefresh | Unset
-        if isinstance(_refresh, Unset):
-            refresh = UNSET
+        _output = d.pop("output", UNSET)
+        output: TJobDefinitionOutput | Unset
+        if isinstance(_output, Unset):
+            output = UNSET
         else:
-            refresh = TJobDefinitionRefresh(_refresh)
+            output = TJobDefinitionOutput.from_dict(_output)
+
+        _refresh_propagation = d.pop("refresh_propagation", UNSET)
+        refresh_propagation: TJobDefinitionRefreshPropagation | Unset
+        if isinstance(_refresh_propagation, Unset):
+            refresh_propagation = UNSET
+        else:
+            refresh_propagation = TJobDefinitionRefreshPropagation(_refresh_propagation)
 
         _require = d.pop("require", UNSET)
         require: TRequireSpec | Unset
@@ -197,19 +303,25 @@ class TJobDefinition:
             require = TRequireSpec.from_dict(_require)
 
         t_job_definition = cls(
+            engine_version=engine_version,
             entry_point=entry_point,
             execute=execute,
             job_ref=job_ref,
             triggers=triggers,
-            allow_external_schedulers=allow_external_schedulers,
+            access=access,
+            agent=agent,
+            auto_refresh_pipeline_mode=auto_refresh_pipeline_mode,
             config_keys=config_keys,
             default_trigger=default_trigger,
             deliver=deliver,
             description=description,
             expose=expose,
             freshness=freshness,
+            incremental_mode=incremental_mode,
+            inputs=inputs,
             interval=interval,
-            refresh=refresh,
+            output=output,
+            refresh_propagation=refresh_propagation,
             require=require,
         )
 

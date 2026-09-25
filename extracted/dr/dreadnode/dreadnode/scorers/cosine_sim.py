@@ -1,8 +1,7 @@
-import numpy as np
-
-
 def cosine_similarity(l1: list[float], l2: list[float]) -> float:
     """Calculates cosine similarity for two lists of floats without external libraries."""
+    import numpy as np
+
     if len(l1) != len(l2):
         raise ValueError("Vectors must have the same dimension to calculate cosine similarity.")
 

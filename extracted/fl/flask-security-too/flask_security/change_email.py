@@ -4,7 +4,7 @@ flask_security.change_email
 
 Flask-Security Change Email module
 
-:copyright: (c) 2024-2024 by J. Christopher Wagner (jwag).
+:copyright: (c) 2024-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 
 Allow user to change their email address.
@@ -27,9 +27,9 @@ from .decorators import auth_required
 from .forms import (
     Form,
     UniqueEmailFormMixin,
-    build_form_from_request,
+    _build_form_from_request,
     form_errors_munge,
-    get_form_field_label,
+    _get_form_field_label,
 )
 from .proxies import _security, _datastore
 from .quart_compat import get_quart_status
@@ -37,16 +37,16 @@ from .signals import change_email_instructions_sent, change_email_confirmed
 from .utils import (
     base_render_json,
     check_and_get_token_status,
-    config_value as cv,
+    _config_value as cv,
     do_flash,
     get_message,
     get_url,
-    get_within_delta,
     hash_data,
     send_mail,
     url_for_security,
     verify_hash,
-    view_commit,
+    _view_commit,
+    _td_format,
 )
 
 if t.TYPE_CHECKING:  # pragma: no cover
@@ -58,12 +58,11 @@ else:
     from flask import redirect
 
 
-class ChangeEmailForm(Form, UniqueEmailFormMixin):
-    submit = SubmitField(label=get_form_field_label("submit"))
+class ChangeEmailForm(UniqueEmailFormMixin, Form):
+    submit: SubmitField = SubmitField(label=_get_form_field_label("submit"))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
-        self.existing_email_user = None
 
 
 @auth_required(
@@ -76,7 +75,7 @@ def change_email() -> ResponseValue:
     payload: dict[str, t.Any]
 
     form: ChangeEmailForm = t.cast(
-        ChangeEmailForm, build_form_from_request("change_email_form")
+        ChangeEmailForm, _build_form_from_request("change_email_form")
     )
 
     if form.validate_on_submit():
@@ -129,7 +128,7 @@ def change_email_confirm(token):
         if expired:
             m, c = get_message(
                 "CHANGE_EMAIL_EXPIRED",
-                within=cv("CHANGE_EMAIL_WITHIN"),
+                within=_td_format(cv("CHANGE_EMAIL_WITHIN")),
             )
         else:
             m, c = get_message("API_ERROR")
@@ -141,7 +140,7 @@ def change_email_confirm(token):
         )
 
     _update_user_email(user, new_email)
-    after_this_request(view_commit)
+    after_this_request(_view_commit)
     m, c = get_message("CHANGE_EMAIL_CONFIRMED")
     if cv("REDIRECT_BEHAVIOR") == "spa":
         return redirect(
@@ -183,10 +182,11 @@ def _send_instructions(user, new_email):
     send_mail(
         cv("CHANGE_EMAIL_SUBJECT"),
         new_email,
-        "change_email_instructions",
+        cv("CHANGE_EMAIL_EMAIL_TEMPLATE"),
         user=user,
         link=link,
         token=token,
+        within=_td_format(cv("CHANGE_EMAIL_WITHIN")),
     )
 
     change_email_instructions_sent.send(
@@ -204,7 +204,7 @@ def _verify_token_status(token):
     new_email is still available (and if not return 'invalid').
     """
     expired, invalid, state = check_and_get_token_status(
-        token, "change_email", get_within_delta("CHANGE_EMAIL_WITHIN")
+        token, "change_email", cv("CHANGE_EMAIL_WITHIN")
     )
     if invalid or expired:
         return expired, invalid, None, None

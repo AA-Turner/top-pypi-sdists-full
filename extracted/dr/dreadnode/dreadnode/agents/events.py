@@ -161,18 +161,19 @@ class AgentStep(AgentEvent):
         if self.usage.cost_usd is not None:
             return self.usage.cost_usd
 
-        import litellm
+        from dreadnode.app.model_catalog import resolve_model_info
 
         if self.generator is None:
             return None
 
-        model = self.generator.model
-        while model not in litellm.model_cost:
-            if "/" not in model:
-                return None
-            model = "/".join(model.split("/")[1:])
-
-        model_info: AnyDict = litellm.model_cost[model]
+        # The gateway owns the alias -> deployment mapping, so it is the only
+        # thing that can price a ``dn/`` model. Guessing by stripping segments
+        # priced dn/deepseek-v4-flash 132% high (ENG-8431). The resolver picks
+        # the gateway up from the environment; passing this generator's own
+        # api_base would point it at a BYOK endpoint that owes us no catalog.
+        model_info: AnyDict = resolve_model_info(self.generator.model)
+        if not model_info:
+            return None
         input_token_cost = float(model_info.get("input_cost_per_token", 0))
         output_token_cost = float(model_info.get("output_cost_per_token", 0))
 

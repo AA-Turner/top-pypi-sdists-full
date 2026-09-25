@@ -10,20 +10,20 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Options for the executor-based SamplerV2."""
+"""Options for the client-side Sampler."""
 
 from __future__ import annotations
 
 from .base import BaseOptionsModel
 from .dynamical_decoupling import DynamicalDecouplingOptions
-from .environment import SamplerEnvironmentOptions
+from .environment import EnvironmentOptions
 from .execution import SamplerExecutionOptions
 from .simulator import SimulatorOptions
 from .twirling import TwirlingOptions
 
 
 class SamplerOptions(BaseOptionsModel):
-    """Options for the executor-based SamplerV2."""
+    """Options for the client-side Sampler."""
 
     default_shots: int | None = 4096
     """The default number of shots to use if none are specified in the PUBs or in the run method."""
@@ -37,14 +37,19 @@ class SamplerOptions(BaseOptionsModel):
     twirling: TwirlingOptions = TwirlingOptions()
     """Pauli twirling options."""
 
+    max_execution_time: int | None = None
+    """Maximum execution time in seconds.
+
+    This value bounds system execution time (not wall clock time). System execution time is the
+    amount of time that the system is dedicated to processing your job. If a job exceeds this time
+    limit, it is forcibly cancelled.
+    """
+
     simulator: SimulatorOptions = SimulatorOptions()
-    """Simulator options."""
+    """Options related to local mode simulations."""
 
     experimental: dict = {}
     """Experimental options."""
 
-    max_execution_time: int | None = None
-    """Maximum execution time in seconds, based on system execution time (not wall clock time)."""
-
-    environment: SamplerEnvironmentOptions = SamplerEnvironmentOptions()
+    environment: EnvironmentOptions = EnvironmentOptions()
     """Options related to the execution environment."""

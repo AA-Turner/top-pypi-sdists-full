@@ -5,7 +5,7 @@ flask_security.recoverable
 Flask-Security recoverable module
 
 :copyright: (c) 2012 by Matt Wright.
-:copyright: (c) 2019-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2019-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
@@ -17,13 +17,13 @@ from .signals import (
     username_recovery_email_sent,
 )
 from .utils import (
-    config_value,
-    get_token_status,
+    check_and_get_token_status,
+    _config_value as cv,
     hash_data,
     hash_password,
     send_mail,
     url_for_security,
-    verify_hash,
+    _td_format,
 )
 
 
@@ -39,14 +39,15 @@ def send_reset_password_instructions(user):
     """
     reset_link, token = generate_reset_link(user)
 
-    if config_value("SEND_PASSWORD_RESET_EMAIL"):
+    if cv("SEND_PASSWORD_RESET_EMAIL"):
         send_mail(
-            config_value("EMAIL_SUBJECT_PASSWORD_RESET"),
+            cv("EMAIL_SUBJECT_PASSWORD_RESET"),
             user.email,
-            "reset_instructions",
+            cv("EMAIL_TEMPLATE_PASSWORD_RESET"),
             user=user,
             reset_link=reset_link,
             reset_token=token,
+            within=_td_format(cv("RESET_PASSWORD_WITHIN")),
         )
 
     reset_password_instructions_sent.send(
@@ -63,11 +64,11 @@ def send_password_reset_notice(user):
 
     :param user: The user to send the notice to
     """
-    if config_value("SEND_PASSWORD_RESET_NOTICE_EMAIL"):
+    if cv("SEND_PASSWORD_RESET_NOTICE_EMAIL"):
         send_mail(
-            config_value("EMAIL_SUBJECT_PASSWORD_NOTICE"),
+            cv("EMAIL_SUBJECT_PASSWORD_NOTICE"),
             user.email,
-            "reset_notice",
+            cv("EMAIL_TEMPLATE_PASSWORD_RESET_NOTICE"),
             user=user,
         )
 
@@ -90,18 +91,12 @@ def reset_password_token_status(token):
 
     :param token: The password reset token
     """
-    expired, invalid, user, data = get_token_status(
-        token, "reset", "RESET_PASSWORD", return_data=True
+    user = None
+    expired, invalid, data = check_and_get_token_status(
+        token, "reset", cv("RESET_PASSWORD_WITHIN")
     )
-    # This check looks to see if the password has been changed since the reset token
-    # was created. As of #338 - we reset the fs_uniquifier on each password change
-    # so the token would have been marked invalid above.
-    # This made sure that the token couldn't be used twice.
-    # TODO - look at removing this entire check.
-    if not invalid and user:
-        if user.password:
-            if not verify_hash(data[1], user.password):
-                invalid = True
+    if data:
+        user = _datastore.find_user(fs_uniquifier=data[0])
 
     return expired, invalid, user
 
@@ -128,11 +123,11 @@ def send_username_recovery_email(user):
     """Sends the username recovery email for the specified user.
     :param user: The user requesting username recovery
     """
-    if config_value("USERNAME_RECOVERY"):
+    if cv("USERNAME_RECOVERY"):
         send_mail(
-            config_value("EMAIL_SUBJECT_USERNAME_RECOVERY"),
+            cv("EMAIL_SUBJECT_USERNAME_RECOVERY"),
             user.email,
-            "username_recovery",
+            cv("USERNAME_RECOVERY_EMAIL_TEMPLATE"),
             user=user,
             username=user.username,
         )

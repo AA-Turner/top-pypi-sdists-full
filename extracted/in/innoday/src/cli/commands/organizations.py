@@ -80,10 +80,13 @@ class OrganizationCommands:
         # Orgs env-setup
         env_setup_parser = subparsers.add_parser(
             "env-setup",
-            help="Create or update org env file (env/orgs/<alias>)",
+            help="Set up an existing org: first project, board, env/orgs/<alias>",
             description=(
-                "Interactive wizard to create env/orgs/<alias> with board "
-                "credentials. File is gitignored — safe to store API tokens."
+                "Interactive wizard for an organization that already exists: "
+                "creates its first project, optionally connects a board, and "
+                "writes env/orgs/<alias> (gitignored — safe to store API tokens). "
+                "Creating the organization itself is operator work: "
+                "scripts/bootstrap_cli.py create-org."
             ),
         )
         env_setup_parser.add_argument(
@@ -874,16 +877,16 @@ class OrganizationCommands:
 
     @staticmethod
     async def _handle_env_setup(args: argparse.Namespace, config: CLIConfig) -> int:
-        """Interactive wizard to create env/orgs/<alias> and register org/project/board via API."""
+        """Set up an existing org: first project, optional board, env/orgs/<alias>.
+
+        It used to create the organization too, with `POST /organizations` -- a
+        platform-admin route behind the team secret. That moved to
+        `scripts/bootstrap_cli.py create-org` (PF-457); this looks the org up.
+        """
         try:
             user_id = config.get_user_id()
             if not user_id:
-                console.print(
-                    # `innoday platform setup` has never existed -- `platform`
-                    # takes {init,health,start,stop,restart,logs,status}. `init`
-                    # is the wizard that creates the identity this is missing.
-                    format_error("Not logged in. Run 'innoday init' first.")
-                )
+                console.print(format_error("Not logged in. Run 'innoday login' first."))
                 return 1
 
             console.print(format_info("Organization setup wizard"))
@@ -893,7 +896,27 @@ class OrganizationCommands:
             alias = args.alias or Prompt.ask("  Org alias (e.g. acme)")
             alias = alias.strip().lower()
 
-            org_name = Prompt.ask("  Org name (e.g. Acme Corp)")
+            # Look the org up before asking for anything else, so a wrong alias
+            # fails here rather than after the board token has been typed.
+            api_client = InnoDayAPIClient(config)
+            org_response = await api_client.get(f"/organizations/{alias}")
+            if org_response.status_code != 200:
+                console.print(
+                    format_error(
+                        f"No organization '{alias}' you can reach "
+                        f"(HTTP {org_response.status_code}). A platform admin "
+                        "creates organizations with "
+                        "`scripts/bootstrap_cli.py create-org`."
+                    )
+                )
+                await api_client.close()
+                return 1
+
+            org_data = org_response.json()
+            org_id = org_data["id"]
+            org_name = org_data.get("name") or alias
+            console.print(format_success(f"  Organization: {org_name} ({org_id})"))
+
             project_name = Prompt.ask("  Project name")
 
             console.print("")
@@ -918,14 +941,13 @@ class OrganizationCommands:
             console.print("")
             console.print(format_info("Summary:"))
             console.print(f"  Alias:        {alias}")
-            console.print(f"  Org name:     {org_name}")
             console.print(f"  Project:      {project_name}")
             if not skip_board:
                 console.print(f"  Board type:   {board_type_input}")
                 console.print(f"  Board URL:    {board_url}")
             console.print("")
 
-            if not Confirm.ask("  Create organization and write env file?"):
+            if not Confirm.ask("  Create the project and write the env file?"):
                 console.print(format_warning("Cancelled."))
                 return 0
 
@@ -938,29 +960,8 @@ class OrganizationCommands:
                         f"File {env_file} already exists. Use --update to overwrite."
                     )
                 )
-                return 1
-
-            api_client = InnoDayAPIClient(config)
-
-            # --- Create organization ---
-            console.print(format_info("Creating organization..."))
-            org_response = await api_client.post(
-                "/organizations",
-                json={"name": org_name, "alias": alias},
-            )
-
-            if org_response.status_code not in (200, 201):
-                console.print(
-                    format_error(
-                        f"Failed to create organization: HTTP {org_response.status_code} — {org_response.text}"
-                    )
-                )
                 await api_client.close()
                 return 1
-
-            org_data = org_response.json()
-            org_id = org_data["id"]
-            console.print(format_success(f"  Organization created: {org_id}"))
 
             # --- Create project ---
             console.print(format_info("Creating project..."))
@@ -1038,6 +1039,9 @@ class OrganizationCommands:
                 ]
 
             env_file.write_text("\n".join(lines) + "\n")
+            # It holds a board token in clear text: owner-only, as the removed
+            # MCP path wrote it.
+            env_file.chmod(0o600)
             console.print(format_success(f"  Wrote {env_file}"))
 
             # --- Update CLI config ---

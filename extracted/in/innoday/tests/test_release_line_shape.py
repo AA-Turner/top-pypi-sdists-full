@@ -20,7 +20,6 @@ from pathlib import Path
 import pytest
 
 from src.routers.summaries import SummaryItemPayload
-from src.routers.webui.render import _people_line, _verdict_pill
 from src.services.summary_service import SummaryService
 
 
@@ -104,40 +103,6 @@ class TestTheVerdictIsStoredNotRecomputed:
     def test_the_board_name_backfills_when_people_is_absent(self):
         stored = self._stored(people=None, assignee_display="Jasminder pal singh")
         assert stored.people == ["Jasminder pal singh"]
-
-
-class TestTheUiShowsTheVerdictItWasGiven:
-    def test_a_shipped_verdict_reads_as_shipped(self):
-        html = _verdict_pill("shipped")
-        assert "shipped" in html and "sverdict" in html
-
-    def test_underscores_do_not_reach_the_screen(self):
-        assert "not merged" in _verdict_pill("not_merged")
-
-    def test_missing_code_and_unmerged_code_share_a_colour(self):
-        """Both need a decision before the release can claim the ticket."""
-        assert "missing" in _verdict_pill("no_code")
-        assert "missing" in _verdict_pill("not_merged")
-
-    def test_no_verdict_renders_nothing_rather_than_a_guess(self):
-        """Every row written before the column has none, and inventing one is
-        the recomputation this whole change exists to stop."""
-        assert _verdict_pill(None) == ""
-        assert _verdict_pill("") == ""
-
-    def test_an_unrecognised_verdict_still_renders(self):
-        """The vocabulary can grow server-side without this dropping a value."""
-        assert "brand new" in _verdict_pill("brand_new")
-
-    def test_two_people_are_both_named(self):
-        assert "George M." in _people_line(["Unurbat T.", "George M."], "Unurbat T.")
-
-    def test_one_person_is_left_to_the_owner_bubble(self):
-        """It is already on the row; repeating it underneath is noise."""
-        assert _people_line(["Ken"], "Ken") == ""
-
-    def test_nobody_renders_nothing(self):
-        assert _people_line(None, None) == ""
 
 
 class TestTheReleaseNoteBullet:

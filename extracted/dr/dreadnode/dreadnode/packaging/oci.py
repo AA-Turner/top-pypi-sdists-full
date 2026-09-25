@@ -34,6 +34,7 @@ import yaml
 from loguru import logger
 
 from dreadnode.core.exceptions import InsufficientCreditsError
+from dreadnode.core.tls import cached_platform_ssl_context
 
 if t.TYPE_CHECKING:
     from dreadnode.storage.storage import Storage
@@ -275,6 +276,10 @@ class OCIRegistryClient:
             auth=auth_param,
             timeout=timeout,
             follow_redirects=True,
+            # A self-hosted registry is served on the operator's domain behind
+            # their CA; verify against the native trust store rather than the
+            # certifi default so on-prem pull/publish trusts it (WP1-66).
+            verify=cached_platform_ssl_context(),
         )
 
     def close(self) -> None:

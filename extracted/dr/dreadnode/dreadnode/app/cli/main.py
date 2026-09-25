@@ -9,18 +9,19 @@ import threading
 import time
 import typing as t
 
-if t.TYPE_CHECKING:
-    from dreadnode.app.tui.app import DreadnodeTextualApp
-
 import cyclopts
 from loguru import logger
 from rich.panel import Panel
 
 from dreadnode.app.cli.args import RESUME_PICK_SENTINEL, PlatformArgs, TuiArgs
 from dreadnode.app.cli.shared import console, print_error, print_success
+from dreadnode.app.command_catalog import LAZY_COMMANDS as _LAZY_COMMANDS
 from dreadnode.app.config import DEFAULT_AUTONOMOUS_MAX_STEPS
 from dreadnode.app.model_catalog import resolve_model
 from dreadnode.core.tls import format_tls_error
+
+if t.TYPE_CHECKING:
+    from dreadnode.app.tui.app import DreadnodeTextualApp
 
 DEBUG = bool(os.getenv("DREADNODE_DEBUG"))
 
@@ -131,31 +132,10 @@ cli["--install-completion"].group = "Meta"
 # cyclopts has no native support for deferred subcommands, so registration is
 # driven from the invoked token instead.
 #
-# Keys are the command name as it is typed. The value is the module holding
-# the sub-app and its alias, if it has one.
-_LAZY_COMMANDS: dict[str, tuple[str, str | None]] = {
-    "airt": ("dreadnode.app.cli.airt", None),
-    "capability": ("dreadnode.app.cli.capability", None),
-    "dataset": ("dreadnode.app.cli.dataset", None),
-    "environment": ("dreadnode.app.cli.environment", "env"),
-    "evaluation": ("dreadnode.app.cli.evaluation", None),
-    "inference-model": ("dreadnode.app.cli.inference_model", "llm"),
-    "judge": ("dreadnode.app.cli.judge", None),
-    "model": ("dreadnode.app.cli.model", None),
-    "optimize": ("dreadnode.app.cli.optimize", None),
-    "runtime": ("dreadnode.app.cli.runtime", None),
-    "sandbox": ("dreadnode.app.cli.sandbox", None),
-    "secret": ("dreadnode.app.cli.secret", None),
-    "session": ("dreadnode.app.cli.session", None),
-    "task": ("dreadnode.app.cli.task", None),
-    "task-set": ("dreadnode.app.cli.task_set", None),
-    "train": ("dreadnode.app.cli.train", None),
-    "workflow": ("dreadnode.app.cli.workflow", None),
-    "worlds": ("dreadnode.app.cli.worlds", None),
-}
+# The shared catalog holds module paths, aliases, and prompt summaries.
 
 _COMMAND_ALIASES: dict[str, str] = {
-    alias: name for name, (_, alias) in _LAZY_COMMANDS.items() if alias
+    alias: name for name, (_, alias, _) in _LAZY_COMMANDS.items() if alias
 }
 
 _registered_commands: set[str] = set()
@@ -181,7 +161,7 @@ def register_command(name: str) -> bool:
         # Re-check under the lock: another thread may have registered it while
         # this one waited, and registering twice raises.
         if primary not in _registered_commands:
-            module_path, alias = entry
+            module_path, alias, _ = entry
             subapp = importlib.import_module(module_path).cli
             if alias:
                 cli.command(subapp, alias=alias)

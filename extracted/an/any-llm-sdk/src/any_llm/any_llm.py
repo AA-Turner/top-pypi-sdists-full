@@ -134,6 +134,10 @@ class AnyLLM(FilesMixin, ABC):
     SUPPORTS_MESSAGES: bool = True
     """Anthropic Messages API (all providers support it via conversion)"""
 
+    SUPPORTS_MESSAGES_NATIVE: bool = False
+    """Whether the provider implements `_amessages` against a real Anthropic Messages
+    endpoint, rather than inheriting the Messages-to-Completions bridge."""
+
     SUPPORTS_MESSAGES_STRUCTURED_OUTPUT_STREAMING: bool = False
     """Whether Messages structured output can be streamed by this provider."""
 
@@ -167,7 +171,22 @@ class AnyLLM(FilesMixin, ABC):
     For example, in `gemini` provider, this could include `google.genai.types.Tool`.
     """
 
-    def __init__(self, api_key: str | None = None, api_base: str | None = None, **kwargs: Any) -> None:
+    _unified_exceptions: bool | None = None
+    """Per-instance override for unified exception conversion.
+
+    ``None`` defers to ``ANY_LLM_UNIFIED_EXCEPTIONS`` at raise time. Declared here so
+    every provider carries the attribute even if a subclass skips ``super().__init__``.
+    """
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        api_base: str | None = None,
+        *,
+        unified_exceptions: bool | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self._unified_exceptions = unified_exceptions
         self._verify_no_missing_packages()
         self._init_client(
             api_key=self._verify_and_set_api_key(api_key),
@@ -206,7 +225,13 @@ class AnyLLM(FilesMixin, ABC):
 
     @classmethod
     def create(
-        cls, provider: str | LLMProvider, api_key: str | None = None, api_base: str | None = None, **kwargs: Any
+        cls,
+        provider: str | LLMProvider,
+        api_key: str | None = None,
+        api_base: str | None = None,
+        *,
+        unified_exceptions: bool | None = None,
+        **kwargs: Any,
     ) -> AnyLLM:
         """Create a provider instance using the given provider name and config.
 
@@ -214,13 +239,17 @@ class AnyLLM(FilesMixin, ABC):
             provider: The provider name (e.g., 'openai', 'anthropic')
             api_key: API key for the provider
             api_base: Base URL for the provider API
+            unified_exceptions: Convert provider exceptions for this instance when True,
+                or preserve them when False. None (default) uses ANY_LLM_UNIFIED_EXCEPTIONS.
             **kwargs: Additional provider-specific arguments
 
         Returns:
             Provider instance for the specified provider
 
         """
-        return cls._create_provider(provider, api_key=api_key, api_base=api_base, **kwargs)
+        return cls._create_provider(
+            provider, api_key=api_key, api_base=api_base, unified_exceptions=unified_exceptions, **kwargs
+        )
 
     @classmethod
     def create_openai_compatible(cls, name: str, api_base: str, api_key: str | None = None, **kwargs: Any) -> AnyLLM:
@@ -235,7 +264,8 @@ class AnyLLM(FilesMixin, ABC):
             name: Identifier for the endpoint (e.g. ``"mygateway"``). Reported as the provider name.
             api_base: Base URL of the OpenAI-compatible endpoint (e.g. ``"https://mygateway.example/v1"``).
             api_key: API key, if the endpoint requires one. Optional for keyless local servers.
-            **kwargs: Additional arguments forwarded to the underlying OpenAI client.
+            **kwargs: Additional provider arguments. ``unified_exceptions`` is consumed by the
+                provider; everything else is forwarded to the underlying OpenAI client.
 
         Returns:
             A provider instance bound to the given endpoint.
@@ -352,18 +382,17 @@ class AnyLLM(FilesMixin, ABC):
     def get_supported_providers(cls) -> list[str]:
         """Get a list of supported provider keys.
 
-        Includes registry-only gateways, which resolve by name without an
-        ``LLMProvider`` member.
+        Includes registry-only gateways, which ``LLMProvider(name)`` resolves
+        even though enum iteration does not list them.
         """
         return [provider.value for provider in LLMProvider] + cls.get_registry_provider_names()
 
     @classmethod
     def resolve_provider_key(cls, provider_key: str | LLMProvider) -> str | LLMProvider:
-        """Resolve a provider key to an ``LLMProvider`` member where one exists.
+        """Resolve a provider key to its ``LLMProvider`` member.
 
-        Registry-only gateways have no enum member, so their name is returned
-        unchanged. Everything downstream (``create``, ``get_provider_class``)
-        accepts either form.
+        Registry rows without a declared member resolve too, through
+        ``LLMProvider``'s value lookup.
 
         Raises:
             UnsupportedProviderError: The key is neither an enum member nor a
@@ -374,14 +403,9 @@ class AnyLLM(FilesMixin, ABC):
             return provider_key
         # Match LLMProvider.from_string's normalization so both resolution paths
         # accept the same spellings.
-        normalized = provider_key.strip().lower()
         try:
-            return LLMProvider(normalized)
+            return LLMProvider(provider_key.strip().lower())
         except ValueError:
-            from any_llm.providers.registry import get_registry_config
-
-            if get_registry_config(normalized) is not None:
-                return normalized
             raise UnsupportedProviderError(provider_key, cls.get_supported_providers()) from None
 
     @classmethod
@@ -404,11 +428,7 @@ class AnyLLM(FilesMixin, ABC):
 
     @classmethod
     def get_provider_enum(cls, provider_key: str) -> LLMProvider:
-        """Convert a string provider key to a ProviderName enum.
-
-        Registry-only gateways have no enum member, so this raises for them even
-        though they are resolvable. Use ``resolve_provider_key`` to accept both.
-        """
+        """Convert a string provider key to a ProviderName enum, registry rows included."""
         try:
             return LLMProvider(provider_key)
         except ValueError as e:
@@ -425,8 +445,8 @@ class AnyLLM(FilesMixin, ABC):
 
         The legacy format will be deprecated in version 1.0.
 
-        Returns an ``LLMProvider`` member when the provider has one, and the bare
-        name for registry-only gateways. Both forms are accepted by ``create``.
+        The provider is returned as an ``LLMProvider`` member, registry-only
+        gateways included.
         """
         colon_index = model.find(":")
         slash_index = model.find("/")
@@ -531,6 +551,7 @@ class AnyLLM(FilesMixin, ABC):
             files=bool(cls.SUPPORTED_FILE_OPERATIONS),
             file_operations=tuple(sorted(cls.SUPPORTED_FILE_OPERATIONS)),
             messages=cls.SUPPORTS_MESSAGES,
+            messages_native=cls.SUPPORTS_MESSAGES_NATIVE,
             class_name=cls.__name__,
         )
 
@@ -857,7 +878,7 @@ class AnyLLM(FilesMixin, ABC):
         service_tier: str | None = None,
         context_management: dict[str, Any] | None = None,
         betas: list[str] | None = None,
-        container: str | None = None,
+        container: str | dict[str, Any] | None = None,
         timeout: float | None = None,
         **kwargs: Any,
     ) -> MessageResponse | ParsedMessage[Any] | ParsedBetaMessage[Any] | Iterator[MessageStreamEvent]:
@@ -930,7 +951,7 @@ class AnyLLM(FilesMixin, ABC):
         service_tier: str | None = None,
         context_management: dict[str, Any] | None = None,
         betas: list[str] | None = None,
-        container: str | None = None,
+        container: str | dict[str, Any] | None = None,
         output_format: type | dict[str, Any] | None = None,
         timeout: float | None = None,  # noqa: ASYNC109  # forwarded to the provider SDK, which owns the timeout
         **kwargs: Any,
@@ -945,9 +966,9 @@ class AnyLLM(FilesMixin, ABC):
             messages: List of messages in Anthropic format.
             max_tokens: Maximum number of tokens to generate.
             system: System prompt (string or list of content blocks with optional cache_control).
-            temperature: Controls randomness (0.0 to 1.0).
-            top_p: Controls diversity via nucleus sampling.
-            top_k: Only sample from the top K options.
+            temperature: Controls randomness. Anthropic deprecates this for current Claude models.
+            top_p: Controls nucleus sampling. Anthropic deprecates this for current Claude models.
+            top_k: Restricts sampling to the top K options. Anthropic deprecates this for current Claude models.
             stream: Whether to stream the response.
             stop_sequences: Custom stop sequences.
             tools: List of tools in Anthropic format.
@@ -962,13 +983,19 @@ class AnyLLM(FilesMixin, ABC):
                 trigger value must be at least 50,000 when provided; see
                 [Anthropic's compaction documentation](https://platform.claude.com/docs/en/build-with-claude/compaction).
             betas: Anthropic beta identifiers.
-            container: Container identifier for continuing a previous top-level container.
+            container: Container identifier, or an object with optional ``id`` and ``skills``.
+                A string reuses an existing container. An object selects Skills for a fresh
+                container or reuses one while attaching Skills. See
+                [Anthropic's Skills container parameter](https://platform.claude.com/docs/en/build-with-claude/skills-guide#container-parameter).
             output_format: Structured output, mirroring Anthropic's ``messages.parse``/
                 ``output_config``. Either a Pydantic ``BaseModel``/dataclass **type** (typed
                 ``parsed_output``) or a raw Anthropic ``output_config`` **dict** for non-Pydantic
-                JSON schemas (``parsed_output`` holds the parsed JSON). The call returns
-                Anthropic's ``ParsedMessage`` for non-streaming requests. Providers with native
-                support can stream schema-constrained Messages events instead.
+                JSON schemas (``parsed_output`` holds the parsed JSON). Non-streaming calls return
+                Anthropic's ``ParsedMessage`` for types or mappings with a non-empty schema dict;
+                mappings without one return ``MessageResponse``. Providers with native support
+                can stream schema-constrained Messages events instead.
+                Native Anthropic typed beta requests return ``ParsedBetaMessage`` when
+                ``context_management`` is set or beta identifiers are supplied.
             timeout: Per-request timeout in seconds, passed through to the provider's client/SDK.
                 An explicit ``None`` is treated the same as omitting it (the provider's default
                 applies), so it cannot request an unbounded timeout. Providers that have no
@@ -977,8 +1004,9 @@ class AnyLLM(FilesMixin, ABC):
             **kwargs: Additional provider-specific arguments.
 
         Returns:
-            MessageResponse (or ParsedMessage when `output_format` is given), or an async
-            iterator of MessageStreamEvent (if streaming).
+            MessageResponse, or ParsedMessage for a typed or schema-backed `output_format`.
+            Native Anthropic typed beta requests return ParsedBetaMessage instead.
+            Streaming calls return an async iterator of MessageStreamEvent.
 
         Raises:
             ValueError: If `output_format` is combined with `stream=True` for a provider that
@@ -1338,6 +1366,9 @@ class AnyLLM(FilesMixin, ABC):
                 _flatten_responses_tool(tool) for tool in prepare_tools(tools, built_in_tools=self.BUILT_IN_TOOLS)
             ]
 
+        provider_kwargs: dict[str, Any] = {
+            name: kwargs.pop(name) for name in ("extra_headers", "extra_query") if name in kwargs
+        }
         params = ResponsesParams(
             model=model,
             input=cast("ResponseInputPayload", input_data),
@@ -1371,7 +1402,6 @@ class AnyLLM(FilesMixin, ABC):
             **kwargs,
         )
 
-        provider_kwargs: dict[str, Any] = {}
         self._validate_and_forward_timeout(timeout, provider_kwargs)
         if extra_body is not None:
             provider_kwargs["extra_body"] = extra_body

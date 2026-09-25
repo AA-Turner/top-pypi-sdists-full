@@ -365,28 +365,43 @@ class AsyncEngineTest(EngineFixture):
             pool_connection = await conn.get_raw_connection()
             return pool_connection
 
-        from sqlalchemy.util.concurrency import await_only
+        from sqlalchemy.util.concurrency import await_
 
-        pool_connection = await_only(go())
+        pool_connection = await_(go())
 
         rec = pool_connection._connection_record
-        ref = rec.fairy_ref
         pool = pool_connection._pool
         echo = False
 
         if simulate_gc:
+            # simulate the fairy having been garbage collected without
+            # being checked in.  The record still refers to it, but the
+            # weakref is cleared; that is the state _finalize_fairy() reads
+            # to tell that the record has not since been checked in or,
+            # under StaticPool, handed to some other fairy.
+            rec.fairy_ref = lambda: None
+            assert rec.needs_gc
+
             # not using expect_warnings() here because we also want to do a
             # negative test for warnings, and we want to absolutely make sure
             # the thing here that emits the warning is the correct path
             from sqlalchemy.pool.base import _finalize_fairy
 
-            with mock.patch.object(
-                pool._dialect,
-                "do_rollback",
-                mock.Mock(side_effect=Exception("can't run rollback")),
-            ), mock.patch("sqlalchemy.util.warn") as m:
+            with (
+                mock.patch.object(
+                    pool._dialect,
+                    "do_rollback",
+                    mock.Mock(side_effect=Exception("can't run rollback")),
+                ),
+                mock.patch("sqlalchemy.util.warn") as m,
+            ):
                 _finalize_fairy(
-                    None, rec, pool, ref, echo, transaction_was_reset=False
+                    None,
+                    rec,
+                    pool,
+                    echo,
+                    transaction_was_reset=False,
+                    is_gc_cleanup=True,
                 )
 
             if adhoc_async_engine.dialect.has_terminate:
@@ -768,7 +783,6 @@ class AsyncEngineTest(EngineFixture):
             with expect_raises(exc.TimeoutError):
                 await engine.connect()
 
-    @testing.requires.python310
     @async_test
     async def test_engine_aclose(self, async_engine):
         users = self.tables.users
@@ -928,6 +942,39 @@ class AsyncEngineTest(EngineFixture):
                 # because the cursor should be closed
                 await driver_cursor.execute(select_one_sql)
 
+    @async_test
+    async def test_async_creator_handle_error(self, async_testing_engine):
+        """test for #11956"""
+
+        existing_creator = testing.db.pool._creator
+
+        def create_and_break():
+            sync_conn = existing_creator()
+            cursor = sync_conn.cursor()
+
+            # figure out a way to get a native driver exception.  This really
+            # only applies to asyncpg where we rewrite the exception
+            # hierarchy with our own emulated exception; other backends raise
+            # standard DBAPI exceptions (with some buggy cases here and there
+            # which they miss) even though they are async
+            try:
+                cursor.execute("this will raise an error")
+            except Exception as possibly_emulated_error:
+                if isinstance(
+                    possibly_emulated_error, exc.EmulatedDBAPIException
+                ):
+                    raise possibly_emulated_error.driver_exception
+                else:
+                    raise possibly_emulated_error
+
+        async def async_creator():
+            return await greenlet_spawn(create_and_break)
+
+        engine = async_testing_engine(options={"async_creator": async_creator})
+
+        with expect_raises(exc.DBAPIError):
+            await engine.connect()
+
 
 class AsyncCreatePoolTest(fixtures.TestBase):
     @config.fixture
@@ -1045,6 +1092,42 @@ class AsyncEventTest(EngineFixture):
                     canary.mock_calls,
                     [mock.call(conn.sync_connection)],
                 )
+
+
+class AsyncCursorEventCancelledErrorTest(fixtures.TestBase):
+    """tests for #13381"""
+
+    __requires__ = ("async_dialect",)
+    __backend__ = True
+
+    @testing.fixture
+    def async_engine(self):
+        return engines.testing_engine(asyncio=True)
+
+    @combinations(
+        "before_cursor_execute",
+        "after_cursor_execute",
+        argnames="event_name",
+    )
+    @async_test
+    async def test_cancelled_error_invalidates(self, async_engine, event_name):
+        @event.listens_for(async_engine.sync_engine, event_name)
+        def handler(
+            conn,
+            cursor,
+            statement,
+            parameters,
+            context,
+            executemany,
+        ):
+            raise asyncio.CancelledError()
+
+        conn = await async_engine.connect()
+        with expect_raises(asyncio.CancelledError):
+            await conn.execute(select(1))
+
+        is_true(conn.invalidated)
+        await conn.close()
 
 
 class AsyncInspection(EngineFixture):

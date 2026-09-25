@@ -922,10 +922,13 @@ class JobCommand(SupportsCliCommand):
         )
         logs_p.add_argument(
             "selector_or_job_name",
-            help="Job name, script path, or selector (e.g. batch, schedule:*).",
+            help="Run id (UUID), or job name / script path / selector (e.g. batch, schedule:*).",
         )
         logs_p.add_argument(
-            "run_number", nargs="?", type=int, help="Run number (optional)"
+            "run_number",
+            nargs="?",
+            type=int,
+            help="Run number (optional; not allowed with a run id)",
         )
         logs_p.add_argument(
             "-f",
@@ -995,13 +998,14 @@ class JobCommand(SupportsCliCommand):
             description="Display detailed information about the job run",
         )
         runs_info_p.add_argument(
-            "selector_or_job_name", help="Job name, script path, or selector"
+            "selector_or_job_name",
+            help="Run id (UUID), or job name / script path / selector",
         )
         runs_info_p.add_argument(
             "run_number",
             nargs="?",
             type=int,
-            help="Run number (defaults to latest run of the given job)",
+            help="Run number (defaults to latest; not allowed with a run id)",
         )
 
         runs_logs_p = runs_sub.add_parser(
@@ -1013,13 +1017,14 @@ class JobCommand(SupportsCliCommand):
             ),
         )
         runs_logs_p.add_argument(
-            "selector_or_job_name", help="Job name, script path, or selector"
+            "selector_or_job_name",
+            help="Run id (UUID), or job name / script path / selector",
         )
         runs_logs_p.add_argument(
             "run_number",
             nargs="?",
             type=int,
-            help="Run number (defaults to latest run)",
+            help="Run number (defaults to latest; not allowed with a run id)",
         )
         runs_logs_p.add_argument(
             "-f",
@@ -1037,13 +1042,14 @@ class JobCommand(SupportsCliCommand):
             ),
         )
         runs_show_p.add_argument(
-            "selector_or_job_name", help="Job name, script path, or selector"
+            "selector_or_job_name",
+            help="Run id (UUID), or job name / script path / selector",
         )
         runs_show_p.add_argument(
             "run_number",
             nargs="?",
             type=int,
-            help="Run number (defaults to latest run of the given job)",
+            help="Run number (defaults to latest; not allowed with a run id)",
         )
 
         runs_cancel_p = runs_sub.add_parser(
@@ -1052,13 +1058,14 @@ class JobCommand(SupportsCliCommand):
             description="Cancel the latest or selected job run",
         )
         runs_cancel_p.add_argument(
-            "selector_or_job_name", help="Job name, script path, or selector"
+            "selector_or_job_name",
+            help="Run id (UUID), or job name / script path / selector",
         )
         runs_cancel_p.add_argument(
             "run_number",
             nargs="?",
             type=int,
-            help="Run number (defaults to latest run)",
+            help="Run number (defaults to latest; not allowed with a run id)",
         )
 
     def execute(self, args: argparse.Namespace) -> None:

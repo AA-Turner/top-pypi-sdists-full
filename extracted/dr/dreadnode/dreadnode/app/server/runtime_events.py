@@ -169,6 +169,8 @@ class RuntimeSessionSnapshot(BaseModel):
     active_turn_id: str | None = None
     turn_phase: str | None = None
     pending_prompt: HumanPrompt | None = None
+    """The first of ``pending_prompts``, for clients that show one prompt at a time."""
+    pending_prompts: list[HumanPrompt] = Field(default_factory=list)
     sync_status: RuntimeSessionSyncStatus = Field(
         default_factory=lambda: RuntimeSessionSyncStatus(state="disabled")
     )
@@ -440,6 +442,7 @@ class EventBus:
         active_turn_id: str | None = None,
         turn_phase: str | None = None,
         pending_prompt: HumanPrompt | None = None,
+        pending_prompts: list[HumanPrompt] | None = None,
         sync_status: RuntimeSessionSyncStatus | None = None,
         draft_state: RuntimeDraftState | None = None,
     ) -> RuntimeSessionSnapshot:
@@ -454,6 +457,7 @@ class EventBus:
             active_turn_id=active_turn_id,
             turn_phase=turn_phase,
             pending_prompt=pending_prompt,
+            pending_prompts=pending_prompts or [],
             sync_status=sync_status or RuntimeSessionSyncStatus(state="disabled"),
             draft_state=draft_state or RuntimeDraftState(),
         )

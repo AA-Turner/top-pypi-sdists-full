@@ -430,24 +430,43 @@ async fn the_split_node_reauthors_at_boot_and_authors_at_runtime_as_itself() {
             .is_empty(),
         "before the ceremony nobody stands behind the agent"
     );
-    let pair = ciris_server::node_key::anchor_agent_to_owner(&engine)
-        .await
-        .expect("the login ceremony runs with the owner's pen");
-    assert!(pair.is_some(), "a claimed split home anchors its agent");
+    // PRODUCTION'S SHAPE (CIRISServer#632, measured on the production-shaped
+    // ladder under persist v48.0.0): the 1-phase first-run claim never anchored
+    // the agent, so the covering door skipped it and persist's sweep, which
+    // reads the ENGINE key, found no grant — `offerable=0`. The covering door
+    // anchors first, so consent FOR the agent is written on every claim path.
+    const PEER_0: &str = "a-peer-covered-before-anyone-anchored-the-agent";
+    register(&engine, &signer_for(PEER_0), PEER_0, identity_type::NODE).await;
+    ciris_server::peer::ensure_replication_consent_covers(
+        &engine,
+        &node,
+        PEER_0,
+        &ciris_server::peer::default_attestation_prefixes(),
+    )
+    .await
+    .expect("the covering door on a claimed, UNANCHORED split home");
     assert!(
         engine
             .steward_bindings_of(&actor)
             .await
             .expect("stewards of the agent")
             .contains(&owner),
-        "the human now stands behind the agent (occurrence anchor)"
+        "the covering door anchored the agent to its human (occurrence anchor)"
+    );
+    assert!(
+        engine
+            .consent_peers_by_principals(&actor)
+            .await
+            .expect("by-principals for the agent")
+            .contains(&PEER_0.to_string()),
+        "and wrote the human's grant FOR the agent — the row persist's sweep reads"
     );
     assert!(
         ciris_server::node_key::anchor_agent_to_owner(&engine)
             .await
-            .expect("second pass")
+            .expect("a later pass")
             .is_none(),
-        "idempotent"
+        "idempotent: the anchor already stands"
     );
     // The human consents FOR THIS AGENT, and the agent's own read finds it.
     const PEER_4: &str = "a-peer-consented-by-the-human-for-the-agent";
@@ -490,6 +509,150 @@ async fn the_split_node_reauthors_at_boot_and_authors_at_runtime_as_itself() {
             .contains(&PEER_4.to_string()),
         "a grant FOR the agent is not the node's consent — no blanket across the human's machines"
     );
+    // CIRISServer#632 — the COVERING door (what `POST /v1/federation/peering`
+    // and `POST /v1/contacts` call) consents once per own key the human is
+    // bound to: the NODE key (edge's send-set, the Rooted walk) AND the AGENT
+    // (persist's promotion sweep reads the engine's key). One call, two grants,
+    // each read by the plane that needs it; neither a blanket.
+    const PEER_5: &str = "a-peer-covered-for-both-of-the-humans-machine-keys";
+    register(&engine, &signer_for(PEER_5), PEER_5, identity_type::NODE).await;
+    ciris_server::peer::ensure_replication_consent_covers(
+        &engine,
+        &node,
+        PEER_5,
+        &ciris_server::peer::default_attestation_prefixes(),
+    )
+    .await
+    .expect("the covering door consents for the node AND the anchored agent");
+    assert!(
+        engine
+            .consent_peers_by_principals(&node)
+            .await
+            .expect("by-principals for the node")
+            .contains(&PEER_5.to_string()),
+        "the NODE's plane (edge send-set / Rooted) sees the peer"
+    );
+    assert!(
+        engine
+            .consent_peers_by_principals(&actor)
+            .await
+            .expect("by-principals for the agent")
+            .contains(&PEER_5.to_string()),
+        "the AGENT's plane (persist's promotion sweep reads the engine key) sees the peer"
+    );
+    let rows_for_5: Vec<(String, Option<String>)> = engine
+        .federation_directory()
+        .list_live_consent_grants_by(&owner)
+        .await
+        .expect("grants by the owner")
+        .iter()
+        .filter(|g| g.subject_key_ids.first().map(String::as_str) == Some(PEER_5))
+        .map(|g| {
+            (
+                g.attesting_key_id.clone(),
+                ciris_persist::federation::consent_by_humans::for_key_id_of(
+                    &g.attestation_envelope,
+                )
+                .map(str::to_owned),
+            )
+        })
+        .collect();
+    let all_for_5: Vec<(String, Option<String>)> = engine
+        .federation_directory()
+        .list_attestations_for(PEER_5)
+        .await
+        .map(|rows| {
+            rows.iter()
+                .map(|g| {
+                    (
+                        g.attesting_key_id.clone(),
+                        ciris_persist::federation::consent_by_humans::for_key_id_of(
+                            &g.attestation_envelope,
+                        )
+                        .map(str::to_owned),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    // Count from the RAW rows: persist v47's attester-keyed live reader holds one
+    // grant per (author, peer) (`consent_peer_set` INSERT OR REPLACE), so it
+    // shows only the last-written of the two; the per-key projection — what the
+    // two plane assertions above read — holds both.
+    let for_keys: Vec<String> = all_for_5
+        .iter()
+        .filter(|(author, _)| author == &owner)
+        .filter_map(|(_, f)| f.clone())
+        .collect();
+    assert!(
+        for_keys.contains(&node) && for_keys.contains(&actor) && for_keys.len() == 2,
+        "two grants by the human, one FOR each machine key: {for_keys:?}"
+    );
+    // And the attester-keyed live reader keeps BOTH: persist v48.0.0 (V152,
+    // CIRISPersist#905) keys `consent_peer_set` by `for_key_id`, so a human
+    // bound to two machine keys holds two live grants toward one peer and
+    // withdrawing one no longer drops the other's peer row. (Under v47 this
+    // reader showed only the last-written — the node's — which is why the
+    // covering door still writes the requested key last: harmless now, and
+    // the order a v47 reader needed.)
+    let mut live_for: Vec<Option<String>> = rows_for_5
+        .iter()
+        .filter(|(author, _)| author == &owner)
+        .map(|(_, f)| f.clone())
+        .collect();
+    live_for.sort();
+    let mut want = vec![Some(actor.clone()), Some(node.clone())];
+    want.sort();
+    assert_eq!(
+        live_for, want,
+        "the attester-keyed live reader keeps one live grant per (author, FOR key, peer)"
+    );
+    // CIRISServer#632 — the DIRECT emitter (what `POST /v1/federation/peering`,
+    // the delivery controller's canonical grant and the admin door call) fans
+    // out the same way when it is asked for the NODE: the production-shaped
+    // ladder read `offerable=0` on persist v48.0.0 because only the covering
+    // door did this, and production's canonical grant never goes through it.
+    const PEER_6: &str = "a-peer-consented-through-the-direct-emitter";
+    register(&engine, &signer_for(PEER_6), PEER_6, identity_type::NODE).await;
+    ciris_server::peer::emit_replication_consent(
+        &engine,
+        &node,
+        PEER_6,
+        &ciris_server::peer::default_attestation_prefixes(),
+    )
+    .await
+    .expect("the direct emitter, asked for the node");
+    for (plane, key) in [("node", &node), ("agent", &actor)] {
+        assert!(
+            engine
+                .consent_peers_by_principals(key)
+                .await
+                .expect("by-principals read")
+                .contains(&PEER_6.to_string()),
+            "the {plane} plane sees the peer consented through the direct emitter"
+        );
+    }
+    // CIRISServer#632 — edge's serve gate (leg B) asks whether the WIRE key, the
+    // node, trusts a root the recipient's `infra:serve` roots to. The engine's
+    // acceptance is the ACTOR's on a split install; the node key needs its own.
+    ciris_server::mesh_genesis::install_baked_trust_root(&engine)
+        .await
+        .expect("the baked trust root installs and is accepted");
+    let root = ciris_server::mesh_genesis::charter_root_key_id(
+        ciris_persist::federation::genesis::canonical_genesis_bundle(),
+    )
+    .expect("the baked bundle names a root");
+    let now = chrono::Utc::now();
+    let dir = engine.federation_directory();
+    for (who, key) in [("agent (engine)", &actor), ("node (wire)", &node)] {
+        assert!(
+            ciris_persist::federation::trust_root::trusted_roots_of(dir.as_ref(), key, now)
+                .await
+                .expect("trusted_roots_of")
+                .contains(&root),
+            "the {who} key accepts the baked root at federation tier"
+        );
+    }
     let _ = std::fs::remove_dir_all(&seed_dir);
     let _ = std::fs::remove_dir_all(&identity_dir);
 }

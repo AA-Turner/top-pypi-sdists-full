@@ -12,6 +12,7 @@ import inspect
 import math
 import random
 import warnings
+from contextlib import nullcontext
 from typing import Any, Callable, cast
 
 import torch
@@ -24,7 +25,9 @@ from torch.optim.lr_scheduler import LRScheduler, ReduceLROnPlateau
 
 from rfdetr._namespace import _namespace_from_configs
 from rfdetr.config import (
+    _MANAGED_SCHEDULER_DEFAULTS,
     ModelConfig,
+    MultiScale,
     TrainConfig,
     _is_managed_optimizer_name,
     _is_managed_scheduler_name,
@@ -32,8 +35,10 @@ from rfdetr.config import (
 )
 from rfdetr.datasets.coco import compute_multi_scale_scales
 from rfdetr.models.lwdetr import build_criterion_from_config, build_model_from_config
+from rfdetr.models.matcher import HungarianMatcher
 from rfdetr.models.weights import apply_lora, interpolate_position_embeddings, load_pretrain_weights
 from rfdetr.training.callbacks.coco_eval import _get_ema_inner_module
+from rfdetr.training.cuda_graph_step import CudaGraphTrainingRunner
 from rfdetr.training.param_groups import (
     _build_param_dicts,
     get_param_dict,
@@ -286,8 +291,8 @@ def _build_managed_scheduler(
 
     Preserves RF-DETR's built-in schedule: a linear warmup ramp over ``warmup_steps`` followed by
     either cosine annealing down to ``min_factor`` or a 10x step decay after ``lr_drop`` epochs. The
-    ``min_factor`` and ``lr_drop`` values are read from ``lr_scheduler_kwargs`` first (the current API),
-    falling back to the deprecated ``lr_min_factor`` / ``lr_drop`` fields.
+    ``min_factor`` and ``lr_drop`` values are read from ``lr_scheduler_kwargs``, falling back to
+    ``_MANAGED_SCHEDULER_DEFAULTS`` when a key is absent.
 
     Args:
         optimizer: The optimizer the scheduler drives.
@@ -302,8 +307,8 @@ def _build_managed_scheduler(
     kwargs = train_config.lr_scheduler_kwargs
     # Managed presets are always strings (guaranteed by the _is_managed_scheduler_name branch at the call site).
     preset = cast(str, train_config.lr_scheduler).strip().lower()
-    min_factor = float(kwargs.get("min_factor", train_config.lr_min_factor))
-    lr_drop = int(kwargs.get("lr_drop", train_config.lr_drop))
+    min_factor = float(kwargs.get("min_factor", _MANAGED_SCHEDULER_DEFAULTS["min_factor"]))
+    lr_drop = int(kwargs.get("lr_drop", _MANAGED_SCHEDULER_DEFAULTS["lr_drop"]))
 
     def lr_lambda(current_step: int) -> float:
         if current_step < warmup_steps:
@@ -385,6 +390,14 @@ class RFDETRModelModule(LightningModule):
         # _aux_aggregate_map() and recomputed only when loss_dict's key set changes between calls.
         self._aux_aggregate_cache: dict[str, str | None] | None = None
         self._aux_aggregate_cache_keys: frozenset[str] | None = None
+        self._cuda_graph_runner: CudaGraphTrainingRunner | None = None
+        # True when cuda_graphs and compile are both active: Inductor's CUDA graph trees replay the
+        # compiled kernels, so _configure_cuda_graph_runner leaves the eager runner unset and
+        # training_step marks each step for the graph-tree allocator instead.
+        self._inductor_cudagraphs: bool = False
+        # Compilation can remain enabled after the narrower Inductor graph-tree gate declines a request.
+        # Keep this separate so the eager runner never captures an OptimizedModule in a compile-only fallback.
+        self._compile_active: bool = False
         # Allow partial state-dict loading when resuming from a .pth checkpoint
         # (which contains only model weights, not criterion/postprocess state).
         self.strict_loading = False
@@ -434,20 +447,121 @@ class RFDETRModelModule(LightningModule):
                 accelerator,
             )
         if compile_enabled:
-            # dynamic=True: one compiled graph handles all multi-scale input sizes instead
-            # of recompiling per (H, W) pair. suppress_errors=True: if inductor can't
-            # compile a subgraph (e.g. bicubic backward with symbolic shapes), it falls
-            # back to eager mode for that subgraph rather than crashing.
-            # capture_scalar_outputs=True: include Tensor.item() calls
-            # (gen_encoder_output_proposals / ms_deform_attn use spatial-shape .item()
-            # as Python slice indices). Safe with dynamic=True because item() results
-            # are backed symbols derived from input shapes — not unbacked symbols that
-            # would cause PendingUnbackedSymbolNotFound (which only occurs without dynamic).
-            torch._dynamo.config.suppress_errors = True
+            # Dynamic shapes let one graph handle all multi-scale input sizes instead of
+            # recompiling per (H, W) pair. Fixed-resolution training uses a static graph so
+            # Inductor can specialize dimensions that stay fixed across training batches
+            # (a validation batch of another shape recompiles once). Positional
+            # interpolation has its own eager boundary for unsupported symbolic bicubic backward.
+            # Do not suppress other compiler errors: nested retries can flood logs and conceal
+            # lost acceleration.
+            # capture_scalar_outputs=True: include Tensor.item() calls. The per-level spatial
+            # shapes reach gen_encoder_output_proposals and ms_deform_attn as Python ints
+            # (spatial_shapes_hw), which are symbols under dynamic tracing and constants in a
+            # static specialization.
             torch._dynamo.config.capture_scalar_outputs = True
+            # Inductor's coalesce tiling analysis is unsupported on the dynamic-shape path
+            # (torch/_inductor/config.py: "coalesce_tiling_analysis does not yet apply to
+            # dynamic shapes"), yet it still runs and reaches an assert in
+            # tiling_utils.get_pw_red_splits comparing size hints. That assert has no
+            # symbolic-shape escape, unlike the CantSplit branch below it, so entire forward
+            # frames fall back to eager. Turning the analysis off costs nothing under
+            # dynamic=True. Passed as a compile option rather than assigned on the inductor
+            # config module, so the default is preserved for any other compilation in this
+            # process. The knob is absent on older torch versions, where passing it would raise
+            # RuntimeError("Unexpected optimization option ..."), hence the hasattr guard.
+            # Local import: pulls in inductor, which an uncompiled run never needs.
+            import torch._inductor.config as inductor_config
+
+            compile_options: dict[str, Any] = {}
+            if hasattr(inductor_config.triton, "coalesce_tiling_analysis"):
+                compile_options["triton.coalesce_tiling_analysis"] = False
+            if model_config.cuda_graphs:
+                # Replay the compiled kernels with Inductor's CUDA graph trees. This is what
+                # mode="reduce-overhead" sets, but torch.compile rejects mode= together with
+                # options=, so the option key is passed directly. The eager CudaGraphTrainingRunner
+                # must not wrap the OptimizedModule on top of this: make_graphed_callables would
+                # capture Inductor's launch path a second time (see _configure_cuda_graph_runner).
+                unsupported_reason = self._inductor_cudagraphs_unsupported_reason(model_config, train_config)
+                if unsupported_reason is None:
+                    compile_options["triton.cudagraphs"] = True
+                    self._inductor_cudagraphs = True
+                    logger.info(
+                        "CUDA graph replay of the compiled model enabled through Inductor cudagraph trees; "
+                        "each new input shape records its own graph (TORCH_LOGS=cudagraphs shows partitions)."
+                    )
+                else:
+                    logger.warning(
+                        "Falling back to compile-only because %s; cuda_graphs together with compile is "
+                        "validated for single-GPU detection training without gradient accumulation.",
+                        unsupported_reason,
+                    )
+            # Duck-typed like the criterion capability probes below: test doubles and custom criteria
+            # need not expose a matcher at all.
+            matcher = getattr(self.criterion, "matcher", None)
+            if isinstance(matcher, HungarianMatcher):
+                # The matcher owns its compile recipe and builds the compiled cost lazily in the process that
+                # runs it, so spawn-based strategies can still pickle the criterion into their workers. It
+                # shares the model's Inductor options (the coalesce-tiling workaround applies to its dynamic
+                # graph too) and forces CUDA graph replay off on top of them itself.
+                matcher.enable_compiled_l1_cost(compile_options)
+                logger.info("Matcher L1 compilation enabled (dynamic shapes, no CUDA graphs; kernels compile on use).")
             # OptimizedModule forwards attribute access to the wrapped LWDETR via
             # __getattr__ at runtime, so self.model keeps working everywhere it's used below.
-            self.model = torch.compile(self.model, dynamic=True)  # type: ignore[assignment]
+            # Static specialization is measured only for the ordinary fixed-resolution detection compile path.
+            # Aspect-preserving resize (square_resize_div_64=False) pads each batch to its own (H, W),
+            # Inductor CUDA graphs keep their established recipe, and segmentation and keypoint models
+            # were not measured, so all of them stay on the dynamic compile.
+            dynamic_shapes = (
+                train_config.multi_scale is not MultiScale.OFF
+                or not train_config.square_resize_div_64
+                or bool(train_config.aug_config)
+                or model_config.cuda_graphs
+                or model_config.segmentation_head
+                or model_config.use_grouppose_keypoints
+            )
+            enable_compiled_losses = getattr(self.criterion, "enable_compiled_detection_losses", None)
+            if enable_compiled_losses is not None and not dynamic_shapes:
+                enable_compiled_losses()
+            self.model = torch.compile(  # type: ignore[assignment]
+                self.model, dynamic=dynamic_shapes, options=compile_options or None
+            )
+            self._compile_active = True
+
+    @staticmethod
+    def _inductor_cudagraphs_unsupported_reason(model_config: ModelConfig, train_config: TrainConfig) -> str | None:
+        """Explain why Inductor CUDA graph replay must stay off for this run, or return ``None`` when it may run.
+
+        Mirrors the single-GPU detection scope of :class:`CudaGraphTrainingRunner` from what is known at construction
+        time, plus one limit specific to cudagraph trees: the compiled backward allocates its gradient outputs inside
+        the graph pool, so a ``.grad`` adopted by the first microbatch is overwritten by the next replay and gradient
+        accumulation raises on the second microbatch.
+
+        Args:
+            model_config: Model configuration being built.
+            train_config: Training configuration for this fit run.
+
+        Returns:
+            A human-readable reason, or ``None`` when the combined path is within its validated scope.
+        """
+        if not hasattr(torch.compiler, "cudagraph_mark_step_begin"):
+            return "this torch version has no torch.compiler.cudagraph_mark_step_begin"
+        if train_config.amp_dtype == "fp8":
+            return "FP8 graph replay requires Transformer Engine capture with compile=False"
+        if model_config.segmentation_head:
+            return "segmentation training is not supported"
+        if model_config.use_grouppose_keypoints:
+            return "keypoint training is not supported"
+        if model_config.gradient_checkpointing:
+            return "gradient checkpointing is not supported"
+        if int(train_config.grad_accum_steps) > 1:
+            return f"gradient accumulation (grad_accum_steps={train_config.grad_accum_steps}) is not supported"
+        devices = train_config.devices
+        multi_device = int(train_config.num_nodes) > 1 or (isinstance(devices, int) and devices > 1)
+        if isinstance(devices, str) and devices not in {"1", "auto"}:
+            multi_device = True
+        if multi_device:
+            return f"distributed training (devices={devices!r}, num_nodes={train_config.num_nodes}) is not supported"
+        return None
 
     # ------------------------------------------------------------------
     # PTL lifecycle hooks
@@ -472,13 +586,19 @@ class RFDETRModelModule(LightningModule):
             seed_everything(self.train_config.seed + self.global_rank, workers=True)
 
     def on_train_start(self) -> None:
-        """Normalize restored fused-optimizer state before the first training step.
+        """Configure the CUDA graph runner, then normalize restored fused-optimizer state.
+
+        Device and world-size placement are only final once Lightning reaches this hook, so
+        :meth:`_configure_cuda_graph_runner` is called first to decide, for this fit run, whether ``training_step``
+        replays a captured graph or stays eager.
 
         Lightning restores optimizer state after ``on_fit_start``.  Fused AdamW is strict about the dtype, device, and
         layout of its moment tensors, so resuming from a checkpoint can fail if Lightning rehydrates those tensors in a
         layout that no longer matches the live parameters.  Recasting same-shaped floating-point tensors here keeps the
         resumed optimizer compatible without discarding the saved momentum state.
         """
+        self._configure_cuda_graph_runner()
+
         if not self._use_fused_optimizer:
             return
 
@@ -505,6 +625,95 @@ class RFDETRModelModule(LightningModule):
                 normalized_tensors,
             )
 
+    def _configure_cuda_graph_runner(self) -> None:
+        """Enable CUDA graph replay only for its validated single-GPU detection scope.
+
+        Raises:
+            RuntimeError: If Inductor CUDA graph replay was compiled in but the trainer resolved gradient
+                accumulation, more than one process, or Transformer Engine precision; or if the FP8 capture
+                plugin has no recipe or a compatible Transformer Engine capture API is unavailable.
+        """
+        self._cuda_graph_runner = None
+        if not getattr(self.model_config, "cuda_graphs", False):
+            return
+        if self._compile_active and not self._inductor_cudagraphs:
+            logger.info(
+                "CUDA graphs requested with compilation outside Inductor's validated scope; "
+                "training remains compile-only."
+            )
+            return
+        if self._inductor_cudagraphs:
+            # The construction-time gate read TrainConfig; trainer_kwargs can override
+            # accumulate_grad_batches and devices="auto" can resolve to several GPUs. The model is
+            # already compiled with cudagraphs, so the only safe response now is to stop.
+            if self.device.type != "cuda":
+                self._inductor_cudagraphs = False
+                logger.warning(
+                    "Disabling Inductor CUDA graph replay because the model is on %r, not CUDA; "
+                    "training will remain compile-only.",
+                    self.device.type,
+                )
+                return
+            accumulate_grad_batches = int(getattr(self.trainer, "accumulate_grad_batches", 1))
+            world_size = int(getattr(self.trainer, "world_size", 1))
+            if accumulate_grad_batches > 1 or world_size != 1:
+                raise RuntimeError(
+                    "cuda_graphs=True with compile=True is validated for single-GPU training without gradient "
+                    f"accumulation, but the trainer resolved accumulate_grad_batches={accumulate_grad_batches} and "
+                    f"world_size={world_size}. Set cuda_graphs=False or drop the accumulation / extra devices."
+                )
+            if str(getattr(self.trainer, "precision", "")).startswith("transformer-engine"):
+                raise RuntimeError(
+                    "FP8 CUDA graphs require compile=False and Transformer Engine capture; "
+                    "the trainer precision cannot override an already compiled Inductor graph run."
+                )
+            logger.info(
+                "CUDA graph replay is handled by Inductor cudagraph trees for the compiled model on %s; "
+                "the eager graph runner stays off.",
+                self.device,
+            )
+            return
+
+        unsupported_reason: str | None = None
+        if self.device.type != "cuda":
+            unsupported_reason = f"the model is on {self.device.type!r}, not CUDA"
+        elif int(getattr(self.trainer, "world_size", 1)) != 1:
+            unsupported_reason = "distributed training is not supported"
+        elif self.model_config.segmentation_head:
+            unsupported_reason = "segmentation training is not supported"
+        elif self.model_config.use_grouppose_keypoints:
+            unsupported_reason = "keypoint training is not supported"
+        elif self.model_config.gradient_checkpointing:
+            unsupported_reason = "gradient checkpointing is not supported"
+        elif str(self.trainer.precision) == "transformer-engine":
+            if not self.train_config.square_resize_div_64:
+                unsupported_reason = "FP8 capture requires square_resize_div_64=True"
+            elif self.train_config.multi_scale is not MultiScale.OFF:
+                unsupported_reason = "FP8 capture requires multi_scale=False"
+            elif int(getattr(self.trainer, "accumulate_grad_batches", self.train_config.grad_accum_steps)) != 1:
+                unsupported_reason = "FP8 capture does not support gradient accumulation"
+        elif str(self.trainer.precision) not in {"bf16-mixed", "bf16-true"}:
+            unsupported_reason = (
+                f"the trainer precision is {self.trainer.precision!r}; capture requires BF16 or Transformer Engine FP8"
+            )
+
+        if unsupported_reason is not None:
+            logger.warning("Disabling CUDA graphs because %s; training will run eagerly.", unsupported_reason)
+            return
+        if str(self.trainer.precision) == "transformer-engine":
+            recipe = getattr(self.trainer.precision_plugin, "recipe", None)
+            if recipe is None:
+                raise RuntimeError("FP8 CUDA graph capture requires the active Lightning Transformer Engine recipe.")
+            self._cuda_graph_runner = CudaGraphTrainingRunner(self.model, fp8_recipe=recipe)
+        else:
+            self._cuda_graph_runner = CudaGraphTrainingRunner(self.model)
+        logger.info(
+            "CUDA graph replay enabled for the training forward on %s (%s); the first batch of each input "
+            "shape runs eager warm-up and capture.",
+            self.device,
+            self.trainer.precision,
+        )
+
     def on_train_batch_start(self, batch: tuple[Any, Any], batch_idx: int) -> None:
         """Apply optional multi-scale resize to the incoming batch.
 
@@ -518,7 +727,7 @@ class RFDETRModelModule(LightningModule):
         tc = self.train_config
         mc = self.model_config
 
-        if tc.multi_scale and not tc.do_random_resize_via_padding:
+        if tc.multi_scale is MultiScale.PER_BATCH:
             samples, _ = batch
             scales = compute_multi_scale_scales(mc.resolution, tc.expanded_scales, mc.patch_size, mc.num_windows)
             step = self.trainer.global_step
@@ -576,7 +785,16 @@ class RFDETRModelModule(LightningModule):
         """
         samples, targets = batch
         batch_size = len(targets)
-        outputs = self.model(samples, targets)
+        if self._inductor_cudagraphs:
+            # Lightning holds the logged loss tensors past this step. Marking the step lets cudagraph
+            # trees reuse the previous step's output memory instead of raising "accessing tensor
+            # output of CUDAGraphs that has been overwritten by a subsequent run" on the next replay.
+            torch.compiler.cudagraph_mark_step_begin()  # type: ignore[no-untyped-call]
+        outputs = (
+            self._cuda_graph_runner(samples, targets)
+            if self._cuda_graph_runner is not None
+            else self.model(samples, targets)
+        )
         if self._use_manual_optimization:
             loss_dict, raw_loss, normalizer = self._compute_train_losses(outputs, targets)
             loss_for_backward = self._scale_loss_for_accumulation(raw_loss, normalizer)
@@ -585,11 +803,10 @@ class RFDETRModelModule(LightningModule):
             loss_for_backward = None
         weight_dict = self.criterion.weight_dict
         loss: Tensor = torch.stack([loss_dict[k] * weight_dict[k] for k in loss_dict if k in weight_dict]).sum()
-        # Automatic optimization path: divide by accumulate_grad_batches so the accumulated
-        # gradient matches a single large batch, matching the legacy engine.  PTL accumulates
-        # full-scale gradients by default; dividing here keeps the effective LR identical.
-        accumulate_grad_batches = max(1, int(self.trainer.accumulate_grad_batches))
-        loss_for_return = loss if self._use_manual_optimization else loss / accumulate_grad_batches
+        # Automatic optimization path: return the loss unscaled. Lightning divides the returned loss by
+        # ``trainer.accumulate_grad_batches`` itself (``ClosureResult.from_training_step_output``) before
+        # ``backward()``, so the accumulated gradient already equals the mean over the window; dividing here as
+        # well scaled every accumulated gradient by ``1/N**2``. The manual path scales its own backward loss above.
         train_log_sync_dist = bool(self.train_config.train_log_sync_dist)
         train_log_on_step = bool(self.train_config.train_log_on_step)
         if self.train_config.compact_train_metrics:
@@ -615,15 +832,26 @@ class RFDETRModelModule(LightningModule):
             batch_size=batch_size,
         )
         self._log_train_progress_metrics(loss, loss_dict, batch_size=batch_size)
-        optimizer = self.optimizers()
-        if isinstance(optimizer, list):
-            optimizer = optimizer[0]
         if self._use_manual_optimization:
+            # Only the manual path drives the optimizer itself; Lightning owns it on the
+            # automatic path, so fetching it there would touch trainer.strategy for nothing.
+            optimizer = self.optimizers()
+            if isinstance(optimizer, list):
+                optimizer = optimizer[0]
             # loss_for_backward is only None in the automatic-optimization branch above,
             # which is mutually exclusive with _use_manual_optimization.
             assert loss_for_backward is not None
-            self.manual_backward(loss_for_backward)
-            if self._should_step_optimizer(batch_idx):
+            should_step = self._should_step_optimizer(batch_idx)
+            # LightningOptimizer maps sync_grad=False to DDP's no_sync context. Intermediate
+            # microbatches accumulate locally; the closing backward reduces the whole window.
+            sync_context = (
+                optimizer.toggle_model(sync_grad=should_step)
+                if isinstance(optimizer, LightningOptimizer)
+                else nullcontext()
+            )
+            with sync_context:
+                self.manual_backward(loss_for_backward)
+            if should_step:
                 self._step_optimizer(optimizer)
         if self.train_config.compute_train_metrics:
             with torch.no_grad():
@@ -643,11 +871,11 @@ class RFDETRModelModule(LightningModule):
                 }
                 results = self.postprocess(inference_outputs, orig_sizes)
             return {
-                "loss": loss_for_return.detach() if self._use_manual_optimization else loss_for_return,
+                "loss": loss.detach() if self._use_manual_optimization else loss,
                 "results": self._detach_results(results),
                 "targets": targets,
             }
-        return loss_for_return.detach() if self._use_manual_optimization else loss_for_return
+        return loss.detach() if self._use_manual_optimization else loss
 
     def _aux_aggregate_map(self, loss_dict: dict[str, Tensor], weight_dict: dict[str, float]) -> dict[str, str | None]:
         """Return the memoized ``loss_name -> aggregate train/ key`` map for the current loss_dict keys.
@@ -1083,6 +1311,10 @@ class RFDETRModelModule(LightningModule):
             Dict with ``results`` (postprocessed predictions) and ``targets``.
         """
         samples, targets = batch
+        if self._inductor_cudagraphs:
+            # Same reason as in training_step: with eval_base_model=True or use_ema=False the
+            # compiled model runs here and records its own eval-mode graph.
+            torch.compiler.cudagraph_mark_step_begin()  # type: ignore[no-untyped-call]
         outputs = self._resolve_eval_model()(samples)
         if self._should_compute_val_loss:
             loss_dict = self.criterion(outputs, targets)
@@ -1161,7 +1393,7 @@ class RFDETRModelModule(LightningModule):
             self.model_config.fused_optimizer
             and torch.cuda.is_available()
             and torch.cuda.is_bf16_supported()
-            and str(self.trainer.precision) in {"bf16-mixed", "bf16", "bf16-true"}
+            and str(self.trainer.precision) in {"bf16-mixed", "bf16", "bf16-true", "transformer-engine"}
         )
 
     @property
@@ -1448,7 +1680,7 @@ class RFDETRModelModule(LightningModule):
     def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
         """Auto-detect legacy formats and reconcile PE shapes at checkpoint load time.
 
-        PTL calls this hook before applying ``checkpoint["state_dict"]`` to the module.  Three normalisation steps are
+        PTL calls this hook before applying ``checkpoint["state_dict"]`` to the module.  Four normalisation steps are
         applied in order:
 
         1. **Raw legacy format** — a ``*.pth`` file loaded directly by
@@ -1461,7 +1693,16 @@ class RFDETRModelModule(LightningModule):
            PE to ``model_config.positional_encoding_size`` before PTL applies the state dict.  Regression fix for
            :issue:`998`.
 
-        3. **Converted format** — a file produced by
+        3. **FP8 extra-state removal** — under Transformer Engine (``amp_dtype="fp8"``), the live module's
+           ``state_dict()`` carries ``_extra_state`` entries recording FP8 scaling history. Since ``strict_loading``
+           is disabled on this module, ``load_state_dict()`` tolerates a missing or unexpected key afterward, but
+           that does not stop it from calling ``set_extra_state()`` for any such key present in both the checkpoint
+           and the module —
+           and Transformer Engine intentionally rejects pickle-deserialised extra state. The entries are removed from
+           ``checkpoint["state_dict"]`` here so the full-checkpoint resume path (``Trainer(ckpt_path=...)``) cannot
+           abort on them, mirroring :meth:`~rfdetr.training.callbacks.ema.RFDETREMACallback._without_extra_state`.
+
+        4. **Converted format** — a file produced by
            :func:`~rfdetr.training.checkpoint.convert_legacy_checkpoint` that already has ``"state_dict"`` but also
            carries ``"legacy_ema_state_dict"``.  The EMA weights are stashed on ``self._pending_legacy_ema_state`` for
            optional restoration by :class:`~rfdetr.training.callbacks.ema.RFDETREMACallback`.
@@ -1488,6 +1729,16 @@ class RFDETRModelModule(LightningModule):
                 checkpoint["state_dict"],
                 self.model_config.positional_encoding_size,
             )
+
+        # Drop Transformer Engine's `_extra_state` entries before PTL applies the state dict.
+        # `strict_loading=False` (set in __init__) only tolerates a missing or unexpected key
+        # afterward — it does not stop `load_state_dict()` from calling `set_extra_state()` for a
+        # key present in both the checkpoint and the module, and Transformer Engine rejects that
+        # pickle round-trip.
+        if "state_dict" in checkpoint:
+            extra_state_keys = [key for key in checkpoint["state_dict"] if key.rsplit(".", 1)[-1] == "_extra_state"]
+            for key in extra_state_keys:
+                del checkpoint["state_dict"][key]
 
         # Optimizer/scheduler state saved before parameters were grouped by hyperparameters carries
         # one parameter group per parameter, a layout the optimizer no longer has. Regroup it so

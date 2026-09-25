@@ -13,6 +13,7 @@ from rich.console import Console
 from src.cli.config import DEFAULT_API_URL, CLIConfig, is_local_api_url
 from src.cli.utils.formatters import (
     format_error,
+    format_info,
     format_success,
     format_warning,
 )
@@ -208,16 +209,21 @@ class ConfigCommands:
 
             # Check for non-interactive mode
             if getattr(args, "non_interactive", False):
-                # Validate required parameters
-                if not args.email or not args.name:
+                # --email/--name only matter against a local API: a shared
+                # deployment is handed to `innoday login` (PF-456).
+                api_url = getattr(args, "api_url", None) or DEFAULT_API_URL
+                if is_local_api_url(api_url) and (not args.email or not args.name):
                     console.print(
-                        format_error("Non-interactive mode requires --email and --name")
+                        format_error(
+                            "Non-interactive mode against a local API requires "
+                            "--email and --name"
+                        )
                     )
                     return 1
 
                 # Run non-interactive initialization. Its exit code is the
-                # command's: it used to be discarded, so even the team-secret
-                # refusal -- which writes nothing at all -- exited 0 (#619).
+                # command's: it used to be discarded, so even a refusal that
+                # wrote nothing at all exited 0 (#619).
                 return await ConfigCommands._non_interactive_init(config, args)
 
             # Show welcome banner for first-time setup (unless suppressed)
@@ -410,18 +416,21 @@ class ConfigCommands:
     # a board credential; the other two have no replacement because nothing
     # wanted them.
 
-    #: What to run when a user create needs the shared deployment's team secret
-    #: and the CLI has none. Names `innoday config set team-secret`, which
-    #: exists, and deliberately no longer says "or pass
-    #: `innoday init --team-secret`": that flag is real, but it belongs to the
-    #: *workspace* `init` command, so someone running `config init` was being
-    #: sent to a different command for a flag `config init` does not have
-    #: (#619).
-    TEAM_SECRET_REQUIRED_MESSAGE = (
-        "A team access secret is required to create a user on the shared "
-        "dev/deployed API. Run `innoday config set team-secret <value>` first, "
-        "then re-run this command."
+    #: What `config init` says against a shared deployment. It used to create
+    #: the account itself -- `POST /users`, a platform-admin route behind the
+    #: team secret -- so every new person was asked for that secret. Accounts
+    #: there come by invitation, and identity comes from `innoday login`
+    #: (PF-456). Creating users is operator work: `scripts/bootstrap_cli.py`.
+    SIGN_IN_MESSAGE = (
+        "Sign in with `innoday login` -- it opens your browser. Accounts on a "
+        "shared InnoDay are by invitation; if you have none, ask a platform admin."
     )
+
+    @staticmethod
+    def _hand_over_to_login(config: CLIConfig) -> None:
+        """Save the API URL and point a shared-deployment user at `login`."""
+        config.save()
+        console.print(format_info(ConfigCommands.SIGN_IN_MESSAGE))
 
     @staticmethod
     async def _non_interactive_init(config: CLIConfig, args: argparse.Namespace) -> int:
@@ -465,12 +474,11 @@ class ConfigCommands:
         user_id = None
         failure = None
 
-        # Against the shared dev/deployed API, POST /users is gated by the team
-        # access secret. Refuse a create up front (rather than firing a doomed
-        # 401) when none is set.
-        if not is_local_api_url(api_url) and not config.get_team_secret():
-            console.print(format_error(ConfigCommands.TEAM_SECRET_REQUIRED_MESSAGE))
-            return 1
+        # A shared deployment: no user lookup or create here -- both are
+        # platform-admin routes. Identity comes from `innoday login` (PF-456).
+        if not is_local_api_url(api_url):
+            ConfigCommands._hand_over_to_login(config)
+            return 0
 
         try:
             user_data = {
@@ -520,7 +528,7 @@ class ConfigCommands:
                 format_error(
                     f"Could not resolve a user for {args.email} on {api_url}"
                     + (f" ({failure})" if failure else "")
-                    + ". Nothing was written. Check the API URL and team secret, "
+                    + ". Nothing was written. Check the API URL, "
                     "or ask a platform admin to seed the account with "
                     "`scripts/bootstrap_cli.py seed-user`."
                 )
@@ -578,13 +586,8 @@ class ConfigCommands:
         """
         cfg = config if config is not None else getattr(api_client, "config", None)
         if isinstance(cfg, CLIConfig) and not is_local_api_url(cfg.get_api_url()):
-            if not cfg.get_team_secret():
-                console.print(format_error(ConfigCommands.TEAM_SECRET_REQUIRED_MESSAGE))
-                raise Exception(
-                    "Missing team access secret for user creation on the shared "
-                    "dev/deployed API"
-                )
-
+            console.print(format_info(ConfigCommands.SIGN_IN_MESSAGE))
+            raise Exception("Accounts on a shared InnoDay are created by invitation")
         create_response = await api_client.post(
             "/users", json={"email": email, "full_name": full_name, "role": "DEVELOPER"}
         )
@@ -642,6 +645,13 @@ class ConfigCommands:
                 console.print(format_warning(f"⚠ Could not connect: {e}"))
             if not Confirm.ask("Try a different URL?", default=True):
                 break
+
+        # A shared deployment: listing and creating users are platform-admin
+        # routes, and identity comes from `innoday login` (PF-456). The rest of
+        # this wizard is for a local API.
+        if not is_local_api_url(config.get_api_url()):
+            ConfigCommands._hand_over_to_login(config)
+            return True
 
         api_client = APIClient(config)
 

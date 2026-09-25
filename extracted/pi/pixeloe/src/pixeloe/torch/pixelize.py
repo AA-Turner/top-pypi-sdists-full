@@ -1,12 +1,23 @@
 import torch
 import torch.nn.functional as F
 
+from ..backend import requested_backend
+
 from .outline import outline_expansion, expansion_weight
 from .color import match_color, quantize_and_dither
+
+from .sharpen.unsharp import unsharp_mask
+from .sharpen.laplacian import laplacian_sharpen
 
 from .downscale.contrast_based import contrast_downscale
 from .downscale.k_centroid import k_centroid_downscale_torch
 from .downscale.lanczos import lanczos_resize
+
+try:
+    from ..slang.auto import select_context
+    from ..slang.pixelize import pixelize as slang_pixelize
+except (ImportError, OSError):  # slangpy missing or its native runtime failed
+    select_context = None
 
 
 def pixelize(
@@ -14,6 +25,8 @@ def pixelize(
     pixel_size=6,
     thickness=3,
     mode="contrast",
+    sharpen_mode=None,
+    sharpen_factor=0.5,
     do_color_match=True,
     do_quant=False,
     num_colors=32,
@@ -21,11 +34,42 @@ def pixelize(
     dither_mode="ordered",
     no_post_upscale=False,
     return_intermediate=False,
+    weight_mapping="current",
+    weight_normalize="global",
+    *,
+    backend=None,
 ):
     """
-    Main pipeline: pixelize an image using PyTorch.
+    Main pipeline: pixelize an image.
         img_t: Input RGB image tensor [B,C,H,W] with range [0..1]
+        backend: "auto" (default, or $PIXELOE_BACKEND): the fastest Slang
+            compute-shader backend usable for img_t's device, else the torch
+            pipeline; "torch"; or a Slang backend ("cuda", "vulkan", "d3d12",
+            "cpu") - see pixeloe.slang.auto.
     """
+    requested = requested_backend(backend)
+    if select_context is None and requested not in ("auto", "torch"):
+        raise RuntimeError(f"backend {requested!r} needs slangpy (pixeloe[slang])")
+    ctx = select_context(img_t, requested) if select_context is not None else None
+    if ctx is not None:
+        return slang_pixelize(
+            img_t,
+            pixel_size=pixel_size,
+            thickness=thickness,
+            mode=mode,
+            sharpen_mode=sharpen_mode,
+            sharpen_factor=sharpen_factor,
+            do_color_match=do_color_match,
+            do_quant=do_quant,
+            num_colors=num_colors,
+            quant_mode=quant_mode,
+            dither_mode=dither_mode,
+            no_post_upscale=no_post_upscale,
+            return_intermediate=return_intermediate,
+            weight_mapping=weight_mapping,
+            weight_normalize=weight_normalize,
+            context=ctx,
+        )
     quant_mode = quant_mode.lower()
     weighted_quant = do_quant and quant_mode in {"weighted-kmeans", "repeat-kmeans"}
     repeat_mode = quant_mode == "repeat-kmeans"
@@ -34,8 +78,8 @@ def pixelize(
     h, w = img_t.shape[2], img_t.shape[3]
     out_h = h // pixel_size
     out_w = w // pixel_size
-    pad_h = pixel_size - h % pixel_size
-    pad_w = pixel_size - w % pixel_size
+    pad_h = pixel_size - ((h % pixel_size) or pixel_size)
+    pad_w = pixel_size - ((w % pixel_size) or pixel_size)
     if pad_h or pad_w:
         img_t = F.pad(
             img_t,
@@ -49,14 +93,33 @@ def pixelize(
     oe_weights = None
     if thickness > 0:
         expanded, oe_weights = outline_expansion(
-            img_t, thickness, thickness, pixel_size
+            img_t,
+            thickness,
+            thickness,
+            pixel_size,
+            weight_mapping=weight_mapping,
+            weight_normalize=weight_normalize,
         )
     else:
         expanded = img_t
 
+    match sharpen_mode:
+        case "unsharp":
+            expanded = unsharp_mask(
+                expanded, kernel_size=3, sigma=1.0, amount=sharpen_factor
+            )
+        case "laplacian":
+            expanded = laplacian_sharpen(expanded, amount=sharpen_factor)
+
     if weighted_quant:
         if oe_weights is None:
-            weights = expansion_weight(img_t, pixel_size, pixel_size // 2)
+            weights = expansion_weight(
+                img_t,
+                pixel_size,
+                pixel_size // 2,
+                mapping=weight_mapping,
+                normalize=weight_normalize,
+            )
         else:
             weights = oe_weights
         weights = torch.abs(weights * 2 - 1) * weights
@@ -85,7 +148,7 @@ def pixelize(
             weights=weights,
             num_centroids=num_colors,
             quant_mode=quant_mode,
-            dither_method=dither_mode,
+            dither_method=dither_mode.lower(),
             repeat_mode=repeat_mode,
         )
         down_final = match_color(down_final, down)
@@ -95,7 +158,9 @@ def pixelize(
     if no_post_upscale:
         out_pixel = down_final
     else:
-        out_pixel = F.interpolate(down_final, scale_factor=pixel_size, mode="nearest-exact")
+        out_pixel = F.interpolate(
+            down_final, scale_factor=pixel_size, mode="nearest-exact"
+        )
 
     if return_intermediate:
         return out_pixel, expanded, oe_weights

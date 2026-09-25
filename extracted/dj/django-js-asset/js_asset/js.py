@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 import json
+import warnings
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -114,9 +116,11 @@ class JSON:
         # hash must too -- see ``_canonical_hash``.
         return hash((_canonical_hash(self.data), self.id))
 
-    def render(self, *, nonce=""):
+    def render(self, *, attrs=None, nonce=""):
         # A type="application/json" block is data, not executed JavaScript, so
-        # it is not governed by CSP and needs no nonce.
+        # it is not governed by CSP and needs no nonce. ``attrs`` is accepted
+        # for compatibility with ``MediaAsset.render()`` (whose callers pass
+        # the nonce that way) and ignored as well.
         return json_script(self.data, self.id)
 
     def __str__(self):
@@ -126,7 +130,9 @@ class JSON:
 @html_safe
 class ImportMap:
     def __init__(self, importmap):
-        self._importmap = importmap
+        # Copy the data: import maps are hashable (``Media.merge`` relies on
+        # it), so they must not change when the caller's dict does.
+        self._importmap = copy.deepcopy(importmap)
 
     def __eq__(self, other):
         return isinstance(other, ImportMap) and self._importmap == other._importmap
@@ -136,19 +142,30 @@ class ImportMap:
         # hash must too -- see ``_canonical_hash``.
         return _canonical_hash(self._importmap)
 
-    def render(self, *, nonce=""):
-        if self._importmap:
-            nonce_attr = mark_safe(flatatt({"nonce": nonce})) if nonce else ""
+    def __bool__(self):
+        return bool(self._importmap)
+
+    def render(self, *, attrs=None, nonce=""):
+        # ``attrs`` matches ``MediaAsset.render()``; ``nonce`` is kept for
+        # backwards compatibility.
+        if self:
+            attrs = ({"nonce": nonce} if nonce else {}) | (attrs or {})
             html = json_script(self._importmap).removeprefix(
                 '<script type="application/json">'
             )
-            return mark_safe(f'<script type="importmap"{nonce_attr}>{html}')
+            return mark_safe(f'<script type="importmap"{flatatt(attrs)}>{html}')
         return ""
 
     def __str__(self):
         return self.render()
 
     def update(self, other):
+        warnings.warn(
+            "ImportMap.update() is deprecated, import maps will become immutable."
+            " Use map1 | map2 or map1 |= map2 instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if isinstance(other, ImportMap):
             other = other._importmap
 
@@ -163,9 +180,17 @@ class ImportMap:
                 )
 
     def __or__(self, other):
-        if isinstance(other, ImportMap):
-            combined = self.__class__({})
-            combined.update(self)
-            combined.update(other)
-            return combined
-        return NotImplemented
+        if not isinstance(other, ImportMap):
+            return NotImplemented
+        a, b = self._importmap, other._importmap
+        combined = {}
+        for key in ("imports", "integrity"):
+            if key in a or key in b:
+                combined[key] = a.get(key, {}) | b.get(key, {})
+        if "scopes" in a or "scopes" in b:
+            scopes = a.get("scopes", {}), b.get("scopes", {})
+            combined["scopes"] = {
+                scope: scopes[0].get(scope, {}) | scopes[1].get(scope, {})
+                for scope in scopes[0] | scopes[1]
+            }
+        return self.__class__(combined)

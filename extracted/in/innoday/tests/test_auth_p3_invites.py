@@ -301,14 +301,6 @@ class TestSelfRegister:
             assert m is None
 
 
-class TestAcceptPage:
-    def test_accept_page_renders(self, client):
-        r = client.get("/invite/accept?token=abc123")
-        assert r.status_code == 200
-        assert "Accept" in r.text
-        assert "abc123" in r.text
-
-
 def _select_membership(user_id, org_id):
     from sqlmodel import select
 

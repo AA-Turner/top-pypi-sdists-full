@@ -1,6 +1,7 @@
 # attach_functions.py  — single helper you can import anywhere
 # attach_dynamic.py
 from __future__ import annotations
+from ..._frames import light_stack
 from .find_collect import (
     re,
     os,
@@ -42,7 +43,7 @@ from ..imports import (
 )
 
 def caller_path():
-    frame = inspect.stack()[1]
+    frame = light_stack()[1]
     return os.path.abspath(frame.filename)
 def _is_defined_here(mod: types.ModuleType, obj: object) -> bool:
     try:

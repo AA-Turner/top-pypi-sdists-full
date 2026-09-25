@@ -20,7 +20,6 @@ from flask_security.utils import localize_callback
 from tests.test_utils import (
     authenticate,
     check_location,
-    check_xlation,
     get_form_input_value,
     get_session,
     hash_password,
@@ -319,21 +318,19 @@ def test_auth_uniquifier(app):
         db.engine.dispose()
 
 
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
-@pytest.mark.babel()
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_xlation(app, client, get_message_local, outbox):
     # Test form and email translation
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
-
     authenticate(client)
 
     response = client.get("/change", follow_redirects=True)
     with app.test_request_context():
         # Check header
-        assert (
-            f'<h1>{localize_callback("Change Password")}</h1>'.encode() in response.data
-        )
+        header = localize_callback("Change Password")
+        assert "OKAY!" in header  # ensures actual translation
+        assert f"<h1>{header}</h1>".encode() in response.data
         submit = localize_callback(_default_field_labels["change_password"])
+        assert "OKAY!" in submit
         assert f'value="{submit}"'.encode() in response.data
 
     response = client.post(
@@ -347,20 +344,21 @@ def test_xlation(app, client, get_message_local, outbox):
     )
 
     with app.test_request_context():
-        assert get_message_local("PASSWORD_CHANGE").encode("utf-8") in response.data
+        flash = get_message_local("PASSWORD_CHANGE")
+        assert "OKAY!" in flash
+        assert f'<li class="success">{flash}</li>'.encode() in response.data
         assert b"Home Page" in response.data
         assert len(outbox) == 1
-        assert (
-            localize_callback(
-                app.config["SECURITY_EMAIL_SUBJECT_PASSWORD_CHANGE_NOTICE"]
-            )
-            in outbox[0].subject
+        subj = localize_callback(
+            app.config["SECURITY_EMAIL_SUBJECT_PASSWORD_CHANGE_NOTICE"]
         )
-        assert (
-            str(markupsafe.escape(localize_callback("Your password has been changed.")))
-            in outbox[0].alts["html"]
-        )
-        assert localize_callback("Your password has been changed") in outbox[0].body
+        assert "OKAY!" in subj
+        assert subj in outbox[0].subject
+
+        body = localize_callback("Your password has been changed.")
+        assert "OKAY!" in body
+        assert str(markupsafe.escape(body)) in outbox[0].alts["html"]
+        assert body in outbox[0].body
 
 
 @pytest.mark.settings(change_url="/custom_change")

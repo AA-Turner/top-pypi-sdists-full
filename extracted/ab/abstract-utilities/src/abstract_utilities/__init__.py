@@ -8,6 +8,10 @@ stdlib-only build (heavy libs like pandas/tiktoken/flask/etc. are used only when
 already installed, otherwise a stdlib fallback or clean skip). Import name is
 ``abstract_utilities``.
 """
+# The pre-trim star-import surface (stdlib + typing), restored FIRST so every
+# name this package defines below still takes precedence. See _legacy_exports.
+from ._legacy_exports import *  # noqa: F401,F403
+from ._legacy_exports import _lazy_attr as _legacy_lazy_attr
 from .imports import (
     imports,
     os,
@@ -15,6 +19,8 @@ from .imports import (
     load_dotenv,
     jsonify,
     secure_filename,
+    logging,
+    Path
 )
 from .hash_utils import (
     imports,
@@ -800,3 +806,8 @@ from .read_write_utils import (read_from_file,
                                make_path,
                                run_cmd
                                )
+
+
+def __getattr__(name):
+    """Heavy legacy names (pd, gpd, PyPDF2, requests, ...) resolve on first use."""
+    return _legacy_lazy_attr(name)

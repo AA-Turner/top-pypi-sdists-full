@@ -99,6 +99,11 @@ flow_folders:
   # delete: can delete empty folders
   org_id: wildcard
   ws_id: wildcard
+flow_settings:
+  # write: can change the settings on a flow that constrain its editors and deployers
+  # (review requirements, test run worker budget); workspace-wide on purpose
+  org_id: wildcard
+  ws_id: wildcard
 workspace_routing_sandbox:
   # write: can modify sandbox routing
   org_id: wildcard

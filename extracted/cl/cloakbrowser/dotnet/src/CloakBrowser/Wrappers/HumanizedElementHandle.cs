@@ -141,6 +141,15 @@ public sealed partial class HumanizedElementHandle : IElementHandle
     // -----------------------------------------------------------------------
 
     private static IElementHandle Unwrap(IElementHandle h) => h is HumanizedElementHandle w ? w.Original : h;
+    private static ILocator Unwrap(ILocator l) => l is HumanizedLocator w ? w.Original : l;
+
+    // #549: unwrap masked locators in place (rebuilding options would drop future fields).
+    public Task<byte[]> ScreenshotAsync(ElementHandleScreenshotOptions? options = null)
+    {
+        if (options?.Mask != null)
+            options.Mask = options.Mask.Select(Unwrap).ToList();
+        return _inner.ScreenshotAsync(options);
+    }
 
     private async Task SelectPrologueAsync(ElementHandleSelectOptionOptions? options)
     {

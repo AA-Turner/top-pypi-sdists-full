@@ -1,0 +1,1 @@
+import{t as e}from"./use-api-CwhwWDPy.js";import{r as t}from"./gateway-service-D3TFc2uB.js";function n(){let{data:n,isLoading:r,error:i,refetch:a}=e(t);return{allGatewaySecrets:n,isLoading:r,error:i,refresh:a}}export{n as t};

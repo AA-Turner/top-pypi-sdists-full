@@ -38,6 +38,7 @@ from runlayer_cli.config import (
     persist_credentials,
 )
 from runlayer_cli.hook.failure import (
+    classify_response_origin,
     FailureContext,
     _classify_network_failure,
     _safe_wire_size,
@@ -922,9 +923,20 @@ def _post(
                     break
         _maybe_debug(debug, target, url, payload, resp)
         if not resp.is_success:
-            if resp.status_code == 401 and _credential_cache is not None:
-                _credential_cache.invalidate()
-            if resp.status_code == credential_state.CREDENTIAL_REJECTED_STATUS:
+            origin_info = classify_response_origin(resp)
+            # Only Runlayer's own 401 (origin runlayer or unclassified) is a
+            # credential verdict: drop the process cache and arm Monitor's
+            # negative cache. An intermediary's 401 must do neither — it would
+            # synthesize denies for the cache TTL after the network recovered.
+            # No other flow marking happens here: this response may still be
+            # recovered (gzip identity retry) or swallowed by a best-effort
+            # caller, so the deny site in dispatch owns the flow category.
+            if (
+                resp.status_code == credential_state.CREDENTIAL_REJECTED_STATUS
+                and origin_info.origin != "intermediary"
+            ):
+                if _credential_cache is not None:
+                    _credential_cache.invalidate()
                 _note_credential_rejection(host, secret)
             remaining_budget = deadline - time.monotonic()
             if (
@@ -966,6 +978,9 @@ def _post(
                     status_code=resp.status_code,
                     elapsed_s=time.perf_counter() - started,
                     attempts=attempt,
+                    origin=origin_info.origin,
+                    request_id=origin_info.request_id,
+                    detail=origin_info.detail,
                 ),
             )
         remaining_budget = deadline - time.monotonic()

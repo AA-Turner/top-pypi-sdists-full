@@ -37,6 +37,7 @@ from datadog_api_client.v2.api.container_images_api import ContainerImagesApi
 from datadog_api_client.v2.api.containers_api import ContainersApi
 from datadog_api_client.v2.api.customer_org_api import CustomerOrgApi
 from datadog_api_client.v2.api.ddsql_api import DDSQLApi
+from datadog_api_client.v2.api.dem_api import DEMApi
 from datadog_api_client.v2.api.dora_metrics_api import DORAMetricsApi
 from datadog_api_client.v2.api.dashboard_lists_api import DashboardListsApi
 from datadog_api_client.v2.api.dashboard_secure_embed_api import DashboardSecureEmbedApi
@@ -44,11 +45,12 @@ from datadog_api_client.v2.api.dashboard_sharing_api import DashboardSharingApi
 from datadog_api_client.v2.api.dashboards_api import DashboardsApi
 from datadog_api_client.v2.api.data_deletion_api import DataDeletionApi
 from datadog_api_client.v2.api.data_observability_api import DataObservabilityApi
+from datadog_api_client.v2.api.databricks_integration_api import DatabricksIntegrationApi
 from datadog_api_client.v2.api.datasets_api import DatasetsApi
 from datadog_api_client.v2.api.deployment_gates_api import DeploymentGatesApi
 from datadog_api_client.v2.api.domain_allowlist_api import DomainAllowlistApi
 from datadog_api_client.v2.api.downtimes_api import DowntimesApi
-from datadog_api_client.v2.api.elastic_cloud_integration_accounts_api import ElasticCloudIntegrationAccountsApi
+from datadog_api_client.v2.api.elastic_cloud_integration_api import ElasticCloudIntegrationApi
 from datadog_api_client.v2.api.entity_integration_configs_api import EntityIntegrationConfigsApi
 from datadog_api_client.v2.api.entity_risk_scores_api import EntityRiskScoresApi
 from datadog_api_client.v2.api.error_tracking_api import ErrorTrackingApi
@@ -93,6 +95,7 @@ from datadog_api_client.v2.api.organizations_api import OrganizationsApi
 from datadog_api_client.v2.api.powerpack_api import PowerpackApi
 from datadog_api_client.v2.api.processes_api import ProcessesApi
 from datadog_api_client.v2.api.product_analytics_api import ProductAnalyticsApi
+from datadog_api_client.v2.api.product_catalog_api import ProductCatalogApi
 from datadog_api_client.v2.api.rum_api import RUMApi
 from datadog_api_client.v2.api.rum_config_api import RUMConfigApi
 from datadog_api_client.v2.api.rum_insights_api import RUMInsightsApi
@@ -122,6 +125,7 @@ from datadog_api_client.v2.api.service_definition_api import ServiceDefinitionAp
 from datadog_api_client.v2.api.service_level_objectives_api import ServiceLevelObjectivesApi
 from datadog_api_client.v2.api.service_now_integration_api import ServiceNowIntegrationApi
 from datadog_api_client.v2.api.slack_integration_api import SlackIntegrationApi
+from datadog_api_client.v2.api.snowflake_integration_api import SnowflakeIntegrationApi
 from datadog_api_client.v2.api.software_catalog_api import SoftwareCatalogApi
 from datadog_api_client.v2.api.spa_api import SpaApi
 from datadog_api_client.v2.api.spans_api import SpansApi
@@ -136,7 +140,8 @@ from datadog_api_client.v2.api.tag_rules_api import TagRulesApi
 from datadog_api_client.v2.api.teams_api import TeamsApi
 from datadog_api_client.v2.api.test_optimization_api import TestOptimizationApi
 from datadog_api_client.v2.api.threat_intelligence_api import ThreatIntelligenceApi
-from datadog_api_client.v2.api.twilio_integration_accounts_api import TwilioIntegrationAccountsApi
+from datadog_api_client.v2.api.timeseries_anomaly_investigations_api import TimeseriesAnomalyInvestigationsApi
+from datadog_api_client.v2.api.twilio_integration_api import TwilioIntegrationApi
 from datadog_api_client.v2.api.usage_metering_api import UsageMeteringApi
 from datadog_api_client.v2.api.user_authorized_clients_api import UserAuthorizedClientsApi
 from datadog_api_client.v2.api.users_api import UsersApi
@@ -186,6 +191,7 @@ __all__ = [
     "ContainersApi",
     "CustomerOrgApi",
     "DDSQLApi",
+    "DEMApi",
     "DORAMetricsApi",
     "DashboardListsApi",
     "DashboardSecureEmbedApi",
@@ -193,11 +199,12 @@ __all__ = [
     "DashboardsApi",
     "DataDeletionApi",
     "DataObservabilityApi",
+    "DatabricksIntegrationApi",
     "DatasetsApi",
     "DeploymentGatesApi",
     "DomainAllowlistApi",
     "DowntimesApi",
-    "ElasticCloudIntegrationAccountsApi",
+    "ElasticCloudIntegrationApi",
     "EntityIntegrationConfigsApi",
     "EntityRiskScoresApi",
     "ErrorTrackingApi",
@@ -242,6 +249,7 @@ __all__ = [
     "PowerpackApi",
     "ProcessesApi",
     "ProductAnalyticsApi",
+    "ProductCatalogApi",
     "RUMApi",
     "RUMConfigApi",
     "RUMInsightsApi",
@@ -271,6 +279,7 @@ __all__ = [
     "ServiceLevelObjectivesApi",
     "ServiceNowIntegrationApi",
     "SlackIntegrationApi",
+    "SnowflakeIntegrationApi",
     "SoftwareCatalogApi",
     "SpaApi",
     "SpansApi",
@@ -285,7 +294,8 @@ __all__ = [
     "TeamsApi",
     "TestOptimizationApi",
     "ThreatIntelligenceApi",
-    "TwilioIntegrationAccountsApi",
+    "TimeseriesAnomalyInvestigationsApi",
+    "TwilioIntegrationApi",
     "UsageMeteringApi",
     "UserAuthorizedClientsApi",
     "UsersApi",

@@ -147,7 +147,7 @@ class ZneOptions:
     """
 
     def _default_noise_factors(self) -> Sequence[float]:
-        return (1, 1.5, 2, 2.5, 3) if self.amplifier == "pea" else (1, 3, 5)
+        return (1, 3, 5)
 
     @classmethod
     def _default_extrapolator(cls) -> Sequence[ExtrapolatorType]:
@@ -176,7 +176,7 @@ class ZneOptions:
             "linear": 2,
             "exponential": 2,
             "double_exponential": 4,
-            "fallback": 1,
+            "fallback": 2,
         }
         for idx in range(1, 8):
             required_factors[f"polynomial_degree_{idx}"] = idx + 1

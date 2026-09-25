@@ -218,6 +218,7 @@ class Dreadnode:
         *,
         server: str | None = None,
         api_key: str | None = None,
+        network: t.Literal["cluster", "public"] | None = None,
         organization: str | uuid.UUID | None = None,
         workspace: str | uuid.UUID | None = None,
         project: str | uuid.UUID | None = None,
@@ -235,6 +236,8 @@ class Dreadnode:
         Args:
             server: Platform API URL.
             api_key: API key for authentication.
+            network: Connection network context (cluster or public). Defaults to
+                DREADNODE_NETWORK, then public.
             organization: Organization key/UUID override.
             workspace: Workspace key/UUID override.
             project: Project key/UUID override.
@@ -278,7 +281,7 @@ class Dreadnode:
         self.project = resolved.project
 
         if self.server and self.api_key:
-            self._api = ApiClient(self.server, api_key=self.api_key)
+            self._api = ApiClient(self.server, api_key=self.api_key, network=network)
 
             # Auto-resolve organization if not specified
             if not self.organization:

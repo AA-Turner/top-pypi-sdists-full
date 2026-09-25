@@ -18,7 +18,7 @@ import time
 import typing
 
 from functools import partial
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 import snowflake.core._http_requests
 
@@ -35,6 +35,10 @@ if typing.TYPE_CHECKING:
 
 # All printable ASCII except the three query-string injection vectors (& = #).
 _QUERY_PARAM_SAFE = "".join(chr(i) for i in range(32, 127) if chr(i) not in "&=#")
+
+# Response types that carry a credential and must therefore never be written to the logs.
+# Typing presigned_url as a SecretStr would be a breaking change, so we are dropping the whole response instead.
+_SENSITIVE_RESPONSE_TYPES = frozenset({"FileTransferMaterial"})
 
 logger = logging.getLogger(__name__)
 
@@ -232,6 +236,8 @@ class ApiClient:
 
         if response_type:
             large_results_data = ApiClient.large_results(response_data)
+            if large_results_data is not None and not large_results_data[0].startswith("/"):
+                raise InvalidResponseError(f"Unexpected large-results path in response: {large_results_data[0]!r}")
             if large_results_data is None:
                 # regular, non-large results use case
                 return_data = (
@@ -250,7 +256,12 @@ class ApiClient:
                         chunk_response_data = response_data
                     else:
                         # For now, do this because query_params is not actually being used properly in self.request
-                        chunk_url = f"{self.get_host(root)}{results_path}?page={chunk_index}"
+                        host = self.get_host(root)
+                        chunk_url = f"{host}{results_path}?page={chunk_index}"
+                        if urlparse(chunk_url).hostname != urlparse(host).hostname:
+                            raise InvalidResponseError(
+                                f"Large-results path redirects to unexpected host: {chunk_url!r}"
+                            )
 
                         chunk_response_data = self.request_with_retry(
                             root,
@@ -279,6 +290,9 @@ class ApiClient:
                     return_data = _fetch_next_chunk(0, response_type)
         else:
             return_data = None
+
+        if type(return_data).__name__ not in _SENSITIVE_RESPONSE_TYPES:
+            logger.debug("response body: %r", return_data)
 
         if _return_http_data_only:
             return return_data
@@ -464,6 +478,10 @@ class ApiClient:
             raise InvalidResponseError(
                 f"{snowflake.core._http_requests.STATUS_CODES_MAPPING.get(response_data.status)} result endpoint is missing"
             )
+        if response_data.status == 202 and not result_endpoint.startswith("/"):
+            raise InvalidResponseError(
+                f"Unexpected Location header in {response_data.status} response: {result_endpoint!r}"
+            )
 
         if _request_timeout is None:
             _request_timeout = snowflake.core._http_requests.DEFAULT_RETRY_TIMEOUT_SECONDS
@@ -488,7 +506,10 @@ class ApiClient:
 
                 new_url = url
                 if response_data.status == 202:
-                    new_url = self.get_host(root) + result_endpoint
+                    host = self.get_host(root)
+                    new_url = host + result_endpoint
+                    if urlparse(new_url).hostname != urlparse(host).hostname:
+                        raise InvalidResponseError(f"Location header redirects to unexpected host: {new_url!r}")
                     method = "GET"
 
                 response_data = self.request(

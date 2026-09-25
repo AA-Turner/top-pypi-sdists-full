@@ -36,20 +36,20 @@ from wtforms import Field, SubmitField
 from .decorators import auth_required
 from .forms import (
     Form,
-    build_form_from_request,
-    get_form_field_label,
+    _build_form_from_request,
+    _get_form_field_label,
 )
 from .proxies import _security, _datastore
 from .quart_compat import get_quart_status
 from .signals import username_changed
 from .utils import (
     base_render_json,
-    config_value as cv,
+    _config_value as cv,
     do_flash,
     get_message,
     get_url,
     send_mail,
-    view_commit,
+    _view_commit,
 )
 
 if t.TYPE_CHECKING:  # pragma: no cover
@@ -71,9 +71,9 @@ class ChangeUsernameForm(Form):
     """
 
     username: t.ClassVar[Field]
-    submit = SubmitField(label=get_form_field_label("submit"))
+    submit: SubmitField = SubmitField(label=_get_form_field_label("submit"))
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
 
 
@@ -87,13 +87,13 @@ def change_username() -> ResponseValue:
     payload: dict[str, t.Any]
 
     form: ChangeUsernameForm = t.cast(
-        ChangeUsernameForm, build_form_from_request("change_username_form")
+        ChangeUsernameForm, _build_form_from_request("change_username_form")
     )
 
     if form.validate_on_submit():
         # simple - just change username
         form.user = current_user
-        after_this_request(view_commit)
+        after_this_request(_view_commit)
         update_username(form.user, form.username.data)
         if _security._want_json(request):
             return base_render_json(form)
@@ -136,4 +136,4 @@ def _send_username_changed_notice(user):
     """
     if cv("SEND_USERNAME_CHANGE_EMAIL"):
         subject = cv("EMAIL_SUBJECT_USERNAME_CHANGE_NOTICE")
-        send_mail(subject, user.email, "change_username_notice", user=user)
+        send_mail(subject, user.email, cv("CHANGE_USERNAME_EMAIL_TEMPLATE"), user=user)

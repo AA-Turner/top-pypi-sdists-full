@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qiskit-ibm-runtime
-Version: 0.49.0
+Version: 0.50.0
 Summary: IBM Quantum client for IBM Quantum Compute (formerly Qiskit Runtime).
 Author-email: Qiskit Development Team <qiskit@us.ibm.com>
 License: Apache 2.0
@@ -31,40 +31,12 @@ Requires-Dist: scipy>=1.5.0
 Requires-Dist: urllib3>=2.4.0
 Requires-Dist: python-dateutil>=2.9.0
 Requires-Dist: ibm-platform-services>=0.61.1
-Requires-Dist: ibm-quantum-schemas<1,>=0.10.20260723
+Requires-Dist: ibm-quantum-schemas<1,>=0.12.20260921
 Requires-Dist: pydantic>=2.13.0
-Requires-Dist: qiskit>=2.3.0
+Requires-Dist: qiskit<3,>=2.3.0
 Requires-Dist: pybase64>=1.4.0
-Requires-Dist: samplomatic>=0.18.0
-Provides-Extra: common
-Requires-Dist: mypy==2.3.0; extra == "common"
-Requires-Dist: pproxy==2.7.8; extra == "common"
-Requires-Dist: nbqa==1.5.3; extra == "common"
-Requires-Dist: matplotlib>=2.1; extra == "common"
-Requires-Dist: jupyter; extra == "common"
-Requires-Dist: nbformat>=4.4.0; extra == "common"
-Requires-Dist: nbconvert>=5.3.1; extra == "common"
-Requires-Dist: qiskit-aer>=0.17.0; extra == "common"
-Requires-Dist: ruff~=0.14.10; extra == "common"
-Requires-Dist: coverage>=6.3; extra == "common"
-Requires-Dist: pylatexenc; extra == "common"
-Requires-Dist: scikit-learn; extra == "common"
-Requires-Dist: setuptools; extra == "common"
-Provides-Extra: documentation
-Requires-Dist: nbsphinx; extra == "documentation"
-Requires-Dist: Sphinx<9,>=8; extra == "documentation"
-Requires-Dist: sphinx-automodapi; extra == "documentation"
-Requires-Dist: sphinx-autodoc-typehints<=1.19.2; extra == "documentation"
-Requires-Dist: jupyter-sphinx; extra == "documentation"
-Requires-Dist: sphinxcontrib-katex==0.9.9; extra == "documentation"
-Requires-Dist: autodoc_pydantic==2.2.0; extra == "documentation"
-Requires-Dist: packaging; extra == "documentation"
-Provides-Extra: dev-legacy
-Requires-Dist: qiskit-ibm-runtime[test]; extra == "dev-legacy"
-Requires-Dist: qiskit-ibm-runtime[common]; extra == "dev-legacy"
-Requires-Dist: qiskit-ibm-runtime[style]; extra == "dev-legacy"
-Requires-Dist: qiskit-ibm-runtime[documentation]; extra == "dev-legacy"
-Requires-Dist: qiskit-ibm-runtime[visualization]; extra == "dev-legacy"
+Requires-Dist: samplomatic>=0.21.0
+Requires-Dist: qiskit-mitigation>=0.1.1
 Provides-Extra: visualization
 Requires-Dist: plotly>=5.23.0; extra == "visualization"
 Provides-Extra: performance
@@ -225,7 +197,26 @@ There are several different options you can specify when calling the primitives.
 
 ### Primitive versions
 
-Version 2 of the primitives is introduced by `qiskit-ibm-runtime` release 0.21.0. Version 1 of the primitives is no longer supported. Refer to [Introduction to primitives](https://quantum.cloud.ibm.com/docs/migration-guides/primitives) for information about V2 primitives. The examples below all use V2 primitives.
+This package provides implementations of the Version 2 of the `Sampler` and `Estimator` primitives.
+Refer to [Introduction to primitives] for information about primitives definitions and versions.
+
+Starting with release `0.50.0`, the package provides _client-side_ `Sampler` and `Estimator`
+primitives. Unlike their _legacy_ counterparts, they perform pre- and post-processing on the client
+side and delegate execution to `Executor`. Running on the client side provides greater transparency,
+faster debugging feedback, and finer control.
+
+> [!IMPORTANT]
+> Client-side primitives will become the default in an upcoming release, with the top-level imports
+> `qiskit_ibm_runtime.Sampler` and `qiskit_ibm_runtime.Estimator` pointing to them. The examples
+> below use the legacy primitives - you can opt-in already by replacing the imports to:
+>
+> ```python
+> from qiskit_ibm_runtime.executor_sampler import Sampler
+> from qiskit_ibm_runtime.executor_estimator import Estimator
+> ```
+>
+> The legacy primitives are marked as deprecated by release `0.50.0`, and will continue to be
+> available as a dedicated, not top-level import until the deprecation is completed.
 
 ### Sampler
 
@@ -483,3 +474,4 @@ If you use Qiskit, please cite as per the included [BibTeX file](https://github.
 [BibTeX file]: https://github.com/Qiskit/qiskit/blob/master/Qiskit.bib
 [Apache License 2.0]: https://github.com/Qiskit/qiskit-ibm-runtime/blob/main/LICENSE.txt
 [tutorials]: https://learning.quantum.ibm.com/catalog/tutorials
+[Introduction to primitives]: (https://quantum.cloud.ibm.com/docs/en/guides/qiskit-runtime-primitives)

@@ -11,8 +11,10 @@ from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
+from ...models.list_page_organization_workspace_response import (
+    ListPageOrganizationWorkspaceResponse,
+)
 from ...models.list_workspaces_order_type_0_item import ListWorkspacesOrderType0Item
-from ...models.list_workspaces_response_200 import ListWorkspacesResponse200
 from ...models.list_workspaces_sort_type_0_item import ListWorkspacesSortType0Item
 from ...types import UNSET, Response, Unset
 
@@ -24,6 +26,7 @@ def _get_kwargs(
     offset: int | Unset = 0,
     sort: list[ListWorkspacesSortType0Item] | None | Unset = UNSET,
     order: list[ListWorkspacesOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_archived: bool | Unset = False,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
@@ -58,6 +61,13 @@ def _get_kwargs(
         json_order = order
     params["order"] = json_order
 
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
     params["include_archived"] = include_archived
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -80,11 +90,11 @@ def _parse_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListWorkspacesResponse200
+    | ListPageOrganizationWorkspaceResponse
     | None
 ):
     if response.status_code == 200:
-        response_200 = ListWorkspacesResponse200.from_dict(response.json())
+        response_200 = ListPageOrganizationWorkspaceResponse.from_dict(response.json())
 
         return response_200
 
@@ -121,7 +131,7 @@ def _build_response(
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListWorkspacesResponse200
+    | ListPageOrganizationWorkspaceResponse
 ]:
     return Response(
         status_code=HTTPStatus(response.status_code),
@@ -139,13 +149,14 @@ def sync_detailed(
     offset: int | Unset = 0,
     sort: list[ListWorkspacesSortType0Item] | None | Unset = UNSET,
     order: list[ListWorkspacesOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_archived: bool | Unset = False,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListWorkspacesResponse200
+    | ListPageOrganizationWorkspaceResponse
 ]:
     """ListWorkspaces
 
@@ -171,6 +182,9 @@ def sync_detailed(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListWorkspacesOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_archived (bool | Unset): Include archived workspaces. They are excluded unless
             set. Default: False.
 
@@ -179,7 +193,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListWorkspacesResponse200]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationWorkspaceResponse]
     """
     kwargs = _get_kwargs(
         organization_id=organization_id,
@@ -187,6 +201,7 @@ def sync_detailed(
         offset=offset,
         sort=sort,
         order=order,
+        cursor=cursor,
         include_archived=include_archived,
     )
 
@@ -205,13 +220,14 @@ def sync(
     offset: int | Unset = 0,
     sort: list[ListWorkspacesSortType0Item] | None | Unset = UNSET,
     order: list[ListWorkspacesOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_archived: bool | Unset = False,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListWorkspacesResponse200
+    | ListPageOrganizationWorkspaceResponse
     | None
 ):
     """ListWorkspaces
@@ -238,6 +254,9 @@ def sync(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListWorkspacesOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_archived (bool | Unset): Include archived workspaces. They are excluded unless
             set. Default: False.
 
@@ -246,7 +265,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListWorkspacesResponse200
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationWorkspaceResponse
     """
     return sync_detailed(
         organization_id=organization_id,
@@ -255,6 +274,7 @@ def sync(
         offset=offset,
         sort=sort,
         order=order,
+        cursor=cursor,
         include_archived=include_archived,
     ).parsed
 
@@ -267,13 +287,14 @@ async def asyncio_detailed(
     offset: int | Unset = 0,
     sort: list[ListWorkspacesSortType0Item] | None | Unset = UNSET,
     order: list[ListWorkspacesOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_archived: bool | Unset = False,
 ) -> Response[
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListWorkspacesResponse200
+    | ListPageOrganizationWorkspaceResponse
 ]:
     """ListWorkspaces
 
@@ -299,6 +320,9 @@ async def asyncio_detailed(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListWorkspacesOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_archived (bool | Unset): Include archived workspaces. They are excluded unless
             set. Default: False.
 
@@ -307,7 +331,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListWorkspacesResponse200]
+        Response[ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationWorkspaceResponse]
     """
     kwargs = _get_kwargs(
         organization_id=organization_id,
@@ -315,6 +339,7 @@ async def asyncio_detailed(
         offset=offset,
         sort=sort,
         order=order,
+        cursor=cursor,
         include_archived=include_archived,
     )
 
@@ -331,13 +356,14 @@ async def asyncio(
     offset: int | Unset = 0,
     sort: list[ListWorkspacesSortType0Item] | None | Unset = UNSET,
     order: list[ListWorkspacesOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
     include_archived: bool | Unset = False,
 ) -> (
     ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ListWorkspacesResponse200
+    | ListPageOrganizationWorkspaceResponse
     | None
 ):
     """ListWorkspaces
@@ -364,6 +390,9 @@ async def asyncio(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListWorkspacesOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
         include_archived (bool | Unset): Include archived workspaces. They are excluded unless
             set. Default: False.
 
@@ -372,7 +401,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListWorkspacesResponse200
+        ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ListPageOrganizationWorkspaceResponse
     """
     return (
         await asyncio_detailed(
@@ -382,6 +411,7 @@ async def asyncio(
             offset=offset,
             sort=sort,
             order=order,
+            cursor=cursor,
             include_archived=include_archived,
         )
     ).parsed

@@ -188,6 +188,19 @@ def trial_span(
     """
     from dreadnode import task_span
 
+    # Inherit assessment_id from the active Assessment context if not passed,
+    # so trials link to the assessment even when the caller only relies on the
+    # `async with Assessment(...)` context (study_span does the same).
+    if airt_assessment_id is None:
+        try:
+            from dreadnode.airt.assessment import _current_assessment
+
+            current = _current_assessment.get()
+            if current is not None and current.assessment_id is not None:
+                airt_assessment_id = current.assessment_id
+        except ImportError:
+            pass
+
     airt_attrs: dict[str, str | int | list[str]] = {}
     if any(
         [

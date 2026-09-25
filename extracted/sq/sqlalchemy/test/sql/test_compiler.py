@@ -51,6 +51,7 @@ from sqlalchemy import nullsfirst
 from sqlalchemy import nullslast
 from sqlalchemy import Numeric
 from sqlalchemy import or_
+from sqlalchemy import OrderByList
 from sqlalchemy import outerjoin
 from sqlalchemy import over
 from sqlalchemy import schema
@@ -91,6 +92,8 @@ from sqlalchemy.sql import util as sql_util
 from sqlalchemy.sql.elements import BooleanClauseList
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.elements import CompilerColumnElement
+from sqlalchemy.sql.elements import FrameClause
+from sqlalchemy.sql.elements import FrameClauseType
 from sqlalchemy.sql.elements import Grouping
 from sqlalchemy.sql.expression import ClauseElement
 from sqlalchemy.sql.expression import ClauseList
@@ -103,6 +106,7 @@ from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import eq_ignore_whitespace
+from sqlalchemy.testing import expect_deprecated
 from sqlalchemy.testing import expect_raises
 from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import fixtures
@@ -264,11 +268,6 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
         assert not hasattr(table1.select().subquery().c.myid, "columns")
         assert not hasattr(table1.alias().c.myid, "columns")
         assert not hasattr(table1.alias().c.myid, "c")
-        with testing.expect_deprecated(
-            "The SelectBase.c and SelectBase.columns attributes are "
-            "deprecated"
-        ):
-            assert hasattr(table1.select(), "c")
 
         assert_raises_message(
             exc.InvalidRequestError,
@@ -1360,6 +1359,36 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
             "HAVING count(myothertable.otherid) > :count_2)",
         )
 
+    def test_exists_with_hint(self):
+        stmt = table1.select().where(
+            exists(1)
+            .select_from(table2)
+            .with_hint(table2, "WITH (NOLOCK)", "mssql")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT mytable.myid, mytable.name, mytable.description "
+            "FROM mytable WHERE EXISTS (SELECT 1 FROM myothertable "
+            "WITH (NOLOCK))",
+            dialect=mssql.dialect(),
+        )
+
+    def test_exists_with_statement_hint(self):
+        stmt = table1.select().where(
+            exists(1)
+            .select_from(table2)
+            .with_statement_hint("WITH (NOLOCK)", "mssql")
+        )
+
+        self.assert_compile(
+            stmt,
+            "SELECT mytable.myid, mytable.name, mytable.description "
+            "FROM mytable WHERE EXISTS (SELECT 1 FROM myothertable "
+            "WITH (NOLOCK))",
+            dialect=mssql.dialect(),
+        )
+
     def test_where_subquery(self):
         s = (
             select(addresses.c.street)
@@ -1941,24 +1970,39 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
             dialect=default.DefaultDialect(supports_native_boolean=True),
         )
 
-    def test_distinct(self):
+    def test_distinct_select_modifier(self):
         self.assert_compile(
-            select(table1.c.myid.distinct()),
+            select(table1.c.myid).distinct(),
             "SELECT DISTINCT mytable.myid FROM mytable",
         )
 
         self.assert_compile(
-            select(distinct(table1.c.myid)),
-            "SELECT DISTINCT mytable.myid FROM mytable",
+            select(table1.c.myid)
+            .distinct()
+            .set_label_style(LABEL_STYLE_TABLENAME_PLUS_COL),
+            "SELECT DISTINCT mytable.myid AS mytable_myid FROM mytable",
         )
 
-        self.assert_compile(
-            select(distinct(table1.c.myid)).set_label_style(
-                LABEL_STYLE_TABLENAME_PLUS_COL
-            ),
-            "SELECT DISTINCT mytable.myid FROM mytable",
-        )
+    @testing.variation("case", ["stringify", "final_froms"])
+    def test_distinct_expr_no_dep_warning_str_compiler(self, case):
+        """test for #13396"""
 
+        t = Table("foo", MetaData(), Column("bar"))
+
+        with expect_deprecated(
+            "Passing expression to ``distinct`` to generate a DISTINCT ON"
+        ):
+            stmt = select(t).distinct(t.c.bar)
+
+        if case.stringify:
+            eq_(str(stmt), "SELECT DISTINCT foo.bar \nFROM foo")
+        elif case.final_froms:
+            eq_(stmt.get_final_froms(), [t])
+        else:
+            case.fail()
+
+    @testing.emits_warning("Column-expression-level unary distinct")
+    def test_distinct_function_6008(self):
         # the bug fixed here as part of #6008 is the same bug that's
         # in 1.3 as well, producing
         # "SELECT anon_2.anon_1 FROM (SELECT distinct mytable.myid
@@ -1970,8 +2014,15 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
         )
 
         self.assert_compile(
-            select(table1.c.myid).distinct(),
-            "SELECT DISTINCT mytable.myid FROM mytable",
+            select(select(table1.c.myid.distinct()).subquery()),
+            "SELECT anon_2.anon_1 FROM (SELECT "
+            "DISTINCT mytable.myid AS anon_1 FROM mytable) AS anon_2",
+        )
+
+    def test_distinct_function(self):
+        self.assert_compile(
+            select(func.sum(distinct(table1.c.myid))),
+            "SELECT sum(DISTINCT mytable.myid) AS sum_1 FROM mytable",
         )
 
         self.assert_compile(
@@ -1984,25 +2035,28 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
             "SELECT count(DISTINCT mytable.myid) AS count_1 FROM mytable",
         )
 
-    @testing.variation("case", ["stringify", "final_froms"])
-    def test_distinct_expr_no_dep_warning_str_compiler(self, case):
-        """test for #13396"""
+    def test_distinct_function_warn_outside_aggregate(self):
+        with testing.expect_warnings(
+            "Column-expression-level unary distinct.*SELECT DISTINCT"
+        ):
+            self.assert_compile(
+                select(distinct(table1.c.myid)),
+                "SELECT DISTINCT mytable.myid FROM mytable",
+            )
 
-        t = Table("foo", MetaData(), Column("bar"))
-
-        stmt = select(t).distinct(t.c.bar)
-
-        if case.stringify:
-            eq_(str(stmt), "SELECT DISTINCT foo.bar \nFROM foo")
-        elif case.final_froms:
-            eq_(stmt.get_final_froms(), [t])
-        else:
-            case.fail()
+        with testing.expect_warnings(
+            "Column-expression-level unary distinct.*SELECT DISTINCT"
+        ):
+            self.assert_compile(
+                select(table1.c.myid.distinct()),
+                "SELECT DISTINCT mytable.myid FROM mytable",
+            )
 
     def test_distinct_on(self):
         with testing.expect_deprecated(
+            "Passing expression to",
             "DISTINCT ON is currently supported only by the PostgreSQL "
-            "dialect"
+            "dialect",
         ):
             self.assert_compile(
                 select("*").distinct(table1.c.myid), "SELECT DISTINCT *"
@@ -2346,6 +2400,13 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
         self.assert_compile(
             select(column("x")).order_by(column("x").collate("bar")),
             "SELECT x ORDER BY x COLLATE bar",
+        )
+
+        # columns clause, schema-qualified collation
+        self.assert_compile(
+            select(column("x").collate("bar", collation_schema="myschema")),
+            "SELECT x COLLATE myschema.bar AS anon_1",
+            dialect=postgresql.dialect(),
         )
 
     def test_literal(self):
@@ -2978,7 +3039,7 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
         check_results(
             postgresql.dialect(),
             ["NUMERIC", "NUMERIC(12, 9)", "DATE", "TEXT", "VARCHAR(20)"],
-            "%(param_1)s",
+            "%(param_1)s::VARCHAR",
         )
 
         # then the Oracle engine
@@ -3022,40 +3083,61 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
         (
             "default",
             None,
+            None,
             "SELECT CAST(t1.txt AS VARCHAR(10)) AS txt FROM t1",
             None,
         ),
         (
             "explicit_mssql",
             "Latin1_General_CI_AS",
+            None,
             "SELECT CAST(t1.txt AS VARCHAR(10)) COLLATE Latin1_General_CI_AS AS txt FROM t1",  # noqa
             mssql.dialect(),
         ),
         (
             "explicit_mysql",
             "utf8mb4_unicode_ci",
+            None,
             "SELECT CAST(t1.txt AS CHAR(10)) AS txt FROM t1",
             mysql.dialect(),
         ),
         (
             "explicit_postgresql",
             "en_US",
+            None,
             'SELECT CAST(t1.txt AS VARCHAR(10)) COLLATE "en_US" AS txt FROM t1',  # noqa
+            postgresql.dialect(),
+        ),
+        (
+            "explicit_postgresql_schema",
+            "en_US",
+            "myschema",
+            'SELECT CAST(t1.txt AS VARCHAR(10)) COLLATE myschema."en_US" AS txt FROM t1',  # noqa
             postgresql.dialect(),
         ),
         (
             "explicit_sqlite",
             "NOCASE",
+            None,
             'SELECT CAST(t1.txt AS VARCHAR(10)) COLLATE "NOCASE" AS txt FROM t1',  # noqa
             sqlite.dialect(),
         ),
-        id_="iaaa",
+        id_="iaaaa",
     )
-    def test_cast_with_collate(self, collation_name, expected_sql, dialect):
+    def test_cast_with_collate(
+        self, collation_name, collation_schema, expected_sql, dialect
+    ):
         t1 = Table(
             "t1",
             MetaData(),
-            Column("txt", String(10, collation=collation_name)),
+            Column(
+                "txt",
+                String(
+                    10,
+                    collation=collation_name,
+                    collation_schema=collation_schema,
+                ),
+            ),
         )
         stmt = select(func.cast(t1.c.txt, t1.c.txt.type))
         self.assert_compile(stmt, expected_sql, dialect=dialect)
@@ -3195,6 +3277,32 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
         )
 
         self.assert_compile(
+            select(func.row_number().over(order_by=expr, rows=(-10, 1))),
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid ROWS BETWEEN "
+            ":param_1 PRECEDING AND :param_2 FOLLOWING)"
+            " AS anon_1 FROM mytable",
+            checkparams={"param_1": 10, "param_2": 1},
+        )
+
+        RF = FrameClauseType.FOLLOWING
+        RP = FrameClauseType.PRECEDING
+
+        self.assert_compile(
+            select(
+                func.row_number().over(
+                    order_by=expr,
+                    rows=FrameClause(3, 2, RF, RP),
+                )
+            ),
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid ROWS BETWEEN "
+            ":param_1 FOLLOWING AND :param_2 PRECEDING)"
+            " AS anon_1 FROM mytable",
+            checkparams={"param_1": 3, "param_2": 2},
+        )
+
+        self.assert_compile(
             select(func.row_number().over(order_by=expr, range_=(None, 0))),
             "SELECT row_number() OVER "
             "(ORDER BY mytable.myid RANGE BETWEEN "
@@ -3227,6 +3335,19 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
             ":param_1 PRECEDING AND :param_2 PRECEDING)"
             " AS anon_1 FROM mytable",
             checkparams={"param_1": 10, "param_2": 1},
+        )
+
+        self.assert_compile(
+            select(
+                func.row_number().over(
+                    order_by=expr, range_=FrameClause("a", "x", RP, RF)
+                )
+            ),
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid RANGE BETWEEN "
+            ":param_1 PRECEDING AND :param_2 FOLLOWING)"
+            " AS anon_1 FROM mytable",
+            checkparams={"param_1": "a", "param_2": "x"},
         )
 
         self.assert_compile(
@@ -3264,53 +3385,195 @@ class SelectTest(fixtures.TestBase, AssertsCompiledSQL):
             checkparams={"param_1": 10, "param_2": 1},
         )
 
+        self.assert_compile(
+            select(
+                func.row_number().over(
+                    order_by=expr,
+                    groups=FrameClause(1, 3, RP, RF),
+                )
+            ),
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid GROUPS BETWEEN "
+            ":param_1 PRECEDING AND :param_2 FOLLOWING)"
+            " AS anon_1 FROM mytable",
+            checkparams={"param_1": 1, "param_2": 3},
+        )
+
+    @testing.combinations(
+        (
+            "rows_current_row",
+            {"rows": (None, 0)},
+            "CURRENT ROW",
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid ROWS BETWEEN UNBOUNDED "
+            "PRECEDING AND CURRENT ROW EXCLUDE CURRENT ROW)"
+            " AS anon_1 FROM mytable",
+            {},
+        ),
+        (
+            "range_group",
+            {"range_": (None, 0)},
+            "GROUP",
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid RANGE BETWEEN UNBOUNDED "
+            "PRECEDING AND CURRENT ROW EXCLUDE GROUP)"
+            " AS anon_1 FROM mytable",
+            {},
+        ),
+        (
+            "groups_ties",
+            {"groups": (-1, 1)},
+            "TIES",
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid GROUPS BETWEEN "
+            ":param_1 PRECEDING AND :param_2 FOLLOWING EXCLUDE TIES)"
+            " AS anon_1 FROM mytable",
+            {"param_1": 1, "param_2": 1},
+        ),
+        (
+            "rows_no_others",
+            {"rows": (None, None)},
+            "NO OTHERS",
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid ROWS BETWEEN UNBOUNDED "
+            "PRECEDING AND UNBOUNDED FOLLOWING EXCLUDE NO OTHERS)"
+            " AS anon_1 FROM mytable",
+            {},
+        ),
+        (
+            "rows_lowercase_ties",
+            {"rows": (None, 0)},
+            "ties",
+            "SELECT row_number() OVER "
+            "(ORDER BY mytable.myid ROWS BETWEEN UNBOUNDED "
+            "PRECEDING AND CURRENT ROW EXCLUDE ties)"
+            " AS anon_1 FROM mytable",
+            {},
+        ),
+        id_="iaaaa",
+    )
+    def test_over_frame_exclude(
+        self, frame_kwargs, exclude, expected_sql, checkparams
+    ):
+        self.assert_compile(
+            select(
+                func.row_number().over(
+                    order_by=table1.c.myid, exclude=exclude, **frame_kwargs
+                )
+            ),
+            expected_sql,
+            checkparams=checkparams,
+        )
+
+    def test_over_frame_exclude_invalid(self):
+        # invalid exclude value raises at compile time
+        assert_raises_message(
+            exc.CompileError,
+            "Unexpected SQL phrase: 'INVALID'",
+            select(
+                func.row_number().over(
+                    order_by=table1.c.myid,
+                    rows=(None, 0),
+                    exclude="INVALID",
+                )
+            ).compile,
+        )
+
+    def test_over_frame_exclude_requires_frame_spec(self):
+        # exclude without rows/range_/groups raises at construction time
+        with expect_raises_message(
+            exc.ArgumentError,
+            "'exclude' requires that one of 'rows', "
+            "'range_', or 'groups' is also specified",
+        ):
+            func.row_number().over(
+                order_by=table1.c.myid,
+                exclude="CURRENT ROW",
+            )
+
     def test_over_invalid_framespecs(self):
-        assert_raises_message(
+        with expect_raises_message(
             exc.ArgumentError,
-            "Integer or None expected for range value",
-            func.row_number().over,
-            range_=("foo", 8),
-        )
+            "Integer or None expected for values in rows/groups frame",
+        ):
+            func.row_number().over(rows=("foo", 8))
 
-        assert_raises_message(
+        with expect_raises_message(
             exc.ArgumentError,
-            "Integer or None expected for range value",
-            func.row_number().over,
-            range_=(-5, "foo"),
-        )
+            "Integer or None expected for values in rows/groups frame",
+        ):
+            func.row_number().over(groups=(-5, "foo"))
 
-        assert_raises_message(
+        with expect_raises_message(
+            exc.ArgumentError,
+            "When using a tuple to specify a range only integer or none "
+            "values are allowed in the range frame. To specify a "
+            "different type use the FrameClause directly.",
+        ):
+            func.row_number().over(range_=(-5, "foo"))
+        with expect_raises_message(
+            exc.ArgumentError,
+            "2-tuple expected for range/rows/groups",
+        ):
+            func.row_number().over(rows=("foo",))
+
+        with expect_raises_message(
+            exc.ArgumentError,
+            "2-tuple expected for range/rows/groups",
+        ):
+            func.row_number().over(groups=(-5, "foo", 1))
+
+        with expect_raises_message(
+            exc.ArgumentError, "2-tuple expected for range/rows/groups"
+        ):
+            func.row_number().over(range_=(-5,))
+
+        with expect_raises_message(
             exc.ArgumentError,
             "only one of 'rows', 'range_', or 'groups' may be provided",
-            func.row_number().over,
-            range_=(-5, 8),
-            rows=(-2, 5),
-        )
+        ):
+            func.row_number().over(range_=(-5, 8), rows=(-2, 5))
 
-        assert_raises_message(
+        with expect_raises_message(
             exc.ArgumentError,
             "only one of 'rows', 'range_', or 'groups' may be provided",
-            func.row_number().over,
-            range_=(-5, 8),
-            groups=(None, None),
-        )
+        ):
+            func.row_number().over(range_=(-5, 8), groups=(None, None))
 
-        assert_raises_message(
+        with expect_raises_message(
             exc.ArgumentError,
             "only one of 'rows', 'range_', or 'groups' may be provided",
-            func.row_number().over,
-            rows=(-2, 5),
-            groups=(None, None),
-        )
+        ):
+            func.row_number().over(rows=(-2, 5), groups=(None, None))
 
-        assert_raises_message(
+        with expect_raises_message(
             exc.ArgumentError,
             "only one of 'rows', 'range_', or 'groups' may be provided",
-            func.row_number().over,
-            range_=(-5, 8),
-            rows=(-2, 5),
-            groups=(None, None),
-        )
+        ):
+            func.row_number().over(
+                range_=(-5, 8), rows=(-2, 5), groups=(None, None)
+            )
+
+        with expect_raises_message(
+            exc.ArgumentError,
+            "Cannot specify a value for start with frame type " "CURRENT",
+        ):
+            FrameClause(
+                5,
+                None,
+                FrameClauseType.CURRENT,
+                FrameClauseType.UNBOUNDED,
+            )
+        with expect_raises_message(
+            exc.ArgumentError,
+            "Cannot specify a value for end with frame type " "UNBOUNDED",
+        ):
+            FrameClause(
+                None,
+                5,
+                FrameClauseType.CURRENT,
+                FrameClauseType.UNBOUNDED,
+            )
 
     def test_over_within_group(self):
         from sqlalchemy import within_group
@@ -4074,6 +4337,51 @@ class BindParameterTest(AssertsCompiledSQL, fixtures.TestBase):
             (t.c["_3foo"] == "foo") & (t.c["4(foo"] == "bar"),
             't._3foo = :3foo_1 AND t."4(foo" = :4_foo_1',
             checkparams={"3foo_1": "foo", "4_foo_1": "bar"},
+        )
+
+    def test_bind_anon_name_special_chars_uniqueify_three(self):
+        """test #13534
+
+        the escape characters that are applied only by the compiler were
+        not part of the anon name escape, so names differing only in those
+        characters produced the same compiled bind name.
+
+        """
+        t = table("t", column("a.b"), column("a_b"))
+
+        self.assert_compile(
+            (t.c["a.b"] == "foo") & (t.c["a_b"] == "bar"),
+            't."a.b" = :a_b_1 AND t.a_b = :a_b_2',
+            checkparams={"a_b_1": "foo", "a_b_2": "bar"},
+        )
+
+    def test_bind_anon_name_special_chars_uniqueify_four(self):
+        """test #13534, brackets and colons"""
+
+        t = table("t", column("a[b]"), column("a:b"), column("a b"))
+
+        self.assert_compile(
+            (t.c["a[b]"] == "foo")
+            & (t.c["a:b"] == "bar")
+            & (t.c["a b"] == "bat"),
+            't."a[b]" = :a_b_1 AND t."a:b" = :a_b_2 AND t."a b" = :a_b_3',
+            checkparams={"a_b_1": "foo", "a_b_2": "bar", "a_b_3": "bat"},
+        )
+
+    def test_bind_anon_name_special_chars_positional(self):
+        """test #13534
+
+        the collision reached the DBAPI for positional paramstyles, where
+        the same name was emitted for both positions.
+
+        """
+        t = table("t", column("a.b"), column("a_b"))
+
+        self.assert_compile(
+            (t.c["a.b"] == "foo") & (t.c["a_b"] == "bar"),
+            't."a.b" = ? AND t.a_b = ?',
+            checkpositional=("foo", "bar"),
+            dialect="sqlite",
         )
 
     def test_bind_given_anon_name_dont_double(self):
@@ -5094,10 +5402,13 @@ class BindParameterTest(AssertsCompiledSQL, fixtures.TestBase):
 
     @testing.variation("use_positional", [True, False])
     def test_standalone_bindparam_escape_collision(self, use_positional):
-        """this case is currently not supported
+        """test #13534
 
-        it's kinda bad since positional takes the unescaped param
-        while non positional takes the escaped one.
+        ``"[brackets]"`` escapes to ``_brackets_``, which is also the name
+        of the second parameter; the escaped name is uniquified so that the
+        two remain distinct.  Previously both rendered as ``_brackets_`` and
+        the value for one of them was silently discarded.
+
         """
         stmt = select(table1.c.myid).where(
             table1.c.name == bindparam("[brackets]", value="x"),
@@ -5110,16 +5421,16 @@ class BindParameterTest(AssertsCompiledSQL, fixtures.TestBase):
                 "SELECT mytable.myid FROM mytable WHERE mytable.name = ? "
                 "AND mytable.description = ?",
                 params={"[brackets]": "a", "_brackets_": "b"},
-                checkpositional=("a", "a"),
+                checkpositional=("a", "b"),
                 dialect="sqlite",
             )
         else:
             self.assert_compile(
                 stmt,
                 "SELECT mytable.myid FROM mytable WHERE mytable.name = "
-                ":_brackets_ AND mytable.description = :_brackets_",
+                ":_brackets_ AND mytable.description = :_brackets___1",
                 params={"[brackets]": "a", "_brackets_": "b"},
-                checkparams={"_brackets_": "b"},
+                checkparams={"_brackets_": "a", "_brackets___1": "b"},
                 dialect="default",
             )
 
@@ -6161,8 +6472,9 @@ class StringifySpecialTest(fixtures.TestBase):
         )
         eq_ignore_whitespace(
             str(stmt),
-            "SELECT mytable.myid, percentile_cont(:percentile_cont_1) "
-            "WITHIN GROUP (ORDER BY mytable.name DESC) AS anon_1 FROM mytable",
+            "SELECT mytable.myid, percentile_cont(:percentile_cont_2) "
+            "WITHIN GROUP (ORDER BY mytable.name DESC) AS percentile_cont_1 "
+            "FROM mytable",
         )
 
     @testing.combinations(
@@ -8203,4 +8515,63 @@ class OmitFromStatementsTest(fixtures.TestBase, AssertsCompiledSQL):
         self.assert_compile(
             select(t1).order_by(t1.c.d),
             "SELECT t1.id, t1.a, t1.c, t1.e FROM t1 ORDER BY t1.d",
+        )
+
+
+class OrderByListTest(fixtures.TestBase, AssertsCompiledSQL):
+    __dialect__ = "default"
+
+    def test_order_by_list(self):
+        """Test standalone OrderByList with various operators"""
+        col1 = Column("x", Integer)
+        col2 = Column("y", Integer)
+
+        # Test basic OrderByList creation
+        order_list = OrderByList([col1, col2])
+        self.assert_compile(
+            select(literal(1)).order_by(order_list),
+            "SELECT :param_1 AS anon_1 ORDER BY x, y",
+        )
+
+        # Test OrderByList with desc
+        order_list_desc = order_list.desc()
+        self.assert_compile(
+            select(literal(1)).order_by(order_list_desc),
+            "SELECT :param_1 AS anon_1 ORDER BY x DESC, y DESC",
+        )
+
+        # Test OrderByList with asc
+        order_list_asc = order_list.asc()
+        self.assert_compile(
+            select(literal(1)).order_by(order_list_asc),
+            "SELECT :param_1 AS anon_1 ORDER BY x ASC, y ASC",
+        )
+
+        # Test OrderByList with nulls_first
+        order_list_nf = order_list.nulls_first()
+        self.assert_compile(
+            select(literal(1)).order_by(order_list_nf),
+            "SELECT :param_1 AS anon_1 ORDER BY x NULLS FIRST, y NULLS FIRST",
+        )
+
+        # Test OrderByList with nulls_last
+        order_list_nl = order_list.nulls_last()
+        self.assert_compile(
+            select(literal(1)).order_by(order_list_nl),
+            "SELECT :param_1 AS anon_1 ORDER BY x NULLS LAST, y NULLS LAST",
+        )
+
+    def test_order_by_list_chained_ops(self):
+        """Test chained operations on OrderByList"""
+        col1 = Column("x", Integer)
+        col2 = Column("y", Integer)
+
+        order_list = OrderByList([col1, col2])
+
+        # Test chained desc().nulls_first()
+        chained = order_list.desc().nulls_first()
+        self.assert_compile(
+            select(literal(1)).order_by(chained),
+            "SELECT :param_1 AS anon_1 ORDER BY x DESC NULLS FIRST, "
+            "y DESC NULLS FIRST",
         )

@@ -319,13 +319,11 @@ class ComputedDefaultsOnUpdateTest(fixtures.MappedTest):
                         [{"foo": 5, "id": 1}, {"foo": 10, "id": 2}],
                     ),
                     CompiledSQL(
-                        "SELECT test.bar AS test_bar FROM test "
-                        "WHERE test.id = :pk_1",
+                        "SELECT test.bar FROM test WHERE test.id = :pk_1",
                         [{"pk_1": 1}],
                     ),
                     CompiledSQL(
-                        "SELECT test.bar AS test_bar FROM test "
-                        "WHERE test.id = :pk_1",
+                        "SELECT test.bar FROM test WHERE test.id = :pk_1",
                         [{"pk_1": 2}],
                     ),
                 ],
@@ -368,15 +366,15 @@ class ComputedDefaultsOnUpdateTest(fixtures.MappedTest):
         if eager and testing.db.dialect.update_returning:
             asserter.assert_(
                 CompiledSQL(
-                    "UPDATE test SET foo=%(foo)s "
-                    "WHERE test.id = %(test_id)s "
+                    "UPDATE test SET foo=%(foo)s::INTEGER "
+                    "WHERE test.id = %(test_id)s::INTEGER "
                     "RETURNING test.bar",
                     [{"foo": 5, "test_id": 1}],
                     dialect="postgresql",
                 ),
                 CompiledSQL(
-                    "UPDATE test SET foo=%(foo)s "
-                    "WHERE test.id = %(test_id)s "
+                    "UPDATE test SET foo=%(foo)s::INTEGER "
+                    "WHERE test.id = %(test_id)s::INTEGER "
                     "RETURNING test.bar",
                     [{"foo": 6, "test_id": 2}],
                     dialect="postgresql",
@@ -390,14 +388,12 @@ class ComputedDefaultsOnUpdateTest(fixtures.MappedTest):
                     enable_returning=False,
                 ),
                 CompiledSQL(
-                    "SELECT test.bar AS test_bar FROM test "
-                    "WHERE test.id = :pk_1",
+                    "SELECT test.bar FROM test WHERE test.id = :pk_1",
                     [{"pk_1": 1}],
                     enable_returning=False,
                 ),
                 CompiledSQL(
-                    "SELECT test.bar AS test_bar FROM test "
-                    "WHERE test.id = :pk_1",
+                    "SELECT test.bar FROM test WHERE test.id = :pk_1",
                     [{"pk_1": 2}],
                     enable_returning=False,
                 ),
@@ -409,13 +405,11 @@ class ComputedDefaultsOnUpdateTest(fixtures.MappedTest):
                     [{"foo": 5, "test_id": 1}, {"foo": 6, "test_id": 2}],
                 ),
                 CompiledSQL(
-                    "SELECT test.bar AS test_bar FROM test "
-                    "WHERE test.id = :pk_1",
+                    "SELECT test.bar FROM test WHERE test.id = :pk_1",
                     [{"pk_1": 1}],
                 ),
                 CompiledSQL(
-                    "SELECT test.bar AS test_bar FROM test "
-                    "WHERE test.id = :pk_1",
+                    "SELECT test.bar FROM test WHERE test.id = :pk_1",
                     [{"pk_1": 2}],
                 ),
             )

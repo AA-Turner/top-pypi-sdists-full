@@ -33,6 +33,7 @@ from dreadnode.agents.mcp.config import (
 )
 from dreadnode.agents.tools import Tool
 from dreadnode.app.paths import rotate_log
+from dreadnode.core.tls import cached_platform_ssl_context
 from dreadnode.generators.models import ErrorModel
 
 if t.TYPE_CHECKING:
@@ -40,6 +41,21 @@ if t.TYPE_CHECKING:
     from mcp.types import CallToolResult
 
     from dreadnode.generators.message import Content
+
+
+def _create_mcp_http_client(
+    headers: dict[str, str] | None = None,
+    timeout: httpx.Timeout | None = None,
+    auth: httpx.Auth | None = None,
+) -> httpx.AsyncClient:
+    """Preserve MCP transport defaults while verifying against native trust."""
+    return httpx.AsyncClient(
+        headers=headers,
+        timeout=timeout if timeout is not None else httpx.Timeout(30.0, read=300.0),
+        auth=auth,
+        follow_redirects=True,
+        verify=cached_platform_ssl_context(),
+    )
 
 
 # An interactive (user-initiated) OAuth connect blocks on a human browser
@@ -611,7 +627,9 @@ class MCPClient:
                     "Accept": "application/json, text/event-stream",
                 }
             )
-            async with httpx.AsyncClient(timeout=min(http_timeout, 5), auth=auth) as probe:
+            async with httpx.AsyncClient(
+                timeout=min(http_timeout, 5), auth=auth, verify=cached_platform_ssl_context()
+            ) as probe:
                 r = await probe.post(url, content=b"{}", headers=probe_headers)
                 # Auth errors affect both transports equally. With a provider
                 # attached the authenticated connect will handle the challenge,
@@ -702,6 +720,7 @@ class MCPClient:
 
         try:
             ctx = streamablehttp_client(
+                httpx_client_factory=_create_mcp_http_client,
                 url=url,
                 headers=headers,
                 timeout=timeout,
@@ -731,6 +750,7 @@ class MCPClient:
         auth = self._build_auth_provider(url)
 
         ctx = sse_client(
+            httpx_client_factory=_create_mcp_http_client,
             url=url,
             headers=headers,
             timeout=timeout,

@@ -922,6 +922,7 @@ def process_file(
                 "target_datasource": node.get("target_datasource", None),
                 "copy_schedule": node.get(CopyParameters.COPY_SCHEDULE, None),
                 "mode": node.get("mode", CopyModes.APPEND),
+                "on_demand_compute": node.get(CopyParameters.ON_DEMAND_COMPUTE, None),
             }
 
             is_export_node = ExportReplacements.is_export_node(node)

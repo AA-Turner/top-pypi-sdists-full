@@ -14,20 +14,20 @@ from datadog_api_client.model_utils import (
 
 
 if TYPE_CHECKING:
-    from datadog_api_client.v2.model.custom_rule import CustomRule
+    from datadog_api_client.v2.model.custom_ruleset_rule_embedded import CustomRulesetRuleEmbedded
 
 
 class CustomRulesetAttributes(ModelNormal):
     @cached_property
     def openapi_types(_):
-        from datadog_api_client.v2.model.custom_rule import CustomRule
+        from datadog_api_client.v2.model.custom_ruleset_rule_embedded import CustomRulesetRuleEmbedded
 
         return {
             "created_at": (datetime,),
             "created_by": (str,),
             "description": (str,),
             "name": (str,),
-            "rules": ([CustomRule], none_type),
+            "rules": ([CustomRulesetRuleEmbedded], none_type),
             "short_description": (str,),
         }
 
@@ -46,7 +46,7 @@ class CustomRulesetAttributes(ModelNormal):
         created_by: str,
         description: str,
         name: str,
-        rules: Union[List[CustomRule], none_type],
+        rules: Union[List[CustomRulesetRuleEmbedded], none_type],
         short_description: str,
         **kwargs,
     ):
@@ -66,7 +66,7 @@ class CustomRulesetAttributes(ModelNormal):
         :type name: str
 
         :param rules: Rules in the ruleset
-        :type rules: [CustomRule], none_type
+        :type rules: [CustomRulesetRuleEmbedded], none_type
 
         :param short_description: Base64-encoded short description
         :type short_description: str

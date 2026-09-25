@@ -2,11 +2,12 @@
 # Copyright (c) 2012-2025 Snowflake Computing Inc. All rights reserved.
 #
 
+import base64
 import os
 from concurrent.futures import ThreadPoolExecutor
 
 import pyspark.sql.connect.proto.relations_pb2 as relation_proto
-from pyspark.errors.exceptions.base import IllegalArgumentException
+from pyspark.errors.exceptions.base import AnalysisException, IllegalArgumentException
 
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
@@ -18,11 +19,17 @@ from snowflake.snowpark.exceptions import (
 )
 from snowflake.snowpark.functions import sql_expr
 from snowflake.snowpark.types import ArrayType, DataType, StructField, StructType
-from snowflake.snowpark_connect.config import get_string_session_config_param
+from snowflake.snowpark_connect.config import (
+    NSS_INFER_STAGE_FILE_SCHEMA_FQN_CONFIG,
+    NSS_STAGE_FILE_READER_FQN_CONFIG,
+    get_string_session_config_param,
+    resolve_nss_path,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.io_utils import (
+    convert_file_prefix_path,
     get_stage_url_prefix,
     is_external_cloud_url,
 )
@@ -38,11 +45,13 @@ from snowflake.snowpark_connect.relation.read.utils import (
     get_spark_column_names_from_snowpark_columns,
     rename_columns_as_snowflake_standard,
 )
+from snowflake.snowpark_connect.relation.stage_locator import StageLocator
 from snowflake.snowpark_connect.relation.utils import random_string
 from snowflake.snowpark_connect.type_support import emulate_integral_types
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
+    telemetry,
 )
 
 # MAX_CONCURRENCY_LEVEL is set to 8 by default and can be increase to a maximum of 32,
@@ -63,6 +72,251 @@ Key differences between Spark and Snowpark's XML readers, addressed by this modu
 - Spark defaults rowTag to "ROW" if not provided; Snowpark throws exception
 - Spark returns proper structured types for nested XML; Snowpark returns JSON strings
 """
+
+
+def _xml_xsd_as_data_uri(contents: bytes) -> str:
+    return "data:application/xml;base64," + base64.standard_b64encode(contents).decode(
+        "ascii"
+    )
+
+
+def _nss_xsd_data_uri_from_stage(session: snowpark.Session, stage_path: str) -> str:
+    """Download staged XSD bytes so NSS ValidatorUtil can load them.
+
+    NSS has no stage filesystem in the UDTF sandbox, so an ``@...`` path cannot
+    be forwarded as ``rowValidationXSDPath``. The legacy Snowpark XML path still
+    opens the stage path directly.
+    """
+    logger.info(f"Downloading staged XSD {stage_path} for NSS ValidatorUtil")
+    try:
+        stream = session.file.get_stream(stage_path)
+    except Exception as e:
+        logger.error(f"Error downloading staged XSD {stage_path}: {e}")
+        raise
+    try:
+        return _xml_xsd_as_data_uri(stream.read())
+    finally:
+        stream.close()
+
+
+def _stage_local_xml_xsd(
+    session: snowpark.Session, paths: list[str], options: XmlReaderConfig
+) -> None:
+    """Upload a local validation schema to the session temp stage.
+
+    The XSD only needs to be on a stage the session can read -- it does not
+    have to sit next to the XML. ``session.file.put`` from this process cannot
+    target an external data stage, so a local file always lands on the session
+    temp stage (``@spark_connect_stage_local_*``) under a unique prefix. An
+    already-staged ``@...`` path is left as-is for the legacy reader, and its
+    bytes are still fetched so NSS can use a data: URI.
+    """
+    xsd_path = options.config.get("rowvalidationxsdpath")
+    if not xsd_path:
+        return
+
+    if xsd_path.startswith("@"):
+        options.config["_nss_xsd_data_uri"] = _nss_xsd_data_uri_from_stage(
+            session, xsd_path
+        )
+        return
+
+    local_xsd = xsd_path[7:] if xsd_path.startswith("file://") else xsd_path
+    if not os.path.isfile(local_xsd):
+        exception = AnalysisException(
+            f"Path does not exist: {convert_file_prefix_path(local_xsd)}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
+        raise exception
+
+    stage_name = StageLocator.get_instance(session).get_and_maybe_create_stage("/")
+    dest_dir = f"{stage_name}/{random_string(8, 'xml_xsd_')}/"
+    dest_path = f"{dest_dir}{os.path.basename(local_xsd)}"
+    logger.info(f"Uploading local XSD file {local_xsd} to {dest_dir}")
+    try:
+        session.file.put(local_xsd, dest_dir, auto_compress=False, overwrite=True)
+    except Exception as e:
+        logger.error(f"Error uploading file {local_xsd} to {dest_dir}: {e}")
+        raise
+    options.config["rowvalidationxsdpath"] = dest_path
+    with open(local_xsd, "rb") as xsd_file:
+        options.config["_nss_xsd_data_uri"] = _xml_xsd_as_data_uri(xsd_file.read())
+
+
+def _nss_read_xml(
+    rel: relation_proto.Relation,
+    schema: StructType | None,
+    session: snowpark.Session,
+    paths: list[str],
+    options: XmlReaderConfig,
+    *,
+    row_tag: str,
+) -> DataFrameContainer | None:
+    """Read XML through the NSS ``STAGE_FILE_READER`` path when enabled.
+
+    Mirrors :func:`~map_read_csv._nss_read_csv`. Returns ``None`` (fall through to the
+    per-row decoder UDTF path) only when NSS is disabled.
+
+    Only compression is resolved for the temp FILE FORMAT: XML has no
+    ``MULTI_LINE``/``RECORD_DELIMITER`` clause, unlike CSV/JSON (see the
+    ``nss_file_format`` module docstring).
+
+    ``row_tag`` arrives already resolved so this branch and the legacy path share one
+    default, and is re-sent explicitly because ``options.config`` carries no entry at all
+    when the caller relied on that default.
+    """
+    nss_enabled, nss_reason = resolve_nss_path()
+    telemetry.report_file_read_path("xml", "nss" if nss_enabled else "copy", nss_reason)
+    if not nss_enabled:
+        return None
+
+    from snowflake.snowpark_connect.nss.nss_file_format import (
+        ensure_nss_temp_file_format,
+        resolve_nss_compression_option,
+    )
+
+    nss_compression = resolve_nss_compression_option(options.config, "xml")
+    format_name = get_string_session_config_param(
+        "snowpark.connect.nss.xml_format_name"
+    )
+    if not format_name:
+        format_name = ensure_nss_temp_file_format(
+            session,
+            "xml",
+            compression=nss_compression,
+        )
+    # STAGE_FILE_READER produces the file's data columns directly from DATA_SCHEMA --
+    # no per-schema decoder UDTF.
+    from snowflake.snowpark_connect.nss.nss_scan_options import (
+        _nss_column_name,
+        as_all_string_columns,
+        cache_if_corrupt_record_present,
+        columns_from_spark_schema,
+        filter_reader_options,
+        normalize_stage_paths,
+        nss_empty_schema_dummy_columns,
+        py_schema_as_nullable,
+        raise_if_locations_unsupported,
+        resolve_corrupt_record_column,
+        snowpark_types_from_columns,
+    )
+    from snowflake.snowpark_connect.nss.nss_stage_file_reader import (
+        nss_read_via_stage_file_reader,
+    )
+
+    stage_paths = normalize_stage_paths(paths)
+    stage_path = stage_paths[0]
+    corrupt_record_column_name = resolve_corrupt_record_column(
+        rel.read.data_source.options, options.config
+    )
+    nss_reader_options = filter_reader_options(
+        "xml", dict(options.config), options.user_option_keys
+    )
+    nss_reader_options["rowTag"] = row_tag
+    xsd_data_uri = options.config.get("_nss_xsd_data_uri")
+    if xsd_data_uri:
+        nss_reader_options["rowValidationXSDPath"] = xsd_data_uri
+    if corrupt_record_column_name:
+        nss_reader_options["columnNameOfCorruptRecord"] = corrupt_record_column_name
+
+    nss_empty_schema = False
+    if schema is None:
+        from snowflake.snowpark_connect.nss.nss_infer_schema import (
+            ensure_nss_empty_schema_has_visible_files,
+            infer_via_stage_file_schema,
+        )
+
+        nss_infer_reader_options = dict(nss_reader_options)
+        nss_infer_reader_options["inferSchema"] = (
+            "true" if options._get_config_setting("inferschema") else "false"
+        )
+        nss_columns = infer_via_stage_file_schema(
+            session,
+            stage_path,
+            format_name,
+            get_string_session_config_param(NSS_INFER_STAGE_FILE_SCHEMA_FQN_CONFIG),
+            mode=str(options.config.get("mode", "PERMISSIVE")).upper(),
+            corrupt_record_column=corrupt_record_column_name,
+            reader_options=nss_infer_reader_options,
+            stage_paths=stage_paths,
+        )
+        if not nss_columns:
+            ensure_nss_empty_schema_has_visible_files(
+                session, stage_path, "XML", stage_paths=stage_paths
+            )
+            nss_columns = nss_empty_schema_dummy_columns()
+            nss_empty_schema = True
+        elif not options._get_config_setting("inferschema"):
+            nss_columns = as_all_string_columns(nss_columns)
+    else:
+        from snowflake.snowpark_connect.relation.read.map_read import (
+            parse_data_source_schema_to_spark,
+        )
+
+        # TODO(SNOW-3717231): call the with-schema INFER_STAGE_FILE_SCHEMA TVF here too,
+        # so the backend returns the same per-column response format as the schema-less
+        # case (matching the CSV/JSON branches). Pending backend support -- for now use
+        # the client's Spark schema directly.
+        parsed_spark_schema = parse_data_source_schema_to_spark(rel)
+        if parsed_spark_schema is None:
+            # Fail clearly rather than crash on ``None.fields`` inside
+            # columns_from_spark_schema.
+            exception = ValueError(
+                "NSS XML read: an explicit schema was provided but the request "
+                "carried no parseable schema string."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        nss_columns = columns_from_spark_schema(
+            py_schema_as_nullable(parsed_spark_schema)
+        )
+        if not parsed_spark_schema.fields:
+            nss_columns = nss_empty_schema_dummy_columns()
+            nss_empty_schema = True
+
+    # NSS read path (keyword kept out of the customer-visible log message)
+    logger.info(
+        f"reading XML via STAGE_FILE_READER from "
+        f"{stage_path if len(stage_paths) == 1 else stage_paths}"
+    )
+    df = nss_read_via_stage_file_reader(
+        session=session,
+        stage_path=stage_path,
+        stage_paths=stage_paths,
+        file_format=format_name,
+        columns=nss_columns,
+        reader_options=nss_reader_options,
+        tvf_fqn=get_string_session_config_param(NSS_STAGE_FILE_READER_FQN_CONFIG),
+    )
+
+    # nss_columns carries the authoritative names in TVF output order, so derive the Spark
+    # names from it rather than from Snowflake's uppercased df.columns.
+    spark_column_names = [
+        _nss_column_name(c.name, i) for i, c in enumerate(nss_columns)
+    ]
+    try:
+        df = cache_if_corrupt_record_present(
+            df, corrupt_record_column_name, nss_columns
+        )
+        renamed_df, snowpark_column_names = rename_columns_as_snowflake_standard(
+            df, rel.common.plan_id
+        )
+    except SnowparkSQLException as exc:
+        if len(stage_paths) > 1:
+            raise_if_locations_unsupported(exc, len(stage_paths))
+        raise
+    # Memoizable in df_cache_map, but not materialized (SNOW-3717231): there is no
+    # pre-existing temp table here, so materializing would add a full table write the
+    # NSS path never used to perform.
+    return DataFrameContainer.create_with_column_mapping(
+        dataframe=renamed_df,
+        spark_column_names=spark_column_names,
+        snowpark_column_names=snowpark_column_names,
+        # Report the Spark types NSS was given, not ones re-derived from the TVF's
+        # Snowflake columns (SNOW-3891973).
+        snowpark_column_types=snowpark_types_from_columns(nss_columns),
+        column_is_internal=([True] if nss_empty_schema else None),
+    ).without_materialization()
 
 
 def map_read_xml(
@@ -108,34 +362,29 @@ def map_read_xml(
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
 
-    snowpark_options = options.convert_to_snowpark_args()
-    raw_options = rel.read.data_source.options
-
-    # [SPARK PARITY] Handle rowTag - Spark defaults to "ROW" if not provided
-    row_tag = snowpark_options.get("rowtag")
+    # [SPARK PARITY] Handle rowTag - Spark defaults to "ROW" if not provided. Resolved
+    # once, ahead of both branches, so the NSS read and the legacy UDTF path agree.
+    row_tag = options.config.get("rowtag")
     if not row_tag:
         row_tag = "ROW"
         logger.info("XML reader: rowTag not provided, using default 'ROW'")
+
+    _stage_local_xml_xsd(session, paths, options)
+
+    # ── NSS (Native Spark Sandbox) branch ────────────────────────────────────
+    # When enabled, read via STAGE_FILE_READER (the real Spark XmlFileFormat running in
+    # the sandbox) instead of the per-row decoder UDTF, inferring the schema via
+    # INFER_STAGE_FILE_SCHEMA when the caller supplied none.
+    nss_container = _nss_read_xml(rel, schema, session, paths, options, row_tag=row_tag)
+    if nss_container is not None:
+        return nss_container
+    # ── End NSS branch ────────────────────────────────────────────────────────
+
+    snowpark_options = options.convert_to_snowpark_args()
+    raw_options = rel.read.data_source.options
+
     snowpark_options.pop("rowtag", None)
     snowpark_options["rowTag"] = row_tag
-
-    # Handle rowValidationXSDPath - upload local XSD files to stage
-    # Snowpark's UDTF cannot access local files, so XSD must be on a stage
-    xsd_path = snowpark_options.get("rowvalidationxsdpath")
-    if xsd_path and not xsd_path.startswith("@"):
-        # Local XSD file - upload to same stage as XML data
-        local_xsd = xsd_path[7:] if xsd_path.startswith("file://") else xsd_path
-        if os.path.isfile(local_xsd):
-            data_path = paths[0].strip("'")
-            stage_name = data_path.split("/")[0]
-            logger.info(f"Uploading local XSD file {local_xsd} to {stage_name}/")
-
-            session.file.put(
-                local_xsd, f"{stage_name}/", auto_compress=False, overwrite=True
-            )
-            snowpark_options[
-                "rowvalidationxsdpath"
-            ] = f"{stage_name}/{os.path.basename(local_xsd)}"
 
     if schema is not None:
         snowpark_options["inferschema"] = False

@@ -47,6 +47,7 @@ from dbos._sys_db import WorkflowStatusString
 from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams
 from tests.conftest import (
     default_config,
+    explain_with_index_scans_only,
     imprecise_timestamps,
     queue_entries_are_cleaned_up,
     retry_until_success,
@@ -1645,9 +1646,6 @@ def test_timeout_queue(dbos: DBOS) -> None:
     # Verify all queue entries eventually get cleaned up.
     assert queue_entries_are_cleaned_up(dbos)
 
-    # Verify all timeout tasks completed
-    assert len(dbos._timeout_tasks) == 0
-
 
 @pytest.mark.asyncio
 async def test_timeout_queue_async(dbos: DBOS, config: DBOSConfig) -> None:
@@ -1779,9 +1777,6 @@ async def test_timeout_queue_async(dbos: DBOS, config: DBOSConfig) -> None:
 
     # Verify all queue entries eventually get cleaned up.
     assert queue_entries_are_cleaned_up(dbos)
-
-    # Verify all timeout tasks completed
-    assert len(dbos._timeout_tasks) == 0
 
 
 def test_resuming_queued_workflows(dbos: DBOS) -> None:
@@ -2405,11 +2400,18 @@ def test_timeout_queue_recovery(dbos: DBOS) -> None:
 
     # Reset the workflow to PENDING so it can be recovered. (update_workflow_outcome
     # cannot be used here: it will not move a workflow out of the terminal
-    # CANCELLED state.)
+    # CANCELLED state.) Its deadline goes far enough ahead that the timeout sweep
+    # cannot cancel the row before recovery claims it.
+    recovery_deadline = int(time.time() * 1000) + 10000
     with dbos._sys_db.engine.begin() as c:
         c.execute(
             sa.update(SystemSchema.workflow_status)
-            .values({"status": "PENDING"})
+            .values(
+                {
+                    "status": "PENDING",
+                    "workflow_deadline_epoch_ms": recovery_deadline,
+                }
+            )
             .where(
                 SystemSchema.workflow_status.c.workflow_uuid
                 == original_handle.workflow_id
@@ -2421,11 +2423,18 @@ def test_timeout_queue_recovery(dbos: DBOS) -> None:
     recovered_handle = handles[0]
     recovered_status = recovered_handle.get_status()
     assert recovered_status.workflow_timeout_ms == timeout * 1000
-    assert (
-        recovered_status.workflow_deadline_epoch_ms
-        == original_status.workflow_deadline_epoch_ms
-    )
+    assert recovered_status.workflow_deadline_epoch_ms == recovery_deadline
 
+    # Expire the deadline recovery preserved: the sweep cancels the recovered run.
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.update(SystemSchema.workflow_status)
+            .values({"workflow_deadline_epoch_ms": int(time.time() * 1000)})
+            .where(
+                SystemSchema.workflow_status.c.workflow_uuid
+                == original_handle.workflow_id
+            )
+        )
     with pytest.raises(DBOSAwaitedWorkflowCancelledError):
         recovered_handle.get_result()
 
@@ -2655,33 +2664,44 @@ def test_queue_partitions(dbos: DBOS, client: DBOSClient) -> None:
     blocked_partition_key = "blocked"
     normal_partition_key = "normal"
 
-    # Enqueue a blocked workflow and a normal workflow on
-    # the blocked partition. Verify the blocked workflow starts
-    # but the normal workflow is stuck behind it.
+    # Enqueue a blocked workflow on the blocked partition and, once it holds the
+    # partition's only slot, a normal workflow behind it. Verify the normal
+    # workflow is stuck. Enqueued together, a created_at tie on a second-resolution
+    # clock (SQLite below 3.12) would leave their claim order to chance.
     with SetEnqueueOptions(queue_partition_key=blocked_partition_key):
         blocked_blocked_handle = DBOS.enqueue_workflow("queue", blocked_workflow)
-        blocked_normal_handle = DBOS.enqueue_workflow("queue", normal_workflow)
-
     waiting_event.wait()
-    assert (
-        blocked_blocked_handle.get_status().status == WorkflowStatusString.PENDING.value
-    )
-    assert (
-        blocked_normal_handle.get_status().status == WorkflowStatusString.ENQUEUED.value
-    )
-    assert (
-        blocked_blocked_handle.get_status().queue_partition_key
-        == blocked_normal_handle.get_status().queue_partition_key
-        == blocked_partition_key
-    )
-    # Enqueue a normal workflow on the other partition and verify it runs normally
-    with SetEnqueueOptions(queue_partition_key=normal_partition_key):
-        normal_handle = DBOS.enqueue_workflow("queue", normal_workflow)
+    try:
+        with SetEnqueueOptions(queue_partition_key=blocked_partition_key):
+            blocked_normal_handle = DBOS.enqueue_workflow("queue", normal_workflow)
+        assert (
+            blocked_blocked_handle.get_status().status
+            == WorkflowStatusString.PENDING.value
+        )
+        assert (
+            blocked_normal_handle.get_status().status
+            == WorkflowStatusString.ENQUEUED.value
+        )
+        assert (
+            blocked_blocked_handle.get_status().queue_partition_key
+            == blocked_normal_handle.get_status().queue_partition_key
+            == blocked_partition_key
+        )
+        # Enqueue a normal workflow on the other partition and verify it runs normally
+        with SetEnqueueOptions(queue_partition_key=normal_partition_key):
+            normal_handle = DBOS.enqueue_workflow("queue", normal_workflow)
 
-    assert normal_handle.get_result()
+        assert normal_handle.get_result()
+        # The queue has polled since; the normal workflow is still stuck behind the blocked one.
+        assert (
+            blocked_normal_handle.get_status().status
+            == WorkflowStatusString.ENQUEUED.value
+        )
+    finally:
+        # Unblock the blocked partition; a failed assertion must not hang shutdown on it.
+        blocking_event.set()
 
-    # Unblock the blocked partition and verify its workflows complete
-    blocking_event.set()
+    # Verify the blocked partition's workflows complete
     assert blocked_blocked_handle.get_result()
     assert blocked_normal_handle.get_result()
 
@@ -3499,20 +3519,41 @@ def test_partitioned_batch_dequeue_version_gating(dbos: DBOS) -> None:
     assert start() == []
 
 
-def test_partitioned_batch_dequeue_sqlite_plan(dbos: DBOS) -> None:
-    """The batched candidates query must seek idx_workflow_status_partition_dequeue_v2.
-    SQLite's partial-index prover runs at prepare time, so this regresses silently
-    (full scan) if the literal predicate conjuncts are dropped from the query."""
-    if not using_sqlite():
-        pytest.skip("Plan assertion is SQLite-specific")
-
-    @DBOS.workflow()
-    def batch_wf(value: str) -> None:
-        pass
-
-    queue_name = f"unpolled-plan-{uuid.uuid4().hex[:8]}"
-    queue = unpolled_queue(queue_name, partition_concurrency=1)
-    ids = _enqueue_partition_rows(dbos, batch_wf, queue_name, "plan", ["p0", "p1"], 2)
+def test_get_queue_partitions_query_plan(dbos: DBOS, skip_with_sqlite: None) -> None:
+    """The app-scoped partition walk must run index-only on the v3 partition index,
+    which carries application_name so no partition probe reads the table."""
+    queue_name = f"partition-plan-{uuid.uuid4().hex[:8]}"
+    partitions = [f"p{i:03d}" for i in range(200)]
+    ws = SystemSchema.workflow_status
+    now = int(time.time() * 1000)
+    rows = [
+        {
+            "workflow_uuid": f"{queue_name}-{partition}-{i}",
+            "name": "plan_probe",
+            "status": "ENQUEUED",
+            "created_at": now,
+            "updated_at": now,
+            "queue_name": queue_name,
+            "queue_partition_key": partition,
+            "application_name": dbos._sys_db.app_name,
+        }
+        for partition in partitions
+        for i in range(2)
+    ] + [
+        {
+            "workflow_uuid": f"{queue_name}-done-{i}",
+            "name": "plan_probe",
+            "status": "SUCCESS",
+            "created_at": now,
+            "updated_at": now,
+            "queue_name": None,
+            "queue_partition_key": None,
+            "application_name": dbos._sys_db.app_name,
+        }
+        for i in range(1000)
+    ]
+    with dbos._sys_db.engine.begin() as conn:
+        conn.execute(sa.insert(ws), rows)
 
     captured: List[Any] = []
 
@@ -3524,7 +3565,6 @@ def test_partitioned_batch_dequeue_sqlite_plan(dbos: DBOS) -> None:
         context: Any,
         executemany: bool,
     ) -> None:
-        # The candidates query is the only WITH RECURSIVE this sweep emits (get_queue_partitions, the other one, runs on the fallback path).
         if "recursive" in statement.lower():
             captured.append((statement, parameters))
 
@@ -3532,24 +3572,21 @@ def test_partitioned_batch_dequeue_sqlite_plan(dbos: DBOS) -> None:
 
     event.listen(dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute)
     try:
-        ret = dbos._sys_db.start_queued_partitioned_workflows(
-            queue, GlobalParams.executor_id, GlobalParams.app_version
-        )
+        assert dbos._sys_db.get_queue_partitions(queue_name) == partitions
     finally:
         event.remove(
             dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute
         )
-    assert ret == [ids["p0"][0], ids["p1"][0]]
     assert captured
     statement, parameters = captured[0]
-    with dbos._sys_db.engine.connect() as conn:
-        plan = conn.exec_driver_sql(
-            f"EXPLAIN QUERY PLAN {statement}", parameters
-        ).fetchall()
-    details = [str(row[-1]) for row in plan]
-    assert any("idx_workflow_status_partition_dequeue_v2" in d for d in details)
-    # Every workflow_status access must be a seek: asserting only that the index is named somewhere still passes when one probe (e.g. the PENDING gate) regresses to a scan.
-    assert not [d for d in details if d.startswith("SCAN") and "workflow_status" in d]
+    assert "application_name" in statement
+    details = explain_with_index_scans_only(
+        dbos, "workflow_status", statement, parameters
+    )
+    assert any(
+        "Index Only Scan using idx_workflow_status_partition_dequeue_v3" in d
+        for d in details
+    ), details
 
 
 def test_rate_limiter_query_plan(dbos: DBOS) -> None:
@@ -3635,6 +3672,69 @@ def test_rate_limiter_query_plan(dbos: DBOS) -> None:
         if "Index Cond" in d or "USING INDEX" in d
     )
     assert not [d for d in details if d.startswith("SCAN") or "Seq Scan" in d]
+
+
+def test_pending_count_query_plan(dbos: DBOS, skip_with_sqlite: None) -> None:
+    """The global-concurrency PENDING count runs each poll, so it must run index-only on
+    idx_workflow_status_in_flight_v2 rather than fetch every running workflow's row."""
+
+    queue = unpolled_queue(f"pending-plan-{uuid.uuid4().hex[:8]}", concurrency=5)
+
+    captured: List[Any] = []
+
+    def before_cursor_execute(
+        conn: Any,
+        cursor: Any,
+        statement: str,
+        parameters: Any,
+        context: Any,
+        executemany: bool,
+    ) -> None:
+        # With no limiter configured, the global PENDING count is the only count the sweep emits.
+        if statement.strip().startswith("SELECT count(*)"):
+            captured.append((statement, parameters))
+
+    from sqlalchemy import event
+
+    event.listen(dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute)
+    try:
+        assert (
+            dbos._sys_db.start_queued_workflows(
+                queue, GlobalParams.executor_id, GlobalParams.app_version, None
+            )
+            == []
+        )
+    finally:
+        event.remove(
+            dbos._sys_db.engine, "before_cursor_execute", before_cursor_execute
+        )
+    assert captured
+    statement, parameters = captured[0]
+    assert "application_name" in statement
+
+    # All PENDING with scattered created_at, a tenth on this queue: idx_workflow_status_pending would read ten times the rows in random heap order.
+    ws = SystemSchema.workflow_status
+    now = int(time.time() * 1000)
+    rows = [
+        {
+            "workflow_uuid": f"pending-plan-{i}-{uuid.uuid4()}",
+            "name": "plan_probe",
+            "status": "PENDING",
+            "created_at": now - (i * 7919) % 1000,
+            "updated_at": now,
+            "queue_name": queue.name if i % 10 == 0 else f"other-queue-{i % 7}",
+            "application_name": dbos._sys_db.app_name,
+        }
+        for i in range(1000)
+    ]
+    with dbos._sys_db.engine.begin() as conn:
+        conn.execute(sa.insert(ws), rows)
+    details = explain_with_index_scans_only(
+        dbos, "workflow_status", statement, parameters
+    )
+    assert any(
+        "Index Only Scan using idx_workflow_status_in_flight_v2" in d for d in details
+    ), details
 
 
 def test_partitioned_queue_global_exclusivity(
@@ -4176,7 +4276,9 @@ def test_enqueue_with_options_unknown_workflow(dbos: DBOS) -> None:
     DBOS.cancel_workflow(handle.get_workflow_id())
 
 
-def test_enqueue_with_options_child(dbos: DBOS) -> None:
+def test_enqueue_with_options_child(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch
+) -> None:
     child_counter: int = 0
 
     @DBOS.workflow(name="with_options_child")
@@ -4225,17 +4327,28 @@ def test_enqueue_with_options_child(dbos: DBOS) -> None:
         assert child_status.workflow_deadline_epoch_ms == parent_deadline
 
     # On recovery the parent re-runs but returns the recorded children, not new ones.
-    # A re-attempted enqueue would rebuild the same deterministic ID and upsert
-    # over the finished child, so watch updated_at: only a replay leaves it alone.
-    child_updated_at = DBOS.retrieve_workflow(f"{wfid}-1").get_status().updated_at
+    # A re-attempted enqueue silently re-inits the same child ID, so spy on init.
+    initialized: List[str] = []
+    real_init = dbos._sys_db.init_workflow
+    real_init_child = dbos._sys_db.init_child_workflow
+
+    def spying_init(status: Any, *args: Any, **kwargs: Any) -> Any:
+        initialized.append(status["workflow_uuid"])
+        return real_init(status, *args, **kwargs)
+
+    def spying_init_child(status: Any, *args: Any, **kwargs: Any) -> Any:
+        initialized.append(status["workflow_uuid"])
+        return real_init_child(status, *args, **kwargs)
+
+    monkeypatch.setattr(dbos._sys_db, "init_workflow", spying_init)
+    monkeypatch.setattr(dbos._sys_db, "init_child_workflow", spying_init_child)
     set_workflow_status(dbos._sys_db, wfid, "PENDING")
     handles = DBOS._recover_pending_workflows()
     assert len(handles) == 1
     assert handles[0].get_result() == 14
     assert child_counter == 2
-    assert (
-        DBOS.retrieve_workflow(f"{wfid}-1").get_status().updated_at == child_updated_at
-    )
+    assert f"{wfid}-1" not in initialized
+    assert f"{wfid}-2" not in initialized
 
 
 @pytest.mark.asyncio

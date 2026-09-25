@@ -130,7 +130,7 @@ class AutogroupsConfig(models.Model):
                 group = self.get_alliance_group(alliance)
         except EveAllianceInfo.DoesNotExist:
             logger.debug(f'User {user} main characters alliance does not exist in the database. Creating.')
-            alliance = EveAllianceInfo.objects.create_alliance(user.profile.main_character.alliance_id)
+            alliance = EveAllianceInfo.objects.get_or_create_esi(user.profile.main_character.alliance_id)
             group = self.get_alliance_group(alliance)
         except AttributeError:
             logger.warning(f'User {user} does not have a main character. Group membership not updated')
@@ -151,7 +151,7 @@ class AutogroupsConfig(models.Model):
                 group = self.get_corp_group(corp)
         except EveCorporationInfo.DoesNotExist:
             logger.debug(f'User {user} main characters corporation does not exist in the database. Creating.')
-            corp = EveCorporationInfo.objects.create_corporation(
+            corp = EveCorporationInfo.objects.get_or_create_esi(
                 corporation_id=user.profile.main_character.corporation_id
             )
             group = self.get_corp_group(corp)

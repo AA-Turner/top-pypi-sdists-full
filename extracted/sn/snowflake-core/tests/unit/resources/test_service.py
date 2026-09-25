@@ -57,6 +57,24 @@ def test_service_spec_invalid(spec):
         ServiceSpec(spec)
 
 
+def test_service_spec_force_inline():
+    assert ServiceSpec(_INLINE_SERVICE_SPEC, force_inline=True) == ServiceSpecInlineText(
+        spec_text=_INLINE_SERVICE_SPEC.rstrip()
+    )
+
+
+@pytest.mark.parametrize(
+    "spec",
+    [
+        "@stage/spec.yaml",  # a valid stage file path, but force_inline never takes the stage-file branch
+        _INLINE_SERVICE_SPEC_NO_SPEC_FIELD,
+    ],
+)
+def test_service_spec_force_inline_invalid(spec):
+    with pytest.raises(ValueError):
+        ServiceSpec(spec, force_inline=True)
+
+
 @pytest.mark.parametrize(
     "spec_path, stage, path",
     [("stage/spec.yaml", "stage", "spec.yaml"), ("stage/path/to/spec.yaml", "stage", "path/to/spec.yaml")],

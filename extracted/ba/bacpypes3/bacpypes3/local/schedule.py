@@ -1,14 +1,16 @@
 import asyncio
 import calendar
 from time import mktime as _mktime
+
 from typing import Any, Optional, Tuple
 
-from ..basetypes import CalendarEntry, Reliability, WeekNDay
+from ..debugging import bacpypes_debugging, ModuleLogger
+from ..primitivedata import Atomic, Null, Unsigned, Date, Time
+from ..basetypes import CalendarEntry, WeekNDay, Reliability
 from ..constructeddata import Array
-from ..debugging import ModuleLogger, bacpypes_debugging
 from ..object import ScheduleObject as _ScheduleObject
-from ..primitivedata import Atomic, Date, Null, Time, Unsigned
 from ..vendor import get_vendor_info
+
 from .object import Object as _Object
 
 # some debugging
@@ -536,9 +538,7 @@ class ScheduleObject(_Object, _ScheduleObject):
         self.presentValue = current_value
 
         # compute the time of the next transition
-        transition_time = datetime_to_time(
-            current_date, next_transition
-        ) - datetime_to_time(current_date, current_time)
+        transition_time = datetime_to_time(current_date, next_transition) - datetime_to_time(current_date, current_time)
 
         # schedule this to run
         try:

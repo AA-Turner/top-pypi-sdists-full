@@ -17,6 +17,7 @@ from opentelemetry.sdk.trace.sampling import Decision, SamplingResult
 from opentelemetry.semconv._incubating.attributes import (
     gen_ai_attributes as GenAI,
 )
+from opentelemetry.test.test_base import TestBase
 from opentelemetry.trace import INVALID_SPAN, SpanKind
 from opentelemetry.trace.status import StatusCode
 from opentelemetry.util.genai.handler import TelemetryHandler
@@ -25,7 +26,7 @@ from opentelemetry.util.genai.types import (
     Error,
     InputMessage,
     OutputMessage,
-    Text,
+    TextPart,
 )
 
 
@@ -71,6 +72,23 @@ class TelemetryHandlerWorkflowTest(_WorkflowTestBase):
         spans = self._get_finished_spans()
         self.assertEqual(len(spans), 1)
         self.assertEqual(spans[0].name, "invoke_workflow")
+
+    def test_workflow_conversation_id(self) -> None:
+        invocation = self.handler.workflow(name="wf")
+        invocation.conversation_id = "conv-456"
+        invocation.stop()
+
+        spans = self._get_finished_spans()
+        self.assertEqual(
+            spans[0].attributes[GenAI.GEN_AI_CONVERSATION_ID], "conv-456"
+        )
+
+    def test_workflow_without_conversation_id(self) -> None:
+        invocation = self.handler.workflow(name="wf")
+        invocation.stop()
+
+        spans = self._get_finished_spans()
+        self.assertNotIn(GenAI.GEN_AI_CONVERSATION_ID, spans[0].attributes)
 
     def test_start_workflow_span_kind_is_internal(self) -> None:
         invocation = self.handler.workflow(name="wf")
@@ -139,6 +157,16 @@ class TelemetryHandlerWorkflowTest(_WorkflowTestBase):
         spans = self._get_finished_spans()
         self.assertEqual(len(spans), 1)
 
+    def test_stop_workflow_sets_conversation_id(self) -> None:
+        invocation = self.handler.workflow(name="wf")
+        invocation.conversation_id = "wf-conv-99"
+        invocation.stop()
+
+        spans = self._get_finished_spans()
+        self.assertEqual(
+            spans[0].attributes[GenAI.GEN_AI_CONVERSATION_ID], "wf-conv-99"
+        )
+
     # ------------------------------------------------------------------
     # fail_workflow
     # ------------------------------------------------------------------
@@ -178,6 +206,57 @@ class TelemetryHandlerWorkflowTest(_WorkflowTestBase):
         spans = self._get_finished_spans()
         self.assertEqual(len(spans), 1)
         self.assertEqual(spans[0].status.status_code, StatusCode.ERROR)
+
+    def test_workflow_with_explicit_context(self) -> None:
+        parent_inv = self.handler.workflow("parent")
+        parent_inv.stop()
+        tracer = self.tracer_provider.get_tracer(__name__)
+        with tracer.start_as_current_span("ambient") as ambient_span:
+            child_inv = self.handler.workflow(
+                "child", context=parent_inv.context
+            )
+            child_inv.stop()
+
+        spans = self._get_finished_spans()
+        child_span = next(
+            s for s in spans if s.name == "invoke_workflow child"
+        )
+        parent_span = next(
+            s for s in spans if s.name == "invoke_workflow parent"
+        )
+        self.assertEqual(
+            child_span.parent.span_id, parent_span.context.span_id
+        )
+        self.assertNotEqual(
+            child_span.parent.span_id, ambient_span.get_span_context().span_id
+        )
+        self.assertEqual(
+            child_span.context.trace_id, parent_span.context.trace_id
+        )
+
+    def test_finish_in_different_async_context_with_attach_to_context_false(
+        self,
+    ) -> None:
+        import asyncio
+        import logging
+
+        from opentelemetry.trace import get_current_span
+
+        tracer = self.tracer_provider.get_tracer(__name__)
+        with tracer.start_as_current_span("ambient") as ambient_span:
+            inv = self.handler.workflow("async_wf", _attach_to_context=False)
+            self.assertEqual(get_current_span(), ambient_span)
+
+            async def _finish_in_other_task():
+                inv.stop()
+
+            with patch.object(
+                logging.getLogger("opentelemetry.context"), "exception"
+            ) as mock_logger_exc:
+                asyncio.run(_finish_in_other_task())
+                mock_logger_exc.assert_not_called()
+
+            self.assertEqual(get_current_span(), ambient_span)
 
 
 class TelemetryHandlerWorkflowContextManagerTest(_WorkflowTestBase):
@@ -273,9 +352,11 @@ class TelemetryHandlerWorkflowSamplingTest(_WorkflowTestBase):
         self.assertEqual(spans[0].status.status_code, StatusCode.UNSET)
 
     def test_workflow_context_manager_with_messages(self) -> None:
-        inp = InputMessage(role="user", parts=[Text(content="hello")])
+        inp = InputMessage(role="user", parts=[TextPart(content="hello")])
         out = OutputMessage(
-            role="assistant", parts=[Text(content="hi")], finish_reason="stop"
+            role="assistant",
+            parts=[TextPart(content="hi")],
+            finish_reason="stop",
         )
         with self.handler.workflow("msg_wf") as inv:
             inv.input_messages = [inp]
@@ -287,3 +368,35 @@ class TelemetryHandlerWorkflowSamplingTest(_WorkflowTestBase):
             spans[0].attributes[GenAI.GEN_AI_OPERATION_NAME],
             "invoke_workflow",
         )
+
+
+class TestWorkflowInvocationMetrics(TestBase):
+    def _harvest_metrics(self):
+        metrics = self.get_sorted_metrics()
+        metrics_by_name = {}
+        for metric in metrics or []:
+            points = metric.data.data_points or []
+            metrics_by_name.setdefault(metric.name, []).extend(points)
+        return metrics_by_name
+
+    def test_workflow_records_duration(self) -> None:
+        handler = TelemetryHandler(
+            tracer_provider=self.tracer_provider,
+            meter_provider=self.meter_provider,
+        )
+        with patch("timeit.default_timer", return_value=1000.0):
+            invocation = handler.workflow(name="test-workflow")
+
+        with patch("timeit.default_timer", return_value=1002.0):
+            invocation.stop()
+
+        metrics = self._harvest_metrics()
+        self.assertIn("gen_ai.invoke_workflow.duration", metrics)
+        duration_points = metrics["gen_ai.invoke_workflow.duration"]
+        self.assertEqual(len(duration_points), 1)
+        duration_point = duration_points[0]
+        self.assertEqual(
+            duration_point.attributes[GenAI.GEN_AI_WORKFLOW_NAME],
+            "test-workflow",
+        )
+        self.assertAlmostEqual(duration_point.sum, 2.0, places=3)

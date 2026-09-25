@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+from dreadnode.core.tls import cached_platform_ssl_context
+
 if TYPE_CHECKING:
     import httpx
 
@@ -251,6 +253,7 @@ class VllmAdapter:
             import httpx
 
             self._client = httpx.AsyncClient(
+                verify=cached_platform_ssl_context(),
                 base_url=self.base_url,
                 timeout=self.timeout,
             )

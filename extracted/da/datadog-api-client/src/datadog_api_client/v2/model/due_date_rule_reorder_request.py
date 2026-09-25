@@ -32,7 +32,7 @@ class DueDateRuleReorderRequest(ModelNormal):
         """
         The body of the due date rule reorder request.
 
-        :param data: The ordered list of all due date rules; every rule must be included.
+        :param data: The ordered list of all due date rules. Every rule must be included.
         :type data: [DueDateRuleReorderItem]
         """
         super().__init__(kwargs)

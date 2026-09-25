@@ -14,57 +14,30 @@ use datafusion::physical_plan::{
     ExecutionPlan, ExecutionPlanProperties, Partitioning, SendableRecordBatchStream,
     execute_stream_partitioned,
 };
-use delta_kernel::engine::arrow_conversion::TryIntoKernel as _;
 use delta_kernel::table_configuration::TableConfiguration;
 use futures::{StreamExt as _, TryStreamExt as _};
 use object_store::prefix::PrefixStore;
 use parquet::file::properties::WriterProperties;
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
-use tracing::log::*;
 use uuid::Uuid;
 
 use crate::DeltaTableError;
 use crate::datafile::writer::{
     DeltaWriter, UploadBudget, WriterConfig, write_batches_timed, writer_batch_concurrency,
 };
-use crate::delta_datafusion::{
-    ColumnMappingState, DataValidationExec, generated_columns_to_exprs, validation_predicates,
-};
+use crate::delta_datafusion::{ColumnMappingState, DataValidationExec, validation_predicates};
 use crate::errors::DeltaResult;
-use crate::kernel::{Action, Add, AddCDCFile, EagerSnapshot, StructType, StructTypeExt};
+use crate::kernel::{Action, Add, AddCDCFile};
 use crate::logstore::{LogStore, ObjectStoreRef};
 use crate::operations::cdc::CDC_COLUMN_NAME;
-use crate::operations::write::WriterStatsConfig;
-
-const DEFAULT_WRITER_BATCH_CHANNEL_SIZE: usize = 10;
+use crate::operations::write::configs::{WriteExecOptions, WriterStatsConfig};
 
 /// Error message used when a worker's `send` fails because the writer task has
 /// already closed the channel (e.g. the writer errored). It is recognised by
 /// [`is_writer_task_closed_error`] so the real (writer) error is surfaced
 /// instead of this downstream symptom.
 const WRITER_TASK_CLOSED_UNEXPECTEDLY_MSG: &str = "Writer task closed unexpectedly";
-
-fn parse_channel_size(raw: Option<&str>) -> usize {
-    raw.and_then(|s| s.parse::<usize>().ok())
-        .filter(|size| *size > 0)
-        .unwrap_or(DEFAULT_WRITER_BATCH_CHANNEL_SIZE)
-}
-
-/// Capacity of the mpsc channels between partition-reader workers and the writer task.
-/// Env override: `DELTARS_WRITER_BATCH_CHANNEL_SIZE` (positive integer; 0 or invalid → default).
-/// Distinct from `DELTARS_MAX_CONCURRENT_WRITERS` (partition parallelism) and
-/// `DELTARS_MAX_CONCURRENCY_TASKS` in writer.rs (per-file upload parallelism).
-fn channel_size() -> usize {
-    static CHANNEL_SIZE: OnceLock<usize> = OnceLock::new();
-    *CHANNEL_SIZE.get_or_init(|| {
-        parse_channel_size(
-            std::env::var("DELTARS_WRITER_BATCH_CHANNEL_SIZE")
-                .ok()
-                .as_deref(),
-        )
-    })
-}
 
 #[cfg(test)]
 mod tests {
@@ -307,75 +280,53 @@ pub(crate) struct WriteStreamMetrics {
     pub write_time_ms: u64,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn write_execution_plan_cdc(
-    snapshot: Option<&EagerSnapshot>,
+    table_config: &TableConfiguration,
     session: &dyn Session,
     plan: Arc<dyn ExecutionPlan>,
-    partition_columns: Vec<String>,
     object_store: ObjectStoreRef,
-    target_file_size: Option<NonZeroU64>,
-    write_batch_size: Option<usize>,
-    writer_properties: Option<WriterProperties>,
-    writer_stats_config: WriterStatsConfig,
+    exec_options: WriteExecOptions,
 ) -> DeltaResult<Vec<Action>> {
     let cdc_store = Arc::new(PrefixStore::new(object_store, "_change_data"));
 
-    Ok(write_execution_plan(
-        snapshot,
-        session,
-        plan,
-        partition_columns,
-        cdc_store,
-        target_file_size,
-        write_batch_size,
-        writer_properties,
-        writer_stats_config,
+    Ok(
+        write_execution_plan(table_config, session, plan, cdc_store, exec_options)
+            .await?
+            .into_iter()
+            .map(|add| {
+                // Modify add actions into CDC actions
+                match add {
+                    Action::Add(add) => {
+                        Action::Cdc(AddCDCFile {
+                            // This is a gnarly hack, but the action needs the nested path, not the
+                            // path inside the prefixed store
+                            path: format!("_change_data/{}", add.path),
+                            size: add.size,
+                            partition_values: add.partition_values,
+                            data_change: false,
+                            tags: add.tags,
+                        })
+                    }
+                    _ => panic!("Expected Add action"),
+                }
+            })
+            .collect::<Vec<_>>(),
     )
-    .await?
-    .into_iter()
-    .map(|add| {
-        // Modify add actions into CDC actions
-        match add {
-            Action::Add(add) => {
-                Action::Cdc(AddCDCFile {
-                    // This is a gnarly hack, but the action needs the nested path, not the
-                    // path inside the prefixed store
-                    path: format!("_change_data/{}", add.path),
-                    size: add.size,
-                    partition_values: add.partition_values,
-                    data_change: false,
-                    tags: add.tags,
-                })
-            }
-            _ => panic!("Expected Add action"),
-        }
-    })
-    .collect::<Vec<_>>())
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn write_execution_plan(
-    snapshot: Option<&EagerSnapshot>,
+    table_config: &TableConfiguration,
     session: &dyn Session,
     plan: Arc<dyn ExecutionPlan>,
-    partition_columns: Vec<String>,
     object_store: ObjectStoreRef,
-    target_file_size: Option<NonZeroU64>,
-    write_batch_size: Option<usize>,
-    writer_properties: Option<WriterProperties>,
-    writer_stats_config: WriterStatsConfig,
+    exec_options: WriteExecOptions,
 ) -> DeltaResult<Vec<Action>> {
     let (actions, _) = write_execution_plan_v2(
-        snapshot,
+        table_config,
         session,
         plan,
-        partition_columns,
         object_store,
-        target_file_size,
-        write_batch_size,
-        writer_properties,
-        writer_stats_config,
+        exec_options,
         None,
         false,
         None,
@@ -386,36 +337,17 @@ pub(crate) async fn write_execution_plan(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn write_execution_plan_v2(
-    snapshot: Option<&EagerSnapshot>,
+    table_config: &TableConfiguration,
     session: &dyn Session,
     plan: Arc<dyn ExecutionPlan>,
-    partition_columns: Vec<String>,
     object_store: ObjectStoreRef,
-    target_file_size: Option<NonZeroU64>,
-    write_batch_size: Option<usize>,
-    writer_properties: Option<WriterProperties>,
-    writer_stats_config: WriterStatsConfig,
+    exec_options: WriteExecOptions,
     predicate: Option<Expr>,
     contains_cdc: bool,
     insert_marker_column: Option<String>,
 ) -> DeltaResult<(Vec<Action>, WriteExecutionPlanMetrics)> {
-    // We always take the plan Schema since the data may contain Large/View arrow types,
-    // the schema and batches were prior constructed with this in mind.
-    let schema = plan.schema();
-    let mut validations = if let Some(snapshot) = snapshot {
-        validation_predicates(
-            session,
-            &plan.schema().to_dfschema()?,
-            snapshot.table_configuration(),
-        )?
-    } else {
-        debug!(
-            "Using plan schema to derive generated columns, since no snapshot was provided. Implies first write."
-        );
-        let delta_schema: StructType = schema.as_ref().try_into_kernel()?;
-        let df_schema = schema.clone().to_dfschema()?;
-        generated_columns_to_exprs(session, &df_schema, &delta_schema.get_generated_columns()?)?
-    };
+    let mut validations =
+        validation_predicates(session, &plan.schema().to_dfschema()?, table_config)?;
 
     if let Some(mut pred) = predicate {
         // DataRescue uses an internal insert-marker column; CDC-only plans rely on `_change_type`.
@@ -434,14 +366,13 @@ pub(crate) async fn write_execution_plan_v2(
     }
 
     let sink_config = WriteSinkConfig {
-        partition_columns,
+        partition_columns: table_config.metadata().partition_columns().to_vec(),
         object_store,
-        target_file_size,
-        write_batch_size,
-        writer_properties,
-        writer_stats_config,
-        column_mapping: snapshot
-            .and_then(|s| ColumnMappingState::from_table_config(s.table_configuration())),
+        target_file_size: exec_options.target_file_size,
+        write_batch_size: exec_options.write_batch_size,
+        writer_properties: exec_options.writer_properties,
+        writer_stats_config: WriterStatsConfig::from_config(table_config),
+        column_mapping: ColumnMappingState::from_table_config(table_config),
     };
 
     if !contains_cdc {
@@ -870,15 +801,14 @@ async fn write_data_plan(
 /// Split a CDC-unioned batch into (normal-write rows, cdf rows) using Arrow compute,
 /// avoiding the overhead of a DataFusion plan-and-execute cycle per batch.
 ///
-/// Split a CDC-unioned batch into (normal-write rows, cdf rows) using Arrow compute,
-/// avoiding the overhead of a DataFusion plan-and-execute cycle per batch.
-///
 /// Mirrors the original DataFusion filter semantics exactly:
 /// - **normal side** (written to the data file): rows where `_change_type` is NOT IN
-///   {"delete", "source_delete", "update_preimage"} — survivor rows (null change type)
-///   plus "insert" and "update_postimage" rows. The `_change_type` column is stripped.
+///   {"delete", "source_delete", "update_preimage"}. The `_change_type` column is stripped.
 /// - **CDF side** (written to `_change_data`): rows where `_change_type` IS IN
-///   {"delete", "insert", "update_preimage", "update_postimage"} — null survivors excluded.
+///   {"delete", "insert", "update_preimage", "update_postimage"}.
+///
+/// As in SQL, a null `_change_type` matches neither filter, so the row is dropped from both
+/// sides. Merge relies on this to drop source rows that no insert clause accepts.
 fn split_cdc_batch(batch: &RecordBatch) -> DeltaResult<(RecordBatch, RecordBatch)> {
     use arrow::array::BooleanArray;
     use arrow::array::cast::AsArray;
@@ -896,15 +826,13 @@ fn split_cdc_batch(batch: &RecordBatch) -> DeltaResult<(RecordBatch, RecordBatch
             DeltaTableError::generic("_change_type column is not a Utf8 string array")
         })?;
 
-    // Normal side: keep survivors (null _change_type) and non-delete events.
+    // Normal side: keep non-delete events and drop a null _change_type.
     // Mirrors `NOT IN ("delete", "source_delete", "update_preimage")`.
     let normal_mask: BooleanArray = change_type_col
         .iter()
         .map(|v| {
-            Some(!matches!(
-                v,
-                Some("delete" | "source_delete" | "update_preimage")
-            ))
+            v.map(|v| !matches!(v, "delete" | "source_delete" | "update_preimage"))
+                .unwrap_or(false)
         })
         .collect();
 
@@ -913,15 +841,17 @@ fn split_cdc_batch(batch: &RecordBatch) -> DeltaResult<(RecordBatch, RecordBatch
     // _change_type must not appear in the data file.
     normal_batch.remove_column(cdc_idx);
 
-    // CDF side: only explicit change events; null survivors are excluded.
+    // CDF side: only explicit change events; a null _change_type is dropped.
     // Mirrors `IN ("delete", "insert", "update_preimage", "update_postimage")`.
     let cdf_mask: BooleanArray = change_type_col
         .iter()
         .map(|v| {
-            Some(matches!(
-                v,
-                Some("delete" | "insert" | "update_preimage" | "update_postimage")
-            ))
+            v.is_some_and(|v| {
+                matches!(
+                    v,
+                    "delete" | "insert" | "update_preimage" | "update_postimage"
+                )
+            })
         })
         .collect();
     let cdf_batch = filter_record_batch(batch, &cdf_mask)

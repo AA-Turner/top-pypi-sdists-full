@@ -45,6 +45,9 @@ _DATE_FORMAT_LTZ_HANDLER = (
 _DATETIME_PARSE_HANDLER = (
     "com.snowflake.snowpark_connect.udfs.DatetimeFormatUdfs.parse_datetime"
 )
+_DATETIME_PARSE_LEGACY_HANDLER = (
+    "com.snowflake.snowpark_connect.udfs.DatetimeFormatUdfs.parse_datetime_legacy"
+)
 
 
 def substitute_proleptic_year(spark_format: str) -> str:
@@ -148,6 +151,20 @@ def get_java_parse_datetime_udf() -> Callable[..., Column]:
     """
     return register_cached_java_udf(
         _DATETIME_PARSE_HANDLER,
+        ["STRING", "STRING", "BOOLEAN", "STRING"],
+        "STRING",
+    )
+
+
+def get_java_parse_datetime_legacy_udf() -> Callable[..., Column]:
+    """Register the SimpleDateFormat parse UDF used when timeParserPolicy=LEGACY.
+
+    UDF signature matches :func:`get_java_parse_datetime_udf`. The pattern is the
+    Spark format with no y-to-u rewrite. ``S`` is millisecond; ``[`` / ``]`` are
+    literals.
+    """
+    return register_cached_java_udf(
+        _DATETIME_PARSE_LEGACY_HANDLER,
         ["STRING", "STRING", "BOOLEAN", "STRING"],
         "STRING",
     )

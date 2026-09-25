@@ -14,11 +14,12 @@ from pathlib import Path
 import requests
 
 from rapidata import __version__
-from rapidata.rapidata_client.config._agent_hint import (
+from rapidata._agent_hint import (
     AGENT_DOCS_URL,
     LLMS_FULL_URL,
     SKILL_INSTALL_PATHS,
     SKILL_RAW_URL,
+    mark_skill_read,
 )
 
 
@@ -82,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
+    mark_skill_read()
     if args.install:
         target = install_skill(args.dir, args.agent, content)
         print(f"Installed the Rapidata skill to {target}")

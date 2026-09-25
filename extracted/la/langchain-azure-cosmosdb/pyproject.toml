@@ -1,49 +1,57 @@
 [project]
 name = "langchain-azure-cosmosdb"
-version = "1.0.0"
+version = "1.0.1"
 description = "Azure CosmosDB integrations for LangChain and LangGraph, including vector store, cache, chat history, and checkpoint."
 license = "MIT"
+license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
-authors = [
-  { name = "Aayush Kataria", email = "akataria@microsoft.com" },
-]
-maintainers = [
-  { name = "Aayush Kataria", email = "akataria@microsoft.com" },
-  { name = "Theo van Kraay", email = "Theo.van@microsoft.com" },
-  { name = "James Codella", email = "James.Codella@microsoft.com" },
-]
+requires-python = ">=3.11,<4.0"
 keywords = [
-  "azure",
-  "cosmosdb",
-  "langchain",
-  "langgraph",
-  "vector-search",
-  "llm",
-  "ai",
+    "azure",
+    "cosmosdb",
+    "langchain",
+    "langgraph",
+    "vector-search",
+    "llm",
+    "ai",
 ]
 classifiers = [
-  "Development Status :: 5 - Production/Stable",
-  "Intended Audience :: Developers",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Topic :: Database",
-  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "azure-cosmos>=4.14.0",
+    "azure-identity>=1.12.0",
+    "aiohttp>=3.14.1",
+    "langchain-core>=1.0,<2.0",
+    "langgraph>=0.2.0",
+    "langgraph-checkpoint>=2.1.2,<5.0.0",
+    "numpy>=1,<3",
+    "orjson>=3.10.1",
 ]
 
-dependencies = [
-  "azure-cosmos>=4.9.0",
-  "azure-identity>=1.12.0",
-  "aiohttp>=3.9.0",
-  "langchain-core>=1.0,<2.0",
-  "langgraph>=0.2.0",
-  "langgraph-checkpoint>=2.1.2,<5.0.0",
-  "numpy>=1,<3",
-  "orjson>=3.10.1",
-]
+[[project.authors]]
+name = "Aayush Kataria"
+email = "akataria@microsoft.com"
+
+[[project.maintainers]]
+name = "Aayush Kataria"
+email = "akataria@microsoft.com"
+
+[[project.maintainers]]
+name = "Theo van Kraay"
+email = "Theo.van@microsoft.com"
+
+[[project.maintainers]]
+name = "James Codella"
+email = "James.Codella@microsoft.com"
 
 [project.urls]
 Homepage = "https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-cosmosdb"
@@ -51,14 +59,9 @@ repository = "https://github.com/langchain-ai/langchain-azure"
 "Source Code" = "https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-cosmosdb"
 "Release Notes" = "https://github.com/langchain-ai/langchain-azure/releases"
 
-[tool.poetry]
-packages = [
-  { include = "langchain_azure_cosmosdb", from = "src" },
-]
-
 [build-system]
-requires = ["poetry-core~=2.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.8,<0.13"]
+build-backend = "uv_build"
 
 [tool.coverage.run]
 omit = ["tests/*"]
@@ -70,69 +73,77 @@ explicit_package_bases = true
 ignore_missing_imports = true
 disable_error_code = "typeddict-item, return-value, valid-type, index, attr-defined, var-annotated"
 
-[tool.poetry.group.codespell]
-optional = true
-
-[tool.poetry.group.codespell.dependencies]
-codespell = "~=2.2"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
-
-[tool.poetry.group.lint]
-optional = true
-
-[tool.poetry.group.lint.dependencies]
-pytest = ">=9.0.3,<10"
-ruff = "~=0.5.0"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-langchain-core = { git = "https://github.com/langchain-ai/langchain.git", subdirectory = "libs/core" }
-langgraph-checkpoint = ">=2.1.2,<5.0.0"
-pydantic = "~=2.9"
-pytest = ">=9.0.3,<10"
-pytest-asyncio = ">=1.0,<2"
-pytest-mock = "~=3.10"
-pytest-socket = "*"
-pytest-watcher = "~=0.3.4"
-python-dotenv = "~=1.0"
-syrupy = ">=5.0,<6"
-
-[tool.poetry.group.test_integration]
-optional = true
-
-[tool.poetry.group.test_integration.dependencies]
-langchain-azure-ai = { path = "../azure-ai", develop = true }
-langchain-openai = ">=1.0.0,<2.0.0"
-pytest = ">=9.0.3,<10"
-python-dotenv = "~=1.0"
-
-[tool.poetry.group.typing.dependencies]
-mypy = "~=1.10"
-
 [tool.pytest.ini_options]
 addopts = [
-  "--durations=5",
-  "--strict-config",
-  "--strict-markers",
+    "--durations=5",
+    "--strict-config",
+    "--strict-markers",
 ]
 markers = [
-  "compile: mark placeholder test used to compile integration tests without running them",
-  "requires: mark tests as requiring a specific library",
+    "compile: mark placeholder test used to compile integration tests without running them",
+    "requires: mark tests as requiring a specific library",
 ]
 asyncio_mode = "auto"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "D"]
+select = [
+    "E",
+    "F",
+    "I",
+    "D",
+]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.uv]
+constraint-dependencies = [
+    "urllib3>=2.6.3",
+    "cryptography>=46.0.7",
+    "aiohttp>=3.13.4",
+    "pyjwt>=2.12.0",
+]
+default-groups = ["typing"]
+
+[tool.uv.build-backend]
+module-name = "langchain_azure_cosmosdb"
+module-root = "src"
+
+[tool.uv.sources.langchain-core]
+git = "https://github.com/langchain-ai/langchain.git"
+subdirectory = "libs/core"
+
+[tool.uv.sources.langchain-azure-ai]
+path = "../azure-ai"
+editable = true
+
+[dependency-groups]
+codespell = ["codespell~=2.2"]
+dev = ["langchain-core"]
+lint = [
+    "pytest>=9.0.3,<10",
+    "ruff>=0.5,<0.17",
+]
+test = [
+    "langchain-core",
+    "langgraph-checkpoint>=2.1.2,<5.0.0",
+    "pydantic~=2.9",
+    "pytest>=9.0.3,<10",
+    "pytest-asyncio>=1.0,<2",
+    "pytest-mock~=3.10",
+    "pytest-socket",
+    "pytest-watcher>=0.3.4,<0.7.0",
+    "python-dotenv~=1.0",
+    "syrupy>=5.0,<7",
+]
+test_integration = [
+    "langchain-azure-ai",
+    "langchain-openai>=1.0.0,<2.0.0",
+    "pymongo~=4.5",
+    "pytest>=9.0.3,<10",
+    "python-dotenv~=1.0",
+]
+typing = ["mypy>=1.10,<3.0"]

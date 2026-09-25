@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs"
-version = "1.43.101"
+version = "1.43.102"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.101 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.102 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.101",
+    "boto3==1.43.102",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -226,6 +226,7 @@ all = [
     "mypy-boto3-emr-serverless>=1.43.0, <1.44.0",
     "mypy-boto3-entityresolution>=1.43.0, <1.44.0",
     "mypy-boto3-es>=1.43.0, <1.44.0",
+    "mypy-boto3-eventbridgev2>=1.43.0, <1.44.0",
     "mypy-boto3-events>=1.43.0, <1.44.0",
     "mypy-boto3-evs>=1.43.0, <1.44.0",
     "mypy-boto3-finspace>=1.43.0, <1.44.0",
@@ -975,6 +976,9 @@ entityresolution = [
 ]
 es = [
     "mypy-boto3-es>=1.43.0, <1.44.0",
+]
+eventbridgev2 = [
+    "mypy-boto3-eventbridgev2>=1.43.0, <1.44.0",
 ]
 events = [
     "mypy-boto3-events>=1.43.0, <1.44.0",

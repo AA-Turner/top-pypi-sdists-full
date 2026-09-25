@@ -141,12 +141,16 @@ class ScreenRouter:
         self._host.dismiss_pushed_screens()
         self._host.push_screen(ThemeShowcaseScreen())
 
+    def _remote_log_client(self) -> t.Any | None:
+        client = self._runtime.runtime_client()
+        return None if client is None or client.is_in_process else client
+
     def open_console(self) -> None:
         if self._host.is_screen_open(ConsoleScreen):
             return
         self._host.dismiss_pushed_screens()
         logger.debug("Screen push | screen=ConsoleScreen")
-        self._host.push_screen(ConsoleScreen(log_buffer))
+        self._host.push_screen(ConsoleScreen(log_buffer, remote_client=self._remote_log_client))
 
     def open_report_bug(self, *, origin: str = "conversation") -> None:
         """Open the offline-first report flow with a safe runtime snapshot."""

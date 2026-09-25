@@ -10,14 +10,12 @@
 #
 
 import time
-import selectors
 import threading
 import random
 import io
 import logging
 import cloudpickle
 
-from multiprocessing.context import BufferTooShort
 
 try:
     import pynng
@@ -26,6 +24,8 @@ except ModuleNotFoundError:
 
 from . import util
 from . import config as mp_config
+from .errors import BufferTooShort
+from .synchronize import _blpop
 from queue import Queue
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,20 @@ logger = logging.getLogger(__name__)
 REDIS_LIST_CONN = 'redislist'  # uses Redis lists
 REDIS_LIST_CONN_A = REDIS_LIST_CONN + '-a-'
 REDIS_LIST_CONN_B = REDIS_LIST_CONN + '-b-'
+
+#: There is nothing to block on when polling a Redis handle or a local
+#: buffer, so the wait between checks starts here and doubles up to the cap.
+#: The cap is what the interval used to be, so an idle poll is no busier
+#: than before, while a message already on its way is picked up at once
+POLL_MIN_SLEEP = 0.001
+POLL_MAX_SLEEP = 0.1
+
+#: How long a connection waits for its peer to publish its address, and how
+#: long it backs off to while waiting. Coarser than a data poll: this is a
+#: rendezvous that can legitimately take a while, and every check is a round
+#: trip to the directory
+ADDRESS_LOOKUP_TIMEOUT = 60
+ADDRESS_LOOKUP_MAX_SLEEP = 1.0
 
 REDIS_PUBSUB_CONN = 'redispubsub'  # uses Redis channels (pub/sub)
 REDIS_PUBSUB_CONN_A = REDIS_PUBSUB_CONN + '-a-'
@@ -254,6 +268,19 @@ class _ConnectionBase:
         self._check_readable()
         return self._poll(timeout)
 
+    def recv_bytes_within(self, timeout):
+        """
+        The next message, waiting at most ``timeout`` seconds, or None
+        if none came. Zero or less does not wait at all.
+
+        Redis overrides this so looking and taking are one step
+        """
+        self._check_closed()
+        self._check_readable()
+        if not self._poll(max(timeout, 0)):
+            return None
+        return self._recv_bytes()
+
     def __enter__(self):
         return self
 
@@ -267,6 +294,9 @@ class _RedisConnection(_ConnectionBase):
     """
     _write = None
     _read = None
+    #: The reference of the queue this connection carries, if any, whose
+    #: counter is refreshed along with the list on every write
+    _ref = None
 
     def __init__(self, handle, readable=True, writable=True):
         super().__init__(handle, readable, writable)
@@ -313,27 +343,49 @@ class _RedisConnection(_ConnectionBase):
     def __len__(self):
         return self._client.llen(self._handle)
 
-    def _set_expiry(self, key):
-        logger.debug('Set key %s expiry time', key)
-        self._client.expire(key, mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
-        self._set_expiry = lambda key: None
-
     def _close(self, _close=None):
-        if hasattr(self, '_pubsub'):
-            if self._pubsub is not None:
-                self._pubsub.unsubscribe(self._handle)
-        # older versions of StrictRedis can't be closed
-        if hasattr(self, '_client'):
-            if hasattr(self._client, 'close'):
-                self._client.close()
+        # Only the subscription belongs to this connection. The client is the
+        # one every shared object of the process talks through, so closing it
+        # here would take the rest of them down along with this connection
+        if getattr(self, '_pubsub', None) is not None:
+            self._pubsub.unsubscribe(self._handle)
+            self._pubsub = None
 
     def _listwrite(self, handle, buf):
-        self._set_expiry(handle)
-        return self._client.rpush(handle, buf)
+        # The expiry goes after the push, on every write: EXPIRE does nothing
+        # on a list that does not exist yet, and Redis deletes the list,
+        # expiry and all, whenever the reader drains it
+        pipeline = self._client.pipeline()
+        pipeline.rpush(handle, buf)
+        pipeline.expire(handle, mp_config.get_parameter(mp_config.REDIS_EXPIRY_TIME))
+        if self._ref is not None:
+            self._ref.refresh(pipeline)
+        return pipeline.execute()[0]
 
     def _listread(self, handle):
         _, v = self._client.blpop([handle])
         return v
+
+    def recv_bytes_within(self, timeout):
+        """
+        The next message, waiting at most ``timeout`` seconds for one, or
+        None if none came. Zero or less does not wait at all.
+
+        On a list, looking and taking are one step. With several readers,
+        poll() followed by a read let two of them see the same last message,
+        and the one that lost the race blocked in BLPOP for ever
+        """
+        self._check_closed()
+        self._check_readable()
+        if self._pubsub is not None:
+            # A subscriber is the only reader of its messages
+            if not self._poll(max(timeout, 0)):
+                return None
+            return self._read(self._handle)
+        if timeout <= 0:
+            return self._client.lpop(self._handle)
+        popped = _blpop(self._client, self._handle, timeout)
+        return None if popped is None else popped[1]
 
     def _channelwrite(self, handle, buf):
         return self._client.publish(handle, buf)
@@ -459,15 +511,21 @@ class _NanomsgConnection(_ConnectionBase):
             logger.debug('Get address from directory for handle %s', self._subhandle)
             addr = self._client.get(self._subhandle)
 
-            retry = 15
-            retry_sleep = 1
-            while addr is None:
-                time.sleep(retry_sleep)
-                retry_sleep += 0.5
-                addr = self._client.get(self._subhandle)
-                retry -= 1
-                if retry == 0:
-                    raise Exception('Server address could not be fetched for handle {}'.format(self._subhandle))
+            if addr is None:
+                # The peer publishes its address as it comes up, so this is a
+                # rendezvous. Waiting a fixed second before looking again
+                # made a peer that was 20 ms late cost a full second; the
+                # backoff finds it as soon as it is there and still gives it
+                # ADDRESS_LOOKUP_TIMEOUT to appear
+                addr = _poll_until(
+                    lambda: self._client.get(self._subhandle),
+                    ADDRESS_LOOKUP_TIMEOUT,
+                    max_sleep=ADDRESS_LOOKUP_MAX_SLEEP,
+                )
+            if addr is None:
+                raise Exception(
+                    'Server address could not be fetched for handle {}'.format(self._subhandle)
+                )
 
             self._subhandle_addr = addr.decode('utf-8')
             logger.debug('Dialing %s', self._subhandle_addr)
@@ -483,13 +541,17 @@ class _NanomsgConnection(_ConnectionBase):
         return chunk
 
     def _poll(self, timeout):
-        max_time = time.monotonic() + timeout
-        while time.monotonic() < max_time:
-            qsize = self._buff.qsize()
-            if qsize > 0:
-                return True
-            else:
-                time.sleep(0.1)
+        """
+        Whether a message is waiting in the local buffer the subscriber
+        thread fills.
+
+        The buffer is checked before the timeout is, so poll(0) answers what
+        is actually there. It used to start by comparing the clock against a
+        deadline it had just set, which with timeout=0 fell straight through
+        without ever looking: Queue.empty() said True whatever the queue
+        held, and get(block=False) raised Empty on a queue with data in it
+        """
+        return bool(_poll_until(lambda: self._buff.qsize() > 0, timeout))
 
 
 PipeConnection = _RedisConnection
@@ -591,6 +653,7 @@ class _RedisListener:
     def __init__(self, address, family=None, backlog=1):
         logger.debug('Requested creation of Redis listener for address %s', address)
         self._address = address
+        self._family = family
         self._client = util.get_redis_client()
         self._connect()
 
@@ -626,13 +689,13 @@ class _RedisListener:
         return c
 
     def close(self):
+        # Only the subscription belongs to the listener. The client is the
+        # one the whole process shares, and closing it broke every other
+        # connection, blocking reads on other threads included
         try:
             self._pubsub.close()
             self._pubsub = None
             self._gen = None
-            if hasattr(self._client, 'close'):
-                self._client.close()
-                self._client = None
         finally:
             unlink = self._unlink
             if unlink is not None:
@@ -659,13 +722,33 @@ def _RedisClient(address):
 # Wait
 #
 
-# poll/select have the advantage of not requiring any extra file
-# descriptor, contrarily to epoll/kqueue (also, they require a single
-# syscall).
-if hasattr(selectors, 'PollSelector'):
-    _WaitSelector = selectors.PollSelector
-else:
-    _WaitSelector = selectors.SelectSelector
+def _poll_until(is_ready, timeout, max_sleep=POLL_MAX_SLEEP):
+    """
+    Calls ``is_ready()`` until it returns something truthy or the timeout is
+    up, and hands back whatever it returned last.
+
+    The check always runs at least once, including with ``timeout=0``, which
+    is what ``poll(0)``, ``Queue.empty()`` and ``get(block=False)`` ask for.
+    Between checks it waits ``POLL_MIN_SLEEP`` and doubles up to
+    ``max_sleep``: something that is already on its way is picked up in about
+    a millisecond instead of waiting out a fixed interval, while a poll that
+    finds nothing settles at the interval it always used, so an idle wait
+    costs no more than before
+    """
+    deadline = None if timeout is None else time.monotonic() + timeout
+    delay = POLL_MIN_SLEEP
+    while True:
+        ready = is_ready()
+        if ready:
+            return ready
+        if deadline is None:
+            time.sleep(delay)
+        else:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return ready
+            time.sleep(min(delay, remaining))
+        delay = min(delay * 2, max_sleep)
 
 
 def wait(object_list, timeout=None):
@@ -674,24 +757,14 @@ def wait(object_list, timeout=None):
 
     Returns list of those objects in object_list which are ready/readable.
     """
-    if timeout is not None:
-        deadline = time.monotonic() + timeout
-
-    while True:
-        ready = []
+    def ready():
+        found = []
         for client, handle in object_list:
             if handle.startswith(REDIS_LIST_CONN):
-                llen = client.llen(handle)
-                if llen > 0:
-                    ready.append((client, handle))
+                if client.llen(handle) > 0:
+                    found.append((client, handle))
             elif handle.startswith(REDIS_PUBSUB_CONN) and client.connection.can_read():
-                ready.append((client, handle))
+                found.append((client, handle))
+        return found
 
-        if any(ready):
-            return ready
-
-        if timeout is not None:
-            timeout = deadline - time.monotonic()
-            if timeout < 0:
-                return ready
-        time.sleep(0.1)
+    return _poll_until(ready, timeout) or []

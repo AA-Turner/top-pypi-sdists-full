@@ -440,10 +440,10 @@ class NotebookSession(pulumi.CustomResource):
                  defined_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
                  freeform_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 notebook_session_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict']]] = None,
-                 notebook_session_configuration_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict']]] = None,
-                 notebook_session_runtime_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict']]] = None,
-                 notebook_session_storage_mount_configuration_details_lists: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict']]]]] = None,
+                 notebook_session_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigDetails']]] = None,
+                 notebook_session_configuration_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigurationDetails']]] = None,
+                 notebook_session_runtime_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionRuntimeConfigDetails']]] = None,
+                 notebook_session_storage_mount_configuration_details_lists: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict', 'outputs.NotebookSessionNotebookSessionStorageMountConfigurationDetailsList']]]]] = None,
                  project_id: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -474,6 +474,7 @@ class NotebookSession(pulumi.CustomResource):
             notebook_session_config_details={
                 "shape": notebook_session_notebook_session_config_details_shape,
                 "block_storage_size_in_gbs": int(notebook_session_notebook_session_config_details_block_storage_size_in_gbs),
+                "capacity_reservation_id": test_capacity_reservation["id"],
                 "notebook_session_shape_config_details": {
                     "cpu_baseline": notebook_session_notebook_session_config_details_notebook_session_shape_config_details_cpu_baseline,
                     "memory_in_gbs": notebook_session_notebook_session_config_details_notebook_session_shape_config_details_memory_in_gbs,
@@ -486,6 +487,7 @@ class NotebookSession(pulumi.CustomResource):
                 "shape": notebook_session_notebook_session_configuration_details_shape,
                 "subnet_id": test_subnet["id"],
                 "block_storage_size_in_gbs": int(notebook_session_notebook_session_configuration_details_block_storage_size_in_gbs),
+                "capacity_reservation_id": test_capacity_reservation["id"],
                 "notebook_session_shape_config_details": {
                     "cpu_baseline": notebook_session_notebook_session_configuration_details_notebook_session_shape_config_details_cpu_baseline,
                     "memory_in_gbs": notebook_session_notebook_session_configuration_details_notebook_session_shape_config_details_memory_in_gbs,
@@ -528,10 +530,10 @@ class NotebookSession(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] defined_tags: (Updatable) Defined tags for this resource. Each key is predefined and scoped to a namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Operations.CostCenter": "42"}`
         :param pulumi.Input[_builtins.str] display_name: (Updatable) A user-friendly display name for the resource. It does not have to be unique and can be modified. Avoid entering confidential information. Example: `My NotebookSession`
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Department": "Finance"}`
-        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict']] notebook_session_config_details: Details for the notebook session configuration.
-        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict']] notebook_session_configuration_details: (Updatable) Details for the notebook session configuration.
-        :param pulumi.Input[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict']] notebook_session_runtime_config_details: (Updatable) Notebook Session runtime configuration details.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict']]]] notebook_session_storage_mount_configuration_details_lists: (Updatable) Collection of NotebookSessionStorageMountConfigurationDetails.
+        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigDetails']] notebook_session_config_details: Details for the notebook session configuration.
+        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigurationDetails']] notebook_session_configuration_details: (Updatable) Details for the notebook session configuration.
+        :param pulumi.Input[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionRuntimeConfigDetails']] notebook_session_runtime_config_details: (Updatable) Notebook Session runtime configuration details.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict', 'outputs.NotebookSessionNotebookSessionStorageMountConfigurationDetailsList']]]] notebook_session_storage_mount_configuration_details_lists: (Updatable) Collection of NotebookSessionStorageMountConfigurationDetails.
         :param pulumi.Input[_builtins.str] project_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the project to associate with the notebook session.
                
                ** IMPORTANT **
@@ -571,6 +573,7 @@ class NotebookSession(pulumi.CustomResource):
             notebook_session_config_details={
                 "shape": notebook_session_notebook_session_config_details_shape,
                 "block_storage_size_in_gbs": int(notebook_session_notebook_session_config_details_block_storage_size_in_gbs),
+                "capacity_reservation_id": test_capacity_reservation["id"],
                 "notebook_session_shape_config_details": {
                     "cpu_baseline": notebook_session_notebook_session_config_details_notebook_session_shape_config_details_cpu_baseline,
                     "memory_in_gbs": notebook_session_notebook_session_config_details_notebook_session_shape_config_details_memory_in_gbs,
@@ -583,6 +586,7 @@ class NotebookSession(pulumi.CustomResource):
                 "shape": notebook_session_notebook_session_configuration_details_shape,
                 "subnet_id": test_subnet["id"],
                 "block_storage_size_in_gbs": int(notebook_session_notebook_session_configuration_details_block_storage_size_in_gbs),
+                "capacity_reservation_id": test_capacity_reservation["id"],
                 "notebook_session_shape_config_details": {
                     "cpu_baseline": notebook_session_notebook_session_configuration_details_notebook_session_shape_config_details_cpu_baseline,
                     "memory_in_gbs": notebook_session_notebook_session_configuration_details_notebook_session_shape_config_details_memory_in_gbs,
@@ -638,10 +642,10 @@ class NotebookSession(pulumi.CustomResource):
                  defined_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  display_name: pulumi.Input[Optional[_builtins.str]] = None,
                  freeform_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 notebook_session_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict']]] = None,
-                 notebook_session_configuration_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict']]] = None,
-                 notebook_session_runtime_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict']]] = None,
-                 notebook_session_storage_mount_configuration_details_lists: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict']]]]] = None,
+                 notebook_session_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigDetails']]] = None,
+                 notebook_session_configuration_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigurationDetails']]] = None,
+                 notebook_session_runtime_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionRuntimeConfigDetails']]] = None,
+                 notebook_session_storage_mount_configuration_details_lists: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict', 'outputs.NotebookSessionNotebookSessionStorageMountConfigurationDetailsList']]]]] = None,
                  project_id: pulumi.Input[Optional[_builtins.str]] = None,
                  state: pulumi.Input[Optional[_builtins.str]] = None,
                  __props__=None):
@@ -687,10 +691,10 @@ class NotebookSession(pulumi.CustomResource):
             display_name: pulumi.Input[Optional[_builtins.str]] = None,
             freeform_tags: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             lifecycle_details: pulumi.Input[Optional[_builtins.str]] = None,
-            notebook_session_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict']]] = None,
-            notebook_session_configuration_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict']]] = None,
-            notebook_session_runtime_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict']]] = None,
-            notebook_session_storage_mount_configuration_details_lists: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict']]]]] = None,
+            notebook_session_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigDetails']]] = None,
+            notebook_session_configuration_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigurationDetails']]] = None,
+            notebook_session_runtime_config_details: pulumi.Input[Optional[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionRuntimeConfigDetails']]] = None,
+            notebook_session_storage_mount_configuration_details_lists: pulumi.Input[Optional[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict', 'outputs.NotebookSessionNotebookSessionStorageMountConfigurationDetailsList']]]]] = None,
             notebook_session_url: pulumi.Input[Optional[_builtins.str]] = None,
             project_id: pulumi.Input[Optional[_builtins.str]] = None,
             state: pulumi.Input[Optional[_builtins.str]] = None,
@@ -708,10 +712,10 @@ class NotebookSession(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] display_name: (Updatable) A user-friendly display name for the resource. It does not have to be unique and can be modified. Avoid entering confidential information. Example: `My NotebookSession`
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] freeform_tags: (Updatable) Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. See [Resource Tags](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/resourcetags.htm). Example: `{"Department": "Finance"}`
         :param pulumi.Input[_builtins.str] lifecycle_details: Details about the state of the notebook session.
-        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict']] notebook_session_config_details: Details for the notebook session configuration.
-        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict']] notebook_session_configuration_details: (Updatable) Details for the notebook session configuration.
-        :param pulumi.Input[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict']] notebook_session_runtime_config_details: (Updatable) Notebook Session runtime configuration details.
-        :param pulumi.Input[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict']]]] notebook_session_storage_mount_configuration_details_lists: (Updatable) Collection of NotebookSessionStorageMountConfigurationDetails.
+        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigDetailsArgs', 'NotebookSessionNotebookSessionConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigDetails']] notebook_session_config_details: Details for the notebook session configuration.
+        :param pulumi.Input[Union['NotebookSessionNotebookSessionConfigurationDetailsArgs', 'NotebookSessionNotebookSessionConfigurationDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionConfigurationDetails']] notebook_session_configuration_details: (Updatable) Details for the notebook session configuration.
+        :param pulumi.Input[Union['NotebookSessionNotebookSessionRuntimeConfigDetailsArgs', 'NotebookSessionNotebookSessionRuntimeConfigDetailsArgsDict', 'outputs.NotebookSessionNotebookSessionRuntimeConfigDetails']] notebook_session_runtime_config_details: (Updatable) Notebook Session runtime configuration details.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgs', 'NotebookSessionNotebookSessionStorageMountConfigurationDetailsListArgsDict', 'outputs.NotebookSessionNotebookSessionStorageMountConfigurationDetailsList']]]] notebook_session_storage_mount_configuration_details_lists: (Updatable) Collection of NotebookSessionStorageMountConfigurationDetails.
         :param pulumi.Input[_builtins.str] notebook_session_url: The URL to interact with the notebook session.
         :param pulumi.Input[_builtins.str] project_id: The [OCID](https://docs.cloud.oracle.com/iaas/Content/General/Concepts/identifiers.htm) of the project to associate with the notebook session.
                

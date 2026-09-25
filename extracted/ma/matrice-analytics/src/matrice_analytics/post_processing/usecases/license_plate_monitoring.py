@@ -338,6 +338,7 @@ from ..core.config import AlertConfig, BaseConfig  # noqa: E402
 
 # Internal utilities that are still required
 from ..ocr.preprocessing import ImagePreprocessor  # noqa: E402
+from . import lpr_ocr_source  # noqa: E402
 
 # Sentinel raised by the OCR subprocess client when the GPU worker is
 # permanently unavailable. Imported here (the ``ocr`` package __init__ is empty,
@@ -400,6 +401,10 @@ class LicensePlateMonitorConfig(BaseConfig):
         default_factory=lambda: "alphanumeric"
     )  # "alphanumeric" or "numeric" or "alphabetic"
     ocr_model_name: str = "cct-s-v1-global-model"  # See table above for available models
+    # "local": crop each plate and run ocr_model_name here (needs the frame). "upstream":
+    # take plate_text/text_confidence from the rows an OCR node already produced; no frame,
+    # no model. MATRICE_LPR_OCR_SOURCE overrides this when set. See lpr_ocr_source.py.
+    ocr_source: str = "local"
     ocr_device: str = "auto"  # "auto", "cuda", or "cpu"
     session: Session | None = None
     lpr_server_id: str | None = None  # Optional LPR server ID for remote logging
@@ -590,6 +595,7 @@ class LicensePlateMonitorConfig(BaseConfig):
             errors.append("alert_bbox_coordinate_space must be 'normalized' or 'pixel'")
         if self.lpr_bbox_coordinate_space not in ("normalized", "pixel"):
             errors.append("lpr_bbox_coordinate_space must be 'normalized' or 'pixel'")
+        errors.extend(lpr_ocr_source.validation_errors(self))
         return errors
 
 
@@ -4100,10 +4106,10 @@ class LicensePlateMonitorUseCase(BaseProcessor):
             if context is None:
                 context = ProcessingContext()
 
-            if input_bytes is None or (hasattr(input_bytes, "__len__") and len(input_bytes) == 0):
-                self._warn_no_frame_pixels(input_bytes)
+            frame_rejection = lpr_ocr_source.frame_rejection(self, input_bytes, config)
+            if frame_rejection:
                 return self.create_error_result(
-                    "input_bytes (video/image) is required for license plate monitoring",
+                    frame_rejection,
                     usecase=self.name,
                     category=self.category,
                     context=context,
@@ -4428,6 +4434,8 @@ class LicensePlateMonitorUseCase(BaseProcessor):
         self, data: Any, media_bytes: bytes, config: LicensePlateMonitorConfig
     ) -> List[Dict[str, Any]]:
         """Analyze OCR of license plates in video frames or images."""
+        if lpr_ocr_source.is_upstream(config):
+            return lpr_ocr_source.build_upstream_ocr_analysis(self, data, config)
         result = self._analyze_ocr_in_image(data, media_bytes, config)
         # Store timing metadata for process() to log
         self._last_img_src = getattr(self, "_last_img_src", "unknown")

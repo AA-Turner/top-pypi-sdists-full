@@ -11,6 +11,7 @@ from ..models.trigger_type import TriggerType
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
+    from ..models.alert_filters import AlertFilters
     from ..models.email_alert_action_response import EmailAlertActionResponse
 
 
@@ -25,12 +26,14 @@ class AlertResponse:
         trigger (TriggerType): Machine-readable trigger identifier, lower-kebab-case (e.g. 'job-run-failure')
         workspace_id (UUID): Workspace owning this alert
         actions (list[EmailAlertActionResponse] | Unset): Configured actions
+        filters (AlertFilters | Unset): Filters applied to this alert
     """
 
     display_label: str
     trigger: TriggerType
     workspace_id: UUID
     actions: list[EmailAlertActionResponse] | Unset = UNSET
+    filters: AlertFilters | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,6 +50,10 @@ class AlertResponse:
                 actions_item = actions_item_data.to_dict()
                 actions.append(actions_item)
 
+        filters: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.filters, Unset):
+            filters = self.filters.to_dict()
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -58,11 +65,14 @@ class AlertResponse:
         )
         if actions is not UNSET:
             field_dict["actions"] = actions
+        if filters is not UNSET:
+            field_dict["filters"] = filters
 
         return field_dict
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.alert_filters import AlertFilters
         from ..models.email_alert_action_response import EmailAlertActionResponse
 
         d = dict(src_dict)
@@ -81,11 +91,19 @@ class AlertResponse:
 
                 actions.append(actions_item)
 
+        _filters = d.pop("filters", UNSET)
+        filters: AlertFilters | Unset
+        if isinstance(_filters, Unset):
+            filters = UNSET
+        else:
+            filters = AlertFilters.from_dict(_filters)
+
         alert_response = cls(
             display_label=display_label,
             trigger=trigger,
             workspace_id=workspace_id,
             actions=actions,
+            filters=filters,
         )
 
         alert_response.additional_properties = d

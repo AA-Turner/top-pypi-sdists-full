@@ -1,3 +1,4 @@
+from .._frames import light_stack
 from .imports import (
     inspect,
     jsonify,
@@ -21,7 +22,7 @@ def initialize_call_log(value=None,
     then log its function name and file path.
     """
     # Grab the current stack
-    stack = inspect.stack()
+    stack = light_stack()
     caller_name = "<unknown>"
     caller_path = "<unknown>"
     log_level = log_level or 'info'

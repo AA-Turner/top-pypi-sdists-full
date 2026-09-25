@@ -76,8 +76,17 @@ class JoinInfo:
 
 
 def map_join(rel: relation_proto.Relation) -> DataFrameContainer:
-    left_container: DataFrameContainer = map_relation(rel.join.left)
-    right_container: DataFrameContainer = map_relation(rel.join.right)
+    # Signal to _ensure_pd_table that PD tables created inside this join need
+    # NDV sampling — without it the optimizer may lose cardinality estimates and
+    # choose a suboptimal join strategy (e.g. hash join with local spill instead
+    # of broadcast join for small dimension tables).
+    from snowflake.snowpark_connect.relation.read.map_read_parquet_direct import (
+        _join_context,
+    )
+
+    with _join_context():
+        left_container: DataFrameContainer = map_relation(rel.join.left)
+        right_container: DataFrameContainer = map_relation(rel.join.right)
 
     # Remove any metadata columns(like metada$filename) present in the dataframes.
     # We cannot support inputfilename for multisources as each dataframe has it's own source.

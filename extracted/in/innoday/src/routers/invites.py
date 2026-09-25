@@ -13,12 +13,10 @@ existing model without special-casing here.
 """
 
 import logging
-import os
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Session, select
 
@@ -36,17 +34,12 @@ from src.domain.organization_invite import (
 )
 from src.domain.user import User
 from src.middleware.rbac import get_current_user, resolve_organization
-from src.page_paths import INVITE_ACCEPT_PATH, SESSION_PATH, UI_PREFIX
-from src.routers._brand_pages import brand_page
+from src.page_paths import INVITE_ACCEPT_PATH, app_url
 from src.services.supabase_invite import send_supabase_invite
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["invites"])
-
-
-def _app_url() -> str:
-    return os.getenv("APP_URL", "http://localhost:8000").rstrip("/")
 
 
 class InviteCreate(BaseModel):
@@ -137,7 +130,7 @@ async def create_invite(
     session.commit()
     session.refresh(invite)
 
-    accept_url = f"{_app_url()}{INVITE_ACCEPT_PATH}?token={raw_token}"
+    accept_url = f"{app_url()}{INVITE_ACCEPT_PATH}?token={raw_token}"
     dispatch = send_supabase_invite(
         email=email,
         redirect_to=accept_url,
@@ -348,152 +341,3 @@ async def self_register(
     session.commit()
 
     return {"message": "Joined organization", "organization_id": org.id}
-
-
-# NB: these page-serving routes are intentionally NOT on the /api/v1 prefix.
-# They are browser pages, so they live on the app's other half, /ui -- see
-# src/page_paths.py for why the two segment by path. Their pre-/ui
-# addresses are still served as 301s (registered in src/api/app.py).
-page_router = APIRouter(prefix=UI_PREFIX, tags=["invites"])
-
-
-@page_router.get("/invite/accept", response_class=HTMLResponse)
-async def invite_accept_page(request: Request):
-    """Pixelfuel-branded invite-accept landing page (reached from the email link).
-
-    The invitee arrives already Supabase-authenticated (the magic link confirms
-    their session); this page reads that session's Bearer token and POSTs it to
-    /api/v1/invites/{token}/accept. Standalone/dev use falls back to a token in
-    localStorage('innoday_token')."""
-    token = request.query_params.get("token", "")
-    return HTMLResponse(_render_accept_page(token))
-
-
-@page_router.get("/auth/callback", response_class=HTMLResponse)
-async def auth_callback_page() -> HTMLResponse:
-    """Where a Supabase invite / magic link lands (``APP_URL`` + this path).
-
-    Three code paths already pointed Supabase's ``redirect_to`` here —
-    ``POST /users``, ``seed_platform_user``, and the identity backfill script —
-    but **nothing served it**. A live probe of the dev deployment returned
-    ``401``: not a 404, because ``TeamSecretMiddleware`` rejected the request
-    before routing (the path was missing from ``EXEMPT_PATHS``, unlike
-    ``/ui/invite/accept``). A browser arriving from an email has no team secret, so
-    every invite recipient would have hit that wall.
-
-    Supabase confirms the address at its own ``/auth/v1/verify`` before
-    redirecting, so ``auth.users.email_confirmed_at`` was being set — but
-    InnoDay's ``users.email_verified_at`` never was, because that only happens
-    when a Supabase JWT reaches the API. The invite looked like it worked and
-    left the person still locked out.
-
-    The access token arrives in the URL **fragment**
-    (``#access_token=…&refresh_token=…``), which is never sent to the server —
-    only JS can read it. So this page parses the fragment, POSTs the token to
-    ``/api/v1/auth/confirm-email`` to mirror verification, and stores it under
-    ``innoday_token`` so the invite-accept page composes with this one.
-
-    It then POSTs the same token to ``/ui/session`` to trade it for a session
-    cookie and continues to the dashboard. That is what makes this page the
-    landing spot for *both* audiences: an invitee finishing verification, and
-    someone who just asked for a sign-in link at ``/ui/login``. Both need exactly
-    this token exchanged for a session, so neither needs its own callback.
-
-    Only a *success* redirects — an expired link or a failed confirmation stays
-    put with its message on screen, because a page that bounces away before the
-    error can be read is indistinguishable from one that silently did nothing.
-    """
-    return HTMLResponse(_render_auth_callback_page())
-
-
-def _render_auth_callback_page() -> str:
-    """Branded landing page for the IdP redirect (shell in _brand_pages).
-
-    Paths are substituted rather than f-string-interpolated: the script is dense
-    with JS braces, and doubling every one of them to satisfy an f-string is how
-    a working page becomes a syntax error nobody notices until an invite bounces.
-    """
-    card = """    <div class="brand">Pixelfuel · InnoDay</div>
-    <h1>Signing you in</h1>
-    <p>One moment — linking your account.</p>
-    <div class="msg" id="msg"></div>"""
-    script = """
-  const msg = document.getElementById('msg');
-  function show(text, cls) { msg.textContent = text; msg.className = 'msg ' + cls; }
-
-  // Supabase returns the session in the URL fragment, not the query string, so
-  // it never reaches the server. On an error it uses `error_description`.
-  const frag = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
-  const token = frag.get('access_token');
-  const errorText = frag.get('error_description') || frag.get('error');
-
-  // Trade the verified JWT for a session cookie, then continue to the dashboard.
-  // Failing this is not fatal: the address is still confirmed, so say so and
-  // offer the sign-in page rather than reporting the whole link as broken.
-  async function startSession(bearer, confirmedMessage) {
-    try {
-      const r = await fetch('__SESSION_PATH__', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_token: bearer }),
-      });
-      if (r.ok) {
-        show(confirmedMessage + ' Taking you to your dashboard…', 'ok');
-        window.setTimeout(() => { window.location.replace('__UI_PREFIX__'); }, 900);
-        return;
-      }
-    } catch (e) { /* fall through to the message below */ }
-    show(confirmedMessage + ' Open the sign-in page to continue.', 'ok');
-  }
-
-  if (errorText) {
-    show(errorText + ' — the link may have expired. Ask for a new one.', 'err');
-  } else if (!token) {
-    show('No sign-in details found in this link. Open the most recent email, or ask for a new one.', 'err');
-  } else {
-    // Keep it where the invite-accept page looks, so the two pages compose.
-    try { window.localStorage.setItem('innoday_token', token); } catch (e) {}
-    fetch('/api/v1/auth/confirm-email', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token },
-    }).then(async (r) => {
-      const data = await r.json().catch(() => ({}));
-      if (r.ok && data.verified) {
-        startSession(token, 'Email confirmed for ' + data.email + '.');
-      } else if (r.ok) {
-        show('Signed in as ' + (data.email || 'your account') + ', but the confirmation did not register. Please contact your administrator.', 'err');
-      } else {
-        show(data.detail || 'Could not confirm this account.', 'err');
-      }
-    }).catch((e) => show('Network error: ' + e.message, 'err'));
-  }"""
-    script = script.replace("__SESSION_PATH__", SESSION_PATH).replace(
-        "__UI_PREFIX__", UI_PREFIX
-    )
-    return brand_page("InnoDay · Signing you in", card, script)
-
-
-def _render_accept_page(token: str) -> str:
-    """Pixelfuel-branded invite-accept page (shared shell in _brand_pages)."""
-    card = """    <div class="brand">Pixelfuel · InnoDay</div>
-    <h1>Accept your invitation</h1>
-    <p>Join your team's workspace. Confirm below to finish.</p>
-    <button id="accept">Accept invitation</button>
-    <div class="msg" id="msg"></div>"""
-    # token is embedded as a JS string literal via Python's repr.
-    script = f"""
-  const token = {token!r};
-  const msg = document.getElementById('msg');
-  document.getElementById('accept').addEventListener('click', async () => {{
-    const bearer = window.localStorage.getItem('innoday_token') || '';
-    try {{
-      const r = await fetch('/api/v1/invites/' + encodeURIComponent(token) + '/accept', {{
-        method:'POST',
-        headers: bearer ? {{'Authorization':'Bearer '+bearer}} : {{}},
-      }});
-      const data = await r.json();
-      if (r.ok) {{ msg.textContent = 'Accepted! You can now `innoday login` from the CLI.'; msg.className='msg ok'; }}
-      else {{ msg.textContent = (data.detail||'Could not accept invite'); msg.className='msg err'; }}
-    }} catch (e) {{ msg.textContent = 'Network error: ' + e.message; msg.className='msg err'; }}
-  }});"""
-    return brand_page("InnoDay · Accept invitation", card, script)

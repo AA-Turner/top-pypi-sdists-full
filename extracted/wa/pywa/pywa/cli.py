@@ -22,6 +22,7 @@ import httpx
 from . import __version__ as pywa_version
 from ._logging import ENV_LOG_LEVEL, format_banner, setup_console_logging
 from .client import WhatsApp
+from .errors import SendMessageError
 
 GITHUB_REPO = "david-lev/pywa"
 GITHUB_API_BASE = "https://api.github.com/repos"
@@ -289,11 +290,14 @@ def send_messages(
                 f"✅ [{index + 1}/{len(to)}] Sent {send_type} to {recipient} (Msg ID: {sent.id})"
             )
 
-        # one recipient's failure shouldn't abort the batch
-        except Exception as e:  # noqa: BLE001
+        except SendMessageError as e:
             print(
                 f"❌ [{index + 1}/{len(to)}] Failed to send {send_type} to {recipient}: {e}"
             )
+        except Exception as e:
+            raise PywaCLIException(
+                f"Unexpected error while sending {send_type} to {recipient}: {e}"
+            ) from e
 
 
 DEFAULT_PROJECT = """from pywa_async import WhatsApp, filters, types, utils
@@ -310,7 +314,7 @@ wa = WhatsApp(
 )
 
 @wa.on_message(filters.text)
-async def echo_handler(message: types.Message):
+async def echo_handler(_: WhatsApp, message: types.Message):
     await message.reply(f"You said: {message.text}")
 
 # Run in your terminal: pywa dev
@@ -337,7 +341,7 @@ def generate_code(target: str | None, is_async: bool, out_path: pathlib.Path) ->
                 f"❌ Error: File '{out_file}' already exists. Aborting to prevent overwrite. Use --out to specify a different output directory or remove the existing file."
             )
             return
-        out_file.write_text(code)
+        out_file.write_text(code, encoding="utf-8")
         print(f"✅ Created new Pywa project at {out_file.resolve()}")
 
 
@@ -419,7 +423,9 @@ def download_example(
         dest_file = dest_dir / path[len(prefix) :]
         dest_file.parent.mkdir(parents=True, exist_ok=True)
         if path.endswith(".py") and not is_async:
-            dest_file.write_text(async_code_to_sync(file_response.text))
+            dest_file.write_text(
+                async_code_to_sync(file_response.text), encoding="utf-8"
+            )
         else:
             dest_file.write_bytes(file_response.content)
 

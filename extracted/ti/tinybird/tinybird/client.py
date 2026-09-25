@@ -691,6 +691,7 @@ class TinyB:
         target_datasource: Optional[str] = None,
         schedule_cron: Optional[str] = None,
         mode: Optional[str] = None,
+        on_demand_compute: Optional[bool] = None,
     ):
         data = {"schedule_cron": schedule_cron}
 
@@ -699,6 +700,9 @@ class TinyB:
 
         if mode:
             data["mode"] = mode
+
+        if on_demand_compute is not None:
+            data["on_demand_compute"] = "true" if on_demand_compute else "false"
 
         return await self._req(f"/v0/pipes/{pipe_name_or_id}/nodes/{node_id}/copy", method="PUT", data=data)
 

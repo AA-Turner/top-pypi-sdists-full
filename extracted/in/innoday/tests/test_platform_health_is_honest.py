@@ -12,14 +12,25 @@ Two of its five answers used to be incapable of failing:
 Both are the shape of bug that reading the code does not catch and running it
 does not either -- the endpoint answered 200 with a plausible body throughout.
 These tests fail against either fabrication.
+
+The checks are shown to platform admins only (PF-459), so each request here
+carries a platform member's token.
 """
 
 from unittest.mock import patch
 
+import pytest
+
 from src.routers import platform as platform_router
 
 
-def test_database_connection_reports_false_when_the_query_fails(client):
+@pytest.fixture
+def admin(make_user_with_cli_token):
+    _, token = make_user_with_cli_token(is_platform_member=True)
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_database_connection_reports_false_when_the_query_fails(client, admin):
     """The check must reflect the database, not the handler's own liveness.
 
     Against the previous hardcoded ``True`` this fails: the endpoint reported
@@ -52,7 +63,7 @@ def test_database_connection_reports_false_when_the_query_fails(client):
 
     app.dependency_overrides[get_session] = _dead_session
     try:
-        response = client.get("/api/v1/platform/health")
+        response = client.get("/api/v1/platform/health", headers=admin)
         assert response.status_code == 200
         body = response.json()
         assert body["checks"]["database_connection"] is False
@@ -64,14 +75,14 @@ def test_database_connection_reports_false_when_the_query_fails(client):
         assert real_exec is None
 
 
-def test_database_connection_reports_true_when_the_query_succeeds(client):
+def test_database_connection_reports_true_when_the_query_succeeds(client, admin):
     """The companion direction, so the test above cannot pass by always failing."""
-    response = client.get("/api/v1/platform/health")
+    response = client.get("/api/v1/platform/health", headers=admin)
     assert response.status_code == 200
     assert response.json()["checks"]["database_connection"] is True
 
 
-def test_configured_integration_is_not_reported_healthy_without_a_check(client):
+def test_configured_integration_is_not_reported_healthy_without_a_check(client, admin):
     """`healthy` is three-valued; None means nothing was proved.
 
     Nothing in this endpoint contacts a third party, so a configured
@@ -89,7 +100,7 @@ def test_configured_integration_is_not_reported_healthy_without_a_check(client):
     with patch.object(
         platform_router, "get_platform_organization", return_value=_Org()
     ):
-        response = client.get("/api/v1/platform/health?detailed=true")
+        response = client.get("/api/v1/platform/health?detailed=true", headers=admin)
 
     assert response.status_code == 200
     github = response.json()["integrations"]["github"]

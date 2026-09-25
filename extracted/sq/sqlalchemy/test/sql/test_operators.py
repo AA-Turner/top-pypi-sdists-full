@@ -5,9 +5,15 @@ import operator
 import pickle
 import re
 
+from sqlalchemy import all_
 from sqlalchemy import and_
+from sqlalchemy import any_
+from sqlalchemy import asc
 from sqlalchemy import between
 from sqlalchemy import bindparam
+from sqlalchemy import bitwise_not
+from sqlalchemy import desc
+from sqlalchemy import distinct
 from sqlalchemy import Enum
 from sqlalchemy import exc
 from sqlalchemy import Float
@@ -17,28 +23,29 @@ from sqlalchemy import join
 from sqlalchemy import LargeBinary
 from sqlalchemy import literal_column
 from sqlalchemy import not_
+from sqlalchemy import nulls_first
+from sqlalchemy import nulls_last
 from sqlalchemy import Numeric
 from sqlalchemy import or_
+from sqlalchemy import SQLColumnExpression
 from sqlalchemy import String
 from sqlalchemy import testing
 from sqlalchemy import text
+from sqlalchemy import type_coerce
 from sqlalchemy.dialects import mssql
 from sqlalchemy.dialects import mysql
 from sqlalchemy.dialects import oracle
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects import sqlite
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import default
 from sqlalchemy.schema import Column
 from sqlalchemy.schema import MetaData
 from sqlalchemy.schema import Table
-from sqlalchemy.sql import all_
-from sqlalchemy.sql import any_
-from sqlalchemy.sql import asc
 from sqlalchemy.sql import coercions
 from sqlalchemy.sql import collate
 from sqlalchemy.sql import column
 from sqlalchemy.sql import compiler
-from sqlalchemy.sql import desc
 from sqlalchemy.sql import false
 from sqlalchemy.sql import LABEL_STYLE_TABLENAME_PLUS_COL
 from sqlalchemy.sql import literal
@@ -59,6 +66,7 @@ from sqlalchemy.sql.expression import select
 from sqlalchemy.sql.expression import tuple_
 from sqlalchemy.sql.expression import UnaryExpression
 from sqlalchemy.sql.expression import union
+from sqlalchemy.sql.operators import ColumnOperators
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import combinations
 from sqlalchemy.testing import eq_
@@ -67,6 +75,8 @@ from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
 from sqlalchemy.testing import is_not
+from sqlalchemy.testing import mock
+from sqlalchemy.testing import ne_
 from sqlalchemy.testing import resolve_lambda
 from sqlalchemy.testing.assertions import expect_deprecated
 from sqlalchemy.types import ARRAY
@@ -77,6 +87,7 @@ from sqlalchemy.types import Indexable
 from sqlalchemy.types import JSON
 from sqlalchemy.types import MatchType
 from sqlalchemy.types import NullType
+from sqlalchemy.types import OperatorClass
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.types import UserDefinedType
@@ -305,29 +316,39 @@ class DefaultColumnComparatorTest(
     def test_collate(self):
         left = column("left")
         right = "some collation"
-        left.comparator.operate(operators.collate, right).compare(
+        assert left.comparator.operate(operators.collate, right).compare(
             collate(left, right)
+        )
+
+    def test_collate_schema(self):
+        left = column("left")
+        right = "some collation"
+        assert left.comparator.operate(
+            operators.collate, right, collation_schema="some schema"
+        ).compare(collate(left, right, collation_schema="some schema"))
+        assert left.collate(right, collation_schema="some schema").compare(
+            collate(left, right, collation_schema="some schema")
         )
 
     def test_default_adapt(self):
         class TypeOne(TypeEngine):
-            pass
+            operator_classes = OperatorClass.ANY
 
         class TypeTwo(TypeEngine):
-            pass
+            operator_classes = OperatorClass.ANY
 
         expr = column("x", TypeOne()) - column("y", TypeTwo())
         is_(expr.type._type_affinity, TypeOne)
 
     def test_concatenable_adapt(self):
         class TypeOne(Concatenable, TypeEngine):
-            pass
+            operator_classes = OperatorClass.ANY
 
         class TypeTwo(Concatenable, TypeEngine):
-            pass
+            operator_classes = OperatorClass.ANY
 
         class TypeThree(TypeEngine):
-            pass
+            operator_classes = OperatorClass.ANY
 
         expr = column("x", TypeOne()) - column("y", TypeTwo())
         is_(expr.type._type_affinity, TypeOne)
@@ -348,8 +369,7 @@ class DefaultColumnComparatorTest(
     def test_contains_override_raises(self):
         for col in [
             Column("x", String),
-            Column("x", Integer),
-            Column("x", DateTime),
+            Column("x", ARRAY(Integer)),
         ]:
             assert_raises_message(
                 NotImplementedError,
@@ -426,8 +446,10 @@ class MultiElementExprTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     @testing.combinations(
         (
             lambda p, q: (1 - p) * (2 - q) + 10 * (3 - p) * (4 - q),
-            "(:p_1 - t.p) * (:q_1 - t.q) + "
-            ":param_1 * (:p_2 - t.p) * (:q_2 - t.q)",
+            (
+                "(:p_1 - t.p) * (:q_1 - t.q) + "
+                ":param_1 * (:p_2 - t.p) * (:q_2 - t.q)"
+            ),
         ),
         (
             lambda p, q: (1 - p) * (2 - q) * (3 - p) * (4 - q),
@@ -440,10 +462,12 @@ class MultiElementExprTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 * (q + (p - 3) + (q - 5) + (p - 9))
                 * (4 + q + 9)
             ),
-            "(:p_1 + t.p + :param_1) * "
-            "t.p * (t.q - :q_1) * (t.p + :p_2) * "
-            "(t.q + (t.p - :p_3) + (t.q - :q_2) + (t.p - :p_4)) * "
-            "(:q_3 + t.q + :param_2)",
+            (
+                "(:p_1 + t.p + :param_1) * "
+                "t.p * (t.q - :q_1) * (t.p + :p_2) * "
+                "(t.q + (t.p - :p_3) + (t.q - :q_2) + (t.p - :p_4)) * "
+                "(:q_3 + t.q + :param_2)"
+            ),
         ),
         (
             lambda p, q: (1 // p) - (2 // q) - (3 // p) - (4 // q),
@@ -455,8 +479,10 @@ class MultiElementExprTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         ),
         (
             lambda p, q: (1 + p) * 3 * (2 + q) * 4 * (3 + p) - (4 + q),
-            "(:p_1 + t.p) * :param_1 * (:q_1 + t.q) * "
-            ":param_2 * (:p_2 + t.p) - (:q_2 + t.q)",
+            (
+                "(:p_1 + t.p) * :param_1 * (:q_1 + t.q) * "
+                ":param_2 * (:p_2 + t.p) - (:q_2 + t.q)"
+            ),
         ),
         argnames="expr, expected",
     )
@@ -499,8 +525,10 @@ class MultiElementExprTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                     f"SELECT NOT (t.q{opstring}t.p{opstring}{exprs}) "
                     "AS anon_1 FROM t"
                     if not reverse
-                    else f"SELECT NOT ({exprs}{opstring}t.q{opstring}t.p) "
-                    "AS anon_1 FROM t"
+                    else (
+                        f"SELECT NOT ({exprs}{opstring}t.q{opstring}t.p) "
+                        "AS anon_1 FROM t"
+                    )
                 ),
             )
         else:
@@ -510,8 +538,10 @@ class MultiElementExprTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                     f"SELECT t.q{opstring}t.p{opstring}{exprs} "
                     "AS anon_1 FROM t"
                     if not reverse
-                    else f"SELECT {exprs}{opstring}t.q{opstring}t.p "
-                    "AS anon_1 FROM t"
+                    else (
+                        f"SELECT {exprs}{opstring}t.q{opstring}t.p "
+                        "AS anon_1 FROM t"
+                    )
                 ),
             )
 
@@ -743,16 +773,6 @@ class _CustomComparatorTests:
         c1 = Column("foo", self._add_override_factory())
         self._assert_add_override(c1)
 
-    def test_column_proxy(self):
-        t = Table("t", MetaData(), Column("foo", self._add_override_factory()))
-        with testing.expect_deprecated(
-            "The SelectBase.c and SelectBase.columns attributes "
-            "are deprecated"
-        ):
-            proxied = t.select().c.foo
-        self._assert_add_override(proxied)
-        self._assert_and_override(proxied)
-
     def test_subquery_proxy(self):
         t = Table("t", MetaData(), Column("foo", self._add_override_factory()))
         proxied = t.select().subquery().c.foo
@@ -782,7 +802,14 @@ class _CustomComparatorTests:
 
     def test_no_boolean_propagate(self):
         c1 = Column("foo", self._add_override_factory())
-        self._assert_not_add_override(c1 == 56)
+
+        class Nonsensical(Boolean):
+            operator_classes = OperatorClass.BOOLEAN | OperatorClass.NUMERIC
+
+        expr = c1 == 56
+        expr.type = Nonsensical()
+        self._assert_not_add_override(expr)
+
         self._assert_not_and_override(c1 == 56)
 
     def _assert_and_override(self, expr):
@@ -937,6 +964,70 @@ class NewOperatorTest(_CustomComparatorTests, fixtures.TestBase):
         pass
 
 
+class OperatorClassTest(fixtures.TestBase, testing.AssertsCompiledSQL):
+    """test operator classes introduced in #12736"""
+
+    __dialect__ = "default"
+
+    def test_no_class(self):
+        class MyType(TypeEngine):
+            pass
+
+        with expect_deprecated(
+            r"Type object .*.MyType.* does not refer to an OperatorClass"
+        ):
+            column("q", MyType()) + 5
+
+    @testing.variation("json_type", ["plain", "with_variant"])
+    def test_json_cant_contains(self, json_type):
+        """test the original case for #12736"""
+
+        if json_type.plain:
+            type_ = JSON()
+        else:
+            type_ = JSON().with_variant(JSONB(), "postgresql")
+
+        with expect_deprecated(
+            r"Type object .*.JSON.* does not include operator "
+            r"'contains_op' in its operator classes."
+        ):
+            self.assert_compile(
+                column("xyz", type_).contains("{'foo': 'bar'}"),
+                "xyz LIKE '%' || :xyz_1 || '%'",
+            )
+
+    def test_invalid_op(self):
+        with expect_deprecated(
+            r"Type object .*.Integer.* does not include "
+            "operator 'like_op' in its operator classes."
+        ):
+            expr = column("q", Integer).like("hi")
+
+            self.assert_compile(expr, "q LIKE :q_1", checkparams={"q_1": "hi"})
+
+    def test_invalid_op_custom(self):
+        class MyType(Integer):
+            pass
+
+        with expect_deprecated(
+            r"Type object .*.MyType.* does not include "
+            "operator 'like_op' in its operator classes."
+        ):
+            expr = column("q", MyType).like("hi")
+
+            self.assert_compile(expr, "q LIKE :q_1", checkparams={"q_1": "hi"})
+
+    def test_add_in_classes(self):
+        class MyType(Integer):
+            operator_classes = (
+                Integer.operator_classes | OperatorClass.STRING_MATCH
+            )
+
+        expr = column("q", MyType).like("hi")
+
+        self.assert_compile(expr, "q LIKE :q_1", checkparams={"q_1": "hi"})
+
+
 class ExtensionOperatorTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
@@ -970,6 +1061,35 @@ class ExtensionOperatorTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         col = Column("x", MyType())
         assert not isinstance(col, collections_abc.Iterable)
 
+    @testing.combinations(
+        (operators.lshift, OperatorClass.BITWISE),
+        (operators.rshift, OperatorClass.BITWISE),
+        (operators.matmul, OperatorClass.MATH),
+        (operators.getitem, OperatorClass.INDEXABLE),
+    )
+    def test_not_implemented_operators(self, op, operator_class):
+        """test operators that are available but not implemented by default.
+
+        this might be semantically different from the operator not being
+        present in the operator class though the effect is the same (that is,
+        we could just not include lshift/rshift/matmul in any operator class,
+        do away with _unsupported_impl() and the path to implement them would
+        be the same).   So it's not totally clear if we should keep using
+        _unsupported_impl() long term.  However at least for now because we
+        only emit a deprecation warning in the other case, this is still
+        appropriately a separate concept.
+
+        """
+
+        class MyType(TypeEngine):
+            operator_classes = operator_class
+
+        with expect_raises_message(
+            NotImplementedError,
+            f"Operator {op.__name__!r} is not supported on this expression",
+        ):
+            op(column("q", MyType()), "test")
+
     def test_lshift(self):
         class MyType(UserDefinedType):
             cache_ok = True
@@ -980,6 +1100,16 @@ class ExtensionOperatorTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
         self.assert_compile(Column("x", MyType()) << 5, "x -> :x_1")
 
+    def test_rlshift(self):
+        class MyType(UserDefinedType):
+            cache_ok = True
+
+            class comparator_factory(UserDefinedType.Comparator):
+                def __rlshift__(self, other):
+                    return self.op("->")(other)
+
+        self.assert_compile(5 << Column("x", MyType()), "x -> :x_1")
+
     def test_rshift(self):
         class MyType(UserDefinedType):
             cache_ok = True
@@ -989,6 +1119,36 @@ class ExtensionOperatorTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                     return self.op("->")(other)
 
         self.assert_compile(Column("x", MyType()) >> 5, "x -> :x_1")
+
+    def test_rrshift(self):
+        class MyType(UserDefinedType):
+            cache_ok = True
+
+            class comparator_factory(UserDefinedType.Comparator):
+                def __rrshift__(self, other):
+                    return self.op("->")(other)
+
+        self.assert_compile(5 >> Column("x", MyType()), "x -> :x_1")
+
+    def test_matmul(self):
+        class MyType(UserDefinedType):
+            cache_ok = True
+
+            class comparator_factory(UserDefinedType.Comparator):
+                def __matmul__(self, other):
+                    return self.op("->")(other)
+
+        self.assert_compile(Column("x", MyType()) @ 5, "x -> :x_1")
+
+    def test_rmatmul(self):
+        class MyType(UserDefinedType):
+            cache_ok = True
+
+            class comparator_factory(UserDefinedType.Comparator):
+                def __rmatmul__(self, other):
+                    return self.op("->")(other)
+
+        self.assert_compile(5 @ Column("x", MyType()), "x -> :x_1")
 
 
 class JSONIndexOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
@@ -1023,7 +1183,7 @@ class JSONIndexOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         class MyType(JSON):
             __visit_name__ = "mytype"
 
-            pass
+            operator_classes = OperatorClass.JSON | OperatorClass.MATH
 
         self.MyType = MyType
         self.__dialect__ = MyDialect()
@@ -1119,7 +1279,7 @@ class JSONIndexOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         return testing.combinations(
             ("integer", Integer),
             ("boolean", Boolean),
-            ("float", Numeric),
+            ("float", Float),
             ("string", String),
         )(fn)
 
@@ -1146,7 +1306,7 @@ class JSONIndexOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_cast_ops_unsupported_on_non_json_binary(
         self, caster, expected_type
     ):
-        expr = Column("x", JSON) + {"foo": "bar"}
+        expr = Column("x", self.MyType) + {"foo": "bar"}
 
         meth = getattr(expr, "as_%s" % caster)
 
@@ -1285,6 +1445,8 @@ class ArrayIndexOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
         class MyOtherType(Indexable, TypeEngine):
             __visit_name__ = "myothertype"
+
+            operator_classes = OperatorClass.ANY
 
             class Comparator(TypeEngine.Comparator):
                 def _adapt_expression(self, op, other_comparator):
@@ -1718,7 +1880,9 @@ class OperatorPrecedenceTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
     def test_operator_precedence_5(self):
         self.assert_compile(
-            self.table2.select().where(5 + self.table2.c.field.in_([5, 6])),
+            self.table2.select().where(
+                5 + type_coerce(self.table2.c.field.in_([5, 6]), Integer)
+            ),
             "SELECT op.field FROM op WHERE :param_1 + "
             "(op.field IN (__[POSTCOMPILE_field_1]))",
         )
@@ -1798,7 +1962,9 @@ class OperatorPrecedenceTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
     def test_operator_precedence_collate_2(self):
         self.assert_compile(
-            (self.table1.c.name == literal("foo")).collate("utf-8"),
+            type_coerce(self.table1.c.name == literal("foo"), String).collate(
+                "utf-8"
+            ),
             'mytable.name = :param_1 COLLATE "utf-8"',
         )
 
@@ -1809,10 +1975,17 @@ class OperatorPrecedenceTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         )
 
     def test_operator_precedence_collate_4(self):
+        class Nonsensical(Boolean):
+            operator_classes = OperatorClass.BOOLEAN | OperatorClass.STRING
+
         self.assert_compile(
             and_(
-                (self.table1.c.name == literal("foo")).collate("utf-8"),
-                (self.table2.c.field == literal("bar")).collate("utf-8"),
+                type_coerce(
+                    self.table1.c.name == literal("foo"), Nonsensical
+                ).collate("utf-8"),
+                type_coerce(
+                    self.table2.c.field == literal("bar"), Nonsensical
+                ).collate("utf-8"),
             ),
             'mytable.name = :param_1 COLLATE "utf-8" '
             'AND op.field = :param_2 COLLATE "utf-8"',
@@ -1846,8 +2019,12 @@ class OperatorPrecedenceTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         )
 
     def test_commutative_operators(self):
+        class Nonsensical(String):
+            operator_classes = OperatorClass.STRING | OperatorClass.NUMERIC
+
         self.assert_compile(
-            literal("a") + literal("b") * literal("c"),
+            literal("x", Nonsensical)
+            + literal("y", Nonsensical) * literal("q", Nonsensical),
             ":param_1 || :param_2 * :param_3",
         )
 
@@ -2059,7 +2236,7 @@ class IsDistinctFromTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_is_distinct_from_postgresql(self):
         self.assert_compile(
             self.table1.c.myid.is_distinct_from(1),
-            "mytable.myid IS DISTINCT FROM %(myid_1)s",
+            "mytable.myid IS DISTINCT FROM %(myid_1)s::INTEGER",
             dialect=postgresql.dialect(),
         )
 
@@ -2072,7 +2249,7 @@ class IsDistinctFromTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_not_is_distinct_from_postgresql(self):
         self.assert_compile(
             ~self.table1.c.myid.is_distinct_from(1),
-            "mytable.myid IS NOT DISTINCT FROM %(myid_1)s",
+            "mytable.myid IS NOT DISTINCT FROM %(myid_1)s::INTEGER",
             dialect=postgresql.dialect(),
         )
 
@@ -2092,7 +2269,7 @@ class IsDistinctFromTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_is_not_distinct_from_postgresql(self):
         self.assert_compile(
             self.table1.c.myid.is_not_distinct_from(1),
-            "mytable.myid IS NOT DISTINCT FROM %(myid_1)s",
+            "mytable.myid IS NOT DISTINCT FROM %(myid_1)s::INTEGER",
             dialect=postgresql.dialect(),
         )
 
@@ -2105,7 +2282,7 @@ class IsDistinctFromTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_not_is_not_distinct_from_postgresql(self):
         self.assert_compile(
             ~self.table1.c.myid.is_not_distinct_from(1),
-            "mytable.myid IS DISTINCT FROM %(myid_1)s",
+            "mytable.myid IS DISTINCT FROM %(myid_1)s::INTEGER",
             dialect=postgresql.dialect(),
         )
 
@@ -2268,8 +2445,7 @@ class InTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             self.table1.c.myid.in_(
                 text("SELECT myothertable.otherid FROM myothertable")
             ),
-            "mytable.myid IN (SELECT myothertable.otherid "
-            "FROM myothertable)",
+            "mytable.myid IN (SELECT myothertable.otherid FROM myothertable)",
         )
 
     def test_in_24(self):
@@ -2732,16 +2908,24 @@ class MathOperatorTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         expr = column("bar", Integer()) // column("foo", Integer)
         assert isinstance(expr.type, Integer)
 
+    def test_power_operator(self):
+        expr = column("bar", Integer()) ** column("foo", Integer)
+        self.assert_compile(expr, "pow(bar, foo)")
+        expr = column("bar", Integer()) ** 42
+        self.assert_compile(expr, "pow(bar, :pow_1)", {"pow_1": 42})
+        expr = 99 ** column("bar", Integer())
+        self.assert_compile(expr, "pow(:pow_1, bar)", {"pow_1": 42})
+
 
 class ComparisonOperatorTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
-    table1 = table("mytable", column("myid", Integer))
+    table1 = table("mytable", column("myid", String))
 
     def test_pickle_operators_one(self):
         clause = (
-            (self.table1.c.myid == 12)
-            & self.table1.c.myid.between(15, 20)
+            (self.table1.c.myid == "12")
+            & self.table1.c.myid.between("15", "20")
             & self.table1.c.myid.like("hoho")
         )
         eq_(str(clause), str(pickle.loads(pickle.dumps(clause))))
@@ -2872,7 +3056,8 @@ class NegationTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     table1 = table("mytable", column("myid", Integer), column("name", String))
 
     @testing.combinations(
-        (~literal(5), "NOT :param_1"), (~-literal(5), "NOT -:param_1")
+        (~literal(5, NullType), "NOT :param_1"),
+        (~-literal(5, NullType), "NOT -:param_1"),
     )
     def test_nonsensical_negates(self, expr, expected):
         """exercise codepaths in the UnaryExpression._negate() method where the
@@ -2884,7 +3069,7 @@ class NegationTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         for py_op, op in ((operator.neg, "-"), (operator.inv, "NOT ")):
             for expr, expected in (
                 (self.table1.c.myid, "mytable.myid"),
-                (literal("foo"), ":param_1"),
+                (literal(5, Integer), ":param_1"),
             ):
                 self.assert_compile(py_op(expr), "%s%s" % (op, expected))
 
@@ -2928,10 +3113,26 @@ class NegationTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_negate_operators_5(self):
         self.assert_compile(
             self.table1.select().where(
-                (self.table1.c.myid != 12) & ~self.table1.c.name
+                (self.table1.c.myid != "12")
+                & ~and_(
+                    literal("somethingboolean", Boolean), literal("q", Boolean)
+                )
             ),
             "SELECT mytable.myid, mytable.name FROM "
-            "mytable WHERE mytable.myid != :myid_1 AND NOT mytable.name",
+            "mytable WHERE mytable.myid != :myid_1 AND NOT "
+            "(:param_1 = 1 AND :param_2 = 1)",
+        )
+
+    def test_negate_operators_6(self):
+        self.assert_compile(
+            self.table1.select().where(
+                (self.table1.c.myid != "12")
+                & ~literal("somethingboolean", Boolean)
+            ),
+            "SELECT mytable.myid, mytable.name FROM "
+            "mytable WHERE mytable.myid != :myid_1 AND NOT :param_1",
+            supports_native_boolean=True,
+            use_default_dialect=True,
         )
 
     def test_negate_operator_type(self):
@@ -3011,7 +3212,7 @@ class NegationTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 class LikeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
-    table1 = table("mytable", column("myid", Integer), column("name", String))
+    table1 = table("mytable", column("myid", String), column("name", String))
 
     def test_like_1(self):
         self.assert_compile(
@@ -3056,14 +3257,14 @@ class LikeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_like_7(self):
         self.assert_compile(
             self.table1.c.myid.ilike("somstr", escape="\\"),
-            "mytable.myid ILIKE %(myid_1)s ESCAPE '\\\\'",
+            "mytable.myid ILIKE %(myid_1)s::VARCHAR ESCAPE '\\'",
             dialect=postgresql.dialect(),
         )
 
     def test_like_8(self):
         self.assert_compile(
             ~self.table1.c.myid.ilike("somstr", escape="\\"),
-            "mytable.myid NOT ILIKE %(myid_1)s ESCAPE '\\\\'",
+            "mytable.myid NOT ILIKE %(myid_1)s::VARCHAR ESCAPE '\\'",
             dialect=postgresql.dialect(),
         )
 
@@ -3076,7 +3277,7 @@ class LikeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_like_10(self):
         self.assert_compile(
             self.table1.c.name.ilike("%something%"),
-            "mytable.name ILIKE %(name_1)s",
+            "mytable.name ILIKE %(name_1)s::VARCHAR",
             dialect=postgresql.dialect(),
         )
 
@@ -3089,7 +3290,7 @@ class LikeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_like_12(self):
         self.assert_compile(
             ~self.table1.c.name.ilike("%something%"),
-            "mytable.name NOT ILIKE %(name_1)s",
+            "mytable.name NOT ILIKE %(name_1)s::VARCHAR",
             dialect=postgresql.dialect(),
         )
 
@@ -3139,7 +3340,7 @@ class BetweenTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 class MatchTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
-    table1 = table("mytable", column("myid", Integer), column("name", String))
+    table1 = table("mytable", column("myid", String), column("name", String))
 
     def test_match_1(self):
         self.assert_compile(
@@ -3165,7 +3366,7 @@ class MatchTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_match_4(self):
         self.assert_compile(
             self.table1.c.myid.match("somstr"),
-            "mytable.myid @@ plainto_tsquery(%(myid_1)s)",
+            "mytable.myid @@ plainto_tsquery(%(myid_1)s::VARCHAR)",
             dialect=postgresql.dialect(),
         )
 
@@ -3184,7 +3385,7 @@ class MatchTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_boolean_inversion_postgresql(self):
         self.assert_compile(
             ~self.table1.c.myid.match("somstr"),
-            "NOT mytable.myid @@ plainto_tsquery(%(myid_1)s)",
+            "NOT mytable.myid @@ plainto_tsquery(%(myid_1)s::VARCHAR)",
             dialect=postgresql.dialect(),
         )
 
@@ -3210,7 +3411,7 @@ class RegexpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
     def setup_test(self):
         self.table = table(
-            "mytable", column("myid", Integer), column("name", String)
+            "mytable", column("myid", String), column("name", String)
         )
 
     def test_regexp_match(self):
@@ -3243,7 +3444,10 @@ class RegexpTestStrCompiler(fixtures.TestBase, testing.AssertsCompiledSQL):
 
     def setup_test(self):
         self.table = table(
-            "mytable", column("myid", Integer), column("name", String)
+            "mytable",
+            column("myid", String),
+            column("name", String),
+            column("myinteger", Integer),
         )
 
     def test_regexp_match(self):
@@ -3352,8 +3556,7 @@ class RegexpTestStrCompiler(fixtures.TestBase, testing.AssertsCompiledSQL):
                 self.table.c.myid.match("foo"),
                 ~self.table.c.myid.regexp_match("xx"),
             ),
-            "mytable.myid MATCH :myid_1 AND "
-            "mytable.myid <not regexp> :myid_2",
+            "mytable.myid MATCH :myid_1 AND mytable.myid <not regexp> :myid_2",
         )
         self.assert_compile(
             and_(
@@ -3366,16 +3569,17 @@ class RegexpTestStrCompiler(fixtures.TestBase, testing.AssertsCompiledSQL):
 
     def test_regexp_precedence_2(self):
         self.assert_compile(
-            self.table.c.myid + self.table.c.myid.regexp_match("xx"),
-            "mytable.myid + (mytable.myid <regexp> :myid_1)",
+            self.table.c.myinteger + self.table.c.myid.regexp_match("xx"),
+            "mytable.myinteger + (mytable.myid <regexp> :myid_1)",
         )
         self.assert_compile(
-            self.table.c.myid + ~self.table.c.myid.regexp_match("xx"),
-            "mytable.myid + (mytable.myid <not regexp> :myid_1)",
+            self.table.c.myinteger + ~self.table.c.myid.regexp_match("xx"),
+            "mytable.myinteger + (mytable.myid <not regexp> :myid_1)",
         )
         self.assert_compile(
-            self.table.c.myid + self.table.c.myid.regexp_replace("xx", "yy"),
-            "mytable.myid + ("
+            self.table.c.myinteger
+            + self.table.c.myid.regexp_replace("xx", "yy"),
+            "mytable.myinteger + ("
             "<regexp replace>(mytable.myid, :myid_1, :myid_2))",
         )
 
@@ -3415,7 +3619,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_contains_pg(self):
         self.assert_compile(
             column("x").contains("y"),
-            "x LIKE '%%' || %(x_1)s || '%%'",
+            "x LIKE '%%' || %(x_1)s::VARCHAR || '%%'",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -3555,7 +3759,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """
         self.assert_compile(
             column("x").icontains("y"),
-            "x ILIKE '%%' || %(x_1)s || '%%'",
+            "x ILIKE '%%' || %(x_1)s::VARCHAR || '%%'",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -3606,7 +3810,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """
         self.assert_compile(
             ~column("x").icontains("y"),
-            "x NOT ILIKE '%%' || %(x_1)s || '%%'",
+            "x NOT ILIKE '%%' || %(x_1)s::VARCHAR || '%%'",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -3933,7 +4137,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """
         self.assert_compile(
             column("x").istartswith("y"),
-            "x ILIKE %(x_1)s || '%%'",
+            "x ILIKE %(x_1)s::VARCHAR || '%%'",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -3954,7 +4158,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """
         self.assert_compile(
             ~column("x").istartswith("y"),
-            "x NOT ILIKE %(x_1)s || '%%'",
+            "x NOT ILIKE %(x_1)s::VARCHAR || '%%'",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -4159,7 +4363,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     def test_not_endswith_pg(self):
         self.assert_compile(
             ~column("x").endswith("y"),
-            "x NOT LIKE '%%' || %(x_1)s",
+            "x NOT LIKE '%%' || %(x_1)s::VARCHAR",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -4238,7 +4442,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """
         self.assert_compile(
             column("x").iendswith("y"),
-            "x ILIKE '%%' || %(x_1)s",
+            "x ILIKE '%%' || %(x_1)s::VARCHAR",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -4259,7 +4463,7 @@ class ComposedLikeOperatorsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         """
         self.assert_compile(
             ~column("x").iendswith("y"),
-            "x NOT ILIKE '%%' || %(x_1)s",
+            "x NOT ILIKE '%%' || %(x_1)s::VARCHAR",
             checkparams={"x_1": "y"},
             dialect="postgresql",
         )
@@ -4472,6 +4676,147 @@ class CustomOpTest(fixtures.TestBase):
         ):
             op1(3, 5)
 
+    def test_operator_class_default(self):
+        """Test that custom_op defaults to OperatorClass.BASE"""
+        op = operators.custom_op("++")
+        eq_(op.operator_class, OperatorClass.BASE)
+
+    def test_operator_class_explicit(self):
+        """Test that custom_op accepts an explicit operator_class parameter"""
+        op = operators.custom_op("++", operator_class=OperatorClass.MATH)
+        eq_(op.operator_class, OperatorClass.MATH)
+
+    def test_operator_class_combined(self):
+        """Test that custom_op accepts combined operator classes"""
+        op = operators.custom_op(
+            "++", operator_class=OperatorClass.MATH | OperatorClass.BITWISE
+        )
+        eq_(op.operator_class, OperatorClass.MATH | OperatorClass.BITWISE)
+
+    def test_operator_class_with_column_op(self):
+        """Test that operator_class is passed through when using column.op()"""
+        c = column("x", Integer)
+
+        expr1 = c.op("++")("value")
+        eq_(expr1.operator.operator_class, OperatorClass.BASE)
+
+        expr2 = c.op("++", operator_class=OperatorClass.MATH)("value")
+        eq_(expr2.operator.operator_class, OperatorClass.MATH)
+
+        with expect_deprecated(
+            r"Type object .*Integer.* does not include custom "
+            r"operator '\+\+' in its operator classes."
+        ):
+            expr3 = c.op("++", operator_class=OperatorClass.STRING_MATCH)(
+                "value"
+            )
+        eq_(expr3.operator.operator_class, OperatorClass.STRING_MATCH)
+
+    def test_operator_class_hash_and_equality(self):
+        op1 = operators.custom_op("++", operator_class=OperatorClass.MATH)
+        op2 = operators.custom_op("++", operator_class=OperatorClass.MATH)
+        op3 = operators.custom_op("++", operator_class=OperatorClass.BITWISE)
+
+        # Same opstring and same operator_class should be equal
+        eq_(op1, op2)
+        eq_(hash(op1), hash(op2))
+
+        # Same opstring but different operator_class should be different
+        ne_(op1, op3)
+        ne_(hash(op1), hash(op3))
+
+    def test_operator_class_warning_unspecified_type(self):
+        """Test warning when type has UNSPECIFIED operator_classes"""
+
+        # Create a custom type with UNSPECIFIED operator_classes
+        class UnspecifiedType(TypeEngine):
+            operator_classes = OperatorClass.UNSPECIFIED
+
+        metadata = MetaData()
+        test_table = Table(
+            "test", metadata, Column("value", UnspecifiedType())
+        )
+        col = test_table.c.value
+
+        # Use a builtin operator that should not be compatible
+        # This should trigger the first deprecation warning
+        with expect_deprecated(
+            "Type object .* does not refer to an OperatorClass in "
+            "its operator_classes attribute"
+        ):
+            col == "test"
+
+
+class CustomOpDialectCompileTest(
+    testing.AssertsCompiledSQL, fixtures.TestBase
+):
+    """test new custom op dispatch feature added as part of #12948"""
+
+    @testing.fixture
+    def dialect_fixture(self):
+
+        class MyCompiler(compiler.SQLCompiler):
+            def visit_myop_op_binary(self, binary, operator, **kw):
+                return "|%s| ->%s<-" % (
+                    self.process(binary.left, **kw),
+                    self.process(binary.right, **kw),
+                )
+
+            def visit_myop_op_unary(self, unary, operator, **kw):
+                if operator is unary.modifier:
+                    return "%s->|" % (self.process(unary.element, **kw))
+                elif operator is unary.operator:
+                    return "|->%s" % (self.process(unary.element, **kw))
+
+        class MyDialect(default.DefaultDialect):
+            statement_compiler = MyCompiler
+
+        myop = operators.custom_op(
+            "---",
+            precedence=15,
+            natural_self_precedent=True,
+            eager_grouping=True,
+            visit_name="myop",
+        )
+        return MyDialect, myop
+
+    @testing.variation("dialect", ["default", "custom"])
+    def test_binary_override(self, dialect_fixture, dialect):
+        MyDialect, myop = dialect_fixture
+
+        if dialect.default:
+            self.assert_compile(
+                myop(column("q", String), column("y", String)), "q --- y"
+            )
+        elif dialect.custom:
+            self.assert_compile(
+                myop(column("q", String), column("y", String)),
+                "|q| ->y<-",
+                dialect=MyDialect(),
+            )
+
+    @testing.variation("dialect", ["default", "custom"])
+    def test_unary_modifier_override(self, dialect_fixture, dialect):
+        MyDialect, myop = dialect_fixture
+
+        unary = UnaryExpression(column("zqr"), modifier=myop, type_=Numeric)
+
+        if dialect.default:
+            self.assert_compile(unary, "zqr ---")
+        elif dialect.custom:
+            self.assert_compile(unary, "zqr->|", dialect=MyDialect())
+
+    @testing.variation("dialect", ["default", "custom"])
+    def test_unary_operator_override(self, dialect_fixture, dialect):
+        MyDialect, myop = dialect_fixture
+
+        unary = UnaryExpression(column("zqr"), operator=myop, type_=Numeric)
+
+        if dialect.default:
+            self.assert_compile(unary, "--- zqr")
+        elif dialect.custom:
+            self.assert_compile(unary, "|->zqr", dialect=MyDialect())
+
 
 class TupleTypingTest(fixtures.TestBase):
     def _assert_types(self, expr):
@@ -4561,8 +4906,7 @@ class InSelectableTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
         self.assert_compile(
             column("q").in_(stmt.select()),
-            "q IN (SELECT anon_1.x FROM "
-            "(SELECT t.x AS x FROM t) AS anon_1)",
+            "q IN (SELECT anon_1.x FROM (SELECT t.x AS x FROM t) AS anon_1)",
         )
 
     def test_in_subquery_alias_implicit(self):
@@ -4747,40 +5091,6 @@ class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         # of String
         assert isinstance(boolean_expr.left.type, expected_type_affinity)
 
-    @testing.variation("operator", ["any", "all"])
-    @testing.variation("datatype", ["array", "arraystring", "arrayenum"])
-    def test_what_type_is_legacy_any_all(
-        self,
-        datatype: testing.Variation,
-        t_fixture,
-        operator: testing.Variation,
-    ):
-        if datatype.array:
-            col = t_fixture.c.arrval
-            value = 25
-            expected_type_affinity = Integer
-        elif datatype.arraystring:
-            col = t_fixture.c.arrstring
-            value = "a string"
-            expected_type_affinity = String
-        elif datatype.arrayenum:
-            col = t_fixture.c.arrenum
-            value = MyEnum.TWO
-            expected_type_affinity = Enum
-        else:
-            datatype.fail()
-
-        if operator.any:
-            boolean_expr = col.any(value)
-        elif operator.all:
-            boolean_expr = col.all(value)
-        else:
-            operator.fail()
-
-        # using isinstance so things work out for Enum which has type affinity
-        # of String
-        assert isinstance(boolean_expr.left.type, expected_type_affinity)
-
     @testing.fixture(
         params=[
             ("ANY", any_),
@@ -4790,17 +5100,6 @@ class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         ]
     )
     def any_all_operators(self, request):
-        return request.param
-
-    # test legacy array any() / all().  these are superseded by the
-    # any_() / all_() versions
-    @testing.fixture(
-        params=[
-            ("ANY", lambda x, *o: x.any(*o)),
-            ("ALL", lambda x, *o: x.all(*o)),
-        ]
-    )
-    def legacy_any_all_operators(self, request):
         return request.param
 
     def test_array(self, t_fixture, any_all_operators):
@@ -4876,49 +5175,15 @@ class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             t.c.data + fn(t.c.arrval), f"tab1.data + {op} (tab1.arrval)"
         )
 
-    def test_bindparam_coercion(self, t_fixture, legacy_any_all_operators):
-        """test #7979"""
-        t = t_fixture
-        op, fn = legacy_any_all_operators
-
-        expr = fn(t.c.arrval, bindparam("param"))
-        expected = f"%(param)s = {op} (tab1.arrval)"
-        is_(expr.left.type._type_affinity, Integer)
-
-        self.assert_compile(expr, expected, dialect="postgresql")
-
-    def test_array_comparator_accessor(
-        self, t_fixture, legacy_any_all_operators
-    ):
-        t = t_fixture
-        op, fn = legacy_any_all_operators
-
-        self.assert_compile(
-            fn(t.c.arrval, 5, operator.gt),
-            f":arrval_1 > {op} (tab1.arrval)",
-            checkparams={"arrval_1": 5},
-        )
-
-    def test_array_comparator_negate_accessor(
-        self, t_fixture, legacy_any_all_operators
-    ):
-        t = t_fixture
-        op, fn = legacy_any_all_operators
-
-        self.assert_compile(
-            ~fn(t.c.arrval, 5, operator.gt),
-            f"NOT (:arrval_1 > {op} (tab1.arrval))",
-            checkparams={"arrval_1": 5},
-        )
-
     def test_array_expression(self, t_fixture, any_all_operators):
         t = t_fixture
         op, fn = any_all_operators
 
         self.assert_compile(
             5 == fn(t.c.arrval[5:6] + postgresql.array([3, 4])),
-            f"%(param_1)s = {op} (tab1.arrval[%(arrval_1)s:%(arrval_2)s] || "
-            "ARRAY[%(param_2)s, %(param_3)s])",
+            f"%(param_1)s::INTEGER = {op}"
+            " (tab1.arrval[%(arrval_1)s::INTEGER:%(arrval_2)s::INTEGER] ||"
+            " ARRAY[%(param_2)s::INTEGER, %(param_3)s::INTEGER])",
             checkparams={
                 "arrval_2": 6,
                 "param_1": 5,
@@ -4963,6 +5228,118 @@ class AnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             fn(values(t.c.data).data([(1,), (42,)]))
 
 
+class DeprecatedAnyAllTest(fixtures.TestBase, testing.AssertsCompiledSQL):
+    __dialect__ = "default"
+
+    @testing.fixture
+    def t_fixture(self):
+        m = MetaData()
+
+        t = Table(
+            "tab1",
+            m,
+            Column("arrval", ARRAY(Integer)),
+            Column("arrenum", ARRAY(Enum(MyEnum))),
+            Column("arrstring", ARRAY(String)),
+            Column("data", Integer),
+        )
+        return t
+
+    # test legacy array any() / all().  these are superseded by the
+    # any_() / all_() versions
+    @testing.fixture(
+        params=[
+            ("ANY", lambda x, *o: x.any(*o)),
+            ("ALL", lambda x, *o: x.all(*o)),
+        ]
+    )
+    def legacy_any_all_operators(self, request):
+        return request.param
+
+    def _array_any_deprecation(self):
+        return testing.expect_deprecated(
+            r"The ARRAY.Comparator.any\(\) and "
+            r"ARRAY.Comparator.all\(\) methods "
+            r"for arrays are deprecated for removal, along with the "
+            r"PG-specific Any\(\) "
+            r"and All\(\) functions. See any_\(\) and all_\(\) functions for "
+            "modern use. "
+        )
+
+    @testing.variation("operator", ["any", "all"])
+    @testing.variation("datatype", ["array", "arraystring", "arrayenum"])
+    def test_what_type_is_legacy_any_all(
+        self,
+        datatype: testing.Variation,
+        t_fixture,
+        operator: testing.Variation,
+    ):
+        if datatype.array:
+            col = t_fixture.c.arrval
+            value = 25
+            expected_type_affinity = Integer
+        elif datatype.arraystring:
+            col = t_fixture.c.arrstring
+            value = "a string"
+            expected_type_affinity = String
+        elif datatype.arrayenum:
+            col = t_fixture.c.arrenum
+            value = MyEnum.TWO
+            expected_type_affinity = Enum
+        else:
+            datatype.fail()
+
+        with self._array_any_deprecation():
+            if operator.any:
+                boolean_expr = col.any(value)
+            elif operator.all:
+                boolean_expr = col.all(value)
+            else:
+                operator.fail()
+
+        # using isinstance so things work out for Enum which has type affinity
+        # of String
+        assert isinstance(boolean_expr.left.type, expected_type_affinity)
+
+    def test_bindparam_coercion(self, t_fixture, legacy_any_all_operators):
+        """test #7979"""
+        t = t_fixture
+        op, fn = legacy_any_all_operators
+
+        with self._array_any_deprecation():
+            expr = fn(t.c.arrval, bindparam("param"))
+        expected = f"%(param)s::INTEGER = {op} (tab1.arrval)"
+        is_(expr.left.type._type_affinity, Integer)
+
+        self.assert_compile(expr, expected, dialect="postgresql")
+
+    def test_array_comparator_accessor(
+        self, t_fixture, legacy_any_all_operators
+    ):
+        t = t_fixture
+        op, fn = legacy_any_all_operators
+
+        with self._array_any_deprecation():
+            self.assert_compile(
+                fn(t.c.arrval, 5, operator.gt),
+                f":arrval_1 > {op} (tab1.arrval)",
+                checkparams={"arrval_1": 5},
+            )
+
+    def test_array_comparator_negate_accessor(
+        self, t_fixture, legacy_any_all_operators
+    ):
+        t = t_fixture
+        op, fn = legacy_any_all_operators
+
+        with self._array_any_deprecation():
+            self.assert_compile(
+                ~fn(t.c.arrval, 5, operator.gt),
+                f"NOT (:arrval_1 > {op} (tab1.arrval))",
+                checkparams={"arrval_1": 5},
+            )
+
+
 class BitOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     __dialect__ = "default"
 
@@ -4975,20 +5352,20 @@ class BitOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         argnames="py_op, sql_op",
     )
     @testing.variation("named", ["column", "unnamed", "label"])
+    @testing.emits_warning("Column-expression-level unary distinct")
     def test_wraps_named_column_heuristic(self, py_op, sql_op, named):
         """test for #12681"""
 
         if named.column:
-            expr = py_op(column("q", String))
+            expr = py_op(column("q", Integer))
             assert isinstance(expr, UnaryExpression)
 
             self.assert_compile(
                 select(expr),
                 f"SELECT {sql_op}q",
             )
-
         elif named.unnamed:
-            expr = py_op(literal("x", String))
+            expr = py_op(literal("x", Integer))
             assert isinstance(expr, UnaryExpression)
 
             self.assert_compile(
@@ -4996,7 +5373,7 @@ class BitOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 f"SELECT {sql_op}:param_1 AS anon_1",
             )
         elif named.label:
-            expr = py_op(literal("x", String).label("z"))
+            expr = py_op(literal("x", Integer).label("z"))
             if py_op is operators.inv:
                 # special case for operators.inv due to Label._negate()
                 # not sure if this should be changed but still works out in the
@@ -5047,3 +5424,77 @@ class BitOpTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             select(py_op(c1, c2)),
             f"SELECT c1 {sql_op} c2 AS anon_1",
         )
+
+
+class StandaloneOperatorTranslateTest(
+    fixtures.TestBase, testing.AssertsCompiledSQL
+):
+    __dialect__ = "default"
+
+    def _combinations(fn):
+        return testing.combinations(
+            desc,
+            asc,
+            nulls_first,
+            nulls_last,
+            any_,
+            all_,
+            distinct,
+            bitwise_not,
+            collate,
+        )(fn)
+
+    @_combinations
+    def test_move(self, operator):
+        m1 = column("q")
+        m2 = mock.Mock()
+
+        class MyCustomThing(roles.ByOfRole, SQLColumnExpression):
+            def __clause_element__(self):
+                return m1
+
+            @property
+            def comparator(self):
+                return Comparator()
+
+            def operate(
+                self,
+                op,
+                *other,
+                **kwargs,
+            ):
+                return op(self.comparator, *other, **kwargs)
+
+            def reverse_operate(
+                self,
+                op,
+                *other,
+                **kwargs,
+            ):
+                return op(other, self.comparator, **kwargs)
+
+        class Comparator(ColumnOperators):
+            def _operate(self, *arg, **kw):
+                return m2
+
+        setattr(Comparator, operator.__name__, Comparator._operate)
+
+        mc = MyCustomThing()
+
+        if operator is collate:
+            result = operator(mc, "some collation")
+        else:
+            result = operator(mc)
+
+        is_(result, m2)
+
+    @_combinations
+    def test_text(self, operator):
+        if operator is collate:
+            result = operator(text("foo"), "some collation")
+        else:
+            result = operator(text("foo"))
+
+        # Assert that the operation completed without crashing
+        # and returned a valid SQL expression
+        assert result is not None

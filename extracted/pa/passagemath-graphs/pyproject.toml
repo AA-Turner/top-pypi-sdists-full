@@ -2,11 +2,11 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.8.11.0',
+    'passagemath-setup ~= 10.8.12.0',
     'pkgconfig',
-    'passagemath-conf ~= 10.8.11.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.8.11.0',
-    'passagemath-categories ~= 10.8.11.0',
+    'passagemath-conf ~= 10.8.12.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.8.12.0',
+    'passagemath-categories ~= 10.8.12.0',
     'cython >=3.1.0,<3.4.0',
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
@@ -21,9 +21,9 @@ dependencies = [
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
-    'passagemath-categories ~= 10.8.11.0',
-    'passagemath-conf ~= 10.8.11.0 ; sys_platform != "win32"',
-    'passagemath-environment ~= 10.8.11.0',
+    'passagemath-categories ~= 10.8.12.0',
+    'passagemath-conf ~= 10.8.12.0 ; sys_platform != "win32"',
+    'passagemath-environment ~= 10.8.12.0',
 ]
 dynamic = ["version"]
 license = "GPL-2.0-or-later"
@@ -65,41 +65,41 @@ file = "README.rst"
 content-type = "text/x-rst"
 
 [project.optional-dependencies]
-test        = ['passagemath-repl ~= 10.8.11.0',]
+test        = ['passagemath-repl ~= 10.8.12.0',]
 
 # libraries
-benzene     = ['passagemath-benzene ~= 10.8.11.0',]
-bliss       = ['passagemath-bliss ~= 10.8.11.0',]
-buckygen    = ['passagemath-buckygen ~= 10.8.11.0',]
-cliquer     = ['passagemath-cliquer ~= 10.8.11.0',]
-cmr         = ['passagemath-cmr ~= 10.8.11.0',]
-gap         = ['passagemath-gap ~= 10.8.11.0',]
-graphviz    = ['passagemath-graphviz ~= 10.8.11.0',]
+benzene     = ['passagemath-benzene ~= 10.8.12.0',]
+bliss       = ['passagemath-bliss ~= 10.8.12.0',]
+buckygen    = ['passagemath-buckygen ~= 10.8.12.0',]
+cliquer     = ['passagemath-cliquer ~= 10.8.12.0',]
+cmr         = ['passagemath-cmr ~= 10.8.12.0',]
+gap         = ['passagemath-gap ~= 10.8.12.0',]
+graphviz    = ['passagemath-graphviz ~= 10.8.12.0',]
 igraph      = ['igraph',]
 khoca       = ['khoca',]
-mcqd        = ['passagemath-mcqd ~= 10.8.11.0',]
-nauty       = ['passagemath-nauty ~= 10.8.11.0',]
+mcqd        = ['passagemath-mcqd ~= 10.8.12.0',]
+nauty       = ['passagemath-nauty ~= 10.8.12.0',]
 networkx    = ['networkx >=3.1',]
-pari        = ['passagemath-pari ~= 10.8.11.0',]
-planarity   = ['passagemath-planarity ~= 10.8.11.0',]
-plantri     = ['passagemath-plantri ~= 10.8.11.0',]
-rankwidth   = ['passagemath-rankwidth ~= 10.8.11.0',]
+pari        = ['passagemath-pari ~= 10.8.12.0',]
+planarity   = ['passagemath-planarity ~= 10.8.12.0',]
+plantri     = ['passagemath-plantri ~= 10.8.12.0',]
+rankwidth   = ['passagemath-rankwidth ~= 10.8.12.0',]
 regina      = ['regina',]
 rw          = ["passagemath-graphs[rankwidth]"]  # alias
-tdlib       = ['passagemath-tdlib ~= 10.8.11.0',]
+tdlib       = ['passagemath-tdlib ~= 10.8.12.0',]
 
 # features
-combinat    = ['passagemath-combinat ~= 10.8.11.0',]
+combinat    = ['passagemath-combinat ~= 10.8.12.0',]
 databases   = []
 editor      = ['phitigra>=0.2.6',]
-groups      = ['passagemath-groups ~= 10.8.11.0', "passagemath-graphs[nauty]"]
-homology    = ['passagemath-modules ~= 10.8.11.0',]
-mip         = ['passagemath-polyhedra ~= 10.8.11.0',]
-modules     = ['passagemath-modules ~= 10.8.11.0',]
-plot        = ['passagemath-plot ~= 10.8.11.0',]
-polyhedra   = ['passagemath-polyhedra ~= 10.8.11.0',]
-repl        = ['passagemath-repl ~= 10.8.11.0',]
-sat         = ['passagemath-combinat ~= 10.8.11.0',]
+groups      = ['passagemath-groups ~= 10.8.12.0', "passagemath-graphs[nauty]"]
+homology    = ['passagemath-modules ~= 10.8.12.0',]
+mip         = ['passagemath-polyhedra ~= 10.8.12.0',]
+modules     = ['passagemath-modules ~= 10.8.12.0',]
+plot        = ['passagemath-plot ~= 10.8.12.0',]
+polyhedra   = ['passagemath-polyhedra ~= 10.8.12.0',]
+repl        = ['passagemath-repl ~= 10.8.12.0',]
+sat         = ['passagemath-combinat ~= 10.8.12.0',]
 
 # the whole package
 standard    = [

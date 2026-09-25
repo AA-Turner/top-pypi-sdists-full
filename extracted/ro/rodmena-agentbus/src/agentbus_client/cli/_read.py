@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from ..client import AgentBusError, NotFoundError
-from . import _common
+from . import _common, _sigline
 from ._common import _print
 from ._threads import _render_thread
 
@@ -263,7 +263,12 @@ def cmd_show(args: argparse.Namespace) -> int:
                 "encryption.",
                 file=sys.stderr,
             )
-        print(body)
+        buffer = getattr(sys.stdout, "buffer", None)
+        if buffer is not None:
+            buffer.write(body.encode())
+            buffer.flush()
+        else:
+            sys.stdout.write(body)
         return 0
 
     # #216: --thread (alias --all) renders the WHOLE conversation instead of the
@@ -303,6 +308,8 @@ def cmd_show(args: argparse.Namespace) -> int:
     print(f"Thread:  {delivery['thread_id']}")
     if delivery.get("auth_verdicts"):
         print(f"Auth:    {delivery['auth_verdicts']}")
+    for line in _sigline.signature_lines(delivery, args.delivery_id):
+        print(line)
     print()
     print(delivery.get("text_body") or "(no text body)")
     # #212: THE STRUCTURED HALF OF THE MESSAGE. A room can require a payload

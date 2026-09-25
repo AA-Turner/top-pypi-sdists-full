@@ -432,11 +432,6 @@ class ConfigureShardTypeDef(TypedDict):
     PreferredAvailabilityZones: NotRequired[Sequence[str]]
     PreferredOutpostArns: NotRequired[Sequence[str]]
 
-class CreateGlobalReplicationGroupMessageTypeDef(TypedDict):
-    GlobalReplicationGroupIdSuffix: str
-    PrimaryReplicationGroupId: str
-    GlobalReplicationGroupDescription: NotRequired[str]
-
 class CustomerNodeEndpointTypeDef(TypedDict):
     Address: NotRequired[str]
     Port: NotRequired[int]
@@ -814,6 +809,12 @@ class CreateCacheSubnetGroupMessageTypeDef(TypedDict):
     CacheSubnetGroupName: str
     CacheSubnetGroupDescription: str
     SubnetIds: Sequence[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateGlobalReplicationGroupMessageTypeDef(TypedDict):
+    GlobalReplicationGroupIdSuffix: str
+    PrimaryReplicationGroupId: str
+    GlobalReplicationGroupDescription: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreateServerlessCacheSnapshotRequestTypeDef(TypedDict):

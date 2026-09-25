@@ -8,10 +8,10 @@ from ._common import (
     PointOfTimeTimestamp,
 )
 from ._identifiers import FQN
+from ._logging import simple_file_logging
 from ._operation import PollingOperation
 from ._rest_connection import RESTConnection, RESTRoot
 from ._root import Root
-from .logging import simple_file_logging
 from .version import __version__
 
 

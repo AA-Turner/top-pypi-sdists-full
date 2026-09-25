@@ -2,6 +2,7 @@
 Analyze code returns "OK" response
 """
 
+from os import environ
 from datadog_api_client import ApiClient, Configuration
 from datadog_api_client.v2.api.security_monitoring_api import SecurityMonitoringApi
 from datadog_api_client.v2.model.analysis_request import AnalysisRequest
@@ -9,6 +10,8 @@ from datadog_api_client.v2.model.analysis_request_data import AnalysisRequestDat
 from datadog_api_client.v2.model.analysis_request_data_attributes import AnalysisRequestDataAttributes
 from datadog_api_client.v2.model.analysis_request_data_type import AnalysisRequestDataType
 from datadog_api_client.v2.model.analysis_request_rule import AnalysisRequestRule
+from datadog_api_client.v2.model.analysis_request_rule_argument import AnalysisRequestRuleArgument
+from datadog_api_client.v2.model.analysis_request_rule_test import AnalysisRequestRuleTest
 
 body = AnalysisRequest(
     data=AnalysisRequestData(
@@ -19,14 +22,22 @@ body = AnalysisRequest(
             language="python",
             rules=[
                 AnalysisRequestRule(
+                    arguments=[
+                        AnalysisRequestRuleArgument(),
+                    ],
                     category="BEST_PRACTICES",
                     checksum="abc123def456",
                     code="ZnVuY3Rpb24gdmlzaXQobm9kZSkge30=",
                     entity_checked=None,
                     id="python-best-practices/no-exit",
                     language="python",
+                    name="no-exit",
                     regex=None,
                     severity="WARNING",
+                    tags=[],
+                    tests=[
+                        AnalysisRequestRuleTest(),
+                    ],
                     tree_sitter_query="KGNhbGwgbmFtZTogKGF0dHJpYnV0ZSkpQHZhbA==",
                     type="TREE_SITTER_QUERY",
                 ),
@@ -37,6 +48,7 @@ body = AnalysisRequest(
 )
 
 configuration = Configuration()
+configuration.access_token = environ["DD_BEARER_TOKEN"]
 configuration.unstable_operations["create_static_analysis_server_analysis"] = True
 with ApiClient(configuration) as api_client:
     api_instance = SecurityMonitoringApi(api_client)

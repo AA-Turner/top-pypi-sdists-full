@@ -347,7 +347,12 @@ class Storage:
                 logger.debug(
                     "Remote storage credentials unavailable, using local filesystem: {}", exc
                 )
-                self._remote_fs = from_provider("local")
+                # A speculative startup warm can fail transiently. Do not cache
+                # that fallback or leave remote credentials paired with local I/O.
+                self._credentials = None
+                self._expiration = None
+                self._remote_fs = None
+                return from_provider("local")
 
             return self._remote_fs
 

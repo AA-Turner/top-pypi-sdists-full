@@ -5,13 +5,18 @@ import time
 from abc import ABC, abstractmethod
 from enum import Enum
 from contextlib import contextmanager
+from itertools import chain
 from operator import methodcaller
 from typing import Any, Dict, Set, List, Tuple, Iterator, Optional, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import attrs
 
-from data_diff.errors import DataDiffMismatchingKeyTypesError, DataDiffUnsupportedKeyValueError
+from data_diff.errors import (
+    DataDiffDuplicateKeyError,
+    DataDiffMismatchingKeyTypesError,
+    DataDiffUnsupportedKeyValueError,
+)
 from data_diff.info_tree import InfoTree, SegmentInfo
 from data_diff.utils import dbt_diff_string_template, run_as_daemon, safezip, getLogger, truncate_error, Vector
 from data_diff.thread_utils import ThreadedYielder
@@ -96,8 +101,18 @@ class DiffResultWrapper:
             self.result_list.append(i)
             yield i
 
-    def _get_stats(self, is_dbt: bool = False) -> DiffStats:
-        list(self)  # Consume the iterator into result_list, if we haven't already
+    def _get_stats(self, is_dbt: bool = False, retain_rows: bool = True) -> DiffStats:
+        """Count the diff by key, consuming the rest of the diff.
+
+        With `retain_rows`, every row is kept in `result_list` so the diff can be iterated again afterwards.
+        Without it, rows not consumed yet are counted and dropped, so memory grows with the number of
+        differing keys rather than with every differing row and all of its columns.
+        """
+        if retain_rows:
+            list(self)  # Consume the iterator into result_list, if we haven't already
+            rows = self.result_list
+        else:
+            rows = chain(self.result_list, self.diff)
 
         key_columns = self.info_tree.info.tables[0].key_columns
         len_key_columns = len(key_columns)
@@ -108,12 +123,19 @@ class DiffResultWrapper:
             extra_columns = self.info_tree.info.tables[0].extra_columns
             extra_column_diffs = {k: 0 for k in extra_columns}
 
-        for sign, values in self.result_list:
+        for sign, values in rows:
             k = values[:len_key_columns]
             if is_dbt:
                 extra_column_values = values[len_key_columns:]
             if k in diff_by_key:
-                assert sign != diff_by_key[k]
+                if sign == diff_by_key[k]:
+                    table_index = 1 if sign == "-" else 2
+                    table = self.info_tree.info.tables[table_index - 1]
+                    raise DataDiffDuplicateKeyError(
+                        f"Key ({', '.join(key_columns)}) is not unique in table {'.'.join(table.table_path)}. "
+                        "A row-level diff needs a unique key.",
+                        table_index,
+                    )
                 diff_by_key[k] = "!"
                 if is_dbt:
                     for i in range(0, len(extra_columns)):
@@ -135,8 +157,8 @@ class DiffResultWrapper:
 
         return DiffStats(diff_by_sign, table1_count, table2_count, unchanged, diff_percent, extra_column_diffs)
 
-    def get_stats_string(self, is_dbt: bool = False):
-        diff_stats = self._get_stats(is_dbt)
+    def get_stats_string(self, is_dbt: bool = False, retain_rows: bool = True):
+        diff_stats = self._get_stats(is_dbt, retain_rows)
 
         total_rows_diff = diff_stats.table2_count - diff_stats.table1_count
 
@@ -170,8 +192,8 @@ class DiffResultWrapper:
 
         return string_output
 
-    def get_stats_dict(self, is_dbt: bool = False):
-        diff_stats = self._get_stats(is_dbt)
+    def get_stats_dict(self, is_dbt: bool = False, retain_rows: bool = True):
+        diff_stats = self._get_stats(is_dbt, retain_rows)
         json_output = {
             "rows_A": diff_stats.table1_count,
             "rows_B": diff_stats.table2_count,

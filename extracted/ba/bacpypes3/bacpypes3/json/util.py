@@ -5,61 +5,63 @@ Utility functions
 import base64
 import binascii
 from functools import partial
-from typing import Any as _Any
-from typing import Dict
-from typing import List as _List
 
-from ..apdu import (
-    APCI,
-    APDU,
-    PCI,
-    AbortPDU,
-    APCISequence,
-    ComplexAckPDU,
-    ConfirmedRequestPDU,
-    ErrorPDU,
-    RejectPDU,
-    SegmentAckPDU,
-    SimpleAckPDU,
-    UnconfirmedRequestPDU,
-    complex_ack_types,
-    confirmed_request_types,
-    error_types,
-    unconfirmed_request_types,
+from typing import Any as _Any, List as _List, Dict
+
+from ..pdu import Address
+from ..errors import DecodingError
+from ..debugging import bacpypes_debugging, ModuleLogger
+
+from ..primitivedata import (
+    attr_to_asn1,
+    TagClass,
+    TagNumber,
+    Tag,
+    ApplicationTag,
+    OpeningTag,
+    ClosingTag,
+    ContextTag,
+    TagList,
+    Atomic,
+    Null,
+    Boolean,
+    Unsigned,
+    Integer,
+    Real,
+    Double,
+    OctetString,
+    CharacterString,
+    BitString,
+    Enumerated,
+    Date,
+    Time,
+    ObjectIdentifier,
 )
 from ..constructeddata import (
     Any,  # covers AnyAtomic
-    ExtendedList,  # covers SequenceOf, ArrayOf, and ListOf
     Sequence,  # covers both Sequence and Choice
+    ExtendedList,  # covers SequenceOf, ArrayOf, and ListOf
 )
-from ..debugging import ModuleLogger, bacpypes_debugging
-from ..errors import DecodingError
-from ..pdu import Address
-from ..primitivedata import (
-    ApplicationTag,
-    Atomic,
-    BitString,
-    Boolean,
-    CharacterString,
-    ClosingTag,
-    ContextTag,
-    Date,
-    Double,
-    Enumerated,
-    Integer,
-    Null,
-    ObjectIdentifier,
-    OctetString,
-    OpeningTag,
-    Real,
-    Tag,
-    TagClass,
-    TagList,
-    TagNumber,
-    Time,
-    Unsigned,
-    attr_to_asn1,
+
+from ..apdu import (
+    PCI,
+    APCI,
+    APCISequence,
+    APDU,
+    confirmed_request_types,
+    unconfirmed_request_types,
+    complex_ack_types,
+    error_types,
+    ConfirmedRequestPDU,
+    UnconfirmedRequestPDU,
+    SimpleAckPDU,
+    ComplexAckPDU,
+    SegmentAckPDU,
+    ErrorPDU,
+    RejectPDU,
+    AbortPDU,
 )
+
 
 # these dictionaries are restricted to what can be JSON encoded
 JSONDict = Dict[str, _Any]
@@ -234,7 +236,7 @@ def date_encode(value):
     if value.is_special:
         return str(value)
     else:
-        return f"{value[0] + 1900:04d}-{value[1]:02d}-{value[2]:02d}"
+        return "{:04d}-{:02d}-{:02d}".format(value[0] + 1900, value[1], value[2])
 
 
 def date_decode(value, class_):

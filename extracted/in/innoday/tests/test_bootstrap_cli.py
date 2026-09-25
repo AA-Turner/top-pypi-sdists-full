@@ -90,3 +90,97 @@ def test_refuses_without_optin_flag(monkeypatch, capsys):
     assert rc == 2
     with Session(engine) as s:
         assert s.exec(select(User).where(User.email == "nope@hs.com")).first() is None
+
+
+def _seed_tier(engine):
+    from uuid import uuid4
+
+    from src.domain.license import LicenseTier
+    from src.utils.license_utils import TOP_LICENSE_TIER_NAME
+
+    with Session(engine) as s:
+        s.add(
+            LicenseTier(id=str(uuid4()), name=TOP_LICENSE_TIER_NAME, display_name="T")
+        )
+        s.commit()
+
+
+def test_create_org_makes_the_owner_its_admin(monkeypatch, capsys):
+    """Creating an organization moved here from the CLI and MCP (PF-457)."""
+    from src.domain.organization import Organization, OrganizationMembership
+
+    engine = _wire_engine(monkeypatch)
+    _seed_tier(engine)
+    bootstrap_cli.main(["seed-user", "owner@example.com"])
+
+    rc = bootstrap_cli.main(
+        ["create-org", "Acme Corp", "--alias", "acme", "--owner", "owner@example.com"]
+    )
+
+    assert rc == 0
+    assert "acme" in capsys.readouterr().out
+    with Session(engine) as s:
+        org = s.exec(select(Organization).where(Organization.alias == "acme")).one()
+        owner = s.exec(select(User).where(User.email == "owner@example.com")).one()
+        membership = s.exec(
+            select(OrganizationMembership).where(
+                OrganizationMembership.organization_id == org.id
+            )
+        ).one()
+        assert membership.user_id == owner.id and membership.is_owner
+
+
+def test_create_org_needs_an_existing_owner(monkeypatch, capsys):
+    engine = _wire_engine(monkeypatch)
+    _seed_tier(engine)
+
+    rc = bootstrap_cli.main(["create-org", "Acme", "--owner", "nobody@example.com"])
+
+    assert rc == 1
+    assert "seed-user" in capsys.readouterr().err
+
+
+def test_create_org_refuses_a_taken_alias(monkeypatch, capsys):
+    engine = _wire_engine(monkeypatch)
+    _seed_tier(engine)
+    bootstrap_cli.main(["seed-user", "owner@example.com"])
+    bootstrap_cli.main(
+        ["create-org", "A", "--alias", "acme", "--owner", "owner@example.com"]
+    )
+
+    rc = bootstrap_cli.main(
+        ["create-org", "B", "--alias", "acme", "--owner", "owner@example.com"]
+    )
+
+    assert rc == 1
+    assert "acme" in capsys.readouterr().err
+
+
+def test_create_org_lowercases_the_alias(monkeypatch, capsys):
+    """Lookups match aliases exactly and every other path stores them
+    lowercase, so `Acme` would be unfindable by `innoday orgs env-setup Acme`."""
+    from src.domain.organization import Organization
+
+    engine = _wire_engine(monkeypatch)
+    _seed_tier(engine)
+    bootstrap_cli.main(["seed-user", "owner@example.com"])
+
+    rc = bootstrap_cli.main(
+        ["create-org", "Acme", "--alias", "Acme", "--owner", "owner@example.com"]
+    )
+
+    assert rc == 0
+    with Session(engine) as s:
+        assert s.exec(select(Organization).where(Organization.alias == "acme")).one()
+
+
+def test_create_org_applies_the_api_length_limits(monkeypatch, capsys):
+    engine = _wire_engine(monkeypatch)
+    _seed_tier(engine)
+    bootstrap_cli.main(["seed-user", "owner@example.com"])
+
+    rc = bootstrap_cli.main(
+        ["create-org", "A", "--alias", "x" * 51, "--owner", "owner@example.com"]
+    )
+
+    assert rc == 1

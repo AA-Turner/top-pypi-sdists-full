@@ -101773,10 +101773,10 @@ class ShaderNodeVectorRotate(ShaderNode, NodeInternal, Node, bpy_struct):
 class ShaderNodeVectorTransform(ShaderNode, NodeInternal, Node, bpy_struct):
     """Convert a vector, point, or normal between world, camera, and object coordinate space"""
 
-    convert_from: typing.Literal["WORLD", "OBJECT", "CAMERA"]
+    convert_from: typing.Literal["WORLD", "OBJECT", "CAMERA", "LIGHT"]
     """ Space to convert from (default 'WORLD')"""
 
-    convert_to: typing.Literal["WORLD", "OBJECT", "CAMERA"]
+    convert_to: typing.Literal["WORLD", "OBJECT", "CAMERA", "LIGHT"]
     """ Space to convert to (default 'WORLD')"""
 
     vector_type: typing.Literal["POINT", "VECTOR", "NORMAL"]
@@ -138050,7 +138050,17 @@ class _ShaderNodeVectorRotate_NodeInputs(NodeInputs):
 class _ShaderNodeVectorTransform_NodeInputs(NodeInputs):
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[0] | typing.Literal["Vector"]
+        self, key: typing.Literal[0] | typing.Literal["LightIndex"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Vector"]
     ) -> NodeSocketVector:
         """
 

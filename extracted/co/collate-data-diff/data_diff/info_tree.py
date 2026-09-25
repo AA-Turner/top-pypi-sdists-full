@@ -1,3 +1,4 @@
+from itertools import chain
 from typing import List, Dict, Optional, Any, Tuple, Union
 
 import attrs
@@ -34,11 +35,14 @@ class SegmentInfo:
         self.diff_count = sum(c.diff_count for c in child_infos if c.diff_count is not None)
         self.is_diff = any(c.is_diff for c in child_infos)
         self.diff_schema = next((child.diff_schema for child in child_infos if child.diff_schema is not None), None)
-        self.diff = sum((c.diff for c in child_infos if c.diff is not None), [])
+        # None when no child kept its rows (hashdiff keeps only counts), not an empty list that reads as "no diff"
+        child_diffs = [c.diff for c in child_infos if c.diff is not None]
+        self.diff = list(chain.from_iterable(child_diffs)) if child_diffs else None
 
+        # A diff closed early can leave a joindiff segment that has counted only one of the tables so far
         self.rowcounts = {
-            1: sum(c.rowcounts[1] for c in child_infos if c.rowcounts),
-            2: sum(c.rowcounts[2] for c in child_infos if c.rowcounts),
+            1: sum(c.rowcounts.get(1, 0) for c in child_infos),
+            2: sum(c.rowcounts.get(2, 0) for c in child_infos),
         }
 
 

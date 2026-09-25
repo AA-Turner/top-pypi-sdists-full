@@ -24,6 +24,7 @@ from ..types.payment_status import PaymentStatus
 from ..types.v1error_response import V1ErrorResponse
 from .types.create_payments_request_line_items_item import CreatePaymentsRequestLineItemsItem
 from .types.create_payments_request_plan import CreatePaymentsRequestPlan
+from .types.create_payments_request_shipping_address import CreatePaymentsRequestShippingAddress
 from .types.list_fees_payments_response import ListFeesPaymentsResponse
 from .types.list_payments_request_billing_reason import ListPaymentsRequestBillingReason
 from .types.list_payments_request_direction import ListPaymentsRequestDirection
@@ -81,7 +82,7 @@ class RawPaymentsClient:
             Only payments presented in this three-letter currency, such as `usd`.
 
         user_id : typing.Optional[str]
-            Only payments made by this buyer, prefixed `user_`.
+            Only payments made by this buyer, prefixed `user_`. Payments are listed for the accounts the caller manages, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
 
         query : typing.Optional[str]
             Search payments by user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
@@ -132,6 +133,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "payments",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -239,6 +241,7 @@ class RawPaymentsClient:
         plan_id: typing.Optional[str] = OMIT,
         promo_code_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
+        shipping_address: typing.Optional[CreatePaymentsRequestShippingAddress] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[Payment]:
@@ -286,6 +289,9 @@ class RawPaymentsClient:
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters. Ignored unless `confirmation_token` is provided.
 
+        shipping_address : typing.Optional[CreatePaymentsRequestShippingAddress]
+            Where physical goods ship, returned on the payment as `shipping_address`. Only the keys you supply are kept; omit it for digital goods.
+
         statement_descriptor : typing.Optional[str]
             Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*`, be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
 
@@ -299,6 +305,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "payments",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -320,6 +327,11 @@ class RawPaymentsClient:
                 "plan_id": plan_id,
                 "promo_code_id": promo_code_id,
                 "return_url": return_url,
+                "shipping_address": convert_and_respect_annotation_metadata(
+                    object_=shipping_address,
+                    annotation=typing.Optional[CreatePaymentsRequestShippingAddress],
+                    direction="write",
+                ),
                 "statement_descriptor": statement_descriptor,
             },
             headers={
@@ -404,7 +416,7 @@ class RawPaymentsClient:
 
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Payment]:
         """
-        Returns one payment. Related records are ids — resolve a plan, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
+        Returns one payment, including every purchased line item with its quantity and subtotal. Related records are ids — resolve a plan, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
 
         Parameters
         ----------
@@ -421,6 +433,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -497,6 +510,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/capture",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -584,6 +598,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/fees",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -644,7 +659,7 @@ class RawPaymentsClient:
             The payment to refund, prefixed `pay_`.
 
         partial_amount : typing.Optional[float]
-            The amount to refund. For multi-currency payments, this is in the charge currency (what the buyer paid). For single-currency, this is in the payment currency. If omitted, the full payment amount is refunded.
+            The amount to refund, stated in this payment's `currency` like every other amount on it. When the buyer was billed in a different currency, it is converted at the payment's own exchange rate before the refund is issued. An amount that covers everything still refundable refunds the rest of the payment — omit it to refund the rest without having to work out what that is.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -656,6 +671,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/refund",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "partial_amount": partial_amount,
@@ -759,6 +775,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/retry",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -816,7 +833,7 @@ class RawPaymentsClient:
 
     def void(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[Payment]:
         """
-        Voids a payment that has not yet been settled. Voiding cancels the payment before it is captured by the payment processor.
+        Voids or cancels an eligible payment. The request is rejected if the payment is no longer eligible.
 
         Parameters
         ----------
@@ -833,6 +850,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/void",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -909,6 +927,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(payment_id)}/resume",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -1010,6 +1029,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(payment_id)}/return_url",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "return_url": return_url,
@@ -1082,6 +1102,7 @@ class RawPaymentsClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(payment_id)}/status",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -1183,7 +1204,7 @@ class AsyncRawPaymentsClient:
             Only payments presented in this three-letter currency, such as `usd`.
 
         user_id : typing.Optional[str]
-            Only payments made by this buyer, prefixed `user_`.
+            Only payments made by this buyer, prefixed `user_`. Payments are listed for the accounts the caller manages, so `me` is not accepted; list the caller's own purchases with `GET /memberships?user_id=me`.
 
         query : typing.Optional[str]
             Search payments by user ID, membership ID, user email, name, or username. Email filtering requires the member:email:read permission.
@@ -1234,6 +1255,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payments",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -1344,6 +1366,7 @@ class AsyncRawPaymentsClient:
         plan_id: typing.Optional[str] = OMIT,
         promo_code_id: typing.Optional[str] = OMIT,
         return_url: typing.Optional[str] = OMIT,
+        shipping_address: typing.Optional[CreatePaymentsRequestShippingAddress] = OMIT,
         statement_descriptor: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[Payment]:
@@ -1391,6 +1414,9 @@ class AsyncRawPaymentsClient:
         return_url : typing.Optional[str]
             Where the buyer continues after completing an off-site step. An absolute https URL without credentials, at most 2,048 characters. Ignored unless `confirmation_token` is provided.
 
+        shipping_address : typing.Optional[CreatePaymentsRequestShippingAddress]
+            Where physical goods ship, returned on the payment as `shipping_address`. Only the keys you supply are kept; omit it for digital goods.
+
         statement_descriptor : typing.Optional[str]
             Overrides the text on the buyer's card statement for this payment only. Takes precedence over the product's and account's custom descriptors, and changes neither. Must start with `WHOP*`, be 5-22 characters, contain at least one letter, and use only Latin letters, numbers, spaces, underscores, hyphens, or asterisks.
 
@@ -1404,6 +1430,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "payments",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
@@ -1425,6 +1452,11 @@ class AsyncRawPaymentsClient:
                 "plan_id": plan_id,
                 "promo_code_id": promo_code_id,
                 "return_url": return_url,
+                "shipping_address": convert_and_respect_annotation_metadata(
+                    object_=shipping_address,
+                    annotation=typing.Optional[CreatePaymentsRequestShippingAddress],
+                    direction="write",
+                ),
                 "statement_descriptor": statement_descriptor,
             },
             headers={
@@ -1511,7 +1543,7 @@ class AsyncRawPaymentsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Payment]:
         """
-        Returns one payment. Related records are ids — resolve a plan, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
+        Returns one payment, including every purchased line item with its quantity and subtotal. Related records are ids — resolve a plan, membership, member or shipment on its own endpoint, and list this payment's refunds, disputes or Resolution Center cases with `?payment_id=`.
 
         Parameters
         ----------
@@ -1528,6 +1560,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -1604,6 +1637,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/capture",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -1691,6 +1725,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/fees",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -1751,7 +1786,7 @@ class AsyncRawPaymentsClient:
             The payment to refund, prefixed `pay_`.
 
         partial_amount : typing.Optional[float]
-            The amount to refund. For multi-currency payments, this is in the charge currency (what the buyer paid). For single-currency, this is in the payment currency. If omitted, the full payment amount is refunded.
+            The amount to refund, stated in this payment's `currency` like every other amount on it. When the buyer was billed in a different currency, it is converted at the payment's own exchange rate before the refund is issued. An amount that covers everything still refundable refunds the rest of the payment — omit it to refund the rest without having to work out what that is.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1763,6 +1798,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/refund",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "partial_amount": partial_amount,
@@ -1868,6 +1904,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/retry",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -1927,7 +1964,7 @@ class AsyncRawPaymentsClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[Payment]:
         """
-        Voids a payment that has not yet been settled. Voiding cancels the payment before it is captured by the payment processor.
+        Voids or cancels an eligible payment. The request is rejected if the payment is no longer eligible.
 
         Parameters
         ----------
@@ -1944,6 +1981,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(id)}/void",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -2020,6 +2058,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(payment_id)}/resume",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             request_options=request_options,
         )
@@ -2121,6 +2160,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(payment_id)}/return_url",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "return_url": return_url,
@@ -2193,6 +2233,7 @@ class AsyncRawPaymentsClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"payments/{encode_path_param(payment_id)}/status",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )

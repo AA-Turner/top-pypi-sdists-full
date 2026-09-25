@@ -208,6 +208,9 @@ def run_region(
         sm_surface_years=climatology.sm_surface_years,
         sm_rootzone=climatology.sm_rootzone,
         sm_rootzone_years=climatology.sm_rootzone_years,
+        tdew=climatology.tdew,
+        elevation=climatology.elevation,
+        slope=climatology.slope,
         targets={name: geoglam[features.CALENDAR_KEY[name]] for name in features.TARGETS},
         **calendar_flags,
     )

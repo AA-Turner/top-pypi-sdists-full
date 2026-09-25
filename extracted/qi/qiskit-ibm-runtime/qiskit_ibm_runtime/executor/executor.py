@@ -15,14 +15,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ..base_primitive import get_mode_service_backend
-from ..executor_local_mode import SimRuntimeJob
-from ..fake_provider.local_service import QiskitRuntimeLocalService
 from ..options_models.converters import to_runtime_options
 from ..options_models.executor import ExecutorOptions
-from ..options_models.simulator import ExperimentalSimulatorOptions
 from ..quantum_program.params_converters import QUANTUM_PROGRAM_PARAMS_CONVERTERS
 from ..utils.default_session import get_cm_session
 
@@ -30,6 +27,8 @@ if TYPE_CHECKING:
     from qiskit.providers import BackendV2
 
     from ..batch import Batch
+    from ..fake_provider.local_runtime_job import LocalRuntimeJob
+    from ..fake_provider.local_service import QiskitRuntimeLocalService
     from ..quantum_program import QuantumProgram
     from ..runtime_job_v2 import RuntimeJobV2
     from ..session import Session
@@ -75,7 +74,6 @@ class Executor:
 
     Raises:
         TypeError: If ``options`` is not a valid type.
-        ValueError: If local mode is used.
     """
 
     _PROGRAM_ID = "executor"
@@ -92,16 +90,7 @@ class Executor:
         # Coerced to `ExecutorOptions` via `__setattr__()`.
         self.options = options if options is not None else ExecutorOptions()  # type: ignore[assignment]
 
-        self._session, self._service, self._backend = get_mode_service_backend(mode)
-
-        local_mode = self.options.experimental.get("local_mode", False)
-        if isinstance(self._service, QiskitRuntimeLocalService) and not local_mode:
-            raise ValueError("The executor is currently not supported in local mode.")
-
-        if local_mode:
-            self.options.experimental["simulator_options"] = self.options.experimental.get(
-                "simulator_options", ExperimentalSimulatorOptions()
-            )
+        self._mode, self._service, self._backend = get_mode_service_backend(mode)
 
     def __setattr__(self, name: str, value: Any) -> None:
         """Set attribute ``name`` to ``value``.
@@ -118,20 +107,38 @@ class Executor:
 
         super().__setattr__(name, value)
 
-    def run(self, program: QuantumProgram) -> RuntimeJobV2:
+    def backend(self) -> BackendV2:
+        """Return the backend the primitive query will be run on."""
+        return self._backend
+
+    @property
+    def mode(self) -> Session | Batch | None:
+        """Return the execution mode used by this primitive.
+
+        Returns:
+            Mode used by this primitive, or ``None`` if an execution mode is not used.
+        """
+        return self._mode
+
+    def run(self, program: QuantumProgram, dry_run: bool = False) -> RuntimeJobV2 | LocalRuntimeJob:
         """Run a quantum program.
 
         Args:
             program: The program to run.
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
 
         Returns:
             A job.
         """
-        if isinstance(self._service, QiskitRuntimeLocalService):
-            return SimRuntimeJob(
-                backend=self._backend,
-                program=program,
-                options=self.options.experimental["simulator_options"],
+        if self._service.is_local:
+            service = cast("QiskitRuntimeLocalService", self._service)
+            return service._run_executor(
+                self._backend, self.options.simulator, program, dry_run=dry_run
             )
 
         try:
@@ -141,8 +148,8 @@ class Executor:
 
         params = converter.encoder(program, self.options)
 
-        if self._session:
-            _run = self._session._run
+        if self._mode:
+            _run = self._mode._run
         else:
             _run = self._service._run
 
@@ -158,13 +165,17 @@ class Executor:
 
         inputs = params.model_dump(mode="json")
 
-        return _run(
-            program_id=self._PROGRAM_ID,
-            options=to_runtime_options(self.options.environment, self._backend),
-            inputs=inputs,
-            calibration_id=getattr(self._backend, "calibration_id", None),
+        # 'EnvironmentOptions.max_execution_time' is deprecated, and when users set it there, they
+        # get a warning. Hence, in case both are set, we make 'ExecutorOptions.max_execution_time'
+        # prevail
+        max_execution_time = (
+            self.options.max_execution_time or self.options.environment.max_execution_time
         )
 
-    def backend(self) -> BackendV2:
-        """Return the backend the primitive query will be run on."""
-        return self._backend
+        return _run(
+            program_id=self._PROGRAM_ID,
+            options=to_runtime_options(self.options.environment, self._backend, max_execution_time),
+            inputs=inputs,
+            calibration_id=getattr(self._backend, "calibration_id", None),
+            dry_run=dry_run,
+        )

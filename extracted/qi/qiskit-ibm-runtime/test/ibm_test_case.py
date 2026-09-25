@@ -20,11 +20,16 @@ import os
 import warnings
 from collections import defaultdict
 from contextlib import contextmanager, suppress
+from copy import deepcopy
 from typing import TYPE_CHECKING
 from unittest import TestCase  # noqa: TID251 -- IBMTestCase legitimatelly inherits from it.
 
 import numpy as np
+from qiskit.circuit import BoxOp
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
+from samplomatic import ChangeBasis, InjectNoise, Tag
+from samplomatic.quantum_program import SamplexItem
+from samplomatic.utils import get_annotation
 
 from qiskit_ibm_runtime import SamplerV2
 
@@ -32,12 +37,14 @@ from .decorators import integration_test_setup
 from .utils import bell
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
 
     from plotly.graph_objects import Figure as PlotlyFigure
+    from qiskit.circuit import QuantumCircuit
+    from qiskit.primitives.containers.estimator_pub import EstimatorPub
 
     from qiskit_ibm_runtime import QiskitRuntimeService
-    from qiskit_ibm_runtime.quantum_program.quantum_program import SamplexItem
+    from qiskit_ibm_runtime.quantum_program import QuantumProgram
 
     from .decorators import IntegrationTestDependencies
     from .unit.executor_estimator.utils import SamplexCircuitScenario, TemplateCircuitScenario
@@ -66,7 +73,7 @@ class IBMTestCase(TestCase):
     def assertDictFlatPartiallyEqual(self, a: dict, b: dict) -> None:
         """Assert that (when flattened) all keys in ``b`` are in ``a`` and have the same values."""
 
-        def _flat_dict(in_dict, out_dict):
+        def _flat_dict(in_dict: dict, out_dict: dict) -> None:
             """Flat the dictionaries, and compare.
 
             Flat the dictionaries, then determine whether all keys in dict2 are in dict1 and have
@@ -170,6 +177,68 @@ class IBMTestCase(TestCase):
                     f"the user's code -- past any qiskit_ibm_runtime or pydantic internals -- "
                     f"so the warning is visible in scripts and Jupyter notebooks.",
                 )
+
+
+class IBMBoxedCircuitTestCase(IBMTestCase):
+    """TestCase with assertions for boxed circuits."""
+
+    def assertCircuitsEqualIgnoringAnnotations(
+        self, circuit_1: QuantumCircuit, circuit_2: QuantumCircuit
+    ) -> None:
+        """Assert two circuits are equal, ignoring any annotations on box operations."""
+
+        def strip_annotations(circuit: QuantumCircuit) -> QuantumCircuit:
+            """Return a copy of the circuit without annotations.
+
+            Annotations cannot be mutated in python space, so data is recreated.
+            """
+            new_data = []
+            for instr in circuit.data:
+                if isinstance(instr.operation, BoxOp):
+                    stripped_op = deepcopy(instr.operation)
+                    stripped_op.annotations = []
+                    new_data.append(instr.replace(operation=stripped_op))
+                else:
+                    new_data.append(instr)
+            circuit_copy = circuit.copy_empty_like()
+            circuit_copy.data = new_data
+            return circuit_copy
+
+        self.assertEqual(strip_annotations(circuit_1), strip_annotations(circuit_2))
+
+    def assertCircuitsAnnotationsAreEqual(
+        self, circuit_1: QuantumCircuit, circuit_2: QuantumCircuit
+    ) -> None:
+        """Assert annotations on box operations are equal between two circuits, up to ref."""
+        self.assertEqual(len(circuit_1.data), len(circuit_2.data))
+
+        for instr1, instr2 in zip(circuit_1.data, circuit_2.data):
+            if not isinstance(instr1.operation, BoxOp):
+                continue
+            self.assertIsInstance(instr2.operation, BoxOp)
+
+            annotations_1 = instr1.operation.annotations
+            annotations_2 = instr2.operation.annotations
+            self.assertEqual(len(annotations_1), len(annotations_2))
+
+            for ann1 in annotations_1:
+                # Look up the matching annotation in circuit_2 by type (order-independent).
+                ann2 = get_annotation(instr2.operation, type(ann1))
+                self.assertIsNotNone(
+                    ann2, msg=f"circuit_2 box is missing a {type(ann1).__name__} annotation"
+                )
+                if isinstance(ann1, (ChangeBasis, InjectNoise)):
+                    # ref is a runtime-unique identifier; normalise ann2's ref to ann1's before
+                    # comparing so only the semantically meaningful fields are checked.
+                    ann2_normalised = deepcopy(ann2)
+                    ann2_normalised.ref = ann1.ref
+                    self.assertEqual(ann1, ann2_normalised)
+                elif isinstance(ann1, Tag):
+                    # Tag has only ref. Nothing to compare beyond presence.
+                    continue
+                else:
+                    # Twirl has no ref; also future-proofs for new annotation types.
+                    self.assertEqual(ann1, ann2)
 
 
 class IBMEstimatorPrepareTestCase(IBMTestCase):
@@ -340,6 +409,78 @@ class IBMEstimatorPrepareTestCase(IBMTestCase):
             ),
         )
 
+    def assertTrexItemIsCorrect(
+        self,
+        program: QuantumProgram,
+        pubs: Sequence[EstimatorPub],
+        expected_num_randomizations: int,
+    ) -> None:
+        """Assert that a TREX calibration item was correctly added to a :class:`~.QuantumProgram`.
+
+        Checks:
+
+        * The last item is a :class:`~.SamplexItem`.
+        * ``trex_item.shape == (expected_num_randomizations,)``.
+        * ``trex_item.circuit.num_qubits`` equals ``max(pub.circuit.num_qubits for pub in pubs)``.
+        * Every qubit has exactly one ``measure`` instruction — the circuit measures all qubits.
+        * The gate counts are exactly ``3 * n`` ``rz`` and ``2 * n`` ``sx`` for ``n`` qubits,
+          with no other non-barrier, non-measure gates.
+        * ``passthrough_data["qiskit_mitigation"]`` contains an entry with
+          ``mitigation == "trex"``, confirming the library registered the calibration circuit.
+
+        Args:
+            program: The :class:`~.QuantumProgram` returned by the prepare function.
+            pubs: The PUBs passed to the prepare function, used to derive the expected
+                TREX circuit width.
+            expected_num_randomizations: The expected randomization count encoded in
+                ``trex_item.shape[0]``.
+        """
+        trex_item = program.items[-1]
+        self.assertIsInstance(trex_item, SamplexItem, "Last item must be a SamplexItem (TREX)")
+
+        self.assertEqual(
+            trex_item.shape,
+            (expected_num_randomizations,),
+            f"Expected TREX item shape ({expected_num_randomizations},), got {trex_item.shape}",
+        )
+
+        n = max(pub.circuit.num_qubits for pub in pubs)
+        self.assertEqual(
+            trex_item.circuit.num_qubits,
+            n,
+            f"Expected TREX circuit width {n}, got {trex_item.circuit.num_qubits}",
+        )
+
+        op_counts = trex_item.circuit.count_ops()
+        self.assertEqual(
+            op_counts["measure"],
+            n,
+            f"Expected {n} measure operations (one per qubit), got {op_counts['measure']}",
+        )
+        self.assertEqual(
+            op_counts["rz"],
+            3 * n,
+            f"Expected {3 * n} rz operations (3 per qubit), got {op_counts['rz']}",
+        )
+        self.assertEqual(
+            op_counts["sx"],
+            2 * n,
+            f"Expected {2 * n} sx operations (2 per qubit), got {op_counts['sx']}",
+        )
+        self.assertEqual(
+            set(op_counts) - {"barrier"},
+            {"measure", "rz", "sx"},
+            f"Expected exactly gate types {{measure, rz, sx}} (plus barriers),"
+            f"got {dict(op_counts)}",
+        )
+
+        qm_entries = program.passthrough_data.get("qiskit_mitigation", [])  # type: ignore[union-attr]
+        has_trex_entry = any(e.get("mitigation") == "trex" for e in qm_entries)
+        self.assertTrue(
+            has_trex_entry,
+            "passthrough_data['qiskit_mitigation'] must contain a 'trex' entry",
+        )
+
 
 class IBMVisualizationTestCase(IBMTestCase):
     """Test case for use with visualization-related features."""
@@ -404,9 +545,10 @@ class IBMIntegrationJobTestCase(IBMIntegrationTestCase):
 
     log: logging.Logger
     program_ids: dict[str, str]
+    sim_backends: dict[str, str | None]
 
     @classmethod
-    def setUpClass(cls):
+    def setUpClass(cls) -> None:
         """Initial class level setup."""
         super().setUpClass()
         cls.log = logging.getLogger(cls.__name__)
@@ -417,7 +559,7 @@ class IBMIntegrationJobTestCase(IBMIntegrationTestCase):
         cls._find_sim_backends()
 
     @classmethod
-    def _find_sim_backends(cls):
+    def _find_sim_backends(cls) -> None:
         """Find a simulator or test backend for each service."""
         backends = cls.service.backends()
         # Simulators or tests backends can be not available

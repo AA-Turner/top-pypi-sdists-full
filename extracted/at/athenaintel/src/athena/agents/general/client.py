@@ -4,9 +4,9 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
-from ...types.general_agent_config import GeneralAgentConfig
+from ...types.general_agent_async_invoke_response_out import GeneralAgentAsyncInvokeResponseOut
+from ...types.general_agent_request import GeneralAgentRequest
 from ...types.general_agent_response import GeneralAgentResponse
-from ...types.input_message import InputMessage
 from .raw_client import AsyncRawGeneralClient, RawGeneralClient
 
 # this is used as the default value for optional parameters
@@ -29,13 +29,7 @@ class GeneralClient:
         return self._raw_client
 
     def invoke(
-        self,
-        *,
-        config: GeneralAgentConfig,
-        messages: typing.Sequence[InputMessage],
-        channel: typing.Optional[str] = OMIT,
-        thread_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GeneralAgentResponse:
         """
         Call the general Athena agent synchronously.
@@ -45,16 +39,7 @@ class GeneralClient:
 
         Parameters
         ----------
-        config : GeneralAgentConfig
-
-        messages : typing.Sequence[InputMessage]
-            The messages to send to the agent. Each message should be a string (for text inputs) or a list of multimodal content parts.
-
-        channel : typing.Optional[str]
-            The channel through which the request is being made.
-
-        thread_id : typing.Optional[str]
-            Optional thread ID for conversation persistence. If not provided, a new thread will be created.
+        request : GeneralAgentRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -66,26 +51,68 @@ class GeneralClient:
 
         Examples
         --------
-        from athena import Athena, GeneralAgentConfig, InputMessage
+        from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
 
         client = Athena(
             api_key="YOUR_API_KEY",
         )
         client.agents.general.invoke(
-            config=GeneralAgentConfig(
-                enabled_tools=["search"],
+            request=GeneralAgentRequest(
+                config=GeneralAgentConfig(
+                    enabled_tools=["search"],
+                ),
+                messages=[
+                    InputMessage(
+                        content="Please call the search tool for AAPL news.",
+                        role="user",
+                    )
+                ],
             ),
-            messages=[
-                InputMessage(
-                    content="Please call the search tool for AAPL news.",
-                    role="user",
-                )
-            ],
         )
         """
-        _response = self._raw_client.invoke(
-            config=config, messages=messages, channel=channel, thread_id=thread_id, request_options=request_options
+        _response = self._raw_client.invoke(request=request, request_options=request_options)
+        return _response.data
+
+    def invoke_async(
+        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> GeneralAgentAsyncInvokeResponseOut:
+        """
+        Start a general-agent run and return immediately with a `thread_id`. Use this instead of `/agents/general/invoke` for any call that may take more than a few seconds (tool use, multi-step work), so the HTTP connection is never held open past client or proxy timeouts. Poll `GET /threads/{thread_id}/status` until `status` is `completed` or `failed`; pass `include_messages=true` to read the agent's reply. Supply the `thread_id` of a general-agent thread you can access to continue it; 404/403 when it is unknown/not yours, 409 while a run is still in progress on it.
+
+        Parameters
+        ----------
+        request : GeneralAgentRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GeneralAgentAsyncInvokeResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena, GeneralAgentConfig, GeneralAgentRequest, InputMessage
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
         )
+        client.agents.general.invoke_async(
+            request=GeneralAgentRequest(
+                config=GeneralAgentConfig(
+                    enabled_tools=["search"],
+                ),
+                messages=[
+                    InputMessage(
+                        content="Please call the search tool for AAPL news.",
+                        role="user",
+                    )
+                ],
+            ),
+        )
+        """
+        _response = self._raw_client.invoke_async(request=request, request_options=request_options)
         return _response.data
 
 
@@ -105,13 +132,7 @@ class AsyncGeneralClient:
         return self._raw_client
 
     async def invoke(
-        self,
-        *,
-        config: GeneralAgentConfig,
-        messages: typing.Sequence[InputMessage],
-        channel: typing.Optional[str] = OMIT,
-        thread_id: typing.Optional[str] = OMIT,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GeneralAgentResponse:
         """
         Call the general Athena agent synchronously.
@@ -121,16 +142,7 @@ class AsyncGeneralClient:
 
         Parameters
         ----------
-        config : GeneralAgentConfig
-
-        messages : typing.Sequence[InputMessage]
-            The messages to send to the agent. Each message should be a string (for text inputs) or a list of multimodal content parts.
-
-        channel : typing.Optional[str]
-            The channel through which the request is being made.
-
-        thread_id : typing.Optional[str]
-            Optional thread ID for conversation persistence. If not provided, a new thread will be created.
+        request : GeneralAgentRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -144,7 +156,12 @@ class AsyncGeneralClient:
         --------
         import asyncio
 
-        from athena import AsyncAthena, GeneralAgentConfig, InputMessage
+        from athena import (
+            AsyncAthena,
+            GeneralAgentConfig,
+            GeneralAgentRequest,
+            InputMessage,
+        )
 
         client = AsyncAthena(
             api_key="YOUR_API_KEY",
@@ -153,21 +170,76 @@ class AsyncGeneralClient:
 
         async def main() -> None:
             await client.agents.general.invoke(
-                config=GeneralAgentConfig(
-                    enabled_tools=["search"],
+                request=GeneralAgentRequest(
+                    config=GeneralAgentConfig(
+                        enabled_tools=["search"],
+                    ),
+                    messages=[
+                        InputMessage(
+                            content="Please call the search tool for AAPL news.",
+                            role="user",
+                        )
+                    ],
                 ),
-                messages=[
-                    InputMessage(
-                        content="Please call the search tool for AAPL news.",
-                        role="user",
-                    )
-                ],
             )
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.invoke(
-            config=config, messages=messages, channel=channel, thread_id=thread_id, request_options=request_options
+        _response = await self._raw_client.invoke(request=request, request_options=request_options)
+        return _response.data
+
+    async def invoke_async(
+        self, *, request: GeneralAgentRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> GeneralAgentAsyncInvokeResponseOut:
+        """
+        Start a general-agent run and return immediately with a `thread_id`. Use this instead of `/agents/general/invoke` for any call that may take more than a few seconds (tool use, multi-step work), so the HTTP connection is never held open past client or proxy timeouts. Poll `GET /threads/{thread_id}/status` until `status` is `completed` or `failed`; pass `include_messages=true` to read the agent's reply. Supply the `thread_id` of a general-agent thread you can access to continue it; 404/403 when it is unknown/not yours, 409 while a run is still in progress on it.
+
+        Parameters
+        ----------
+        request : GeneralAgentRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GeneralAgentAsyncInvokeResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import (
+            AsyncAthena,
+            GeneralAgentConfig,
+            GeneralAgentRequest,
+            InputMessage,
         )
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.agents.general.invoke_async(
+                request=GeneralAgentRequest(
+                    config=GeneralAgentConfig(
+                        enabled_tools=["search"],
+                    ),
+                    messages=[
+                        InputMessage(
+                            content="Please call the search tool for AAPL news.",
+                            role="user",
+                        )
+                    ],
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.invoke_async(request=request, request_options=request_options)
         return _response.data

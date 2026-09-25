@@ -22,7 +22,7 @@ from matrx_ai.config import (
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.config.usage_config import openai_compatible_usage_counts, serialize_provider_usage
 from matrx_ai.providers.base_translator import BaseTranslator
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 
@@ -193,8 +193,11 @@ class GenericOpenAITranslator(BaseTranslator):
         all_tools = self.build_provider_tools(config, "generic_openai")
         if all_tools:
             request["tools"] = all_tools
-            if config.tool_choice:
-                request["tool_choice"] = config.tool_choice
+            tool_choice = resolve_structural_setting(
+                config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+            )
+            if tool_choice:
+                request["tool_choice"] = tool_choice
 
         vcprint(request, f"--> {provider_name} Request", color="magenta", verbose=False)
         return request

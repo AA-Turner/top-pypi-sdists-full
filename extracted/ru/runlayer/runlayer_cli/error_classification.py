@@ -29,6 +29,8 @@ from collections.abc import Iterator
 
 import httpx
 
+from runlayer_cli.flow_contract import status_category
+
 if sys.version_info >= (3, 11):
     import builtins
 
@@ -92,20 +94,6 @@ def iter_exception_tree(
         queue.extend(link for link in links if id(link) not in seen)
 
 
-def _status_category(status_code: int) -> str:
-    if status_code == 401:
-        return "http_401"
-    if status_code == 403:
-        return "http_403"
-    if status_code == 404:
-        return "http_404"
-    if 400 <= status_code < 500:
-        return "http_4xx"
-    if 500 <= status_code < 600:
-        return "http_5xx"
-    return "other"
-
-
 def _classify_single(exc: BaseException) -> tuple[str, int | None]:
     """Classify exactly one exception object (no chain or group walking)."""
     # OAuth first: these subclass generic errors (OAuthCallbackTimeoutError is
@@ -121,7 +109,7 @@ def _classify_single(exc: BaseException) -> tuple[str, int | None]:
             return ("other", None)
         if 400 <= status_code < 500:
             return ("oauth_registration_rejected", status_code)
-        return (_status_category(status_code), status_code)
+        return (status_category(status_code), status_code)
     if isinstance(exc, OAuthCallbackTimeoutError):
         return ("oauth_flow_timeout", None)
     # Device-local listener failures (occupied cached port, loopback policy)
@@ -138,7 +126,7 @@ def _classify_single(exc: BaseException) -> tuple[str, int | None]:
 
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = exc.response.status_code
-        return (_status_category(status_code), status_code)
+        return (status_category(status_code), status_code)
 
     if isinstance(exc, httpx.ConnectTimeout):
         return ("connect_timeout", None)

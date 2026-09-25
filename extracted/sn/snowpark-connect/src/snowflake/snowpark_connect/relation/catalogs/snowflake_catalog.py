@@ -34,12 +34,19 @@ from snowflake.snowpark_connect.relation.catalogs.abstract_spark_catalog import 
     _process_multi_layer_identifier,
 )
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
+from snowflake.snowpark_connect.utils.cld_context import (
+    is_in_cld_context,
+    should_use_cld_identifier_rules,
+)
 from snowflake.snowpark_connect.utils.identifiers import (
     FQN,
+    spark_to_sf_single_id,
     spark_to_sf_single_id_with_unquoting,
     split_fully_qualified_spark_name,
 )
+from snowflake.snowpark_connect.utils.io_utils import get_table_type
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
+from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
@@ -50,6 +57,12 @@ from snowflake.snowpark_connect.utils.temporary_view_helper import (
     unregister_snowflake_temp_view,
 )
 from snowflake.snowpark_connect.utils.udf_cache import cached_udf
+
+# 091352: "The provided table must be an Iceberg table with an external catalog
+# integration to perform the command ICEBERG_TABLE_REFRESH." Raised for a
+# Snowflake-managed Iceberg table on an account without
+# ALLOW_REFRESH_ON_MANAGED_ICEBERG_TABLES, and for a non-Iceberg target.
+_ICEBERG_REFRESH_UNSUPPORTED = 91352
 
 
 def _normalize_identifier(identifier: str | None) -> str | None:
@@ -569,12 +582,14 @@ class SnowflakeCatalog(AbstractSparkCatalog):
             sf_schema = spark_dbName
             sf_table = spark_tableName
 
+        # CLD parity (SNOW-3968161): use spark_to_sf_single_id() instead of
+        # sf_quote() — same fix as _verify_table_exists (SNOW-3527672).
         parts = []
         if sf_database:
-            parts.append(sf_quote(sf_database))
+            parts.append(spark_to_sf_single_id(sf_database))
         if sf_schema:
-            parts.append(sf_quote(sf_schema))
-        parts.append(sf_quote(sf_table))
+            parts.append(spark_to_sf_single_id(sf_schema))
+        parts.append(spark_to_sf_single_id(sf_table))
         fqn = ".".join(parts)
 
         session = get_or_create_snowpark_session()
@@ -796,27 +811,35 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         """
         session = get_or_create_snowpark_session()
 
-        # When the caller supplies a database/schema we normalize + quote it
-        # (matching the rest of the catalog code). For the current
-        # database/schema we use the value Snowpark already returns
-        # quoted/case-preserved — running it through `sf_quote` would
-        # uppercase mixed-case identifiers (e.g. `"default"` -> `"DEFAULT"`)
-        # and break lookups against schemas created via Spark Connect.
+        # CLD parity (SNOW-3968161): use spark_to_sf_single_id() instead of
+        # sf_quote() for caller-supplied identifiers because sf_quote() always
+        # uppercases, but CLD catalogs (Glue/Unity) store identifiers in their
+        # original (lowercase) case. spark_to_sf_single_id() preserves case for
+        # CLD while still uppercasing + quoting for Managed (non-CLD) tables.
+        # For the current database/schema we use the value Snowpark already
+        # returns quoted/case-preserved.
         if sf_database:
-            sf_database_q = sf_quote(sf_database)
+            sf_database_q = spark_to_sf_single_id(sf_database)
         else:
             sf_database_q = session.catalog.get_current_database()
             if sf_database_q is None:
                 raise MissingDatabase()
 
         if sf_schema:
-            sf_schema_q = sf_quote(sf_schema)
+            sf_schema_q = spark_to_sf_single_id(sf_schema)
         else:
             sf_schema_q = session.catalog.get_current_schema()
             if sf_schema_q is None:
                 raise MissingSchema()
 
-        normalized_name = _normalize_identifier(table_name)
+        # For the LIKE pattern and exact-match comparison, we need the raw
+        # (unquoted) name in the case that SHOW OBJECTS will return it:
+        # CLD -> lowercase (external catalog preserves case),
+        # non-CLD -> uppercase (Snowflake uppercases unquoted identifiers).
+        if should_use_cld_identifier_rules():
+            normalized_name = table_name
+        else:
+            normalized_name = _normalize_identifier(table_name)
         # SHOW LIKE treats `_` and `%` as wildcards; escape them (and any
         # backslashes / single quotes) so the pattern matches `table_name` exactly.
         escaped_pattern = (
@@ -905,12 +928,11 @@ class SnowflakeCatalog(AbstractSparkCatalog):
                 return r
         return None
 
-    def _verify_table_exists(self, spark_tableName: str) -> None:
-        """Verify a table/view exists, raising AnalysisException if not.
+    def _resolve_snowflake_fqn(self, spark_tableName: str) -> str | None:
+        """Resolve a Spark table name to its Snowflake FQN.
 
-        Uses DESCRIBE TABLE through the SQL execution path instead of the
-        REST v2 API (sp_catalog.get_table), which is unreliable under
-        concurrent CI workloads (intermittent 400 Bad Request).
+        Returns ``None`` when the name is a temporary view, which has no
+        Snowflake object behind it.
         """
         spark_table_name_parts = [
             quote_name_without_upper_casing(part)
@@ -918,7 +940,7 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         ]
         spark_view_name = ".".join(spark_table_name_parts)
         if get_temp_view(spark_view_name):
-            return
+            return None
 
         catalog, sf_database, sf_schema, table_name = _process_multi_layer_identifier(
             spark_tableName
@@ -930,13 +952,28 @@ class SnowflakeCatalog(AbstractSparkCatalog):
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
 
+        # CLD parity (SNOW-3527672): use spark_to_sf_single_id() instead of sf_quote()
+        # because sf_quote() always uppercases, but CLD catalogs (Glue/Unity) store
+        # identifiers in their original case. spark_to_sf_single_id() preserves case
+        # for CLD while still uppercasing for Managed (non-CLD) tables.
         parts = []
         if sf_database:
-            parts.append(sf_quote(sf_database))
+            parts.append(spark_to_sf_single_id(sf_database))
         if sf_schema:
-            parts.append(sf_quote(sf_schema))
-        parts.append(sf_quote(table_name))
-        fqn = ".".join(parts)
+            parts.append(spark_to_sf_single_id(sf_schema))
+        parts.append(spark_to_sf_single_id(table_name))
+        return ".".join(parts)
+
+    def _verify_table_exists(self, spark_tableName: str) -> None:
+        """Verify a table/view exists, raising AnalysisException if not.
+
+        Uses DESCRIBE TABLE through the SQL execution path instead of the
+        REST v2 API (sp_catalog.get_table), which is unreliable under
+        concurrent CI workloads (intermittent 400 Bad Request).
+        """
+        fqn = self._resolve_snowflake_fqn(spark_tableName)
+        if fqn is None:
+            return
 
         session = get_or_create_snowpark_session()
         try:
@@ -980,9 +1017,52 @@ class SnowflakeCatalog(AbstractSparkCatalog):
         return super().uncacheTable(spark_tableName)
 
     def refreshTable(self, spark_tableName: str) -> pandas.DataFrame:
-        """Refresh a table, or view locally.
+        """Refresh a table, or view.
 
-        Check whether a table exists and then delegate to the local cache.
+        Check whether the table exists, re-read Iceberg catalog metadata when
+        the target is an Iceberg table, then delegate to the local cache.
         """
         self._verify_table_exists(spark_tableName)
+        self._refresh_iceberg_metadata(spark_tableName)
         return super().refreshTable(spark_tableName)
+
+    def _refresh_iceberg_metadata(self, spark_tableName: str) -> None:
+        """Emit ``ALTER ICEBERG TABLE <fqn> REFRESH`` for an Iceberg target.
+
+        Spark's ``REFRESH TABLE`` only invalidates client-side metadata, which
+        is a no-op for SCOS, but an Iceberg table does have catalog metadata
+        Snowflake can re-read -- so a table written outside the session becomes
+        visible the way a Spark user expects (SNOW-4145142).
+
+        Snowflake honors the refresh for a table backed by an external catalog
+        integration. A Snowflake-managed one additionally needs the account
+        parameter ALLOW_REFRESH_ON_MANAGED_ICEBERG_TABLES (GS SNOW-3852334),
+        which SCOS deliberately does not set on the user's behalf; without it
+        Snowflake answers 091352, and so does a target that turned out not to
+        be Iceberg at all. Both mean "nothing to refresh", so fall back to the
+        historical no-op rather than failing a call that used to succeed.
+        """
+        fqn = self._resolve_snowflake_fqn(spark_tableName)
+        if fqn is None:
+            return
+
+        session = get_or_create_snowpark_session()
+        # Every CLD target is an Iceberg table, so trust the session hint and
+        # skip the catalog round-trip (same contract as map_sql._execute_alter).
+        if (
+            not is_in_cld_context()
+            and get_table_type(fqn, session).upper() != "ICEBERG"
+        ):
+            return
+
+        try:
+            session.sql(f"ALTER ICEBERG TABLE {fqn} REFRESH").collect()
+        except SnowparkSQLException as e:
+            if getattr(e, "sql_error_code", None) != _ICEBERG_REFRESH_UNSUPPORTED:
+                raise
+            logger.debug(
+                "REFRESH TABLE %s: Snowflake declined the Iceberg refresh (%s); "
+                "treating as a no-op",
+                fqn,
+                e.message,
+            )

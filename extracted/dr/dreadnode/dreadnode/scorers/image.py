@@ -1,7 +1,5 @@
 import typing as t
 
-import numpy as np
-
 from dreadnode.core.metric import Metric
 from dreadnode.core.scorer import Scorer
 from dreadnode.core.types import Image
@@ -31,6 +29,8 @@ def image_distance(
             - 'linf' or 'chebyshev': Maximum absolute difference (Chebyshev distance).
         normalize: If True, normalizes the distance to a [0, 1] range.
     """
+    import numpy as np
+
     if not isinstance(reference, Image):
         raise TypeError(f"Expected reference to be an Image, got {type(reference)}")
 

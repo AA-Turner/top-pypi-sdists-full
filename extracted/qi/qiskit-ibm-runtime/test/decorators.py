@@ -30,7 +30,6 @@ from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit_ibm_runtime.accounts.account import CloudAccount
 
 from .registries import DefaultRegistry
-from .unit.mock.fake_runtime_service import FakeRuntimeService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -48,8 +47,9 @@ def mock_responses(
 
     When decorating a test, this decorator:
     * intercepts HTTP requests and returns mocked HTTP responses, based on a ``Registry``, which
-      is added as an argument to the test.
+      is added as an ``registry`` argument to the wrapped test.
     * patches low-level method related to IAM authentication, to simplify the authentication flow.
+    * optionally exposes the responses mock as ``responses`` argument to the wrapped test.
 
     This decorator is meant to be used with the items in the ``registries`` module:
     * ``DefaultRegistry`` and its subclasses.
@@ -71,12 +71,11 @@ def mock_responses(
     Args:
         func_or_registry: the ``Registry`` to use. If the decorator is used without parenthesis
             (``@mock_responses``), contains the test to decorate.
-        expose_responses_mock: if ``True``, the ``response`` will be added to the list of arguments
+        expose_responses_mock: if ``True``, the ``responses`` will be added to the list of arguments
             of the decorated tests.
 
-    Can be used bare (``@mock_authentication``, using the default registry) or
-    called with a registry class (``@mock_authentication(SomeRegistry)``). The
-    instantiated registry is passed to the wrapped test as an extra argument.
+    Can be used bare (``@mock_authentication``, using the default registry) or called with a
+    registry class (``@mock_authentication(SomeRegistry)``).
     """
     # Bare use: the argument is the decorated test method, not a registry class.
     if not isinstance(func_or_registry, type):
@@ -100,10 +99,15 @@ def mock_responses(
             ):
                 if expose_responses_mock:
                     return test_method(
-                        *args, responses_mock.get_registry(), responses_mock, **kwargs
+                        *args,
+                        # Pass the registry (and optionally the responses mock) as keyword arguments
+                        # to prevent colliding with other decorators (specially ``@combine``).
+                        registry=responses_mock.get_registry(),
+                        responses=responses_mock,
+                        **kwargs,
                     )
                 else:
-                    return test_method(*args, responses_mock.get_registry(), **kwargs)
+                    return test_method(*args, registry=responses_mock.get_registry(), **kwargs)
 
         return wrapper
 
@@ -122,16 +126,13 @@ def production_only(func):
     return _wrapper
 
 
-def run_cloud_fake(func):
-    """Decorator that runs a test using fake cloud services."""
+def staging_only(func):
+    """Decorator that runs a test only on staging services."""
 
     @wraps(func)
     def _wrapper(self, *args, **kwargs):
-        kwargs["service"] = FakeRuntimeService(
-            channel="ibm_cloud",
-            token="my_token",
-            instance="crn:v1:bluemix:public:quantum-computing:my-region:a/...:...::",
-        )
+        if "dev" not in self.dependencies.url and "test" not in self.dependencies.url:
+            raise SkipTest(f"Skipping integration test. {self} is not supported on production.")
         func(self, *args, **kwargs)
 
     return _wrapper
@@ -170,18 +171,18 @@ def run_configured_sampler_implementations(
     """Parameterize sampler tests based on the configured implementations.
 
     Set ``QISKIT_IBM_TEST_BOTH_SAMPLER_IMPLEMENTATIONS=1`` to expand the wrapped
-    test over both the legacy sampler and the executor-based sampler.
+    test over both the legacy sampler and the client-side sampler.
     Otherwise by default, the wrapped test is expanded only for the legacy sampler.
 
     The decorated tests receive a new argument that contains the sampler class.
     """
-    from qiskit_ibm_runtime import SamplerV2 as LegacySamplerV2
-    from qiskit_ibm_runtime.executor_sampler import SamplerV2 as ExecutorSamplerV2
+    from qiskit_ibm_runtime import SamplerV2 as LegacySampler
+    from qiskit_ibm_runtime.executor_sampler import Sampler as ExecutorSampler
 
     implementations = (
-        [("legacy", LegacySamplerV2), ("executor", ExecutorSamplerV2)]
+        [("legacy", LegacySampler), ("executor", ExecutorSampler)]
         if os.getenv("QISKIT_IBM_TEST_SAMPLER_V2_IMPLEMENTATIONS") == "1"
-        else [("legacy", LegacySamplerV2)]
+        else [("legacy", LegacySampler)]
     )
     return named_data(*implementations)(test_func)
 

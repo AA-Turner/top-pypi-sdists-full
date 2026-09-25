@@ -89,9 +89,11 @@ if typing.TYPE_CHECKING:
     from .email_search_result_out import EmailSearchResultOut
     from .file_too_large_error import FileTooLargeError
     from .folder_response import FolderResponse
+    from .general_agent_async_invoke_response_out import GeneralAgentAsyncInvokeResponseOut
     from .general_agent_config import GeneralAgentConfig
     from .general_agent_config_enabled_tools_item import GeneralAgentConfigEnabledToolsItem
     from .general_agent_config_enabled_tools_item_zero import GeneralAgentConfigEnabledToolsItemZero
+    from .general_agent_request import GeneralAgentRequest
     from .general_agent_response import GeneralAgentResponse
     from .general_agent_response_message import GeneralAgentResponseMessage
     from .general_agent_response_message_content import GeneralAgentResponseMessageContent
@@ -274,9 +276,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "EmailSearchResultOut": ".email_search_result_out",
     "FileTooLargeError": ".file_too_large_error",
     "FolderResponse": ".folder_response",
+    "GeneralAgentAsyncInvokeResponseOut": ".general_agent_async_invoke_response_out",
     "GeneralAgentConfig": ".general_agent_config",
     "GeneralAgentConfigEnabledToolsItem": ".general_agent_config_enabled_tools_item",
     "GeneralAgentConfigEnabledToolsItemZero": ".general_agent_config_enabled_tools_item_zero",
+    "GeneralAgentRequest": ".general_agent_request",
     "GeneralAgentResponse": ".general_agent_response",
     "GeneralAgentResponseMessage": ".general_agent_response_message",
     "GeneralAgentResponseMessageContent": ".general_agent_response_message_content",
@@ -481,9 +485,11 @@ __all__ = [
     "EmailSearchResultOut",
     "FileTooLargeError",
     "FolderResponse",
+    "GeneralAgentAsyncInvokeResponseOut",
     "GeneralAgentConfig",
     "GeneralAgentConfigEnabledToolsItem",
     "GeneralAgentConfigEnabledToolsItemZero",
+    "GeneralAgentRequest",
     "GeneralAgentResponse",
     "GeneralAgentResponseMessage",
     "GeneralAgentResponseMessageContent",

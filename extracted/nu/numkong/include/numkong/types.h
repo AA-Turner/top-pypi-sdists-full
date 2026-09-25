@@ -585,7 +585,8 @@
 #endif // !defined(NK_TARGET_SAPPHIRE) || ...
 
 #if !defined(NK_TARGET_SAPPHIREAMX) || (NK_TARGET_SAPPHIREAMX && !NK_TARGET_X8664_)
-#if (defined(__AMX_TILE__) && defined(__AMX_BF16__) && defined(__AMX_INT8__)) || (defined(_MSC_VER) && _MSC_VER >= 1944)
+#if (defined(__AMX_TILE__) && defined(__AMX_BF16__) && defined(__AMX_INT8__) && defined(__AVX512FP16__)) || \
+    (defined(_MSC_VER) && _MSC_VER >= 1944)
 #define NK_TARGET_SAPPHIREAMX 1
 #else
 #undef NK_TARGET_SAPPHIREAMX
@@ -603,7 +604,7 @@
 #endif // !defined(NK_TARGET_GRANITEAMX) || ...
 
 #if !defined(NK_TARGET_TURIN) || (NK_TARGET_TURIN && !NK_TARGET_X8664_)
-#if defined(__AVX512VP2INTERSECT__) || (defined(_MSC_VER) && _MSC_VER >= 1944)
+#if (defined(__AVX512VP2INTERSECT__) && defined(__AVX512BF16__)) || (defined(_MSC_VER) && _MSC_VER >= 1944)
 #define NK_TARGET_TURIN 1
 #else
 #undef NK_TARGET_TURIN
@@ -1552,6 +1553,18 @@ NK_INTERNAL nk_i64_t nk_i64_abs_(nk_i64_t x) { return x < 0 ? -x : x; }
 NK_INTERNAL nk_u64_t nk_u64_abs_(nk_u64_t x) { return x; }
 NK_INTERNAL nk_i64_t nk_i32_abs_(nk_i32_t x) { return x < 0 ? -x : x; }
 NK_INTERNAL nk_u32_t nk_u32_abs_(nk_u32_t x) { return x; }
+
+/** @brief Adds the compensation to the sum, returning the bare sum when overflow turned the compensation NaN. */
+NK_INTERNAL nk_f32_t nk_f32_compensated_sum_(nk_f32_t sum, nk_f32_t compensation) NK_STREAMING_COMPATIBLE_ {
+    nk_f32_t total = sum + compensation;
+    return total == total ? total : sum;
+}
+
+/** @brief Adds the compensation to the sum, returning the bare sum when overflow turned the compensation NaN. */
+NK_INTERNAL nk_f64_t nk_f64_compensated_sum_(nk_f64_t sum, nk_f64_t compensation) NK_STREAMING_COMPATIBLE_ {
+    nk_f64_t total = sum + compensation;
+    return total == total ? total : sum;
+}
 
 /** @brief Extract low (bits 0-3) unsigned nibble from packed u4x2 byte. */
 NK_INTERNAL nk_u8_t nk_u4x2_low_(nk_u4x2_t byte_val) { return byte_val & 0x0F; }

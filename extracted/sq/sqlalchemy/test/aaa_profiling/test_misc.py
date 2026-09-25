@@ -56,7 +56,7 @@ class CacheKeyTest(fixtures.TestBase):
     __requires__ = ("cpython", "python_profiling_backend")
 
     @testing.fixture(scope="class")
-    @testing.fixture_classmethod
+    @classmethod
     def mapping_fixture(cls):
         # note in order to work nicely with "fixture" we are emerging
         # a whole new model of setup/teardown, since pytest "fixture"

@@ -28,6 +28,7 @@ from tinybird.ch_utils.engine import VALID_ENGINE_PARAMS, EngineParam
 from tinybird.datafile.exceptions import IncludeFileNotFoundException, ParseException, ValidationException
 from tinybird.tb.modules.exceptions import CLIPipeException
 from tinybird.tb.modules.feedback_manager import FeedbackManager
+from tinybird.utils.bools import parse_optional_bool
 
 # Code from sql.py has been duplicated so I can change it without breaking absolutely everything in the app
 # I'll try not to make logic changes, just error reporting changes
@@ -179,9 +180,10 @@ class CopyParameters(Parameters):
     COPY_SCHEDULE = "copy_schedule"
     COPY_MODE = "copy_mode"
     COPY_MODE_ALIAS = "mode"  # we need this because bot MODE and COPY_MODE go to `mode` variable inside the node
+    ON_DEMAND_COMPUTE = "on_demand_compute"
     MANDATORY_ATTRIBUTES = PipeParameters.MANDATORY_ATTRIBUTES.union({TARGET_DATASOURCE})
     ACCEPTED_ATTRIBUTES = PipeParameters.ACCEPTED_ATTRIBUTES.union(MANDATORY_ATTRIBUTES).union(
-        {COPY_SCHEDULE, COPY_MODE_ALIAS}
+        {COPY_SCHEDULE, COPY_MODE_ALIAS, ON_DEMAND_COMPUTE}
     )
 
 
@@ -416,6 +418,11 @@ class Datafile:
                 )
             if not croniter.is_valid(copy_schedule):
                 raise DatafileValidationError("COPY node schedule must be @on-demand or a valid cron expression.")
+        if CopyParameters.ON_DEMAND_COMPUTE in node:
+            try:
+                node[CopyParameters.ON_DEMAND_COMPUTE] = parse_optional_bool(node[CopyParameters.ON_DEMAND_COMPUTE])
+            except ValueError:
+                raise DatafileValidationError("ON_DEMAND_COMPUTE must be true or false")
         for key in node.keys():
             if key not in CopyParameters.valid_params():
                 raise DatafileValidationError(
@@ -2097,6 +2104,7 @@ def parse(
             "copy_schedule": assign_node_var(CopyParameters.COPY_SCHEDULE),
             "copy_mode": assign_node_var("mode"),
             "mode": assign_node_var("mode"),
+            "on_demand_compute": assign_node_var(CopyParameters.ON_DEMAND_COMPUTE),
             "filter": assign_node_var("filter"),
             "token": add_token,
             "include": include,

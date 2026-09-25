@@ -6,18 +6,33 @@
 import asyncio
 import inspect
 import timeit
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+from opentelemetry.trace import get_current_span
+from opentelemetry.trace.status import StatusCode
+from opentelemetry.util.genai._instruments import _Instruments
+from opentelemetry.util.genai._tool_invocation import ToolInvocation
+from opentelemetry.util.genai.completion_hook import CompletionHook
 from opentelemetry.util.genai.stream import (
     AsyncStreamManagerWrapper,
     AsyncStreamWrapper,
+    AsyncToolStreamWrapper,
     SyncStreamManagerWrapper,
     SyncStreamWrapper,
+    SyncToolStreamWrapper,
     finalize_on_aclose,
     finalize_on_close,
 )
+from opentelemetry.util.genai.types import ContentCapturingMode
+from opentelemetry.util.genai.utils import gen_ai_json_dumps
 
 
 def test_stream_wrapper_abstract_method_signatures_match():
@@ -133,6 +148,16 @@ def test_sync_stream_wrapper_fails_stream_errors():
     assert wrapper._self_failures == [error]
 
 
+def test_sync_stream_wrapper_fails_base_exception_stream_errors():
+    error = asyncio.CancelledError()
+    wrapper = _TestSyncStreamWrapper(_FakeSyncStream(error=error))
+
+    with pytest.raises(asyncio.CancelledError):
+        next(wrapper)
+
+    assert wrapper._self_failures == [error]
+
+
 def test_sync_stream_wrapper_close_stops_once():
     stream = _FakeSyncStream(chunks=["chunk"])
     wrapper = _TestSyncStreamWrapper(stream)
@@ -152,6 +177,19 @@ def test_sync_stream_wrapper_close_fails_with_close_error():
     )
 
     with pytest.raises(RuntimeError, match="close failure"):
+        wrapper.close()
+
+    assert wrapper._self_failures == [error]
+    assert wrapper._self_stop_count == 0
+
+
+def test_sync_stream_wrapper_close_fails_with_base_exception():
+    error = asyncio.CancelledError()
+    wrapper = _TestSyncStreamWrapper(
+        _FakeSyncStream(chunks=["chunk"], close_error=error)
+    )
+
+    with pytest.raises(asyncio.CancelledError):
         wrapper.close()
 
     assert wrapper._self_failures == [error]
@@ -306,6 +344,19 @@ def test_async_stream_wrapper_fails_stream_errors():
     asyncio.run(exercise())
 
 
+def test_async_stream_wrapper_fails_base_exception_stream_errors():
+    async def exercise():
+        error = asyncio.CancelledError()
+        wrapper = _TestAsyncStreamWrapper(_FakeAsyncStream(error=error))
+
+        with pytest.raises(asyncio.CancelledError):
+            await anext(wrapper)
+
+        assert wrapper._self_failures == [error]
+
+    asyncio.run(exercise())
+
+
 def test_async_stream_wrapper_close_stops_once():
     async def exercise():
         stream = _FakeAsyncStream(chunks=["chunk"])
@@ -329,6 +380,22 @@ def test_async_stream_wrapper_close_fails_with_close_error():
         )
 
         with pytest.raises(RuntimeError, match="close failure"):
+            await wrapper.close()
+
+        assert wrapper._self_failures == [error]
+        assert wrapper._self_stop_count == 0
+
+    asyncio.run(exercise())
+
+
+def test_async_stream_wrapper_close_fails_with_base_exception():
+    async def exercise():
+        error = asyncio.CancelledError()
+        wrapper = _TestAsyncStreamWrapper(
+            _FakeAsyncStream(chunks=["chunk"], close_error=error)
+        )
+
+        with pytest.raises(asyncio.CancelledError):
             await wrapper.close()
 
         assert wrapper._self_failures == [error]
@@ -404,6 +471,16 @@ class _FakeTimingInvocation:
         self.chunk_times.append(chunk_at)
 
 
+class _ProtocolOnlyTimingInvocation:
+    """Implements only the timing protocol without _request_stream."""
+
+    def __init__(self):
+        self.chunk_times = []
+
+    def _on_stream_chunk(self, chunk_at):
+        self.chunk_times.append(chunk_at)
+
+
 class _TimingSyncWrapper(SyncStreamWrapper):
     def __init__(self, stream, invocation=None, process_hook=None):
         super().__init__(stream, invocation=invocation)
@@ -456,6 +533,18 @@ def test_sync_wrapper_marks_request_stream():
     # chunk is read.
     _TimingSyncWrapper(_FakeSyncStream(chunks=["a"]), invocation=invocation)
     assert invocation._request_stream is True
+
+
+def test_sync_wrapper_works_without_request_stream():
+    invocation = _ProtocolOnlyTimingInvocation()
+    wrapper = _TimingSyncWrapper(
+        _FakeSyncStream(chunks=["a"]), invocation=invocation
+    )
+    with patch("timeit.default_timer", side_effect=iter([10.0])):
+        assert list(wrapper) == ["a"]
+
+    assert invocation.chunk_times == pytest.approx([10.0])
+    assert not hasattr(invocation, "_request_stream")
 
 
 def test_sync_wrapper_single_chunk_one_report():
@@ -527,6 +616,22 @@ def test_async_wrapper_reports_each_chunk_arrival():
     asyncio.run(exercise())
 
 
+def test_async_wrapper_works_without_request_stream():
+    async def exercise():
+        invocation = _ProtocolOnlyTimingInvocation()
+        stream = _FakeAsyncStream(chunks=["x"])
+        wrapper = _TimingAsyncWrapper(stream, invocation=invocation)
+
+        with patch("timeit.default_timer", side_effect=iter([20.0])):
+            chunks = [chunk async for chunk in wrapper]
+
+        assert chunks == ["x"]
+        assert invocation.chunk_times == pytest.approx([20.0])
+        assert not hasattr(invocation, "_request_stream")
+
+    asyncio.run(exercise())
+
+
 def test_async_wrapper_without_invocation_skips_timing():
     async def exercise():
         stream = _FakeAsyncStream(chunks=["a", "b"])
@@ -592,12 +697,68 @@ class _FakeBothCloseStream(_FakeAcloseOnlyStream):
         self.close_count += 1
 
 
+class _FakeSyncCloseAsyncStream:
+    """An async stream with a synchronous ``close()`` and no ``aclose()``."""
+
+    def __init__(self, chunks=None, close_error=None):
+        self._chunks = list(chunks or [])
+        self._close_error = close_error
+        self.close_count = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self._chunks:
+            return self._chunks.pop(0)
+        raise StopAsyncIteration
+
+    def close(self):
+        self.close_count += 1
+        if self._close_error is not None:
+            raise self._close_error
+
+
+def test_async_stream_wrapper_sync_close_direct_and_context_manager():
+    async def exercise():
+        stream = _FakeSyncCloseAsyncStream(chunks=["a"])
+        wrapper = _TestAsyncStreamWrapper(stream)
+
+        wrapper.close()
+
+        assert stream.close_count == 1
+        assert wrapper._self_stop_count == 1
+
+        stream2 = _FakeSyncCloseAsyncStream(chunks=["b"])
+        wrapper2 = _TestAsyncStreamWrapper(stream2)
+        async with wrapper2:
+            pass
+
+        assert stream2.close_count == 1
+        assert wrapper2._self_stop_count == 1
+
+    asyncio.run(exercise())
+
+
+def test_async_stream_wrapper_sync_close_fails_with_close_error():
+    error = RuntimeError("sync close failure")
+    stream = _FakeSyncCloseAsyncStream(chunks=["a"], close_error=error)
+    wrapper = _TestAsyncStreamWrapper(stream)
+
+    with pytest.raises(RuntimeError, match="sync close failure"):
+        wrapper.close()
+
+    assert wrapper._self_failures == [error]
+    assert wrapper._self_stop_count == 0
+
+
 def test_async_stream_wrapper_prefers_aclose_over_sync_close():
     async def exercise():
         stream = _FakeBothCloseStream(chunks=["a"])
         wrapper = _TestAsyncStreamWrapper(stream)
 
-        await wrapper.close()
+        async with wrapper:
+            pass
 
         assert stream.aclose_count == 1
         assert stream.close_count == 0
@@ -810,6 +971,21 @@ def test_sync_manager_wrapper_fails_invocation_when_enter_raises():
     assert invocation.failures == [error]
 
 
+def test_sync_manager_wrapper_fails_invocation_when_enter_is_cancelled():
+    error = asyncio.CancelledError()
+    invocation = _FakeInvocation()
+    wrapper = _TestSyncManagerWrapper(
+        _FakeSyncManager(_FakeSyncStream(), enter_error=error),
+        lambda: invocation,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        with wrapper:
+            pass
+
+    assert invocation.failures == [error]
+
+
 def test_sync_manager_wrapper_forwards_caller_error_to_stream_wrapper():
     manager = _FakeSyncManager(_FakeSyncStream())
     wrapper = _TestSyncManagerWrapper(manager, _FakeInvocation)
@@ -841,6 +1017,18 @@ def test_sync_manager_wrapper_finalizes_stream_when_exit_raises():
 
     stream_wrapper = wrapper.__enter__()
     with pytest.raises(RuntimeError, match="manager failure"):
+        wrapper.__exit__(None, None, None)
+
+    assert stream_wrapper._self_failures == [manager_error]
+
+
+def test_sync_manager_wrapper_finalizes_stream_when_exit_is_cancelled():
+    manager_error = asyncio.CancelledError()
+    manager = _FakeSyncManager(_FakeSyncStream(), exit_error=manager_error)
+    wrapper = _TestSyncManagerWrapper(manager, _FakeInvocation)
+
+    stream_wrapper = wrapper.__enter__()
+    with pytest.raises(asyncio.CancelledError):
         wrapper.__exit__(None, None, None)
 
     assert stream_wrapper._self_failures == [manager_error]
@@ -894,6 +1082,24 @@ def test_async_manager_wrapper_fails_invocation_when_enter_raises():
     asyncio.run(exercise())
 
 
+def test_async_manager_wrapper_fails_invocation_when_enter_is_cancelled():
+    async def exercise():
+        error = asyncio.CancelledError()
+        invocation = _FakeInvocation()
+        wrapper = _TestAsyncManagerWrapper(
+            _FakeAsyncManager(_FakeAsyncStream(), enter_error=error),
+            lambda: invocation,
+        )
+
+        with pytest.raises(asyncio.CancelledError):
+            async with wrapper:
+                pass
+
+        assert invocation.failures == [error]
+
+    asyncio.run(exercise())
+
+
 def test_async_manager_wrapper_forwards_caller_error_to_stream_wrapper():
     async def exercise():
         manager = _FakeAsyncManager(_FakeAsyncStream())
@@ -934,6 +1140,23 @@ def test_async_manager_wrapper_finalizes_stream_when_exit_raises():
 
         stream_wrapper = await wrapper.__aenter__()
         with pytest.raises(RuntimeError, match="manager failure"):
+            await wrapper.__aexit__(None, None, None)
+
+        assert stream_wrapper._self_failures == [manager_error]
+
+    asyncio.run(exercise())
+
+
+def test_async_manager_wrapper_finalizes_stream_when_exit_is_cancelled():
+    async def exercise():
+        manager_error = asyncio.CancelledError()
+        manager = _FakeAsyncManager(
+            _FakeAsyncStream(), exit_error=manager_error
+        )
+        wrapper = _TestAsyncManagerWrapper(manager, _FakeInvocation)
+
+        stream_wrapper = await wrapper.__aenter__()
+        with pytest.raises(asyncio.CancelledError):
             await wrapper.__aexit__(None, None, None)
 
         assert stream_wrapper._self_failures == [manager_error]
@@ -1111,5 +1334,276 @@ def test_async_manager_wrapper_fails_invocation_when_exit_raises_before_enter():
             await wrapper.__aexit__(None, None, None)
 
         assert invocation.failures == [manager_error]
+
+    asyncio.run(exercise())
+
+
+def test_sync_tool_stream_wrapper_lifecycle():
+    invocation, span_exporter = _started_tool_invocation()
+    stream = _FakeSyncStream(chunks=["chunk1", "chunk2"])
+    wrapper = SyncToolStreamWrapper(stream, invocation)
+
+    assert next(wrapper) == "chunk1"
+    assert next(wrapper) == "chunk2"
+
+    with pytest.raises(StopIteration):
+        next(wrapper)
+
+    assert invocation.tool_result == "chunk1chunk2"
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code is not StatusCode.ERROR
+
+
+def test_sync_tool_stream_wrapper_error():
+    invocation, span_exporter = _started_tool_invocation()
+    error = ValueError("tool failed")
+    stream = _FakeSyncStream(error=error)
+    wrapper = SyncToolStreamWrapper(stream, invocation)
+
+    with pytest.raises(ValueError, match="tool failed"):
+        next(wrapper)
+
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].attributes["error.type"] == "ValueError"
+
+
+def test_async_tool_stream_wrapper_lifecycle():
+    async def exercise():
+        invocation, span_exporter = _started_tool_invocation()
+        stream = _FakeAsyncStream(chunks=["chunk1", "chunk2"])
+        wrapper = AsyncToolStreamWrapper(stream, invocation)
+
+        assert await wrapper.__anext__() == "chunk1"
+        assert await wrapper.__anext__() == "chunk2"
+
+        with pytest.raises(StopAsyncIteration):
+            await wrapper.__anext__()
+
+        assert invocation.tool_result == "chunk1chunk2"
+        spans = span_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].status.status_code is not StatusCode.ERROR
+
+    asyncio.run(exercise())
+
+
+def test_async_tool_stream_wrapper_error():
+    async def exercise():
+        invocation, span_exporter = _started_tool_invocation()
+        error = ValueError("async tool failed")
+        stream = _FakeAsyncStream(error=error)
+        wrapper = AsyncToolStreamWrapper(stream, invocation)
+
+        with pytest.raises(ValueError, match="async tool failed"):
+            await wrapper.__anext__()
+
+        spans = span_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].attributes["error.type"] == "ValueError"
+
+    asyncio.run(exercise())
+
+
+def _started_tool_invocation():
+    """A real, started ToolInvocation plus the exporter its span lands in."""
+    span_exporter = InMemorySpanExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
+    invocation = ToolInvocation(
+        tracer=tracer_provider.get_tracer(__name__),
+        instruments=_Instruments(MeterProvider().get_meter(__name__)),
+        logger=MagicMock(),
+        completion_hook=MagicMock(spec=CompletionHook),
+        name="streaming_tool",
+        content_capturing_mode=ContentCapturingMode.SPAN_ONLY,
+    )
+    return invocation, span_exporter
+
+
+def test_sync_tool_stream_wrapper_non_string_chunks():
+    invocation, span_exporter = _started_tool_invocation()
+    chunks = [{"k1": "v1"}, {"k2": "v2"}]
+    stream = _FakeSyncStream(chunks=chunks)
+    wrapper = SyncToolStreamWrapper(stream, invocation)
+
+    assert list(wrapper) == chunks
+
+    assert invocation.tool_result == chunks
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].attributes["gen_ai.tool.call.result"] == gen_ai_json_dumps(
+        chunks
+    )
+
+
+def test_async_tool_stream_wrapper_non_string_chunks():
+    async def exercise():
+        invocation, span_exporter = _started_tool_invocation()
+        chunks = [{"k1": "v1"}, {"k2": "v2"}]
+        stream = _FakeAsyncStream(chunks=chunks)
+        wrapper = AsyncToolStreamWrapper(stream, invocation)
+
+        assert [chunk async for chunk in wrapper] == chunks
+
+        assert invocation.tool_result == chunks
+        spans = span_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].attributes[
+            "gen_ai.tool.call.result"
+        ] == gen_ai_json_dumps(chunks)
+
+    asyncio.run(exercise())
+
+
+def test_sync_tool_stream_wrapper_scopes_context_to_tool_code():
+    caller_span = get_current_span()
+    invocation, span_exporter = _started_tool_invocation()
+    assert get_current_span() is invocation.span
+
+    inside = []
+
+    def tool_body():
+        inside.append(get_current_span())
+        yield "a"
+        inside.append(get_current_span())
+        yield "b"
+
+    wrapper = SyncToolStreamWrapper(tool_body(), invocation)
+    assert get_current_span() is caller_span
+
+    for _ in wrapper:
+        # The caller holds control between chunks.
+        assert get_current_span() is caller_span
+
+    assert get_current_span() is caller_span
+    # ...but the tool's own code runs under the tool span.
+    assert inside == [invocation.span, invocation.span]
+    assert len(span_exporter.get_finished_spans()) == 1
+
+
+def test_async_tool_stream_wrapper_scopes_context_to_tool_code():
+    async def exercise():
+        caller_span = get_current_span()
+        invocation, span_exporter = _started_tool_invocation()
+        assert get_current_span() is invocation.span
+
+        inside = []
+
+        async def tool_body():
+            inside.append(get_current_span())
+            yield "a"
+            inside.append(get_current_span())
+            yield "b"
+
+        wrapper = AsyncToolStreamWrapper(tool_body(), invocation)
+        assert get_current_span() is caller_span
+
+        async for _ in wrapper:
+            # The caller holds control between chunks.
+            assert get_current_span() is caller_span
+
+        assert get_current_span() is caller_span
+        # ...but the tool's own code runs under the tool span.
+        assert inside == [invocation.span, invocation.span]
+        assert len(span_exporter.get_finished_spans()) == 1
+
+    asyncio.run(exercise())
+
+
+def test_sync_tool_stream_wrapper_restores_context_on_error():
+    caller_span = get_current_span()
+    invocation, span_exporter = _started_tool_invocation()
+
+    def tool_body():
+        yield "a"
+        raise ValueError("tool failed")
+
+    wrapper = SyncToolStreamWrapper(tool_body(), invocation)
+    assert next(wrapper) == "a"
+    assert get_current_span() is caller_span
+
+    with pytest.raises(ValueError, match="tool failed"):
+        next(wrapper)
+
+    assert get_current_span() is caller_span
+    assert invocation._context_token is None
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].attributes["error.type"] == "ValueError"
+
+
+def test_async_tool_stream_wrapper_restores_context_on_error():
+    async def exercise():
+        caller_span = get_current_span()
+        invocation, span_exporter = _started_tool_invocation()
+
+        async def tool_body():
+            yield "a"
+            raise ValueError("async tool failed")
+
+        wrapper = AsyncToolStreamWrapper(tool_body(), invocation)
+        assert await wrapper.__anext__() == "a"
+        assert get_current_span() is caller_span
+
+        with pytest.raises(ValueError, match="async tool failed"):
+            await wrapper.__anext__()
+
+        assert get_current_span() is caller_span
+        assert invocation._context_token is None
+        spans = span_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].attributes["error.type"] == "ValueError"
+
+    asyncio.run(exercise())
+
+
+def test_sync_tool_stream_wrapper_restores_context_when_abandoned_via_close():
+    caller_span = get_current_span()
+    invocation, span_exporter = _started_tool_invocation()
+
+    def tool_body():
+        yield "a"
+        yield "b"
+
+    wrapper = SyncToolStreamWrapper(tool_body(), invocation)
+    assert next(wrapper) == "a"
+    assert get_current_span() is caller_span
+
+    wrapper.close()
+
+    assert get_current_span() is caller_span
+    assert invocation._context_token is None
+    assert len(span_exporter.get_finished_spans()) == 1
+
+
+def test_sync_tool_stream_wrapper_finalizes_failure_on_del():
+    invocation, span_exporter = _started_tool_invocation()
+    stream = _FakeSyncStream(chunks=["a", "b"])
+    wrapper = SyncToolStreamWrapper(stream, invocation)
+    assert next(wrapper) == "a"
+
+    wrapper.__del__()
+
+    spans = span_exporter.get_finished_spans()
+    assert len(spans) == 1
+    assert spans[0].status.status_code is StatusCode.ERROR
+    assert spans[0].attributes["error.type"] == "GeneratorExit"
+
+
+def test_async_tool_stream_wrapper_finalizes_failure_on_del():
+    async def exercise():
+        invocation, span_exporter = _started_tool_invocation()
+        stream = _FakeAsyncStream(chunks=["a", "b"])
+        wrapper = AsyncToolStreamWrapper(stream, invocation)
+        assert await wrapper.__anext__() == "a"
+
+        wrapper.__del__()
+
+        spans = span_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].status.status_code is StatusCode.ERROR
+        assert spans[0].attributes["error.type"] == "GeneratorExit"
 
     asyncio.run(exercise())

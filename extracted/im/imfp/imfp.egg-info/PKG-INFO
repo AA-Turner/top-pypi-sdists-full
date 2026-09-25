@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imfp
-Version: 2.0.0
+Version: 2.1.0
 Summary: Python package for downloading economic data from the International Monetary Fund SDMX 3.0 API, following econdataverse conventions.
 Author-email: "Christopher C. Smith" <christopher.smith@promptlytechnologies.com>
 License:                                  Apache License

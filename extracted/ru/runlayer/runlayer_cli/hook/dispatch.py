@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NoReturn, cast
+from typing import Any, NoReturn, cast, Literal
 
 from runlayer_cli import __version__, flow_spool, flow_trace, regex_safe
 from runlayer_cli.hook import credential_state, hook_io, host_override, messages
@@ -52,6 +52,7 @@ from runlayer_cli.hook.mcp_lookup import (
     resolve_hermes_mcp_tool,
 )
 from runlayer_cli.hook.failure import FailureContext
+from runlayer_cli.flow_contract import status_category
 from runlayer_cli.hook.relay import (
     RelayError,
     check_tool_lifecycle,
@@ -173,18 +174,52 @@ def _policy_violation(check: Callable[[], None]) -> FilePolicyViolation | None:
     return None
 
 
-def _credential_deny_kwargs(failure: FailureContext | None) -> dict[str, Any]:
-    """Hostname + credential kind for the 401 deny only; empty otherwise."""
+def _device_deny_kwargs(failure: FailureContext | None) -> dict[str, Any]:
+    """Device context for denies that name the device: hostname + credential
+    kind for Runlayer's 401, hostname alone for a network rejection (the block
+    is per device, so IT needs the hostname; no credential was judged)."""
+    kwargs: dict[str, Any] = {}
+    if failure is not None and failure.kind == "http":
+        if failure.is_network_rejection:
+            kwargs = {"hostname": device_hostname()}
+        elif failure.status_code == credential_state.CREDENTIAL_REJECTED_STATUS:
+            kwargs = {
+                "hostname": device_hostname(),
+                "managed_credential": uses_managed_credential(),
+            }
+    return kwargs
+
+
+_InfraDenyErrorType = Literal["HookNetworkDeny", "HookInfraDeny"]
+
+
+def _mark_infra_deny(failure: FailureContext | None, *, override: bool) -> None:
+    """Mark the flow for a fail-closed relay deny. This is where the flow
+    learns the HTTP category of a deny. The relay marks only Runlayer's own
+    401 (the credential verdict, see ``relay._note_credential_rejection``);
+    every other non-2xx is left unmarked there because some are recovered
+    (gzip identity retry) or swallowed by best-effort callers and must not
+    count as failed flows in the hook-reliability alerts."""
+    kwargs: dict[str, Any] = {}
     if (
-        failure is None
-        or failure.kind != "http"
-        or failure.status_code != credential_state.CREDENTIAL_REJECTED_STATUS
+        failure is not None
+        and failure.kind == "http"
+        and failure.status_code is not None
     ):
-        return {}
-    return {
-        "hostname": device_hostname(),
-        "managed_credential": uses_managed_credential(),
-    }
+        kwargs = {
+            "category": status_category(failure.status_code),
+            "http_status": failure.status_code,
+        }
+    flow_trace.mark_error(_infra_deny_error_type(failure), override=override, **kwargs)
+
+
+def _infra_deny_error_type(failure: FailureContext | None) -> _InfraDenyErrorType:
+    """Flow error type for a fail-closed relay deny: ``HookNetworkDeny`` when
+    an intermediary rejected the request (nothing reached Runlayer), else
+    ``HookInfraDeny``. Log-only labels (see the hook-reliability alert rules),
+    so per-customer triage can split "our 4xx" from "their edge 4xx"."""
+    is_network = failure is not None and failure.is_network_rejection
+    return "HookNetworkDeny" if is_network else "HookInfraDeny"
 
 
 # Flow error type for "Monitor device, credentials rejected, call allowed".
@@ -790,11 +825,11 @@ def _check_tool_lifecycle(
             flow_trace.mark_error("HookAuthRequired", override=True)
             u, a = messages.tool_auth_required(tool_name=tool_name)
         else:
-            flow_trace.mark_error("HookInfraDeny", override=True)
+            _mark_infra_deny(e.failure, override=True)
             u, a = messages.tool_api_unreachable(
                 tool_name=tool_name,
                 failure=e.failure,
-                **_credential_deny_kwargs(e.failure),
+                **_device_deny_kwargs(e.failure),
             )
         if target == "tool-post":
             _write(
@@ -1149,15 +1184,12 @@ _PLUGIN_CONTEXT_CLIENTS = frozenset({Client.CLAUDE_CODE, Client.CODEX})
 
 
 def _plugin_context_output(ctx: _DispatchCtx) -> str | None:
-    """Session/prompt output carrying Runlayer Plugin routing rules.
+    """Session-start output carrying Runlayer Plugin routing rules.
 
-    None when the client or event has no context slot, or the built-in plugin
-    is not configured for this session, so callers fall back to plain allow.
+    None when the client has no context slot, or the built-in plugin is not
+    configured for this session, so the caller falls back to plain output.
     """
-    if ctx.client not in _PLUGIN_CONTEXT_CLIENTS or ctx.hook_type not in (
-        "SessionStart",
-        "UserPromptSubmit",
-    ):
+    if ctx.client not in _PLUGIN_CONTEXT_CLIENTS:
         return None
     cwd = ctx.input_data.get("cwd", "") or hook_io.getcwd()
     context = build_plugin_context(ctx.client, cwd)
@@ -1182,7 +1214,7 @@ def _handle_session_event(ctx: _DispatchCtx) -> None:
     forward_event(
         ctx.client.value, ctx.original_hook_type, ctx.input_data, debug=ctx.debug
     )
-    _write(_plugin_context_output(ctx) or ctx.resp.allow())
+    _write(ctx.resp.allow())
 
 
 def _handle_post_tool_use(ctx: _DispatchCtx) -> None:
@@ -1557,7 +1589,7 @@ def _mcp_enforce_and_respond(
         elif mode is AIWatchMode.PROTECT:
             flow_trace.mark_error("HookInfraFailOpen")
         else:
-            flow_trace.mark_error("HookInfraDeny")
+            _mark_infra_deny(e.failure, override=False)
         if mode is AIWatchMode.PROTECT:
             return _allow_protect_failure()
         if e.exit_code == 1:
@@ -1566,7 +1598,7 @@ def _mcp_enforce_and_respond(
             u, a = messages.api_unreachable(
                 tool_name=tool_name,
                 failure=e.failure,
-                **_credential_deny_kwargs(e.failure),
+                **_device_deny_kwargs(e.failure),
             )
         _deny_and_exit(resp, u, a)
 

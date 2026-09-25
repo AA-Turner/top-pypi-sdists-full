@@ -23,6 +23,7 @@ from fastcore.shutil import rmtree,move,copytree
 from fastcore.meta import delegates
 from .serve import proc_nbs,_proc_file
 from . import serve_drv
+from .quarto_render import render_quarto
 import yaml
 
 # %% ../nbs/api/14_quarto.ipynb #aae2d2be-ad03-4536-bf70-c4575f39cea3
@@ -62,8 +63,8 @@ def install_quarto():
 def install():
     "Install Quarto and the current library"
     install_quarto.__wrapped__()
-    d = get_config().lib_path
-    if (d/'__init__.py').exists(): system(f'pip install -e "{d.parent}[dev]"')
+    cfg = get_config()
+    if (cfg.lib_path/'__init__.py').exists(): system(f'pip install -e "{cfg.config_path}[dev]"')
 
 # %% ../nbs/api/14_quarto.ipynb #b93f6def
 def _pre(p,b=True): return '    ' * (len(p.parts)) + ('- ' if b else '  ')
@@ -138,7 +139,7 @@ def nbdev_sidebar(
     yml = yaml.dump(parsed_struct, Dumper=IndentDumper, sort_keys=False)
 
     if printit: return print(yml)
-    yml_path.write_text(yml)
+    if not yml_path.exists() or yml_path.read_text() != yml: yml_path.write_text(yml)
 
 # %% ../nbs/api/14_quarto.ipynb #aabf2f15
 _quarto_yml="""project:
@@ -189,7 +190,8 @@ def refresh_quarto_yml():
     vals = {k:cfg[k] for k in ['title', 'description', 'branch', 'git_url', 'doc_host', 'doc_baseurl']}
     vals['doc_path'] = cfg.doc_path.name
     if 'title' not in vals: vals['title'] = vals['lib_name']
-    ny.write_text(_nbdev_yml.format(**vals))
+    text = _nbdev_yml.format(**vals)
+    if not ny.exists() or ny.read_text() != text: ny.write_text(text)
     qy = cfg.nbs_path/'_quarto.yml'
     if 'custom_quarto_yml' in cfg: print("NB: `_quarto.yml` is no longer auto-updated. Remove `custom_quarto_yml` from `pyproject.toml`")
     if qy.exists() and not str2bool(cfg.get('custom_quarto_yml', True)): qy.unlink()
@@ -199,7 +201,7 @@ def refresh_quarto_yml():
 def _ensure_quarto():
     if shutil.which('quarto'): return
     print("Quarto is not installed. We will download and install it for you.")
-    install.__wrapped__()
+    install_quarto.__wrapped__()
 
 # %% ../nbs/api/14_quarto.ipynb #66163c30
 def _chk_nbdev_yml(path):
@@ -335,13 +337,11 @@ def _fix_quarto_nav(doc_path):
 @delegates(_nbglob_docs)
 def nbdev_docs(
     path:str=None, # Path to notebooks
-    n_workers:int=defaults.cpus,  # Number of workers
+    n_workers:int=defaults.cpus,  # Preprocessing and Quarto workers (0 or 1: serial)
     **kwargs):
-    "Create Quarto docs and README.md"
-    cache,cfg,path = _pre_docs(path, n_workers=n_workers, **kwargs)
-    _sprun(f'cd "{cache}" && quarto render --no-cache')
-    nbdev_readme.__wrapped__(path=path, chk_time=True)
-    nbdev_contributing.__wrapped__(path=path, chk_time=True)
+    "Create Quarto docs"
+    cache,cfg,_ = _pre_docs(path, n_workers=n_workers, **kwargs)
+    render_quarto(cache, cache/cfg.doc_path.name, n_workers=n_workers)
     shutil.rmtree(cfg.doc_path, ignore_errors=True)
     move(cache/cfg.doc_path.name, cfg.config_path)
     _fix_quarto_nav(cfg.doc_path)
@@ -382,11 +382,15 @@ def nbdev_preview(
     port:int=None, # The port on which to run preview
     host:str=None, # The host on which to run preview
     no_browser:bool=False, # Do not open a browser
-    n_workers:int=defaults.cpus,  # Number of workers
+    render:bool=False, # Render all pages before previewing
+    n_workers:int=defaults.cpus,  # Preprocessing and Quarto workers (0 or 1: serial)
     **kwargs):
     "Preview docs locally"
     os.environ['QUARTO_PREVIEW']='1'
     cache,cfg,path = _pre_docs(path, n_workers=n_workers, **kwargs)
+    site = cache/cfg.doc_path.name
+    if not (render or site.exists()) and cfg.doc_path.exists(): copytree(cfg.doc_path, site)
+    if render or not site.exists(): render_quarto(cache, site, n_workers=n_workers)
     xtra = []
     if port: xtra += ['--port', str(port)]
     if host: xtra += ['--host', host]
@@ -399,5 +403,4 @@ def nbdev_preview(
             except: traceback.print_exc()
 
     os.chdir(cache)
-    xtra = xtra or []
     with fs_watchdog(_f, path): subprocess.run(['quarto','preview']+xtra)

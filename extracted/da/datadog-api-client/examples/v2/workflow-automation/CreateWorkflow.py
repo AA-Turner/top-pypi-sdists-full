@@ -2,6 +2,7 @@
 Create a Workflow returns "Successfully created a workflow." response
 """
 
+from os import environ
 from datadog_api_client import ApiClient, Configuration
 from datadog_api_client.v2.api.workflow_automation_api import WorkflowAutomationApi
 from datadog_api_client.v2.model.connection import Connection
@@ -26,6 +27,8 @@ from datadog_api_client.v2.model.trigger_rate_limit import TriggerRateLimit
 from datadog_api_client.v2.model.workflow_data import WorkflowData
 from datadog_api_client.v2.model.workflow_data_attributes import WorkflowDataAttributes
 from datadog_api_client.v2.model.workflow_data_type import WorkflowDataType
+from datadog_api_client.v2.model.workflow_run_as_owner import WorkflowRunAsOwner
+from datadog_api_client.v2.model.workflow_run_as_owner_type import WorkflowRunAsOwnerType
 
 body = CreateWorkflowRequest(
     data=WorkflowData(
@@ -33,6 +36,10 @@ body = CreateWorkflowRequest(
             description="A sample workflow.",
             name="Example Workflow",
             published=True,
+            run_as=WorkflowRunAsOwner(
+                type=WorkflowRunAsOwnerType.OWNER,
+            ),
+            sensitive_privileges=True,
             spec=Spec(
                 connection_envs=[
                     ConnectionEnv(
@@ -117,6 +124,7 @@ body = CreateWorkflowRequest(
 )
 
 configuration = Configuration()
+configuration.access_token = environ["DD_BEARER_TOKEN"]
 with ApiClient(configuration) as api_client:
     api_instance = WorkflowAutomationApi(api_client)
     response = api_instance.create_workflow(body=body)

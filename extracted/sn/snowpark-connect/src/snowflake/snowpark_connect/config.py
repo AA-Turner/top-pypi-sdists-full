@@ -329,6 +329,11 @@ class GlobalConfig:
         "spark.sql.sources.default": "parquet",
         "spark.Catalog.databaseFilterInformationSchema": "false",
         "spark.sql.parser.quotedRegexColumnNames": "false",
+        # Spark 2.0+ default is false (SQL parser unescapes string literals).
+        # When true, Spark 1.6 semantics: backslashes in SQL literals are kept,
+        # so F.expr rlike '\\[CS\\]' matches a literal '['. Forwarded to the
+        # JVM parser in sql_parser(); without that, conf.set is a no-op.
+        "spark.sql.parser.escapedStringLiterals": "false",
         # custom configs
         "snowpark.connect.version": ".".join(map(str, sas_version)),
         PYTHON_RECURSION_LIMIT_CONFIG: str(DEFAULT_PYTHON_RECURSION_LIMIT),
@@ -527,6 +532,7 @@ class GlobalConfig:
         "spark.sql.legacy.sizeOfNull",
         "spark.Catalog.databaseFilterInformationSchema",
         "spark.sql.parser.quotedRegexColumnNames",
+        "spark.sql.parser.escapedStringLiterals",
         "snowflake.repartition.for.writes",
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue",
         "snowpark.connect.handleIntegralOverflow",
@@ -762,6 +768,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "snowpark.connect.large_query_breakdown.complexity_lower_bound",
     "snowpark.connect.large_query_breakdown.complexity_upper_bound",
     "snowpark.connect.useUdfForUnsupportedDateTimeFormats",
+    "snowpark.connect.useJavaRegexForRlikeWhitespace",
     "snowpark.connect.enableInputTypeCheckForFromJsonFunction",
     "snowpark.connect.enableInputTypeCheckForGetJsonObjectFunction",
     "snowpark.connect.enableInputTypeCheckForJsonTupleFunction",
@@ -802,6 +809,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     NSS_ENABLED_SESSION_CONFIG,
     "snowpark.connect.nss.json_format_name",
     "snowpark.connect.nss.csv_format_name",
+    "snowpark.connect.nss.xml_format_name",
     "snowpark.connect.identifier.useCldRules",
     # SNOW-3957419: forwarded to the NSS sandbox reader via SPARK_CONF. Deliberately
     # left out of ``default_session_config``: an unseeded key reads back as ``""`` and
@@ -816,6 +824,10 @@ SESSION_CONFIG_KEY_WHITELIST = {
     # ``default_session_config`` on purpose so only an explicit client ``conf.set``
     # forwards -- the sandbox already defaults it to false.
     "spark.sql.files.ignoreCorruptFiles",
+    # SNOW-3971957: same pairing -- also in _RELEVANT_SPARK_CONF_KEYS. Deliberately left out
+    # of default_session_config: unset reads back as "" and build_spark_conf drops it, so the
+    # sandbox keeps Spark's own false default until a client conf.set says otherwise.
+    "spark.sql.legacy.json.allowEmptyString.enabled",
 }
 
 SESSION_SCOPED_RUNTIME_CONFIGS = {CASE_SENSITIVE_CONFIG}
@@ -943,7 +955,7 @@ def is_nss_enabled() -> bool:
     3. Otherwise ``False`` — COPY v1 remains the default.
 
     Read live rather than cached, so a session that sets the config mid-flight affects
-    its next file read. NSS is read-only and covers CSV/JSON only; writes always go
+    its next file read. NSS is read-only and covers CSV/JSON/XML only; writes always go
     through COPY unload regardless of this setting.
     """
     return resolve_nss_path()[0]
@@ -1022,6 +1034,10 @@ class SessionConfig:
         "snowpark.connect.sql.returnDmlMetadata": "false",
         # SNOW-3859781: opt-in; default off preserves existing SQL shape.
         "snowpark.connect.sql.flattenChainedUnion": "false",
+        # Opt-in Java Pattern for Spark RLIKE with \\s/\\S (tab vs POSIX
+        # regexp_instr). Session-scoped so spark.conf.set does not flip other
+        # sessions on the same SCOS process. Default false: no fleet change.
+        "snowpark.connect.useJavaRegexForRlikeWhitespace": "false",
         "snowpark.connect.csv.continueOnError": "false",  # Deprecated
         "snowpark.connect.csv.skipBlankLines": "true",  # SNOW-3295599
         "spark.sql.parquet.inferTimestampNTZ.enabled": "true",
@@ -1060,8 +1076,8 @@ class SessionConfig:
         # Snowflake's own ``TARGET_FILE_SIZE`` default (``AUTO``).
         "spark.sql.files.maxPartitionBytes": "",
         # NSS (Native Spark Sandbox) file-ingestion configuration.
-        # When enabled, CSV/JSON reads go through the official STAGE_FILE_READER /
-        # INFER_STAGE_FILE_SCHEMA TVFs instead of COPY INTO.
+        # When enabled, CSV/JSON/XML reads go through the official STAGE_FILE_READER /
+        # INFER_STAGE_FILE_SCHEMA TVFs instead of COPY INTO / the XML UDTF path.
         #
         # SNOW-3957220: the customer-facing opt-in. ``""`` means the session expressed
         # no preference, in which case the server-side SCOS_NSS_ENABLED env var decides
@@ -1081,6 +1097,7 @@ class SessionConfig:
         # override with a pre-created format.
         "snowpark.connect.nss.json_format_name": "",
         "snowpark.connect.nss.csv_format_name": "",
+        "snowpark.connect.nss.xml_format_name": "",
     }
 
     def __init__(self) -> None:
@@ -1872,6 +1889,17 @@ def is_add_debug_info_to_query_tag_enabled() -> bool:
 def is_use_udf_for_unsupported_datetime_formats_enabled() -> bool:
     return str_to_bool(
         global_config.snowpark_connect_useUdfForUnsupportedDateTimeFormats
+    )
+
+
+def is_use_java_regex_for_rlike_whitespace_enabled() -> bool:
+    """Opt-in: Spark RLIKE with Java \\s/\\S uses RegexpUdfs.rlike.
+
+    Session-scoped (``get_boolean_session_config_param``). Default false =
+    today's regexp_instr for all rlike (no fleet impact).
+    """
+    return get_boolean_session_config_param(
+        "snowpark.connect.useJavaRegexForRlikeWhitespace"
     )
 
 

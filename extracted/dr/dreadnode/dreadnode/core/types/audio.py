@@ -2,11 +2,12 @@ import io
 import typing as t
 from pathlib import Path
 
-import numpy as np
-
 from dreadnode.core.types import DataType
 
-AudioDataType = str | Path | np.ndarray[t.Any, t.Any] | bytes
+if t.TYPE_CHECKING:
+    import numpy as np
+
+AudioDataType: t.TypeAlias = "str | Path | np.ndarray[t.Any, t.Any] | bytes"
 
 
 class Audio(DataType):
@@ -59,6 +60,8 @@ class Audio(DataType):
         Returns:
             A tuple of (audio_bytes, format_name, sample_rate, duration)
         """
+        import numpy as np
+
         if isinstance(self._data, str | Path) and Path(self._data).exists():
             return self._process_file_path()
         if isinstance(self._data, np.ndarray):
@@ -92,6 +95,7 @@ class Audio(DataType):
         Returns:
             A tuple of (audio_bytes, format_name, sample_rate, duration)
         """
+        import numpy as np
         import soundfile as sf
 
         if self._sample_rate is None:
@@ -130,6 +134,8 @@ class Audio(DataType):
         Returns:
             A dictionary of metadata
         """
+        import numpy as np
+
         metadata: dict[str, str | int | float | None] = {
             "extension": format_name.lower(),
             "x-python-datatype": "dreadnode.Audio.bytes",

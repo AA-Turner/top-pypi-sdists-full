@@ -165,18 +165,22 @@ class TaskContext:
         if not property_name:
             raise ValueError("`property_name` must be an non-empty str.")
         property_name_upper = property_name.upper()
+        # Snowflake string literals treat "\" as an escape character, so it must be escaped
+        # before doubling "'", otherwise a trailing "\" can consume one quote of a doubled
+        # pair and let the rest of the value close the literal early.
+        property_name_escaped = property_name_upper.replace("\\", "\\\\").replace("'", "''")
 
         try:
-            if property_name in (
+            if property_name_upper in (
                 "CURRENT_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP",
                 "LAST_SUCCESSFUL_TASK_GRAPH_ORIGINAL_SCHEDULED_TIMESTAMP",
             ):
                 result = self._session.sql(
-                    f"select to_timestamp(system$task_runtime_info('{property_name_upper}'))"
+                    f"select to_timestamp(system$task_runtime_info('{property_name_escaped}'))"
                 ).collect()[0][0]
             else:
                 result = self._session.sql(
-                    f"select to_char(system$task_runtime_info('{property_name_upper}'))"
+                    f"select to_char(system$task_runtime_info('{property_name_escaped}'))"
                 ).collect()[0][0]
             return result
         except Exception as sse:

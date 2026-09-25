@@ -16,6 +16,7 @@ from unittest.mock import patch
 
 from pydantic import ValidationError
 
+from qiskit_ibm_runtime.batch import Batch
 from qiskit_ibm_runtime.noise_learner_v3 import NoiseLearnerV3
 from qiskit_ibm_runtime.options_models import (
     EnvironmentOptions,
@@ -23,8 +24,12 @@ from qiskit_ibm_runtime.options_models import (
     NoiseLearnerV3Options,
     PostSelectionOptions,
 )
+from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService
+from qiskit_ibm_runtime.session import Session
 
+from ...decorators import mock_responses
 from ...ibm_test_case import IBMTestCase
+from ...registries import OneInstanceDryRunRegistry
 from ...utils import get_mocked_backend, get_mocked_session
 
 
@@ -192,3 +197,41 @@ class TestNoiseLearnerV3(IBMTestCase):
             noise_learner = NoiseLearnerV3(mode=backend)
             selected_run = noise_learner.run([])
             self.assertEqual(selected_run, "service")
+
+    @mock_responses(OneInstanceDryRunRegistry)
+    def test_run_dry_run(self, registry):
+        """NoiseLearnerV3 can run in `dry-run` mode."""
+        service = QiskitRuntimeService(token="my_token")
+        backend = service.backend("ibm_foo")
+        noise_learner = NoiseLearnerV3(mode=backend)
+        job = noise_learner.run([], dry_run=True)
+        self.assertEqual(job.backend().name, "mock_foo")
+
+    @mock_responses
+    def test_mode(self, registry):
+        """Estimator `mode` and `backend()` is based on `mode` init argument."""
+        service = QiskitRuntimeService(token="my_token")
+
+        # Job mode, online backend.
+        backend = service.backend("common_backend")
+        noise_learner = NoiseLearnerV3(mode=backend)
+        self.assertEqual(noise_learner.backend(), backend)
+        self.assertEqual(noise_learner.mode, None)
+
+        # Session mode.
+        session = Session(backend)
+        noise_learner = NoiseLearnerV3(mode=session)
+        self.assertEqual(noise_learner.backend(), backend)
+        self.assertEqual(noise_learner.mode, session)
+
+        # Batch mode.
+        batch = Batch(backend)
+        noise_learner = NoiseLearnerV3(mode=batch)
+        self.assertEqual(noise_learner.backend(), backend)
+        self.assertEqual(noise_learner.mode, batch)
+
+        # `None` mode (inside session).
+        with Session(backend) as session:
+            noise_learner = NoiseLearnerV3()
+            self.assertEqual(noise_learner.backend(), backend)
+            self.assertEqual(noise_learner.mode, session)

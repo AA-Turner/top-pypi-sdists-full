@@ -6,6 +6,7 @@ import hashlib
 import inspect
 import json
 import os
+import re
 import threading
 from typing import Any, Callable, Iterator
 
@@ -34,6 +35,12 @@ from snowflake.snowpark.types import (
 
 # Package name for telemetry
 TELEMETRY_PACKAGE = "snowflake-telemetry-python"
+# Bounds the sandbox to the supported Spark major. This only bounds, it does not
+# fix the version: the Anaconda channel has no 3.5.5/3.5.6, so it resolves to 3.5.4
+# while SCOS vendors 3.5.6 (includes/python/pyspark/version.py). The residual
+# patch skew is benign; the cross-major drift (pyspark 4.x) is what breaks pickles.
+PYSPARK_PACKAGE = "pyspark>=3.5.0,<4"
+_PACKAGE_SPEC_SUFFIX = re.compile(r"[<>=!~[]")
 
 
 # DUPLICATED from udtf_utils.py. This module is inlined verbatim into the create-pandas-UDTF
@@ -176,6 +183,17 @@ def process_dependencies_string_array(input_str: str) -> list[str]:
     return []
 
 
+def package_name(spec: str) -> str:
+    """Package name of a requirement spec, without any version or extras suffix.
+
+    Snowflake rejects a ``PACKAGES`` list that names the same package twice
+    (391533, "specified with multiple versions"), so a user-supplied
+    ``pyspark==3.5.4`` has to suppress our own pin. Compared on the name rather
+    than a prefix match, which would also swallow ``pyspark-extras``.
+    """
+    return _PACKAGE_SPEC_SUFFIX.split(spec, maxsplit=1)[0].strip()
+
+
 def process_udtf_packages(
     packages_str: str,
     is_arrow_enabled: bool = False,
@@ -193,14 +211,20 @@ def process_udtf_packages(
     if artifact_repository and "cloudpickle" not in packages:
         packages += ["cloudpickle"]
 
-    if "pyspark" not in packages:
+    if "pyspark" not in [package_name(p).lower() for p in packages]:
         # need this to support table argument in UDTF.
-        packages += ["pyspark"]
+        packages += [PYSPARK_PACKAGE]
 
     if custom_packages:
+        # Compare on the lowercased name: a user-supplied `pandas==2.0` must
+        # suppress our injected bare `pandas`, or Snowflake rejects the PACKAGES
+        # list with 391533 ("specified with multiple versions").
+        existing_names = [package_name(p).lower() for p in packages]
         for custom_package in custom_packages:
-            if custom_package not in packages:
+            name = package_name(custom_package).lower()
+            if name not in existing_names:
                 packages.append(custom_package)
+                existing_names.append(name)
 
     return packages
 

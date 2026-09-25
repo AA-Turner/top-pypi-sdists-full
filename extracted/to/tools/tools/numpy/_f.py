@@ -73,8 +73,10 @@ def proj_qr(A, v):
 def sigmoid(x):
     return 1/(1+np.exp(-x))
 
-def standardize(array, axis=None, ep=1e-20):
-    return (array - array.mean(axis=axis))/(array.std(axis=axis)+ep)
+def standardize(array, axis=None, ddof=0, ep=0):
+    mean = array.mean(axis=axis, keepdims=True)
+    std = array.std(axis=axis, keepdims=True, ddof=ddof)
+    return (array - mean)/(std+ep)
 
 # %%
 if __name__ == '__main__':

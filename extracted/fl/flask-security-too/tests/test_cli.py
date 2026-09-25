@@ -20,7 +20,7 @@ from flask_security.cli import (
     users_deactivate,
     users_reset_access,
 )
-from flask_security import verify_password
+from flask_security import verify_password, PeeweeUserDatastore
 
 
 def test_cli_createuser(script_info):
@@ -104,15 +104,16 @@ def test_cli_createuser_unknown_extraargs(script_info):
         ],
         obj=script_info,
     )
-    assert result.exit_code == 2
-    assert (
-        "Error: Invalid value: 'mysecretnumber' is an invalid keyword argument"
-        in result.output
-    )
+    # peewee doesn't throw errors for unknown attributes
+    if not isinstance(script_info._loaded_app.security.datastore, PeeweeUserDatastore):
+        assert result.exit_code == 2
+        # different datastores raise different errors/exceptions
+        assert "Error: Invalid value:" in result.output
+        assert "'mysecretnumber'" in result.output
 
 
 def test_cli_createuser_normalize(script_info):
-    """Test create user CLI that is properly normalizes email and password."""
+    """Test create user CLI that it properly normalizes email and password."""
     runner = CliRunner()
 
     result = runner.invoke(
@@ -141,15 +142,14 @@ def test_cli_createuser_errors(script_info):
     assert "Email not provided" in result.output
 
 
-@pytest.mark.babel()
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_cli_locale(script_info):
     runner = CliRunner()
     result = runner.invoke(
         users_create, ["--password", "battery staple"], obj=script_info
     )
     assert result.exit_code == 2
-    assert "Merci d'indiquer une adresse email" in result.output
+    assert "OKAY!" in result.output
 
 
 def test_cli_createrole(script_info):

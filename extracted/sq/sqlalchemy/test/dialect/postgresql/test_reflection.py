@@ -193,7 +193,6 @@ class PartitionedReflectionTest(fixtures.TablesTest, AssertsExecutionResults):
                     "name": "my_index",
                     "unique": False,
                     "column_names": ["q"],
-                    "include_columns": [],
                     "dialect_options": {"postgresql_include": []},
                 }
             ],
@@ -209,10 +208,181 @@ class PartitionedReflectionTest(fixtures.TablesTest, AssertsExecutionResults):
             [
                 {
                     "column_names": ["q"],
-                    "include_columns": [],
                     "dialect_options": {"postgresql_include": []},
                     "name": mock.ANY,
                     "unique": False,
+                }
+            ],
+        )
+
+
+class InvalidIndexReflectionTest(fixtures.TestBase):
+    __only_on__ = "postgresql"
+
+    @testing.fixture
+    def invalid_index(self, metadata):
+        """a table with a valid index "ix_valid" and an invalid index
+        "ix_invalid", left behind by a failed CREATE INDEX CONCURRENTLY."""
+
+        table = Table(
+            "invalid_index_table",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("x", Integer),
+            Index("ix_valid", "x"),
+        )
+        with testing.db.begin() as connection:
+            metadata.create_all(connection)
+            connection.execute(
+                table.insert(), [{"id": 1, "x": 1}, {"id": 2, "x": 1}]
+            )
+
+        # CONCURRENTLY can't run in a transaction.  The unique index fails
+        # on the duplicate rows, but leaves the index in place, marked
+        # invalid in the catalog.
+        with testing.db.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as connection:
+            with expect_raises(exc.IntegrityError):
+                Index(
+                    "ix_invalid",
+                    table.c.x,
+                    unique=True,
+                    postgresql_concurrently=True,
+                ).create(connection)
+
+        return table
+
+    @testing.fixture
+    def partitioned_invalid_index(self, metadata, connection):
+        """a partitioned table with an index "ix_parent" created on the
+        parent only, which is invalid until an index is attached for each
+        partition."""
+
+        parent = Table(
+            "invalid_parent",
+            metadata,
+            Column("x", Integer),
+            postgresql_partition_by="RANGE (x)",
+        )
+        parent.create(connection)
+        connection.exec_driver_sql(
+            "CREATE TABLE invalid_child PARTITION OF invalid_parent "
+            "FOR VALUES FROM (0) TO (10)"
+        )
+        # Register the child so metadata cleanup drops it before its parent.
+        Table(
+            "invalid_child", metadata, Column("x", Integer)
+        ).add_is_dependent_on(parent)
+        connection.exec_driver_sql(
+            "CREATE INDEX ix_parent ON ONLY invalid_parent (x)"
+        )
+        return parent
+
+    def _expected_indexes(self):
+        if testing.against("postgresql >= 11"):
+            return [
+                {
+                    "name": "ix_invalid",
+                    "unique": True,
+                    "column_names": ["x"],
+                    "dialect_options": {
+                        "postgresql_include": [],
+                        "postgresql_invalid": True,
+                    },
+                },
+                {
+                    "name": "ix_valid",
+                    "unique": False,
+                    "column_names": ["x"],
+                    "dialect_options": {"postgresql_include": []},
+                },
+            ]
+        else:
+            return [
+                {
+                    "name": "ix_invalid",
+                    "unique": True,
+                    "column_names": ["x"],
+                    "dialect_options": {"postgresql_invalid": True},
+                },
+                {"name": "ix_valid", "unique": False, "column_names": ["x"]},
+            ]
+
+    def test_get_indexes(self, invalid_index, connection):
+        eq_(
+            inspect(connection).get_indexes(invalid_index.name),
+            self._expected_indexes(),
+        )
+
+    def test_get_multi_indexes(self, invalid_index, connection):
+        eq_(
+            inspect(connection).get_multi_indexes(
+                filter_names=[invalid_index.name]
+            ),
+            {(None, invalid_index.name): self._expected_indexes()},
+        )
+
+    def test_index_from_get_indexes(self, invalid_index, connection):
+        """Index can be constructed directly from the dialect_options
+        returned by get_indexes(), as is done by Alembic."""
+
+        index_info = inspect(connection).get_indexes(invalid_index.name)[0]
+        index = Index(
+            index_info["name"],
+            Table("t", MetaData(), Column("x", Integer)).c.x,
+            unique=True,
+            **index_info["dialect_options"],
+        )
+        eq_(index.reflect_only_elements, {"postgresql": {"invalid": True}})
+
+    def test_table_reflection(self, invalid_index, connection):
+        reflected = Table(
+            invalid_index.name, MetaData(), autoload_with=connection
+        )
+        indexes = {index.name: index for index in reflected.indexes}
+        invalid, valid = indexes["ix_invalid"], indexes["ix_valid"]
+
+        eq_(invalid.reflect_only_elements, {"postgresql": {"invalid": True}})
+        eq_(valid.reflect_only_elements, {})
+
+    @testing.only_on("postgresql >= 11")
+    def test_partitioned_index_invalid(
+        self, partitioned_invalid_index, connection
+    ):
+        eq_(
+            inspect(connection).get_indexes(partitioned_invalid_index.name),
+            [
+                {
+                    "name": "ix_parent",
+                    "unique": False,
+                    "column_names": ["x"],
+                    "dialect_options": {
+                        "postgresql_include": [],
+                        "postgresql_invalid": True,
+                    },
+                }
+            ],
+        )
+
+    @testing.only_on("postgresql >= 11")
+    def test_partitioned_index_valid_once_attached(
+        self, partitioned_invalid_index, connection
+    ):
+        connection.exec_driver_sql(
+            "CREATE INDEX ix_child ON invalid_child (x)"
+        )
+        connection.exec_driver_sql(
+            "ALTER INDEX ix_parent ATTACH PARTITION ix_child"
+        )
+        eq_(
+            inspect(connection).get_indexes(partitioned_invalid_index.name),
+            [
+                {
+                    "name": "ix_parent",
+                    "unique": False,
+                    "column_names": ["x"],
+                    "dialect_options": {"postgresql_include": []},
                 }
             ],
         )
@@ -386,7 +556,6 @@ class MaterializedViewReflectionTest(
             "column_sorting": {"data": ("desc",)},
         }
         if connection.dialect.server_version_info >= (11, 0):
-            exp["include_columns"] = []
             exp["dialect_options"] = {"postgresql_include": []}
         plain = {(None, "test_regview"): []}
         mat = {(None, "test_mview"): [exp]}
@@ -484,7 +653,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
             "CREATE DOMAIN arraydomain_2d AS INTEGER[][]"
         )
         connection.exec_driver_sql(
-            "CREATE DOMAIN arraydomain_3d AS  INTEGER[][][]"
+            "CREATE DOMAIN arraydomain_3d AS INTEGER[][][]"
         )
         yield
         connection.exec_driver_sql("DROP DOMAIN arraydomain")
@@ -517,6 +686,28 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
         )
         yield
         connection.exec_driver_sql('DROP DOMAIN "SomeSchema"."Quoted.Domain"')
+
+    @testing.fixture
+    def some_collation(self, connection, some_schema):
+        connection.exec_driver_sql(
+            'CREATE COLLATION "SomeSchema"."SomeCollation" '
+            "(LOCALE = 'C.utf8')"
+        )
+        yield
+        connection.exec_driver_sql(
+            'DROP COLLATION "SomeSchema"."SomeCollation"'
+        )
+
+    @testing.fixture
+    def schema_collation_domain(self, connection, some_collation):
+        connection.exec_driver_sql(
+            'CREATE DOMAIN "SomeSchema".domain_with_collation AS TEXT '
+            'COLLATE "SomeSchema"."SomeCollation"'
+        )
+        yield
+        connection.exec_driver_sql(
+            'DROP DOMAIN "SomeSchema".domain_with_collation'
+        )
 
     @testing.fixture
     def int_domain(self, connection):
@@ -710,6 +901,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
         int_domain,
         testdomain,
         testdomain_schema,
+        schema_collation_domain,
     ):
         return {
             "public": [
@@ -722,6 +914,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": None,
                     "constraints": [],
                     "collation": None,
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -732,6 +925,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": None,
                     "constraints": [],
                     "collation": None,
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -742,6 +936,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": None,
                     "constraints": [],
                     "collation": None,
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -752,6 +947,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": None,
                     "constraints": [],
                     "collation": None,
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -767,6 +963,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                         {"check": "VALUE <> 22", "name": "my_int_check"},
                     ],
                     "collation": None,
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -777,6 +974,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": None,
                     "constraints": [],
                     "collation": "default",
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -794,6 +992,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                         }
                     ],
                     "collation": "C",
+                    "collation_schema": None,
                 },
                 {
                     "visible": True,
@@ -804,6 +1003,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": "42",
                     "constraints": [],
                     "collation": None,
+                    "collation_schema": None,
                 },
             ],
             "test_schema": [
@@ -816,6 +1016,7 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": "0",
                     "constraints": [],
                     "collation": None,
+                    "collation_schema": None,
                 }
             ],
             "SomeSchema": [
@@ -828,7 +1029,19 @@ class DomainReflectionTest(fixtures.TestBase, AssertsExecutionResults):
                     "default": "0",
                     "constraints": [],
                     "collation": None,
-                }
+                    "collation_schema": None,
+                },
+                {
+                    "visible": False,
+                    "name": "domain_with_collation",
+                    "schema": "SomeSchema",
+                    "nullable": True,
+                    "type": "text",
+                    "default": None,
+                    "constraints": [],
+                    "collation": "SomeCollation",
+                    "collation_schema": "SomeSchema",
+                },
             ],
         }
 
@@ -891,6 +1104,7 @@ class ArrayReflectionTest(fixtures.TablesTest):
 
 class RegexTest(fixtures.TestBase):
 
+    @staticmethod
     def _fk_match(
         constrained_columns,
         referred_table,
@@ -1280,6 +1494,57 @@ class ReflectionTest(
             if c.name == "fktable_tid_fk_id_del_set_default_fkey"
         )
         eq_(fkey_set_default.ondelete, "SET DEFAULT (fk_id_del_set_default)")
+
+    def test_column_collation_reflection_with_schema(
+        self, connection, metadata
+    ):
+        """test #6511
+
+        schema-qualified collations are a PostgreSQL-only concept; this
+        test lives here rather than in the cross-dialect reflection suite
+        since no other backend supports the feature.
+
+        """
+        connection.exec_driver_sql('CREATE SCHEMA IF NOT EXISTS "SomeSchema"')
+        connection.exec_driver_sql(
+            'CREATE COLLATION IF NOT EXISTS "SomeSchema"."SomeCollation" '
+            "(LOCALE = 'C.utf8')"
+        )
+        Table(
+            "t",
+            metadata,
+            Column(
+                "collated",
+                String(
+                    collation="SomeCollation", collation_schema="SomeSchema"
+                ),
+            ),
+            Column("not_collated", String()),
+        )
+        metadata.create_all(connection)
+
+        m2 = MetaData()
+        t2 = Table("t", m2, autoload_with=connection)
+
+        eq_(
+            (
+                t2.c.collated.type.collation,
+                t2.c.collated.type.collation_schema,
+            ),
+            ("SomeCollation", "SomeSchema"),
+        )
+        is_(t2.c.not_collated.type.collation, None)
+
+        insp = inspect(connection)
+        collated, not_collated = insp.get_columns("t")
+        eq_(
+            (
+                collated["type"].collation,
+                collated["type"].collation_schema,
+            ),
+            ("SomeCollation", "SomeSchema"),
+        )
+        is_(not_collated["type"].collation, None)
 
     def test_pg_weirdchar_reflection(self, metadata, connection):
         meta1 = metadata
@@ -1750,14 +2015,12 @@ class ReflectionTest(
                     "(other::text || id::text)",
                 ],
                 "unique": False,
-                "include_columns": [],
                 "dialect_options": {"postgresql_include": []},
             },
             {
                 "name": "idx2",
                 "column_names": ["id"],
                 "unique": True,
-                "include_columns": [],
                 "dialect_options": {
                     "postgresql_include": [],
                     "postgresql_where": "((name)::text = 'test'::text)",
@@ -1772,7 +2035,6 @@ class ReflectionTest(
                     "lower(aname::text)",
                 ],
                 "unique": False,
-                "include_columns": [],
                 "dialect_options": {"postgresql_include": []},
                 "column_sorting": {"lower(aname::text)": ("desc",)},
             },
@@ -1781,7 +2043,6 @@ class ReflectionTest(
                 "column_names": ["name", None, "aname"],
                 "expressions": ["name", "lower(other::text)", "aname"],
                 "unique": False,
-                "include_columns": [],
                 "dialect_options": {
                     "postgresql_include": [],
                     "postgresql_where": "((name)::text <> 'foo'::text)",
@@ -1795,7 +2056,6 @@ class ReflectionTest(
                 "name": "ix_party_name",
                 "column_names": ["name"],
                 "unique": False,
-                "include_columns": [],
                 "dialect_options": {"postgresql_include": []},
             },
         ]
@@ -1806,7 +2066,6 @@ class ReflectionTest(
                     "column_names": ["name", None],
                     "expressions": ["name", "upper(other::text)"],
                     "unique": True,
-                    "include_columns": [],
                     "dialect_options": {
                         "postgresql_include": [],
                         "postgresql_nulls_not_distinct": True,
@@ -1817,7 +2076,6 @@ class ReflectionTest(
 
         if version < (11,):
             for index in expected:
-                index.pop("include_columns")
                 index["dialect_options"].pop("postgresql_include")
                 if not index["dialect_options"]:
                     index.pop("dialect_options")
@@ -1957,7 +2215,6 @@ class ReflectionTest(
         ind = connection.dialect.get_indexes(connection, "t", None)
         expected = [{"name": "idx1", "unique": False, "column_names": ["y"]}]
         if testing.requires.index_reflects_included_columns.enabled:
-            expected[0]["include_columns"] = []
             expected[0]["dialect_options"] = {"postgresql_include": []}
 
         eq_(ind, expected)
@@ -1990,7 +2247,6 @@ class ReflectionTest(
             }
         ]
         if testing.requires.index_reflects_included_columns.enabled:
-            expected[0]["include_columns"] = []
             expected[0]["dialect_options"]["postgresql_include"] = []
         eq_(ind, expected)
 
@@ -2023,7 +2279,6 @@ class ReflectionTest(
             }
         ]
         if testing.requires.index_reflects_included_columns.enabled:
-            expected[0]["include_columns"] = []
             expected[0]["dialect_options"]["postgresql_include"] = []
         eq_(ind, expected)
         m = MetaData()
@@ -2069,7 +2324,6 @@ class ReflectionTest(
             }
         ]
         if connection.dialect.server_version_info >= (11, 0):
-            expected[0]["include_columns"] = []
             expected[0]["dialect_options"]["postgresql_include"] = []
         eq_(ind, expected)
 
@@ -2108,7 +2362,6 @@ class ReflectionTest(
                     "postgresql_nulls_not_distinct": True,
                     "postgresql_include": [],
                 },
-                "include_columns": [],
             },
             {
                 "unique": True,
@@ -2118,7 +2371,6 @@ class ReflectionTest(
                     "postgresql_nulls_not_distinct": True,
                     "postgresql_include": [],
                 },
-                "include_columns": [],
                 "duplicates_constraint": "unq1",
             },
         ]
@@ -2180,7 +2432,6 @@ class ReflectionTest(
                 {
                     "unique": False,
                     "column_names": ["x"],
-                    "include_columns": ["name"],
                     "dialect_options": {"postgresql_include": ["name"]},
                     "name": "idx1",
                 },
@@ -2189,7 +2440,6 @@ class ReflectionTest(
                     "column_names": [None, None],
                     "expressions": ["lower(other)", "(id * id)"],
                     "unique": True,
-                    "include_columns": ["id"],
                     "dialect_options": {"postgresql_include": ["id"]},
                 },
                 {
@@ -2201,7 +2451,6 @@ class ReflectionTest(
                         "lower(aname::text)",
                     ],
                     "unique": False,
-                    "include_columns": ["id", "x"],
                     "dialect_options": {"postgresql_include": ["id", "x"]},
                     "column_sorting": {
                         "other": ("desc", "nulls_last"),
@@ -2611,7 +2860,6 @@ class ReflectionTest(
             }
         ]
         if testing.requires.index_reflects_included_columns.enabled:
-            expected[0]["include_columns"] = []
             expected[0]["dialect_options"]["postgresql_include"] = []
 
         eq_(insp.get_indexes("t"), expected)
@@ -3017,11 +3265,19 @@ class ReflectionTest(
 
 
 class CustomTypeReflectionTest(fixtures.TestBase):
+    class NTL:
+        def __init__(self, enums, domains):
+            self.enums = enums
+            self.domains = domains
+
     class CustomType:
-        def __init__(self, arg1=None, arg2=None, collation=None):
+        def __init__(
+            self, arg1=None, arg2=None, collation=None, collation_schema=None
+        ):
             self.arg1 = arg1
             self.arg2 = arg2
             self.collation = collation
+            self.collation_schema = collation_schema
 
     ischema_names = None
 
@@ -3041,19 +3297,23 @@ class CustomTypeReflectionTest(fixtures.TestBase):
             ("my_custom_type(ARG1)", ("ARG1", None)),
             ("my_custom_type(ARG1, ARG2)", ("ARG1", "ARG2")),
         ]:
+            if sch == "my_custom_type()":
+                collation = {"name": "cc", "schema": "myschema"}
+            else:
+                collation = None
             row_dict = {
                 "name": "colname",
                 "table_name": "tblname",
                 "format_type": sch,
                 "default": None,
                 "not_null": False,
-                "collation": "cc" if sch == "my_custom_type()" else None,
+                "collation": collation,
                 "comment": None,
                 "generated": "",
                 "identity_options": None,
             }
             column_info = dialect._get_columns_info(
-                [row_dict], {}, {}, "public"
+                [row_dict], self.NTL({}, {}), "public"
             )
             assert ("public", "tblname") in column_info
             column_info = column_info[("public", "tblname")]
@@ -3064,8 +3324,10 @@ class CustomTypeReflectionTest(fixtures.TestBase):
             eq_(column_info["type"].arg2, args[1])
             if sch == "my_custom_type()":
                 eq_(column_info["type"].collation, "cc")
+                eq_(column_info["type"].collation_schema, "myschema")
             else:
                 eq_(column_info["type"].collation, None)
+                eq_(column_info["type"].collation_schema, None)
 
     def test_clslevel(self):
         postgresql.PGDialect.ischema_names["my_custom_type"] = self.CustomType
@@ -3100,7 +3362,7 @@ class CustomTypeReflectionTest(fixtures.TestBase):
                 "identity_options": None,
             }
             column_info = dialect._get_columns_info(
-                [row_dict], {}, {}, "public"
+                [row_dict], self.NTL({}, {}), "public"
             )
             assert ("public", "tblname") in column_info
             column_info = column_info[("public", "tblname")]
@@ -3298,3 +3560,106 @@ class TestReflectDifficultColTypes(fixtures.TablesTest):
         is_true(len(rows) > 0)
         for row in rows:
             self.check_int_list(row, "conkey")
+
+
+class TestTableOptionsReflection(fixtures.TestBase):
+    __only_on__ = "postgresql"
+    __sparse_driver_backend__ = True
+
+    def test_table_inherits(self, metadata, connection):
+        def assert_inherits_from(table_name, expect_base_tables):
+            table_options = inspect(connection).get_table_options(table_name)
+            eq_(
+                table_options.get("postgresql_inherits", ()),
+                expect_base_tables,
+            )
+
+        def assert_column_names(table_name, expect_columns):
+            columns = inspect(connection).get_columns(table_name)
+            eq_([c["name"] for c in columns], expect_columns)
+
+        Table("base", metadata, Column("id", INTEGER, primary_key=True))
+        Table("name_mixin", metadata, Column("name", String(16)))
+        Table("single_inherits", metadata, postgresql_inherits="base")
+        Table(
+            "single_inherits_tuple_arg",
+            metadata,
+            postgresql_inherits=("base",),
+        )
+        Table(
+            "inherits_mixin",
+            metadata,
+            postgresql_inherits=("base", "name_mixin"),
+        )
+
+        metadata.create_all(connection)
+
+        assert_inherits_from("base", ())
+        assert_inherits_from("name_mixin", ())
+
+        assert_inherits_from("single_inherits", ("base",))
+        assert_column_names("single_inherits", ["id"])
+
+        assert_inherits_from("single_inherits_tuple_arg", ("base",))
+
+        assert_inherits_from("inherits_mixin", ("base", "name_mixin"))
+        assert_column_names("inherits_mixin", ["id", "name"])
+
+    def test_table_storage_params(self, metadata, connection):
+        def assert_has_storage_param(table_name, option_key, option_value):
+            table_options = inspect(connection).get_table_options(table_name)
+            storage_params = table_options["postgresql_with"]
+            assert isinstance(storage_params, dict)
+            eq_(storage_params[option_key], option_value)
+
+        Table("table_no_storage_params", metadata)
+        Table(
+            "table_with_fillfactor",
+            metadata,
+            postgresql_with={"fillfactor": 10},
+        )
+        Table(
+            "table_with_parallel_workers",
+            metadata,
+            postgresql_with={"parallel_workers": 15},
+        )
+
+        metadata.create_all(connection)
+
+        no_params_options = inspect(connection).get_table_options(
+            "table_no_storage_params"
+        )
+        assert "postgresql_with" not in no_params_options
+
+        assert_has_storage_param("table_with_fillfactor", "fillfactor", "10")
+        assert_has_storage_param(
+            "table_with_parallel_workers", "parallel_workers", "15"
+        )
+
+    def test_table_using_default(self, metadata: MetaData, connection):
+        Table("table_using_heap", metadata, postgresql_using="heap").create(
+            connection
+        )
+        options = inspect(connection).get_table_options("table_using_heap")
+        is_false("postgresql_using" in options)
+
+    def test_table_using_custom(self, metadata: MetaData, connection):
+        if not connection.exec_driver_sql(
+            "SELECT rolsuper FROM pg_roles WHERE rolname = current_user"
+        ).scalar():
+            config.skip_test("superuser required for CREATE ACCESS METHOD")
+        connection.exec_driver_sql(
+            "CREATE ACCESS METHOD myaccessmethod "
+            "TYPE TABLE "
+            "HANDLER heap_tableam_handler"
+        )
+        Table(
+            "table_using_myaccessmethod",
+            metadata,
+            postgresql_using="myaccessmethod",
+        ).create(connection)
+
+        options = inspect(connection).get_table_options(
+            "table_using_myaccessmethod"
+        )
+        eq_(options["postgresql_using"], "myaccessmethod")

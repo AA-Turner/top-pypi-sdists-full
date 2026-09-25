@@ -6,24 +6,26 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from rdflib import BNode, Graph, Literal, URIRef  # type: ignore[import]
-from rdflib.namespace import RDF, RDFS, Namespace  # type: ignore[import]
+from rdflib import Graph, Literal, BNode, URIRef  # type: ignore[import]
+from rdflib.namespace import Namespace, RDF, RDFS, XSD  # type: ignore[import]
 from rdflib.plugins.sparql import prepareQuery  # type: ignore[import]
 
-from ..basetypes import PropertyIdentifier
-from ..constructeddata import Sequence
-from ..debugging import ModuleLogger, bacpypes_debugging
+from ..debugging import bacpypes_debugging, ModuleLogger, btox
+
 from ..pdu import Address
 from ..primitivedata import (
     Atomic,
     ObjectIdentifier,
 )
+from ..basetypes import PropertyIdentifier
+from ..constructeddata import Sequence
+
 from .util import (
     atomic_encode,
-    attr_to_predicate,
-    octetstring_encode,
-    sequence_to_graph,
     unsigned_encode,
+    octetstring_encode,
+    attr_to_predicate,
+    sequence_to_graph,
 )
 
 # some debugging
@@ -230,6 +232,7 @@ class BACnetGraph:
         find the existing DeviceGraph for the device and delete all of its
         associated nodes.
         """
+        pass
 
 
 #
@@ -276,6 +279,7 @@ class DeviceGraph:
         """
         # object_iri = _object_node(self.device_iri, object_identifier)
         # self.graph.remove((self.device_iri, BACNET.contains, object_iri))
+        pass
 
 
 #

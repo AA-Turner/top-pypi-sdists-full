@@ -5,6 +5,7 @@ import datetime
 import hashlib
 import io
 import json
+import sys
 import typing as t
 from collections import deque
 from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -447,8 +448,20 @@ def _handle_custom_data_type(obj: DataType, _seen: set[int]) -> tuple[JsonValue,
     return serialized, schema
 
 
-@lru_cache(maxsize=1)
+# Handlers for third-party types are registered only once their package is
+# already imported: a value of that type cannot exist otherwise, and importing
+# numpy, pandas and pyarrow here put ~400 modules on the first chat turn's
+# critical path before the first model call (ENG-8620, ENG-8647).
+_OPTIONAL_HANDLER_PACKAGES = ("numpy", "pandas", "storage")
+
+
 def _get_handlers() -> dict[type, HandlerFunc]:
+    available = tuple(name for name in _OPTIONAL_HANDLER_PACKAGES if name in sys.modules)
+    return _build_handlers(available)
+
+
+@lru_cache(maxsize=8)
+def _build_handlers(available: tuple[str, ...]) -> dict[type, HandlerFunc]:
     handlers: dict[type, HandlerFunc] = {
         list: _handle_sequence,
         tuple: _handle_sequence,
@@ -502,34 +515,37 @@ def _get_handlers() -> dict[type, HandlerFunc]:
         )
         handlers[pydantic.BaseModel] = _handle_pydantic_model
 
-    with contextlib.suppress(Exception):
-        import numpy as np
+    if "numpy" in available:
+        with contextlib.suppress(Exception):
+            import numpy as np
 
-        handlers[np.ndarray] = _handle_numpy_array
-        handlers[np.floating] = lambda o, s: _serialize(float(o), s)
-        handlers[np.integer] = lambda o, s: _serialize(int(o), s)
-        handlers[np.bool_] = lambda o, s: _serialize(bool(o), s)
-        handlers[np.str_] = lambda o, s: _handle_str_based(
-            o,
-            s,
-            {"x-python-datatype": "numpy.str_"},
-        )
-        handlers[np.bytes_] = lambda o, s: _handle_bytes(
-            o,
-            s,
-            {"x-python-datatype": "numpy.bytes_"},
-        )
+            handlers[np.ndarray] = _handle_numpy_array
+            handlers[np.floating] = lambda o, s: _serialize(float(o), s)
+            handlers[np.integer] = lambda o, s: _serialize(int(o), s)
+            handlers[np.bool_] = lambda o, s: _serialize(bool(o), s)
+            handlers[np.str_] = lambda o, s: _handle_str_based(
+                o,
+                s,
+                {"x-python-datatype": "numpy.str_"},
+            )
+            handlers[np.bytes_] = lambda o, s: _handle_bytes(
+                o,
+                s,
+                {"x-python-datatype": "numpy.bytes_"},
+            )
 
-    with contextlib.suppress(Exception):
-        import pandas as pd
+    if "pandas" in available:
+        with contextlib.suppress(Exception):
+            import pandas as pd
 
-        handlers[pd.DataFrame] = _handle_pandas_dataframe
-        handlers[pd.Series] = _handle_pandas_series
+            handlers[pd.DataFrame] = _handle_pandas_dataframe
+            handlers[pd.Series] = _handle_pandas_series
 
-    with contextlib.suppress(Exception):
-        import storage
+    if "storage" in available:
+        with contextlib.suppress(Exception):
+            import storage
 
-        handlers[storage.Dataset] = _handle_dataset
+            handlers[storage.Dataset] = _handle_dataset
 
     with contextlib.suppress(Exception):
         handlers[DataType] = _handle_custom_data_type

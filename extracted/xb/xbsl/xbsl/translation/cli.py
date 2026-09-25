@@ -140,6 +140,30 @@ MESSAGES = {
         "en": "an entry that repeats the platform translates nothing - but it hides whatever"
               " the platform or the engine does not answer on its own; remove it and see",
     },
+    "translate.help.drift": {
+        "ru": "показать фразы словаря, чей перевод называет имя не так, как его пара: токен"
+              " проекта или английское имя платформы (читает только словарь)",
+        "en": "list the phrases whose translation names a name otherwise than its pair: the"
+              " project token or the platform's English name (reads the dictionary alone)",
+    },
+    "translate.drift-header": {
+        "ru": "фраз, где имя названо не по паре: показано {shown} из {total}",
+        "en": "phrases naming a name otherwise than its pair: {shown} of {total} shown",
+    },
+    "translate.drift-none": {
+        "ru": "таких фраз нет: перевод каждой фразы называет имена так же, как их пары",
+        "en": "no such phrases: every translation names its names the way their pairs do",
+    },
+    "translate.drift-row": {
+        "ru": "{name} -> {expected}, а перевод называет {found}",
+        "en": "{name} -> {expected}, while the translation names {found}",
+    },
+    "translate.drift.note": {
+        "ru": "английский комментарий называет то, чего в английском дереве нет (на снимке это"
+              " находки comment/unknown-name); поправьте перевод фразы, пара-токен остается",
+        "en": "the English comment names what the English tree does not have (on the snapshot"
+              " these are comment/unknown-name findings); correct the phrase, the token stays",
+    },
     "translate.help.since": {
         "ru": "сироты ОДНОЙ правки: оставить в --unused только ключи, которые встречались"
               " лишь в строках, снятых этой правкой, и пары, которые эта же правка добавила"
@@ -488,6 +512,12 @@ MESSAGES = {
         "ru": "ключей, переведённых одинаково дважды, нет",
         "en": "no key is translated the same way twice",
     },
+    "translate.duplicates-at-ref": {
+        "ru": "дублей, которые есть и в {ref}: {count}, они только посчитаны; весь список"
+              " покажет full=true",
+        "en": "duplicates {ref} has as well: {count}, counted rather than listed; full=true"
+              " lists them all",
+    },
     "translate.summary-duplicates": {
         "ru": "ключей, переведённых одинаково в нескольких местах: {entries}"
               " (список – --check-duplicates)",
@@ -518,6 +548,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--redundant", action="store_true",
                         help=i18n.t("translate.help.redundant"))
     parser.add_argument("--prune", action="store_true", help=i18n.t("translate.help.prune"))
+    parser.add_argument("--drift", action="store_true", help=i18n.t("translate.help.drift"))
     parser.add_argument("--since", default="", help=i18n.t("translate.help.since"))
     parser.add_argument("--check-duplicates", dest="check_duplicates", action="store_true",
                         help=i18n.t("translate.help.check-duplicates"))
@@ -615,6 +646,8 @@ def cli_main(argv: list[str] | None = None) -> int:
         return _list_entries(args, root, loaded)
     if args.redundant:
         return _list_redundant(args, root, loaded)
+    if args.drift:
+        return _list_drift(args, root, loaded)
     if args.unused or args.prune:
         return _list_unused(args, root, loaded)
     if args.gaps:
@@ -1137,6 +1170,64 @@ def _render_redundant(args, page: list, total: int, payload: dict) -> None:
         print(i18n.t("translate.pruned", removed=removed))
 
 
+def drift_rows(path: Path, loaded, needle: str = "") -> list[dict]:
+    """The phrase drift of the dictionary (translation.drift), each row with its file and line.
+
+    `needle` - a substring of the name, the key, the translation or a name it says instead.
+    """
+    from xbsl.translation import drift as drift_module
+    from xbsl.translation import entries as entries_module
+
+    places: dict[str, tuple[str, int]] = {}
+    for entry in entries_module.read_entries(path):
+        if entry.kind == "phrase":
+            places.setdefault(entry.key, (entry.file, entry.line))
+    needle = needle.casefold()
+    out = []
+    for row in drift_module.phrase_drift(loaded):
+        texts = (row.name, row.key, row.value, *row.found)
+        if needle and not any(needle in text.casefold() for text in texts):
+            continue
+        file, line = places.get(row.key, ("", 0))
+        out.append({**row.as_dict(), "file": file, "line": line})
+    return out
+
+
+def _list_drift(args, root: Path, loaded) -> int:
+    """Phrases whose translation names a name otherwise than its pair (translation.drift).
+
+    A dictionary-hygiene listing like `--redundant` and `--unused`: nothing breaks while such
+    a phrase stands - the tree builds and the comment reads fine - so the strict gate, which
+    answers "would the English tree build", stays out of it. The listing reads the dictionary
+    alone and answers in seconds; the exit code stays 0.
+    """
+    path = _dictionary_path(args, root)
+    if path is None:
+        return _no_dictionary(root)
+    rows = drift_rows(path, loaded, args.filter)
+    total = len(rows)
+    page = _page(rows, args)
+    payload = {"dictionary": str(path), "total": total, "drift": page}
+    if total:
+        payload["note"] = i18n.t("translate.drift.note")
+    return _emit(args, payload, page, lambda _rows: _render_drift(page, total, payload))
+
+
+def _render_drift(page: list, total: int, payload: dict) -> None:
+    if not total:
+        print(i18n.t("translate.drift-none"))
+        return
+    print(i18n.t("translate.drift-header", shown=len(page), total=total))
+    for row in page:
+        place = f"{Path(row['file']).name}:{row['line']}" if row["file"] else ""
+        print("  " + i18n.t(
+            "translate.drift-row", name=row["name"], expected=" / ".join(row["expected"]),
+            found=", ".join(row["found"]),
+        ) + (f"   {place}" if place else ""))
+        print(f"      {row['value']}")
+    print(payload["note"])
+
+
 def _check_duplicates(args, root: Path) -> int:
     """The keys translated in more than one place, before the load refuses them.
 
@@ -1327,6 +1418,7 @@ TABLE_MODES = (
     ("--table", "table"),
     ("--entries", "entries"),
     ("--redundant", "redundant"),
+    ("--drift", "drift"),
     ("--unused", "unused"),
     ("--prune", "prune"),
     ("--gaps", "gaps"),
@@ -1514,7 +1606,7 @@ def dictionary_path_for(root: Path) -> Path | None:
     return entries_module.discover(root)
 
 
-def collisions_report(dictionary: Path, against: str = "") -> dict:
+def collisions_report(dictionary: Path, against: str = "", *, compact: bool = False) -> dict:
     """The keys translated in more than one place - the answer of `--check-duplicates`.
 
     `{"dictionary", "against", "conflicts", "duplicates"}`, or `{"error"}` when a file does
@@ -1524,10 +1616,17 @@ def collisions_report(dictionary: Path, against: str = "") -> dict:
     The rows are those of `dictionary.collisions`: every place a file and a line, the
     files named relative to the dictionary and the ref's copies as `ref:name`, with the lines
     that copy has.
+
+    `compact` (with a ref) lists only the duplicates the ref does not have - the ones the
+    working tree brings - and counts the rest: `duplicates_total`, `duplicates_at_ref` and
+    `duplicates_hint`. A duplicate is harmless to the load and stays until a person takes the
+    copy out, so the same rows came back whole on every check of a branch: six of them, some
+    three thousand characters a call. The conflicts are listed whole either way.
     """
     from xbsl.translation import dictionary as dictionary_module
     from xbsl.translation import entries as entries_module
 
+    at_ref: list = []
     try:
         files = dictionary_module.read_sections(dictionary)
         compared = None
@@ -1554,10 +1653,24 @@ def collisions_report(dictionary: Path, against: str = "") -> dict:
     except ValueError as exc:
         return {"error": str(exc)}
     conflicts, duplicates = dictionary_module.collisions(files)
-    return {
+    report = {
         "dictionary": str(dictionary), "against": compared,
         "conflicts": conflicts, "duplicates": duplicates,
     }
+    if compact and compared is not None:
+        # The ref's own duplicates, read from its files alone: a key it already declares twice
+        # is not this branch's doing, whichever copies the three-way view shows for it.
+        known = {(row["section"], row["key"])
+                 for row in dictionary_module.collisions(at_ref)[1]}
+        brought = [row for row in duplicates if (row["section"], row["key"]) not in known]
+        omitted = len(duplicates) - len(brought)
+        report["duplicates"] = brought
+        report["duplicates_total"] = len(duplicates)
+        report["duplicates_at_ref"] = omitted
+        if omitted:
+            report["duplicates_hint"] = i18n.t("translate.duplicates-at-ref", ref=against,
+                                               count=omitted)
+    return report
 
 
 def load_for_tools(root: str) -> tuple[Path, object, str]:

@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+
 from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import exc
@@ -22,6 +24,7 @@ from sqlalchemy.testing import AssertsExecutionResults
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import fixtures
+from sqlalchemy.testing.assertions import expect_deprecated
 from sqlalchemy.testing.assertions import expect_warnings
 from sqlalchemy.testing.assertsql import AllOf
 from sqlalchemy.testing.assertsql import CompiledSQL
@@ -227,6 +230,50 @@ class ConstraintGenTest(fixtures.TestBase, AssertsExecutionResults):
         )
         self._assert_cyclic_constraint(metadata, auto=False)
 
+    @testing.provide_metadata
+    @testing.skip_if(
+        lambda: not testing.db.dialect.supports_alter, "does not support ALTER"
+    )
+    @testing.combinations(True, False)
+    def test_fk_column_use_alter_drop_constraint(self, isolate):
+        metadata = self.metadata
+
+        Table(
+            "a",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("bid", Integer, ForeignKey("b.id", name="afk")),
+        )
+        b = Table(
+            "b",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("aid", Integer, ForeignKey("a.id", name="bfk")),
+        )
+
+        metadata.create_all(testing.db)
+
+        (fk,) = (c for c in b.constraints if c.name == "bfk")
+
+        with expect_deprecated(
+            "The ``isolate_from_table`` is deprecated and it be removed "
+            "in a future release."
+        ):
+            schema.DropConstraint(fk, isolate_from_table=isolate)
+
+        assertions = [
+            AllOf(
+                CompiledSQL("ALTER TABLE b DROP CONSTRAINT bfk"),
+                CompiledSQL("ALTER TABLE a DROP CONSTRAINT afk"),
+            ),
+            CompiledSQL("DROP TABLE b"),
+            CompiledSQL("DROP TABLE a"),
+        ]
+
+        with self.sql_execution_asserter() as asserter:
+            metadata.drop_all(testing.db, checkfirst=False)
+        asserter.assert_(*assertions)
+
     def _assert_cyclic_constraint(
         self, metadata, auto=False, sqlite_warning=False
     ):
@@ -302,7 +349,7 @@ class ConstraintGenTest(fixtures.TestBase, AssertsExecutionResults):
         ]
 
         with self.sql_execution_asserter() as asserter:
-            metadata.drop_all(testing.db, checkfirst=False),
+            metadata.drop_all(testing.db, checkfirst=False)
         asserter.assert_(*assertions)
 
     def _assert_cyclic_constraint_no_alter(
@@ -366,10 +413,10 @@ class ConstraintGenTest(fixtures.TestBase, AssertsExecutionResults):
         if sqlite_warning:
             with expect_warnings("Can't sort tables for DROP; "):
                 with self.sql_execution_asserter() as asserter:
-                    metadata.drop_all(testing.db, checkfirst=False),
+                    metadata.drop_all(testing.db, checkfirst=False)
         else:
             with self.sql_execution_asserter() as asserter:
-                metadata.drop_all(testing.db, checkfirst=False),
+                metadata.drop_all(testing.db, checkfirst=False)
         asserter.assert_(*assertions)
 
     @testing.force_drop_names("a", "b")
@@ -1021,7 +1068,9 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         )
 
         self.assert_compile(
-            schema.AddConstraint(list(t.foreign_keys)[0].constraint),
+            schema.AddConstraint(
+                list(t.foreign_keys)[0].constraint, isolate_from_table=False
+            ),
             "ALTER TABLE tbl ADD FOREIGN KEY(b) "
             "REFERENCES tbl (a) MATCH SIMPLE",
         )
@@ -1140,6 +1189,96 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
             "DEFERRABLE INITIALLY DEFERRED)",
         )
 
+    def test_render_repeated_fk_columns(self):
+        """a FOREIGN KEY may name the same local column more than once
+
+        part of #13526
+
+        """
+
+        m = MetaData()
+        Table(
+            "r",
+            m,
+            Column("b", Integer),
+            Column("c", Integer),
+            UniqueConstraint("b", "c"),
+        )
+        t = Table(
+            "t",
+            m,
+            Column("x", Integer),
+            ForeignKeyConstraint(["x", "x"], ["r.b", "r.c"]),
+        )
+
+        self.assert_compile(
+            schema.CreateTable(t),
+            "CREATE TABLE t (x INTEGER, "
+            "FOREIGN KEY(x, x) REFERENCES r (b, c))",
+        )
+
+    def test_use_alter_repeated_fk_columns(self):
+        """a FOREIGN KEY may name the same local column more than once
+
+        part of #13526
+
+        """
+
+        m = MetaData()
+        Table(
+            "r",
+            m,
+            Column("b", Integer),
+            Column("c", Integer),
+            UniqueConstraint("b", "c"),
+        )
+        t = Table(
+            "t",
+            m,
+            Column("x", Integer),
+            ForeignKeyConstraint(
+                ["x", "x"], ["r.b", "r.c"], name="fk_xx", use_alter=True
+            ),
+        )
+        const = list(t.foreign_key_constraints)[0]
+
+        self.assert_compile(
+            schema.AddConstraint(const),
+            "ALTER TABLE t ADD CONSTRAINT fk_xx "
+            "FOREIGN KEY(x, x) REFERENCES r (b, c)",
+        )
+        self.assert_compile(
+            schema.DropConstraint(const),
+            "ALTER TABLE t DROP CONSTRAINT fk_xx",
+        )
+
+    def test_render_repeated_fk_remote_columns(self):
+        """a FOREIGN KEY may name the same remote column more than once
+
+        part of #13526
+
+        """
+
+        m = MetaData()
+        Table(
+            "r",
+            m,
+            Column("a", Integer, primary_key=True),
+        )
+        t = Table(
+            "t",
+            m,
+            Column("a", Integer),
+            Column("b", Integer),
+            ForeignKeyConstraint(["a", "b"], ["r.a", "r.a"]),
+        )
+
+        self.assert_compile(
+            schema.CreateTable(t),
+            "CREATE TABLE t (a INTEGER, b INTEGER, "
+            "FOREIGN KEY(a, b) REFERENCES r (a, a))",
+        )
+
     def test_use_alter(self):
         m = MetaData()
         Table("t", m, Column("a", Integer))
@@ -1214,12 +1353,12 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         )
 
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE tbl ADD CONSTRAINT my_test_constraint "
             "CHECK (a < b) DEFERRABLE INITIALLY DEFERRED",
         )
 
-    @testing.variation("isolate", [True, False])
+    @testing.combinations(True, False, "default", argnames="isolate")
     @testing.variation("type_", ["add", "drop"])
     def test_external_ck_constraint_cancels_internal(
         self, isolate: testing.Variation, type_: testing.Variation
@@ -1235,14 +1374,23 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         )
 
         if type_.add:
+            ctx = nullcontext()
             cls = schema.AddConstraint
         elif type_.drop:
+            ctx = expect_deprecated(
+                "The ``isolate_from_table`` is deprecated and it be removed "
+                "in a future release."
+            )
             cls = schema.DropConstraint
         else:
             type_.fail()
 
-        if not isolate:
-            cls(constraint, isolate_from_table=False)
+        if not isolate or (type_.drop and isolate == "default"):
+            if isolate == "default":
+                cls(constraint)
+            else:
+                with ctx:
+                    cls(constraint, isolate_from_table=False)
             self.assert_compile(
                 schema.CreateTable(t),
                 "CREATE TABLE tbl (a INTEGER, b INTEGER, "
@@ -1250,7 +1398,11 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
                 "DEFERRABLE INITIALLY DEFERRED)",
             )
         else:
-            cls(constraint)
+            if isolate == "default":
+                cls(constraint)
+            else:
+                with ctx:
+                    cls(constraint, isolate_from_table=True)
             self.assert_compile(
                 schema.CreateTable(t),
                 "CREATE TABLE tbl (a INTEGER, b INTEGER)",
@@ -1304,7 +1456,7 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         constraint = ForeignKeyConstraint(["b"], ["t2.a"])
         t.append_constraint(constraint)
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE tbl ADD FOREIGN KEY(b) REFERENCES t2 (a)",
         )
 
@@ -1314,7 +1466,7 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         constraint = ForeignKeyConstraint([t.c.a], [t2.c.b])
         t.append_constraint(constraint)
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE tbl ADD FOREIGN KEY(a) REFERENCES t2 (b)",
         )
 
@@ -1324,7 +1476,7 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         constraint = UniqueConstraint("a", "b", name="uq_cst")
         t2.append_constraint(constraint)
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE t2 ADD CONSTRAINT uq_cst UNIQUE (a, b)",
         )
 
@@ -1333,7 +1485,7 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
 
         constraint = UniqueConstraint(t2.c.a, t2.c.b, name="uq_cs2")
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE t2 ADD CONSTRAINT uq_cs2 UNIQUE (a, b)",
         )
 
@@ -1344,7 +1496,7 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         constraint = PrimaryKeyConstraint(t.c.a)
         assert t.c.a.primary_key is True
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE tbl ADD PRIMARY KEY (a)",
         )
 
@@ -1354,7 +1506,7 @@ class ConstraintCompilationTest(fixtures.TestBase, AssertsCompiledSQL):
         constraint = CheckConstraint(t.c.a > 5)
 
         self.assert_compile(
-            schema.AddConstraint(constraint),
+            schema.AddConstraint(constraint, isolate_from_table=False),
             "ALTER TABLE tbl ADD CHECK (a > 5)",
         )
 

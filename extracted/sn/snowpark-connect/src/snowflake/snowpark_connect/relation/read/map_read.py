@@ -421,19 +421,24 @@ def _resolve_read_compression(
     read_format: str,
     options: dict,
     session: snowpark.Session,
-) -> None:
+) -> str | None:
     """Resolve the compression option for reads.
 
     If the user explicitly set a compression option, use it. Otherwise, infer
     from file extensions. For types Snowflake's AUTO can detect (GZIP, BZ2),
     we skip the override to avoid interfering with format-specific readers.
+
+    Returns the first **stage-listed** filename (e.g.
+    ``"stage_name/dir/file.parquet"``) when a stage LIST was performed, or
+    ``None`` when the listing was local, skipped, or empty.  Callers can use
+    this to limit INFER_SCHEMA to a single file without an extra round-trip.
     """
     user_compression = get_compression_for_source_and_options(
         read_format, options, from_read=True
     )
     if user_compression is not None:
         options["compression"] = user_compression
-        return
+        return None
 
     compression = infer_compression_from_file_extension(stage_paths, read_format)
 
@@ -445,13 +450,60 @@ def _resolve_read_compression(
         source_files = _list_local_files(clean_source_paths)
         if not source_files:
             source_files = _list_stage_files(stage_paths, session)
+            is_stage_listing = True
+        else:
+            is_stage_listing = False
         if source_files:
             compression = infer_compression_from_file_extension(
                 source_files, read_format
             )
+    else:
+        source_files = []
+        is_stage_listing = False
 
     if compression not in ("AUTO", "GZIP", "BZ2"):
         options["compression"] = compression
+
+    return (
+        _first_data_file(source_files, read_format)
+        if (source_files and is_stage_listing)
+        else None
+    )
+
+
+def _first_data_file(files: list[str], read_format: str) -> str | None:
+    """Return the first file that looks like a data file for ``read_format``.
+
+    Skips hidden files (``_``/``.`` prefixed basenames), ``_SUCCESS*``,
+    ``_metadata``, ``_common_metadata``, and ``*.crc`` — these are Spark
+    marker/metadata files that may sort before real data files in LIST
+    results.  Prefers a file whose extension matches ``read_format``
+    (e.g. ``.parquet``); falls back to the first non-hidden file if no
+    extension match is found.
+
+    Returns ``None`` when no suitable file exists.
+    """
+    from os.path import basename, splitext
+
+    _HIDDEN_PREFIXES = ("_", ".")
+    _MARKER_NAMES = {"_SUCCESS", "_metadata", "_common_metadata"}
+    ext_match = f".{read_format.lower()}"
+
+    best_any: str | None = None
+    for file_path in files:
+        base = basename(file_path.rstrip("/"))
+        if not base:
+            continue
+        if any(base.startswith(p) for p in _HIDDEN_PREFIXES):
+            continue
+        if base in _MARKER_NAMES or base.endswith(".crc"):
+            continue
+        if best_any is None:
+            best_any = file_path
+        _, ext = splitext(base)
+        if ext.lower() == ext_match:
+            return file_path
+    return best_any
 
 
 def _paths_are_directories(source_paths: list[str]) -> bool:
@@ -586,8 +638,9 @@ def _read_file(
 
     paths = [_quote_stage_path(path) for path in paths]
 
+    first_stage_file: str | None = None
     if read_format in ("csv", "text", "json", "parquet"):
-        _resolve_read_compression(
+        first_stage_file = _resolve_read_compression(
             paths, clean_source_paths, read_format, options, session
         )
 
@@ -702,6 +755,7 @@ def _read_file(
                 skip_partition_discovery=skip_partition_discovery,
                 pd_direct=pd_direct,
                 pd_read_reason=pd_read_reason,
+                first_stage_file=first_stage_file,
             )
         case "text":
             from snowflake.snowpark_connect.relation.read.map_read_text import (

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import functools
 import inspect
 import os
 import sys
@@ -27,10 +28,10 @@ from typing import Any
 from xbsl import __version__
 from xbsl import (
     baseline as baseline_data, dataset, docs, environment, formedits, formhandlers,
-    cijob, formmodel, i18n, mcpjournal, metamodel, report, resource_usage, rundiff, scaffold,
-    uischema,
+    cijob, formmodel, freshness, i18n, mcpjournal, metamodel, report, resource_usage, rundiff,
+    scaffold, uischema,
 )
-from xbsl.cli import _filter_requested, discover_with_context
+from xbsl.cli import _context_of, _filter_requested, discover, discover_with_context
 from xbsl.engine import (
     RULES, active_rules, is_source_file, load, load_text, matching_rules, near_rule_groups,
     run, run_sources,
@@ -66,6 +67,86 @@ def _new_server():
 
 
 mcp = _new_server()
+
+
+# --- a stale engine ---------------------------------------------------------------------------
+#
+# The server imports its modules lazily. When the installation on disk is replaced under it
+# (self-update, a pull in an editable checkout), the modules it loads later come from the new
+# code while the ones in memory stay old, and a tool answers with crashes of rules that are
+# nobody's bug (xbsl/freshness.py tells the story). So every tool but version_info first compares
+# the version on disk with the one in memory - one small file per call - and refuses, naming the
+# cure, instead of running on a mix. A tool that fails while the number on disk is the same is
+# checked against the fingerprint of the sources taken at start. The server never exits over it:
+# a client such as Codex does not start a failed server again. The first sighting of each state
+# goes into the journal, where `xbsl mcp-log` shows it.
+
+#: The tools that answer on a stale engine too: the one that names the environment.
+_ANSWER_WHEN_STALE = frozenset({"version_info"})
+#: The stale states already written into the journal: one record per state, not per call.
+_journaled: set[tuple[str, str]] = set()
+
+
+def _journal_stale(found: dict, tool: str, error: str = "") -> None:
+    key = (found["reason"], found["on_disk"])
+    if key in _journaled:
+        return
+    _journaled.add(key)
+    mcpjournal.record("stale", tool=tool, **found, **({"error": error[:500]} if error else {}))
+
+
+def _stale_answer(found: dict, message: str) -> dict:
+    return {"error": message, "stale": {**found, "location": environment.location()}}
+
+
+def _stale_guard(fn):
+    """The tool behind the check: refused on a stale engine, its failure explained on one."""
+
+    @functools.wraps(fn)
+    def call(*args, **kwargs):
+        found = freshness.version_state()
+        if found is not None:
+            _journal_stale(found, fn.__name__)
+            return _stale_answer(found, i18n.t("freshness.refusal", state=freshness.describe(found)))
+        freshness.take_noted()  # a crash an earlier call noted is not this call's
+        try:
+            answer = fn(*args, **kwargs)
+        except Exception as exc:
+            found = freshness.state(sources=True)
+            if found is None:
+                raise
+            error = f"{type(exc).__name__}: {exc}"
+            _journal_stale(found, fn.__name__, error)
+            return _stale_answer(found, i18n.t(
+                "freshness.failure", state=freshness.describe(found), error=error))
+        noted = freshness.take_noted()
+        if noted is not None:
+            _journal_stale(noted, fn.__name__)
+        return answer
+
+    return call
+
+
+def _guarded_registration(register):
+    """`mcp.tool` that puts the stale-engine check in front of every tool it registers.
+
+    The module keeps the plain function under its name - the tests and the tools that call one
+    another reach the code itself; the server holds the guarded one.
+    """
+
+    def tool(*args, **kwargs):
+        decorate = register(*args, **kwargs)
+
+        def apply(fn):
+            decorate(fn if fn.__name__ in _ANSWER_WHEN_STALE else _stale_guard(fn))
+            return fn
+
+        return apply
+
+    return tool
+
+
+mcp.tool = _guarded_registration(mcp.tool)
 
 
 def _as_set(value: list[str] | None) -> set[str] | None:
@@ -147,8 +228,18 @@ def version_info() -> dict:
     directory the engine is imported from, site-packages or a source checkout: a worktree, an
     editable checkout and a release print the same version, and one interpreter runs the first
     two.
+
+    `engine_on_disk` is the version the installation on disk declares now. This tool answers
+    even when it differs from `engine`, and then it carries `stale`: the others refuse until the
+    server is restarted, since the modules it would load next are from another version.
     """
-    return environment.snapshot()
+    info = environment.snapshot()
+    info["engine_on_disk"] = freshness.disk_version()
+    found = freshness.version_state()
+    if found is not None:
+        info["stale"] = {**found, "message": i18n.t(
+            "freshness.refusal", state=freshness.describe(found))}
+    return info
 
 
 def _through_baseline(
@@ -384,7 +475,9 @@ def lint_paths(
             )
         else:
             diags = _filter_requested(
-                run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2]), requested,
+                run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2],
+                    context=_context_of(files, requested)),
+                requested,
             )
     counted = requested if requested is not None else files
     active = active_rules(*chosen)
@@ -475,7 +568,9 @@ def baseline_prune(
     files, requested = discover_with_context(asked)
     chosen = (_as_set(select), _as_set(ignore), _as_set(enable))
     diags = _filter_requested(
-        run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2]), requested,
+        run(files, select=chosen[0], ignore=chosen[1], enable=chosen[2],
+            context=_context_of(files, requested)),
+        requested,
     )
     counted = requested if requested is not None else files
     found = Path(named) if named else baseline_data.discover(counted)
@@ -1970,6 +2065,61 @@ def meta_insert_fragment(
 
 @mcp.tool()
 @_documents_root
+def meta_fold_comments(
+    paths: list[str],
+    dry_run: bool = True,
+    take_proposed: bool = False,
+    root: str | None = None,
+) -> dict:
+    """Fold the yaml comments the development environment does not read into a node description.
+
+    The CLI `xbsl fold-comments`. The environment reads a comment of an element description
+    in one place only - a `##` block at the head of a node that has room for a description -
+    and the visual editor drops a plain `#` comment on its first save. A comment about a node
+    with no room of its own (a property of a component, an item of a list without a
+    description, a key of the element) moves into the description of the nearest node that
+    has room, as an item naming its subject: `## * \\`Path\\`:` over the lines of the comment,
+    which keep their text and so their pairs in a translation dictionary.
+
+    paths - files and folders with element descriptions (.yaml; a folder is walked);
+    dry_run - TRUE by default: the answer is the plan and nothing is written. Repeat with
+              dry_run=false to write; a file whose result fails the audit is never written;
+    take_proposed - apply the proposed moves too (the CLI --all): the ones that may be read two
+              ways - the first block of a file above a key outside the head, the heading of a
+              section, a block in a localization file, an item of a list without a name, a
+              block above a list. Without it they are listed with `action: proposed` and a
+              `reason`.
+    The answer is the report of `xbsl fold-comments --format json` plus `root` (and `dry-run`
+    on a dry run): `files` - a record per file with a block to move, {file (absolute),
+    changed, moves: [{line, kind, action (applied|proposed|left), target_line, subject,
+    reason, notes}], audit}; `written` - the files written; `summary` - the moves counted as
+    `kind/action`. The audit is the check a file passes before it is written: the yaml parses
+    to the same data, every line of every comment is still there, the comment rules find
+    nothing but the blocks left on purpose, and a second pass has nothing to move. A path
+    that does not exist is refused, naming it.
+    The report names every move, so pass the files you edited: over a project of three
+    hundred descriptions that have never been folded it runs to a quarter of a megabyte.
+    """
+    from xbsl import commentfold
+
+    base = _base(root)
+    asked = [_under(base, path) for path in paths]
+    missing = [str(path) if path is not None else repr(raw)
+               for raw, path in zip(paths, asked) if path is None or not path.exists()]
+    if missing:
+        return {"error": i18n.t("fold.missing-paths", paths=", ".join(missing)), "root": str(base)}
+    files = [path for path in discover([str(path) for path in asked])
+             if path.suffix.lower() == ".yaml"]
+    folds = commentfold.fold_paths(files, take_proposed=take_proposed)
+    written = 0 if dry_run else commentfold.write_folds(folds)
+    answer = {"root": str(base), **commentfold.report(folds, written)}
+    if dry_run:
+        answer["dry-run"] = True
+    return answer
+
+
+@mcp.tool()
+@_documents_root
 def meta_move_component(
     yaml_path: str,
     node_id: str,
@@ -2140,7 +2290,7 @@ def meta_add_handler(
 
 
 @mcp.tool()
-def translate_status(root: str, against: str = "") -> dict:
+def translate_status(root: str, against: str = "", full: bool = False) -> dict:
     """Coverage of the project's translation dictionary: how much is done and what is left.
 
     root - the project directory (the one with the project descriptor), next to which - or
@@ -2156,6 +2306,11 @@ def translate_status(root: str, against: str = "") -> dict:
     selected ref entries. One-sided edits and removals do not resurrect the base copy. A dictionary that does not load - a conflict already in the
     working tree - answers with the `error` naming every conflict and, when a ref was given,
     the `collisions` report next to it.
+    full - list every duplicate in `collisions`. By default `duplicates` there holds only the
+    ones the ref does not have - what this branch brings - and the rest are counted:
+    `duplicates_total`, `duplicates_at_ref` and a `duplicates_hint`. A duplicate the target
+    branch already carries is the same on every call of a branch (six rows came to some three
+    thousand characters a call); the conflicts are listed whole either way.
     Returns the totals only - a cheap health check before deciding what to fill.
     Two units live here, so read the names: `missing_tokens`, `missing_phrases`,
     `literals_translated` and `missing_literals` count DISTINCT entries - what a dictionary line
@@ -2179,7 +2334,7 @@ def translate_status(root: str, against: str = "") -> dict:
     if against and project.is_dir():
         found = translate_cli.dictionary_path_for(project)
         if found is not None:
-            collisions = translate_cli.collisions_report(found, against)
+            collisions = translate_cli.collisions_report(found, against, compact=not full)
     if error:
         return {"error": error, "collisions": collisions} if collisions else {"error": error}
     from xbsl.translation import project as project_module
@@ -2530,6 +2685,44 @@ def translate_redundant(
 
 
 @mcp.tool()
+def translate_drift(root: str, filter: str = "", limit: int = 50, offset: int = 0) -> dict:
+    """Phrases whose translation names a name otherwise than the name's own pair.
+
+    A phrase entry translates a comment line whole, names included, and nothing ties those
+    names to the tokens section: a token renamed after the phrase was written, or a line
+    translated as prose, leaves the English comment naming something the English tree does
+    not have. The tree builds, so the strict gate stays silent; the only trace was a finding
+    of `comment/unknown-name` on the English tree, pointing at the comment, not at the entry.
+
+    root   - the project directory (a root without a dictionary next to or above it is
+             refused with the places looked at);
+    filter - a substring of the name, the comment line, its translation or a name it says
+             instead;
+    limit/offset - the page (limit 0 means all); a cut page says so in `truncated`.
+
+    Each row: `name` (as the line writes it), `expected` (the token pair first, then the
+    platform's English spellings), `found` (the names the translation says instead - Latin
+    names that are neither a token value nor a word of the platform data), `key` and `value`
+    of the phrase, and the `file` and `line` of the entry. The check reads the dictionary
+    alone. A translation that renders the name in plain words names nothing and is not
+    listed: there is nothing to rename there.
+    """
+    from xbsl.translation import cli as translate_cli
+    from xbsl.translation import entries as entries_module
+
+    project, dictionary, error = translate_cli.load_for_tools(root)
+    if error:
+        return {"error": error}
+    path = translate_cli.dictionary_path_for(project)
+    rows = translate_cli.drift_rows(path, dictionary, filter or "")
+    page, paging = entries_module.page_of(rows, limit, offset)
+    out = {**paging, "dictionary": str(path), "drift": page}
+    if rows:
+        out["note"] = i18n.t("translate.drift.note")
+    return out
+
+
+@mcp.tool()
 def translate_set(root: str, edits: list[dict] | None = None, edits_file: str = "",
                   target: str = "", comment: str = "") -> dict:
     """Write entries into the dictionary: add new ones, correct existing ones, remove a value.
@@ -2610,6 +2803,8 @@ def main() -> None:
     # The journal answers what "Transport closed" on the client side cannot: whether the
     # server failed, the client closed its end, or a self-update stopped the process.
     mcpjournal.record("start", version=__version__, parent=os.getppid(), executable=sys.executable)
+    # The code as it was loaded: a failure later is checked against it (xbsl/freshness.py).
+    freshness.remember()
     try:
         mcp.run()
     except KeyboardInterrupt:

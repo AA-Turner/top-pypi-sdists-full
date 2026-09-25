@@ -10,9 +10,24 @@ import dataclasses
 import logging
 from typing import Awaitable, Callable, Literal, Optional
 
+from telegramify_markdown.config import RenderConfig
 from telegramify_markdown.stream.core import StreamCore
 
 logger = logging.getLogger(__name__)
+
+# Telegram's per-message text limit, counted in UTF-16 code units.
+_DRAFT_TEXT_LIMIT = 4096
+
+
+def _tail_by_utf16(text: str, limit: int) -> str:
+    """Return the tail of text within limit UTF-16 code units, never splitting
+    a surrogate pair."""
+    total = 0
+    for i in range(len(text) - 1, -1, -1):
+        total += 2 if ord(text[i]) > 0xFFFF else 1
+        if total > limit:
+            return text[i + 1 :]
+    return text
 
 
 @dataclasses.dataclass(slots=True)
@@ -55,6 +70,9 @@ class DraftStream:
     - emit = send_draft callback (with thinking delay and sliding window)
     - finalize = send_final callback
     - on_cancel = empty draft sender (if cancel_clears_draft)
+
+    ``config`` is the RenderConfig for entity mode, used for every draft and the
+    final message; omitted, the global config applies. Rich mode reads no symbols.
     """
 
     def __init__(
@@ -67,6 +85,7 @@ class DraftStream:
         thinking_delay: Optional[float] = 0.5,
         keepalive_timeout: float = 25.0,
         cancel_clears_draft: bool = True,
+        config: RenderConfig | None = None,
     ) -> None:
         if mode not in ("rich", "entity"):
             raise ValueError(f"mode must be 'rich' or 'entity', got {mode!r}")
@@ -74,6 +93,7 @@ class DraftStream:
         self._send_draft = send_draft
         self._send_final = send_final
         self._mode = mode
+        self._config = config
         self._draft_id = draft_id if draft_id is not None else (hash(id(self)) & 0x7FFFFFFF | 1)
         self._thinking_delay = thinking_delay
         self._cancel_clears_draft = cancel_clears_draft
@@ -132,15 +152,20 @@ class DraftStream:
             return self._render_rich(buffer)
 
     def _render_entity(self, buffer: str):
-        """Entity 模式渲染：convert() + 尾部 4096 字符截断。"""
+        """Entity mode: convert(), then trim the tail to Telegram's 4096 limit."""
         from telegramify_markdown.converter import convert
+        from telegramify_markdown.entity import utf16_len
 
-        text, entities = convert(buffer)
+        text, entities = convert(buffer, config=self._config)
 
-        # sliding window: 只取尾部 4096 字符
-        # draft 是临时显示，截断后 entities 偏移会失效，直接丢弃
-        if len(text) > 4096:
-            text = text[-4096:]
+        # Sliding window: keep only the trailing 4096 UTF-16 code units.
+        # It has to be measured in UTF-16, not Python characters: astral
+        # characters such as emoji take two code units each, so truncating by
+        # character can emit twice the allowed length and Telegram rejects it.
+        # A draft is transient, and truncation invalidates entity offsets, so
+        # the entities are dropped.
+        if utf16_len(text) > _DRAFT_TEXT_LIMIT:
+            text = _tail_by_utf16(text, _DRAFT_TEXT_LIMIT)
             entities = []
 
         return EntityDraftPayload(
@@ -231,7 +256,7 @@ class DraftStream:
         buffer = self._core.buffer
         if self._mode == "entity":
             from telegramify_markdown.converter import convert
-            text, entities = convert(buffer)
+            text, entities = convert(buffer, config=self._config)
             final = EntityFinalPayload(text=text, entities=entities)
         else:
             from telegramify_markdown.rich import richify

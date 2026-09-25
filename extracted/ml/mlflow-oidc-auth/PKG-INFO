@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow-oidc-auth
-Version: 7.19.0
+Version: 7.20.4
 Summary: OpenID Connect (OIDC) auth plugin for MLflow
 Maintainer-email: Alexander Kharkevich <alex@kharkevich.org>
 License-Expression: Apache-2.0

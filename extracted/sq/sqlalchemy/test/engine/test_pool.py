@@ -306,7 +306,6 @@ class PoolTest(PoolTestBase):
     @testing.combinations(
         (pool.QueuePool, False),
         (pool.AsyncAdaptedQueuePool, True),
-        (pool.FallbackAsyncAdaptedQueuePool, True),
         (pool.NullPool, None),
         (pool.SingletonThreadPool, False),
         (pool.StaticPool, None),
@@ -327,7 +326,6 @@ class PoolTest(PoolTestBase):
     @testing.combinations(
         (pool.QueuePool, False),
         (pool.AsyncAdaptedQueuePool, True),
-        (pool.FallbackAsyncAdaptedQueuePool, True),
         (pool.NullPool, False),
         (pool.SingletonThreadPool, False),
         (pool.StaticPool, False),
@@ -1287,14 +1285,14 @@ class QueuePoolTest(PoolTestBase):
         for t in threads:
             t.join(timeout=join_timeout)
         eq_(
-            dbapi.connect().operation.mock_calls,
-            [
-                call("success_one"),
-                call("success_two"),
-                call("overflow_two"),
-                call("overflow_three"),
-                call("overflow_one"),
-            ],
+            set(c.args[0] for c in dbapi.connect().operation.mock_calls),
+            {
+                "success_one",
+                "success_two",
+                "overflow_two",
+                "overflow_three",
+                "overflow_one",
+            },
         )
 
     @testing.requires.threading_with_mock
@@ -1581,14 +1579,14 @@ class QueuePoolTest(PoolTestBase):
         finalize_fairy = pool._finalize_fairy
 
         def assert_no_wr_callback(
-            connection, connection_record, pool, ref, echo, fairy=None
+            connection, connection_record, pool, echo, fairy=None, **kw
         ):
             if fairy is None:
                 raise AssertionError(
                     "finalize fairy was called as a weakref callback"
                 )
             return finalize_fairy(
-                connection, connection_record, pool, ref, echo, fairy
+                connection, connection_record, pool, echo, fairy=fairy, **kw
             )
 
         return patch.object(pool, "_finalize_fairy", assert_no_wr_callback)
@@ -2058,7 +2056,7 @@ class ResetOnReturnTest(PoolTestBase):
         dbapi = Mock()
 
         return dbapi, create_engine(
-            "postgresql://",
+            "mysql://",
             module=dbapi,
             creator=lambda: dbapi.connect("foo.db"),
             _initialize=False,

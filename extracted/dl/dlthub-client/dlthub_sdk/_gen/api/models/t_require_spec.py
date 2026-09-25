@@ -21,7 +21,6 @@ class TRequireSpec:
     Attributes:
         dependency_groups (list[str] | Unset):
         instance (TRequireSpecInstance | Unset):
-        machine (str | Unset):
         profile (str | Unset):
         provider (str | Unset):
         region (str | Unset):
@@ -31,7 +30,6 @@ class TRequireSpec:
 
     dependency_groups: list[str] | Unset = UNSET
     instance: TRequireSpecInstance | Unset = UNSET
-    machine: str | Unset = UNSET
     profile: str | Unset = UNSET
     provider: str | Unset = UNSET
     region: str | Unset = UNSET
@@ -47,8 +45,6 @@ class TRequireSpec:
         instance: dict[str, Any] | Unset = UNSET
         if not isinstance(self.instance, Unset):
             instance = self.instance.to_dict()
-
-        machine = self.machine
 
         profile = self.profile
 
@@ -67,8 +63,6 @@ class TRequireSpec:
             field_dict["dependency_groups"] = dependency_groups
         if instance is not UNSET:
             field_dict["instance"] = instance
-        if machine is not UNSET:
-            field_dict["machine"] = machine
         if profile is not UNSET:
             field_dict["profile"] = profile
         if provider is not UNSET:
@@ -96,8 +90,6 @@ class TRequireSpec:
         else:
             instance = TRequireSpecInstance.from_dict(_instance)
 
-        machine = d.pop("machine", UNSET)
-
         profile = d.pop("profile", UNSET)
 
         provider = d.pop("provider", UNSET)
@@ -111,7 +103,6 @@ class TRequireSpec:
         t_require_spec = cls(
             dependency_groups=dependency_groups,
             instance=instance,
-            machine=machine,
             profile=profile,
             provider=provider,
             region=region,

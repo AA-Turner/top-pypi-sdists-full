@@ -2,12 +2,14 @@
 
 import typing as t
 
-import numpy as np
 from loguru import logger
 
 from dreadnode.core.types import Image
 from dreadnode.optimization.sampler import Sample, Sampler
 from dreadnode.optimization.trial import Trial
+
+if t.TYPE_CHECKING:
+    import numpy as np
 
 CandidateT = t.TypeVar("CandidateT")
 
@@ -72,12 +74,14 @@ class BoundarySampler(Sampler[Image]):
             f"threshold={threshold}, tolerance={tolerance}, max_iterations={max_iterations}"
         )
 
-    def _interpolate(self, alpha: float) -> np.ndarray:
+    def _interpolate(self, alpha: float) -> "np.ndarray":
         """Interpolate between source and target at alpha in [0, 1]."""
         return (1 - alpha) * self._source_array + alpha * self._target_array
 
     def sample(self, history: list[Trial[Image]]) -> list[Sample[Image]]:  # noqa: ARG002
         """Return the midpoint sample for binary search."""
+        import numpy as np
+
         if self._exhausted:
             return []
 
@@ -87,6 +91,8 @@ class BoundarySampler(Sampler[Image]):
 
     def tell(self, trials: list[Trial[Image]]) -> None:
         """Update binary search bounds based on trial result."""
+        import numpy as np
+
         if not trials or self._exhausted:
             return
 

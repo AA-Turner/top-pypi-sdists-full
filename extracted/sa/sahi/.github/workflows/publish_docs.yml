@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
 
       - name: 🐍 Install uv and set Python ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
@@ -66,6 +66,8 @@ jobs:
           # Rebuild /tr as a standalone localized site (own nav, links stay inside /tr/)
           rm -rf site/tr
           uv run zensical build -f zensical.tr.toml
+          # Publish each page's markdown source beside its HTML, plus llms.txt
+          uv run python scripts/docs/export_markdown_sources.py
 
       - name: 🚀 Deploy to GitHub Pages
         if:

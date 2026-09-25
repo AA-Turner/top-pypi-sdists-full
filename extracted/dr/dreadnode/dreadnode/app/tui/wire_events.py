@@ -393,8 +393,8 @@ class UserInputRequired(_Envelope):
     payload — the server hand-builds this envelope in
     ``_human_prompt_handler``. Reusing the existing :class:`HumanPrompt`
     Pydantic model means we get every field it defines
-    (``allow_free_text``, ``default_option``, ``severity``,
-    ``source_tool_name``, ``source_tool_call_id``, ``details``) for free.
+    (``questions``, ``tool_approval``, ``source_tool_call_id``,
+    ``source_tool_name``) for free.
     """
 
     type: t.Literal["userinputrequired"]

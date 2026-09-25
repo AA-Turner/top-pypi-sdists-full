@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -21,12 +21,14 @@ class TriggerCatalogEntry:
         display_label (str): Human-readable trigger name
         trigger (TriggerType): Machine-readable trigger identifier, lower-kebab-case (e.g. 'job-run-failure')
         supported_actions (list[ActionType] | Unset): Actions supported by this trigger (e.g. [ActionType.EMAIL_SEND])
+        supported_filters (list[str] | Unset): Filter keys supported by this trigger (e.g. ['script_ids'])
     """
 
     description: str
     display_label: str
     trigger: TriggerType
     supported_actions: list[ActionType] | Unset = UNSET
+    supported_filters: list[str] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -43,6 +45,10 @@ class TriggerCatalogEntry:
                 supported_actions_item = supported_actions_item_data.value
                 supported_actions.append(supported_actions_item)
 
+        supported_filters: list[str] | Unset = UNSET
+        if not isinstance(self.supported_filters, Unset):
+            supported_filters = self.supported_filters
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -54,6 +60,8 @@ class TriggerCatalogEntry:
         )
         if supported_actions is not UNSET:
             field_dict["supported_actions"] = supported_actions
+        if supported_filters is not UNSET:
+            field_dict["supported_filters"] = supported_filters
 
         return field_dict
 
@@ -75,11 +83,14 @@ class TriggerCatalogEntry:
 
                 supported_actions.append(supported_actions_item)
 
+        supported_filters = cast(list[str], d.pop("supported_filters", UNSET))
+
         trigger_catalog_entry = cls(
             description=description,
             display_label=display_label,
             trigger=trigger,
             supported_actions=supported_actions,
+            supported_filters=supported_filters,
         )
 
         trigger_catalog_entry.additional_properties = d

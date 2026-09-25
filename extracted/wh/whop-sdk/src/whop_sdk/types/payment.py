@@ -10,10 +10,12 @@ from .friendly_receipt_status import FriendlyReceiptStatus
 from .money import Money
 from .payment_address import PaymentAddress
 from .payment_decline_codes import PaymentDeclineCodes
+from .payment_hold import PaymentHold
 from .payment_instrument import PaymentInstrument
 from .payment_method_types import PaymentMethodTypes
 from .payment_rule_match import PaymentRuleMatch
 from .payment_verification_checks import PaymentVerificationChecks
+from .receipt_line_item import ReceiptLineItem
 from .receipt_status import ReceiptStatus
 from .receipt_tax_behaviors import ReceiptTaxBehaviors
 from .user_summary import UserSummary
@@ -95,6 +97,7 @@ class Payment(UniversalBaseModel):
     For installment methods, how many payments the charge splits into.
     """
 
+    holds: typing.List[PaymentHold]
     id: str = pydantic.Field()
     """
     Payment ID, prefixed `pay_`.
@@ -105,6 +108,7 @@ class Payment(UniversalBaseModel):
     When the most recent charge attempt ran, or null.
     """
 
+    line_items: typing.List[ReceiptLineItem]
     member_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The buyer's member record on the account, prefixed `mber_`. Null without the member:basic:read permission.
@@ -214,7 +218,7 @@ class Payment(UniversalBaseModel):
 
     settlement_time_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the funds post to the account's available balance, at midnight UTC. The `financial_activity.funds_available` webhook's `posted_at` carries the same value when the settlement that clears it posts. Null until the payment is paid, and always null in list responses — retrieve the payment for it.
+    When the portion not listed in `holds` posts to the account's available balance, at midnight UTC. The `financial_activity.funds_available` webhook's `posted_at` carries the same value when the settlement that clears it posts. Null until the payment is paid, and always null in list responses — retrieve the payment for it.
     """
 
     shipment_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -289,7 +293,7 @@ class Payment(UniversalBaseModel):
 
     voidable: bool = pydantic.Field()
     """
-    True when the payment is `open` on a past-due membership and its processor supports voiding — see `POST /payments/{id}/void`.
+    True when the payment can be voided or canceled. The request is rejected if the payment is no longer eligible — see `POST /payments/{id}/void`.
     """
 
     if IS_PYDANTIC_V2:

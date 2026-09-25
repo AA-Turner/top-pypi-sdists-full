@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: ggshield
-Version: 1.54.0
+Version: 1.55.0
 Summary: Detect secrets from all sources using GitGuardian's brains
 Project-URL: Homepage, https://github.com/GitGuardian/ggshield
 Author-email: GitGuardian <support@gitguardian.com>
@@ -36,7 +36,7 @@ Requires-Dist: notify-py>=0.3.43
 Requires-Dist: oauthlib<4,>=3.2.1
 Requires-Dist: packaging>=22.0
 Requires-Dist: platformdirs~=4.2
-Requires-Dist: pygitguardian~=1.34.0
+Requires-Dist: pygitguardian~=1.35.0
 Requires-Dist: pyjwt<3,>=2.13.0
 Requires-Dist: python-dotenv<2,>=0.21.0
 Requires-Dist: pyyaml<7,>=6.0.1
@@ -59,6 +59,9 @@ Description-Content-Type: text/markdown
 [![GitHub stars](https://img.shields.io/github/stars/gitguardian/ggshield?color=%231B2D55&style=for-the-badge)](https://github.com/GitGuardian/ggshield/stargazers)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/GitGuardian/ggshield/main.yml?branch=main&style=for-the-badge)](https://github.com/GitGuardian/ggshield/actions)
 [![Codecov](https://img.shields.io/codecov/c/github/GitGuardian/ggshield?style=for-the-badge)](https://codecov.io/gh/GitGuardian/ggshield/)
+
+> [!IMPORTANT]
+> **macOS: upgrading to 1.54.0 triggers a Keychain prompt for `ggshield-py`**, a second binary that now reads your saved token as part of our performance improvements. Click **Always Allow**; it won't ask again.
 
 `ggshield` is a CLI application that runs in your local environment or in a CI environment to help you detect more than 500+ types of secrets.
 

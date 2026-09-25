@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
+from sqlalchemy.testing.assertions import expect_noload_deprecation
 from sqlalchemy.testing.assertions import expect_raises_message
 from sqlalchemy.testing.assertsql import CompiledSQL
 from sqlalchemy.testing.entities import ComparableEntity
@@ -142,7 +143,8 @@ class AliasedClassRelationshipTest(
                 for b in a1.partitioned_bs:
                     eq_(b.cs, [])
 
-        self.assert_sql_count(testing.db, go, 2)
+        with expect_noload_deprecation():
+            self.assert_sql_count(testing.db, go, 2)
 
     @testing.combinations("ac_attribute", "ac_attr_w_of_type")
     def test_selectinload_w_joinedload_after(self, calling_style):
@@ -270,7 +272,7 @@ class AltSelectableTest(
 
         asserter.assert_(
             CompiledSQL(
-                "SELECT b.id AS b_id FROM b JOIN d ON d.b_id = b.id "
+                "SELECT b.id FROM b JOIN d ON d.b_id = b.id "
                 "JOIN c ON c.id = d.c_id WHERE :param_1 = b.id",
                 [{"param_1": 1}],
             )
@@ -316,7 +318,7 @@ class AltSelectableTest(
                 [{"param_1": 1}],
             ),
             CompiledSQL(
-                "SELECT a_1.id AS a_1_id, b.id AS b_id FROM a AS a_1 "
+                "SELECT a_1.id, b.id FROM a AS a_1 "
                 "JOIN (b JOIN d ON d.b_id = b.id JOIN c ON c.id = d.c_id) "
                 "ON a_1.b_id = b.id WHERE a_1.id "
                 "IN (__[POSTCOMPILE_primary_keys])",

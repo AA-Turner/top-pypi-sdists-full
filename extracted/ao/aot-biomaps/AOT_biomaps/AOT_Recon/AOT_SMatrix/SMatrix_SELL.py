@@ -734,3 +734,206 @@ class SMatrix_SELL(SMatrix):
         row_sums = row_sums_sorted[self.inv_row_perm]
 
         return row_sums, col_sums
+
+    def truncate(self, time_range=None, time_decimate=1, space_range=None, space_decimate=None, recompute_norm=True, verbose=True):
+        """
+        Tronque la matrice SELL en temps (T) et en espace (X, Z).
+        Optimisée par vectorisation et appels directs aux kernels CUDA.
+        """
+        if self.sell_values is None and self.sell_values_gpu is None:
+            raise ValueError("[AOT-biomaps] SELL matrix not loaded.")
+
+        on_gpu = hasattr(self, "gpu_index") and (self.sell_values_gpu is not None)
+        xp = cp if on_gpu else np
+
+        if on_gpu:
+            with cp.cuda.Device(self.gpu_index):
+                values, colinds = self.sell_values_gpu, self.sell_colinds_gpu
+                slice_ptr, slice_len = self.slice_ptr_gpu, self.slice_len_gpu
+                row_perm, inv_row_perm = self.row_perm_gpu, self.inv_row_perm_gpu
+        else:
+            values, colinds = self.sell_values, self.sell_colinds
+            slice_ptr, slice_len = self.slice_ptr, self.slice_len
+            row_perm, inv_row_perm = self.row_perm, self.inv_row_perm
+
+        old_N, old_T, old_Z, old_X = self.N, self.T, self.Z, self.X
+        old_NT = old_N * old_T
+        old_ZX = old_Z * old_X
+
+        # 1. MASQUES TEMPORELS (Vectorisés)
+        time_indices = xp.arange(old_T)
+        time_mask = xp.ones(old_T, dtype=bool)
+
+        if time_decimate > 1:
+            time_mask &= (time_indices % time_decimate == 0)
+        if time_range is not None:
+            time_mask &= (time_indices >= time_range[0]) & (time_indices < time_range[1])
+
+        new_T = int(time_mask.sum())
+        if new_T == 0:
+            raise ValueError("[AOT-biomaps] No time samples remaining.")
+
+        # 2. MASQUES SPATIAUX (Vectorisés)
+        old_to_new_col = xp.full(old_ZX, -1, dtype=xp.int32)
+        new_Z, new_X = old_Z, old_X
+
+        if space_decimate:
+            dec_X, dec_Z = space_decimate.get("X", 1), space_decimate.get("Z", 1)
+            new_X, new_Z = old_X // dec_X, old_Z // dec_Z
+            Z_grid, X_grid = xp.meshgrid(xp.arange(new_Z), xp.arange(new_X), indexing='ij')
+            old_cols = (Z_grid * dec_Z) * old_X + (X_grid * dec_X)
+            new_cols = Z_grid * new_X + X_grid
+            old_to_new_col[old_cols.flatten()] = new_cols.flatten()
+
+        elif space_range:
+            x_start, x_end = space_range.get("X", (0, old_X))
+            z_start, z_end = space_range.get("Z", (0, old_Z))
+            new_X, new_Z = x_end - x_start, z_end - z_start
+            Z_grid, X_grid = xp.meshgrid(xp.arange(z_start, z_end), xp.arange(x_start, x_end), indexing='ij')
+            old_cols = Z_grid * old_X + X_grid
+            new_cols = (Z_grid - z_start) * new_X + (X_grid - x_start)
+            old_to_new_col[old_cols.flatten()] = new_cols.flatten()
+        else:
+            old_to_new_col = xp.arange(old_ZX, dtype=xp.int32)
+
+        # 3. MAPPING LIGNES PHYSIQUES (Vectorisé)
+        time_mask_tiled = xp.tile(time_mask, old_N)
+        new_NT = int(time_mask_tiled.sum())
+        old_to_new_phys_row = xp.full(old_NT, -1, dtype=xp.int32)
+        old_to_new_phys_row[time_mask_tiled] = xp.arange(new_NT, dtype=xp.int32)
+
+        # 4. COMPTAGE NON-ZEROS VIA KERNEL
+        new_row_nnz = xp.zeros(new_NT, dtype=xp.int32)
+        
+        if on_gpu:
+            block = (256,)
+            grid = ((old_NT + block[0] - 1) // block[0],)
+            count_kernel = self.sparse_mod.get_function("count_nnz_after_truncation__SELL__REAL")
+
+            values = cp.ascontiguousarray(values)
+            colinds = cp.ascontiguousarray(colinds)
+            slice_ptr = cp.ascontiguousarray(slice_ptr)
+            slice_len = cp.ascontiguousarray(slice_len)
+            row_perm = cp.ascontiguousarray(row_perm)
+            old_to_new_phys_row = cp.ascontiguousarray(old_to_new_phys_row)
+            old_to_new_col = cp.ascontiguousarray(old_to_new_col)
+            new_row_nnz = cp.ascontiguousarray(new_row_nnz)
+
+            count_kernel(
+                grid=grid, block=block, 
+                args=[
+                    values.data.ptr, 
+                    colinds.data.ptr, 
+                    slice_ptr.data.ptr, 
+                    slice_len.data.ptr, 
+                    row_perm.data.ptr,
+                    old_to_new_phys_row.data.ptr, 
+                    old_to_new_col.data.ptr, 
+                    new_row_nnz.data.ptr,
+                    np.int32(old_NT),            
+                    np.int32(new_NT),            
+                    np.int32(self.slice_height),  
+                    np.int64(self.total_storage),
+                    np.int32(self.Z),             
+                    np.int32(self.X)             
+                ]
+            )
+            cp.cuda.Stream.null.synchronize()
+        else:
+            raise NotImplementedError("CPU mode requires Cython/Numba bindings for the fill kernels.")
+
+        new_row_nnz_cpu = cp.asnumpy(new_row_nnz) if on_gpu else new_row_nnz
+        old_row_perm, old_inv_row_perm = self.row_perm, self.inv_row_perm
+        
+        self.N, self.T = old_N, new_T
+        self.row_perm = np.arange(new_NT, dtype=np.int32)
+        self.inv_row_perm = np.empty(new_NT, dtype=np.int32)
+
+        new_row_nnz_cpu = self._apply_sigma_sorting(new_row_nnz_cpu, new_NT)
+        
+        new_row_perm = xp.array(self.row_perm)
+        new_inv_row_perm = xp.array(self.inv_row_perm)
+        self.row_perm, self.inv_row_perm = old_row_perm, old_inv_row_perm
+
+        # 6. RECONSTRUCTION slice_ptr / slice_len (Vectorisée)
+        new_slice_height = self.slice_height
+        new_num_slices = (new_NT + new_slice_height - 1) // new_slice_height
+        
+        padded_nnz = xp.pad(xp.array(new_row_nnz_cpu), (0, new_num_slices * new_slice_height - new_NT))
+        new_slice_len = xp.max(padded_nnz.reshape(new_num_slices, new_slice_height), axis=1).astype(xp.int32)
+
+        new_slice_ptr = xp.zeros(new_num_slices + 1, dtype=xp.int64)
+        new_slice_ptr[1:] = xp.cumsum(new_slice_len * new_slice_height)
+        new_total_storage = int(new_slice_ptr[-1])
+
+        # 7. REMPLISSAGE VIA KERNEL
+        new_sell_values = xp.zeros(new_total_storage, dtype=values.dtype)
+        new_sell_colinds = xp.zeros(new_total_storage, dtype=xp.uint32)
+
+        if on_gpu:
+            fill_kernel = self.sparse_mod.get_function("fill_after_truncation__SELL__REAL")
+            values = cp.ascontiguousarray(values)
+            colinds = cp.ascontiguousarray(colinds)
+            slice_ptr = cp.ascontiguousarray(slice_ptr)
+            slice_len = cp.ascontiguousarray(slice_len)
+            row_perm = cp.ascontiguousarray(row_perm)
+            old_to_new_phys_row = cp.ascontiguousarray(old_to_new_phys_row)
+            old_to_new_col = cp.ascontiguousarray(old_to_new_col)
+            new_inv_row_perm = cp.ascontiguousarray(new_inv_row_perm)
+            new_slice_ptr = cp.ascontiguousarray(new_slice_ptr)
+            new_slice_len = cp.ascontiguousarray(new_slice_len)
+            new_sell_values = cp.ascontiguousarray(new_sell_values)
+            new_sell_colinds = cp.ascontiguousarray(new_sell_colinds)
+
+            fill_kernel(
+                grid=grid, block=block, 
+                args=[
+                    values.data.ptr, 
+                    colinds.data.ptr, 
+                    slice_ptr.data.ptr, 
+                    slice_len.data.ptr,
+                    row_perm.data.ptr, 
+                    old_to_new_phys_row.data.ptr, 
+                    old_to_new_col.data.ptr,
+                    new_inv_row_perm.data.ptr, 
+                    new_slice_ptr.data.ptr, 
+                    new_slice_len.data.ptr,
+                    new_sell_values.data.ptr, 
+                    new_sell_colinds.data.ptr,
+                    np.int32(old_NT),            
+                    np.int32(self.slice_height), 
+                    np.int64(values.size),        
+                    np.int64(new_total_storage),
+                    np.int64(old_ZX)
+                ]
+            )
+            cp.cuda.Stream.null.synchronize()
+
+        # 8. MISE À JOUR DE L'OBJET
+        self.N, self.T, self.Z, self.X = old_N, new_T, new_Z, new_X
+        self.total_storage = new_total_storage
+        self.total_nnz = int(new_slice_len.sum() * new_slice_height)
+
+        # Vectorisation de sell_rowinds
+        self.sell_rowinds = xp.zeros(new_total_storage, dtype=xp.int32)
+        slice_indices = xp.repeat(xp.arange(new_num_slices), new_slice_len * new_slice_height)
+        row_offsets = xp.arange(new_total_storage) % new_slice_height
+        self.sell_rowinds = xp.minimum(slice_indices * new_slice_height + row_offsets, new_NT - 1).astype(xp.int32)
+
+        if on_gpu:
+            self.sell_values_gpu, self.sell_colinds_gpu = new_sell_values, new_sell_colinds
+            self.slice_ptr_gpu, self.slice_len_gpu = new_slice_ptr, new_slice_len
+            self.row_perm_gpu, self.inv_row_perm_gpu = new_row_perm, new_inv_row_perm
+            self.sell_rowinds_gpu = self.sell_rowinds
+            self.sell_values, self.sell_colinds = None, None
+        
+        self.row_perm, self.inv_row_perm = cp.asnumpy(new_row_perm), cp.asnumpy(new_inv_row_perm)
+
+        self.norm_factor_inv = None
+        if hasattr(self, "norm_factor_inv_gpu"):
+            self.norm_factor_inv_gpu = None
+
+        if recompute_norm:
+            self.compute_norm_factor()
+
+    

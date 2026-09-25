@@ -8,6 +8,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.t_interval_spec_mode import TIntervalSpecMode
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="TIntervalSpec")
@@ -19,10 +20,12 @@ class TIntervalSpec:
     Attributes:
         start (datetime.datetime | str):
         end (datetime.datetime | str | Unset):
+        mode (TIntervalSpecMode | Unset):
     """
 
     start: datetime.datetime | str
     end: datetime.datetime | str | Unset = UNSET
+    mode: TIntervalSpecMode | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -40,6 +43,10 @@ class TIntervalSpec:
         else:
             end = self.end
 
+        mode: str | Unset = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -49,6 +56,8 @@ class TIntervalSpec:
         )
         if end is not UNSET:
             field_dict["end"] = end
+        if mode is not UNSET:
+            field_dict["mode"] = mode
 
         return field_dict
 
@@ -84,9 +93,17 @@ class TIntervalSpec:
 
         end = _parse_end(d.pop("end", UNSET))
 
+        _mode = d.pop("mode", UNSET)
+        mode: TIntervalSpecMode | Unset
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = TIntervalSpecMode(_mode)
+
         t_interval_spec = cls(
             start=start,
             end=end,
+            mode=mode,
         )
 
         t_interval_spec.additional_properties = d

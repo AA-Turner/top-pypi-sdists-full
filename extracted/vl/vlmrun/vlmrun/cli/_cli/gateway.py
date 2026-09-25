@@ -13,7 +13,9 @@ such as ``zai-org/glm-ocr`` and ``paddleocr/pp-ocrv6``) do not accept
 text-only input.
 
 Commands: ``health``, ``models`` (list or detail one model), ``chat``,
-``embed`` (embeddings) and ``transcribe`` (audio transcriptions).
+``embed`` (embeddings), ``transcribe`` (audio transcriptions) and ``systemone``
+(typed decisions, which speak TypeSafe's contract rather than OpenAI's — see
+:mod:`vlmrun.cli._cli.gateway_systemone`).
 """
 
 from __future__ import annotations
@@ -40,10 +42,18 @@ from rich import box
 
 from vlmrun.client import VLMRun
 from vlmrun.client.gateway import _require_openai
+from vlmrun.cli._cli.gateway_systemone import SYSTEMONE_HELP, systemone
 from vlmrun.cli._cli.chat import (
     TimedStatus,
     format_file_size,
     handle_api_errors,
+)
+from vlmrun.common.mime import (
+    MAGIC_SIGNATURES,
+    guess_mime,
+    is_http_url,
+    sniff_mime,
+    suffix_from_url,
 )
 from vlmrun.constants import (
     SUPPORTED_DOCUMENT_FILETYPES,
@@ -92,6 +102,8 @@ and `vlmrun gw` are the same command.
 Start here:
   vlmrun gw models              See what is available (task + methods per model)
   vlmrun gw models <model>      Methods, params and copy-pasteable examples
+  vlmrun gw systemone --help    Typed, calibrated decisions over text and media
+                                (`vlmrun gw s1` is the same command)
 """
 
 app = typer.Typer(
@@ -101,58 +113,13 @@ app = typer.Typer(
 )
 
 
-# Magic-byte signatures, checked before the filename extension. Extensions lie
-# (a .jpg that is really WebP is common), and the gateway trusts the media type
-# we declare in the data URL, so a wrong one makes it misroute the file.
-_MAGIC_SIGNATURES: Tuple[Tuple[bytes, str], ...] = (
-    (b"\xff\xd8\xff", "image/jpeg"),
-    (b"\x89PNG\r\n\x1a\n", "image/png"),
-    (b"GIF87a", "image/gif"),
-    (b"GIF89a", "image/gif"),
-    (b"BM", "image/bmp"),
-    (b"II*\x00", "image/tiff"),
-    (b"MM\x00*", "image/tiff"),
-    (b"%PDF", "application/pdf"),
-)
-
-
-def _sniff_mime(data: bytes) -> Optional[str]:
-    """MIME type from a file's magic bytes, or None if unrecognized."""
-    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    if data[:4] == b"RIFF" and data[8:12] == b"AVI ":
-        return "video/x-msvideo"
-    if data[4:8] == b"ftyp":
-        return "video/mp4"
-    for signature, mime in _MAGIC_SIGNATURES:
-        if data.startswith(signature):
-            return mime
-    return None
-
-
-def _guess_mime(path: Path, data: Optional[bytes] = None) -> str:
-    """Best-effort MIME type for a local file, preferring its actual content."""
-    if data is None:
-        try:
-            with path.open("rb") as fh:
-                data = fh.read(16)
-        except OSError:
-            data = b""
-    sniffed = _sniff_mime(data)
-    if sniffed:
-        return sniffed
-    mime, _ = mimetypes.guess_type(str(path))
-    return mime or "application/octet-stream"
-
-
-def _is_http_url(value: str) -> bool:
-    """Return True if ``value`` looks like an http(s) URL."""
-    return value.startswith(("http://", "https://"))
-
-
-def _suffix_from_url(url: str) -> str:
-    """File extension from a URL path, ignoring query strings."""
-    return Path(urlparse(url).path).suffix.lower()
+# MIME sniffing and data-URL encoding live in vlmrun.common.mime so the client
+# resources (which must not import the CLI) share one magic-byte table.
+_MAGIC_SIGNATURES = MAGIC_SIGNATURES
+_sniff_mime = sniff_mime
+_guess_mime = guess_mime
+_is_http_url = is_http_url
+_suffix_from_url = suffix_from_url
 
 
 def _content_part_type_for_suffix(suffix: str, mime: Optional[str] = None) -> str:
@@ -376,9 +343,7 @@ def _grouped_model_rows(
     Returns model dicts with ``None`` markers between non-empty groups for
     table separators.
     """
-    buckets: dict[str, List[Dict[str, Any]]] = {
-        task: [] for task in _TASK_GROUP_ORDER
-    }
+    buckets: dict[str, List[Dict[str, Any]]] = {task: [] for task in _TASK_GROUP_ORDER}
     other: List[Dict[str, Any]] = []
 
     for row in rows:
@@ -712,7 +677,16 @@ def chat(
     no_stream: bool = typer.Option(
         False, "--no-stream", "-ns", help="Disable streaming."
     ),
-    output_json: bool = typer.Option(False, "--json", "-j", help="Output raw JSON."),
+    output_json: bool = typer.Option(
+        False,
+        "--json",
+        "-j",
+        help=(
+            "Output raw JSON. With --json-mode, prints the model's JSON object "
+            "(parsed) for piping to tools like jq; otherwise wraps content with "
+            "model, latency, and usage metadata."
+        ),
+    ),
     timeout: Optional[float] = typer.Option(
         None, "--timeout", help="Request timeout in seconds."
     ),
@@ -884,7 +858,9 @@ def chat(
     if output_json:
         print(
             json.dumps(
-                _build_chat_json(model, content, latency_s, usage),
+                _chat_cli_json_payload(
+                    model, content, latency_s, usage, json_mode=json_mode
+                ),
                 indent=2,
                 default=str,
             )
@@ -1028,7 +1004,6 @@ def _format_toks_per_sec(completion_tokens: int, generation_s: float) -> Optiona
     return f"{int(completion_tokens / generation_s)} toks/s"
 
 
-
 _DOCUMENT_OPEN_RE = re.compile(r"<document\b[^>]*>", re.IGNORECASE)
 _PAGE_COUNT_ATTR_RE = re.compile(
     r"(?:pages|num_pages)\s*=\s*['\"](\d+)['\"]",
@@ -1095,6 +1070,30 @@ def _build_chat_json(
         if rate is not None:
             out["pages_per_sec"] = rate
     return out
+
+
+def _chat_cli_json_payload(
+    model: str,
+    content: str,
+    latency_s: float,
+    usage: Any,
+    *,
+    json_mode: bool,
+) -> Any:
+    """Payload printed for ``gw chat --json``.
+
+    With ``--json-mode``, the model is asked for a JSON object; parse and emit
+    that object directly so callers can pipe to ``jq``. Otherwise wrap metadata
+    around the raw ``content`` string via :func:`_build_chat_json`.
+    """
+    if json_mode:
+        stripped = content.strip()
+        if stripped:
+            try:
+                return json.loads(stripped)
+            except (json.JSONDecodeError, ValueError):
+                pass
+    return _build_chat_json(model, content, latency_s, usage)
 
 
 def _format_pages_per_sec(pages: int, latency_s: float) -> Optional[str]:
@@ -1531,3 +1530,19 @@ def transcribe(
 
 if __name__ == "__main__":
     app()
+
+
+app.command(
+    name="systemone",
+    help=SYSTEMONE_HELP,
+    context_settings={"max_content_width": 120},
+)(systemone)
+
+# `s1` is the same command under a shorter name, hidden so `gw --help` lists it
+# once; the alias is documented in SYSTEMONE_HELP.
+app.command(
+    name="s1",
+    help=SYSTEMONE_HELP,
+    context_settings={"max_content_width": 120},
+    hidden=True,
+)(systemone)

@@ -236,6 +236,27 @@ def test_dag_condition_passed_to_low_level_task(schema):
     assert task.condition == "SYSTEM$STREAM_HAS_DATA('s')"
 
 
+def test_add_condition_escapes_single_quotes_in_task_name():
+    from snowflake.core.task.dagv1 import DAGTask, _add_condition
+
+    with DAG("test_dag"):
+        successor = DAGTask("a'OR TRUE OR 'x'='x", definition="select 1")
+    _add_condition("branch", successor)
+    assert "= 'a''OR TRUE OR ''x''=''x'" in successor.condition
+
+
+def test_add_condition_escapes_backslash_before_quote_in_task_name():
+    # Alone "\" immediately before a "'" would otherwise consume one quote of a doubled
+    # pair (Snowflake string literals treat "\" as an escape character), letting the rest
+    # of the value break out of the surrounding SQL string literal.
+    from snowflake.core.task.dagv1 import DAGTask, _add_condition
+
+    with DAG("test_dag"):
+        successor = DAGTask("x\\' OR TRUE -- ", definition="select 1")
+    _add_condition("branch", successor)
+    assert "= 'x\\\\'' OR TRUE -- '" in successor.condition
+
+
 class TestDAGOverlapPolicyBehavior:
     @pytest.mark.parametrize("overlap_policy", itertools.chain(OverlapPolicy, (None,)))
     def test_valid_constructions_with_overlap_policy(self, overlap_policy: OverlapPolicy | None):

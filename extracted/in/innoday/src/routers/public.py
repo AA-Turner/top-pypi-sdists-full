@@ -28,6 +28,7 @@ from src.domain.project import Project
 from src.domain.release import Release, ReleaseStatus
 from src.domain.ticket import Ticket, TicketStatus
 from src.env_loader import get_environment
+from src.middleware.rbac import is_platform_admin_request
 from src.version import get_version
 
 
@@ -68,9 +69,10 @@ class StatusResponse(BaseResponse):
     timestamp: datetime
     version: Optional[str] = None
     environment: str
-    port: int
-    env_file: str
-    db_host: str
+    #: Platform admins only (PF-459) -- omitted from the anonymous answer.
+    port: Optional[int] = None
+    env_file: Optional[str] = None
+    db_host: Optional[str] = None
     components: Dict[str, str]
     metrics: Optional[Dict[str, Any]] = None
 
@@ -142,24 +144,34 @@ async def health_check(
     )
 
 
-@router.get("/status", response_model=StatusResponse)
+@router.get("/status", response_model=StatusResponse, response_model_exclude_none=True)
 async def system_status(
     request: Request, db: Session = Depends(get_session)
 ) -> StatusResponse:
     """
-    Detailed system status endpoint.
+    System status: status, version, environment and components for anyone.
 
-    Returns comprehensive status of all system components.
+    **Port, env file, database host and row counts go to a platform admin
+    only** (PF-459). They told a stranger which database this deployment
+    uses and how big it is. Anonymous and non-admin callers get the same
+    response minus those four fields -- no 401, so `innoday status`'s
+    unauthenticated reachability check still works.
     """
     components = {}
+    # Decided first, so the per-table counts below run only for an admin: they
+    # are thrown away for everyone else (PF-459 review).
+    is_admin = is_platform_admin_request(request, db)
+    metrics = None
 
     # Check database
     try:
         result = db.execute(text("SELECT COUNT(*) FROM organizations"))
         result.scalar()
         components["database"] = "operational"
+    except Exception:
+        components["database"] = "error"
 
-        # Get table counts for metrics
+    if is_admin and components["database"] == "operational":
         metrics = {}
         for table in [
             "organizations",
@@ -174,9 +186,6 @@ async def system_status(
                 metrics[f"{table}_count"] = result.scalar()
             except Exception:
                 metrics[f"{table}_count"] = 0
-    except Exception:
-        components["database"] = "error"
-        metrics = None
 
     # Check API
     components["api"] = "operational"
@@ -198,9 +207,15 @@ async def system_status(
 
     version = get_version()
 
-    port = getattr(request.app.state, "port", None) or int(os.getenv("PORT", 8002))
-    env_file = getattr(request.app.state, "env_file", "(unknown)")
-    db_host = _extract_db_host(os.getenv("DATABASE_URL", ""))
+    detail: Dict[str, Any] = {}
+    if is_admin:
+        detail = {
+            "port": getattr(request.app.state, "port", None)
+            or int(os.getenv("PORT", 8002)),
+            "env_file": getattr(request.app.state, "env_file", "(unknown)"),
+            "db_host": _extract_db_host(os.getenv("DATABASE_URL", "")),
+            "metrics": metrics,
+        }
 
     return StatusResponse(
         status=(
@@ -209,11 +224,8 @@ async def system_status(
         timestamp=datetime.now(timezone.utc),
         version=version,
         environment=environment,
-        port=port,
-        env_file=env_file,
-        db_host=db_host,
         components=components,
-        metrics=metrics,
+        **detail,
     )
 
 
@@ -379,15 +391,30 @@ _application_hits: Dict[str, List[datetime]] = {}
 
 
 def _client_address(request: Request) -> str:
-    """The applicant's address, as the proxy in front of us reports it."""
+    """The applicant's address, as the one proxy in front of us reports it.
+
+    **``X-Real-IP`` first**: Railway documents it as the header its edge sets
+    to the client's remote address (docs.railway.com, Public Networking > Specs
+    & Limits). Then the **right-most** ``X-Forwarded-For`` entry, never the
+    left-most -- everything left of the last hop is whatever the client sent,
+    so keying on the first entry let a script reset its limit by inventing a
+    new address per request (PF-459). Both assume Railway's edge is the only
+    proxy; a CDN in front would need this revisited.
+
+    ``request.client.host`` is only the fallback. uvicorn runs with its default
+    ``forwarded_allow_ips`` (127.0.0.1), so behind Railway it is the edge's own
+    address -- one bucket shared by every applicant -- and is right only when
+    no proxy is in front at all (local dev, tests).
+    """
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    if real_ip:
+        return real_ip
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        first = forwarded.split(",")[0].strip()
-        if first:
-            return first
-    return request.headers.get("x-real-ip") or (
-        request.client.host if request.client else "unknown"
-    )
+        last = forwarded.split(",")[-1].strip()
+        if last:
+            return last
+    return request.client.host if request.client else "unknown"
 
 
 def _too_many_from(address: str) -> bool:

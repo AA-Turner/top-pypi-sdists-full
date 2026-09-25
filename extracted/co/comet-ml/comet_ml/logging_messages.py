@@ -948,6 +948,11 @@ API_SET_PROJECT_OWNER_UNSUPPORTED_BACKEND_VERSION_ERROR = (
 
 API_EXPERIMENT_MISSING_API_EXCEPTION = "need APIExperiment(api=API) for this usage"
 
+API_CLIENT_CANNOT_REFRESH_API_KEY_DEBUG = (
+    "The REST API client does not support updating its api key; "
+    "keeping the one it was created with"
+)
+
 API_EXPERIMENT_WORKSPACE_AND_PROJECT_MISSING_EXCEPTION = (
     "workspace and project_name must be provided for new APIExperiment()"
 )

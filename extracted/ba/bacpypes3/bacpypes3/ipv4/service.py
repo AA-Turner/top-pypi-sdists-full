@@ -8,9 +8,10 @@ import asyncio
 from asyncio.exceptions import TimeoutError
 from typing import Callable, Dict, List, Optional, cast
 
-from ..comm import ApplicationServiceElement, Client, Server, ServiceAccessPoint
-from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
-from ..pdu import PDU, Address, IPv4Address, LocalBroadcast
+from ..debugging import ModuleLogger, DebugContents, bacpypes_debugging
+from ..comm import Client, Server, ServiceAccessPoint, ApplicationServiceElement
+from ..pdu import Address, LocalBroadcast, IPv4Address, PDU
+
 from .bvll import (
     LPDU,
     DeleteForeignDeviceTableEntry,
@@ -306,7 +307,15 @@ class BIPNormal(BVLLServiceAccessPoint):
             BIPNormal._debug("confirmation %r", lpdu)
 
         # some kind of response to a request
-        if isinstance(lpdu, Result) or isinstance(lpdu, ReadBroadcastDistributionTableAck) or isinstance(lpdu, ReadForeignDeviceTableAck):
+        if isinstance(lpdu, Result):
+            # send this to the service access point
+            await self.sap_response(lpdu)
+
+        elif isinstance(lpdu, ReadBroadcastDistributionTableAck):
+            # send this to the service access point
+            await self.sap_response(lpdu)
+
+        elif isinstance(lpdu, ReadForeignDeviceTableAck):
             # send this to the service access point
             await self.sap_response(lpdu)
 
@@ -581,7 +590,11 @@ class BIPForeign(BVLLServiceAccessPoint, DebugContents):
             # send it upstream
             await self.response(pdu)
 
-        elif isinstance(lpdu, ReadBroadcastDistributionTableAck) or isinstance(lpdu, ReadForeignDeviceTableAck):
+        elif isinstance(lpdu, ReadBroadcastDistributionTableAck):
+            # send this to the service access point
+            await self.sap_response(lpdu)
+
+        elif isinstance(lpdu, ReadForeignDeviceTableAck):
             # send this to the service access point
             await self.sap_response(lpdu)
 

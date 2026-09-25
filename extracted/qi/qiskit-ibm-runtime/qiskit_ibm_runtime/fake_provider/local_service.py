@@ -26,15 +26,17 @@ from qiskit.providers.exceptions import QiskitBackendNotFoundError
 from qiskit.providers.providerutils import filter_backends
 
 from ..ibm_backend import IBMBackend
+from .executor.run_quantum_program import run_quantum_program
 from .fake_provider import FakeProviderForBackendV2
 from .local_runtime_job import LocalRuntimeJob
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from qiskit.primitives.primitive_job import PrimitiveJob
     from qiskit.providers.backend import BackendV2
 
+    from ..options_models.simulator import SimulatorOptions
+    from ..quantum_program import QuantumProgram
     from ..runtime_options import RuntimeOptions
     from .fake_backend import FakeBackendV2
 
@@ -43,6 +45,9 @@ logger = logging.getLogger(__name__)
 
 class QiskitRuntimeLocalService:
     """Class for local testing mode."""
+
+    is_local: bool = True
+    """Whether the service is local or remote."""
 
     def backend(
         self,
@@ -151,7 +156,8 @@ class QiskitRuntimeLocalService:
         inputs: dict,
         options: RuntimeOptions | dict,
         calibration_id: str | None,
-    ) -> PrimitiveJob:
+        dry_run: bool = False,
+    ) -> LocalRuntimeJob:
         """Execute the runtime program.
 
         Args:
@@ -160,6 +166,13 @@ class QiskitRuntimeLocalService:
                 to the IBM Quantum Compute program.
             options: Runtime options that control the execution environment.
             calibration_id: The calibration id to use with the program execution
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
+                This parameter is ignored in a local service.
 
         Returns:
             A job representing the execution.
@@ -168,6 +181,9 @@ class QiskitRuntimeLocalService:
             ValueError: If input is invalid.
             NotImplementedError: If using V2 primitives.
         """
+        if dry_run:
+            warnings.warn("`dry-run` has no effect in local testing mode.")
+
         if isinstance(options, dict):
             qrt_options = copy.deepcopy(options)
         else:
@@ -207,7 +223,7 @@ class QiskitRuntimeLocalService:
         primitive: Literal["sampler", "estimator"],
         options: dict,
         inputs: dict,
-    ) -> PrimitiveJob:
+    ) -> LocalRuntimeJob:
         """Run V2 backend primitive.
 
         Args:
@@ -284,3 +300,42 @@ class QiskitRuntimeLocalService:
         )
 
         return local_runtime_job
+
+    def _run_executor(
+        self,
+        backend: BackendV2,
+        options: SimulatorOptions,
+        inputs: QuantumProgram,
+        dry_run: bool = False,
+    ) -> LocalRuntimeJob:
+        """Run an executor program.
+
+        Args:
+            backend: The backend to run the executor program on.
+            options: Simulator options to use.
+            inputs: The executor program to run.
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
+                This parameter is ignored in a local service.
+
+        Returns:
+            The job object that runs the program.
+        """
+        if dry_run:
+            warnings.warn("`dry-run` has no effect in local testing mode.")
+
+        job = LocalRuntimeJob(
+            function=run_quantum_program,
+            backend=backend,
+            primitive="executor",
+            inputs=inputs,
+            options=options,
+        )
+
+        job._submit()
+
+        return job

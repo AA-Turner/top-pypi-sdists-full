@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-import sys
+import logging
 
 from pybind11_stubgen.structs import (
     Alias,
@@ -24,14 +24,128 @@ from pybind11_stubgen.structs import (
     Value,
 )
 
+log = logging.getLogger("pybind11_stubgen")
+
 
 def indent_lines(lines: list[str], by=4) -> list[str]:
     return [" " * by + line for line in lines]
 
 
+def _referenced_local_dependency_name(expr: str) -> str | None:
+    """Extract the local dependency name from a dotted identifier expression.
+
+    Returns the first component if *expr* is a valid dotted identifier
+    (e.g. ``"ParIter"`` -> ``"ParIter"``, ``"Outer.Inner"`` -> ``"Outer"``),
+    or ``None`` for anything else (literals, calls, etc.).
+    """
+    parts = expr.split(".")
+    if not parts or any(not part.isidentifier() for part in parts):
+        return None
+    return parts[0]
+
+
+def _topological_sort_classes(classes: list[Class]) -> list[Class]:
+    """Sort classes so that dependencies appear before dependents.
+
+    Considers two kinds of edges:
+    - Inheritance: base classes must appear before derived classes.
+    - Runtime references: class-body aliases (``Foo = Bar``) and field
+      values that name a sibling class are executable at import time,
+      so the referenced class must already be defined.
+      (``from __future__ import annotations`` only defers *type annotations*,
+      not attribute/alias assignments.)
+
+    Uses Kahn's algorithm. Ties are broken by input position for stability.
+    Only references whose first identifier component names a sibling class in
+    the current scope contribute edges. External references are ignored.
+    """
+    if not classes:
+        return classes
+
+    name_to_index = {c.name: i for i, c in enumerate(classes)}
+    name_to_class = {c.name: c for c in classes}
+
+    # Build adjacency list: dependency -> [dependent, ...]
+    # and in-degree count for each class
+    children: dict[str, list[str]] = {c.name: [] for c in classes}
+    in_degree: dict[str, int] = {c.name: 0 for c in classes}
+    seen_edges: set[tuple[str, str]] = set()
+
+    def _add_edge(dependency: str, dependent: str) -> None:
+        edge = (dependency, dependent)
+        if edge in seen_edges:
+            return
+        seen_edges.add(edge)
+        children[dependency].append(dependent)
+        in_degree[dependent] += 1
+
+    for c in classes:
+        # Inheritance edges: base -> derived
+        for base in c.bases:
+            base_name = str(base[0])
+            if base_name in name_to_class:
+                _add_edge(base_name, c.name)
+
+        # Alias edges: ``Iterator = ParIter`` is a runtime assignment
+        for alias in c.aliases:
+            origin_name = str(alias.origin[0])
+            if origin_name in name_to_class and origin_name != c.name:
+                _add_edge(origin_name, c.name)
+
+        # Field-value edges: a print-safe field like ``Iterator = ParIter``
+        # (parsed as a Field rather than an Alias in some configurations)
+        for field in c.fields:
+            val = field.attribute.value
+            if val is not None and val.is_print_safe:
+                val_name = _referenced_local_dependency_name(val.repr)
+                if (
+                    val_name is not None
+                    and val_name in name_to_class
+                    and val_name != c.name
+                ):
+                    _add_edge(val_name, c.name)
+
+    # Initialize queue with zero in-degree classes, sorted by input position
+    queue = sorted(
+        [name for name, deg in in_degree.items() if deg == 0],
+        key=lambda n: name_to_index[n],
+    )
+
+    result = []
+    while queue:
+        name = queue.pop(0)
+        result.append(name_to_class[name])
+        # Sort children by input position for stable ordering
+        for child in sorted(children[name], key=lambda n: name_to_index[n]):
+            in_degree[child] -= 1
+            if in_degree[child] == 0:
+                queue.append(child)
+        # Re-sort queue to maintain input-position priority
+        queue.sort(key=lambda n: name_to_index[n])
+
+    if len(result) < len(classes):
+        remaining = [c for c in classes if c.name not in {r.name for r in result}]
+        log.warning(
+            "Cycle detected in class dependencies involving: %s. "
+            "Appending in original order.",
+            [c.name for c in remaining],
+        )
+        result.extend(remaining)
+
+    return result
+
+
 class Printer:
-    def __init__(self, invalid_expr_as_ellipses: bool):
+    def __init__(
+        self,
+        invalid_expr_as_ellipses: bool,
+        print_value_comments: bool = False,
+    ):
         self.invalid_expr_as_ellipses = invalid_expr_as_ellipses
+        self.print_value_comments = print_value_comments
+
+    def _order_classes(self, classes: list[Class]) -> list[Class]:
+        return _topological_sort_classes(classes)
 
     def print_alias(self, alias: Alias) -> list[str]:
         return [f"{alias.name} = {alias.origin}"]
@@ -48,10 +162,13 @@ class Printer:
         else:
             if attr.annotation is None:
                 parts.append(" = ...")
-            if attr.value is not None:
+            if attr.value is not None and self.print_value_comments:
                 parts.append(f"  # value = {self.print_value(attr.value)}")
 
-        return ["".join(parts)]
+        result = ["".join(parts)]
+        if attr.doc:
+            result.extend(self.print_docstring(attr.doc))
+        return result
 
     def print_argument(self, arg: Argument) -> str:
         parts = []
@@ -90,7 +207,7 @@ class Printer:
         if class_.doc is not None:
             result.extend(self.print_docstring(class_.doc))
 
-        for sub_class in sorted(class_.classes, key=lambda c: c.name):
+        for sub_class in self._order_classes(class_.classes):
             result.extend(self.print_class(sub_class))
 
         modifier_order: dict[Modifier, int] = {
@@ -124,7 +241,7 @@ class Printer:
             '"""',
             *(
                 line.replace("\\", r"\\").replace('"""', r"\"\"\"")
-                for line in doc.splitlines()
+                for line in doc.lstrip("\n").splitlines()
             ),
             '"""',
         ]
@@ -143,19 +260,25 @@ class Printer:
                 kw_only = True
             if not pos_only and not arg.pos_only:
                 pos_only = True
-                if sys.version_info >= (3, 8):
-                    args.append("/")
+                args.append("/")
             if not kw_only and arg.kw_only:
                 kw_only = True
                 args.append("*")
             args.append(self.print_argument(arg))
         if len(args) > 0 and args[0] == "/":
             args = args[1:]
-        signature = [
-            f"def {func.name}(",
-            ", ".join(args),
-            ")",
-        ]
+        signature = [f"def {func.name}"]
+
+        if func.type_vars:
+            signature.extend(["[", ", ".join(func.type_vars), "]"])
+
+        signature.extend(
+            [
+                "(",
+                ", ".join(args),
+                ")",
+            ]
+        )
 
         if func.returns is not None:
             signature.append(f" -> {self.print_annotation(func.returns)}")
@@ -210,7 +333,7 @@ class Printer:
         if module.doc is not None:
             result.extend(self.print_docstring(module.doc))
 
-        for import_ in sorted(module.imports, key=lambda x: x.origin):
+        for import_ in sorted(module.imports, key=lambda x: (x.origin, x.name or "")):
             result.extend(self.print_import(import_))
 
         for sub_module in module.sub_modules:
@@ -225,7 +348,7 @@ class Printer:
         for type_var in sorted(module.type_vars, key=lambda t: t.name):
             result.extend(self.print_type_var(type_var))
 
-        for class_ in sorted(module.classes, key=lambda c: c.name):
+        for class_ in self._order_classes(module.classes):
             result.extend(self.print_class(class_))
 
         for func in sorted(module.functions, key=lambda f: f.name):

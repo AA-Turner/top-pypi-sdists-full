@@ -323,6 +323,9 @@ __all__ = (
     "ProviderInputTypeDef",
     "ProviderResourceCapabilitiesTypeDef",
     "ReportDestinationTypeDef",
+    "ReportFiltersOutputTypeDef",
+    "ReportFiltersTypeDef",
+    "ReportFiltersUnionTypeDef",
     "ResponseMetadataTypeDef",
     "SecurityRequirementArtifactTypeDef",
     "SecurityRequirementPackSummaryTypeDef",
@@ -657,6 +660,12 @@ class ExecutionContextTypeDef(TypedDict):
     context: NotRequired[str]
     timestamp: NotRequired[datetime]
 
+class ReportDestinationTypeDef(TypedDict):
+    integrationId: str
+    containerId: str
+    parentId: NotRequired[str]
+    documentId: NotRequired[str]
+
 class StepTypeDef(TypedDict):
     name: NotRequired[StepNameType]
     status: NotRequired[StepStatusType]
@@ -669,6 +678,16 @@ class CodeReviewSummaryTypeDef(TypedDict):
     title: str
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+
+class ReportFiltersOutputTypeDef(TypedDict):
+    riskLevels: NotRequired[list[RiskLevelType]]
+    confidenceLevels: NotRequired[list[ConfidenceLevelType]]
+    statuses: NotRequired[list[FindingStatusType]]
+    riskTypes: NotRequired[list[RiskTypeType]]
+    findingTypes: NotRequired[list[str]]
+    taskStatuses: NotRequired[list[TaskExecutionStatusType]]
+    annotationNotes: NotRequired[bool]
+    complianceReport: NotRequired[bool]
 
 class ConfluenceDocumentMetadataTypeDef(TypedDict):
     name: str
@@ -726,12 +745,6 @@ ThreatAnchorShapeTypeDef = TypedDict(
 class ThreatEvidenceShapeTypeDef(TypedDict):
     packageId: NotRequired[str]
     path: NotRequired[str]
-
-class ReportDestinationTypeDef(TypedDict):
-    integrationId: str
-    containerId: str
-    parentId: NotRequired[str]
-    documentId: NotRequired[str]
 
 class CustomHeaderTypeDef(TypedDict):
     name: NotRequired[str]
@@ -1146,6 +1159,16 @@ class ServiceManagedInputTypeDef(TypedDict):
     portRanges: NotRequired[Sequence[str]]
     certificate: NotRequired[str]
     dnsResolution: NotRequired[ResourceConfigDnsResolutionType]
+
+class ReportFiltersTypeDef(TypedDict):
+    riskLevels: NotRequired[Sequence[RiskLevelType]]
+    confidenceLevels: NotRequired[Sequence[ConfidenceLevelType]]
+    statuses: NotRequired[Sequence[FindingStatusType]]
+    riskTypes: NotRequired[Sequence[RiskTypeType]]
+    findingTypes: NotRequired[Sequence[str]]
+    taskStatuses: NotRequired[Sequence[TaskExecutionStatusType]]
+    annotationNotes: NotRequired[bool]
+    complianceReport: NotRequired[bool]
 
 class StartCodeRemediationInputTypeDef(TypedDict):
     agentSpaceId: str
@@ -1929,6 +1952,8 @@ class PrivateConnectionModeTypeDef(TypedDict):
     serviceManaged: NotRequired[ServiceManagedInputTypeDef]
     selfManaged: NotRequired[SelfManagedInputTypeDef]
 
+ReportFiltersUnionTypeDef = Union[ReportFiltersTypeDef, ReportFiltersOutputTypeDef]
+
 class VerificationScriptTypeDef(TypedDict):
     scriptType: NotRequired[str]
     scriptUrl: NotRequired[str]
@@ -2053,6 +2078,7 @@ class CodeReviewJobTypeDef(TypedDict):
     integratedRepositories: NotRequired[list[IntegratedRepositoryTypeDef]]
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2072,6 +2098,7 @@ class ThreatModelJobTypeDef(TypedDict):
     scopeDocs: NotRequired[list[DocumentInfoTypeDef]]
     errorInformation: NotRequired[ErrorInformationTypeDef]
     systemOverview: NotRequired[str]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
 
 CreateIntegrationInputTypeDef = TypedDict(
     "CreateIntegrationInputTypeDef",
@@ -2170,6 +2197,7 @@ class PentestJobTypeDef(TypedDict):
     maxTaskHours: NotRequired[float]
     jobType: NotRequired[JobTypeType]
     selectedFindingIds: NotRequired[list[str]]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2266,6 +2294,8 @@ class CodeReviewTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersOutputTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2281,6 +2311,8 @@ class CreateCodeReviewOutputTypeDef(TypedDict):
     codeRemediationStrategy: CodeRemediationStrategyType
     validationMode: ValidationModeType
     maxTaskHours: float
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreatePentestOutputTypeDef(TypedDict):
@@ -2293,6 +2325,8 @@ class CreatePentestOutputTypeDef(TypedDict):
     serviceRole: str
     logConfig: CloudWatchLogTypeDef
     agentSpaceId: str
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateThreatModelOutputTypeDef(TypedDict):
@@ -2306,6 +2340,7 @@ class CreateThreatModelOutputTypeDef(TypedDict):
     logConfig: CloudWatchLogTypeDef
     createdAt: datetime
     updatedAt: datetime
+    reportDestination: ReportDestinationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PentestTypeDef(TypedDict):
@@ -2322,6 +2357,8 @@ class PentestTypeDef(TypedDict):
     cleanUpStrategy: NotRequired[CleanUpStrategyType]
     disableManagedSkills: NotRequired[list[SkillTypeType]]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersOutputTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2334,6 +2371,7 @@ class ThreatModelTypeDef(TypedDict):
     scopeDocs: NotRequired[list[DocumentInfoTypeDef]]
     serviceRole: NotRequired[str]
     logConfig: NotRequired[CloudWatchLogTypeDef]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
@@ -2349,6 +2387,8 @@ class UpdateCodeReviewOutputTypeDef(TypedDict):
     codeRemediationStrategy: CodeRemediationStrategyType
     validationMode: ValidationModeType
     maxTaskHours: float
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdatePentestOutputTypeDef(TypedDict):
@@ -2361,6 +2401,8 @@ class UpdatePentestOutputTypeDef(TypedDict):
     serviceRole: str
     logConfig: CloudWatchLogTypeDef
     agentSpaceId: str
+    reportDestination: ReportDestinationTypeDef
+    reportFilters: ReportFiltersOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateThreatModelOutputTypeDef(TypedDict):
@@ -2374,6 +2416,7 @@ class UpdateThreatModelOutputTypeDef(TypedDict):
     logConfig: CloudWatchLogTypeDef
     createdAt: datetime
     updatedAt: datetime
+    reportDestination: ReportDestinationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 AssetsUnionTypeDef = Union[AssetsTypeDef, AssetsOutputTypeDef]
@@ -2447,6 +2490,8 @@ class CreateCodeReviewInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
 
 class CreatePentestInputTypeDef(TypedDict):
     title: str
@@ -2460,6 +2505,8 @@ class CreatePentestInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     disableManagedSkills: NotRequired[Sequence[SkillTypeType]]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
 
 class CreateThreatModelInputTypeDef(TypedDict):
     title: str
@@ -2481,6 +2528,8 @@ class UpdateCodeReviewInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     validationMode: NotRequired[ValidationModeType]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
 
 class UpdatePentestInputTypeDef(TypedDict):
     pentestId: str
@@ -2495,6 +2544,8 @@ class UpdatePentestInputTypeDef(TypedDict):
     codeRemediationStrategy: NotRequired[CodeRemediationStrategyType]
     disableManagedSkills: NotRequired[Sequence[SkillTypeType]]
     maxTaskHours: NotRequired[float]
+    reportDestination: NotRequired[ReportDestinationTypeDef]
+    reportFilters: NotRequired[ReportFiltersUnionTypeDef]
 
 class UpdateThreatModelInputTypeDef(TypedDict):
     threatModelId: str
@@ -2505,3 +2556,4 @@ class UpdateThreatModelInputTypeDef(TypedDict):
     scopeDocs: NotRequired[Sequence[DocumentInfoTypeDef]]
     serviceRole: NotRequired[str]
     logConfig: NotRequired[CloudWatchLogTypeDef]
+    reportDestination: NotRequired[ReportDestinationTypeDef]

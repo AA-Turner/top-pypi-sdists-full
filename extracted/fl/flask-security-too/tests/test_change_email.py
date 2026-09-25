@@ -46,7 +46,9 @@ def capture_change_email_requests():
         change_email_instructions_sent.disconnect(_on)
 
 
-@pytest.mark.settings(change_email_error_view="/change-email")
+@pytest.mark.settings(
+    change_email_error_view="/change-email", change_email_within=timedelta(seconds=67)
+)
 def test_ce(app, clients, get_message, outbox):
     @change_email_confirmed.connect_via(app)
     def _on(app, **kwargs):
@@ -66,7 +68,7 @@ def test_ce(app, clients, get_message, outbox):
         assert "matt2@lp.com" == ce_requests[0]["new_email"]
         token = ce_requests[0]["token"]
     assert len(outbox) == 1
-    assert app.config["SECURITY_CHANGE_EMAIL_WITHIN"] in outbox[0].body
+    assert "1 minute and 7 seconds" in outbox[0].body
 
     response = clients.get("/change-email/" + token, follow_redirects=True)
     assert get_message("CHANGE_EMAIL_CONFIRMED") in response.data
@@ -118,7 +120,7 @@ def test_ce_json(app, client, get_message, outbox):
 
 
 @pytest.mark.settings(
-    change_email_within="1 milliseconds", change_email_error_view="/change-email"
+    change_email_within=timedelta(minutes=36), change_email_error_view="/change-email"
 )
 def test_expired_token(client, get_message):
     # Note that we need relatively new-ish date since session cookies also expire.
@@ -131,10 +133,15 @@ def test_expired_token(client, get_message):
         token = ce_requests[0]["token"]
 
     response = client.get("/change-email/" + token, follow_redirects=True)
-    msg = get_message("CHANGE_EMAIL_EXPIRED", within="1 milliseconds")
+    msg = get_message("CHANGE_EMAIL_EXPIRED", within="36 minutes")
     assert msg in response.data
 
 
+@pytest.mark.settings(
+    change_email_within=timedelta(minutes=90),
+    change_email_email_template="security/email/change_email_instructions_test",
+    email_html=False,
+)
 def test_template(app, client, get_message, outbox):
     # Check contents of email template - this uses a test template
     # to check all context vars since the default template
@@ -150,12 +157,30 @@ def test_template(app, client, get_message, outbox):
         assert matcher[1].split(":")[1] == "matt@lp.com"
         assert matcher[2].split(":")[1] == ce_requests[0]["token"]
         assert matcher[3].split(":")[1] == "True"  # register_blueprint
-        assert matcher[4].split(":")[1] == "2 hours"
+        assert matcher[4].split(":")[1] == "1 hour and 30 minutes"  # within
+        # entire original template is included in this test one
+        assert "This link will expire in 1 hour and 30 minutes." in outbox[0].body
 
         # check link
         _, link = matcher[0].split(":", 1)
         response = client.get(link, follow_redirects=True)
         assert get_message("CHANGE_EMAIL_CONFIRMED") in response.data
+
+
+@pytest.mark.settings(
+    change_email_email_template="security/email/change_email_instructions_test",
+    email_html=False,
+)
+@pytest.mark.parametrize("humanizer", ["fr_FR"], indirect=["humanizer"])
+def test_template_fr(app, client, get_message, outbox, humanizer):
+    # Check contents of email template - with humanize xlation of within
+    authenticate(client, email="matt@lp.com")
+    with capture_change_email_requests():
+        client.post("/change-email", data=dict(email="matt2@lp.com"))
+        # check email
+        assert outbox[0].recipients[0] == "matt2@lp.com"
+        matcher = re.findall(r"\w+:.*", outbox[0].body, re.IGNORECASE)
+        assert matcher[4].split(":")[1] == "2 heures"
 
 
 @pytest.mark.settings(return_generic_responses=True)

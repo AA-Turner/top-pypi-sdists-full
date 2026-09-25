@@ -228,8 +228,72 @@ def resolve_outbound_params(
     return params
 
 
+def resolve_structural_setting(
+    value: Any,
+    key: str,
+    controls: CompiledControlsMap,
+    *,
+    model: Any = "?",
+) -> Any:
+    """Apply the api/offering control rule for ONE translator-owned (structural) key.
+
+    Structural keys (``tool_choice`` today) never ride the scalar param seam:
+    each translator converts the canonical value into its own wire shape
+    (Anthropic ``{"type": "any"}``, Google ``FunctionCallingConfig(mode="ANY")``).
+    Before this helper that meant the rule a catalog row declared for such a key
+    was UI-only: ``ai.model_config`` narrowed the dropdown, but a stored preset or
+    raw API caller still reached the hardcoded switch — e.g. ``tool_choice=
+    "required"`` became ``{"type": "any"}`` and 400'd on Claude Opus 5.5 / Fable
+    5.1, which reject forced tool use.
+
+    Now the translator asks the rule first. The rule is applied through the SAME
+    ``CompiledControlsMap.outbound`` pass as every scalar key — a one-rule copy of
+    the map, so ``supported`` / ``value_map`` / ``on_unmapped`` (incl. "nearest"
+    via the canonical value order) / ``clamp`` / ``const`` behave identically and
+    no processor or other key's default fires. Adjustments are voiced exactly like
+    ``resolve_outbound_params``: server banner always, client warning on an
+    UNEXPECTED drop (THE EQUIVALENCE LAW).
+
+    Returns the canonical-vocabulary value the translator should shape, or
+    ``None`` when the rule eliminated it (the translator then sends nothing and
+    the provider default applies). A key with NO rule is returned unchanged —
+    offerings that declare nothing behave exactly as before.
+    """
+    if value is None or key not in controls.rules:
+        return value
+    rule = controls.rules[key]
+    single = controls.model_copy(update={"rules": {key: rule}})
+    params, adjustments = single.outbound({key: value})
+    if adjustments:
+        vcprint(
+            data=[
+                {
+                    "key": adj.key,
+                    "action": adj.action,
+                    "requested": adj.canonical_value,
+                    "sent": adj.sent_value,
+                    "reason": adj.reason,
+                }
+                for adj in adjustments
+            ],
+            title=(
+                f"⚠️  CAPABILITY ADJUSTMENT [{model}]: structural '{key}' adjusted by "
+                "the api/offering control rules — the request proceeds with the "
+                "adjusted value."
+            ),
+            color="yellow",
+            verbose=True,
+        )
+        warn_client_about_dropped_settings(adjustments, model=model)
+    from matrx_ai.catalog.controls import flatten_dotted  # local: circular-by-design
+
+    flat = flatten_dotted(params)
+    return flat.get(rule.provider_key or key)
+
+
 __all__ = [
     "drop_foreign_canonical_keys",
     "resolve_outbound_params",
+    "resolve_structural_setting",
     "warn_client_about_dropped_settings",
 ]

@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
 from src.cli.client import APIError, InnoDayAPIClient
+from src.cli.utils import guidance
 from src.cli.utils.formatters import (
     OutputFormatter,
     ProgressReporter,
@@ -334,11 +335,7 @@ class TicketCommands:
 
         # Check organization is configured
         if not config.get_current_organization():
-            console.print(
-                format_error(
-                    "Organization not configured. Run 'innoday config init' first."
-                )
-            )
+            console.print(format_error(guidance.NO_PROJECT))
             return 1
 
         # Create formatter

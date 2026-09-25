@@ -52,7 +52,7 @@ class DeploymentRuleOptionsMonitor(ModelNormal):
         **kwargs,
     ):
         """
-        Monitor options for deployment rules.
+        Monitor query options for deployment rules.
 
         :param duration: Seconds the monitor needs to stay in OK status for the rule to pass.
         :type duration: int, optional
@@ -63,7 +63,7 @@ class DeploymentRuleOptionsMonitor(ModelNormal):
         :param fail_on_no_groups_found: Whether the rule should fail if no monitor groups are found for the query.
         :type fail_on_no_groups_found: bool, optional
 
-        :param query: Monitors that match this query are evaluated.
+        :param query: A query that selects the monitors to evaluate.
         :type query: str
 
         :param warmup: Seconds to wait after a deployment starts before evaluating the monitor's status.

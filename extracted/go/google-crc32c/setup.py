@@ -16,14 +16,19 @@ import logging
 import os
 import platform
 import shutil
+
 import setuptools
 import setuptools.command.build_ext
 
 _EXTRA_DLL = "extra-dll"
 _DLL_FILENAME = "crc32c.dll"
 
-# Explicit environment variable disables pure-Python fallback
-CRC32C_PURE_PYTHON_EXPLICIT = "CRC32C_PURE_PYTHON" in os.environ
+# Explicit environment variable or Kokoro CI disables pure-Python fallback
+CRC32C_PURE_PYTHON_EXPLICIT = (
+    "CRC32C_PURE_PYTHON" in os.environ
+    or "KOKORO_BUILD_ID" in os.environ
+    or "KOKORO_JOB_NAME" in os.environ
+)
 _FALSE_OPTIONS = ("0", "false", "no", "False", "No", None)
 CRC32C_PURE_PYTHON = os.getenv("CRC32C_PURE_PYTHON") not in _FALSE_OPTIONS
 
@@ -65,7 +70,7 @@ def build_c_extension():
     if install_prefix is not None:
         install_prefix = os.path.normcase(install_prefix)
         print(f"#### using local install of 'crc32c': {install_prefix!r}")
-        #assert os.path.isdir(install_prefix)
+        # assert os.path.isdir(install_prefix)
         install_prefix = os.path.realpath(install_prefix)
         include_dirs = [os.path.join(install_prefix, "include")]
         library_dirs = [os.path.join(install_prefix, "lib")]
@@ -91,14 +96,11 @@ def build_c_extension():
         kwargs = {}
 
     module_path = os.path.join("src", "google_crc32c", "_crc32c.c")
-    sources=[os.path.normcase(module_path)]
+    sources = [os.path.normcase(module_path)]
     print(f"##### sources: {sources}")
     print(f"##### module kwargs: {kwargs}")
     module = setuptools.Extension(
-        "google_crc32c._crc32c",
-        sources=sources,
-        libraries=["crc32c"],
-        **kwargs
+        "google_crc32c._crc32c", sources=sources, libraries=["crc32c"], **kwargs
     )
 
     setuptools.setup(
@@ -106,7 +108,7 @@ def build_c_extension():
         package_dir={"": "src"},
         ext_modules=[module],
         cmdclass={"build_ext": BuildExtWithDLL},
-        install_requires=["importlib_resources>=1.3 ; python_version < '3.9' and os_name == 'nt'"],
+        install_requires=[],
     )
 
 

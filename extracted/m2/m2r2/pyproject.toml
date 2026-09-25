@@ -1,6 +1,6 @@
 [project]
 name = "m2r2"
-version = "1.1.0"
+version = "2.1.0"
 description = "Markdown to RST converter."
 readme = "README.md"
 license = "MIT"
@@ -24,7 +24,7 @@ classifiers = [
   "Topic :: Text Processing :: Markup :: Markdown",
   "Topic :: Text Processing :: Markup :: reStructuredText",
 ]
-dependencies = ["mistune>=3.0,<3.3", "docutils>=0.19"]
+dependencies = ["mistune>=3.3,<3.4", "docutils>=0.19"]
 
 [project.optional-dependencies]
 sphinx = ["sphinx>=1.7.0"]
@@ -44,10 +44,11 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-  "mypy>=1.11.0",
+  "mypy>=1.11.0,<2",
   "ruff>=0.5.5",
   "types-docutils>=0.21.0",
   "pre-commit>=4.3.0",
+  "ty>=0.0.84",
 ]
 test = [
   "pytest>=8.3.2",
@@ -66,13 +67,15 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = [
-  "E",   # pycodestyle errors
-  "W",   # pycodestyle warnings
-  "F",   # pyflakes
-  "I",   # isort
-  "B",   # flake8-bugbear
-  "UP",  # pyupgrade
-  "RUF", # ruff-specific
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # isort
+  "B",    # flake8-bugbear
+  "C901", # mccabe complexity
+  "D401", # imperative mood in docstrings
+  "UP",   # pyupgrade
+  "RUF",  # ruff-specific
 ]
 ignore = [
   "E501", # line too long (handled by formatter)
@@ -81,6 +84,12 @@ ignore = [
 [tool.mypy]
 python_version = "3.9"
 check_untyped_defs = true
+
+# Recent Sphinx releases use syntax newer than the Python version checked here,
+# so mypy treats Sphinx's types as Any instead of parsing its source.
+[[tool.mypy.overrides]]
+module = ["sphinx", "sphinx.*"]
+follow_imports = "skip"
 
 [tool.coverage.run]
 source = ["m2r2"]

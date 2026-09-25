@@ -15,8 +15,10 @@ from dbos._context import (
     DuplicationPolicy,
     MaxPriority,
     MinPriority,
+    WorkflowIDReusePolicy,
     inject_trace_context,
     validate_workflow_id,
+    validate_workflow_id_reuse_policy,
 )
 from dbos._error import DBOSException
 from dbos._serialization import Serializer, WorkflowSerializationFormat, serialize_args
@@ -40,6 +42,8 @@ class _EnqueueOptionsRequired(TypedDict):
 # Optional EnqueueOptions fields
 class EnqueueOptions(_EnqueueOptionsRequired, total=False):
     workflow_id: str
+    # On a workflow_id already in use: "return-existing" (default) attaches to it; "reject" raises DBOSWorkflowIDInUseError.
+    workflow_id_reuse_policy: WorkflowIDReusePolicy
     app_version: str
     workflow_timeout: float
     delay_seconds: float
@@ -49,7 +53,6 @@ class EnqueueOptions(_EnqueueOptionsRequired, total=False):
     # already holding the ID, discarding these arguments. Requires deduplication_id.
     duplication_policy: DuplicationPolicy
     priority: int
-    max_recovery_attempts: int
     queue_partition_key: str
     authenticated_user: str
     authenticated_roles: list[str]
@@ -97,6 +100,7 @@ def validate_enqueue_options(options: EnqueueOptions) -> None:
     workflow_id = options.get("workflow_id")
     if workflow_id is not None:
         validate_workflow_id(workflow_id)
+    validate_workflow_id_reuse_policy(options.get("workflow_id_reuse_policy"))
     validate_duplication_policy(
         options.get("duplication_policy"),
         options.get("queue_name"),

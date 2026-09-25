@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-geminidataanalytics
-Version: 0.13.3
+Version: 0.13.4
 Summary: Google Cloud Geminidataanalytics API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-geminidataanalytics
 Author: Google LLC

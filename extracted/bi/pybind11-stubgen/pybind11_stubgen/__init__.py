@@ -21,6 +21,7 @@ from pybind11_stubgen.parser.mixins.error_handlers import (
 from pybind11_stubgen.parser.mixins.filter import (
     FilterClassMembers,
     FilterInvalidIdentifiers,
+    FilterPybind11NativeEnumMembers,
     FilterPybind11ViewClasses,
     FilterPybindInternals,
     FilterTypingModuleAttributes,
@@ -31,6 +32,7 @@ from pybind11_stubgen.parser.mixins.fix import (
     FixMissing__all__Attribute,
     FixMissing__future__AnnotationsImport,
     FixMissingEnumMembersAnnotation,
+    FixMissingFieldDocString,
     FixMissingFixedSizeImport,
     FixMissingImports,
     FixMissingNoneHashFieldAnnotation,
@@ -74,10 +76,11 @@ class CLIArgs(Namespace):
     numpy_array_remove_parameters: bool
     print_invalid_expressions_as_is: bool
     print_safe_value_reprs: re.Pattern | None
+    print_value_comments: bool
     exit_code: bool
     dry_run: bool
     stub_extension: str
-    module_name: str
+    module_names: list[str]
 
 
 def arg_parser() -> ArgumentParser:
@@ -191,6 +194,13 @@ def arg_parser() -> ArgumentParser:
         type=regex,
         help="Override the print-safe check for values matching REGEX",
     )
+    parser.add_argument(
+        "--print-value-comments",
+        default=False,
+        action="store_true",
+        help="Print attribute values as comments for debugging, "
+        "i.e., '...  # value = <value>'",
+    )
 
     parser.add_argument(
         "--exit-code",
@@ -217,10 +227,11 @@ def arg_parser() -> ArgumentParser:
     )
 
     parser.add_argument(
-        "module_name",
-        metavar="MODULE_NAME",
+        "module_names",
+        metavar="MODULE_NAMES",
         type=str,
-        help="module name",
+        nargs="+",
+        help="module names",
     )
 
     return parser
@@ -260,6 +271,7 @@ def stub_parser_from_args(args: CLIArgs) -> IParser:
         FixPEP585CollectionNames,
         FixTypingTypeNames,
         FixScipyTypeArguments,
+        FixMissingFieldDocString,
         FixMissingFixedSizeImport,
         FixMissingEnumMembersAnnotation,
         OverridePrintSafeValues,
@@ -275,6 +287,7 @@ def stub_parser_from_args(args: CLIArgs) -> IParser:
         FixValueReprRandomAddress,
         FixRedundantBuiltinsAnnotation,
         FilterPybindInternals,
+        FilterPybind11NativeEnumMembers,
         FilterPybind11ViewClasses,
         FixRedundantMethodsFromBuiltinObject,
         RemoveSelfAnnotation,
@@ -309,20 +322,17 @@ def main(argv: Sequence[str] | None = None) -> None:
     args = arg_parser().parse_args(argv, namespace=CLIArgs())
 
     parser = stub_parser_from_args(args)
-    printer = Printer(invalid_expr_as_ellipses=not args.print_invalid_expressions_as_is)
-
-    out_dir, sub_dir = to_output_and_subdir(
-        output_dir=args.output_dir,
-        module_name=args.module_name,
-        root_suffix=args.root_suffix,
+    printer = Printer(
+        invalid_expr_as_ellipses=not args.print_invalid_expressions_as_is,
+        print_value_comments=args.print_value_comments,
     )
 
     run(
         parser,
         printer,
-        args.module_name,
-        out_dir,
-        sub_dir=sub_dir,
+        args.module_names,
+        args.output_dir,
+        root_suffix=args.root_suffix,
         dry_run=args.dry_run,
         writer=Writer(stub_ext=args.stub_extension),
     )
@@ -349,25 +359,34 @@ def to_output_and_subdir(
 def run(
     parser: IParser,
     printer: Printer,
-    module_name: str,
-    out_dir: Path,
-    sub_dir: Path | None,
+    module_names: list[str],
+    output_dir: str,
+    root_suffix: str | None,
     dry_run: bool,
     writer: Writer,
 ):
-    module = parser.handle_module(
-        QualifiedName.from_str(module_name), importlib.import_module(module_name)
-    )
-    parser.finalize()
+    modules = []
+    for module_name in module_names:
+        module = parser.handle_module(
+            QualifiedName.from_str(module_name), importlib.import_module(module_name)
+        )
+        if module is None:
+            raise RuntimeError(f"Can't parse {module_name}")
+        modules.append((module, module_name))
 
-    if module is None:
-        raise RuntimeError(f"Can't parse {module_name}")
+    parser.finalize()
 
     if dry_run:
         return
 
-    out_dir.mkdir(exist_ok=True, parents=True)
-    writer.write_module(module, printer, to=out_dir, sub_dir=sub_dir)
+    for module, module_name in modules:
+        out_dir, sub_dir = to_output_and_subdir(
+            output_dir=output_dir,
+            module_name=module_name,
+            root_suffix=root_suffix,
+        )
+        out_dir.mkdir(exist_ok=True, parents=True)
+        writer.write_module(module, printer, to=out_dir, sub_dir=sub_dir)
 
 
 if __name__ == "__main__":

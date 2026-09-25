@@ -1,20 +1,26 @@
 import copy
 from decimal import Decimal
+import importlib.metadata
 import inspect
 import json
+import linecache
+import operator
 import os
 from pathlib import Path
 import pickle
 import subprocess
 import sys
 import textwrap
+import types
 
 from sqlalchemy import exc
 from sqlalchemy import sql
 from sqlalchemy import testing
+from sqlalchemy import update
 from sqlalchemy import util
 from sqlalchemy.sql import column
 from sqlalchemy.sql.base import DedupeColumnCollection
+from sqlalchemy.sql.expression import table
 from sqlalchemy.testing import assert_raises
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import combinations
@@ -27,6 +33,7 @@ from sqlalchemy.testing import is_
 from sqlalchemy.testing import is_false
 from sqlalchemy.testing import is_instance_of
 from sqlalchemy.testing import is_none
+from sqlalchemy.testing import is_not
 from sqlalchemy.testing import is_true
 from sqlalchemy.testing import mock
 from sqlalchemy.testing import ne_
@@ -42,8 +49,7 @@ from sqlalchemy.util import langhelpers
 from sqlalchemy.util import preloaded
 from sqlalchemy.util import WeakSequence
 from sqlalchemy.util._collections import merge_lists_w_ordering
-from sqlalchemy.util._has_cy import _import_cy_extensions
-from sqlalchemy.util._has_cy import HAS_CYEXTENSION
+from sqlalchemy.util._has_cython import _all_cython_modules
 
 
 class WeakSequenceTest(fixtures.TestBase):
@@ -379,50 +385,150 @@ class OrderedSetTest(fixtures.TestBase):
 
 
 class ImmutableDictTest(fixtures.TestBase):
-    def test_union_no_change(self):
+    methods = combinations(
+        util.immutabledict.union,
+        util.immutabledict.merge_with,
+        argnames="method",
+    )
+
+    @methods
+    def test_no_change(self, method):
         d = util.immutabledict({1: 2, 3: 4})
 
-        d2 = d.union({})
-
+        d2 = method(d)
+        is_(d2, d)
+        d2 = method(d, {})
+        is_(d2, d)
+        d2 = method(d, None)
+        is_(d2, d)
+        d2 = method(d, {}, {}, {}, None)
         is_(d2, d)
 
-    def test_merge_with_no_change(self):
+    @methods
+    def test_no_change_self_empty(self, method):
         d = util.immutabledict({1: 2, 3: 4})
+        e = util.immutabledict()
+        d2 = method(e, d)
 
-        d2 = d.merge_with({}, None)
-
-        eq_(d2, {1: 2, 3: 4})
+        eq_(e, {})
         is_(d2, d)
 
-    def test_merge_with_dicts(self):
-        d = util.immutabledict({1: 2, 3: 4})
+        d2 = method(e, {}, d)
+        is_(d2, d)
+        d2 = method(e, None, d, {}, {})
+        is_(d2, d)
 
-        d2 = d.merge_with({3: 5, 7: 12}, {9: 18, 15: 25})
+        d2 = method(e, {1: 2, 3: 4})
 
-        eq_(d, {1: 2, 3: 4})
-        eq_(d2, {1: 2, 3: 5, 7: 12, 9: 18, 15: 25})
+        eq_(d2, d)
         assert isinstance(d2, util.immutabledict)
 
-        d3 = d.merge_with({17: 42})
+        d2 = method(e, {1: 2, 3: 4}, {3: 5, 4: 7})
 
-        eq_(d3, {1: 2, 3: 4, 17: 42})
-
-    def test_merge_with_tuples(self):
-        d = util.immutabledict({1: 2, 3: 4})
-
-        d2 = d.merge_with([(3, 5), (7, 12)], [(9, 18), (15, 25)])
-
-        eq_(d, {1: 2, 3: 4})
-        eq_(d2, {1: 2, 3: 5, 7: 12, 9: 18, 15: 25})
-
-    def test_union_dictionary(self):
-        d = util.immutabledict({1: 2, 3: 4})
-
-        d2 = d.union({3: 5, 7: 12})
+        eq_(d2, {1: 2, 3: 5, 4: 7})
         assert isinstance(d2, util.immutabledict)
 
+    @methods
+    def test_start_empty_but_then_populate(self, method):
+        d = util.immutabledict()
+
+        d2 = method(d, {1: 2})
+        eq_(d2, {1: 2})
+        is_not(d2, d)
+
+        d3 = method(d, util.immutabledict(), {1: 2})
+        eq_(d3, {1: 2})
+
+        d4 = method(
+            d, util.immutabledict(), util.immutabledict({1: 2}), {3: 4}
+        )
+        eq_(d4, {1: 2, 3: 4})
+
+    @methods
+    def test_no_change_everyone_empty(self, method):
+        d = util.immutabledict()
+        e = util.immutabledict()
+        d2 = method(e, d)
+
+        eq_(e, {})
+        is_(d2, e)
+
+        f = {}
+
+        d3 = method(e, d, f)
+        eq_(e, {})
+        is_(d3, e)
+
+        g = util.immutabledict()
+        d4 = method(e, d, f, g)
+        eq_(e, {})
+        is_(d4, e)
+
+    @methods
+    def test_no_change_against_self(self, method):
+        d = util.immutabledict()
+        e = d
+        d2 = method(e, d)
+
+        eq_(e, {})
+        is_(d2, e)
+
+        f = d
+
+        d3 = method(e, d, f)
+        eq_(e, {})
+        is_(d3, e)
+
+    @methods
+    def test_multiple_dicts(self, method):
+        d = util.immutabledict({1: 2, 3: 4})
+
+        d2 = method(d, {17: 42})
+
         eq_(d, {1: 2, 3: 4})
+        eq_(d2, {1: 2, 3: 4, 17: 42})
+
+        d3 = method(d, {3: 5, 7: 12}, {9: 18, 15: 25}, None)
+
+        eq_(d3, {1: 2, 3: 5, 7: 12, 9: 18, 15: 25})
+        assert isinstance(d3, util.immutabledict)
+
+    @methods
+    def test_multiple_immutabledict(self, method):
+        d = util.immutabledict({1: 2, 3: 4})
+        d2 = method(d, util.immutabledict({3: 5, 7: 12}))
+
         eq_(d2, {1: 2, 3: 5, 7: 12})
+        assert isinstance(d2, util.immutabledict)
+        d2 = method(
+            d,
+            util.immutabledict({3: 5, 7: 12}),
+            util.immutabledict({7: 6, 11: 12}),
+        )
+
+        eq_(d2, {1: 2, 3: 5, 7: 6, 11: 12})
+        assert isinstance(d2, util.immutabledict)
+
+        e = util.immutabledict()
+        d2 = method(
+            e,
+            util.immutabledict({3: 5, 7: 12}),
+            util.immutabledict({7: 6, 11: 12}),
+        )
+
+        eq_(d2, {3: 5, 7: 6, 11: 12})
+        assert isinstance(d2, util.immutabledict)
+
+    @methods
+    def test_with_tuples(self, method):
+        # this is not really supported, but it's useful to test the non-dict
+        # case
+        d = util.immutabledict({1: 2, 3: 4})
+
+        d2 = method(d, [(3, 5), (7, 12)], [(9, 18), (15, 25)])
+
+        eq_(d, {1: 2, 3: 4})
+        eq_(d2, {1: 2, 3: 5, 7: 12, 9: 18, 15: 25})
 
     def _dont_test_union_kw(self):
         d = util.immutabledict({"a": "b", "c": "d"})
@@ -432,14 +538,6 @@ class ImmutableDictTest(fixtures.TestBase):
 
         eq_(d, {"a": "b", "c": "d"})
         eq_(d2, {"a": "b", "c": "d", "e": "f", "g": "h"})
-
-    def test_union_tuples(self):
-        d = util.immutabledict({1: 2, 3: 4})
-
-        d2 = d.union([(3, 5), (7, 12)])
-
-        eq_(d, {1: 2, 3: 4})
-        eq_(d2, {1: 2, 3: 5, 7: 12})
 
     def test_keys(self):
         d = util.immutabledict({1: 2, 3: 4})
@@ -473,6 +571,10 @@ class ImmutableDictTest(fixtures.TestBase):
         ne_(d, d4)
         eq_(d3, d4)
 
+    def test_copy(self):
+        d = util.immutabledict({1: 2, 3: 4})
+        is_(d.copy(), d)
+
     def test_serialize(self):
         d = util.immutabledict({1: 2, 3: 4})
         for loads, dumps in picklers():
@@ -489,7 +591,6 @@ class ImmutableDictTest(fixtures.TestBase):
         i2 = util.immutabledict({"a": 42, 42: "a"})
         eq_(str(i2), "immutabledict({'a': 42, 42: 'a'})")
 
-    @testing.requires.python39
     def test_pep584(self):
         i = util.immutabledict({"a": 2})
         with expect_raises_message(TypeError, "object is immutable"):
@@ -885,7 +986,7 @@ class ColumnCollectionCommon(testing.AssertsCompiledSQL):
 
 class ColumnCollectionTest(ColumnCollectionCommon, fixtures.TestBase):
     def _column_collection(self, columns=None):
-        return sql.ColumnCollection(columns=columns)
+        return sql.WriteableColumnCollection(columns=columns)
 
     def test_separate_key_all_cols(self):
         c1, c2 = sql.column("col1"), sql.column("col2")
@@ -917,7 +1018,7 @@ class ColumnCollectionTest(ColumnCollectionCommon, fixtures.TestBase):
             column("c2"),
         )
 
-        cc = sql.ColumnCollection()
+        cc = sql.WriteableColumnCollection()
 
         cc.add(c1)
         cc.add(c2a, "c2")
@@ -950,7 +1051,7 @@ class ColumnCollectionTest(ColumnCollectionCommon, fixtures.TestBase):
             column("c2"),
         )
 
-        cc = sql.ColumnCollection(
+        cc = sql.WriteableColumnCollection(
             columns=[("c1", c1), ("c2", c2a), ("c3", c3), ("c2", c2b)]
         )
 
@@ -975,7 +1076,7 @@ class ColumnCollectionTest(ColumnCollectionCommon, fixtures.TestBase):
     def test_identical_dupe_construct(self):
         c1, c2, c3 = (column("c1"), column("c2"), column("c3"))
 
-        cc = sql.ColumnCollection(
+        cc = sql.WriteableColumnCollection(
             columns=[("c1", c1), ("c2", c2), ("c3", c3), ("c2", c2)]
         )
 
@@ -3470,6 +3571,170 @@ class QuotedTokenParserTest(fixtures.TestBase):
         self._test('"na.me"', ["na.me"])
 
 
+class ParseVersionStringTest(fixtures.TestBase):
+    @combinations(
+        ("2.1.8", (2, 1, 8), None, None, None),
+        ("10.15.17", (10, 15, 17), None, None, None),
+        ("v1.2.3", (1, 2, 3), None, None, None),
+        ("1.4", (1, 4), None, None, None),
+        # pyodbc style, with a prefix and a spelled out pre-release
+        ("py3-3.0.1-beta4", (3, 0, 1), ("b", 4), None, None),
+        ("py3-4.0.19", (4, 0, 19), None, None, None),
+        # psycopg2 style, with trailing information
+        ("2.9.10 (dt dec pq3 ext lo64)", (2, 9, 10), None, None, None),
+        # pep 484 pre-release, post-release, developmental release
+        ("2.0.0a1", (2, 0, 0), ("a", 1), None, None),
+        ("2.0.0b1", (2, 0, 0), ("b", 1), None, None),
+        ("2.0.0rc1", (2, 0, 0), ("rc", 1), None, None),
+        ("2.0.0c1", (2, 0, 0), ("rc", 1), None, None),
+        ("2.0.0-alpha", (2, 0, 0), ("a", 0), None, None),
+        ("2.0.0.post2", (2, 0, 0), None, 2, None),
+        ("2.0.0.dev3", (2, 0, 0), None, None, 3),
+        ("2.0.0b1.dev3", (2, 0, 0), ("b", 1), None, 3),
+        # no version at all
+        ("crap.crap.crap", (), None, None, None),
+        ("", (), None, None, None),
+        (None, (), None, None, None),
+        argnames="version, release, pre, post, dev",
+    )
+    def test_parse(self, version, release, pre, post, dev):
+        parsed = util.parse_version_string(version)
+        eq_(
+            (
+                tuple(parsed),
+                parsed.pre,
+                parsed.post,
+                parsed.dev,
+                parsed.string,
+            ),
+            (release, pre, post, dev, version),
+        )
+
+    @combinations(
+        # a VersionInfo compares equal to the plain tuple of its release
+        # segment when it has no pre / post / dev qualifiers
+        ("2.0.0", "==", (2, 0, 0)),
+        ("2.0.0", "<", (2, 0, 1)),
+        ("2.0.0", ">", (1, 9, 9)),
+        ("0.2.12", "<", (0, 2, 13)),
+        ("0.2.13", "==", (0, 2, 13)),
+        # pre-releases precede the release they qualify, including when
+        # compared against a plain tuple
+        ("2.0.0b1", "<", (2, 0, 0)),
+        ("0.2.13rc1", "<", (0, 2, 13)),
+        ("2.0.0.dev1", "<", (2, 0, 0)),
+        # post-releases follow it
+        ("2.0.0.post1", ">", (2, 0, 0)),
+        argnames="version, op, other",
+    )
+    def test_compare_to_tuple(self, version, op, other):
+        """all six comparisons consult the sort key.
+
+        ``tuple`` implements every one of them, so an operator which
+        VersionInfo fails to state explicitly silently compares as a plain
+        tuple and gets the pre-release cases wrong.
+
+        """
+
+        parsed = util.parse_version_string(version)
+        eq_(
+            (
+                parsed < other,
+                parsed <= other,
+                parsed == other,
+                parsed != other,
+                parsed >= other,
+                parsed > other,
+            ),
+            (
+                op == "<",
+                op in ("<", "=="),
+                op == "==",
+                op != "==",
+                op in (">", "=="),
+                op == ">",
+            ),
+        )
+
+    def test_reflected_comparison_to_tuple(self):
+        """a plain tuple on the left still gets VersionInfo semantics.
+
+        VersionInfo is a tuple subclass, so Python tries its reflected
+        operation first.
+
+        """
+
+        parsed = util.parse_version_string("2.0.0rc1")
+
+        # (2, 0, 0) is greater than 2.0.0rc1
+        eq_(
+            (
+                (2, 0, 0) < parsed,
+                (2, 0, 0) <= parsed,
+                (2, 0, 0) == parsed,
+                (2, 0, 0) != parsed,
+                (2, 0, 0) >= parsed,
+                (2, 0, 0) > parsed,
+            ),
+            (False, False, False, True, True, True),
+        )
+
+    @combinations("<", "<=", ">=", ">", argnames="op")
+    def test_not_comparable(self, op):
+        oper = {
+            "<": operator.lt,
+            "<=": operator.le,
+            ">=": operator.ge,
+            ">": operator.gt,
+        }[op]
+
+        with expect_raises(TypeError):
+            oper(util.parse_version_string("2.0.0"), "2.0.0")
+
+    def test_pep440_ordering(self):
+        """dev < alpha < beta < rc < final < post"""
+
+        versions = [
+            "2.0.0.dev1",
+            "2.0.0a1",
+            "2.0.0a2",
+            "2.0.0b1",
+            "2.0.0rc1",
+            "2.0.0",
+            "2.0.0.post1",
+            "2.0.1",
+        ]
+        parsed = [util.parse_version_string(v) for v in versions]
+        eq_(sorted(reversed(parsed)), parsed)
+
+    def test_hash(self):
+        eq_(
+            {util.parse_version_string("2.0.0b1")},
+            {util.parse_version_string("2.0.0b1")},
+        )
+        ne_(
+            hash(util.parse_version_string("2.0.0b1")),
+            hash(util.parse_version_string("2.0.0")),
+        )
+
+    def test_compare_to_non_tuple(self):
+        parsed = util.parse_version_string("2.0.0")
+        is_false(parsed == "2.0.0")
+        with expect_raises(TypeError):
+            parsed < "2.0.0"
+
+    def test_from_metadata(self):
+        # pytest is necessarily installed for this test to be running at
+        # all; greenlet and the like are optional
+        eq_(
+            util.parse_version_from_metadata("pytest"),
+            util.parse_version_string(importlib.metadata.version("pytest")),
+        )
+
+    def test_from_metadata_not_installed(self):
+        eq_(util.parse_version_from_metadata("no_such_distribution"), ())
+
+
 class ParenthesisBalancingTest(fixtures.TestBase):
     """test the parenthesis functions added as part of #13157"""
 
@@ -3698,18 +3963,47 @@ class MethodOveriddenTest(fixtures.TestBase):
 
 
 class CyExtensionTest(fixtures.TestBase):
-    @testing.only_if(lambda: HAS_CYEXTENSION, "No Cython")
+    __requires__ = ("cextensions",)
+
     def test_all_cyext_imported(self):
-        ext = _import_cy_extensions()
+        ext = _all_cython_modules()
         lib_folder = (Path(__file__).parent / ".." / ".." / "lib").resolve()
         sa_folder = lib_folder / "sqlalchemy"
-        cython_files = [f.resolve() for f in sa_folder.glob("**/*.pyx")]
+        cython_files = [f.resolve() for f in sa_folder.glob("**/*_cy.py")]
         eq_(len(ext), len(cython_files))
         names = {
-            ".".join(f.relative_to(lib_folder).parts).replace(".pyx", "")
+            ".".join(f.relative_to(lib_folder).parts).replace(".py", "")
             for f in cython_files
         }
         eq_({m.__name__ for m in ext}, set(names))
+
+    @testing.combinations(*_all_cython_modules())
+    def test_load_uncompiled_module(self, module):
+        is_true(module._is_compiled())
+        py_module = langhelpers.load_uncompiled_module(module)
+        is_false(py_module._is_compiled())
+        eq_(py_module.__name__, module.__name__)
+        eq_(py_module.__package__, module.__package__)
+
+    def test_setup_defines_all_files(self):
+        try:
+            import setuptools  # noqa: F401
+        except ImportError:
+            testing.skip_test("setuptools is required")
+        with (
+            mock.patch("setuptools.setup", mock.MagicMock()),
+            mock.patch.dict(
+                "os.environ",
+                {"DISABLE_SQLALCHEMY_CEXT": "", "REQUIRE_SQLALCHEMY_CEXT": ""},
+            ),
+        ):
+            import setup
+
+            setup_modules = {f"sqlalchemy.{m}" for m in setup.CYTHON_MODULES}
+            expected = {e.__name__ for e in _all_cython_modules()}
+            print(expected)
+            print(setup_modules)
+            eq_(setup_modules, expected)
 
 
 class FreethreadingNoGILTest(fixtures.TestBase):
@@ -3806,9 +4100,9 @@ class FreethreadingNoGILTest(fixtures.TestBase):
         return result
 
     @testing.requires.freethreading
-    @testing.only_if(lambda: HAS_CYEXTENSION, "No Cython")
+    @testing.requires.cextensions
     def test_cython_extensions_dont_enable_gil(self):
-        names = [m.__name__ for m in _import_cy_extensions()]
+        names = [m.__name__ for m in _all_cython_modules()]
 
         eq_(
             self._run_imports(names),
@@ -3843,4 +4137,304 @@ class FreethreadingNoGILTest(fixtures.TestBase):
                 "gil_warnings": [],
                 "extension_modules": [],
             },
+        )
+
+
+class TestTest(fixtures.TestBase):
+    """Test of test things"""
+
+    @testing.variation("foo", ["foo", "bar", "baz"])
+    def test_variations(self, foo):
+        match foo:
+            case "foo":
+                is_true(foo.foo)
+                is_false(foo.bar)
+            case "bar":
+                is_true(foo.bar)
+                is_false(foo.foo)
+            case "baz":
+                is_true(foo.baz)
+                is_false(foo.foo)
+            case _:
+                foo.fail()
+
+
+class GeneratedSourceTest(fixtures.TestBase):
+    """test exec_code_in_env() with a description, and the call sites that
+    make use of it, so that generated functions appearing on end-user stack
+    traces render with their source.
+
+    """
+
+    def _patch_linecache(self, **kw):
+        """replace the linecache module as seen by langhelpers only.
+
+        the real linecache.cache is used by traceback formatting, including
+        pytest's, as well as by finalizers of functions generated by other
+        tests which may be collected at any time, so it's never altered.
+
+        """
+        return mock.patch.object(
+            langhelpers, "linecache", types.SimpleNamespace(**kw)
+        )
+
+    @testing.fixture
+    def no_linecache_fixture(self):
+        with self._patch_linecache():
+            yield
+
+    def test_linecache_safe_getter_non_dict(self):
+        with self._patch_linecache(cache=12):
+            with expect_raises_message(
+                AttributeError, "linecache has changed from being a dict"
+            ):
+                langhelpers._linecache_cache_getter()
+
+    def test_linecache_safe_getter_disappeared(self, no_linecache_fixture):
+        with expect_raises(AttributeError):
+            langhelpers._linecache_cache_getter()
+
+    def test_linecache_changed_to_a_non_dict(self):
+        with self._patch_linecache(cache=12):
+            fn = langhelpers.exec_code_in_env(
+                "def foo():\n    return 1\n", {}, "foo", "foo for testing"
+            )
+        eq_(fn(), 1)
+
+    def test_linecache_disappeared(self, no_linecache_fixture):
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "foo for testing"
+        )
+        eq_(fn(), 1)
+
+    def test_filename_form(self):
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "foo for testing"
+        )
+        eq_(
+            fn.__code__.co_filename,
+            "<sqlalchemy generated foo for testing>",
+        )
+
+    def test_registers_source(self):
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "registers_source"
+        )
+        eq_(
+            linecache.getlines(fn.__code__.co_filename),
+            ["def foo():\n", "    return 1\n"],
+        )
+
+    def test_mtime_none_survives_checkcache(self):
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "survives_checkcache"
+        )
+        filename = fn.__code__.co_filename
+        eq_(linecache.cache[filename][1], None)
+
+        linecache.checkcache()
+
+        eq_(
+            linecache.getlines(filename),
+            ["def foo():\n", "    return 1\n"],
+        )
+
+    def test_regenerating_replaces_entry(self):
+        """the same description generated twice is the same target being
+        regenerated; the newest source is the live one.
+
+        """
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "replaces_entry"
+        )
+        fn2 = langhelpers.exec_code_in_env(
+            "def foo():\n    return 2\n", {}, "foo", "replaces_entry"
+        )
+        eq_(fn(), 1)
+        eq_(
+            linecache.getlines(fn2.__code__.co_filename),
+            ["def foo():\n", "    return 2\n"],
+        )
+
+    def test_entry_dropped_when_function_collected(self):
+        """the entry is tied to the lifespan of the generated function, so
+        that classes generated dynamically at runtime and then discarded
+        don't accumulate entries.
+
+        """
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "dropped_when_collected"
+        )
+        filename = fn.__code__.co_filename
+        eq_(linecache.getlines(filename), ["def foo():\n", "    return 1\n"])
+
+        del fn
+        gc_collect()
+
+        not_in(filename, linecache.cache)
+
+    def test_removal_tolerates_key_vanishing(self):
+        """the finalizer runs at an arbitrary point in an arbitrary thread,
+        including from inside a gc pass, so the key may be gone between the
+        identity test and the removal; an exception raised there would
+        surface as an unraisable error.
+
+        """
+
+        class RaceyCache(dict):
+            def get(self, key, default=None):
+                value = dict.get(self, key, default)
+                # something else, e.g. linecache.clearcache(), drops the
+                # key right after we've looked at it
+                dict.pop(self, key, None)
+                return value
+
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "racey_removal"
+        )
+        filename = fn.__code__.co_filename
+        entry = linecache.cache[filename]
+
+        with self._patch_linecache(cache=RaceyCache(linecache.cache)):
+            langhelpers._remove_linecache_entry(filename, entry)
+
+    @testing.variation("linecache_state", ["non_dict", "disappeared"])
+    def test_removal_tolerates_linecache_change(self, linecache_state):
+        """the finalizer does nothing if linecache.cache has disappeared or
+        is no longer a dict; as it runs from a finalizer, an exception
+        raised there would surface as an unraisable error.
+
+        """
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "tolerates_change"
+        )
+        filename = fn.__code__.co_filename
+        entry = linecache.cache[filename]
+
+        if linecache_state.non_dict:
+            patch = self._patch_linecache(cache=12)
+        else:
+            patch = self._patch_linecache()
+
+        with patch:
+            langhelpers._remove_linecache_entry(filename, entry)
+
+        eq_(linecache.cache[filename], entry)
+
+    def test_regenerated_entry_survives_collection(self):
+        """a superseded function's finalizer must not remove the entry that
+        replaced it.
+
+        """
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo", "survives_collection"
+        )
+        filename = fn.__code__.co_filename
+
+        fn2 = langhelpers.exec_code_in_env(
+            "def foo():\n    return 2\n", {}, "foo", "survives_collection"
+        )
+
+        del fn
+        gc_collect()
+
+        eq_(fn2(), 2)
+
+        eq_(linecache.getlines(filename), ["def foo():\n", "    return 2\n"])
+
+    def test_exec_code_in_env_no_description(self):
+        """callers whose generated function doesn't show up on user stack
+        traces omit the description and are unaffected.
+
+        """
+        fn = langhelpers.exec_code_in_env(
+            "def foo():\n    return 1\n", {}, "foo"
+        )
+        eq_(fn.__code__.co_filename, "<string>")
+        not_in("<string>", linecache.cache)
+
+    def test_decorator_wrapper_source(self):
+        @langhelpers.decorator
+        def my_deco(fn, *arg, **kw):
+            return fn(*arg, **kw)
+
+        @my_deco
+        def some_function(a, b):
+            return a + b
+
+        eq_(
+            some_function.__code__.co_filename,
+            "<sqlalchemy generated my_deco() wrapper for "
+            f"{__name__}.GeneratedSourceTest."
+            "test_decorator_wrapper_source.<locals>.some_function>",
+        )
+        eq_(
+            linecache.getlines(some_function.__code__.co_filename),
+            ["def some_function(a, b):\n", "    return target(fn, a, b)\n"],
+        )
+
+    def test_stacked_decorators_distinct_filenames(self):
+        """update_wrapper() gives every layer of a stack of decorators the
+        same __qualname__, so the target name has to be part of the key or
+        the outer layer claims the inner layer's source.
+
+        """
+
+        @langhelpers.decorator
+        def outer(fn, *arg, **kw):
+            return fn(*arg, **kw)
+
+        @langhelpers.decorator
+        def inner(fn, *arg, **kw):
+            return fn(*arg, **kw)
+
+        @outer
+        @inner
+        def some_function(a):
+            return a
+
+        outer_file = some_function.__code__.co_filename
+        inner_file = some_function.__wrapped__.__code__.co_filename
+
+        ne_(outer_file, inner_file)
+        assert outer_file.startswith("<sqlalchemy generated outer() wrapper")
+        assert inner_file.startswith("<sqlalchemy generated inner() wrapper")
+
+    def test_stacked_decorators_in_lib(self):
+        """Update.values() is decorated by both @_generative and
+        @_exclusive_against; both layers should be resolvable.
+
+        """
+        fn = update(table("t", column("x"))).values
+
+        eq_(
+            [
+                linecache.getlines(f.__code__.co_filename)[0]
+                for f in (fn.__func__, fn.__func__.__wrapped__)
+            ],
+            ["def values(self, *args, **kwargs):\n"] * 2,
+        )
+
+    def test_proxied_specials_source(self):
+        class Source:
+            def __set__(self, obj, value):
+                raise ValueError("nope")
+
+        class Target:
+            pass
+
+        langhelpers.monkeypatch_proxied_specials(
+            Target, Source, name="descriptor", from_instance=Source()
+        )
+
+        eq_(
+            Target.__set__.__code__.co_filename,
+            "<sqlalchemy generated __set__ proxying to "
+            f"{__name__}.GeneratedSourceTest."
+            "test_proxied_specials_source.<locals>.Source>",
+        )
+        eq_(
+            inspect.getsource(Target.__set__),
+            "def __set__(self, obj, value): "
+            "return descriptor.__set__(obj, value)",
         )

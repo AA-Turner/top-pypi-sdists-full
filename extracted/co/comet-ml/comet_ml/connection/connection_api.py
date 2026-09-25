@@ -295,6 +295,10 @@ class LowLevelHTTPClient(object):
         self.session.close()
         self.retry_session.close()
 
+    def update_api_key(self, api_key: str) -> None:
+        self.session.headers[API_KEY_HEADER] = api_key
+        self.retry_session.headers[API_KEY_HEADER] = api_key
+
     def get(
         self,
         url: str,
@@ -1453,6 +1457,10 @@ class BaseApiClient(object):
     @property
     def base_url(self) -> str:
         return self._base_url
+
+    def update_api_key(self, api_key: str) -> None:
+        self.api_key = api_key
+        self.low_level_api_client.update_api_key(api_key)
 
     def get(
         self,

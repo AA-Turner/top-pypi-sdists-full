@@ -6,26 +6,27 @@ import enum
 import inspect as _py_inspect
 import re
 import typing
+from typing import Annotated
 from typing import Any
 from typing import cast
 from typing import ClassVar
 from typing import Dict
 from typing import Generic
+from typing import get_args as get_args
 from typing import List
+from typing import Literal as Literal
 from typing import NewType
 from typing import Optional
 from typing import Set
 from typing import Type
 from typing import TYPE_CHECKING
+from typing import TypedDict
 from typing import TypeVar
 from typing import Union
 import uuid
 
 import typing_extensions
-from typing_extensions import get_args as get_args
-from typing_extensions import Literal as Literal
 from typing_extensions import TypeAliasType
-from typing_extensions import TypedDict
 
 from sqlalchemy import BIGINT
 from sqlalchemy import BigInteger
@@ -69,12 +70,12 @@ from sqlalchemy.orm import remote
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import undefer
 from sqlalchemy.orm import WriteOnlyMapped
-from sqlalchemy.orm.attributes import CollectionAttributeImpl
+from sqlalchemy.orm.attributes import _CollectionAttributeImpl
 from sqlalchemy.orm.collections import attribute_keyed_dict
 from sqlalchemy.orm.collections import KeyFuncDict
-from sqlalchemy.orm.dynamic import DynamicAttributeImpl
+from sqlalchemy.orm.dynamic import _DynamicAttributeImpl
 from sqlalchemy.orm.properties import MappedColumn
-from sqlalchemy.orm.writeonly import WriteOnlyAttributeImpl
+from sqlalchemy.orm.writeonly import _WriteOnlyAttributeImpl
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql.base import _NoArg
 from sqlalchemy.sql.sqltypes import Enum
@@ -92,8 +93,6 @@ from sqlalchemy.testing import requires
 from sqlalchemy.testing import Variation
 from sqlalchemy.testing.assertions import ne_
 from sqlalchemy.testing.fixtures import fixture_session
-from sqlalchemy.util import compat
-from sqlalchemy.util.typing import Annotated
 
 # try to differentiate between typing_extensions.TypeAliasType
 # and typing.TypeAliasType
@@ -752,13 +751,13 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         is_true(User.__table__.c.lnl_rnl._copy().nullable)
 
     def test_fwd_refs(self, decl_base: Type[DeclarativeBase]):
+        # TODO: add an assertion?
         class MyClass(decl_base):
             __tablename__ = "my_table"
 
             id: Mapped["int"] = mapped_column(primary_key=True)
             data_one: Mapped["str"]
 
-    @testing.requires.python38
     def test_typing_literal_identity(self, decl_base):
         """See issue #11820"""
 
@@ -892,7 +891,6 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 exc.SADeprecationWarning(
                     "Argument 'kw_only' is a dataclass argument "
                 ),
-                testing.requires.python310,
             ),
             (
                 "compare",
@@ -900,7 +898,6 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 exc.SADeprecationWarning(
                     "Argument 'compare' is a dataclass argument "
                 ),
-                testing.requires.python310,
             ),
             (
                 "default_factory",
@@ -939,25 +936,16 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             ),
         ]
 
-    if not compat.py310:
-        annotated_name_test_cases = annotated_name_test_cases.__func__
-        static_annotated_name_test_cases = staticmethod(
-            annotated_name_test_cases
-        )
-    else:
-        static_annotated_name_test_cases = annotated_name_test_cases
-
     def test_we_got_all_attrs_test_annotated(self):
         argnames = _py_inspect.getfullargspec(mapped_column)
         _annotated_names_tested = {
-            case[0] for case in self.static_annotated_name_test_cases()
+            case[0] for case in self.annotated_name_test_cases()
         }
         assert _annotated_names_tested.issuperset(argnames.kwonlyargs), (
             f"annotated attributes were not tested: "
             f"{set(argnames.kwonlyargs).difference(_annotated_names_tested)}"
         )
 
-    @testing.requires.python310
     @testing.combinations_list(
         annotated_name_test_cases(),
         argnames="argname, argument, assertion",
@@ -1077,65 +1065,6 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         else:
             is_(result, orig)
 
-    @testing.variation("optional", [True, False])
-    @testing.variation("provide_type", [True, False])
-    @testing.variation("add_to_type_map", [True, False])
-    def test_recursive_type(
-        self, decl_base, optional, provide_type, add_to_type_map
-    ):
-        """test #9553"""
-
-        global T
-
-        T = Dict[str, Optional["T"]]
-
-        if not provide_type and not add_to_type_map:
-            with expect_raises_message(
-                sa_exc.ArgumentError,
-                r"Could not locate SQLAlchemy.*" r".*ForwardRef\('T'\).*",
-            ):
-
-                class TypeTest(decl_base):
-                    __tablename__ = "my_table"
-
-                    id: Mapped[int] = mapped_column(primary_key=True)
-                    if optional:
-                        type_test: Mapped[Optional[T]] = mapped_column()
-                    else:
-                        type_test: Mapped[T] = mapped_column()
-
-            return
-
-        else:
-            if add_to_type_map:
-                decl_base.registry.update_type_annotation_map({T: JSON()})
-
-            class TypeTest(decl_base):
-                __tablename__ = "my_table"
-
-                id: Mapped[int] = mapped_column(primary_key=True)
-
-                if add_to_type_map:
-                    if optional:
-                        type_test: Mapped[Optional[T]] = mapped_column()
-                    else:
-                        type_test: Mapped[T] = mapped_column()
-                else:
-                    if optional:
-                        type_test: Mapped[Optional[T]] = mapped_column(JSON())
-                    else:
-                        type_test: Mapped[T] = mapped_column(JSON())
-
-        if optional:
-            is_(TypeTest.__table__.c.type_test.nullable, True)
-        else:
-            is_(TypeTest.__table__.c.type_test.nullable, False)
-
-        self.assert_compile(
-            select(TypeTest),
-            "SELECT my_table.id, my_table.type_test FROM my_table",
-        )
-
     def test_missing_mapped_lhs(self, decl_base):
         with expect_annotation_syntax_error("User.name"):
 
@@ -1144,6 +1073,48 @@ class MappedColumnTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
                 id: Mapped[int] = mapped_column(primary_key=True)
                 name: str = mapped_column()  # type: ignore
+
+    @testing.requires.python314
+    def test_missing_mapped_lhs_unresolvable_name(self, decl_base):
+        """test #13602.
+
+        under pep-649 (python 3.14, no ``from __future__ import
+        annotations``), an annotation that names an undefined symbol is
+        no longer evaluated by the interpreter up front; it arrives here
+        as a ``ForwardRef``.  previously the only non-evaluated form
+        possible was a plain string, so this case could not be
+        constructed at all.
+
+        """
+
+        with expect_annotation_syntax_error("User.name"):
+
+            class User(decl_base):
+                __tablename__ = "users"
+
+                id: Mapped[int] = mapped_column(primary_key=True)
+                name: Bogus  # type: ignore  # noqa: F821
+
+    @testing.requires.python314
+    def test_missing_mapped_lhs_unresolvable_nested_mapped(self, decl_base):
+        """test #13602.
+
+        ``Mapped[]`` nested inside another construct along with an
+        unresolvable name.  under ``__future__`` annotations, this arrives
+        as a string that fails to evaluate and is reported as an
+        un-interpretable annotation, since it contains ``Mapped[``; under
+        pep-649, the outer ``list`` resolves and the usual "use Mapped[]"
+        error is raised.  either way, a :class:`.MappedAnnotationError`.
+
+        """
+
+        with expect_raises(orm_exc.MappedAnnotationError):
+
+            class User(decl_base):
+                __tablename__ = "users"
+
+                id: Mapped[int] = mapped_column(primary_key=True)
+                name: list[Mapped[Bogus]]  # type: ignore  # noqa: F821
 
     def test_construct_lhs_separate_name(self, decl_base):
         class User(decl_base):
@@ -1612,38 +1583,22 @@ class Pep593InterpretationTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             to_assert.fail()
 
     @testing.combinations(
-        (collections.abc.Sequence, (str,), testing.requires.python310),
-        (collections.abc.MutableSequence, (str,), testing.requires.python310),
-        (collections.abc.Mapping, (str, str), testing.requires.python310),
-        (
-            collections.abc.MutableMapping,
-            (str, str),
-            testing.requires.python310,
-        ),
-        (typing.Mapping, (str, str), testing.requires.python310),
-        (typing.MutableMapping, (str, str), testing.requires.python310),
+        (collections.abc.Sequence, (str,)),
+        (collections.abc.MutableSequence, (str,)),
+        (collections.abc.Mapping, (str, str)),
+        (collections.abc.MutableMapping, (str, str)),
+        (typing.Mapping, (str, str)),
+        (typing.MutableMapping, (str, str)),
         (typing.Sequence, (str,)),
         (typing.MutableSequence, (str,)),
-        (list, (str,), testing.requires.python310),
-        (
-            List,
-            (str,),
-        ),
-        (dict, (str, str), testing.requires.python310),
-        (
-            Dict,
-            (str, str),
-        ),
-        (list, None, testing.requires.python310),
-        (
-            List,
-            None,
-        ),
-        (dict, None, testing.requires.python310),
-        (
-            Dict,
-            None,
-        ),
+        (list, (str,)),
+        (List, (str,)),
+        (dict, (str, str)),
+        (Dict, (str, str)),
+        (list, None),
+        (List, None),
+        (dict, None),
+        (Dict, None),
         id_="sa",
         argnames="container_typ,args",
     )
@@ -2030,6 +1985,67 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
                 id: Mapped[int] = mapped_column(primary_key=True)
                 data: Mapped["fake"]  # noqa
 
+    @testing.requires.python314
+    def test_dont_ignore_unresolvable_unquoted(self, decl_base):
+        """test #8888, #13602.
+
+        as in ``test_dont_ignore_unresolvable``, but the inner name is
+        left unquoted.  under pep-649 this is only reachable because the
+        interpreter no longer evaluates the annotation up front.
+
+        """
+
+        with expect_raises_message(
+            sa_exc.ArgumentError,
+            r"Could not resolve all types within mapped annotation: "
+            r"\".*Mapped\[.*fake.*\]\".  Ensure all types are written "
+            r"correctly and are imported within the module in use.",
+        ):
+
+            class A(decl_base):
+                __tablename__ = "a"
+
+                id: Mapped[int] = mapped_column(primary_key=True)
+                data: Mapped[fake]  # noqa: F821
+
+    @testing.requires.python314
+    def test_indirect_mapped_name_closure_level(self, decl_base):
+        """test #8759, #13602.
+
+        a name bound in the enclosing scope rather than at the module
+        level can't be resolved under ``__future__`` annotations, since
+        the string is evaluated against module globals; under pep-649 the
+        annotation closes over the enclosing scope, so it resolves and the
+        attribute maps normally.
+
+        """
+
+        M2 = Mapped
+
+        expect_fail = False
+        # anno only: expect_fail = True
+
+        def make_class():
+            class Foo(decl_base):
+                __tablename__ = "foo"
+
+                id: M2[int] = mapped_column(primary_key=True)
+
+                data2: M2[int]
+
+            return Foo
+
+        if expect_fail:
+            with expect_raises_message(
+                sa_exc.ArgumentError,
+                r"Could not interpret annotation M2\[int\].  Check that it "
+                "uses names that are correctly imported at the module level.",
+            ):
+                make_class()
+        else:
+            Foo = make_class()
+            is_(Foo.__table__.c.data2.type._type_affinity, Integer)
+
     def test_type_dont_mis_resolve_on_superclass(self):
         """test for #8859.
 
@@ -2059,58 +2075,7 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
                 id: Mapped[int] = mapped_column(primary_key=True)
                 data: Mapped[int_sub]
 
-    @testing.variation("in_map", ["yes", "no", "value"])
-    @testing.variation("lookup", ["A", "B", "value"])
-    def test_recursive_pep695_cases(
-        self, decl_base, in_map: Variation, lookup: Variation
-    ):
-        # anno only: global A, B
-        A = TypingTypeAliasType("A", Union[int, float])
-        B = TypingTypeAliasType("B", A)
-
-        if in_map.yes:
-            decl_base.registry.update_type_annotation_map({A: Numeric(10, 5)})
-        elif in_map.value:
-            decl_base.registry.update_type_annotation_map(
-                {A.__value__: Numeric(10, 5)}
-            )
-
-        def declare():
-            class MyClass(decl_base):
-                __tablename__ = "my_table"
-                id: Mapped[int] = mapped_column(primary_key=True)
-
-                if lookup.A:
-                    data: Mapped[A]
-                elif lookup.B:
-                    data: Mapped[B]
-                elif lookup.value:
-                    data: Mapped[Union[int, float]]
-                else:
-                    lookup.fail()
-
-            return MyClass
-
-        if in_map.value and lookup.B:
-            with expect_deprecated(
-                "Matching to pep-695 type 'A' in a recursive fashion"
-            ):
-                MyClass = declare()
-                eq_(MyClass.data.expression.type.precision, 10)
-        elif in_map.no or (in_map.yes and lookup.value):
-            with expect_raises_message(
-                orm_exc.MappedAnnotationError,
-                "Could not locate SQLAlchemy Core type when resolving "
-                "for Python type indicated by",
-            ):
-                declare()
-        else:
-            MyClass = declare()
-            eq_(MyClass.data.expression.type.precision, 10)
-
-    @testing.variation(
-        "dict_key", ["typing", ("plain", testing.requires.python310)]
-    )
+    @testing.variation("dict_key", ["typing", "plain"])
     def test_type_dont_mis_resolve_on_non_generic(self, dict_key):
         """test for #8859.
 
@@ -2181,11 +2146,11 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
         "argtype",
         [
             "type",
-            ("column", testing.requires.python310),
-            ("mapped_column", testing.requires.python310),
+            "column",
+            "mapped_column",
             "column_class",
             "ref_to_type",
-            ("ref_to_column", testing.requires.python310),
+            "ref_to_column",
         ],
     )
     def test_construct_lhs_sqlalchemy_type(self, decl_base, argtype):
@@ -2385,6 +2350,7 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             "plain",
             "union",
             "union_604",
+            "null",
             "union_null",
             "union_null_604",
             "optional",
@@ -2409,6 +2375,8 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             tat = TypeAliasType("tat", Union[str, int])
         elif option.union_604:
             tat = TypeAliasType("tat", str | int)
+        elif option.null:
+            tat = TypeAliasType("tat", None)
         elif option.union_null:
             tat = TypeAliasType("tat", Union[str, int, None])
         elif option.union_null_604:
@@ -2471,7 +2439,53 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
                 r"annotation for the 'data' attribute;",
             ):
                 declare()
-            return
+
+    @testing.variation("in_map", ["yes", "no", "value"])
+    @testing.variation("lookup", ["A", "B", "value"])
+    def test_recursive_pep695_cases(
+        self, decl_base, in_map: Variation, lookup: Variation
+    ):
+        # anno only: global A, B
+        A = TypingTypeAliasType("A", Union[int, float])
+        B = TypingTypeAliasType("B", A)
+
+        if in_map.yes:
+            decl_base.registry.update_type_annotation_map({A: Numeric(10, 5)})
+        elif in_map.value:
+            decl_base.registry.update_type_annotation_map(
+                {A.__value__: Numeric(10, 5)}
+            )
+
+        def declare():
+            class MyClass(decl_base):
+                __tablename__ = "my_table"
+                id: Mapped[int] = mapped_column(primary_key=True)
+
+                if lookup.A:
+                    data: Mapped[A]
+                elif lookup.B:
+                    data: Mapped[B]
+                elif lookup.value:
+                    data: Mapped[Union[int, float]]
+                else:
+                    lookup.fail()
+
+            return MyClass
+
+        if (
+            (in_map.value and lookup.B)
+            or in_map.no
+            or (in_map.yes and lookup.value)
+        ):
+            with expect_raises_message(
+                orm_exc.MappedAnnotationError,
+                "Could not locate SQLAlchemy Core type when resolving "
+                "for Python type indicated by",
+            ):
+                declare()
+        else:
+            MyClass = declare()
+            eq_(MyClass.data.expression.type.precision, 10)
 
     @testing.variation(
         "type_",
@@ -2564,18 +2578,12 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
 
         str50 = NewType("str50", str)
 
-        if compat.py310:
-            text = ".*str50"
-        else:
-            # NewTypes before 3.10 had a very bad repr
-            # <function NewType.<locals>.new_type at 0x...>
-            text = ".*NewType.*"
-
-        with expect_deprecated(
-            f"Matching the provided NewType '{text}' on its "
-            "resolved value without matching it in the "
-            "type_annotation_map is deprecated; add this type to the "
-            "type_annotation_map to allow it to match explicitly.",
+        with expect_raises_message(
+            orm_exc.MappedAnnotationError,
+            "Could not locate SQLAlchemy Core type when resolving for Python "
+            r"type indicated by '.*.str50' inside the Mapped\[\] annotation "
+            "for the 'data_one' attribute; the type object is not "
+            "resolvable by the registry",
         ):
 
             class MyClass(decl_base):
@@ -2584,16 +2592,9 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
                 id: Mapped[int] = mapped_column(primary_key=True)
                 data_one: Mapped[str50]
 
-        is_true(isinstance(MyClass.data_one.type, String))
-
     @testing.variation(
         "union",
-        [
-            "union",
-            ("pep604", requires.python310),
-            "union_null",
-            ("pep604_null", requires.python310),
-        ],
+        ["union", "pep604", "union_null", "pep604_null"],
     )
     def test_unions(self, union):
         # anno only: global UnionType
@@ -2649,17 +2650,14 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             float_data: Mapped[float] = mapped_column()
             decimal_data: Mapped[Decimal] = mapped_column()
 
-            if compat.py310:
-                pep604_data: Mapped[float | Decimal] = mapped_column()
-                pep604_reverse: Mapped[Decimal | float] = mapped_column()
-                pep604_optional: Mapped[Decimal | float | None] = (
-                    mapped_column()
-                )
-                pep604_data_fwd: Mapped["float | Decimal"] = mapped_column()
-                pep604_reverse_fwd: Mapped["Decimal | float"] = mapped_column()
-                pep604_optional_fwd: Mapped["Decimal | float | None"] = (
-                    mapped_column()
-                )
+            pep604_data: Mapped[float | Decimal] = mapped_column()
+            pep604_reverse: Mapped[Decimal | float] = mapped_column()
+            pep604_optional: Mapped[Decimal | float | None] = mapped_column()
+            pep604_data_fwd: Mapped["float | Decimal"] = mapped_column()
+            pep604_reverse_fwd: Mapped["Decimal | float"] = mapped_column()
+            pep604_optional_fwd: Mapped["Decimal | float | None"] = (
+                mapped_column()
+            )
 
         info = [
             ("data", False),
@@ -2670,16 +2668,13 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             ("refer_union", "null" in union.name),
             ("refer_union_optional", True),
             ("unflat_union_optional_data", True),
+            ("pep604_data", False),
+            ("pep604_reverse", False),
+            ("pep604_optional", True),
+            ("pep604_data_fwd", False),
+            ("pep604_reverse_fwd", False),
+            ("pep604_optional_fwd", True),
         ]
-        if compat.py310:
-            info += [
-                ("pep604_data", False),
-                ("pep604_reverse", False),
-                ("pep604_optional", True),
-                ("pep604_data_fwd", False),
-                ("pep604_reverse_fwd", False),
-                ("pep604_optional_fwd", True),
-            ]
 
         for name, nullable in info:
             col = User.__table__.c[name]
@@ -2696,7 +2691,7 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
         "union",
         [
             "union",
-            ("pep604", requires.python310),
+            "pep604",
             ("pep695", requires.python312),
         ],
     )
@@ -2709,14 +2704,13 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
         _JsonObject = Dict[str, "_Json"]
         _JsonArray = List["_Json"]
         _Json = Union[_JsonObject, _JsonArray, _JsonPrimitive]
-        if requires.python310.enabled:
-            _JsonPrimitivePep604 = str | int | float | bool | None
-            _JsonObjectPep604 = dict[str, "_JsonPep604"]
-            _JsonArrayPep604 = list["_JsonPep604"]
-            _JsonPep604 = (
-                _JsonObjectPep604 | _JsonArrayPep604 | _JsonPrimitivePep604
-            )
-            _JsonPep695 = TypeAliasType("_JsonPep695", _JsonPep604)
+        _JsonPrimitivePep604 = str | int | float | bool | None
+        _JsonObjectPep604 = dict[str, "_JsonPep604"]
+        _JsonArrayPep604 = list["_JsonPep604"]
+        _JsonPep604 = (
+            _JsonObjectPep604 | _JsonArrayPep604 | _JsonPrimitivePep604
+        )
+        _JsonPep695 = TypeAliasType("_JsonPep695", _JsonPep604)
 
         class Base(DeclarativeBase):
             if union.union:
@@ -2758,8 +2752,8 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             "optional",
             "optional_fwd_ref",
             "union_none",
-            ("pep604", testing.requires.python310),
-            ("pep604_fwd_ref", testing.requires.python310),
+            "pep604",
+            "pep604_fwd_ref",
         ],
     )
     @testing.variation("brackets", ["oneset", "twosets"])
@@ -2773,18 +2767,12 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
         #12207"""
 
         class Base(DeclarativeBase):
-            if testing.requires.python310.enabled:
-                type_annotation_map = {
-                    Dict[str, Decimal]: JSON,
-                    dict[str, Decimal]: JSON,
-                    Union[List[int], List[str]]: JSON,
-                    list[int] | list[str]: JSON,
-                }
-            else:
-                type_annotation_map = {
-                    Dict[str, Decimal]: JSON,
-                    Union[List[int], List[str]]: JSON,
-                }
+            type_annotation_map = {
+                Dict[str, Decimal]: JSON,
+                dict[str, Decimal]: JSON,
+                Union[List[int], List[str]]: JSON,
+                list[int] | list[str]: JSON,
+            }
 
         if include_mc_type == "include_mc_type":
             mc = mapped_column(JSON)
@@ -2802,46 +2790,36 @@ class TypeResolutionTests(fixtures.TestBase, testing.AssertsCompiledSQL):
             if brackets.oneset:
                 if option.not_optional:
                     json: Mapped[Dict[str, Decimal]] = mapped_column()  # type: ignore  # noqa: E501
-                    if testing.requires.python310.enabled:
-                        json2: Mapped[dict[str, Decimal]] = mapped_column()  # type: ignore  # noqa: E501
+                    json2: Mapped[dict[str, Decimal]] = mapped_column()  # type: ignore  # noqa: E501
                 elif option.optional:
                     json: Mapped[Optional[Dict[str, Decimal]]] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped[Optional[dict[str, Decimal]]] = mc2
+                    json2: Mapped[Optional[dict[str, Decimal]]] = mc2
                 elif option.optional_fwd_ref:
                     json: Mapped["Optional[Dict[str, Decimal]]"] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped["Optional[dict[str, Decimal]]"] = mc2
+                    json2: Mapped["Optional[dict[str, Decimal]]"] = mc2
                 elif option.union_none:
                     json: Mapped[Union[Dict[str, Decimal], None]] = mc
                     json2: Mapped[Union[None, Dict[str, Decimal]]] = mc2
                 elif option.pep604:
                     json: Mapped[dict[str, Decimal] | None] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped[None | dict[str, Decimal]] = mc2
+                    json2: Mapped[None | dict[str, Decimal]] = mc2
                 elif option.pep604_fwd_ref:
                     json: Mapped["dict[str, Decimal] | None"] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped["None | dict[str, Decimal]"] = mc2
+                    json2: Mapped["None | dict[str, Decimal]"] = mc2
             elif brackets.twosets:
                 if option.not_optional:
                     json: Mapped[Union[List[int], List[str]]] = mapped_column()  # type: ignore  # noqa: E501
                 elif option.optional:
                     json: Mapped[Optional[Union[List[int], List[str]]]] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped[
-                            Optional[Union[list[int], list[str]]]
-                        ] = mc2
+                    json2: Mapped[Optional[Union[list[int], list[str]]]] = mc2
                 elif option.optional_fwd_ref:
                     json: Mapped["Optional[Union[List[int], List[str]]]"] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped[
-                            "Optional[Union[list[int], list[str]]]"
-                        ] = mc2
+                    json2: Mapped["Optional[Union[list[int], list[str]]]"] = (
+                        mc2
+                    )
                 elif option.union_none:
                     json: Mapped[Union[List[int], List[str], None]] = mc
-                    if testing.requires.python310.enabled:
-                        json2: Mapped[Union[None, list[int], list[str]]] = mc2
+                    json2: Mapped[Union[None, list[int], list[str]]] = mc2
                 elif option.pep604:
                     json: Mapped[list[int] | list[str] | None] = mc
                     json2: Mapped[None | list[int] | list[str]] = mc2
@@ -3118,16 +3096,12 @@ class ResolveToEnumTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                     _TypingGenericPep695Typed: Enum(enum.Enum),  # noqa: F821
                 }
             )
-            if type_.recursive:
-                with expect_deprecated(
-                    "Mapping recursive TypeAliasType '.+' that resolve to "
-                    "literal to generate an Enum is deprecated. SQLAlchemy "
-                    "2.1 will not support this use case. Please avoid using "
-                    "recursing TypeAliasType",
-                ):
-                    Foo = declare()
-            elif type_.literal or type_.literal_typing:
+            if type_.literal or type_.literal_typing:
                 Foo = declare()
+                col = Foo.__table__.c.status
+                is_true(isinstance(col.type, Enum))
+                eq_(col.type.enums, ["to-do", "in-progress", "done"])
+                is_(col.type.native_enum, False)
             else:
                 with expect_raises_message(
                     exc.ArgumentError,
@@ -3147,16 +3121,6 @@ class ResolveToEnumTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             Foo = declare()
             col = Foo.__table__.c.status
             is_true(isinstance(col.type, String))
-        elif type_.recursive:
-            with expect_deprecated(
-                "Matching to pep-695 type '_Literal695' in a "
-                "recursive fashion "
-                "without the recursed type being present in the "
-                "type_annotation_map is deprecated; add this type or its "
-                "recursed value to the type_annotation_map to allow it to "
-                "match explicitly."
-            ):
-                Foo = declare()
         else:
             with expect_raises_message(
                 orm_exc.MappedAnnotationError,
@@ -3166,7 +3130,6 @@ class ResolveToEnumTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 r"annotation for the 'status' attribute",
             ):
                 declare()
-            return
 
     @testing.variation(
         "sqltype",
@@ -3485,33 +3448,33 @@ class MixinTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             id: Mapped[int] = mapped_column(primary_key=True)
 
             @declared_attr
-            def users(self) -> Mapped[List[User]]:
+            def users(cls) -> Mapped[List[User]]:
                 return relationship(User)
 
             if use_directive:
                 if use_annotation:
 
                     @declared_attr.directive
-                    def user_ids(self) -> AssociationProxy[List[int]]:
+                    def user_ids(cls) -> AssociationProxy[List[int]]:
                         return association_proxy("users", "id")
 
                 else:
 
                     @declared_attr.directive
-                    def user_ids(self):
+                    def user_ids(cls):
                         return association_proxy("users", "id")
 
             else:
                 if use_annotation:
 
                     @declared_attr
-                    def user_ids(self) -> AssociationProxy[List[int]]:
+                    def user_ids(cls) -> AssociationProxy[List[int]]:
                         return association_proxy("users", "id")
 
                 else:
 
                     @declared_attr
-                    def user_ids(self):
+                    def user_ids(cls):
                         return association_proxy("users", "id")
 
         class Thing(Mixin, decl_base):
@@ -3534,10 +3497,10 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         Base.registry.dispose()
 
     @testing.combinations(
-        (Relationship, CollectionAttributeImpl),
-        (Mapped, CollectionAttributeImpl),
-        (WriteOnlyMapped, WriteOnlyAttributeImpl),
-        (DynamicMapped, DynamicAttributeImpl),
+        (Relationship, _CollectionAttributeImpl),
+        (Mapped, _CollectionAttributeImpl),
+        (WriteOnlyMapped, _WriteOnlyAttributeImpl),
+        (DynamicMapped, _DynamicAttributeImpl),
         argnames="mapped_cls,implcls",
     )
     def test_use_relationship(self, decl_base, mapped_cls, implcls):
@@ -3646,9 +3609,9 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         "datatype",
         [
             "typing_sequence",
-            ("collections_sequence", testing.requires.python310),
+            "collections_sequence",
             "typing_mutable_sequence",
-            ("collections_mutable_sequence", testing.requires.python310),
+            "collections_mutable_sequence",
         ],
     )
     @testing.variation("include_explicit", [True, False])
@@ -3732,12 +3695,7 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
 
     @testing.variation(
         "collection_type",
-        [
-            ("list", testing.requires.python310),
-            "List",
-            ("set", testing.requires.python310),
-            "Set",
-        ],
+        ["list", "List", "set", "Set"],
     )
     def test_14_style_anno_accepted_w_allow_unmapped(self, collection_type):
         """test for #8692 and #10385"""
@@ -3797,7 +3755,7 @@ class RelationshipLHSTest(fixtures.TestBase, testing.AssertsCompiledSQL):
         ("optional",),
         ("optional_fwd_ref",),
         ("union_none",),
-        ("pep604", testing.requires.python310),
+        ("pep604",),
         argnames="optional_on_m2o",
     )
     def test_basic_bidirectional(self, decl_base, optional_on_m2o):
@@ -4443,6 +4401,90 @@ class CompositeTest(fixtures.TestBase, testing.AssertsCompiledSQL):
             # round trip!
             eq_(u1.address, Address("123 anywhere street"))
 
+    @testing.variation("explicit_col", [True, False])
+    @testing.variation("use_dataclass", [True, False])
+    @testing.variation("disable_none_on", [True, False])
+    def test_optional_composite(
+        self, decl_base, explicit_col, use_dataclass, disable_none_on
+    ):
+        """test #12570"""
+
+        # anno only: global Point
+
+        if use_dataclass:
+
+            @dataclasses.dataclass
+            class Point:
+                x: Optional[int]
+                y: Optional[int]
+
+        else:
+
+            class Point:
+                def __init__(self, x, y):
+                    self.x = x
+                    self.y = y
+
+                def __composite_values__(self):
+                    return (self.x, self.y)
+
+                def __eq__(self, other):
+                    return (
+                        isinstance(other, Point)
+                        and self.x == other.x
+                        and self.y == other.y
+                    )
+
+        class Edge(decl_base):
+            __tablename__ = "edge"
+            id: Mapped[int] = mapped_column(primary_key=True)
+
+            if disable_none_on:
+                if explicit_col or not use_dataclass:
+                    start: Mapped[Optional[Point]] = composite(
+                        mapped_column("x1", Integer, nullable=True),
+                        mapped_column("y1", Integer, nullable=True),
+                        return_none_on=None,
+                    )
+                else:
+                    start: Mapped[Optional[Point]] = composite(
+                        mapped_column("x1"),
+                        mapped_column("y1"),
+                        return_none_on=None,
+                    )
+            else:
+                if explicit_col or not use_dataclass:
+                    start: Mapped[Optional[Point]] = composite(
+                        mapped_column("x1", Integer, nullable=True),
+                        mapped_column("y1", Integer, nullable=True),
+                    )
+                else:
+                    start: Mapped[Optional[Point]] = composite(
+                        mapped_column("x1"), mapped_column("y1")
+                    )
+
+        eq_(Edge.__table__.c.x1.type._type_affinity, Integer)
+        eq_(Edge.__table__.c.y1.type._type_affinity, Integer)
+        is_true(Edge.__table__.c.x1.nullable)
+        is_true(Edge.__table__.c.y1.nullable)
+
+        decl_base.metadata.create_all(testing.db)
+
+        with Session(testing.db) as sess:
+            sess.add(Edge(start=None))
+            sess.commit()
+
+            if disable_none_on:
+                eq_(
+                    sess.execute(select(Edge.start)).scalar_one(),
+                    Point(x=None, y=None),
+                )
+            else:
+                eq_(
+                    sess.execute(select(Edge.start)).scalar_one(),
+                    None,
+                )
+
 
 class AllYourFavoriteHitsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
     """try a bunch of common mappings using the new style"""
@@ -4603,11 +4645,9 @@ class AllYourFavoriteHitsTest(fixtures.TestBase, testing.AssertsCompiledSQL):
                 BigInteger, Identity(always=True), primary_key=True
             )
 
-            bs: Mapped[list[B]] = relationship(  # noqa: F821
-                back_populates="a"
-            )
+            bs: Mapped[list[B]] = relationship(back_populates="a")
 
-            def __init__(self, bs: list[B], *args, **kwargs):  # noqa: F821
+            def __init__(self, bs: list[B], *args, **kwargs):
                 super().__init__(*args, bs=bs, **kwargs)
 
         class B(decl_base):

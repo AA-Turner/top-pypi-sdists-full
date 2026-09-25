@@ -49,6 +49,7 @@ from .api_objects.model import ModelStatusConfiguration
 from .api_objects.view import View
 from .common_experiment import CommonExperiment
 from .config import get_api_key, get_config
+from .config.streamlit_config import _in_streamlit_environment
 from .connection.connection_factory import get_rest_api_client
 from .connection.connection_helpers import write_stream_response_to_file
 from .constants import (
@@ -76,6 +77,7 @@ from .flatten_dict.flattener import (
 )
 from .logging_messages import (
     API_ADD_REGISTRY_MODEL_VERSION_STAGE_DEPRECATED_WARNING,
+    API_CLIENT_CANNOT_REFRESH_API_KEY_DEBUG,
     API_DELETE_REGISTRY_MODEL_VERSION_STAGE_DEPRECATED_WARNING,
     API_DOWNLOAD_REGISTRY_MODEL_COMPLETED_INFO,
     API_DOWNLOAD_REGISTRY_MODEL_COPY_INFO,
@@ -4357,6 +4359,11 @@ class API(object):
     For more usage examples, see [Comet Python API examples](../Comet-Python-API/).
     """
 
+    # Set in __init__; defaults here so an instance built with __new__ (as the
+    # tests do) still goes through _client.
+    api_key = None
+    _api_key_from_caller = None
+
     def __init__(self, api_key=None, cache=True, version="v2"):
         """
         Application Programming Interface to the Comet Python interface.
@@ -4381,13 +4388,57 @@ class API(object):
             ```
         """
         self.config = get_config()
+        # A key passed in belongs to the caller and is never re-resolved; one that
+        # came from config may be a panel token, which expires. Read in
+        # _refresh_panel_api_key, and nowhere outside this class.
+        self._api_key_from_caller = api_key
         self.api_key = get_api_key(api_key, self.config)
-        self._client = get_rest_api_client(
+        self._rest_client = get_rest_api_client(
             version,
             api_key=self.api_key,
             use_cache=cache,
             headers={"X-COMET-SDK-SOURCE": "API"},
         )
+
+    @property
+    def _client(self):
+        self._refresh_panel_api_key()
+        return self._rest_client
+
+    @_client.setter
+    def _client(self, rest_api_client):
+        self._rest_client = rest_api_client
+
+    def _refresh_panel_api_key(self) -> None:
+        """Keep a long-lived API object usable inside a Python Panel.
+
+        A panel authenticates with a project token that expires (4h by default),
+        and the panel runtime writes a refreshed one into the page's session
+        config, which `get_config()` reads. This object resolves its key once, in
+        `__init__`, so without re-reading it here an API that outlives the token —
+        one held in `@st.cache_resource`, as the panel docs recommend — goes on
+        calling with the dead key until the process is replaced.
+
+        Applies only to a key that came from config. An `api_key=` passed by the
+        caller is the caller's and is never replaced. Outside a panel runtime this
+        is a no-op, and it is called on every `_client` access, so it stays cheap.
+        """
+        if self._api_key_from_caller is not None or not _in_streamlit_environment():
+            return
+
+        current_api_key = get_api_key(None, get_config())
+        if current_api_key is None or current_api_key == self.api_key:
+            return
+
+        update_api_key = getattr(self._rest_client, "update_api_key", None)
+        if update_api_key is None:
+            # `_client` is assignable, so it may hold a client predating this —
+            # better to keep calling with the old key than to raise on every call.
+            LOGGER.debug(API_CLIENT_CANNOT_REFRESH_API_KEY_DEBUG)
+            return
+
+        self.api_key = current_api_key
+        update_api_key(current_api_key)
 
     @property
     def server_url(self):

@@ -46,7 +46,7 @@ class RawFilesClient:
         """
         List source data files available for parser development.
 
-        Returns a representative set of uploaded files for the org, newest first.
+        Returns the org's uploaded files, newest first.
         Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
         or a substring of the file name. Use the file-content tool to inspect a
         file's raw contents.
@@ -733,7 +733,7 @@ class AsyncRawFilesClient:
         """
         List source data files available for parser development.
 
-        Returns a representative set of uploaded files for the org, newest first.
+        Returns the org's uploaded files, newest first.
         Filter by instrument_id, comma-separated file extensions (e.g. "csv,txt"),
         or a substring of the file name. Use the file-content tool to inspect a
         file's raw contents.

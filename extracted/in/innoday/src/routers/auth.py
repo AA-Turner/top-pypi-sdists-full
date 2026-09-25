@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
+from src.api.middleware.team_secret import require_team_secret
 from src.database import get_session
 from src.domain.cli_token import CLIToken, generate_cli_token, hash_cli_token
 from src.domain.organization import Organization, OrganizationMembership
@@ -256,7 +257,9 @@ class SignInLinkRequest(BaseModel):
     redirect_to: str
 
 
-@router.post("/sign-in-link", status_code=202)
+@router.post(
+    "/sign-in-link", status_code=202, dependencies=[Depends(require_team_secret)]
+)
 async def request_sign_in_link_route(
     request: SignInLinkRequest,
     session: Session = Depends(get_session),
@@ -270,9 +273,10 @@ async def request_sign_in_link_route(
     The single exception is a deployment with no identity provider configured,
     which is true for every caller equally and so reveals nothing about anyone.
 
-    Unauthenticated, because the person calling it cannot sign in yet. It is still
-    behind the team secret, which the browser never sees -- the Next.js UI calls
-    this from its server, so it can send that header where a page script could not.
+    Unauthenticated, because the person calling it cannot sign in yet -- so it
+    carries the team secret as its own dependency: an anonymous route that sends
+    email is the one non-platform route worth a second lock. The browser never
+    sees the secret; innoday-ui calls this from its server (PF-455).
     """
     reason = request_sign_in_link(
         session, email=request.email, redirect_to=request.redirect_to
@@ -549,7 +553,7 @@ async def confirm_email(
     ``email_confirmed_at`` as a side effect. This endpoint just reports the
     result, so it stays correct if that logic changes.
 
-    **Exempt from the team secret** (see ``EXEMPT_PATHS``): the browser arrives
+    **Needs no team secret** -- only platform routes do (PF-455): the browser arrives
     from an email and cannot send that header — the same reasoning as
     ``/ui/invite/accept`` and the device-flow routes. It is not unauthenticated:
     it requires a JWKS-verified Supabase JWT, and a caller can only ever

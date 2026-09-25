@@ -6,6 +6,7 @@ Handles all API initialization and configuration
 import logging
 import os
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, FastAPI, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -13,10 +14,9 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from src.api.middleware.license_headers import LicenseHeadersMiddleware
-from src.api.middleware.team_secret import TeamSecretMiddleware
 from src.database import get_session
 from src.env_loader import get_environment
-from src.page_paths import LEGACY_REDIRECTS, UI_PREFIX
+from src.page_paths import LEGACY_REDIRECTS, UI_PREFIX, app_url
 
 from ..version import get_version
 
@@ -311,8 +311,8 @@ async def health_check(
 # Add middleware for license compliance
 app.add_middleware(LicenseHeadersMiddleware)
 
-# Gate access to the team when TEAM_ACCESS_SECRET is configured (e.g. deployed environments)
-app.add_middleware(TeamSecretMiddleware)
+# No global team-secret gate: identity is the Bearer token, and the secret is a
+# route-level dependency on platform-lifecycle routes only (PF-455).
 
 # Include routers
 from src.routers import (
@@ -340,37 +340,59 @@ from src.routers import (
     summaries,
     tickets,
     users,
-    webui,  # Server-rendered /ui pages (sign-in + dashboard)
 )
 
 
-def _legacy_page_redirects() -> APIRouter:
-    """301s from the pre-``/ui`` page addresses to where those pages live now.
+def _ui_redirects() -> APIRouter:
+    """301 every old page address to the same page on innoday-ui, at ``APP_URL``.
 
-    These are not tidiness: invite emails **already delivered** carry the old
-    paths, and Supabase's redirect allowlist still lists them. Dropping them
-    would send those recipients to a 404 -- the same failure #414 fixed, just
-    reached a different way.
+    This app no longer renders pages; innoday-ui does, at the very same paths.
+    The addresses still matter: bookmarks, and invite emails **already
+    delivered**, carry ``www.inno.day/ui/...`` -- and the pre-``/ui`` forms
+    (``LEGACY_REDIRECTS``) before that. Dropping them would send those people to
+    a 404, the failure #414 fixed.
 
-    A 301 is safe for ``/auth/callback`` specifically because the access token
-    arrives in the URL *fragment* (``#access_token=…``). Fragments are never
-    sent to the server, and the browser reattaches them to the redirect target,
-    so the token survives a hop the server cannot even see.
+    A 301 is safe for ``/auth/callback`` because the access token arrives in the
+    URL *fragment*, which the browser reattaches to the redirect target.
+
+    If ``APP_URL`` names this same host, redirecting would loop, so the route
+    answers 404 and says why instead. Locally, with APP_URL at its default,
+    this 301s to innoday-ui's dev server on :3000 -- run it, or nothing answers.
+
+    The target path is the *raw* request path: the decoded one would turn
+    ``/ui/..%2f..%2fx`` into a path that climbs out of ``/ui`` on APP_URL.
     """
     router = APIRouter(include_in_schema=False, tags=["compat"])
 
-    def _redirect_to(target: str):
-        async def _redirect(request: Request) -> RedirectResponse:
-            query = request.url.query
-            return RedirectResponse(
-                url=f"{target}?{query}" if query else target,
-                status_code=status.HTTP_301_MOVED_PERMANENTLY,
+    def _to_ui(path: str, request: Request) -> Response:
+        base = app_url()
+        if urlsplit(base).netloc == request.url.netloc:
+            return Response(
+                "The web pages are served by innoday-ui, not by this API. "
+                "Set APP_URL to where innoday-ui runs.",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
+        query = request.url.query
+        target = f"{base}{path}"
+        return RedirectResponse(
+            url=f"{target}?{query}" if query else target,
+            status_code=status.HTTP_301_MOVED_PERMANENTLY,
+        )
+
+    def _legacy(target: str):
+        async def _redirect(request: Request) -> Response:
+            return _to_ui(target, request)
 
         return _redirect
 
     for legacy_path, target_path in LEGACY_REDIRECTS.items():
-        router.add_api_route(legacy_path, _redirect_to(target_path), methods=["GET"])
+        router.add_api_route(legacy_path, _legacy(target_path), methods=["GET"])
+
+    @router.get(UI_PREFIX)
+    @router.get(UI_PREFIX + "/{rest:path}")
+    async def _old_ui(request: Request) -> Response:
+        return _to_ui(request.scope["raw_path"].decode("latin-1"), request)
+
     return router
 
 
@@ -383,18 +405,8 @@ app.include_router(
 app.include_router(auth.router, tags=["Authentication"])  # Has its own prefix
 app.include_router(device.router)  # CLI device flow (API half)
 
-# Browser pages -- the /ui half of the app. See src/page_paths.py for why the
-# app segments API (/api/v1) from pages (/ui) by path rather than by hostname.
-app.include_router(device.page_router)  # Hosted device-approval page
-app.include_router(invites.page_router)  # Invite-accept + auth-callback pages
-# MUST come after the three literal page routers above and before nothing else
-# that lives under /ui: webui owns `/ui/{org_ref}`, which matches a bare org
-# alias and would otherwise swallow /ui/device, /ui/invite/accept and
-# /ui/auth/callback. Starlette matches in declaration order.
-# (webui.routes also refuses RESERVED_UI_SEGMENTS, so a reordering here degrades
-# to a 404 rather than to a shadowed page.)
-app.include_router(webui.router)  # Sign-in + dashboard + CLI tokens
-app.include_router(_legacy_page_redirects())  # Pre-/ui addresses, as 301s
+# Browser pages live in innoday-ui at APP_URL; old addresses here 301 there.
+app.include_router(_ui_redirects())
 
 # Core API routes (all have /api/v1 prefix defined in router)
 app.include_router(organizations.router)  # Organization CRUD and membership

@@ -511,11 +511,15 @@ class LWDETR(nn.Module):
             cross_attn_srcs=cross_attn_srcs,
         )
         if self.use_grouppose_keypoints:
-            hs, ref_unsigmoid, hs_enc, ref_enc, keypoint_hs, enc_kp_predictions, _ = transformer_outputs
+            hs, ref_unsigmoid, hs_enc, ref_enc, keypoint_hs, enc_kp_predictions = transformer_outputs[:6]
         else:
             hs, ref_unsigmoid, hs_enc, ref_enc = transformer_outputs[:4]
             keypoint_hs = None
             enc_kp_predictions = None
+        # Last element: enc_out_class_embed's output at the two-stage selected positions, already
+        # gathered by Transformer._two_stage_group_selection -- None on the rare fallback path
+        # (custom/heterogeneous group modules), where the loop below still recomputes it.
+        cls_ts = transformer_outputs[-1]
 
         out: dict[str, Any] = {}
         if hs is not None:
@@ -578,14 +582,20 @@ class LWDETR(nn.Module):
 
         if self.two_stage:
             assert self.transformer.enc_out_class_embed is not None
-            group_detr = self.group_detr if self.training else 1
-            hs_enc_list = hs_enc.chunk(group_detr, dim=1)
-            cls_enc_list = []
-            for g_idx in range(group_detr):
-                cls_enc_gidx = self.transformer.enc_out_class_embed[g_idx](hs_enc_list[g_idx])
-                cls_enc_list.append(cls_enc_gidx)
+            if cls_ts is not None:
+                # Already computed by Transformer._two_stage_group_selection: enc_out_class_embed is a
+                # plain per-position Linear, so its output gathered at the selected positions there is
+                # exactly what re-running it here on the same gathered hidden state would produce.
+                cls_enc = cls_ts
+            else:
+                group_detr = self.group_detr if self.training else 1
+                hs_enc_list = hs_enc.chunk(group_detr, dim=1)
+                cls_enc_list = []
+                for g_idx in range(group_detr):
+                    cls_enc_gidx = self.transformer.enc_out_class_embed[g_idx](hs_enc_list[g_idx])
+                    cls_enc_list.append(cls_enc_gidx)
 
-            cls_enc = torch.cat(cls_enc_list, dim=1)
+                cls_enc = torch.cat(cls_enc_list, dim=1)
             keypoints_enc = None
             if self.use_grouppose_keypoints and enc_kp_predictions is not None:
                 keypoints_enc = self._format_keypoint_output(
@@ -621,6 +631,15 @@ class LWDETR(nn.Module):
         return out
 
     def forward_export(self, tensors: Tensor) -> tuple[Tensor, ...]:
+        """Run the export graph on a plain image batch.
+
+        Args:
+            tensors: Normalized images of shape ``(B, 3, H, W)``.
+
+        Returns:
+            ``(boxes, logits)`` for detection, ``(boxes, logits, masks)`` for segmentation, or
+            ``(boxes, logits, keypoints)`` for keypoint models.
+        """
         srcs, _, poss, cross_attn_srcs = self.backbone(tensors)
         # only use one group in inference
         refpoint_embed_weight = self.refpoint_embed.weight[: self.num_queries]
@@ -635,7 +654,7 @@ class LWDETR(nn.Module):
             cross_attn_srcs=cross_attn_srcs,
         )
         if self.use_grouppose_keypoints:
-            hs, ref_unsigmoid, hs_enc, ref_enc, keypoint_hs, enc_kp_predictions, _ = transformer_outputs
+            hs, ref_unsigmoid, hs_enc, ref_enc, keypoint_hs, enc_kp_predictions, _ = transformer_outputs[:7]
         else:
             hs, ref_unsigmoid, hs_enc, ref_enc = transformer_outputs[:4]
             keypoint_hs = None
@@ -657,9 +676,15 @@ class LWDETR(nn.Module):
                 if keypoint_hs is None:
                     raise ValueError("use_grouppose_keypoints=True requires keypoint_hs from transformer outputs.")
                 outputs_keypoints_delta = self.keypoint_embed(keypoint_hs)
-                ref_wh = ref_unsigmoid[..., 2:].unsqueeze(-2)
-                ref_xy = ref_unsigmoid[..., :2].unsqueeze(-2)
-                keypoints_xy = outputs_keypoints_delta[..., :2] * ref_wh + ref_xy
+                # Same math as ``forward``'s ``delta_xy * ref_wh.unsqueeze(-2) + ref_xy.unsqueeze(-2)``, but on the
+                # flattened ``(..., K * 2)`` layout: onnx2tf mis-transposes the rank-4 broadcast over the keypoint
+                # axis and the TFLite conversion fails (#1514). ``repeat`` with a full-rank argument, not ``tile``: the
+                # ONNX lowering of ``tile`` adds ``If`` nodes that onnxsim cannot simplify.
+                delta_xy = outputs_keypoints_delta[..., :2]
+                repeats = (*([1] * (ref_unsigmoid.dim() - 1)), delta_xy.shape[-2])
+                ref_wh = ref_unsigmoid[..., 2:].repeat(repeats)
+                ref_xy = ref_unsigmoid[..., :2].repeat(repeats)
+                keypoints_xy = (delta_xy.flatten(-2) * ref_wh + ref_xy).view(delta_xy.shape)
                 keypoints_other = outputs_keypoints_delta[..., 2:]
                 outputs_keypoints = torch.cat([keypoints_xy, keypoints_other], dim=-1)
                 if outputs_keypoints.dim() == 5:

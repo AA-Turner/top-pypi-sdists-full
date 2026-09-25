@@ -1,5 +1,10 @@
+import http.server
 import os
-from typing import Type
+import socket
+import struct
+import threading
+from contextlib import contextmanager
+from typing import Any, Callable, Iterator, List, Tuple, Type
 from unittest.mock import Mock, patch
 
 import click
@@ -17,7 +22,9 @@ from pygitguardian.models import (
 
 from ggshield.core.client import (
     RetryProfile,
+    api_timeout_from_config,
     check_client_api_key,
+    create_client,
     create_client_from_config,
     create_session,
     safe_api_tokens,
@@ -28,7 +35,6 @@ from ggshield.core.errors import (
     MissingScopesError,
     ServiceUnavailableError,
     UnexpectedError,
-    UnknownInstanceError,
 )
 
 
@@ -327,12 +333,12 @@ def test_retrieve_client_unknown_custom_dashboard_url(isolated_fs: FakeFilesyste
     """
     GIVEN an auth config telling the client to use a custom instance
     WHEN retrieve_client() is called
-    AND the custom instance does not exist
-    THEN the exception message mentions the instance name
+    AND no API key is available for that instance
+    THEN the exception says how to authenticate against that instance
     """
     with pytest.raises(
-        UnknownInstanceError,
-        match="Unknown instance: 'https://example.com'",
+        APIKeyCheckError,
+        match=r"ggshield auth login --instance https://example\.com",
     ):
         with patch.dict(os.environ, clear=True):
             config = Config()
@@ -402,8 +408,6 @@ def test_create_client_threads_retry_profile():
     Tests the low-level entry point, which is what create_client_from_config
     forwards to.
     """
-    from ggshield.core.client import create_client
-
     client = create_client(
         api_key="test-api-key",
         api_url="https://api.example.com",
@@ -426,6 +430,7 @@ def test_create_client_from_config_forwards_retry_profile():
     config.api_url = "https://api.example.com"
     config.user_config = Mock()
     config.user_config.insecure = False
+    config.user_config.api_timeout = 60
 
     with patch("ggshield.core.client.create_client") as create_client_mock:
         create_client_from_config(config, retry_profile=RetryProfile.PRE_RECEIVE)
@@ -454,3 +459,321 @@ def test_create_session_with_self_signed_option(allow_self_signed: bool):
         assert session.verify is False
     else:
         assert session.verify is True
+
+
+def test_create_client_default_timeout():
+    """
+    GIVEN create_client is called without a timeout
+    WHEN the client is created
+    THEN it defaults to 60 seconds
+    """
+    client = create_client(api_key="test-api-key", api_url="https://api.example.com")
+
+    assert client.timeout == 60
+
+
+def test_create_client_from_config_default_timeout(isolated_fs: FakeFilesystem):
+    """
+    GIVEN no timeout set in the config file or environment
+    WHEN create_client_from_config() is called
+    THEN the resulting client uses the 60 seconds default
+    """
+    with patch.dict(os.environ, {"GITGUARDIAN_API_KEY": "test-api-key"}, clear=True):
+        client = create_client_from_config(Config())
+
+    assert client.timeout == 60
+
+
+def test_create_client_from_config_uses_config_file_timeout(
+    isolated_fs: FakeFilesystem,
+):
+    """
+    GIVEN a config with a custom timeout
+    WHEN create_client_from_config() is called
+    THEN the resulting client uses that timeout
+    """
+    with patch.dict(os.environ, {"GITGUARDIAN_API_KEY": "test-api-key"}, clear=True):
+        config = Config()
+        config.user_config.api_timeout = 30
+        client = create_client_from_config(config)
+
+    assert client.timeout == 30
+
+
+def test_create_client_from_config_env_var_overrides_config_file(
+    isolated_fs: FakeFilesystem,
+):
+    """
+    GIVEN a config file timeout and a different GITGUARDIAN_API_TIMEOUT value
+    WHEN create_client_from_config() is called
+    THEN the environment variable wins
+    """
+    with patch.dict(
+        os.environ,
+        {"GITGUARDIAN_API_KEY": "test-api-key", "GITGUARDIAN_API_TIMEOUT": "45"},
+        clear=True,
+    ):
+        config = Config()
+        config.user_config.api_timeout = 30
+        client = create_client_from_config(config)
+
+    assert client.timeout == 45
+
+
+def test_api_timeout_from_config_for_direct_callers(isolated_fs: FakeFilesystem):
+    """
+    GIVEN a config file timeout and a different GITGUARDIAN_API_TIMEOUT value
+    WHEN a caller that builds a client itself resolves the timeout
+    THEN it gets the same value create_client_from_config() would use
+
+    Commands like auth login/logout, the OAuth flow and HMSL call
+    create_client() directly, so they need this to honour the settings.
+    """
+    with patch.dict(
+        os.environ,
+        {"GITGUARDIAN_API_KEY": "test-api-key", "GITGUARDIAN_API_TIMEOUT": "240"},
+        clear=True,
+    ):
+        config = Config()
+        config.user_config.api_timeout = 300
+        timeout = api_timeout_from_config(config)
+        client = create_client("key", "https://api.example.com", timeout=timeout)
+
+    assert timeout == 240
+    assert client.timeout == 240
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "not-a-number",
+        "\u00b2",  # isdigit() says yes, int() disagrees
+        "0",
+        "-5",
+        "3601",
+        "1" + "0" * 309,  # large enough to overflow socket.settimeout()
+    ],
+)
+def test_create_client_from_config_invalid_env_var_timeout(
+    isolated_fs: FakeFilesystem, value: str
+):
+    """
+    GIVEN an invalid GITGUARDIAN_API_TIMEOUT value
+    WHEN create_client_from_config() is called
+    THEN it raises a clear UsageError instead of crashing
+    """
+    with patch.dict(
+        os.environ,
+        {"GITGUARDIAN_API_KEY": "test-api-key", "GITGUARDIAN_API_TIMEOUT": value},
+        clear=True,
+    ):
+        with pytest.raises(click.UsageError, match="GITGUARDIAN_API_TIMEOUT"):
+            create_client_from_config(Config())
+
+
+@pytest.mark.parametrize("value", [0, -5, 3601, 10**309])
+def test_create_client_from_config_invalid_config_file_timeout(
+    isolated_fs: FakeFilesystem, value: int
+):
+    """
+    GIVEN a config file timeout outside the accepted range
+    WHEN create_client_from_config() is called
+    THEN it raises a clear UsageError instead of crashing
+    """
+    with patch.dict(os.environ, {"GITGUARDIAN_API_KEY": "test-api-key"}, clear=True):
+        config = Config()
+        config.user_config.api_timeout = value
+        with pytest.raises(click.UsageError, match="timeout"):
+            create_client_from_config(config)
+
+
+def test_create_client_from_config_accepts_the_highest_timeout(
+    isolated_fs: FakeFilesystem,
+):
+    """
+    GIVEN a timeout right on the upper bound
+    WHEN create_client_from_config() is called
+    THEN it is accepted
+    """
+    with patch.dict(
+        os.environ,
+        {"GITGUARDIAN_API_KEY": "test-api-key", "GITGUARDIAN_API_TIMEOUT": "3600"},
+        clear=True,
+    ):
+        client = create_client_from_config(Config())
+
+    assert client.timeout == 3600
+
+
+# The tests below drive a real local server rather than mocking exceptions, so
+# the whole requests -> urllib3 -> Retry stack is exercised. pytest-socket's
+# allow_hosts marker keeps them to loopback; do not add enable_socket, which
+# short-circuits that check and opens the socket completely.
+
+
+@contextmanager
+def _raw_server(
+    handle: Callable[[socket.socket], None]
+) -> Iterator[Tuple[int, List[str]]]:
+    """Serve raw connections with `handle`, yielding (port, attempts).
+
+    `attempts` gains one entry per connection accepted, which is how the tests
+    count retries.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(20)
+    sock.settimeout(0.2)
+    port = sock.getsockname()[1]
+    attempts: List[str] = []
+    stop = threading.Event()
+
+    def serve() -> None:
+        while not stop.is_set():
+            try:
+                conn, _ = sock.accept()
+            except socket.timeout:
+                continue
+            attempts.append("connection")
+            handle(conn)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    try:
+        yield port, attempts
+    finally:
+        # Join before closing: closing the listening socket while accept() is
+        # blocked on it raises OSError in the thread.
+        stop.set()
+        thread.join(timeout=5)
+        sock.close()
+
+
+def _read_then_go_silent(conn: socket.socket) -> None:
+    """Take the request and never answer, to cause a real read timeout."""
+    try:
+        conn.settimeout(5)
+        conn.recv(65536)
+    except OSError:
+        pass
+
+
+def _reset(conn: socket.socket) -> None:
+    """Reset the connection instead of answering."""
+    # SO_LINGER with a zero timeout makes close() send a RST rather than a FIN.
+    conn.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+    conn.close()
+
+
+@contextmanager
+def _status_server(status_code: int) -> Iterator[Tuple[int, List[str]]]:
+    """A server that always answers with status_code."""
+    attempts: List[str] = []
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def _reply(self) -> None:
+            # Read the body before answering. Closing a socket that still holds
+            # unread data sends a RST, and Windows then drops the response the
+            # client had already received.
+            remaining = int(self.headers.get("Content-Length") or 0)
+            while remaining > 0:
+                remaining -= len(self.rfile.read(min(remaining, 65536)))
+            attempts.append(self.command)
+            self.send_response(status_code)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def do_GET(self) -> None:  # noqa: N802
+            self._reply()
+
+        def do_POST(self) -> None:  # noqa: N802
+            self._reply()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass  # keep test output clean
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield port, attempts
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+        server.server_close()
+
+
+@pytest.mark.allow_hosts(["127.0.0.1"])
+@pytest.mark.parametrize(
+    "retry_profile", [RetryProfile.DEFAULT, RetryProfile.PRE_RECEIVE]
+)
+def test_post_read_timeout_is_not_retried(retry_profile: RetryProfile):
+    """
+    GIVEN a server that accepts the connection but never replies
+    WHEN a POST request hits the read timeout
+    THEN only one attempt is made, and a requests.exceptions.ReadTimeout is raised
+
+    A read timeout means the server already has the request and is working
+    on it, so retrying would only make it redo that work.
+    """
+    with _raw_server(_read_then_go_silent) as (port, attempts):
+        session = create_session(retry_profile=retry_profile)
+        with pytest.raises(requests.exceptions.ReadTimeout):
+            session.post(
+                f"http://127.0.0.1:{port}/v1/multiscan", json={}, timeout=(5, 0.2)
+            )
+        assert len(attempts) == 1
+
+
+@pytest.mark.allow_hosts(["127.0.0.1"])
+def test_get_read_timeout_is_still_retried():
+    """
+    GIVEN the same server that never replies
+    WHEN a GET request hits the read timeout
+    THEN it is retried (the fix only exempts POST)
+    """
+    with _raw_server(_read_then_go_silent) as (port, attempts):
+        # PRE_RECEIVE (total=1) keeps the test fast: one retry is enough to
+        # prove the request is retried at all.
+        session = create_session(retry_profile=RetryProfile.PRE_RECEIVE)
+        with pytest.raises(requests.exceptions.ConnectionError):
+            session.get(f"http://127.0.0.1:{port}/v1/foo", timeout=(5, 0.2))
+        assert len(attempts) == 2
+
+
+@pytest.mark.allow_hosts(["127.0.0.1"])
+def test_post_connection_reset_is_still_retried():
+    """
+    GIVEN a server that resets the connection instead of replying
+    WHEN a POST request is sent
+    THEN it is still retried the full number of times
+
+    Regression guard for PR #1218, which added POST to allowed_methods so
+    connection resets on POST get retried.
+    """
+    with _raw_server(_reset) as (port, attempts):
+        session = create_session(retry_profile=RetryProfile.PRE_RECEIVE)
+        with pytest.raises(requests.exceptions.ConnectionError):
+            session.post(
+                f"http://127.0.0.1:{port}/v1/multiscan", json={}, timeout=(5, 0.2)
+            )
+        assert len(attempts) == 2
+
+
+@pytest.mark.allow_hosts(["127.0.0.1"])
+@pytest.mark.parametrize("status_code", [502, 503, 504])
+def test_post_status_forcelist_is_still_retried(status_code: int):
+    """
+    GIVEN a server that always answers with a status in the forcelist
+    WHEN a POST request is sent
+    THEN it is still retried the full number of times
+    """
+    with _status_server(status_code) as (port, attempts):
+        session = create_session(retry_profile=RetryProfile.PRE_RECEIVE)
+        with pytest.raises(requests.exceptions.RetryError):
+            session.post(
+                f"http://127.0.0.1:{port}/v1/multiscan", json={}, timeout=(5, 5)
+            )
+        assert len(attempts) == 2

@@ -17,7 +17,7 @@ from werkzeug.local import LocalProxy
 from .quart_compat import get_quart_status
 
 from .changeable import admin_change_password
-from .forms import build_form
+from .forms import _build_form
 from .utils import (
     lookup_identity,
     get_identity_attributes,
@@ -157,7 +157,7 @@ def users_create(attributes, password, active, username):
         form_name = "confirm_register_form"
     else:
         form_name = "register_form"
-    form = build_form(
+    form = _build_form(
         form_name,
         meta={"csrf": False},
         **kwargs,
@@ -176,7 +176,7 @@ def users_create(attributes, password, active, username):
         # Exceptions could be an attribute given that isn't in user store
         try:
             _datastore.create_user(**kwargs)
-        except TypeError as e:
+        except Exception as e:
             raise click.exceptions.BadParameter(e)
         click.secho("User created successfully.", fg="green")
         kwargs["password"] = "****"
@@ -381,7 +381,7 @@ def users_change_password(user, password):
         raise click.UsageError("User not found.")
 
     kwargs = {"password": password, "password_confirm": password}
-    form = build_form("reset_password_form", meta={"csrf": False}, **kwargs)
+    form = _build_form("reset_password_form", meta={"csrf": False}, **kwargs)
     form.user = user_obj
 
     if form.validate():

@@ -130,7 +130,7 @@ def watermark_removal_attack(
             context_lines.append(f"Iteration {i} (score: {trial.score:.2f}):")
             context_lines.append(f"  Input: {trial.candidate[:300]}")
             if trial.evaluation_result and trial.evaluation_result.samples:
-                response = trial.evaluation_result.samples[0].output[:300]  # ty: ignore[not-subscriptable]
+                response = str(trial.evaluation_result.samples[0].output)[:300]
                 context_lines.append(f"  Output: {response}")
             context_lines.append("")
 

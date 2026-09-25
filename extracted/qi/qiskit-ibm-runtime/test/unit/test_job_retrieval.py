@@ -12,289 +12,231 @@
 
 """Tests for runtime job retrieval."""
 
-from datetime import datetime, timedelta, timezone
+from ddt import data, ddt
 
-from ..decorators import run_cloud_fake
+from qiskit_ibm_runtime.ibm_backend import IBMBackend, IBMRetiredBackend
+from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService
+
+from ..decorators import mock_responses
 from ..ibm_test_case import IBMTestCase
-from ..program import run_program
-from ..utils import mock_wait_for_final_state
-from .mock.fake_runtime_service import FakeRuntimeService
+from ..registries import Backend, Job, OneInstanceNoBackendsRegistry
 
 
+@ddt
 class TestRetrieveJobs(IBMTestCase):
     """Class for testing job retrieval."""
 
-    def setUp(self):
-        """Initial test setup."""
-        super().setUp()
-        self._ibm_quantum_service = FakeRuntimeService(
-            channel="ibm_quantum_platform", token="my_token"
-        )
-
-    @run_cloud_fake
-    def test_retrieve_job(self, service):
+    @mock_responses
+    def test_retrieve_job(self, registry):
         """Test retrieving a job."""
-        program_id = "sampler"
-        params = {"param1": "foo"}
-        job = run_program(service=service, program_id=program_id, inputs=params)
-        rjob = service.job(job.job_id())
-        self.assertEqual(job.job_id(), rjob.job_id())
-        self.assertEqual(program_id, rjob.primitive_id)
+        registry.add_job(Job("my_job", "common_backend"), "a")
 
-    @run_cloud_fake
-    def test_jobs_no_limit(self, service):
+        service = QiskitRuntimeService(token="my_token")
+        job = service.job("my_job")
+        self.assertEqual(job.job_id(), "my_job")
+        self.assertEqual(job.primitive_id, "sampler")
+
+    @mock_responses
+    def test_jobs_no_limit(self, registry):
         """Test retrieving jobs without limit."""
-        program_id = "sampler"
+        for i in range(25):
+            registry.add_job(Job(str(i), "common_backend"), "a")
 
-        jobs = []
-        for _ in range(25):
-            jobs.append(run_program(service, program_id))
-        rjobs = service.jobs(limit=None)
-        self.assertEqual(25, len(rjobs))
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        jobs = service.jobs(limit=None)
+        self.assertEqual(25, len(jobs))
 
-    @run_cloud_fake
-    def test_jobs_limit(self, service):
+    @data(21, 30)
+    @mock_responses
+    def test_jobs_limit(self, limit, registry):
         """Test retrieving jobs with limit."""
-        program_id = "sampler"
+        for i in range(25):
+            registry.add_job(Job(str(i), "common_backend"), "a")
 
-        jobs = []
-        job_count = 25
-        for _ in range(job_count):
-            jobs.append(run_program(service, program_id))
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        jobs = service.jobs(limit=limit)
+        self.assertEqual(min(limit, 25), len(jobs))
 
-        limits = [21, 30]
-        for limit in limits:
-            with self.subTest(limit=limit):
-                rjobs = service.jobs(limit=limit)
-                self.assertEqual(min(limit, job_count), len(rjobs))
-
-    @run_cloud_fake
-    def test_jobs_skip(self, service):
+    @mock_responses
+    def test_jobs_skip(self, registry):
         """Test retrieving jobs with skip."""
-        program_id = "sampler"
+        for i in range(5):
+            registry.add_job(Job(str(i), "common_backend"), "a")
 
-        jobs = []
-        for _ in range(5):
-            jobs.append(run_program(service, program_id))
-        rjobs = service.jobs(skip=4)
-        self.assertEqual(1, len(rjobs))
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        jobs = service.jobs(skip=4)
+        self.assertEqual(1, len(jobs))
 
-    @run_cloud_fake
-    def test_backend_instance_warnings(self, service):
+    @mock_responses
+    def test_backend_instance_warnings(self, registry):
         """Test backend instance warnings do not appear."""
-        program_id = "sampler"
-        params = {"param1": "foo"}
-        job = run_program(service=service, program_id=program_id, inputs=params)
+        registry.add_job(Job("my_job", "common_backend"), "a")
+
+        service = QiskitRuntimeService(token="my_token", instance="a")
         with self.assertNoLogs("qiskit_ibm_runtime", level="WARNING"):
             service.jobs()
 
         with self.assertNoLogs("qiskit_ibm_runtime", level="WARNING"):
-            service.job(job.job_id())
+            service.job("my_job")
 
-    def test_jobs_skip_limit(self):
+    @mock_responses
+    def test_jobs_skip_limit(self, registry):
         """Test retrieving jobs with skip and limit."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        for i in range(10):
+            registry.add_job(Job(str(i), "common_backend"), "a")
 
-        jobs = []
-        for _ in range(10):
-            jobs.append(run_program(service, program_id))
-        rjobs = service.jobs(skip=4, limit=2)
-        self.assertEqual(2, len(rjobs))
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        jobs = service.jobs(skip=4, limit=2)
+        self.assertEqual(2, len(jobs))
 
-    @run_cloud_fake
-    def test_jobs_pending(self, service):
+    @mock_responses
+    def test_jobs_pending(self, registry):
         """Test retrieving pending jobs (QUEUED, RUNNING)."""
-        program_id = "sampler"
+        _, pending_jobs_count, _ = self._populate_jobs(registry)
 
-        _, pending_jobs_count, _ = self._populate_jobs_with_all_statuses(
-            service, program_id=program_id
-        )
-        rjobs = service.jobs(pending=True)
-        self.assertEqual(pending_jobs_count, len(rjobs))
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        jobs = service.jobs(pending=True)
+        self.assertEqual(pending_jobs_count, len(jobs))
 
-    def test_jobs_limit_pending(self):
+    @mock_responses
+    def test_jobs_limit_pending(self, registry):
         """Test retrieving pending jobs (QUEUED, RUNNING) with limit."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        self._populate_jobs(registry)
 
-        self._populate_jobs_with_all_statuses(service, program_id=program_id)
+        service = QiskitRuntimeService(token="my_token", instance="a")
         limit = 4
-        rjobs = service.jobs(limit=limit, pending=True)
-        self.assertEqual(limit, len(rjobs))
+        jobs = service.jobs(limit=limit, pending=True)
+        self.assertEqual(limit, len(jobs))
 
-    def test_jobs_skip_pending(self):
+    @mock_responses
+    def test_jobs_skip_pending(self, registry):
         """Test retrieving pending jobs (QUEUED, RUNNING) with skip."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        _, pending_jobs_count, _ = self._populate_jobs(registry)
 
-        _, pending_jobs_count, _ = self._populate_jobs_with_all_statuses(
-            service, program_id=program_id
-        )
+        service = QiskitRuntimeService(token="my_token", instance="a")
         skip = 4
-        rjobs = service.jobs(skip=skip, pending=True)
-        self.assertEqual(pending_jobs_count - skip, len(rjobs))
+        jobs = service.jobs(skip=skip, pending=True)
+        self.assertEqual(pending_jobs_count - skip, len(jobs))
 
-    def test_jobs_limit_skip_pending(self):
+    @mock_responses
+    def test_jobs_limit_skip_pending(self, registry):
         """Test retrieving pending jobs (QUEUED, RUNNING) with limit and skip."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        self._populate_jobs(registry)
 
-        self._populate_jobs_with_all_statuses(service, program_id=program_id)
+        service = QiskitRuntimeService(token="my_token", instance="a")
         limit = 2
         skip = 3
-        rjobs = service.jobs(limit=limit, skip=skip, pending=True)
-        self.assertEqual(limit, len(rjobs))
+        jobs = service.jobs(limit=limit, skip=skip, pending=True)
+        self.assertEqual(limit, len(jobs))
 
-    def test_jobs_returned(self):
+    @mock_responses
+    def test_jobs_returned(self, registry):
         """Test retrieving returned jobs (COMPLETED, FAILED, CANCELLED)."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        _, _, returned_jobs_count = self._populate_jobs(registry)
 
-        _, _, returned_jobs_count = self._populate_jobs_with_all_statuses(
-            service, program_id=program_id
-        )
-        rjobs = service.jobs(pending=False)
-        self.assertEqual(returned_jobs_count, len(rjobs))
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        jobs = service.jobs(pending=False)
+        self.assertEqual(returned_jobs_count, len(jobs))
 
-    def test_jobs_limit_returned(self):
+    @mock_responses
+    def test_jobs_limit_returned(self, registry):
         """Test retrieving returned jobs (COMPLETED, FAILED, CANCELLED) with limit."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        self._populate_jobs(registry)
 
-        self._populate_jobs_with_all_statuses(service, program_id=program_id)
+        service = QiskitRuntimeService(token="my_token", instance="a")
         limit = 6
-        rjobs = service.jobs(limit=limit, pending=False)
-        self.assertEqual(limit, len(rjobs))
+        jobs = service.jobs(limit=limit, pending=False)
+        self.assertEqual(limit, len(jobs))
 
-    def test_jobs_skip_returned(self):
+    @mock_responses
+    def test_jobs_skip_returned(self, registry):
         """Test retrieving returned jobs (COMPLETED, FAILED, CANCELLED) with skip."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        _, _, returned_jobs_count = self._populate_jobs(registry)
 
-        _, _, returned_jobs_count = self._populate_jobs_with_all_statuses(
-            service, program_id=program_id
-        )
+        service = QiskitRuntimeService(token="my_token", instance="a")
         skip = 4
-        rjobs = service.jobs(skip=skip, pending=False)
-        self.assertEqual(returned_jobs_count - skip, len(rjobs))
+        jobs = service.jobs(skip=skip, pending=False)
+        self.assertEqual(returned_jobs_count - skip, len(jobs))
 
-    def test_jobs_limit_skip_returned(self):
+    @mock_responses
+    def test_jobs_limit_skip_returned(self, registry):
         """Test retrieving returned jobs (COMPLETED, FAILED, CANCELLED) with limit and skip."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
+        self._populate_jobs(registry)
 
-        self._populate_jobs_with_all_statuses(service, program_id=program_id)
-        limit = 6
+        service = QiskitRuntimeService(token="my_token", instance="a")
+        limit = 4
         skip = 2
         rjobs = service.jobs(limit=limit, skip=skip, pending=False)
         self.assertEqual(limit, len(rjobs))
 
-    def test_jobs_filter_by_job_tags(self):
-        """Test retrieving jobs by job tags."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
-        job_tags = ["test_tag"]
-
-        job = run_program(service=service, program_id=program_id, job_tags=job_tags)
-        with mock_wait_for_final_state(service, job):
-            job.wait_for_final_state()
-        rjobs = service.jobs(program_id=program_id, job_tags=job_tags)
-        self.assertTrue(rjobs)
-        self.assertEqual(1, len(rjobs))
-        rjobs = service.jobs(program_id=program_id, job_tags=["no_test_tag"])
-        self.assertFalse(rjobs)
-
-    def test_jobs_filter_by_session_id(self):
-        """Test retrieving jobs by session id."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
-
-        job = run_program(service=service, program_id=program_id)
-        job_2 = run_program(service=service, program_id=program_id, session_id=job.job_id())
-        with mock_wait_for_final_state(service, job):
-            job.wait_for_final_state()
-            job_2.wait_for_final_state()
-        rjobs = service.jobs(program_id=program_id, session_id=job.job_id())
-        self.assertTrue(rjobs)
-        self.assertEqual(2, len(rjobs))
-        rjobs = service.jobs(program_id=program_id, session_id="no_test_session_id")
-        self.assertFalse(rjobs)
-
-    def test_jobs_filter_by_date(self):
-        """Test retrieving jobs filtered by date."""
-        service = self._ibm_quantum_service
-        current_time = datetime.now(timezone.utc) - timedelta(seconds=5)
-        job = run_program(service=service)
-        with mock_wait_for_final_state(service, job):
-            job.wait_for_final_state()
-        time_after_job = datetime.now(timezone.utc)
-        rjobs = service.jobs(
-            created_before=time_after_job,
-            created_after=current_time,
-        )
-        self.assertTrue(job.job_id() in [j.job_id() for j in rjobs])
-        self.assertTrue(job._creation_date <= time_after_job)
-        self.assertTrue(job._creation_date >= current_time)
-
-    def test_jobs_sort_by_date(self):
-        """Test retrieving jobs sorted by the date."""
-        service = self._ibm_quantum_service
-        program_id = "sampler"
-
-        job = run_program(service=service, program_id=program_id)
-        job_2 = run_program(service=service, program_id=program_id)
-        with mock_wait_for_final_state(service, job):
-            job.wait_for_final_state()
-            job_2.wait_for_final_state()
-        rjobs = service.jobs(program_id=program_id)
-        rjobs_desc = service.jobs(program_id=program_id, descending=True)
-        rjobs_asc = service.jobs(program_id=program_id, descending=False)
-        self.assertTrue(rjobs[0], rjobs_asc[1])
-        self.assertTrue(rjobs[1], rjobs_asc[0])
-        self.assertEqual([job.job_id() for job in rjobs], [job.job_id() for job in rjobs_desc])
-
-    def test_jobs_bad_instance(self):
+    @mock_responses
+    def test_jobs_by_instance(self, registry):
         """Test retrieving jobs with bad instance values."""
-        service = self._ibm_quantum_service
-        with self.assertRaises(Exception):
-            _ = service.jobs(instance="foo")
+        registry.add_job(Job("my_job", "common_backend"), "a")
+        crn_a = registry.instances["a"].crn
+        crn_b = registry.instances["b"].crn
 
-    def test_different_instance(self):
+        service = QiskitRuntimeService(token="my_token", instance="a")
+
+        self.assertEqual(len(service.jobs(instance=crn_a)), 1)
+        self.assertEqual(len(service.jobs(instance=crn_b)), 0)
+
+    @mock_responses
+    def test_different_instance(self, registry):
         """Test retrieving job submitted with different instance."""
-        # Initialize with first instance
-        service = FakeRuntimeService(
-            channel="ibm_quantum_platform",
-            token="some_token",
-            instance=FakeRuntimeService.DEFAULT_CRNS[0],
-        )
-        program_id = "sampler"
+        registry.add_job(Job("my_job", "unique_backend_a"), "a")
+        service = QiskitRuntimeService(token="my_token")
 
-        # Run with different instance
-        backend_name = FakeRuntimeService.DEFAULT_UNIQUE_BACKEND_PREFIX + "1"
-        job = run_program(service, program_id=program_id, backend_name=backend_name)
+        # Ensure the active api client is the one for the instance that does _not_ contain the job.
+        self.assertEqual(service._active_api_client._instance, registry.instances["b"].crn)
 
-        rjob = service.job(job.job_id())
-        self.assertIsNotNone(rjob.backend())
+        # Retrieve a job from instance "a" when active instance is "b".
+        job = service.job("my_job")
+        self.assertIsNotNone(job.backend())
 
-    def _populate_jobs_with_all_statuses(self, service, program_id):
-        """Populate the database with jobs of all statuses."""
+    def _populate_jobs(self, registry):
+        """Populate the registry with jobs of all statuses."""
         jobs = []
         pending_jobs_count = 0
         returned_jobs_count = 0
         status_count = {
-            "RUNNING": 3,
-            "COMPLETED": 4,
-            "QUEUED": 2,
-            "FAILED": 3,
-            "CANCELLED": 2,
+            "queued": 3,
+            "running": 4,
+            "completed": 2,
+            "failed": 3,
+            "cancelled": 2,
         }
-        pending_status = ["RUNNING", "QUEUED"]
-        for stat, count in status_count.items():
-            for _ in range(count):
-                jobs.append(run_program(service=service, program_id=program_id, final_status=stat))
-                if stat in pending_status:
+
+        pending_status = ["running", "queued"]
+        for status, count in status_count.items():
+            for i in range(count):
+                registry.add_job(Job(f"my_job_{status}_{i}", "common_backend", status=status), "a")
+                if status in pending_status:
                     pending_jobs_count += 1
                 else:
                     returned_jobs_count += 1
         return jobs, pending_jobs_count, returned_jobs_count
+
+
+class TestRetrieveJobsRegistry(IBMTestCase):
+    """Test retrieval of jobs, using a mocked registry."""
+
+    @mock_responses(OneInstanceNoBackendsRegistry)
+    def test_jobs_returned_from_retired_backend(
+        self, registry: OneInstanceNoBackendsRegistry
+    ) -> None:
+        """Test retrieving jobs that use a retired backend."""
+        registry.add_backend(Backend("ibm_not_retired"))
+        registry.add_job(Job("1", "ibm_retired"), "a")
+        registry.add_job(Job("2", "ibm_not_retired"), "a")
+
+        service = QiskitRuntimeService(token="my_token")
+
+        # Retrieving a job should suceed, and produce a retired backend.
+        job_retired = service.job("1")
+        self.assertIsInstance(job_retired.backend(), IBMRetiredBackend)
+
+        # Retrieving all (2) jobs should suceed, and produce retired and non retired backends.
+        jobs = service.jobs()
+        self.assertIsInstance(jobs[0].backend(), IBMRetiredBackend)
+        self.assertIsInstance(jobs[1].backend(), IBMBackend)

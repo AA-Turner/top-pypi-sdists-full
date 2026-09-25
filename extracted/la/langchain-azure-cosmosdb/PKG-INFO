@@ -1,36 +1,36 @@
 Metadata-Version: 2.4
 Name: langchain-azure-cosmosdb
-Version: 1.0.0
+Version: 1.0.1
 Summary: Azure CosmosDB integrations for LangChain and LangGraph, including vector store, cache, chat history, and checkpoint.
-License-Expression: MIT
-License-File: LICENSE
 Keywords: azure,cosmosdb,langchain,langgraph,vector-search,llm,ai
 Author: Aayush Kataria
-Author-email: akataria@microsoft.com
-Maintainer: Aayush Kataria
-Maintainer-email: akataria@microsoft.com
-Requires-Python: >=3.10,<4.0
+Author-email: Aayush Kataria <akataria@microsoft.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Dist: aiohttp (>=3.9.0)
-Requires-Dist: azure-cosmos (>=4.9.0)
-Requires-Dist: azure-identity (>=1.12.0)
-Requires-Dist: langchain-core (>=1.0,<2.0)
-Requires-Dist: langgraph (>=0.2.0)
-Requires-Dist: langgraph-checkpoint (>=2.1.2,<5.0.0)
-Requires-Dist: numpy (>=1,<3)
-Requires-Dist: orjson (>=3.10.1)
+Requires-Dist: azure-cosmos>=4.14.0
+Requires-Dist: azure-identity>=1.12.0
+Requires-Dist: aiohttp>=3.14.1
+Requires-Dist: langchain-core>=1.0,<2.0
+Requires-Dist: langgraph>=0.2.0
+Requires-Dist: langgraph-checkpoint>=2.1.2,<5.0.0
+Requires-Dist: numpy>=1,<3
+Requires-Dist: orjson>=3.10.1
+Maintainer: Aayush Kataria, Theo van Kraay, James Codella
+Maintainer-email: Aayush Kataria <akataria@microsoft.com>, Theo van Kraay <Theo.van@microsoft.com>, James Codella <James.Codella@microsoft.com>
+Requires-Python: >=3.11, <4.0
 Project-URL: Homepage, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-cosmosdb
-Project-URL: Repository, https://github.com/langchain-ai/langchain-azure
-Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
+Project-URL: repository, https://github.com/langchain-ai/langchain-azure
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-azure/tree/main/libs/azure-cosmosdb
+Project-URL: Release Notes, https://github.com/langchain-ai/langchain-azure/releases
 Description-Content-Type: text/markdown
 
 # langchain-azure-cosmosdb
@@ -48,6 +48,7 @@ pip install langchain-azure-cosmosdb
 | Integration | Sync | Async | Description |
 |---|---|---|---|
 | **Vector Store** | `AzureCosmosDBNoSqlVectorSearch` | `AsyncAzureCosmosDBNoSqlVectorSearch` | Vector, full-text, hybrid, and weighted hybrid search |
+| **Vector Store (MongoDB compatibility)** | `AzureDocumentDBVectorSearch` | N/A | Vector search for Azure DocumentDB clusters with MongoDB compatibility |
 | **Semantic Cache** | `AzureCosmosDBNoSqlSemanticCache` | `AsyncAzureCosmosDBNoSqlSemanticCache` | LLM response caching backed by CosmosDB |
 | **Chat History** | `CosmosDBChatMessageHistory` | `AsyncCosmosDBChatMessageHistory` | Persistent chat message history |
 | **LangGraph Checkpointer** | `CosmosDBSaverSync` | `CosmosDBSaver` | LangGraph graph state persistence |
@@ -63,17 +64,20 @@ from azure.cosmos import CosmosClient, PartitionKey
 from langchain_azure_cosmosdb import AzureCosmosDBNoSqlVectorSearch
 
 cosmos_client = CosmosClient("<endpoint>", "<key>")
+request_charges = []
 
 vectorstore = AzureCosmosDBNoSqlVectorSearch(
     cosmos_client=cosmos_client,
     embedding=embedding,
     vector_embedding_policy={
-        "vectorEmbeddings": [{
-            "path": "/embedding",
-            "dataType": "float32",
-            "distanceFunction": "cosine",
-            "dimensions": 1536,
-        }]
+        "vectorEmbeddings": [
+            {
+                "path": "/embedding",
+                "dataType": "float32",
+                "distanceFunction": "cosine",
+                "dimensions": 1536,
+            }
+        ]
     },
     indexing_policy={
         "indexingMode": "consistent",
@@ -86,6 +90,7 @@ vectorstore = AzureCosmosDBNoSqlVectorSearch(
     vector_search_fields={"text_field": "text", "embedding_field": "embedding"},
     database_name="my-database",
     container_name="my-container",
+    request_charge_callback=request_charges.append,
 )
 
 # Add documents
@@ -93,6 +98,33 @@ vectorstore.add_texts(["Azure CosmosDB is a multi-model database."])
 
 # Search
 results = vectorstore.similarity_search("What is CosmosDB?", k=3)
+if request_charges:
+    print(request_charges[-1].request_charge)
+```
+
+The optional `request_charge_callback` receives one `CosmosDBRequestCharge`
+after each successful logical query. Its `request_charge` is the sum of all
+Cosmos DB query pages and `request_count` is the number of page requests that
+reported a charge. The same callback contract applies to the async vector
+store. Insert, delete, point-read, and batch charges are not currently reported.
+
+### Vector Store (Azure DocumentDB with MongoDB compatibility)
+
+```python
+from pymongo import MongoClient
+from langchain_azure_cosmosdb import AzureDocumentDBVectorSearch
+
+mongo_client = MongoClient("<connection-string>")
+collection = mongo_client["my-database"]["my-collection"]
+
+vectorstore = AzureDocumentDBVectorSearch(
+    collection=collection,
+    embedding=embedding,
+    index_name="vectorSearchIndex",
+)
+
+vectorstore.add_texts(["Azure DocumentDB supports MongoDB-compatible vector search."])
+results = vectorstore.similarity_search("What does DocumentDB support?", k=3)
 ```
 
 ### Semantic Cache
@@ -256,7 +288,9 @@ async with AsyncCosmosDBStore.from_endpoint(
 ) as store:
     await store.setup()
 
-    await store.aput(("users", "alice", "preferences"), "coffee", {"text": "Dark roast"})
+    await store.aput(
+        ("users", "alice", "preferences"), "coffee", {"text": "Dark roast"}
+    )
     item = await store.aget(("users", "alice", "preferences"), "coffee")
 
     results = await store.asearch(("users",), query="beverage preferences", limit=3)
@@ -269,11 +303,13 @@ All integrations support both **access key** and **Microsoft Entra ID (AAD / Man
 ```python
 # Access key
 from azure.cosmos import CosmosClient
+
 client = CosmosClient("<endpoint>", "<key>")
 
 # AAD / Managed Identity
 from azure.cosmos import CosmosClient
 from azure.identity import DefaultAzureCredential
+
 client = CosmosClient("<endpoint>", credential=DefaultAzureCredential())
 ```
 
@@ -284,6 +320,14 @@ The LangGraph integrations that manage their own client — `CosmosDBSaverSync` 
 See the [samples/cosmosdb-nosql/](../../samples/cosmosdb-nosql/) directory for runnable end-to-end examples of every integration.
 
 ## Changelog
+
+### 1.0.1
+
+We raised the minimum supported Python version from 3.10 to 3.11 in accordance with the repository's Python support policy. Users running Python 3.10 must upgrade their runtime to install this release. [#1021](https://github.com/langchain-ai/langchain-azure/pull/1021)
+
+- We introduced the `AzureDocumentDBVectorSearch` integration and compatibility aliases for MongoDB-compatible vector search, including a fix for the deprecated import path. **[NEW]** [#870](https://github.com/langchain-ai/langchain-azure/pull/870) [#871](https://github.com/langchain-ai/langchain-azure/pull/871)
+- We added optional request-charge callbacks for synchronous and asynchronous vector queries. **[NEW]** [#876](https://github.com/langchain-ai/langchain-azure/pull/876)
+- We fixed DocumentDB vector search handling for single-pass iterables and ensured caller-provided oversampling is forwarded to vector queries. [#1028](https://github.com/langchain-ai/langchain-azure/pull/1028)
 
 ### 1.0.0
 
@@ -303,4 +347,3 @@ Initial release of `langchain-azure-cosmosdb` — a standalone package consolida
 - Full sync and async support for all integrations
 - Microsoft Entra ID (AAD / Managed Identity) authentication across all integrations
 - User agent tracking for all CosmosDB client instances
-

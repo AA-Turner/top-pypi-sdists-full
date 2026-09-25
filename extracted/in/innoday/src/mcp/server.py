@@ -8,7 +8,6 @@ repository, ticket, and board management systems.
 
 import logging
 import os
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -595,17 +594,25 @@ async def check_status(
     Check InnoDay API connectivity and status without leaving the session.
 
     Calls GET /api/v1/public/status on the configured api_url and returns a
-    structured report: environment, port, env_file, db_host, version,
-    uptime, and (if identity is configured) the current user/org and their
-    assigned ticket count. Never raises — returns {"status": "unreachable"}
+    structured report: environment, version, uptime, and (if identity is
+    configured) the current user/org and their assigned ticket count.
+    port, env_file and db_host are filled only when the configured token
+    belongs to a platform admin -- the API withholds them from everyone else
+    (PF-459) -- and are None otherwise. Never raises — returns {"status": "unreachable"}
     on any connection failure so a broken connection never crashes the
     MCP session.
     """
     org_id = _api.resolve_org(organization_id)
 
+    # The route is public; the token only unlocks the admin-only fields, so a
+    # missing one is not an error here.
+    headers, _ = user_headers_or_error("check_status")
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(f"{get_config().api_url}/api/v1/public/status")
+            r = await client.get(
+                f"{get_config().api_url}/api/v1/public/status", headers=headers or {}
+            )
     except (httpx.ConnectError, httpx.TimeoutException, httpx.RequestError) as e:
         return {
             "status": "unreachable",
@@ -2165,83 +2172,6 @@ async def create_tickets_from_text(
 
 
 @app.tool()
-async def setup_organization(
-    name: str = Field(description="Organization name (e.g. 'Acme Corp')"),
-    slug: Optional[str] = Field(
-        default=None,
-        description="URL slug — auto-generated from name if omitted (e.g. 'acme-corp')",
-    ),
-    description: Optional[str] = Field(default=None, description="Short description"),
-    github_url: Optional[str] = Field(
-        default=None, description="GitHub org URL (e.g. https://github.com/acme)"
-    ),
-    jira_url: Optional[str] = Field(
-        default=None, description="Jira base URL (e.g. https://acme.atlassian.net)"
-    ),
-    user_id: Optional[str] = Field(
-        default=None,
-        description="User ID to set as owner (uses INNODAY_USER_ID env var if omitted)",
-    ),
-) -> Dict[str, Any]:
-    """
-    Create a new organization in InnoDay.
-
-    The specified user (or INNODAY_USER_ID) becomes the org owner. Returns
-    the created organization including its ID, which you'll need for subsequent
-    setup_project and sync_all_boards calls.
-
-    Requires INNODAY_USER_ID to be set (or pass user_id explicitly).
-    """
-    cfg = get_config()
-    uid = user_id or cfg.user_id
-    if not uid:
-        return {
-            "error": "User ID required. Set INNODAY_USER_ID env var or pass user_id.",
-            "hint": "Find your user ID via: GET /api/v1/users (or check INNODAY_USER_ID in .env)",
-        }
-
-    payload: Dict[str, Any] = {"name": name}
-    if slug:
-        # API request body key is "alias" -- Organization's domain model has
-        # no separate "slug" field; this tool's own "slug" parameter name is
-        # kept for backward compatibility with existing MCP clients.
-        payload["alias"] = slug
-    if description:
-        payload["description"] = description
-    if github_url:
-        payload["github_url"] = github_url
-    if jira_url:
-        payload["jira_url"] = jira_url
-
-    headers = get_user_headers()
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{cfg.api_url}/api/v1/organizations",
-            json=payload,
-            headers=headers,
-        )
-
-        if response.status_code in [200, 201]:
-            org = response.json()
-            return {
-                "created": True,
-                "organization": org,
-                "next_step": f"Call setup_project(organization_id='{org['id']}', ...) to create a project.",
-            }
-        elif response.status_code == 409:
-            return {
-                "error": "Organization with this slug already exists.",
-                "hint": "Use a different slug or retrieve the existing org via list_organizations.",
-            }
-        else:
-            return {
-                "error": f"Failed to create organization: {response.status_code}",
-                "details": response.text,
-            }
-
-
-@app.tool()
 async def list_organizations(
     user_id: Optional[str] = Field(
         default=None,
@@ -2857,7 +2787,7 @@ async def probe_board(
     3. Returns the top 5 tickets that are actively in progress (not done, todo, or backlog)
        so you can visually confirm the right board is connected
 
-    Use this after setup_org_with_env or register_board to confirm the org is wired
+    Use this after register_board to confirm the org is wired
     correctly before calling sync_all_boards.
     """
     org_id = _api.resolve_org(organization_id)
@@ -2883,7 +2813,7 @@ async def probe_board(
             if not boards:
                 return {
                     "error": "No boards registered for this organization.",
-                    "hint": "Call register_board() or setup_org_with_env() first.",
+                    "hint": "Call register_board() first.",
                 }
             board_id = boards[0]["id"]
             board_meta = boards[0]
@@ -2923,7 +2853,7 @@ async def probe_board(
                 "board_name": board_meta.get("board_name"),
                 "board_type": board_meta.get("board_type"),
                 "error": "Board credentials are invalid or expired.",
-                "hint": "Update the token with register_board() or re-run setup_org_with_env().",
+                "hint": "Update the token with register_board().",
             }
         else:
             return {
@@ -2932,237 +2862,6 @@ async def probe_board(
                 "error": f"Probe failed: {probe_resp.status_code}",
                 "details": probe_resp.text[:300],
             }
-
-
-# =============================================================================
-# Org Onboarding Tool (combined setup + env file)
-# =============================================================================
-
-
-@app.tool()
-async def setup_org_with_env(
-    slug: str = Field(description="Org slug, e.g. 'acme'. Used as the env file name."),
-    org_name: str = Field(description="Human-readable org name, e.g. 'Acme Corp'"),
-    project_name: str = Field(description="First project name"),
-    project_alias: str = Field(
-        description="Short uppercase ticket prefix for the first project, e.g. PF, HS — required, unique within the org"
-    ),
-    board_type: str = Field(
-        description="Board type: jira, linear, trello, notion. Pass 'skip' to skip board setup."
-    ),
-    board_url: Optional[str] = Field(
-        default=None,
-        description="Full board URL. Required unless board_type='skip'.",
-    ),
-    board_api_token: Optional[str] = Field(
-        default=None,
-        description="Board API token. Required unless board_type='skip'.",
-    ),
-    board_api_email: Optional[str] = Field(
-        default=None,
-        description="Board API email. Required for Jira (basic auth: email:token).",
-    ),
-    board_name: Optional[str] = Field(
-        default=None,
-        description="Board display name in InnoDay. Defaults to project_name.",
-    ),
-    github_org: Optional[str] = Field(
-        default=None, description="GitHub org name for this org's repos."
-    ),
-    github_topic: Optional[str] = Field(
-        default=None,
-        description="GitHub topic label that identifies repos for this org. Defaults to slug.",
-    ),
-    user_id: Optional[str] = Field(
-        default=None,
-        description="User ID to set as org owner. Uses INNODAY_USER_ID if omitted.",
-    ),
-    organization_id: Optional[str] = Field(
-        default=None,
-        description="If set, skip org creation and use this existing org ID.",
-    ),
-) -> Dict[str, Any]:
-    """
-    Full org onboarding in one call: creates the org, creates a first project,
-    optionally registers a board, and writes env/orgs/<slug>.
-
-    This is the MCP equivalent of `innoday orgs env-setup`. Call it when setting
-    up a new client org from scratch. After this, call sync_all_boards to pull
-    tickets.
-
-    Returns org_id, project_id, board_id (if created), and the env file path.
-    """
-    cfg = get_config()
-    uid = user_id or cfg.user_id
-    if not uid:
-        return {
-            "error": "User ID required. Set INNODAY_USER_ID or pass user_id.",
-            "hint": "Run platform setup or pass user_id explicitly.",
-        }
-
-    headers = get_user_headers()
-
-    # `slug` is used as a filename (env/orgs/<slug>); reject anything that could
-    # escape that directory (path traversal) or is otherwise not a plausible
-    # org alias. Org aliases are lowercase alphanumeric + hyphen, same shape the
-    # API enforces -- validate before any state is created so we fail fast.
-    if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", slug):
-        return {
-            "error": (
-                f"Invalid slug {slug!r}: must be lowercase alphanumeric/hyphen "
-                "(it names the env/orgs/<slug> file, so path separators and "
-                "traversal are rejected)."
-            )
-        }
-
-    skip_board = board_type.lower() == "skip"
-    if not skip_board and not board_api_token:
-        return {"error": "board_api_token is required when board_type is not 'skip'"}
-    if not skip_board and not board_url:
-        return {"error": "board_url is required when board_type is not 'skip'"}
-
-    results: Dict[str, Any] = {}
-
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # --- Step 1: Create or reuse org ---
-        if organization_id:
-            org_id = organization_id
-            results["org"] = {"id": org_id, "reused": True}
-        else:
-            org_resp = await client.post(
-                f"{cfg.api_url}/api/v1/organizations",
-                # API request body key is "alias" -- Organization's domain
-                # model has no separate "slug" field; this tool's own "slug"
-                # parameter name is kept (used as the env/orgs/<slug> file
-                # name, matching `innoday orgs env-setup`'s convention).
-                json={"name": org_name, "alias": slug},
-                headers=headers,
-            )
-            if org_resp.status_code not in (200, 201):
-                return {
-                    "error": f"Failed to create organization: {org_resp.status_code}",
-                    "details": org_resp.text,
-                }
-            org_data = org_resp.json()
-            org_id = org_data["id"]
-            results["org"] = org_data
-
-        # --- Step 2: Create project ---
-        proj_resp = await client.post(
-            f"{cfg.api_url}/api/v1/organizations/{org_id}/projects",
-            json={
-                "name": project_name,
-                "alias": project_alias,
-                "description": project_name,
-            },
-            headers=headers,
-        )
-        if proj_resp.status_code not in (200, 201):
-            return {
-                "error": f"Failed to create project: {proj_resp.status_code}",
-                "details": proj_resp.text,
-                "org_id": org_id,
-            }
-        proj_data = proj_resp.json()
-        project_id = proj_data["id"]
-        results["project"] = proj_data
-
-        # --- Step 3: Register board (optional) ---
-        board_id = None
-        board_failed = False
-        if not skip_board:
-            effective_board_name = board_name or project_name
-            btype = board_type.lower()
-            integration_token = (
-                f"{board_api_email}:{board_api_token}"
-                if btype == "jira" and board_api_email
-                else board_api_token
-            )
-            board_resp = await client.post(
-                f"{cfg.api_url}/api/v1/organizations/{org_id}/boards",
-                json={
-                    "board_url": board_url,
-                    "board_name": effective_board_name,
-                    "board_type": btype,
-                },
-                headers={**headers, "X-Integration-Token": integration_token},
-            )
-            if board_resp.status_code in (200, 201):
-                board_data = board_resp.json()
-                board_id = board_data.get("id")
-                results["board"] = board_data
-            else:
-                board_failed = True
-                results["board_warning"] = (
-                    f"Board registration failed ({board_resp.status_code}): {board_resp.text[:200]}"
-                )
-
-    # --- Step 4: Write env/orgs/<alias> ---
-    env_dir = Path("env") / "orgs"
-    env_dir.mkdir(parents=True, exist_ok=True)
-    env_file = env_dir / slug
-
-    effective_github_topic = github_topic or slug
-    lines = [
-        f"ORG_ALIAS={slug}",
-        f"ORG_NAME={org_name}",
-        f"GITHUB_ORG={github_org or ''}",
-        f"GITHUB_TOPIC={effective_github_topic}",
-    ]
-    if not skip_board:
-        lines += [
-            f"BOARD_TYPE={board_type.lower()}",
-            f"BOARD_URL={board_url}",
-            f"BOARD_API_TOKEN={board_api_token}",
-            f"BOARD_API_EMAIL={board_api_email or ''}",
-        ]
-    else:
-        lines += ["BOARD_TYPE=", "BOARD_URL=", "BOARD_API_TOKEN=", "BOARD_API_EMAIL="]
-
-    env_file.write_text("\n".join(lines) + "\n")
-    # The file holds a live board credential in cleartext -- restrict it to the
-    # owner (0600) so it isn't world/group-readable like a default-umask file.
-    # If chmod can't take effect (Windows, some network mounts), don't silently
-    # report success: surface a warning so the operator knows the credential
-    # file may be group/other-readable and can lock it down themselves.
-    if not skip_board:
-        try:
-            env_file.chmod(0o600)
-        except OSError as exc:
-            results["env_file_permissions_warning"] = (
-                f"Could not restrict {env_file} to 0600 ({exc}). It contains a "
-                "cleartext board credential -- secure its permissions manually."
-            )
-
-    results["env_file"] = str(env_file)
-
-    # Distinguish a fully-wired org from a partial one. When the board half
-    # failed, the org/project still exist and the env file is written, but the
-    # board is NOT registered -- surface that as a top-level status so a caller
-    # (human or LLM) can't read the populated summary as full success and go
-    # straight to sync_all_boards against a board that was never registered.
-    partial = board_failed
-    results["status"] = "partial" if partial else "ok"
-    if partial:
-        next_step = (
-            "Board registration FAILED (see board_warning). The org and project "
-            f"were created. Fix the board credential/URL and call "
-            f"register_board(organization_id='{org_id}') before sync_all_boards."
-        )
-    elif not skip_board:
-        next_step = f"Call sync_all_boards(organization_id='{org_id}') to pull tickets."
-    else:
-        next_step = "Board skipped. Register one later with register_board()."
-
-    results["summary"] = {
-        "status": results["status"],
-        "org_id": org_id,
-        "project_id": project_id,
-        "board_id": board_id,
-        "env_file": str(env_file),
-        "next_step": next_step,
-    }
-    return results
 
 
 # =============================================================================

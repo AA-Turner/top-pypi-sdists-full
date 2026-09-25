@@ -19,13 +19,14 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.error_schema import ErrorSchema
-from ..types.job_trigger_category import JobTriggerCategory
 from ..types.off_platform_job_execution_schema import OffPlatformJobExecutionSchema
 from ..types.parameter_definition_schema import ParameterDefinitionSchema
 from ..types.revert_result_schema import RevertResultSchema
 from ..types.start_job_execution_schema import StartJobExecutionSchema
 from ..types.tools_job_schema import ToolsJobSchema
 from ..types.validation_error_schema import ValidationErrorSchema
+from .types.tools_create_job_schema_trigger_category import ToolsCreateJobSchemaTriggerCategory
+from .types.tools_update_job_schema_trigger_category import ToolsUpdateJobSchemaTriggerCategory
 from .types.update_job_execution_status_schema_status import UpdateJobExecutionStatusSchemaStatus
 from pydantic import ValidationError
 
@@ -168,7 +169,7 @@ class RawJobsClient:
         code: str,
         description: typing.Optional[str] = OMIT,
         trigger_enabled: typing.Optional[bool] = OMIT,
-        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_category: typing.Optional[ToolsCreateJobSchemaTriggerCategory] = OMIT,
         trigger_instrument_id: typing.Optional[str] = OMIT,
         trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
@@ -198,7 +199,7 @@ class RawJobsClient:
         trigger_enabled : typing.Optional[bool]
             True runs the job automatically when its trigger fires.
 
-        trigger_category : typing.Optional[JobTriggerCategory]
+        trigger_category : typing.Optional[ToolsCreateJobSchemaTriggerCategory]
             What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
 
         trigger_instrument_id : typing.Optional[str]
@@ -346,7 +347,7 @@ class RawJobsClient:
         code: typing.Optional[str] = OMIT,
         archived: typing.Optional[bool] = OMIT,
         trigger_enabled: typing.Optional[bool] = OMIT,
-        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_category: typing.Optional[ToolsUpdateJobSchemaTriggerCategory] = OMIT,
         trigger_instrument_id: typing.Optional[str] = OMIT,
         trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
@@ -381,7 +382,7 @@ class RawJobsClient:
         trigger_enabled : typing.Optional[bool]
             True creates or replaces the job's trigger from the trigger fields; false removes it.
 
-        trigger_category : typing.Optional[JobTriggerCategory]
+        trigger_category : typing.Optional[ToolsUpdateJobSchemaTriggerCategory]
             What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
 
         trigger_instrument_id : typing.Optional[str]
@@ -1028,7 +1029,7 @@ class AsyncRawJobsClient:
         code: str,
         description: typing.Optional[str] = OMIT,
         trigger_enabled: typing.Optional[bool] = OMIT,
-        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_category: typing.Optional[ToolsCreateJobSchemaTriggerCategory] = OMIT,
         trigger_instrument_id: typing.Optional[str] = OMIT,
         trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
@@ -1058,7 +1059,7 @@ class AsyncRawJobsClient:
         trigger_enabled : typing.Optional[bool]
             True runs the job automatically when its trigger fires.
 
-        trigger_category : typing.Optional[JobTriggerCategory]
+        trigger_category : typing.Optional[ToolsCreateJobSchemaTriggerCategory]
             What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
 
         trigger_instrument_id : typing.Optional[str]
@@ -1206,7 +1207,7 @@ class AsyncRawJobsClient:
         code: typing.Optional[str] = OMIT,
         archived: typing.Optional[bool] = OMIT,
         trigger_enabled: typing.Optional[bool] = OMIT,
-        trigger_category: typing.Optional[JobTriggerCategory] = OMIT,
+        trigger_category: typing.Optional[ToolsUpdateJobSchemaTriggerCategory] = OMIT,
         trigger_instrument_id: typing.Optional[str] = OMIT,
         trigger_conditions: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         parameter_definitions: typing.Optional[typing.Sequence[ParameterDefinitionSchema]] = OMIT,
@@ -1241,7 +1242,7 @@ class AsyncRawJobsClient:
         trigger_enabled : typing.Optional[bool]
             True creates or replaces the job's trigger from the trigger fields; false removes it.
 
-        trigger_category : typing.Optional[JobTriggerCategory]
+        trigger_category : typing.Optional[ToolsUpdateJobSchemaTriggerCategory]
             What runs the job automatically: file_uploaded runs it on each uploaded file that matches the conditions; job_completed runs it on the output files of another job's executions. Required when trigger_enabled is true.
 
         trigger_instrument_id : typing.Optional[str]

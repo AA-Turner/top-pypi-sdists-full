@@ -2106,6 +2106,27 @@ def test_main_jsonschema_stdin_oneof_ref(monkeypatch: pytest.MonkeyPatch, output
     )
 
 
+def test_main_jsonschema_stdin_root_id_refs(monkeypatch: pytest.MonkeyPatch, output_file: Path) -> None:
+    """Resolve pointer and embedded $id references from stdin when the root declares an absolute $id."""
+    run_main_and_assert(
+        stdin_path=JSON_SCHEMA_DATA_PATH / "stdin_root_id_refs.json",
+        output_path=output_file,
+        monkeypatch=monkeypatch,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="stdin_root_id_refs.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="stdin_root_id_refs",
+        model_name="Root",
+        valid_json='{"numbers": [1.5], "tags": ["one"]}',
+        invalid_json='{"tags": [1]}',
+        expected_error_type="string_type",
+    )
+
+
 def test_main_jsonschema_ids(output_dir: Path) -> None:
     """Test JSON Schema with multiple IDs."""
     with freeze_time(TIMESTAMP):
@@ -2380,6 +2401,83 @@ def test_main_reuse_model_collapse_inline_definitions(output_file: Path) -> None
             "--output-model-type",
             "pydantic_v2.BaseModel",
         ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        pytest.param("same_name_reference_models.py", [], id="default"),
+        pytest.param(
+            "same_name_reference_models_collapse_reuse_models.py",
+            ["--reuse-model", "--collapse-reuse-models"],
+            id="collapse-reuse-models",
+        ),
+    ],
+)
+def test_main_jsonschema_same_name_reference_models(
+    expected_file: str, extra_args: list[str], output_file: Path
+) -> None:
+    """Keep equally rendered models apart when same-named references from other files differ."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "same_name_reference_models" / "probe.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", *extra_args],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=Path(expected_file).stem,
+        model_name="Probe",
+        valid_json='{"speed": {"values": {"left": 1.5}}, "direction": {"values": {"left": "increase"}}}',
+        invalid_json='{"direction": {"values": {"left": 1.5}}}',
+        expected_error_type="enum",
+    )
+
+
+def test_main_jsonschema_same_name_reference_literals(output_file: Path) -> None:
+    """Keep equally rendered models apart when their references differ in string defaults naming referenced models."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "same_name_reference_literals" / "probe.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="same_name_reference_literals.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="same_name_reference_literals",
+        model_name="Probe",
+        valid_json='{"direction": {"values": {"left": {"kind": "up"}}}}',
+        invalid_json='{"direction": {"values": {"left": {"kind": "sideways"}}}}',
+        expected_error_type="enum",
+        expected_attribute_path=("direction", "values", "left", "tag"),
+        expected_attribute_value="Mode",
+    )
+
+
+def test_main_jsonschema_same_name_reference_fields(output_file: Path) -> None:
+    """Keep equally rendered models apart when their references differ in fields named after referenced models."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "same_name_reference_fields" / "probe.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="same_name_reference_fields.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="same_name_reference_fields",
+        model_name="Probe",
+        valid_json='{"direction": {"values": {"left": {"Foo": {"x": 1}}}}}',
+        invalid_json='{"direction": {"values": {"left": {"Foo": {"x": "one"}}}}}',
+        expected_error_type="int_parsing",
+        expected_attribute_path=("direction", "values", "left", "Foo_1", "x"),
+        expected_attribute_value=1,
     )
 
 
@@ -5025,8 +5123,10 @@ first_pet: Pet = pets[0]
 selected_pets: list[Pet] = pets[:1]
 pet_names = [pet.name for pet in pets]
 
+
 def render_pet_names(pets: Sequence[Pet]) -> list[str]:
     return [pet.name for pet in pets]
+
 
 render_pet_names(pets)
 ```
@@ -12573,6 +12673,93 @@ def test_main_jsonschema_reuse_scope_tree_exact_imports(output_dir: Path) -> Non
     )
 
 
+@pytest.mark.parametrize(
+    ("expected_name", "extra_args"),
+    [
+        pytest.param("reuse_scope_tree_cross_module_users", [], id="inherit"),
+        pytest.param("reuse_scope_tree_cross_module_users_collapsed", ["--collapse-reuse-models"], id="collapse"),
+    ],
+)
+def test_main_jsonschema_reuse_scope_tree_cross_module_users(
+    expected_name: str, extra_args: list[str], output_dir: Path
+) -> None:
+    """Point users in other modules at the shared model when tree-scope reuse removes a duplicate."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_scope_tree_cross_module_users",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_name,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--reuse-model",
+            "--reuse-scope",
+            "tree",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+        runtime_validation_module="holder",
+        runtime_validation_model_name="Holder",
+        runtime_validation_data={
+            "left_kind": "up",
+            "right_kind": "down",
+            "left_point": {"x": 1, "y": 2},
+            "right_point": {"x": 3, "y": 4},
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("expected_name", "extra_args"),
+    [
+        pytest.param("reuse_scope_tree_same_name_references", [], id="inherit"),
+        pytest.param("reuse_scope_tree_same_name_references_collapsed", ["--collapse-reuse-models"], id="collapse"),
+    ],
+)
+def test_main_jsonschema_reuse_scope_tree_same_name_references(
+    expected_name: str, extra_args: list[str], output_dir: Path
+) -> None:
+    """Keep models of different modules apart when their same-named references point at different models."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_scope_tree_same_name_references",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / expected_name,
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--reuse-model",
+            "--reuse-scope",
+            "tree",
+            "--disable-timestamp",
+            *extra_args,
+        ],
+        runtime_validation_module="alpha",
+        runtime_validation_model_name="Alpha",
+        runtime_validation_data={"holder": {"field": {"size": 1}}},
+    )
+
+
+def test_main_jsonschema_reuse_model_same_name_references(output_dir: Path) -> None:
+    """Keep models apart when a reference they share by name is renamed in a module processed later."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "reuse_model_same_name_references",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "reuse_model_same_name_references",
+        input_file_type="jsonschema",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--reuse-model",
+            "--collapse-reuse-models",
+            "--disable-timestamp",
+        ],
+        runtime_validation_module="main",
+        runtime_validation_model_name="Main",
+        runtime_validation_data={"sized": {"field": {"size": 1}}, "named": {"field": {"name": "one"}}},
+    )
+
+
 def test_main_jsonschema_reuse_scope_tree_enum(output_dir: Path) -> None:
     """Test --reuse-scope=tree to deduplicate enum models across multiple files."""
     run_main_and_assert(
@@ -14154,6 +14341,207 @@ def test_main_jsonschema_ref_with_additional_keywords(output_dir: Path) -> None:
             "--output-model-type",
             "pydantic_v2.BaseModel",
         ],
+    )
+
+
+def test_main_jsonschema_merged_ref_targets(output_file: Path) -> None:
+    """Merge $ref with sibling keywords through aliases and references relative to other documents."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "merged_ref_targets" / "holder.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="merged_ref_targets.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="merged_ref_targets",
+        model_name="Holder",
+        valid_json='{"local": [1], "remote": ["one"], "box": {"item": "one", "thing": {"name": "two"}, "size": 3}}',
+        invalid_json='{"local": ["one"]}',
+        expected_error_type="int_parsing",
+    )
+
+
+@pytest.mark.parametrize(
+    ("mapping", "expected_file"),
+    [
+        ("sub/things.json=mypkg.things", "merged_ref_targets_mapped.py"),
+        ("things.json=mypkg.things", "merged_ref_targets.py"),
+    ],
+)
+def test_main_jsonschema_merged_ref_target_mappings(output_file: Path, mapping: str, expected_file: str) -> None:
+    """Match external reference mappings against the documents that merged $ref targets come from."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "merged_ref_targets" / "holder.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--external-ref-mapping", mapping],
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "model_name", "valid_json", "invalid_json"),
+    [
+        (
+            "holder",
+            "Holder",
+            '{"tree": {"children": [{"value": 1}]}, "plain": {"next": {"label": "a"}}, "kids": [{"size": 1}]}',
+            '{"tree": {"children": [{"value": "one"}]}}',
+        ),
+        ("strict", "Strict", '{"value": 1, "children": [{"value": 2}]}', '{"children": [{"value": "two"}]}'),
+    ],
+    ids=["holder", "strict"],
+)
+def test_main_jsonschema_merged_recursive_ref(
+    output_file: Path, name: str, model_name: str, valid_json: str, invalid_json: str
+) -> None:
+    """Resolve $recursiveRef in $ref targets merged from other documents where they are defined.
+
+    A document that declares $recursiveAnchor itself extends the recursion of an anchored target instead.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "merged_recursive_ref" / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"merged_recursive_ref_{name}.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"merged_recursive_ref_{name}",
+        model_name=model_name,
+        valid_json=valid_json,
+        invalid_json=invalid_json,
+        expected_error_type="int_parsing",
+    )
+
+
+@pytest.mark.parametrize(
+    ("name", "model_name", "valid_json", "invalid_json"),
+    [
+        (
+            "tree",
+            "Tree",
+            '{"node": {"kids": [{"kids": []}]}, "branch": {"children": [{"value": 1}]}}',
+            '{"branch": {"children": [{"value": "one"}]}}',
+        ),
+        (
+            "holder",
+            "Holder",
+            '{"node": {"kids": [{"kids": []}]}, "branch": {"children": [{"value": 1}]}}',
+            '{"branch": {"children": [{"value": "one"}]}}',
+        ),
+    ],
+    ids=["tree", "holder"],
+)
+def test_main_jsonschema_recursive_ref_resources(
+    output_file: Path, name: str, model_name: str, valid_json: str, invalid_json: str
+) -> None:
+    """Resolve $recursiveRef to the root of an enclosing $id resource that declares no $recursiveAnchor.
+
+    Targets that are parsed only through the reference, like the root of a document referenced by pointers, are loaded.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "recursive_ref_resources" / f"{name}.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"recursive_ref_resources_{name}.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=f"recursive_ref_resources_{name}",
+        model_name=model_name,
+        valid_json=valid_json,
+        invalid_json=invalid_json,
+        expected_error_type="int_parsing",
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_path", "expected_file", "extra_args"),
+    [
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "recursive_ref_resources" / "merged.json",
+            "merged_copy_duplicates.py",
+            [],
+            id="recursive",
+        ),
+        pytest.param(
+            JSON_SCHEMA_DATA_PATH / "merged_copy_duplicates" / "conditional" / "holder.json",
+            "merged_copy_duplicates_conditional.py",
+            ["--generate-schema-validators"],
+            id="conditional",
+        ),
+    ],
+)
+def test_main_jsonschema_merged_copy_duplicates(
+    input_path: Path, expected_file: str, extra_args: list[str], output_file: Path
+) -> None:
+    """Collapse a schema merged from another document into the shared model once its nested models collapse."""
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", *extra_args],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=Path(expected_file).stem,
+        model_name="Holder",
+        valid_json='{"tree": {"node": {"kids": []}, "branch": {"children": [{"value": 1}]}}}',
+        invalid_json='{"tree": {"branch": {"children": [{"value": "one"}]}}}',
+        expected_error_type="int_parsing",
+    )
+
+
+def test_main_jsonschema_merged_copy_field_names(output_file: Path) -> None:
+    """Keep a schema merged from another document apart from a same-named model whose fields name other models."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "merged_copy_duplicates" / "field_names" / "holder.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="merged_copy_field_names.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="merged_copy_field_names",
+        model_name="Holder",
+        valid_json='{"other": {"Foo": {"x": 1}}, "tree": {"Bar": {"x": 2}}}',
+        invalid_json='{"other": {"Foo": {"x": "one"}}}',
+        expected_error_type="int_parsing",
+        expected_attribute_path=("other", "Foo_1", "x"),
+        expected_attribute_value=1,
+    )
+
+
+def test_main_jsonschema_external_root_refs(output_file: Path) -> None:
+    """Name the root of a document referenced only by pointers after the document when its own schemas refer to it."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "external_root_refs" / "holder.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="external_root_refs.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="external_root_refs",
+        model_name="Holder",
+        valid_json='{"trees": [{"value": 1, "children": [{"value": 2}]}], "nodes": [{"label": "a", "children": []}]}',
+        invalid_json='{"trees": [{"value": "one"}]}',
+        expected_error_type="int_parsing",
     )
 
 
@@ -18813,6 +19201,369 @@ def test_main_jsonschema_dynamic_ref_in_defs_pydantic_v2(output_file: Path) -> N
     )
 
 
+def test_main_jsonschema_dynamic_ref_embedded_resources(output_file: Path) -> None:
+    """Resolve plain-name $dynamicRef within the embedded schema resource that declares it."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_embedded_resources.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_embedded_resources.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_embedded_resources",
+        model_name="Catalog",
+        valid_json='{"numbers": [1.5], "names": ["name"], "labels": ["abc"]}',
+        invalid_json='{"names": [1]}',
+        expected_error_type="string_type",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_shared_id(output_dir: Path) -> None:
+    """Keep plain-name $dynamicRef in each document when separate documents declare the same $id."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_shared_id",
+        output_path=output_dir,
+        expected_directory=EXPECTED_JSON_SCHEMA_PATH / "dynamic_ref_shared_id",
+        input_file_type="jsonschema",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+
+
+def test_main_jsonschema_dynamic_ref_inherited_fields(output_file: Path) -> None:
+    """Resolve plain-name $dynamicRef in inherited fields within the inherited schema's own resource."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_inherited_fields" / "child.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_inherited_fields.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--read-only-write-only-model-type", "all"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_inherited_fields",
+        model_name="ChildRequest",
+        valid_json='{"value": 1, "name": "one"}',
+        invalid_json='{"value": "one"}',
+        expected_error_type="int_parsing",
+    )
+
+
+@pytest.mark.parametrize(
+    ("expected_file", "extra_args"),
+    [
+        pytest.param("dynamic_ref_generic_specialization.py", [], id="default"),
+        pytest.param(
+            "dynamic_ref_generic_specialization_full_path.py",
+            ["--naming-strategy", "full-path"],
+            id="full-path",
+        ),
+        pytest.param(
+            "dynamic_ref_generic_specialization_collapse_parent.py",
+            ["--collapse-root-models", "--collapse-root-models-name-strategy", "parent"],
+            id="collapse-parent",
+        ),
+    ],
+)
+def test_main_jsonschema_dynamic_ref_generic_specialization(
+    expected_file: str, extra_args: list[str], output_file: Path
+) -> None:
+    """Specialize a $dynamicRef generic per referencing resource that rebinds its $dynamicAnchor."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_generic_specialization" / "probe.schema.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-title-as-name",
+            "--strict-types",
+            "str",
+            "bytes",
+            "int",
+            "float",
+            "bool",
+            *extra_args,
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=Path(expected_file).stem,
+        model_name="Probe",
+        valid_json=(
+            '{"increment": {"gender": {"male": 1.5, "female": 2.5}},'
+            ' "direction": {"gender": {"male": "increase", "female": "decrease"}}}'
+        ),
+        invalid_json=(
+            '{"increment": {"gender": {"male": 1.5, "female": 2.5}},'
+            ' "direction": {"gender": {"male": 123, "female": "decrease"}}}'
+        ),
+        expected_error_type="enum",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_embedded_generic_specialization(output_file: Path) -> None:
+    """Specialize embedded generic resources, including recursive ones, for each rebinding resource."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_embedded_generic_specialization.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_embedded_generic_specialization.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_embedded_generic_specialization",
+        model_name="Collections",
+        valid_json='{"numbers": [1.5], "names": ["name"], "counts": {"value": 1, "children": [{"value": 2}]}}',
+        invalid_json='{"counts": {"value": 1, "children": [{"value": "two"}]}}',
+        expected_error_type="int_parsing",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_nested_generic_specialization(output_file: Path) -> None:
+    """Carry $dynamicAnchor bindings through a generic that references another generic."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_nested_generic_specialization" / "int_page.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_nested_generic_specialization.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_nested_generic_specialization",
+        model_name="IntPage",
+        valid_json='{"items": [1, 2], "cursor": "next"}',
+        invalid_json='{"items": ["one"]}',
+        expected_error_type="int_parsing",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_remote_generic_specialization(output_file: Path) -> None:
+    """Bind $dynamicRef in a remote generic to the $dynamicAnchor of the local schema referencing it."""
+    fixture_dir = JSON_SCHEMA_DATA_PATH / "dynamic_ref_remote_generic_specialization"
+    run_main_and_assert(
+        input_path=fixture_dir / "int_list.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_remote_generic_specialization.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--http-local-ref-path",
+            str(fixture_dir / "mirror"),
+        ],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_remote_generic_specialization",
+        model_name="IntList",
+        valid_json="[1, 2]",
+        invalid_json='["one"]',
+        expected_error_type="int_parsing",
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_file", "expected_file", "model_name", "valid_json", "invalid_json"),
+    [
+        pytest.param(
+            "dynamic_ref_partial_binding/int_pair_list.json",
+            "dynamic_ref_partial_binding.py",
+            "IntPairList",
+            '[{"value": 1}]',
+            '[{"value": "one"}]',
+            id="partial_binding",
+        ),
+        pytest.param(
+            "dynamic_ref_anchor_reference/probe.json",
+            "dynamic_ref_anchor_reference.py",
+            "Probe",
+            '{"ints": [{"value": 1}], "plain": [{"value": "one"}]}',
+            '{"ints": [{"value": "one"}]}',
+            id="anchor_reference",
+        ),
+        pytest.param(
+            "dynamic_ref_circular_generic/int_tree_holder.json",
+            "dynamic_ref_circular_generic.py",
+            "IntTreeHolder",
+            '{"tree": {"value": 1, "children": [{"value": 2}]}}',
+            '{"tree": {"value": 1, "children": [{"value": "two"}]}}',
+            id="circular_generic",
+        ),
+        pytest.param(
+            "dynamic_ref_root_generic.json",
+            "dynamic_ref_root_generic.py",
+            "IntList",
+            "[1, 2]",
+            '["one"]',
+            id="root_generic",
+        ),
+        pytest.param(
+            "dynamic_ref_tuple_additional_items/int_list.json",
+            "dynamic_ref_tuple_additional_items.py",
+            "IntList",
+            "[1, 2]",
+            '[1, "two"]',
+            id="tuple_additional_items",
+        ),
+    ],
+)
+def test_main_jsonschema_dynamic_ref_scope_bindings(
+    input_file: str, expected_file: str, model_name: str, valid_json: str, invalid_json: str, output_file: Path
+) -> None:
+    """Resolve $dynamicRef through bindings passed across generics, anchors, recursion, tuple tails, and roots."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / input_file,
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=expected_file,
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name=Path(expected_file).stem,
+        model_name=model_name,
+        valid_json=valid_json,
+        invalid_json=invalid_json,
+        expected_error_type="int_parsing",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_external_mapping(output_file: Path) -> None:
+    """Skip references mapped to Python packages when checking which generics need specializing."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_external_mapping" / "int_container.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_external_mapping.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--external-ref-mapping",
+            "common.json=mypkg.common",
+        ],
+    )
+
+
+def test_main_jsonschema_dynamic_ref_allof_base_class(output_file: Path) -> None:
+    """Warn that allOf base classes keep their own $dynamicAnchor bindings."""
+    with warnings.catch_warnings(record=True) as warning_records:
+        warnings.simplefilter("always", UserWarning)
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_allof_base_class" / "holder.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file="dynamic_ref_allof_base_class.py",
+            extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+        )
+    assert_warnings_contain(
+        warning_records, "allOf base class 'generic.json' cannot follow the $dynamicAnchor bindings"
+    )
+
+
+def test_main_jsonschema_dynamic_ref_allof_inherited_fields(output_file: Path) -> None:
+    """Bind $dynamicRef in fields copied from an allOf base class to the $dynamicAnchor of the inheriting schema."""
+    with warnings.catch_warnings(record=True) as warning_records:
+        warnings.simplefilter("always", UserWarning)
+        run_main_and_assert(
+            input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_allof_base_class" / "holder.json",
+            output_path=output_file,
+            input_file_type="jsonschema",
+            assert_func=assert_file_content,
+            expected_file="dynamic_ref_allof_inherited_fields.py",
+            extra_args=["--output-model-type", "pydantic_v2.BaseModel", "--read-only-write-only-model-type", "all"],
+        )
+    assert_warnings_contain(
+        warning_records, "allOf base class 'generic.json' cannot follow the $dynamicAnchor bindings"
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_allof_inherited_fields",
+        model_name="NumberHolderRequest",
+        valid_json='{"value": 1.5, "label": "one"}',
+        invalid_json='{"value": "one"}',
+        expected_error_type="float_parsing",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_inline_resources(output_file: Path) -> None:
+    """Resolve $dynamicRef in inline $id resources within them unless an enclosing resource declares the anchor."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_inline_resources.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_inline_resources.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_inline_resources",
+        model_name="Holder",
+        valid_json=(
+            '{"first": {"value": "one"}, "second": {"value": 1, "values": [1, 2]},'
+            ' "labelled": {"tagged": {"value": "one"}}}'
+        ),
+        invalid_json='{"second": {"values": ["one"]}}',
+        expected_error_type="int_parsing",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_merged_generic(output_file: Path) -> None:
+    """Resolve $dynamicRef in a $ref merged with sibling keywords within the schema resource it names."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_merged_generic" / "holder.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_merged_generic.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_merged_generic",
+        model_name="Holder",
+        valid_json='{"numbers": [1], "plain": {"values": [2]}}',
+        invalid_json='{"plain": {"values": ["two"]}}',
+        expected_error_type="int_parsing",
+    )
+
+
+def test_main_jsonschema_dynamic_ref_documents(output_file: Path) -> None:
+    """Resolve $dynamicRef to other documents and to JSON pointers the way $ref resolves them."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "dynamic_ref_documents" / "root.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="dynamic_ref_documents.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+    )
+    assert_generated_model_json_validation(
+        output_file,
+        module_name="dynamic_ref_documents",
+        model_name="Root",
+        valid_json=(
+            '{"whole": {"name": "a"}, "pointer": {"radius": 1.5}, "row": {"n": 1}, "local": 2, "again": {"id": 3}}'
+        ),
+        invalid_json='{"pointer": {"radius": "wide"}}',
+        expected_error_type="float_parsing",
+    )
+
+
 def test_main_jsonschema_multiple_aliases_required_pydantic_v2(output_file: Path) -> None:
     """Test multiple aliases with AliasChoices on required fields for Pydantic v2. (#2989)."""
     run_main_and_assert(
@@ -21784,7 +22535,9 @@ def test_field_name_bindings(
         if "items" in properties:
             data.update(items=[1, 2], count=3, child={"value": 4})
             observations["items_annotation"] = list[int] in get_args(hints["items"])
-            observations["choice_literals"] = get_args(next(arg for arg in get_args(hints["choice"]) if get_args(arg)))
+            observations["choice_literals"] = sorted(
+                get_args(next(arg for arg in get_args(hints["choice"]) if get_args(arg)))
+            )
         elif "count" in properties:
             data["count"] = 3
         if backend == DataModelType.MsgspecStruct:
@@ -22516,7 +23269,7 @@ RESOURCES_CASES = json.loads((RESOURCES_EXPECTED / "cases.json").read_text(encod
     ],
 )
 @pytest.mark.parametrize("formatter", ["external", "builtin"])
-def test_nested_schema_resources(tmp_path: Path, case: str, entrypoint: str, formatter: str) -> None:  # noqa: PLR0914
+def test_nested_schema_resources(tmp_path: Path, case: str, entrypoint: str, formatter: str) -> None:
     """Check native semantics, actual fetches, generated bytes and unchanged caller input."""
     source = JSON_SCHEMA_DATA_PATH / "nested_resources" / case / "root.json"
     schema = json.loads(source.read_text(encoding="utf-8"))
@@ -22551,11 +23304,9 @@ def test_nested_schema_resources(tmp_path: Path, case: str, entrypoint: str, for
             stack.callback(server.shutdown)
             url = f"http://127.0.0.1:{server.server_port}/root.json"
             input_value = urlparse(url)
-        expected_error = RESOURCES_CASES[case].get("generation_errors", {}).get(entrypoint)
         with (
             assert_inputs_not_mutated({"schema": schema}),
             warnings.catch_warnings(record=True) as recorded_warnings,
-            pytest.raises(Error) if expected_error else nullcontext() as exception,
         ):
             warnings.simplefilter("always", UserWarning)
             if entrypoint.endswith("cli"):
@@ -22607,18 +23358,6 @@ def test_nested_schema_resources(tmp_path: Path, case: str, entrypoint: str, for
                 else "no_warnings.txt"
             ),
         )
-        if exception is not None:
-            assert_output(
-                json.dumps(
-                    {
-                        "native": [validator.is_valid(payload) for payload in RESOURCES_CASES[case]["payloads"]],
-                        "generation_error": str(exception.value),
-                    },
-                    indent=2,
-                ),
-                RESOURCES_EXPECTED / expected_error,
-            )
-            return
         if entrypoint.endswith("cli"):
             assert_output(output.read_text(encoding="utf-8"), expected_file)
         if entrypoint.startswith("url-"):

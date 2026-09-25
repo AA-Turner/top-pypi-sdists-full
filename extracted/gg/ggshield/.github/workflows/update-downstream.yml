@@ -13,10 +13,19 @@ on:
         description: 'Version to update to'
         required: true
         type: string
+    secrets:
+      PAT_GITHUB:
+        description: 'Token that can push a branch and open a PR on the downstream repositories'
+        required: true
 
 jobs:
   update-ggshield-version:
     runs-on: ubuntu-latest
+    # Gated: opens PRs on other repositories with a PAT, so it waits for the
+    # same approval as the other publishing jobs. `environment` must live on the
+    # job because this is a reusable workflow, and it also covers the
+    # workflow_dispatch entry point.
+    environment: release
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +43,7 @@ jobs:
           echo "value=${VERSION#v}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout ${{ matrix.repository }}
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ matrix.repository }}
           token: ${{ secrets.PAT_GITHUB }}

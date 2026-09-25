@@ -29,7 +29,6 @@ from tests.test_utils import (
     capture_reset_password_requests,
     check_location,
     check_signals,
-    check_xlation,
     get_form_action,
     get_session,
     is_authenticated,
@@ -363,7 +362,11 @@ def test_signin_pwd_json(app, client, get_message):
 
 
 @pytest.mark.registerable()
-@pytest.mark.settings(password_required=False)
+@pytest.mark.settings(
+    password_required=False,
+    us_email_template="security/email/us_instructions_test",
+    email_html=False,
+)
 def test_us_passwordless(app, client, get_message, outbox):
     # Check passwordless.
     # Check contents of email template - this uses a test template
@@ -382,13 +385,17 @@ def test_us_passwordless(app, client, get_message, outbox):
         # 2 emails - first from registration.
         assert len(outbox) == 2
         matcher = re.findall(r"\w+:.*", outbox[1].body, re.IGNORECASE)
-        # should be 5 - link, email, token, config item, username
+        # should be 6 - link, email, token, config item, username, within
+        # and entire real template included
         assert matcher[1].split(":")[1] == "nopasswd-dude@lp.com"
         token = matcher[2].split(":")[1]
         assert token == requests[0]["token"]  # deprecated
         assert token == requests[0]["login_token"]
         assert matcher[3].split(":")[1] == "True"  # register_blueprint
         assert matcher[4].split(":")[1] == "nopasswd-dude@lp.com"
+        assert matcher[5].split(":")[1] == "2 minutes"
+        # regular text template is included in the test template
+        assert "This code/link will expire in 2 minutes." in outbox[1].body
 
         # check link
         link = matcher[0].split(":", 1)[1]
@@ -402,7 +409,11 @@ def test_us_passwordless(app, client, get_message, outbox):
 
 @pytest.mark.registerable()
 @pytest.mark.confirmable()
-@pytest.mark.settings(password_required=False)
+@pytest.mark.settings(
+    password_required=False,
+    us_email_template="security/email/us_instructions_test",
+    email_html=False,
+)
 def test_us_passwordless_confirm(app, client, get_message, outbox):
     # Check passwordless with confirmation required.
     response = client.post(
@@ -439,7 +450,11 @@ def test_us_passwordless_confirm(app, client, get_message, outbox):
 
 @pytest.mark.registerable()
 @pytest.mark.confirmable()
-@pytest.mark.settings(password_required=False)
+@pytest.mark.settings(
+    password_required=False,
+    us_email_template="security/email/us_instructions_test",
+    email_html=False,
+)
 def test_us_passwordless_confirm_json(app, client, get_message, outbox):
     # Check passwordless with confirmation required.
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -770,6 +785,9 @@ def test_setup(app, clients, get_message, signals):
     assert get_message("US_SETUP_SUCCESSFUL") in response.data
 
 
+@pytest.mark.settings(
+    us_email_template="security/email/us_instructions_test", email_html=False
+)
 def test_setup_email(app, client, get_message, outbox):
     # setup with email - make sure magic link isn't sent and code is.
     # N.B. this is using the test us_instructions template
@@ -877,6 +895,8 @@ def test_setup_json(app, client_nc, get_message):
 @pytest.mark.settings(
     us_enabled_methods=["email", "sms"],
     user_identity_attributes=UIA_EMAIL_PHONE,
+    us_email_template="security/email/us_instructions_test",
+    email_html=False,
 )
 def test_setup_json_no_session(app, client_nc, get_message, outbox):
     # Test that with normal config freshness is required and we can use auth_token
@@ -948,7 +968,7 @@ def test_setup_bad_token(app, client, get_message):
     assert get_message("API_ERROR") in response.data
 
 
-@pytest.mark.settings(us_setup_within="2 seconds")
+@pytest.mark.settings(us_setup_within=timedelta(seconds=47))
 def test_setup_timeout(app, client, get_message):
     # Test setup timeout
     set_email(app)
@@ -956,7 +976,7 @@ def test_setup_timeout(app, client, get_message):
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
 
     sms_sender = SmsSenderFactory.createSender("test")
-    app.security.us_setup_serializer = FakeSerializer(2.0)
+    app.security.us_setup_serializer = FakeSerializer(47.0)
     response = client.post(
         "us-setup",
         json=dict(chosen_method="sms", phone="650-555-1212"),
@@ -971,7 +991,7 @@ def test_setup_timeout(app, client, get_message):
     )
     assert response.status_code == 400
     assert response.json["response"]["errors"][0].encode("utf-8") == get_message(
-        "US_SETUP_EXPIRED", within=app.config["SECURITY_US_SETUP_WITHIN"]
+        "US_SETUP_EXPIRED", within="47 seconds"
     )
 
 
@@ -1302,6 +1322,31 @@ def test_next(app, client, get_message):
     assert "/post_login" in response.location
 
 
+def test_us_verify_form_next(app, client, get_message):
+    # /us-verify should honor form.next and validate it (issue #1108)
+    set_email(app)
+    us_authenticate(client)
+
+    response = client.get("/us-verify?next=/profile")
+    assert b'name="next"' in response.data
+    assert b'value="/profile"' in response.data
+
+    response = client.post(
+        "/us-verify",
+        data=dict(passcode="password", next="/profile"),
+        follow_redirects=False,
+    )
+    assert check_location(app, response.location, "/profile")
+
+    response = client.post(
+        "/us-verify",
+        data=dict(passcode="password", next="http://evil.example/phish"),
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert get_message("INVALID_REDIRECT") in response.data
+
+
 @pytest.mark.registerable()
 @pytest.mark.confirmable()
 @pytest.mark.settings(requires_confirmation_error_view="/confirm")
@@ -1394,7 +1439,11 @@ def test_can_add_password(app, client, get_message):
 @pytest.mark.parametrize("app", v2_param, indirect=True)
 @pytest.mark.registerable()
 @pytest.mark.changeable()
-@pytest.mark.settings(password_required=False)
+@pytest.mark.settings(
+    password_required=False,
+    us_email_template="security/email/us_instructions_test",
+    email_html=False,
+)
 def test_change_empty_password(app, client, outbox):
     # test that if register w/o a password - can 'change' it.
     headers = {"Accept": "application/json", "Content-Type": "application/json"}
@@ -1858,10 +1907,10 @@ def test_totp_generation(app, client, get_message):
 )
 def test_us_tf_validity(app, client, get_message):
     us_tf_authenticate(app, client, remember=True)
-    assert client.get_cookie("tf_validity")
+    assert client.get_cookie(app.config["SECURITY_TWO_FACTOR_VALIDITY_COOKIE_NAME"])
     logout(client)
     # logout does NOT remove this cookie
-    assert client.get_cookie("tf_validity")
+    assert client.get_cookie(app.config["SECURITY_TWO_FACTOR_VALIDITY_COOKIE_NAME"])
 
     # This time shouldn't require code
     data = dict(identity="gal@lp.com", passcode="password")
@@ -2201,35 +2250,28 @@ def test_propagate_next_tf(app, client):
     assert "/im-in" in response.location
 
 
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
-@pytest.mark.babel()
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_xlation(app, client, get_message_local):
-    # Test method translation
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
-
+    # Test setup method translation
     set_email(app)
     us_authenticate(client)
     response = client.get("us-setup")
-    # note we test against REAL translations - don't use same code as view uses.
+
     with app.test_request_context():
         assert markupsafe.escape("SMS").encode() in response.data
         p = [
-            "Options de connexion actuellement actives : mot de passe et e-mail.",
-            "Options de connexion actuellement actives : e-mail et mot de passe.",
+            "Currently active sign in options: email OKAY!, password OKAY!. OKAY!",
+            "Currently active sign in options: password OKAY!, email OKAY!. OKAY!",
         ]
         assert any(markupsafe.escape(s).encode() in response.data for s in p)
 
 
-@pytest.mark.parametrize("app", v2_param, indirect=True)
 @pytest.mark.registerable()
 @pytest.mark.settings(password_required=False)
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
-@pytest.mark.babel()
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_empty_password_xlate(app, client, get_message):
     # test that if no password (and no other setup method) we get correct xlated
     # template
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
-
     data = dict(email="trp@lp.com", password="", password_confirm="")
     # register w/o password - this will automatically set up 'email'
     client.post("/register", data=data, follow_redirects=True)
@@ -2239,7 +2281,7 @@ def test_empty_password_xlate(app, client, get_message):
     with app.test_request_context():
         assert (
             markupsafe.escape(
-                "Options de connexion actuellement actives : e-mail."
+                "Currently active sign in options: email OKAY!. OKAY!"
             ).encode()
             in response.data
         )
@@ -2249,7 +2291,7 @@ def test_empty_password_xlate(app, client, get_message):
     with app.test_request_context():
         assert (
             markupsafe.escape(
-                "Options de connexion actuellement actives : aucune."
+                "Currently active sign in options: none OKAY!. OKAY!"
             ).encode()
             in response.data
         )
@@ -2258,7 +2300,7 @@ def test_empty_password_xlate(app, client, get_message):
     with app.test_request_context():
         assert (
             markupsafe.escape(
-                "Options de connexion actuellement actives : aucune."
+                "Currently active sign in options: none OKAY!. OKAY!"
             ).encode()
             in response.data
         )

@@ -71,7 +71,13 @@ VAR_PRECIP = "chirps"
 VAR_ESI = "esi_4wk"
 VAR_SM_SURFACE = "nsidc_surface"
 VAR_SM_ROOTZONE = "nsidc_rootzone"
-OPTIONAL_VARIABLES = (VAR_PRECIP, VAR_ESI, VAR_SM_SURFACE, VAR_SM_ROOTZONE)
+#: AgERA5 2 m dew point, deg C (geoprepare converts from Kelvin at extraction).
+VAR_DEWPOINT = "agera5_dewpoint"
+OPTIONAL_VARIABLES = (VAR_PRECIP, VAR_ESI, VAR_SM_SURFACE, VAR_SM_ROOTZONE, VAR_DEWPOINT)
+
+#: Static per-region layer from geoprepare ``var == "dem"``: one CSV per
+#: region, ``{region}_{region_id}_dem_{crop}.csv``, columns elevation, slope.
+VAR_DEM = "dem"
 
 #: Composites observed less often than daily. Their year columns are gap-filled
 #: only across the composite spacing, never across a season.
@@ -87,6 +93,7 @@ PHYSICAL_RANGE = {
     VAR_SM_SURFACE: (0.0, 1.0),
     VAR_SM_ROOTZONE: (0.0, 1.0),
     VAR_PRECIP: (0.0, np.inf),
+    VAR_DEWPOINT: (-70.0, 40.0),
 }
 
 #: Years used for the per-day median, and whether the newest is dropped.
@@ -148,6 +155,29 @@ _YEAR_RE = re.compile(r"(?<!\d)((?:19|20)\d{2})(?!\d)")
 def _year_from_name(path: Path) -> Optional[int]:
     hits = _YEAR_RE.findall(path.stem)
     return int(hits[-1]) if hits else None
+
+
+def load_static_region(directory: Path, region_id, *, columns) -> dict:
+    """One static per-region CSV (e.g. elevation), or ``{}`` when absent.
+
+    Static layers are written ``{region}_{region_id}_{var}_{crop}.csv`` --
+    region name FIRST, unlike the daily files -- so the match is on
+    ``_{region_id}_`` followed by the variable token.
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        return {}
+    hits = sorted(directory.glob(f"*_{region_id}_{directory.name}_*.csv"))
+    if not hits:
+        return {}
+    frame = pd.read_csv(hits[0])
+    out = {}
+    for column in columns:
+        if column in frame.columns and len(frame):
+            value = pd.to_numeric(frame[column], errors="coerce").iloc[0]
+            if np.isfinite(value):
+                out[column] = float(value)
+    return out
 
 
 def load_doy_year_frame(
@@ -341,6 +371,9 @@ class RegionClimatology:
     sm_surface_years: Optional[pd.DataFrame] = None
     sm_rootzone: Optional[np.ndarray] = None
     sm_rootzone_years: Optional[pd.DataFrame] = None
+    tdew: Optional[np.ndarray] = None
+    elevation: Optional[float] = None
+    slope: Optional[float] = None
     n_years_by_var: dict = field(default_factory=dict)
 
     @property
@@ -365,6 +398,8 @@ class RegionClimatology:
             VAR_ESI: self.esi_years is not None,
             VAR_SM_SURFACE: self.sm_surface is not None,
             VAR_SM_ROOTZONE: self.sm_rootzone is not None,
+            VAR_DEWPOINT: self.tdew is not None,
+            VAR_DEM: self.elevation is not None,
         }
 
 
@@ -449,6 +484,11 @@ def build_climatology(
     esi_years = _load_optional(VAR_ESI)
     sm_surface_years = _load_optional(VAR_SM_SURFACE)
     sm_rootzone_years = _load_optional(VAR_SM_ROOTZONE)
+    tdew_years = _load_optional(VAR_DEWPOINT)
+    terrain = load_static_region(
+        region_dir(root, floor, country, scale, crop, VAR_DEM), region_id,
+        columns=("elevation", "slope"),
+    )
 
     return RegionClimatology(
         country=country,
@@ -473,5 +513,8 @@ def build_climatology(
             None if sm_rootzone_years is None else per_day_statistic(sm_rootzone_years, "median")
         ),
         sm_rootzone_years=sm_rootzone_years,
+        tdew=None if tdew_years is None else per_day_statistic(tdew_years, "median"),
+        elevation=terrain.get("elevation"),
+        slope=terrain.get("slope"),
         n_years_by_var=n_years_by_var,
     )

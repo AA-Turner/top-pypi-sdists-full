@@ -182,11 +182,10 @@ class IntegrationStatusResponse(BaseModel):
     "/users",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
-    # Explicit route-level team-secret gate (defense-in-depth on top of
-    # TeamSecretMiddleware) — guarantees the shared dev/deployed API can't
-    # create users without the team secret even if the global middleware's
-    # config or exemptions ever changed. No-op locally (TEAM_ACCESS_SECRET
-    # unset). See src/api/middleware/team_secret.py.
+    # Team-secret gate: creating a platform user is Tier C, one of the few
+    # routes that still needs the secret on top of a Bearer token (PF-455).
+    # No-op locally (TEAM_ACCESS_SECRET unset). See
+    # src/api/middleware/team_secret.py.
     dependencies=[Depends(require_team_secret)],
 )
 async def create_user(

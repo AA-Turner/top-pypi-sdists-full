@@ -31,7 +31,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.citations import normalize_google_grounding
 from matrx_ai.providers.base_translator import BaseTranslator
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.schema.rules import rewrite_const_as_enum
 
 # ============================================================================
@@ -446,10 +446,13 @@ class GoogleTranslator(BaseTranslator):
             # tool_config.include_server_side_tool_invocations to use Built-in tools
             # with Function calling." (set even when tool_choice is unset).
             tool_config_kwargs: dict[str, Any] = {}
-            if raw_tools and config.tool_choice:
-                if config.tool_choice == "none":
+            tool_choice = resolve_structural_setting(
+                config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+            )
+            if raw_tools and tool_choice:
+                if tool_choice == "none":
                     mode = "NONE"
-                elif config.tool_choice == "required":
+                elif tool_choice == "required":
                     mode = "ANY"
                 else:
                     mode = "AUTO"

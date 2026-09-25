@@ -47,7 +47,13 @@ def tool_error(message: str) -> Exception:
 
 
 def setting(attr: str, env: str) -> Optional[str]:
-    """Read one platform setting, preferring dlt's resolved runtime config.
+    """Read one platform setting, preferring what the runtime injected.
+
+    The `RUNTIME__*` variables describe the run the agent is executing in, so
+    they outrank a workspace config that was resolved from files deployed with
+    the code — a stale `api_base_url` there must not send a run somewhere it
+    cannot reach. On a developer machine nothing is injected and dlt's resolved
+    config is the only source.
 
     Args:
         attr: Field on the workspace runtime config.
@@ -56,11 +62,15 @@ def setting(attr: str, env: str) -> Optional[str]:
     Returns:
         The value, or ``None`` when neither source has it.
     """
+    injected = os.environ.get(env)
+    if injected:
+        return injected
+
     # Other libraries
     from dlt.common.runtime.run_context import active
 
     value = getattr(active().runtime_config, attr, None)
-    return str(value) if value else os.environ.get(env)
+    return str(value) if value else None
 
 
 def reread_config() -> None:
@@ -86,8 +96,9 @@ def workspace() -> "Workspace[Sync]":
     ``RUNTIME__API_KEY`` (or ``RUNTIME__AUTH_TOKEN``), ``RUNTIME__WORKSPACE_ID``
     and ``RUNTIME__API_BASE_URL`` — or, on a developer machine, from the
     connected workspace's own config, which dlt resolves under the same names.
-    An ambient key outranks a token, so a developer machine reaches the
-    workspace its key is scoped to.
+    What the runtime injected always wins. Failing that, an ambient key
+    outranks a stored token, so a developer machine reaches the workspace its
+    key is scoped to.
 
     Returns:
         The workspace, cached for the process along with its connections.
@@ -107,8 +118,14 @@ def workspace() -> "Workspace[Sync]":
             # Current package
             import dlthub_sdk
 
-            key = setting("api_key", "RUNTIME__API_KEY")
-            token = key or setting("auth_token", "RUNTIME__AUTH_TOKEN")
+            # Injected first, across both names: a config deployed with the
+            # code may carry an api_key, and it must not outrank the identity
+            # the runtime minted for this run.
+            key = os.environ.get("RUNTIME__API_KEY")
+            token = key or os.environ.get("RUNTIME__AUTH_TOKEN")
+            if not token:
+                key = setting("api_key", "RUNTIME__API_KEY")
+                token = key or setting("auth_token", "RUNTIME__AUTH_TOKEN")
             workspace_id = setting("workspace_id", "RUNTIME__WORKSPACE_ID")
             if not token or not workspace_id:
                 # Named separately: "no credential" and "no workspace" have

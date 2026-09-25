@@ -109,6 +109,11 @@ pub mod claim_remote;
 /// Public so the integration test (`tests/commons_surface.rs`) can drive the
 /// router directly.
 pub mod commons_surface;
+/// **Communities and affiliations** — N-member rooms (CIRISServer#594): found,
+/// list, read, widen, remove, leave, re-role, dissolve, and the two-phase
+/// quorum flow, all owner-signed and all read through persist v48's roster
+/// fold. Routes merge into [`contacts_chat::router`].
+mod communities;
 /// **CC 4.5.2.2 `compliance-vertical`** — the machine-readable vertical/statutory
 /// compliance map (CIRISServer#159). Bakes `evidence/cc_compliance_map.tsv` (a faithful
 /// transcription of CC 4.5.2.2 + CC 8.8.5 Annex C) into the binary and parses it into
@@ -210,6 +215,12 @@ pub mod equivocation;
 /// (`federation_families` + membership revocations) — create / add / live-roster /
 /// swap, NOT accord-aware. The HUMANITY_ACCORD kill-switch is one specialization.
 pub mod family;
+/// The HOUSEHOLD routes (CIRISServer#627, `FSD/ROSTER_AND_DRIVE_CRUD.md` §3):
+/// create / list / read / add / remove / leave / role / dissolve, and the
+/// envelope → cosign → assemble flow for a `quorum:M/N` family. Every row is
+/// signed with the caller's fed-ID and admitted through persist's REPLICATED
+/// `put_family` door; membership is read through the revocation fold.
+pub mod family_api;
 /// Owner-directed federation operations (the keystone for on-demand
 /// `consent:replication` peering): `GET /v1/federation/self-key-record` +
 /// `POST /v1/federation/peering`. Each node authors its OWN consent grant
@@ -304,6 +315,10 @@ pub mod key_standing;
 /// Public so the integration test (`tests/peer_replication.rs`) can drive the
 /// admission + consent-emit logic directly.
 pub mod location;
+/// The owner's own devices (`FSD/ROSTER_AND_DRIVE_CRUD.md` §2): release a node
+/// from its owner (a signed `withdraws` of the owner-binding) and relabel a
+/// device key.
+pub mod self_devices;
 pub mod self_room_drive;
 
 /// **The capacity READ surface** — `GET /v1/my-data/capacity`. The scorer
@@ -495,6 +510,26 @@ pub mod vocabulary_surface;
 ///
 /// Inert without the feature (verify's `test_anchor_active` is a `false`
 /// constant there), so it costs nothing on the default surface.
+/// Is a TEST trust anchor live in this process — the `test-anchor` feature
+/// compiled in AND `CIRIS_TEST_TRUST_ROOT` set? Under exactly that condition
+/// persist admits the honest software-custody marker
+/// `{"tier":"SoftwareOnly_TEST","test_anchor":true}` (CIRISPersist#545) and
+/// refuses it, typed and loud, anywhere else. persist v47.3.0 (CIRISPersist#901)
+/// made a root only as valid as its holders' attested custody, so a harness
+/// node that is a root's charter holder must carry the marker or every peer
+/// reads its root INVALID and nobody Roots. A production build has no feature
+/// and never attaches it; never a fabricated hardware claim (the AV-77 class).
+pub(crate) fn test_anchor_marker_active() -> bool {
+    cfg!(feature = "test-anchor")
+        && std::env::var("CIRIS_TEST_TRUST_ROOT").is_ok_and(|v| !v.trim().is_empty())
+}
+
+/// The marker itself — exactly persist's shape (`SoftwareOnlyTestMarker`,
+/// `deny_unknown_fields`).
+pub(crate) fn software_only_test_marker() -> serde_json::Value {
+    serde_json::json!({ "tier": "SoftwareOnly_TEST", "test_anchor": true })
+}
+
 #[cfg(test)]
 pub(crate) fn assert_test_anchor_disarmed(context: &str) {
     assert!(

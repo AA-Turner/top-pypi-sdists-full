@@ -29,12 +29,14 @@ from sqlalchemy.dialects.mssql import base as mssql_base
 from sqlalchemy.sql import column
 from sqlalchemy.sql import quoted_name
 from sqlalchemy.sql import table
+from sqlalchemy.sql.ddl import CreateView
 from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import eq_
+from sqlalchemy.testing import eq_ignore_whitespace
 from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
-from sqlalchemy.testing.assertions import eq_ignore_whitespace
+from sqlalchemy.testing import resolve_lambda
 from sqlalchemy.types import TypeEngine
 
 tbl = table("t", column("a"))
@@ -1857,6 +1859,49 @@ class CompileTest(fixtures.TestBase, AssertsCompiledSQL):
             print(stmt.compile(dialect=dialect_2012))
         with testing.expect_raises_message(exc.CompileError, error):
             print(stmt.compile(dialect=self.__dialect__))
+
+    @testing.combinations(
+        (lambda t: t.c.a**t.c.b, "POWER(t.a, t.b)", {}),
+        (lambda t: t.c.a**3, "POWER(t.a, :pow_1)", {"pow_1": 3}),
+        (lambda t: t.c.c.match(t.c.d), "CONTAINS (t.c, t.d)", {}),
+        (lambda t: t.c.c.match("w"), "CONTAINS (t.c, :c_1)", {"c_1": "w"}),
+        (lambda t: func.pow(t.c.a, 3), "POWER(t.a, :pow_1)", {"pow_1": 3}),
+        (lambda t: func.power(t.c.a, t.c.b), "power(t.a, t.b)", {}),
+    )
+    def test_simple_compile(self, fn, string, params):
+        t = table(
+            "t",
+            column("a", Integer),
+            column("b", Integer),
+            column("c", String),
+            column("d", String),
+        )
+        expr = resolve_lambda(fn, t=t)
+        self.assert_compile(expr, string, params)
+
+    def test_create_view_or_replace(self):
+        t = Table("t", MetaData(), Column("a", Integer), Column("b", String))
+        stmt = CreateView(
+            select(t.c.a, t.c.b).where(t.c.a > 5),
+            "my_view",
+            or_replace=True,
+        )
+        self.assert_compile(
+            stmt,
+            "CREATE OR ALTER VIEW my_view AS "
+            "SELECT t.a, t.b FROM t WHERE t.a > 5",
+        )
+
+    def test_create_view_basic(self):
+        t = Table("t", MetaData(), Column("a", Integer), Column("b", String))
+        stmt = CreateView(
+            select(t.c.a, t.c.b).where(t.c.a > 5),
+            "my_view",
+        )
+        self.assert_compile(
+            stmt,
+            "CREATE VIEW my_view AS SELECT t.a, t.b FROM t WHERE t.a > 5",
+        )
 
 
 class CompileIdentityTest(fixtures.TestBase, AssertsCompiledSQL):

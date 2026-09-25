@@ -109,6 +109,11 @@ class ManagedRuntimeClient(RuntimeClient):
         self._start_lock = asyncio.Lock()
         self._started_event = asyncio.Event()
 
+    @property
+    def is_in_process(self) -> bool:
+        """Whether this client hosts its runtime in the current process."""
+        return self._in_process
+
     # ── Platform profile ──────────────────────────────────────────
 
     def set_platform_profile(self, profile: "Profile") -> None:
@@ -357,6 +362,9 @@ class ManagedRuntimeClient(RuntimeClient):
     async def _start_in_process(self) -> None:
         """Initialize the FastAPI app in-process, bind a loopback HTTP server
         for out-of-process workers, and connect in-proc callers via ASGI."""
+        from dreadnode.core.log import enable_runtime_capture
+
+        enable_runtime_capture()
         logger.info("Starting in-process runtime server")
         from dreadnode.app.server.app import (
             _start_litellm_warm,

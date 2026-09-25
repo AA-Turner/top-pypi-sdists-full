@@ -20,7 +20,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.providers.base_translator import BaseTranslator
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 # ============================================================================
@@ -182,8 +182,11 @@ class GroqTranslator(BaseTranslator):
             )
         elif all_tools:
             groq_request["tools"] = all_tools
-            if config.tool_choice:
-                groq_request["tool_choice"] = config.tool_choice
+            tool_choice = resolve_structural_setting(
+                config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+            )
+            if tool_choice:
+                groq_request["tool_choice"] = tool_choice
 
         if groq_response_format is not None:
             groq_request["response_format"] = groq_response_format

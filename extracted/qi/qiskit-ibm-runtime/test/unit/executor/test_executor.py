@@ -17,13 +17,18 @@ from unittest.mock import patch
 from pydantic import ValidationError
 from qiskit.circuit import QuantumCircuit
 
+from qiskit_ibm_runtime.batch import Batch
 from qiskit_ibm_runtime.executor import Executor
 from qiskit_ibm_runtime.options_models.environment import EnvironmentOptions
 from qiskit_ibm_runtime.options_models.execution import ExecutionOptions
 from qiskit_ibm_runtime.options_models.executor import ExecutorOptions
+from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService
 from qiskit_ibm_runtime.quantum_program import QuantumProgram
+from qiskit_ibm_runtime.session import Session
 
+from ...decorators import mock_responses
 from ...ibm_test_case import IBMTestCase
+from ...registries import OneInstanceDryRunRegistry
 from ...utils import get_mocked_backend, get_mocked_session
 
 
@@ -163,3 +168,41 @@ class TestExecutor(IBMTestCase):
             executor = Executor(mode=backend)
             selected_run = executor.run(self.program)
             self.assertEqual(selected_run, "service")
+
+    @mock_responses(OneInstanceDryRunRegistry)
+    def test_run_dry_run(self, registry):
+        """Executor can run in `dry-run` mode."""
+        service = QiskitRuntimeService(token="my_token")
+        backend = service.backend("ibm_foo")
+        executor = Executor(mode=backend)
+        job = executor.run(self.program, dry_run=True)
+        self.assertEqual(job.backend().name, "mock_foo")
+
+    @mock_responses
+    def test_mode(self, registry):
+        """Estimator `mode` and `backend()` is based on `mode` init argument."""
+        service = QiskitRuntimeService(token="my_token")
+
+        # Job mode, online backend.
+        backend = service.backend("common_backend")
+        executor = Executor(mode=backend)
+        self.assertEqual(executor.backend(), backend)
+        self.assertEqual(executor.mode, None)
+
+        # Session mode.
+        session = Session(backend)
+        executor = Executor(mode=session)
+        self.assertEqual(executor.backend(), backend)
+        self.assertEqual(executor.mode, session)
+
+        # Batch mode.
+        batch = Batch(backend)
+        executor = Executor(mode=batch)
+        self.assertEqual(executor.backend(), backend)
+        self.assertEqual(executor.mode, batch)
+
+        # `None` mode (inside session).
+        with Session(backend) as session:
+            executor = Executor()
+            self.assertEqual(executor.backend(), backend)
+            self.assertEqual(executor.mode, session)

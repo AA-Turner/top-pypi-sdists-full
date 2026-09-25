@@ -68,7 +68,8 @@ class KubernetesBackend:
             context = None if self.kubecfg_context == 'default' else self.kubecfg_context
             load_kube_config(config_file=self.kubecfg_path, context=context)
             contexts, current_context = list_kube_config_contexts(config_file=self.kubecfg_path)
-            current_context = current_context if context is None else [it for it in contexts if it['name'] == context][0]
+            if context is not None:
+                current_context = [it for it in contexts if it['name'] == context][0]
             ctx_name = current_context.get('name')
             ctx_context = current_context.get('context')
             self.namespace = ctx_context.get('namespace') or self.namespace
@@ -684,7 +685,7 @@ class KubernetesBackend:
             total_workers = min(max_workers, total_calls // chunksize + (total_calls % chunksize > 0))
 
             logger.debug(
-                f'ExecutorID {executor_id} | JobID {job_id} - Required Workers: {total_workers}'
+                f'{utils.log_prefix(executor_id, job_id)} - Required Workers: {total_workers}'
             )
 
             activation_id = f'lithops-{job_key.lower()}'
@@ -714,8 +715,10 @@ class KubernetesBackend:
             container['resources']['limits']['memory'] = f'{runtime_memory}Mi'
             container['resources']['limits']['cpu'] = str(self.k8s_config['runtime_cpu'])
 
-            logger.debug(f'ExecutorID {executor_id} | JobID {job_id} - Going '
-                         f'to run {total_calls} activations in {total_workers} workers')
+            logger.debug(
+                f'{utils.log_prefix(executor_id, job_id)} - Going '
+                f'to run {total_calls} activations in {total_workers} workers'
+            )
 
             if not all(key in self.k8s_config for key in ["docker_user", "docker_password"]):
                 del job_res['spec']['template']['spec']['imagePullSecrets']

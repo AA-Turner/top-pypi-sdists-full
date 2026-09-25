@@ -2,13 +2,13 @@ import logging
 from typing import Any
 
 import click
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, Timeout
 
 import ggshield.verticals.hmsl.utils as hmsl_utils
 from ggshield.cmd.utils.common_options import add_common_options
 from ggshield.cmd.utils.context_obj import ContextObj
 from ggshield.core import auth_check_cache
-from ggshield.core.client import create_client
+from ggshield.core.client import api_timeout_from_config, create_client
 from ggshield.core.config import Config
 from ggshield.core.config.token_store import get_token_store
 from ggshield.core.errors import AuthError, UnexpectedError
@@ -107,10 +107,13 @@ def revoke_token(config: Config, instance_url: str) -> None:
         token,
         dashboard_to_api_url(instance_url),
         allow_self_signed=config.user_config.insecure,
+        timeout=api_timeout_from_config(config),
     )
     try:
         response = client.post(endpoint="token/revoke")
-    except ConnectionError:
+    except (ConnectionError, Timeout):
+        # A read timeout no longer reaches us as a ConnectionError now that
+        # POST read timeouts are not retried.
         raise UnexpectedError(CONNECTION_ERROR_MESSAGE)
 
     if response.status_code != 204:

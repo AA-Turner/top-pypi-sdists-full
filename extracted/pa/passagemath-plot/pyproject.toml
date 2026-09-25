@@ -2,12 +2,12 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-conf ~= 10.8.11.0 ; sys_platform != "win32"',
-    'passagemath-setup ~= 10.8.11.0',
+    'passagemath-conf ~= 10.8.12.0 ; sys_platform != "win32"',
+    'passagemath-setup ~= 10.8.12.0',
     'pkgconfig',
-    'passagemath-environment ~= 10.8.11.0',
-    'passagemath-categories ~= 10.8.11.0',
-    'passagemath-modules ~= 10.8.11.0',
+    'passagemath-environment ~= 10.8.12.0',
+    'passagemath-categories ~= 10.8.12.0',
+    'passagemath-modules ~= 10.8.12.0',
     'numpy >=2.1',
     'cython >=3.1.0,<3.4.0',
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
@@ -23,8 +23,8 @@ dependencies = [
     'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
     'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator <0.2',
-    'passagemath-categories ~= 10.8.11.0',
-    'passagemath-modules ~= 10.8.11.0',
+    'passagemath-categories ~= 10.8.12.0',
+    'passagemath-modules ~= 10.8.12.0',
     'numpy >=2.1',
     'scipy >=1.11',
     'pillow >=7.2.0',
@@ -73,7 +73,7 @@ content-type = "text/x-rst"
 [project.optional-dependencies]
 test            = [
     "passagemath-plot[tachyon]; sys_platform != 'win32'",
-    'passagemath-repl ~= 10.8.11.0',
+    'passagemath-repl ~= 10.8.12.0',
 ]
 
 # extras by libraries
@@ -81,13 +81,13 @@ dot2tex         = ['dot2tex >=2.12.0',]
 jsmol           = ['jupyter-jsmol',]
 matplotlib      = []  # no extra needed
 playwright      = ['playwright',]
-tachyon         = ['passagemath-tachyon ~= 10.8.11.0',]
+tachyon         = ['passagemath-tachyon ~= 10.8.12.0',]
 threejs         = []  # no extra needed
 
 # extras by other features
-graphs          = ['passagemath-graphs ~= 10.8.11.0',]
-polyhedra       = ['passagemath-polyhedra ~= 10.8.11.0',]
-symbolics       = ['passagemath-symbolics ~= 10.8.11.0',]
+graphs          = ['passagemath-graphs ~= 10.8.12.0',]
+polyhedra       = ['passagemath-polyhedra ~= 10.8.12.0',]
+symbolics       = ['passagemath-symbolics ~= 10.8.12.0',]
 
 [tool.setuptools]
 include-package-data = false

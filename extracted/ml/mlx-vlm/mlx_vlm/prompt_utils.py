@@ -44,6 +44,7 @@ MODEL_CONFIG = {
     "paddleocr_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen2_vl": MessageFormat.LIST_WITH_IMAGE,
     "qwen2_5_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
+    "mimo_v2": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "zaya1_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_vl": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "qwen3_vl_moe": MessageFormat.LIST_WITH_IMAGE_FIRST,
@@ -118,6 +119,8 @@ MODEL_CONFIG = {
     "deepseek_v4": MessageFormat.LIST_WITH_IMAGE_FIRST,
     "hrm_text": MessageFormat.TEXT_ONLY,
     "minimax_m3": MessageFormat.TEXT_ONLY,
+    "qwen3_5_text": MessageFormat.TEXT_ONLY,
+    "limite": MessageFormat.TEXT_ONLY,
 }
 
 # Models that don't support multi-image
@@ -295,6 +298,7 @@ class MessageFormatter:
         if self.model_name in [
             "qwen2_vl",
             "qwen2_5_vl",
+            "mimo_v2",
             "qwen3_vl",
             "mage_vl",
             "qwen3_vl_moe",

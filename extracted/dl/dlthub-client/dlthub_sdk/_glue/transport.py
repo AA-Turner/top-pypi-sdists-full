@@ -96,22 +96,22 @@ from dlthub_sdk._gen.api.models import (
     DataplaneAccessTokenResponse,
     DataplaneInfo,
     DeployManifestRequest,
+    DeployManifestRequestJobsItem,
     DeployManifestResponse,
     DeploymentResponse,
     DetailedRunResponse,
     DetailedScriptResponse,
-    ListConfigurationsResponse200,
-    ListDeploymentsResponse200,
-    ListOrganizationsResponse200,
-    ListRunsResponse200,
-    ListScriptsResponse200,
-    ListWorkspaceMembersResponse200,
-    ListWorkspacesResponse200,
+    ListPageConfigurationResponse,
+    ListPageDeploymentResponse,
+    ListPageDetailedRunResponse,
+    ListPageDetailedScriptResponse,
+    ListPageOrganizationResponse,
+    ListPageOrganizationWorkspaceResponse,
+    ListPageWorkspaceMemberResponse,
     OrganizationMeResponse,
     OrganizationResponse,
     ScriptResponse,
     SetOrganizationRegionRequest,
-    TJobDefinition,
     TriggeredJob,
     TriggerJobsRequest,
     TriggerJobsResponse,
@@ -152,6 +152,8 @@ from dlthub_sdk._gen.dataplane_api.models import (
 from dlthub_sdk._gen.dataplane_api.types import UNSET as DATAPLANE_UNSET, File
 from dlthub_sdk._gen.logs.models import LogLine
 from dlthub_sdk._gen.telemetry.api.default import (
+    get_job_result,
+    get_job_result_trace,
     get_pipeline_run,
     get_pipeline_run_trace,
     get_telemetry_watermark,
@@ -161,10 +163,12 @@ from dlthub_sdk._gen.telemetry.api.default import (
 )
 from dlthub_sdk._gen.telemetry.client import AuthenticatedClient as TelemetryClient
 from dlthub_sdk._gen.telemetry.models import (
+    GetJobResultTraceResponse200,
     GetPipelineRunTraceResponse200,
-    ListDatasetOverviewResponse200,
-    ListPipelineOverviewResponse200,
-    ListPipelineRunsResponse200,
+    JobResultResponse,
+    ListPageDatasetOverviewResponse,
+    ListPagePipelineOverviewResponse,
+    ListPagePipelineRunResponse,
     PipelineRunDetailResponse,
     PipelineRunStatus as GenPipelineRunStatus,
     TelemetryWatermarkResponse,
@@ -324,8 +328,8 @@ class _Op(Generic[T]):
 _ORGANIZATION: _Op[OrganizationResponse] = _Op(
     OrganizationResponse, EntityKind.ORGANIZATION
 )
-_ORGANIZATION_LIST: _Op[ListOrganizationsResponse200] = _Op(
-    ListOrganizationsResponse200, EntityKind.ORGANIZATION
+_ORGANIZATION_LIST: _Op[ListPageOrganizationResponse] = _Op(
+    ListPageOrganizationResponse, EntityKind.ORGANIZATION
 )
 #: `/user` is gated to human principals, so an API key cannot reach it.
 _CURRENT_USER: _Op[CurrentUserResponse] = _Op(
@@ -338,8 +342,8 @@ _WORKSPACE_ME: _Op[WorkspaceMeResponse] = _Op(WorkspaceMeResponse, EntityKind.WO
 _CONFIGURATION: _Op[ConfigurationResponse] = _Op(
     ConfigurationResponse, EntityKind.CONFIGURATION
 )
-_CONFIGURATION_LIST: _Op[ListConfigurationsResponse200] = _Op(
-    ListConfigurationsResponse200, EntityKind.WORKSPACE
+_CONFIGURATION_LIST: _Op[ListPageConfigurationResponse] = _Op(
+    ListPageConfigurationResponse, EntityKind.WORKSPACE
 )
 _CONFIGURATION_FILES: _Op[TFilesManifest] = _Op(
     TFilesManifest, EntityKind.CONFIGURATION
@@ -355,14 +359,16 @@ _DP_CONFIGURATION: _Op[DataplaneConfigurationResponse] = _Op(
     DataplaneConfigurationResponse, EntityKind.CONFIGURATION
 )
 _DEPLOYMENT_FILES: _Op[TFilesManifest] = _Op(TFilesManifest, EntityKind.DEPLOYMENT)
-_DEPLOYMENT_LIST: _Op[ListDeploymentsResponse200] = _Op(
-    ListDeploymentsResponse200, EntityKind.WORKSPACE
+_DEPLOYMENT_LIST: _Op[ListPageDeploymentResponse] = _Op(
+    ListPageDeploymentResponse, EntityKind.WORKSPACE
 )
 _BULK_CANCEL: _Op[BulkCancelResponse] = _Op(BulkCancelResponse, EntityKind.WORKSPACE)
 #: The platform answers with a bare array, so the check is against ``list``.
 _DATAPLANE_LIST: _Op[list[DataplaneInfo]] = _Op(list, EntityKind.DATAPLANE)
 _RUN: _Op[DetailedRunResponse] = _Op(DetailedRunResponse, EntityKind.JOB_RUN)
-_RUN_LIST: _Op[ListRunsResponse200] = _Op(ListRunsResponse200, EntityKind.WORKSPACE)
+_RUN_LIST: _Op[ListPageDetailedRunResponse] = _Op(
+    ListPageDetailedRunResponse, EntityKind.WORKSPACE
+)
 _DATAPLANE_TOKEN: _Op[DataplaneAccessTokenResponse] = _Op(
     DataplaneAccessTokenResponse, EntityKind.WORKSPACE
 )
@@ -376,17 +382,23 @@ _TELEMETRY_WATERMARK: _Op[TelemetryWatermarkResponse] = _Op(
 _PIPELINE_RUN: _Op[PipelineRunDetailResponse] = _Op(
     PipelineRunDetailResponse, EntityKind.PIPELINE_RUN
 )
-_PIPELINE_RUN_LIST: _Op[ListPipelineRunsResponse200] = _Op(
-    ListPipelineRunsResponse200, EntityKind.WORKSPACE
+#: Addressed by run id, so a missing result reports as that run.
+_JOB_RESULT: _Op[JobResultResponse] = _Op(JobResultResponse, EntityKind.JOB_RUN)
+#: Addressed by run id too, so a missing envelope reports as that run.
+_JOB_RESULT_TRACE: _Op[GetJobResultTraceResponse200] = _Op(
+    GetJobResultTraceResponse200, EntityKind.JOB_RUN
+)
+_PIPELINE_RUN_LIST: _Op[ListPagePipelineRunResponse] = _Op(
+    ListPagePipelineRunResponse, EntityKind.WORKSPACE
 )
 _PIPELINE_RUN_TRACE: _Op[GetPipelineRunTraceResponse200] = _Op(
     GetPipelineRunTraceResponse200, EntityKind.PIPELINE_RUN
 )
-_PIPELINE_OVERVIEW: _Op[ListPipelineOverviewResponse200] = _Op(
-    ListPipelineOverviewResponse200, EntityKind.WORKSPACE
+_PIPELINE_OVERVIEW: _Op[ListPagePipelineOverviewResponse] = _Op(
+    ListPagePipelineOverviewResponse, EntityKind.WORKSPACE
 )
-_DATASET_OVERVIEW: _Op[ListDatasetOverviewResponse200] = _Op(
-    ListDatasetOverviewResponse200, EntityKind.WORKSPACE
+_DATASET_OVERVIEW: _Op[ListPageDatasetOverviewResponse] = _Op(
+    ListPageDatasetOverviewResponse, EntityKind.WORKSPACE
 )
 _VARIABLES: _Op[WorkspaceVariablesResponse] = _Op(
     WorkspaceVariablesResponse, EntityKind.WORKSPACE
@@ -395,17 +407,17 @@ _TRIGGERED_JOBS: _Op[TriggerJobsResponse] = _Op(
     TriggerJobsResponse, EntityKind.WORKSPACE
 )
 _WORKSPACE: _Op[WorkspaceResponse] = _Op(WorkspaceResponse, EntityKind.WORKSPACE)
-_WORKSPACE_LIST: _Op[ListWorkspacesResponse200] = _Op(
-    ListWorkspacesResponse200, EntityKind.ORGANIZATION
+_WORKSPACE_LIST: _Op[ListPageOrganizationWorkspaceResponse] = _Op(
+    ListPageOrganizationWorkspaceResponse, EntityKind.ORGANIZATION
 )
-_WORKSPACE_MEMBER_LIST: _Op[ListWorkspaceMembersResponse200] = _Op(
-    ListWorkspaceMembersResponse200, EntityKind.WORKSPACE
+_WORKSPACE_MEMBER_LIST: _Op[ListPageWorkspaceMemberResponse] = _Op(
+    ListPageWorkspaceMemberResponse, EntityKind.WORKSPACE
 )
 _SCRIPT_DETAIL: _Op[DetailedScriptResponse] = _Op(
     DetailedScriptResponse, EntityKind.JOB
 )
-_SCRIPT_LIST: _Op[ListScriptsResponse200] = _Op(
-    ListScriptsResponse200, EntityKind.WORKSPACE
+_SCRIPT_LIST: _Op[ListPageDetailedScriptResponse] = _Op(
+    ListPageDetailedScriptResponse, EntityKind.WORKSPACE
 )
 _SCRIPT: _Op[ScriptResponse] = _Op(ScriptResponse, EntityKind.JOB)
 _LOG: _Op[LogLine] = _Op(LogLine, EntityKind.JOB_RUN)
@@ -534,7 +546,7 @@ class Transport(Protocol):
 
     def list_organizations(
         self, *, limit: int, offset: int
-    ) -> ListOrganizationsResponse200: ...
+    ) -> ListPageOrganizationResponse: ...
 
     def set_organization_region(
         self, *, organization_id: str, dataplane_id: str
@@ -598,11 +610,11 @@ class Transport(Protocol):
 
     def list_workspaces(
         self, *, organization_id: str, limit: int, offset: int
-    ) -> ListWorkspacesResponse200: ...
+    ) -> ListPageOrganizationWorkspaceResponse: ...
 
     def list_workspace_members(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListWorkspaceMembersResponse200: ...
+    ) -> ListPageWorkspaceMemberResponse: ...
 
     def update_workspace(
         self, *, workspace_id: str, name: str | Keep, description: str | None | Keep
@@ -618,7 +630,7 @@ class Transport(Protocol):
 
     def list_runs(
         self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListRunsResponse200: ...
+    ) -> ListPageDetailedRunResponse: ...
 
     def cancel_run(self, *, workspace_id: str, run_id: str) -> DetailedRunResponse: ...
 
@@ -633,6 +645,14 @@ class Transport(Protocol):
     def get_pipeline_run(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
     ) -> PipelineRunDetailResponse: ...
+
+    def get_job_result(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> JobResultResponse: ...
+
+    def get_job_result_trace(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> GetJobResultTraceResponse200: ...
 
     def get_pipeline_run_trace(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
@@ -650,7 +670,7 @@ class Transport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineOverviewResponse200: ...
+    ) -> ListPagePipelineOverviewResponse: ...
 
     def list_dataset_overview(
         self,
@@ -664,7 +684,7 @@ class Transport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListDatasetOverviewResponse200: ...
+    ) -> ListPageDatasetOverviewResponse: ...
 
     def list_pipeline_runs(
         self,
@@ -681,7 +701,7 @@ class Transport(Protocol):
         is_empty_run: bool | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineRunsResponse200: ...
+    ) -> ListPagePipelineRunResponse: ...
 
     def get_configuration_files(
         self, *, workspace_id: str, dataplane_url: str, configuration_id: str
@@ -701,7 +721,7 @@ class Transport(Protocol):
 
     def list_configurations(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListConfigurationsResponse200: ...
+    ) -> ListPageConfigurationResponse: ...
 
     def get_deployment(
         self, *, workspace_id: str, version: int
@@ -711,7 +731,7 @@ class Transport(Protocol):
 
     def list_deployments(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListDeploymentsResponse200: ...
+    ) -> ListPageDeploymentResponse: ...
 
     def get_script(
         self, *, workspace_id: str, job_ref: str
@@ -719,7 +739,7 @@ class Transport(Protocol):
 
     def list_scripts(
         self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListScriptsResponse200: ...
+    ) -> ListPageDetailedScriptResponse: ...
 
     def pause_script(self, *, workspace_id: str, job_ref: str) -> ScriptResponse: ...
 
@@ -985,7 +1005,7 @@ class HttpTransport:
 
     def list_runs(
         self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListRunsResponse200:
+    ) -> ListPageDetailedRunResponse:
         return _call(
             lambda: list_runs.sync_detailed(
                 UUID(workspace_id),
@@ -1031,7 +1051,7 @@ class HttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineOverviewResponse200:
+    ) -> ListPagePipelineOverviewResponse:
         return self._dataplane_call(
             lambda dp: list_pipeline_overview.sync_detailed(
                 UUID(workspace_id),
@@ -1071,7 +1091,7 @@ class HttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListDatasetOverviewResponse200:
+    ) -> ListPageDatasetOverviewResponse:
         return self._dataplane_call(
             lambda dp: list_dataset_overview.sync_detailed(
                 UUID(workspace_id),
@@ -1129,6 +1149,36 @@ class HttpTransport:
             dataplane_url=dataplane_url,
         )
 
+    def get_job_result(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> JobResultResponse:
+        return self._dataplane_call(
+            lambda dp: get_job_result.sync_detailed(
+                UUID(workspace_id),
+                UUID(run_id),
+                client=_as_telemetry(dp),
+            ),
+            _JOB_RESULT,
+            run_id,
+            workspace_id=workspace_id,
+            dataplane_url=dataplane_url,
+        )
+
+    def get_job_result_trace(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> GetJobResultTraceResponse200:
+        return self._dataplane_call(
+            lambda dp: get_job_result_trace.sync_detailed(
+                UUID(workspace_id),
+                UUID(run_id),
+                client=_as_telemetry(dp),
+            ),
+            _JOB_RESULT_TRACE,
+            run_id,
+            workspace_id=workspace_id,
+            dataplane_url=dataplane_url,
+        )
+
     def list_pipeline_runs(
         self,
         *,
@@ -1144,7 +1194,7 @@ class HttpTransport:
         is_empty_run: bool | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineRunsResponse200:
+    ) -> ListPagePipelineRunResponse:
         return self._dataplane_call(
             lambda dp: list_pipeline_runs.sync_detailed(
                 UUID(workspace_id),
@@ -1287,7 +1337,7 @@ class HttpTransport:
 
     def list_organizations(
         self, *, limit: int, offset: int
-    ) -> ListOrganizationsResponse200:
+    ) -> ListPageOrganizationResponse:
         return _call(
             lambda: list_organizations.sync_detailed(
                 client=self._api, limit=limit, offset=offset
@@ -1398,7 +1448,7 @@ class HttpTransport:
 
     def list_workspaces(
         self, *, organization_id: str, limit: int, offset: int
-    ) -> ListWorkspacesResponse200:
+    ) -> ListPageOrganizationWorkspaceResponse:
         return _call(
             lambda: list_workspaces.sync_detailed(
                 UUID(organization_id), client=self._api, limit=limit, offset=offset
@@ -1409,7 +1459,7 @@ class HttpTransport:
 
     def list_workspace_members(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListWorkspaceMembersResponse200:
+    ) -> ListPageWorkspaceMemberResponse:
         return _call(
             lambda: list_workspace_members.sync_detailed(
                 UUID(workspace_id), client=self._api, limit=limit, offset=offset
@@ -1568,7 +1618,7 @@ class HttpTransport:
 
     def list_configurations(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListConfigurationsResponse200:
+    ) -> ListPageConfigurationResponse:
         return _call(
             lambda: list_configurations.sync_detailed(
                 UUID(workspace_id), client=self._api, limit=limit, offset=offset
@@ -1597,7 +1647,7 @@ class HttpTransport:
 
     def list_deployments(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListDeploymentsResponse200:
+    ) -> ListPageDeploymentResponse:
         return _call(
             lambda: list_deployments.sync_detailed(
                 UUID(workspace_id), client=self._api, limit=limit, offset=offset
@@ -1617,7 +1667,7 @@ class HttpTransport:
 
     def list_scripts(
         self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListScriptsResponse200:
+    ) -> ListPageDetailedScriptResponse:
         return _call(
             lambda: list_scripts.sync_detailed(
                 UUID(workspace_id),
@@ -1666,7 +1716,7 @@ class AsyncTransport(Protocol):
 
     async def list_organizations(
         self, *, limit: int, offset: int
-    ) -> ListOrganizationsResponse200: ...
+    ) -> ListPageOrganizationResponse: ...
 
     async def set_organization_region(
         self, *, organization_id: str, dataplane_id: str
@@ -1730,11 +1780,11 @@ class AsyncTransport(Protocol):
 
     async def list_workspaces(
         self, *, organization_id: str, limit: int, offset: int
-    ) -> ListWorkspacesResponse200: ...
+    ) -> ListPageOrganizationWorkspaceResponse: ...
 
     async def list_workspace_members(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListWorkspaceMembersResponse200: ...
+    ) -> ListPageWorkspaceMemberResponse: ...
 
     async def update_workspace(
         self, *, workspace_id: str, name: str | Keep, description: str | None | Keep
@@ -1752,7 +1802,7 @@ class AsyncTransport(Protocol):
 
     async def list_runs(
         self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListRunsResponse200: ...
+    ) -> ListPageDetailedRunResponse: ...
 
     async def cancel_run(
         self, *, workspace_id: str, run_id: str
@@ -1770,6 +1820,14 @@ class AsyncTransport(Protocol):
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
     ) -> PipelineRunDetailResponse: ...
 
+    async def get_job_result(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> JobResultResponse: ...
+
+    async def get_job_result_trace(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> GetJobResultTraceResponse200: ...
+
     async def get_pipeline_run_trace(
         self, *, workspace_id: str, dataplane_url: str, pipeline_run_id: str
     ) -> GetPipelineRunTraceResponse200: ...
@@ -1786,7 +1844,7 @@ class AsyncTransport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineOverviewResponse200: ...
+    ) -> ListPagePipelineOverviewResponse: ...
 
     async def list_dataset_overview(
         self,
@@ -1800,7 +1858,7 @@ class AsyncTransport(Protocol):
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListDatasetOverviewResponse200: ...
+    ) -> ListPageDatasetOverviewResponse: ...
 
     async def list_pipeline_runs(
         self,
@@ -1817,7 +1875,7 @@ class AsyncTransport(Protocol):
         is_empty_run: bool | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineRunsResponse200: ...
+    ) -> ListPagePipelineRunResponse: ...
 
     async def get_configuration_files(
         self, *, workspace_id: str, dataplane_url: str, configuration_id: str
@@ -1837,7 +1895,7 @@ class AsyncTransport(Protocol):
 
     async def list_configurations(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListConfigurationsResponse200: ...
+    ) -> ListPageConfigurationResponse: ...
 
     async def get_deployment(
         self, *, workspace_id: str, version: int
@@ -1849,7 +1907,7 @@ class AsyncTransport(Protocol):
 
     async def list_deployments(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListDeploymentsResponse200: ...
+    ) -> ListPageDeploymentResponse: ...
 
     async def get_script(
         self, *, workspace_id: str, job_ref: str
@@ -1857,7 +1915,7 @@ class AsyncTransport(Protocol):
 
     async def list_scripts(
         self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListScriptsResponse200: ...
+    ) -> ListPageDetailedScriptResponse: ...
 
     async def pause_script(
         self, *, workspace_id: str, job_ref: str
@@ -2126,7 +2184,7 @@ class AsyncHttpTransport:
 
     async def list_runs(
         self, *, workspace_id: str, job_id: str | None, limit: int, offset: int
-    ) -> ListRunsResponse200:
+    ) -> ListPageDetailedRunResponse:
         return await _acall(
             lambda: list_runs.asyncio_detailed(
                 UUID(workspace_id),
@@ -2174,7 +2232,7 @@ class AsyncHttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineOverviewResponse200:
+    ) -> ListPagePipelineOverviewResponse:
         return await self._dataplane_call(
             lambda dp: list_pipeline_overview.asyncio_detailed(
                 UUID(workspace_id),
@@ -2214,7 +2272,7 @@ class AsyncHttpTransport:
         latest_destination_name: str | None,
         limit: int,
         offset: int,
-    ) -> ListDatasetOverviewResponse200:
+    ) -> ListPageDatasetOverviewResponse:
         return await self._dataplane_call(
             lambda dp: list_dataset_overview.asyncio_detailed(
                 UUID(workspace_id),
@@ -2272,6 +2330,36 @@ class AsyncHttpTransport:
             dataplane_url=dataplane_url,
         )
 
+    async def get_job_result(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> JobResultResponse:
+        return await self._dataplane_call(
+            lambda dp: get_job_result.asyncio_detailed(
+                UUID(workspace_id),
+                UUID(run_id),
+                client=_as_telemetry(dp),
+            ),
+            _JOB_RESULT,
+            run_id,
+            workspace_id=workspace_id,
+            dataplane_url=dataplane_url,
+        )
+
+    async def get_job_result_trace(
+        self, *, workspace_id: str, dataplane_url: str, run_id: str
+    ) -> GetJobResultTraceResponse200:
+        return await self._dataplane_call(
+            lambda dp: get_job_result_trace.asyncio_detailed(
+                UUID(workspace_id),
+                UUID(run_id),
+                client=_as_telemetry(dp),
+            ),
+            _JOB_RESULT_TRACE,
+            run_id,
+            workspace_id=workspace_id,
+            dataplane_url=dataplane_url,
+        )
+
     async def list_pipeline_runs(
         self,
         *,
@@ -2287,7 +2375,7 @@ class AsyncHttpTransport:
         is_empty_run: bool | None,
         limit: int,
         offset: int,
-    ) -> ListPipelineRunsResponse200:
+    ) -> ListPagePipelineRunResponse:
         return await self._dataplane_call(
             lambda dp: list_pipeline_runs.asyncio_detailed(
                 UUID(workspace_id),
@@ -2430,7 +2518,7 @@ class AsyncHttpTransport:
 
     async def list_organizations(
         self, *, limit: int, offset: int
-    ) -> ListOrganizationsResponse200:
+    ) -> ListPageOrganizationResponse:
         return await _acall(
             lambda: list_organizations.asyncio_detailed(
                 client=self._api, limit=limit, offset=offset
@@ -2546,7 +2634,7 @@ class AsyncHttpTransport:
 
     async def list_workspaces(
         self, *, organization_id: str, limit: int, offset: int
-    ) -> ListWorkspacesResponse200:
+    ) -> ListPageOrganizationWorkspaceResponse:
         return await _acall(
             lambda: list_workspaces.asyncio_detailed(
                 UUID(organization_id), client=self._api, limit=limit, offset=offset
@@ -2557,7 +2645,7 @@ class AsyncHttpTransport:
 
     async def list_workspace_members(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListWorkspaceMembersResponse200:
+    ) -> ListPageWorkspaceMemberResponse:
         return await _acall(
             lambda: list_workspace_members.asyncio_detailed(
                 UUID(workspace_id), client=self._api, limit=limit, offset=offset
@@ -2715,7 +2803,7 @@ class AsyncHttpTransport:
 
     async def list_configurations(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListConfigurationsResponse200:
+    ) -> ListPageConfigurationResponse:
         return await _acall(
             lambda: list_configurations.asyncio_detailed(
                 UUID(workspace_id), client=self._api, limit=limit, offset=offset
@@ -2746,7 +2834,7 @@ class AsyncHttpTransport:
 
     async def list_deployments(
         self, *, workspace_id: str, limit: int, offset: int
-    ) -> ListDeploymentsResponse200:
+    ) -> ListPageDeploymentResponse:
         return await _acall(
             lambda: list_deployments.asyncio_detailed(
                 UUID(workspace_id), client=self._api, limit=limit, offset=offset
@@ -2768,7 +2856,7 @@ class AsyncHttpTransport:
 
     async def list_scripts(
         self, *, workspace_id: str, limit: int, offset: int, archived: bool | Keep
-    ) -> ListScriptsResponse200:
+    ) -> ListPageDetailedScriptResponse:
         return await _acall(
             lambda: list_scripts.asyncio_detailed(
                 UUID(workspace_id),
@@ -3039,11 +3127,12 @@ def _manifest_body(
         The generated request body.
 
     Raises:
-        BadRequest: A definition the manifest schema does not accept. Caught
-            here because the generated model reports it as a plain ``KeyError``.
+        BadRequest: A job the manifest schema cannot carry at all. The platform
+            takes each definition free-form and validates it against the dlt
+            version it runs, so only a non-mapping fails here.
     """
     try:
-        definitions = [TJobDefinition.from_dict(job) for job in jobs]
+        definitions = [DeployManifestRequestJobsItem.from_dict(job) for job in jobs]
     except (KeyError, TypeError, ValueError) as e:
         raise BadRequest(
             f"a job definition is not one the platform accepts: {e}"

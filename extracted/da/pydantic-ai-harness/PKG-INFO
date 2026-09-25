@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-harness
-Version: 0.34.0
+Version: 0.35.0
 Summary: The official capability library and harness for Pydantic AI
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai-harness
 Project-URL: Source, https://github.com/pydantic/pydantic-ai-harness
@@ -37,25 +37,37 @@ Provides-Extra: cli
 Requires-Dist: pydantic-ai-slim[cli]>=2.44.0; extra == 'cli'
 Provides-Extra: code-mode
 Requires-Dist: pydantic-ai-slim[duckduckgo]>=2.44.0; extra == 'code-mode'
-Requires-Dist: pydantic-monty>=0.0.23; extra == 'code-mode'
+Requires-Dist: pydantic-monty<1,>=0.0.23; extra == 'code-mode'
 Provides-Extra: codemode
 Requires-Dist: pydantic-ai-slim[duckduckgo]>=2.44.0; extra == 'codemode'
-Requires-Dist: pydantic-monty>=0.0.23; extra == 'codemode'
+Requires-Dist: pydantic-monty<1,>=0.0.23; extra == 'codemode'
 Provides-Extra: coder
 Requires-Dist: ripgrep==14.1.0; (sys_platform != 'android') and extra == 'coder'
 Provides-Extra: dbos
 Requires-Dist: pydantic-ai-slim[dbos]; extra == 'dbos'
 Provides-Extra: dynamic-workflow
-Requires-Dist: pydantic-monty>=0.0.23; extra == 'dynamic-workflow'
+Requires-Dist: pydantic-monty<1,>=0.0.23; extra == 'dynamic-workflow'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.16.0; extra == 'exa'
+Provides-Extra: github
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'github'
+Provides-Extra: google-workspace
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'google-workspace'
+Provides-Extra: linear
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'linear'
 Provides-Extra: logfire
 Requires-Dist: logfire>=4.31.0; extra == 'logfire'
 Requires-Dist: pydantic-ai-slim[spec]>=2.18.0; extra == 'logfire'
+Provides-Extra: logfire-mcp
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'logfire-mcp'
 Provides-Extra: modal
 Requires-Dist: modal>=1.5.0; extra == 'modal'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.17.0; extra == 'mongodb'
+Provides-Extra: notion
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'notion'
+Provides-Extra: ordinal
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'ordinal'
 Provides-Extra: playwright
 Requires-Dist: idna>=3.4; extra == 'playwright'
 Requires-Dist: playwright>=1.61.0; extra == 'playwright'
@@ -67,6 +79,8 @@ Provides-Extra: researcher
 Requires-Dist: pydantic-ai-slim[duckduckgo,web-fetch]>=2.44.0; extra == 'researcher'
 Provides-Extra: skills
 Requires-Dist: pyyaml>=6.0.2; extra == 'skills'
+Provides-Extra: slack
+Requires-Dist: pydantic-ai-slim[mcp]>=2.44.0; extra == 'slack'
 Provides-Extra: stackone
 Requires-Dist: fastmcp<4,>=3.4.5; extra == 'stackone'
 Requires-Dist: pydantic-ai-slim[mcp]>=2.18.0; extra == 'stackone'
@@ -207,7 +221,13 @@ Connections to systems outside the agent's workspace, and abilities the provider
 |---|---|---|
 | [MCP](https://ai.pydantic.dev/capabilities/mcp/) | Core | Connect any MCP server's tools; local by default, provider-native connectors opt-in |
 | [Image Generation](https://ai.pydantic.dev/capabilities/image-generation/) | Core | Generate and edit images; provider-native where supported, sub-agent fallback elsewhere |
+| [GitHub](pydantic_ai_harness/github/) | Harness | Read and change GitHub repositories, issues, pull requests, and other accessible resources. |
+| [Linear](pydantic_ai_harness/linear/) | Harness | Read and change Linear issues, projects, teams, and comments. |
+| [Notion](pydantic_ai_harness/notion/) | Harness | Search and change Notion workspace content. |
+| [Google Workspace](pydantic_ai_harness/google_workspace/) | Harness | Use Gmail, Calendar, Drive, and other Google Workspace tools. |
 | [StackOne](pydantic_ai_harness/stackone/) | Harness | Act on linked SaaS accounts (HRIS, ATS, CRM, …) via [StackOne](https://www.stackone.com) |
+| [Slack](pydantic_ai_harness/slack/) | Harness | Give an agent Slack messages, channels, and canvas tools. |
+| [Ordinal](pydantic_ai_harness/ordinal/) | Harness | Draft, schedule, and analyze social posts through [Ordinal](https://www.tryordinal.com)'s hosted MCP server |
 | [LocalStack](pydantic_ai_harness/localstack/) | Harness | An emulated AWS environment with AWS CLI tools |
 | [Macroscope](pydantic_ai_harness/macroscope/) | Harness | Run a local [Macroscope](https://docs.macroscope.com/cli) code review and hand the findings to the agent |
 
@@ -297,6 +317,7 @@ Outside the loop: how runs persist, survive failures, and get observed and confi
 | [AWS Lambda durability](pydantic_ai_harness/aws_lambda/) | Harness | Checkpoint model requests and tool calls into AWS Lambda durable function steps |
 | [Step Persistence](pydantic_ai_harness/step_persistence/) | Harness | Save, restore, resume (`continue_run`), and fork (`fork_run`) runs; file/SQLite/Mongo backends |
 | [Instrumentation](https://ai.pydantic.dev/capabilities/instrumentation/) | Core | OpenTelemetry GenAI spans for every model and tool call; the raw material for [Logfire](https://pydantic.dev/logfire) traces |
+| [Logfire MCP](pydantic_ai_harness/logfire_mcp/) | Harness | Query Logfire telemetry and manage observability resources. |
 | [Managed Prompt](pydantic_ai_harness/logfire/) | Harness | Back instructions with a [Logfire](https://pydantic.dev/logfire)-managed prompt; version and roll out without redeploying |
 | [Thread Executor](https://ai.pydantic.dev/capabilities/thread-executor/) | Core | Run sync tools on a shared thread pool |
 

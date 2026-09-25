@@ -338,12 +338,18 @@ pub enum PreviewFeature {
     /// Exclude `exclude-newer-package` entries from the lockfile when not included in the
     /// project's resolved dependencies.
     MissingExcludeNewerPackageLock,
+    /// Records runtime configuration consultations and omits unused constraints, overrides, exclusions,
+    /// dependency metadata, and package-specific upload cutoffs from the lockfile.
+    ResolutionInputs,
     /// Allows using `uv export --batch`.
     BatchExport,
     /// Allows setting minimum libc versions for universal resolutions.
     MinimumLibcVersion,
     /// Checks build dependencies before nonisolated builds with `uv build`.
     BuildDependencyCheck,
+    /// Enables lazy imports in build backend invocations on CPython 3.15 and later.
+    /// This can affect import-time side effects in third-party build backends.
+    BuildLazyImports,
 }
 
 impl Display for PreviewFeature {

@@ -72,9 +72,14 @@ describe("collectDiagnostics", () => {
     const diag = (await collectDiagnostics(true)) as Record<string, any>;
 
     expect(diag.binary).toBeDefined();
-    // fonts section only present on Linux
-    if (os.platform() === "linux") expect(diag.fonts.windows).toBeDefined();
-    else expect(diag.fonts).toBeUndefined();
+    // fonts section only present on Linux — reports both the Windows and macOS
+    // persona sets so a user can read the count for whichever they spoof.
+    if (os.platform() === "linux") {
+      expect(diag.fonts.windows).toBeDefined();
+      expect(diag.fonts.macos).toBeDefined();
+    } else {
+      expect(diag.fonts).toBeUndefined();
+    }
     expect(typeof diag.geoip.db_present).toBe("boolean");
     expect(Object.keys(diag.modules).length).toBeGreaterThan(0);
   });

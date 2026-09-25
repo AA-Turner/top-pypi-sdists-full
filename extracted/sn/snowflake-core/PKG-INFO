@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snowflake.core
-Version: 1.13.1
+Version: 1.13.2
 Summary: Snowflake Python API for Resource Management
 Author-email: "Snowflake, Inc." <snowflake-python-libraries-dl@snowflake.com>
 License: Apache-2.0
@@ -43,6 +43,8 @@ Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-cov; extra == 'test'
 Requires-Dist: pytest-xdist; extra == 'test'
 Requires-Dist: sybil; extra == 'test'
+Provides-Extra: universal-core
+Requires-Dist: snowflake-connector-python!=5.0.0,>=5.0.0a0; extra == 'universal-core'
 Description-Content-Type: text/markdown
 
 `snowflake.core` is the subpackage providing Python access to Snowflake entity metadata.

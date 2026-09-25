@@ -278,7 +278,34 @@ jobs:
         # NODE's consent to be scored — so both are stamped and signed with the
         # held node key. Same rows, same MANDATORY federation scope as their
         # engine-signed twins directly above each; no new audience.
-        run: python3 tools/audit_cohort_scope_callers.py --max-federation 45
+        # 45 -> 46 (0.5.216): `federation_peers.rs` gained `sign_att`, the helper
+        # behind the test-anchor route `GET /v1/federation/test-genesis-bundle`
+        # (CIRISServer#632). It mints a genesis-shaped bundle — charter, grant,
+        # lifecycle — under the harness canonical's own key so a harness agent
+        # imports a root the way production imports the baked seed, with NO
+        # bless and NO test-admit. Genesis rows are federation-scoped by
+        # definition (every node that pins the root must read them); the route
+        # is `#[cfg(feature = "test-anchor")]` and never compiles into a
+        # shipping binary. Same scope as `produce_genesis`'s ceremony rows.
+        # 46 -> 47 (0.5.216): `mesh_genesis::accept_trust_roots_as_owner` — the
+        # OWNER's `delegates_to(owner → root, infra:attest, infra:serve)`
+        # (CIRISServer#632 step 2). The twin of `accept_trust_root`'s node edge
+        # directly above it, signed with the owner's pen instead of the node's:
+        # it is the row edge v30.2.0's Rooted walk reads on the PEER
+        # (`trusted_roots_of(owner_of(P))`, CIRISEdge#659), so federation scope
+        # is the claim — an acceptance nobody else can read roots nobody. Same
+        # audience as the node edge; no new one.
+        # 47 -> 48 (0.5.216): `test_bless.rs` — the test-anchor ceremony's trust
+        # edge `delegates_to(self → root)` moves from `self` to FEDERATION, the
+        # scope `mesh_genesis::accept_trust_root` has always written on a
+        # production boot. Edge v30.2.0's Rooted walk reads FEDERATION-tier
+        # acceptances only, from the peer's directory (CIRISEdge#659), so a
+        # self-scoped edge left the harness canonical with no roots — both trace
+        # ladders red at `arrive` on the v30.3.0 adoption (CIRISServer#632).
+        # Test-anchor builds only; no new production audience.
+        # 48 -> 49 (CIRISServer#632): the NODE key's own trust-root acceptance on a split install
+        # (mesh_genesis::accept_trust_root_as_node_key) — edge's serve gate (leg B) reads the wire key.
+        run: python3 tools/audit_cohort_scope_callers.py --max-federation 49
       # The NOISE FLOOR proof (CIRISServer#14, CEG §19.7 / §19.3 N5) — provable
       # individual-unrecoverability for erasure compliance, run explicitly so the
       # MEASURED residual-fidelity numbers land in the CI log (Linux only — one

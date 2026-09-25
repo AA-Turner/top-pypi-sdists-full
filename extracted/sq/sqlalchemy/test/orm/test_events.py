@@ -1,3 +1,8 @@
+import re
+from typing import Annotated
+from typing import Any
+from typing import Optional
+from typing import TypeVar
 from unittest.mock import ANY
 from unittest.mock import call
 from unittest.mock import Mock
@@ -22,26 +27,30 @@ from sqlalchemy.orm import attributes
 from sqlalchemy.orm import class_mapper
 from sqlalchemy.orm import configure_mappers
 from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import deferred
 from sqlalchemy.orm import EXT_SKIP
 from sqlalchemy.orm import immediateload
 from sqlalchemy.orm import instrumentation
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import lazyload
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import Mapper
 from sqlalchemy.orm import mapperlib
 from sqlalchemy.orm import query
+from sqlalchemy.orm import registry
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import subqueryload
+from sqlalchemy.orm import TypeResolve
 from sqlalchemy.orm import UserDefinedOption
 from sqlalchemy.orm.context import QueryContext
 from sqlalchemy.sql.cache_key import NO_CACHE
 from sqlalchemy.testing import assert_raises
 from sqlalchemy.testing import assert_raises_message
-from sqlalchemy.testing import assert_warns_message
 from sqlalchemy.testing import AssertsCompiledSQL
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import expect_raises
@@ -56,6 +65,8 @@ from sqlalchemy.testing.fixtures import RemovesEvents
 from sqlalchemy.testing.schema import Column
 from sqlalchemy.testing.schema import Table
 from sqlalchemy.testing.util import gc_collect
+from sqlalchemy.types import TypeEngine
+from sqlalchemy.util.typing import TypeAliasType
 from test.orm import _fixtures
 
 
@@ -134,9 +145,8 @@ class ORMExecuteTest(
                 [{"id_1": 7}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, addresses.user_id AS "
-                "addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "ORDER BY addresses.id",
                 [{"param_1": 7}],
@@ -235,6 +245,35 @@ class ORMExecuteTest(
             ),
         )
 
+    @testing.combinations("select", "query", "not-select")
+    def test_user_option_propagation_after_with_only_columns(self, operation):
+        User = self.classes("User")[0]
+
+        class MyOption(UserDefinedOption):
+            pass
+
+        s = fixture_session()
+        found = False
+
+        @event.listens_for(s, "do_orm_execute")
+        def go(context):
+            nonlocal found
+            for elem in context.user_defined_options:
+                if isinstance(elem, MyOption):
+                    found = True
+
+        if operation == "select":
+            stmt = select(User).options(MyOption()).with_only_columns(User.id)
+            s.execute(stmt).all()
+        elif operation == "query":
+            stmt = s.query(User).options(MyOption()).with_entities(User.id)
+            stmt.all()
+        elif operation == "not-select":
+            stmt = insert(User).values(name="new name").options(MyOption())
+            s.execute(stmt)
+
+        eq_(found, True)
+
     @testing.combinations(
         (lazyload,),
         (selectinload,),
@@ -247,8 +286,8 @@ class ORMExecuteTest(
     def test_execution_option_visibility_and_mutation(
         self, loader_opt, use_event
     ):
-        """test the full contract of how options are passed to
-        do_orm_execute and then onto a relationship loader.
+        """test the full contract of how options are passed to do_orm_execute
+        and then onto a relationship loader.
 
         part of #13301
 
@@ -295,10 +334,7 @@ class ORMExecuteTest(
                 )
 
                 # local_execution_options receive the updates
-                eq_(
-                    context.local_execution_options["user_defined_three"],
-                    "z",
-                )
+                eq_(context.local_execution_options["user_defined_three"], "z")
                 eq_(
                     context.local_execution_options[
                         "user_defined_two_override"
@@ -307,11 +343,10 @@ class ORMExecuteTest(
                 )
 
                 # the .execution_options does not show the updates
-                # (not sure if i like this but this is how it was
-                # done)
+                # (not sure if i like this but this is how it was done)
                 if not context.is_relationship_load:
-                    # only test for the top-level load.  the options
-                    # may be present in a relationship load.
+                    # only test for the top-level load.  the options may be
+                    # present in a relationship load.
                     assert (
                         "user_defined_three" not in context.execution_options
                     )
@@ -330,8 +365,7 @@ class ORMExecuteTest(
                 ),
             )
             .execution_options(
-                user_defined_one="x",
-                user_defined_one_override="x2",
+                user_defined_one="x", user_defined_one_override="x2"
             )
         )
 
@@ -357,6 +391,9 @@ class ORMExecuteTest(
                     {
                         "user_defined_one": "x",
                         "user_defined_two": "y",
+                        # for user_defined_two_override, which is overridden by
+                        # the event hook, here the option was logged before the
+                        # event hook overrode it
                         "user_defined_two_override": "y2",
                         "user_defined_one_override": "y2",
                     },
@@ -364,6 +401,8 @@ class ORMExecuteTest(
                 call.before_cursor_execute(
                     {
                         "user_defined_one": "x",
+                        # when it gets to cursor execute, the new value
+                        # is there
                         "user_defined_two_override": "z2",
                         "user_defined_one_override": "y2",
                         "user_defined_two": "y",
@@ -376,6 +415,7 @@ class ORMExecuteTest(
                     True,
                     {
                         "user_defined_one": "x",
+                        # also there for the relationship calls
                         "user_defined_two_override": "z2",
                         "user_defined_one_override": "y2",
                         "user_defined_two": "y",
@@ -456,11 +496,7 @@ class ORMExecuteTest(
     @testing.variation("option_type", ["yield_per", "autoflush"])
     @testing.variation(
         "event_style",
-        [
-            "no_event",
-            "noop_event",
-            "set_in_event_for_relationship",
-        ],
+        ["no_event", "noop_event", "set_in_event_for_relationship"],
     )
     def test_load_option_propagation_to_post_load(
         self,
@@ -468,12 +504,11 @@ class ORMExecuteTest(
         option_type,
         event_style,
     ):
-        """test that yield_per and autoflush options set on the
-        top-level query don't leak into load_options for post-load
-        queries (selectinload, immediateload), and that options
-        explicitly set via update_execution_options in a
-        do_orm_execute event hook for relationship loads do propagate
-        correctly.
+        """test that yield_per and autoflush options set on the top-level
+        query don't leak into load_options for post-load queries
+        (selectinload, immediateload), and that options explicitly set
+        via update_execution_options in a do_orm_execute event hook
+        for relationship loads do propagate correctly.
 
         part of #13301
 
@@ -493,19 +528,29 @@ class ORMExecuteTest(
             "autoflush": True,
             "is_post_load": True,
         }
+        # yield_per conflicts with unique() inside the loader.  immediateload
+        # calls unique() unconditionally; selectinload only calls unique() when
+        # a nested joinedload on a collection inflates rows, so without one it
+        # no longer conflicts.
         operation_should_fail = (
-            event_style.set_in_event_for_relationship and option_type.yield_per
+            event_style.set_in_event_for_relationship
+            and option_type.yield_per
+            and loader_opt is immediateload
         )
 
         if event_style.noop_event:
-
+            # no-op event; ensure having this present has no side effects
+            # (this is the original #13301 issue)
             def go(context):
                 pass
 
             self.event_listen(s, "do_orm_execute", go)
 
         elif event_style.set_in_event_for_relationship:
-
+            # event where we actually set these options for relationship
+            # loaders.  assert that what we do here does in fact get
+            # to those loaders.   the yield_per setting will fail for
+            # immediateload because it calls unique() unconditionally.
             def go(context):
                 if context.is_relationship_load:
                     if option_type.yield_per:
@@ -517,6 +562,7 @@ class ORMExecuteTest(
 
             self.event_listen(s, "do_orm_execute", go)
         elif event_style.no_event:
+            # compare to there being no event at all
             pass
 
         captured_load_options = []
@@ -555,9 +601,14 @@ class ORMExecuteTest(
                     "conjunction with unique",
                 ):
                     s.scalars(stmt).all()
+
+                # ensure result / cursor is closed.   needed to prevent
+                # locking issues particularly under free-threaded
+                gc_collect()
             else:
                 s.scalars(stmt).all()
 
+        # assert the state of all QueryContexts produced
         eq_(
             captured_load_options,
             [expected_lead_options]
@@ -787,7 +838,7 @@ class ORMExecuteTest(
         sess.execute(
             select(User.id, Address.email_address, User.name)
             .join(Address)
-            .filter_by(id=7)
+            .filter_by(name="somename")
         )
 
         eq_(
@@ -842,7 +893,7 @@ class ORMExecuteTest(
 
         canary = self._flag_fixture(sess)
 
-        sess.execute(select(User).join(Address).filter_by(id=7))
+        sess.execute(select(User).join(Address).filter_by(name="somename"))
 
         eq_(
             canary.mock_calls,
@@ -1229,6 +1280,179 @@ class ORMExecuteTest(
             eq_(m1.mock_calls, [call()])
         else:
             eq_(m1.mock_calls, [])
+
+    @testing.combinations(
+        (
+            lambda User: select(User).where(User.id == bindparam("id")),
+            {"id": 18},
+            {"id": 7},
+            "SELECT users.id, users.name FROM users WHERE users.id = :id",
+        ),
+        (
+            lambda User: select(User.__table__).where(
+                User.__table__.c.id == bindparam("id")
+            ),
+            {"id": 18},
+            {"id": 7},
+            "SELECT users.id, users.name FROM users WHERE users.id = :id",
+        ),
+        (
+            lambda User: update(User).where(User.id == 7),
+            {"name": "original_name"},
+            {"name": "mutated_name"},
+            "UPDATE users SET name=:name WHERE users.id = :id_1",
+        ),
+        (
+            lambda User: update(User.__table__).where(
+                User.__table__.c.id == 7
+            ),
+            {"name": "original_name"},
+            {"name": "mutated_name"},
+            "UPDATE users SET name=:name WHERE users.id = :id_1",
+        ),
+        (
+            lambda User: delete(User).where(User.id == bindparam("id_param")),
+            {"id_param": 18},
+            {"id_param": 10},  # row 10 does not have a related item
+            "DELETE FROM users WHERE users.id = :id_param",
+        ),
+        (
+            lambda User: insert(User),
+            {"id": 99, "name": "original_name"},
+            {"name": "mutated_name"},
+            "INSERT INTO users (id, name) VALUES (:id, :name)",
+        ),
+        (
+            lambda User: insert(User),
+            [
+                {"id": 100, "name": "name1"},
+                {"id": 101, "name": "name2"},
+                {"id": 102, "name": "name3"},
+            ],
+            [
+                {"id": 100, "name": "mutated_name1"},
+                {"id": 101, "name": "mutated_name2"},
+                {"id": 102, "name": "mutated_name3"},
+            ],
+            "INSERT INTO users (id, name) VALUES (:id, :name)",
+        ),
+        (
+            lambda User: insert(User.__table__),
+            [
+                {"id": 100, "name": "name1"},
+                {"id": 101, "name": "name2"},
+                {"id": 102, "name": "name3"},
+            ],
+            [
+                {"id": 100, "name": "mutated_name1"},
+                {"id": 101, "name": "mutated_name2"},
+                {"id": 102, "name": "mutated_name3"},
+            ],
+            "INSERT INTO users (id, name) VALUES (:id, :name)",
+        ),
+        argnames="stmt_callable,params,new_params,compiled_sql",
+    )
+    @testing.variation("param_op", ["mutate", "replace"])
+    def test_mutate_parameters(
+        self, stmt_callable, params, new_params, compiled_sql, param_op
+    ):
+        """test for #12921"""
+
+        User = self.classes.User
+
+        sess = Session(testing.db)
+        if param_op.mutate:
+
+            @event.listens_for(sess, "do_orm_execute")
+            def mutate_params(ctx):
+                # ensure change in place works
+                if isinstance(new_params, dict):
+                    ctx.parameters.update(new_params)
+                elif isinstance(new_params, list):
+                    ctx.parameters[:] = new_params
+
+        elif param_op.replace:
+
+            @event.listens_for(sess, "do_orm_execute")
+            def replace_params(ctx):
+                # ensure replace works
+                if isinstance(params, dict):
+                    replaced_params = dict(params)
+                    replaced_params.update(new_params)
+                    ctx.parameters = replaced_params
+                else:
+                    ctx.parameters = new_params
+
+        stmt = testing.resolve_lambda(stmt_callable, User=User)
+
+        # since we are doing mutate in place changes,
+        # uniquify the params dict so the combinations fixtures are
+        # not polluted
+        if isinstance(params, dict):
+            our_local_params = dict(params)
+            assert isinstance(new_params, dict)
+            expected_params = dict(params)
+            expected_params.update(new_params)
+        else:
+            assert isinstance(params, list)
+            our_local_params = [dict(p) for p in params]
+            expected_params = new_params
+
+        with self.sql_execution_asserter() as asserter:
+            sess.execute(
+                stmt,
+                our_local_params,
+            )
+
+        asserter.assert_(
+            CompiledSQL(
+                compiled_sql,
+                expected_params,
+            )
+        )
+
+    def test_mutate_parameters_selectinload(self, decl_base):
+        """test #12921 where we modify params for a relationship load"""
+
+        class A(decl_base):
+            __tablename__ = "a"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            bs: Mapped[list["B"]] = relationship(
+                primaryjoin=lambda: (A.id == B.a_id)
+                & (B.status == bindparam("b_status"))
+            )
+
+        class B(decl_base):
+            __tablename__ = "b"
+            id: Mapped[int] = mapped_column(primary_key=True)
+            a_id: Mapped[int] = mapped_column(ForeignKey("a.id"))
+            status: Mapped[str]
+
+        decl_base.metadata.create_all(testing.db)
+
+        sess = Session(testing.db)
+
+        sess.add_all([A(id=1, bs=[B(status="x"), B(status="y")])])
+        sess.commit()
+
+        with Session(testing.db) as sess:
+
+            @event.listens_for(sess, "do_orm_execute")
+            def do_orm_execute(ctx):
+                if ctx.is_relationship_load:
+                    ctx.parameters["b_status"] = SELECT_STATUS
+
+            SELECT_STATUS = "x"
+            a1 = sess.scalars(select(A).options(selectinload(A.bs))).one()
+            eq_([b.status for b in a1.bs], ["x"])
+
+            SELECT_STATUS = "y"
+            a1 = sess.scalars(
+                select(A)
+                .execution_options(populate_existing=True)
+                .options(selectinload(A.bs))
+            ).one()
+            eq_([b.status for b in a1.bs], ["y"])
 
 
 class MapperEventsTest(RemoveORMEventsGlobally, _fixtures.FixtureTest):
@@ -1656,33 +1880,73 @@ class MapperEventsTest(RemoveORMEventsGlobally, _fixtures.FixtureTest):
         eq_(canary1, ["before_update", "after_update"])
         eq_(canary2, [])
 
-    def test_before_after_configured_warn_on_non_mapper(self):
+    @testing.combinations(
+        ("before_configured",), ("after_configured",), argnames="event_name"
+    )
+    @testing.variation(
+        "target_type",
+        [
+            "mappercls",
+            "mapperinstance",
+            "registry",
+            "explicit_base",
+            "imperative_class",
+            "declarative_class",
+        ],
+    )
+    def test_before_after_configured_only_on_mappercls_or_registry(
+        self, event_name, target_type: testing.Variation
+    ):
         User, users = self.classes.User, self.tables.users
 
+        reg = registry()
+
+        expect_success = (
+            target_type.mappercls
+            or target_type.registry
+            or target_type.explicit_base
+        )
+
+        if target_type.mappercls:
+            target = Mapper
+        elif target_type.mapperinstance:
+            reg.map_imperatively(User, users)
+            target = inspect(User)
+        elif target_type.registry:
+            target = reg
+        elif target_type.imperative_class:
+            reg.map_imperatively(User, users)
+            target = User
+        elif target_type.explicit_base:
+
+            class Base(DeclarativeBase):
+                registry = reg
+
+            target = Base
+        elif target_type.declarative_class:
+
+            class Base(DeclarativeBase):
+                registry = reg
+
+            class User(Base):
+                __table__ = users
+
+            target = User
+        else:
+            target_type.fail()
+
         m1 = Mock()
+        if expect_success:
+            event.listen(target, event_name, m1)
+        else:
 
-        self.mapper_registry.map_imperatively(User, users)
-        assert_warns_message(
-            sa.exc.SAWarning,
-            r"before_configured' and 'after_configured' ORM events only "
-            r"invoke with the Mapper class as "
-            r"the target.",
-            event.listen,
-            User,
-            "before_configured",
-            m1,
-        )
-
-        assert_warns_message(
-            sa.exc.SAWarning,
-            r"before_configured' and 'after_configured' ORM events only "
-            r"invoke with the Mapper class as "
-            r"the target.",
-            event.listen,
-            User,
-            "after_configured",
-            m1,
-        )
+            with expect_raises_message(
+                sa_exc.InvalidRequestError,
+                re.escape(
+                    f"No such event {event_name!r} for target '{target}'"
+                ),
+            ):
+                event.listen(target, event_name, m1)
 
     def test_before_after_configured(self):
         User, users = self.classes.User, self.tables.users
@@ -2923,8 +3187,9 @@ class SessionEventsTest(RemoveORMEventsGlobally, _fixtures.FixtureTest):
         u2 = User(name="u1", id=1)
         sess.add(u2)
 
-        with expect_raises(sa.exc.IntegrityError), expect_warnings(
-            "New instance"
+        with (
+            expect_raises(sa.exc.IntegrityError),
+            expect_warnings("New instance"),
         ):
             sess.commit()
 
@@ -2979,8 +3244,9 @@ class SessionEventsTest(RemoveORMEventsGlobally, _fixtures.FixtureTest):
 
         u2 = User(name="u1", id=1)
         sess.add(u2)
-        with expect_raises(sa.exc.IntegrityError), expect_warnings(
-            "New instance"
+        with (
+            expect_raises(sa.exc.IntegrityError),
+            expect_warnings("New instance"),
         ):
             sess.commit()
 
@@ -4038,3 +4304,215 @@ class RefreshFlushInReturningTest(fixtures.MappedTest):
         eq_(t1.id, 1)
         eq_(t1.prefetch_val, 5)
         eq_(t1.returning_val, 5)
+
+
+class RegistryEventsTest(fixtures.MappedTest):
+    """Test RegistryEvents functionality."""
+
+    @testing.variation("scenario", ["direct", "reentrant", "plain"])
+    @testing.variation("include_optional", [True, False])
+    @testing.variation(
+        "type_features",
+        [
+            "none",
+            "plain_pep593",
+            "plain_pep695",
+            "generic_pep593",
+            "plain_pep593_pep695",
+            "generic_pep593_pep695",
+            "generic_pep593_pep695_w_compound",
+        ],
+    )
+    def test_resolve_type_annotation_event(
+        self,
+        scenario: testing.Variation,
+        include_optional: testing.Variation,
+        type_features: testing.Variation,
+    ):
+        reg = registry(type_annotation_map={str: String(70)})
+        Base = reg.generate_base()
+
+        MyCustomType: Any
+        if type_features.none:
+            MyCustomType = type("MyCustomType", (object,), {})
+        elif type_features.plain_pep593:
+            MyCustomType = Annotated[float, mapped_column()]
+        elif type_features.plain_pep695:
+            MyCustomType = TypeAliasType("MyCustomType", float)
+        elif type_features.generic_pep593:
+            T = TypeVar("T")
+            MyCustomType = Annotated[T, mapped_column()]
+        elif type_features.plain_pep593_pep695:
+            MyCustomType = TypeAliasType(  # type: ignore
+                "MyCustomType", Annotated[float, mapped_column()]
+            )
+        elif type_features.generic_pep593_pep695:
+            T = TypeVar("T")
+            MyCustomType = TypeAliasType(  # type: ignore
+                "MyCustomType", Annotated[T, mapped_column()], type_params=(T,)
+            )
+        elif type_features.generic_pep593_pep695_w_compound:
+            T = TypeVar("T")
+            MyCustomType = TypeAliasType(  # type: ignore
+                "MyCustomType",
+                Annotated[T | float, mapped_column()],
+                type_params=(T,),
+            )
+        else:
+            type_features.fail()
+
+        @event.listens_for(reg, "resolve_type_annotation")
+        def resolve_custom_type(
+            type_resolve: TypeResolve,
+        ) -> TypeEngine[Any] | None:
+            assert type_resolve.cls.__name__ == "MyClass"
+
+            if (
+                type_resolve.resolved_type is int
+                and type_resolve.raw_pep_695_type is None
+                and type_resolve.raw_pep_593_type is None
+            ):
+                return None
+
+            if type_features.none:
+                assert type_resolve.resolved_type is MyCustomType
+            elif type_features.plain_pep593:
+                assert type_resolve.resolved_type is float
+                assert type_resolve.raw_pep_593_type is not None
+                assert type_resolve.raw_pep_593_type.__args__[0] is float
+                assert type_resolve.pep_593_resolved_argument is float
+            elif type_features.plain_pep695:
+                assert type_resolve.raw_pep_695_type is MyCustomType
+                assert type_resolve.pep_695_resolved_value is float
+                assert type_resolve.resolved_type is float
+            elif type_features.generic_pep593:
+                assert type_resolve.raw_pep_695_type is None
+                assert type_resolve.pep_593_resolved_argument is str
+                assert type_resolve.resolved_type is str
+            elif type_features.plain_pep593_pep695:
+                assert type_resolve.raw_pep_695_type is not None
+                assert type_resolve.pep_593_resolved_argument is float
+                assert type_resolve.resolved_type is float
+                assert type_resolve.raw_pep_695_type is MyCustomType
+            elif type_features.generic_pep593_pep695:
+                assert type_resolve.raw_pep_695_type is not None
+                assert type_resolve.pep_593_resolved_argument is str
+            elif type_features.generic_pep593_pep695_w_compound:
+                assert type_resolve.raw_pep_695_type is not None
+                assert type_resolve.raw_pep_695_type.__origin__ is MyCustomType
+                assert type_resolve.pep_593_resolved_argument == str | float
+                assert type_resolve.resolved_type == str | float
+            else:
+                type_features.fail()
+
+            if scenario.direct:
+                return String(50)
+            elif scenario.reentrant:
+                return type_resolve.resolve(str)
+            else:
+                scenario.fail()
+
+        use_type_args = (
+            type_features.generic_pep593
+            or type_features.generic_pep593_pep695
+            or type_features.generic_pep593_pep695_w_compound
+        )
+
+        class MyClass(Base):
+            __tablename__ = "mytable"
+            id: Mapped[int] = mapped_column(primary_key=True)
+
+            if include_optional:
+                if scenario.direct or scenario.reentrant:
+                    if use_type_args:
+                        data: Mapped[Optional[MyCustomType[str]]]
+                    else:
+                        data: Mapped[Optional[MyCustomType]]
+                else:
+                    data: Mapped[Optional[int]]
+            else:
+                if scenario.direct or scenario.reentrant:
+                    if use_type_args:
+                        data: Mapped[MyCustomType[str]]
+                    else:
+                        data: Mapped[MyCustomType]
+                else:
+                    data: Mapped[int]
+
+        result = MyClass.data.expression.type
+
+        if scenario.direct:
+            assert isinstance(result, String)
+            eq_(result.length, 50)
+        elif scenario.reentrant:
+            assert isinstance(result, String)
+            eq_(result.length, 70)
+        elif scenario.plain:
+            assert isinstance(result, Integer)
+
+    def test_type_resolve_instantiates_type(self, decl_base):
+        MyType = int
+
+        @event.listens_for(decl_base, "resolve_type_annotation")
+        def resolve_custom_type(
+            type_resolve: TypeResolve,
+        ) -> TypeEngine[Any] | None:
+            if type_resolve.resolved_type is MyType:
+                return Integer  # <--- note not instantiated
+
+        class User(decl_base):
+            __tablename__ = "user"
+
+            id: Mapped[MyType] = mapped_column(primary_key=True)
+
+        assert isinstance(User.__table__.c.id.type, Integer)
+
+    @testing.variation(
+        "listen_type", ["registry", "generated_base", "explicit_base"]
+    )
+    def test_before_after_configured_events(self, listen_type):
+        """Test the before_configured and after_configured events."""
+        reg = registry()
+
+        if listen_type.generated_base:
+            Base = reg.generate_base()
+        else:
+
+            class Base(DeclarativeBase):
+                registry = reg
+
+        mock = Mock()
+
+        if listen_type.registry:
+
+            @event.listens_for(reg, "before_configured")
+            def before_configured(registry_inst):
+                mock.before_configured(registry_inst)
+
+            @event.listens_for(reg, "after_configured")
+            def after_configured(registry_inst):
+                mock.after_configured(registry_inst)
+
+        else:
+
+            @event.listens_for(Base, "before_configured")
+            def before_configured(registry_inst):
+                mock.before_configured(registry_inst)
+
+            @event.listens_for(Base, "after_configured")
+            def after_configured(registry_inst):
+                mock.after_configured(registry_inst)
+
+        # Create a simple mapped class to trigger configuration
+        class TestClass(Base):
+            __tablename__ = "test_table"
+            id = Column(Integer, primary_key=True)
+
+        # Configure the registry
+        reg.configure()
+
+        # Check that events were fired in the correct order
+        eq_(
+            mock.mock_calls,
+            [call.before_configured(reg), call.after_configured(reg)],
+        )

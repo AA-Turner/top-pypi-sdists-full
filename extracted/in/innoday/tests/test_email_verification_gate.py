@@ -214,45 +214,6 @@ class TestUserCreationRequiresAuthIdentity:
         assert row.email_verified_at is None
 
 
-class TestAuthCallbackPage:
-    """The landing page for a Supabase invite / magic link (#414).
-
-    Three code paths pointed Supabase's ``redirect_to`` at ``/auth/callback``
-    while **nothing served it**. A live probe of dev returned 401 — not 404,
-    because ``TeamSecretMiddleware`` rejected it before routing. Every invite
-    recipient would have hit that wall: confirmed at the IdP, still unverified
-    in InnoDay, which is precisely the lockout the flag was meant to avoid.
-    """
-
-    def test_page_is_served(self, client):
-        resp = client.get("/auth/callback")
-        assert resp.status_code == 200, resp.text
-        assert "text/html" in resp.headers["content-type"]
-
-    def test_page_needs_no_credential(self, client):
-        """It holds no secret — the session is in the fragment, which the
-        server never receives. So it must be reachable with no headers."""
-        assert client.get("/auth/callback").status_code == 200
-
-    def test_page_reads_the_url_fragment_not_the_query_string(self, client):
-        """Supabase returns the session after '#', which is never sent to the
-        server. A query-string implementation would silently never work."""
-        body = client.get("/auth/callback").text
-        assert "location.hash" in body
-        assert "access_token" in body
-
-    def test_page_posts_to_confirm_email(self, client):
-        assert "/api/v1/auth/confirm-email" in client.get("/auth/callback").text
-
-    def test_page_surfaces_an_idp_error(self, client):
-        """An expired link comes back as error_description in the fragment."""
-        assert "error_description" in client.get("/auth/callback").text
-
-    def test_page_stores_the_token_where_invite_accept_looks(self, client):
-        """So the two pages compose: land here, then accept a pending invite."""
-        assert "innoday_token" in client.get("/auth/callback").text
-
-
 class TestConfirmEmailEndpoint:
     def test_requires_a_credential(self, client):
         assert client.post("/api/v1/auth/confirm-email").status_code == 401
@@ -284,21 +245,15 @@ class TestConfirmEmailEndpoint:
         assert body["verified_at"] is not None
 
 
-class TestTeamSecretExemptions:
+class TestConfirmEmailNeedsNoSecret:
     """A browser arriving from an email cannot send X-Team-Secret."""
 
-    def test_callback_and_confirm_are_exempt(self):
-        from src.api.middleware.team_secret import EXEMPT_PATHS
-
-        assert "/auth/callback" in EXEMPT_PATHS
-        assert "/api/v1/auth/confirm-email" in EXEMPT_PATHS
-
-    def test_confirm_email_is_exempt_from_the_secret_but_not_from_auth(self, client):
-        """Exempt from the door key is not the same as public."""
-        from src.api.middleware.team_secret import EXEMPT_PATHS
-
-        assert "/api/v1/auth/confirm-email" in EXEMPT_PATHS
-        assert client.post("/api/v1/auth/confirm-email").status_code == 401
+    def test_needs_no_secret_but_still_needs_auth(self, client, monkeypatch):
+        """No door key is not the same as public."""
+        monkeypatch.setenv("TEAM_ACCESS_SECRET", "a-secret-no-browser-has")
+        resp = client.post("/api/v1/auth/confirm-email")
+        assert resp.status_code == 401
+        assert "X-Team-Secret" not in resp.text
 
 
 class TestFetchConfirmedIdentities:

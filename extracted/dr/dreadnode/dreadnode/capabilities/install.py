@@ -190,6 +190,11 @@ class InstallReport:
     failed: dict[str, str] = field(default_factory=dict)
     durations: dict[str, float] = field(default_factory=dict)
     """Wall-clock seconds per step: ``packages.<cap>``, ``python``, ``scripts.<cap>``."""
+    on_step: "t.Callable[[str], None] | None" = field(default=None, compare=False, repr=False)
+    """Called with each step's name as that step begins, for live progress.
+
+    Excluded from comparison and repr so a report still compares by outcome.
+    """
 
     def time_step(self, name: str) -> "t.ContextManager[None]":
         return _timed(self, name)
@@ -197,6 +202,13 @@ class InstallReport:
 
 @contextlib.contextmanager
 def _timed(report: InstallReport, name: str) -> t.Iterator[None]:
+    if report.on_step is not None:
+        # Never let a progress listener break an install; it is decoration on
+        # work that has to finish either way.
+        try:
+            report.on_step(name)
+        except Exception:
+            logger.opt(exception=True).debug("Install step listener failed for '{}'", name)
     started = time.perf_counter()
     try:
         yield
@@ -208,14 +220,19 @@ def _timed(report: InstallReport, name: str) -> t.Iterator[None]:
 
 def install_dependencies(
     specs: list[tuple[str, Path, DependencySpec]],
+    *,
+    on_step: "t.Callable[[str], None] | None" = None,
 ) -> InstallReport:
     """Run the three-step install pipeline across the supplied capabilities.
 
     ``specs`` is the list returned by
     :func:`dreadnode.capabilities.loader.preload_dependency_specs` — tuples of
     ``(capability_name, capability_dir, DependencySpec)``.
+
+    ``on_step`` receives each step's name as it begins — ``packages.<cap>``,
+    ``python`` or ``scripts.<cap>`` — so a caller can report what is running.
     """
-    report = InstallReport()
+    report = InstallReport(on_step=on_step)
     if not specs:
         return report
 

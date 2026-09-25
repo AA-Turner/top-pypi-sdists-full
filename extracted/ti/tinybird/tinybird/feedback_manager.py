@@ -572,6 +572,11 @@ class FeedbackManager:
         "You can read more about the pricing at https://www.tinybird.co/docs/classic/work-with-data/process-and-copy/materialized-views#compute-compute-separation-for-populates\n\n"
         "Do you want to proceed with on-demand compute?"
     )
+    warning_confirm_on_demand_compute_differs_from_datafile = warning_message(
+        "The local datafile of pipe '{pipe}' does not set ON_DEMAND_COMPUTE true, but --on-demand-compute was passed.\n"
+        "On-demand compute uses dedicated resources that are billed separately from your regular usage.\n\n"
+        "Do you want to proceed?"
+    )
 
     warning_confirm_delete_token = prompt_message("Do you want to delete Token {token}?")
     warning_confirm_refresh_token = prompt_message("Do you want to refresh Token {token}?")

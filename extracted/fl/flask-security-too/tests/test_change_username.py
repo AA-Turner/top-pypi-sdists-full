@@ -4,13 +4,12 @@ test_change_username
 
 Change username tests
 
-:copyright: (c) 2025-2025 by J. Christopher Wagner (jwag).
+:copyright: (c) 2025-2026 by J. Christopher Wagner (jwag).
 :license: MIT, see LICENSE for more details.
 """
 
 import pytest
 from flask import Flask
-import markupsafe
 
 from flask_security import UsernameUtil, UserMixin, username_changed
 from flask_security.forms import _default_field_labels
@@ -18,7 +17,6 @@ from flask_security.utils import localize_callback
 from tests.test_utils import (
     authenticate,
     check_location,
-    check_xlation,
     get_form_input_value,
     init_app_with_options,
     is_authenticated,
@@ -158,46 +156,45 @@ def test_cu_required(app, client, get_message):
     )
 
 
-@pytest.mark.app_settings(babel_default_locale="fr_FR", SECURITY_CHANGEABLE=True)
-@pytest.mark.babel()
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_xlation(app, client, get_message_local, outbox):
     # Test form and email translation
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
-
     authenticate(client)
 
-    response = client.get("/change", follow_redirects=True)
+    response = client.get("/change-username", follow_redirects=True)
     with app.test_request_context():
         # Check header
-        assert b"<h1>Changer le mot de passe</h1>" in response.data
-        submit = localize_callback(_default_field_labels["change_password"])
+        header = localize_callback("Change Username")
+        assert "OKAY!" in header  # ensures actual translation
+        assert f"<h1>{header}</h1>".encode() in response.data
+        submit = localize_callback(_default_field_labels["submit"])
+        assert "OKAY!" in submit
         assert f'value="{submit}"'.encode() in response.data
 
     response = client.post(
-        "/change",
+        "/change-username",
         data={
-            "password": "password",
-            "new_password": "new strong password",
-            "new_password_confirm": "new strong password",
+            "username": "mynewusername",
         },
         follow_redirects=True,
     )
 
     with app.test_request_context():
-        assert get_message_local("PASSWORD_CHANGE").encode("utf-8") in response.data
+        flash = get_message_local("USERNAME_CHANGE")
+        assert "OKAY!" in flash
+        assert f'<li class="success">{flash}</li>'.encode() in response.data
         assert b"Home Page" in response.data
         assert len(outbox) == 1
-        assert (
-            localize_callback(
-                app.config["SECURITY_EMAIL_SUBJECT_PASSWORD_CHANGE_NOTICE"]
-            )
-            in outbox[0].subject
+        subj = localize_callback(
+            app.config["SECURITY_EMAIL_SUBJECT_USERNAME_CHANGE_NOTICE"]
         )
-        assert (
-            str(markupsafe.escape(localize_callback("Your password has been changed.")))
-            in outbox[0].alts["html"]
-        )
-        assert localize_callback("Your password has been changed") in outbox[0].body
+        assert "OKAY!" in subj
+        assert subj in outbox[0].subject
+
+        body = localize_callback("Your username has been changed.")
+        assert "OKAY!" in body
+        # assert str(markupsafe.escape(body)) in outbox[0].alts["html"]
+        assert body in outbox[0].body
 
 
 @pytest.mark.settings(change_username_url="/custom-change-username")
@@ -241,9 +238,10 @@ def test_custom_post_change_view(client):
 
 def test_my_validator(app, sqlalchemy_datastore):
     class MyUsernameUtil(UsernameUtil):
-        def check_username(self, username):
+        def validate(self, username):
             if username == "nowayjose":
-                return "Are you crazy?"
+                return "Are you crazy?", None
+            return username, None
 
     init_app_with_options(
         app,
@@ -287,7 +285,7 @@ def test_username_normalize(app, client):
     assert response.status_code == 200
 
 
-@pytest.mark.settings(username_normalize_form=None, username_enable=True)
+@pytest.mark.settings(input_normalize_form=None, username_enable=True)
 def test_username_no_normalize(app, client):
     """Verify that can log in with original but not normalized if have
     disabled normalization

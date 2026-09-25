@@ -23,7 +23,7 @@ test = [
   "pytest-github-actions-annotate-failures==0.4.2"
 ]
 types = [
-  "ty==0.0.81",
+  "ty==0.0.83",
   "mypy==2.3.1"
 ]
 
@@ -60,7 +60,7 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "translation-finder"
 requires-python = ">=3.11"
-version = "3.5.0"
+version = "3.5.1"
 
 [[project.authors]]
 email = "michal@weblate.org"

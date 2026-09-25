@@ -34,10 +34,7 @@ async def _session_execute_commit(async_engine):
 
 
 class AsyncCancellationTest(fixtures.TestBase):
-    # below 3.11 the test suite's _Runner is a bare run_until_complete
-    # with no SIGINT handling, so cancellation does not arrive the way
-    # these tests assert; those interpreters are legacy on this branch
-    __requires__ = ("async_dialect", "python311")
+    __requires__ = ("async_dialect",)
     __backend__ = True
 
     @config.fixture()
@@ -99,6 +96,9 @@ class AsyncCancellationTest(fixtures.TestBase):
             pool_connection = await async_engine.raw_connection()
             record = pool_connection._connection_record
 
+            record.fairy_ref = lambda: None
+            assert record.needs_gc
+
             # invoke the finalizer the way the garbage collector would,
             # rather than dropping the reference and collecting, so that
             # the warning below is raised somewhere it can be caught; a
@@ -110,9 +110,9 @@ class AsyncCancellationTest(fixtures.TestBase):
                     None,
                     record,
                     pool_connection._pool,
-                    record.fairy_ref,
                     False,
                     transaction_was_reset=False,
+                    is_gc_cleanup=True,
                 )
 
             eq_(accounting.leaked, set())
@@ -120,15 +120,8 @@ class AsyncCancellationTest(fixtures.TestBase):
         await async_engine.dispose()
 
     @testing.fails_on(
-        ["+psycopg", "+aioodbc"],
+        ["+psycopg", "+oracledb<26", "+aioodbc"],
         "dialect has not been given AsyncAdapt_terminate; tracked separately",
     )
     def test_dialect_supports_terminate(self):
-        if (
-            config.db.dialect.driver == "oracledb"
-            and config.db.dialect.oracledb_ver < (26,)
-        ):
-            config.skip_test(
-                "oracledb < 26 does not support AsyncAdapt_terminate"
-            )
         is_true(config.db.dialect.has_terminate)

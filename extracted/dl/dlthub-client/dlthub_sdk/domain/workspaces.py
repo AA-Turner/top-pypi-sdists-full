@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 # Python internals
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import (
@@ -40,6 +41,19 @@ if TYPE_CHECKING:
 
     #: get returns the plain model, list the organization-scoped one.
     WorkspacePayload = WorkspaceResponse | OrganizationWorkspaceResponse
+
+
+def _injected_dataplane_url() -> str | None:
+    """The plane URL the runtime injected, if this process is a platform run.
+
+    A run on an external provider cannot resolve the plane's public subdomain,
+    so the runtime tells it where the plane is and that outranks the address the
+    API reports.
+
+    Returns:
+        The injected plane URL, or ``None`` outside a platform run.
+    """
+    return os.environ.get("RUNTIME__DATAPLANE_BASE_URL") or None
 
 
 @dataclass(frozen=True)
@@ -313,7 +327,7 @@ class Workspace(Entity[M]):
             ctx.narrow(
                 workspace_id=workspace_id,
                 organization_id=str(payload.organization_id),
-                dataplane_url=payload.dataplane_url,
+                dataplane_url=_injected_dataplane_url() or payload.dataplane_url,
             ),
             Workspace(
                 id=workspace_id,

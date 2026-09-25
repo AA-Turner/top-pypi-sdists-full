@@ -2,6 +2,7 @@
 Update an org group policy returns "OK" response
 """
 
+from os import environ
 from datadog_api_client import ApiClient, Configuration
 from datadog_api_client.v2.api.org_groups_api import OrgGroupsApi
 from datadog_api_client.v2.model.org_group_policy_enforcement_tier import OrgGroupPolicyEnforcementTier
@@ -16,6 +17,7 @@ body = OrgGroupPolicyUpdateRequest(
         attributes=OrgGroupPolicyUpdateAttributes(
             content=dict([("value", "UTC")]),
             enforcement_tier=OrgGroupPolicyEnforcementTier.OVERRIDE_ALLOWED,
+            policy_name="monitor_timezone",
         ),
         id=UUID("1a2b3c4d-5e6f-7890-abcd-ef0123456789"),
         type=OrgGroupPolicyType.ORG_GROUP_POLICIES,
@@ -23,6 +25,7 @@ body = OrgGroupPolicyUpdateRequest(
 )
 
 configuration = Configuration()
+configuration.access_token = environ["DD_BEARER_TOKEN"]
 configuration.unstable_operations["update_org_group_policy"] = True
 with ApiClient(configuration) as api_client:
     api_instance = OrgGroupsApi(api_client)

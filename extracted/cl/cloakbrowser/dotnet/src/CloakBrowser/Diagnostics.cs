@@ -79,18 +79,22 @@ internal static class Diagnostics
             diag["launch"] = launch;
         }
 
-        // Windows-font probe — only meaningful on a Linux host spoofing Windows.
-        // Omitted entirely off Linux, where it carries no signal.
+        // Windows/macOS-font probe — only meaningful on a Linux host spoofing
+        // another OS. Omitted entirely off Linux, where it carries no signal.
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
             // Strict count, not "any one present" — real font installs are atomic
             // (you have the whole pack or none), so report how complete the set is.
+            // Both sets are counted unconditionally: `info` has no persona flag, so
+            // we report each raw count and let the user read the one they spoof.
             int? winN = CloakLauncher.CountFontsPresent(CloakLauncher.WindowsFontTells);
             int? officeN = CloakLauncher.CountFontsPresent(CloakLauncher.OfficeFontTells);
+            int? macN = CloakLauncher.CountFontsPresent(CloakLauncher.MacFontTells);
             diag["fonts"] = new Dictionary<string, object?>
             {
                 ["windows"] = winN is null ? null : new[] { winN.Value, CloakLauncher.WindowsFontTells.Length },
                 ["office"] = officeN is null ? null : new[] { officeN.Value, CloakLauncher.OfficeFontTells.Length },
+                ["macos"] = macN is null ? null : new[] { macN.Value, CloakLauncher.MacFontTells.Length },
             };
         }
 

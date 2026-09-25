@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth
-Version: 5.3.1
+Version: 5.4.0
 Summary: An auth system for EVE Online to help in-game organizations
 Keywords: allianceauth,eveonline
 Author-email: Alliance Auth <adarnof@gmail.com>
@@ -35,7 +35,7 @@ Requires-Dist: django-redis>=5.4
 Requires-Dist: django-registration>=5.2,<6
 Requires-Dist: django-solo
 Requires-Dist: django-sortedm2m
-Requires-Dist: django-sri
+Requires-Dist: django-sri<1
 Requires-Dist: dnspython
 Requires-Dist: mysqlclient>=2.1
 Requires-Dist: openfire-restapi

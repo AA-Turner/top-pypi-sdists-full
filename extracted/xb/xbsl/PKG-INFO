@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbsl
-Version: 0.118.0
+Version: 0.119.0
 Summary: The XBSL (1C:Element) toolkit: a linter with autofixes, LSP, MCP server, documentation search, project index, metadata scaffolding, translation into English spellings, and a VS Code extension
 Author: xbsl contributors
 License-Expression: MIT
@@ -105,7 +105,7 @@ works are all in the [guide](https://github.com/keyfire/xbsl/blob/main/docs/lint
 
 ## What it does
 
-**Rules.** 250 rules in the base set, in four tiers. **A** covers structure and the yaml schema.
+**Rules.** 253 rules in the base set, in four tiers. **A** covers structure and the yaml schema.
 **B** covers text and typography conventions. **C** covers code structure: blocks, brackets,
 unused locals, the `style/` conventions. **D** covers semantics against the platform data and the
 project itself: every type position in code and yaml, enumeration values, `Query{...}` block

@@ -20,7 +20,7 @@ from matrx_ai.config import (
 )
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.providers.base_translator import BaseTranslator
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 from matrx_ai.providers.reasoning import openai_compatible_reasoning_text
 
 # ============================================================================
@@ -160,8 +160,11 @@ class TogetherTranslator(BaseTranslator):
         all_tools = self.build_provider_tools(config, "together")
         if all_tools:
             together_request["tools"] = all_tools
-            if config.tool_choice:
-                together_request["tool_choice"] = config.tool_choice
+            tool_choice = resolve_structural_setting(
+                config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+            )
+            if tool_choice:
+                together_request["tool_choice"] = tool_choice
 
         vcprint(together_request, "--> Together Request", color="magenta", verbose=False)
         return together_request

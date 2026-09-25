@@ -102,7 +102,7 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
 )
 from snowflake.snowpark_connect.relation.read.reader_config import (
     CsvWriterConfig,
-    validate_json_charset_name,
+    validate_charset_name,
 )
 from snowflake.snowpark_connect.relation.stage_locator import get_paths_from_stage
 from snowflake.snowpark_connect.relation.utils import (
@@ -116,6 +116,7 @@ from snowflake.snowpark_connect.relation.utils import (
 from snowflake.snowpark_connect.relation.write.spark_rw_options import (
     build_spark_rw_options_params_v1,
     build_spark_rw_options_params_v2,
+    iceberg_write_option_keys,
 )
 from snowflake.snowpark_connect.type_mapping import (
     map_pyspark_types_to_pyarrow_types,
@@ -162,6 +163,25 @@ from snowflake.snowpark_connect.utils.telemetry import (
 from snowflake.snowpark_connect.utils.udf_cache import register_cached_sproc
 
 _column_order_for_write = "name"
+
+# df.write mode -> iceberg_write_options telemetry op (SNOW-4141266). V1 modes not
+# listed here (None / error / errorifexists / ignore) are create-like -> "create".
+_ICEBERG_WRITE_OPTIONS_V1_OP = {
+    "append": "append",
+    "overwrite": "overwrite",
+    "overwrite_partitions": "overwrite_partitions",
+    "truncate": "truncate",
+}
+# DataFrameWriterV2 mode -> telemetry verb, shared by iceberg_write_v2 (SNOW-3985862)
+# and the iceberg_write_options V2 emission (SNOW-4141266).
+_ICEBERG_WRITE_V2_OP = {
+    commands_proto.WriteOperationV2.MODE_CREATE: "create",
+    commands_proto.WriteOperationV2.MODE_REPLACE: "replace",
+    commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE: "create_or_replace",
+    commands_proto.WriteOperationV2.MODE_APPEND: "append",
+    commands_proto.WriteOperationV2.MODE_OVERWRITE: "overwrite",
+    commands_proto.WriteOperationV2.MODE_OVERWRITE_PARTITIONS: "overwrite_partitions",
+}
 
 # Available values for TARGET_FILE_SIZE
 #   reference:https://docs.snowflake.com/en/sql-reference/sql/create-iceberg-table
@@ -240,8 +260,8 @@ def get_param_from_options(
             # this PR contributes to and is the right place to surface the
             # server gap to the Snowflake unload team.
             if "encoding" in options:
-                canonical = validate_json_charset_name(options["encoding"])
-                # validate_json_charset_name returns codecs.lookup(...).name.upper(),
+                canonical = validate_charset_name(options["encoding"])
+                # validate_charset_name returns codecs.lookup(...).name.upper(),
                 # which canonicalises every UTF-8 alias ("UTF-8", "UTF8", "utf_8",
                 # "U8", "cp65001", ...) to the single string "UTF-8", so a plain
                 # equality check is sufficient.
@@ -1476,6 +1496,17 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 cld_create_options
             )
 
+            # Per-request telemetry for Iceberg write options (SNOW-4141266).
+            _write_option_keys = iceberg_write_option_keys(
+                cld_create_options, is_v1=True
+            )
+            if _write_option_keys:
+                telemetry.report_iceberg_write_options(
+                    op=_ICEBERG_WRITE_OPTIONS_V1_OP.get(write_mode, "create"),
+                    keys=_write_option_keys,
+                    catalog_kind="cld" if is_cld else "managed",
+                )
+
             # Fetch once here; all write_mode branches consume it so we avoid
             # a second round-trip in the common case.
             table_schema_or_error = _get_table_schema_or_error(
@@ -1511,6 +1542,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             options=cld_create_options,
                             partition_cols=partition_cols_for_iceberg_config,
                             iceberg_version=resolved_iceberg_version,
+                            op="ctas",
                         )
                         writer.saveAsTable(
                             table_name=schema_table_name,
@@ -1542,6 +1574,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             options=cld_create_options,
                             partition_cols=partition_cols_for_iceberg_config,
                             iceberg_version=resolved_iceberg_version,
+                            op="ctas",
                         )
                         # Re-fetch schema after table creation
                         table_schema_or_error = _get_table_schema_or_error(
@@ -1623,6 +1656,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 options=cld_create_options,
                                 partition_cols=partition_cols_for_iceberg_config,
                                 iceberg_version=resolved_iceberg_version,
+                                op="ctas",
                             )
                             _get_writer_for_table_creation(input_df).saveAsTable(
                                 table_name=schema_table_name,
@@ -1681,6 +1715,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             options=cld_create_options,
                             partition_cols=partition_cols_for_iceberg_config,
                             iceberg_version=resolved_iceberg_version,
+                            op="rtas",
                         )
                         writer.saveAsTable(
                             table_name=snowpark_table_name,
@@ -1852,6 +1887,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             statement_params=iceberg_statement_params,
                         )
                 case _:
+                    telemetry.report_iceberg_unsupported_feature(
+                        "write_mode_unsupported_v1"
+                    )
                     exception = SnowparkConnectNotImplementedError(
                         f"Write mode {write_mode} is not supported"
                     )
@@ -2110,6 +2148,19 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         build_spark_rw_options_params_v2(dict(write_op.options)) if is_iceberg else None
     )
 
+    # Per-request telemetry for Iceberg write options (SNOW-4141266). The V2 proto
+    # keeps .option(...) separate from table_properties, so the bag is already clean.
+    if is_iceberg:
+        _write_option_keys = iceberg_write_option_keys(
+            dict(write_op.options), is_v1=False
+        )
+        if _write_option_keys:
+            telemetry.report_iceberg_write_options(
+                op=_ICEBERG_WRITE_V2_OP.get(write_op.mode, "other"),
+                keys=_write_option_keys,
+                catalog_kind="cld" if is_cld else "managed",
+            )
+
     # FDN tables have no user-defined partitioning; reject partitionedBy
     # uniformly across all write modes (SNOW-3310107). Iceberg targets honor it.
     if not is_iceberg:
@@ -2190,20 +2241,41 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
     # `_build_target_file_size_clause` (`storage_serialization_policy`,
     # `iceberg.storage_serialization_policy`, `write.target-file-size`,
     # `target_file_size`).
-    table_comment = cld_create_options.pop("comment", None)
-    cld_create_options.pop("format-version", None)
-    cld_create_options.pop("iceberg.format-version", None)
-    cld_create_options.pop("max-snapshot-age.ms", None)
-    cld_create_options.pop("iceberg.max-snapshot-age.ms", None)
+    # SNOW-3974371: when forwarding is on, leave the 1P keys in the options bag so
+    # they forward verbatim inside TABLE_PROPERTIES (GS owns the mapping) and skip
+    # the dedicated COMMENT clause. Otherwise translate them client-side as before.
+    # ``table_format_version`` stays a single guarded ternary: with forwarding on
+    # the gated ``_extract_iceberg_format_version`` already leaves iceberg_config
+    # without an ``iceberg_version`` key, so it resolves to None here too.
+    if _iceberg_table_properties_ddl_enabled():
+        table_comment = None
+    else:
+        table_comment = cld_create_options.pop("comment", None)
+        cld_create_options.pop("format-version", None)
+        cld_create_options.pop("iceberg.format-version", None)
+        cld_create_options.pop("max-snapshot-age.ms", None)
+        cld_create_options.pop("iceberg.max-snapshot-age.ms", None)
     table_format_version = (
         iceberg_config.get("iceberg_version") if iceberg_config else None
     )
     # `max-snapshot-age.ms` maps to DATA_RETENTION_TIME_IN_DAYS. Only create/replace
     # valid for modes
     # DATA_RETENTION_TIME_IN_DAYS is not supported for CLD tables.
+    # Table-properties telemetry op: a V2 write with data is CTAS-like; REPLACE /
+    # CREATE_OR_REPLACE are the DataFrame analogue of CREATE OR REPLACE AS SELECT.
+    tp_op = (
+        "rtas"
+        if write_op.mode
+        in (
+            commands_proto.WriteOperationV2.MODE_REPLACE,
+            commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE,
+        )
+        else "ctas"
+    )
     _reject_max_snapshot_age_for_cld(
         is_cld=is_cld,
         table_properties=dict(write_op.table_properties),
+        op=tp_op,
     )
     table_data_retention_days = (
         _extract_max_snapshot_age_days(dict(write_op.table_properties))
@@ -2217,6 +2289,18 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         )
         else None
     )
+
+    # Per-request telemetry for the DataFrameWriterV2 API surface (SNOW-3985862):
+    # one event per writeTo call on an Iceberg target, emitted before the mode
+    # dispatch so every verb (incl. the early-returning overwrite_partitions) is
+    # covered.
+    if is_iceberg:
+        telemetry.report_iceberg_write_v2(
+            _ICEBERG_WRITE_V2_OP.get(write_op.mode, "other"),
+            catalog_kind="cld" if is_cld else "managed",
+            partitioned_by=bool(write_op.partitioning_columns),
+            table_property=bool(write_op.table_properties),
+        )
 
     match write_op.mode:
         case commands_proto.WriteOperationV2.MODE_CREATE:
@@ -2237,6 +2321,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     comment=table_comment,
                     iceberg_version=table_format_version,
                     statement_params=iceberg_statement_params,
+                    op=tp_op,
                 )
             else:
                 writer.saveAsTable(
@@ -2598,6 +2683,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     comment=table_comment,
                     iceberg_version=table_format_version,
                     statement_params=iceberg_statement_params,
+                    op=tp_op,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -2640,6 +2726,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     comment=table_comment,
                     iceberg_version=table_format_version,
                     statement_params=iceberg_statement_params,
+                    op=tp_op,
                 )
             elif is_iceberg:
                 _overwrite_iceberg_with_fallback(
@@ -2662,6 +2749,10 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 )
 
         case _:
+            if is_iceberg:
+                telemetry.report_iceberg_unsupported_feature(
+                    "write_mode_unsupported_v2"
+                )
             exception = SnowparkConnectNotImplementedError(
                 f"Write mode {commands_proto.WriteOperationV2.Mode.Name(write_op.mode)} is not supported"
             )
@@ -3454,6 +3545,10 @@ def _build_target_file_size_clause(options: dict | None = None) -> str:
     """
     if not options:
         return ""
+    # SNOW-3974371: when forwarding is on, write.target-file-size forwards raw to
+    # GS inside TABLE_PROPERTIES instead of a dedicated TARGET_FILE_SIZE clause.
+    if _iceberg_table_properties_ddl_enabled():
+        return ""
     value = options.get("write.target-file-size") or options.get("target_file_size")
     if not value:
         return ""
@@ -3469,7 +3564,11 @@ def _build_target_file_size_clause(options: dict | None = None) -> str:
 #       storage_serialization_policy, max-snapshot-age.ms, and merge-schema
 #       (consumed by _iceberg_merge_schema_enabled); or
 #   (b) reserved Snowflake parameter names that must not be forwarded as
-#       free-form external-catalog properties — catalog, catalog_sync.
+#       free-form external-catalog properties — catalog, catalog_sync; or
+#   (c) V1 DataFrameWriter option-bag keys that are not Iceberg table properties
+#       — path, mergeSchema, overwriteSchema (SNOW-3974372, Ilesh review).
+# Matching is normalization-insensitive (see _normalize_table_property_key), so
+# camelCase / underscore spellings (mergeSchema, merge_schema) also match.
 # Kept in sync with the managed _CONSUMED_TABLE_PROPERTY_KEYS on main.
 _CLD_CONSUMED_TABLE_PROPERTY_KEYS = frozenset(
     {
@@ -3485,6 +3584,7 @@ _CLD_CONSUMED_TABLE_PROPERTY_KEYS = frozenset(
         "storage_serialization_policy",
         "iceberg.storage_serialization_policy",
         "write.target-file-size",
+        "write.target-file-size-bytes",
         "target_file_size",
         "format-version",
         "iceberg.format-version",
@@ -3493,6 +3593,8 @@ _CLD_CONSUMED_TABLE_PROPERTY_KEYS = frozenset(
         "merge-schema",
         "iceberg.merge-schema",
         "comment",
+        "path",
+        "overwriteSchema",
     }
 )
 
@@ -3525,21 +3627,18 @@ def _iceberg_table_properties_ddl_enabled() -> bool:
 
 
 def _build_table_properties_clause(options: dict | None = None) -> str:
-    """Return ``TABLE_PROPERTIES = ('k'='v', ...)`` for a CLD / unmanaged-writable
-    ``CREATE ICEBERG TABLE`` from the leftover Spark table properties (those not
-    already mapped to a dedicated clause), or ``''`` when none remain.
+    """Return ``TABLE_PROPERTIES = ('k'='v', ...)`` for an Iceberg ``CREATE`` from
+    the leftover Spark table properties (those not already mapped to a dedicated
+    clause), or ``''`` when none remain.
 
-    Keys are emitted verbatim; keys and values are escaped single-quoted literals
-    (doubling ``'`` and ``\\``). GS commits these to the external catalog on the
-    unmanaged path (SNOW-3892694 / SNOW-3981841); SNOW-4061004.
+    Shared across the CLD/unmanaged (DDL-text) and managed emit sites. Keys are
+    emitted verbatim; keys and values are escaped single-quoted literals (doubling
+    ``'`` and ``\\``). GS commits these to the external catalog on the unmanaged
+    path (SNOW-3892694 / SNOW-3981841); SNOW-4061004 / SNOW-3974372.
     """
     if not options:
         return ""
-    leftover = {
-        k: v
-        for k, v in options.items()
-        if k not in _CLD_CONSUMED_TABLE_PROPERTY_KEYS and v is not None
-    }
+    leftover = _leftover_table_properties(options)
     if not leftover:
         return ""
     pairs = ", ".join(
@@ -3547,6 +3646,160 @@ def _build_table_properties_clause(options: dict | None = None) -> str:
         for k, v in leftover.items()
     )
     return f"TABLE_PROPERTIES = ({pairs})"
+
+
+# Table-property keys may only contain letters, digits, and ``. _ -`` — the
+# character set Iceberg property names and Snowflake identifiers use. Rejecting
+# anything else keeps a customer-controlled key from breaking out of the
+# ``TABLE_PROPERTIES = (...)`` clause (DDL-text path) or the Snowpark
+# ``table_properties`` map (managed path). Values are escaped by the DDL builder
+# and by Snowpark, so only keys are structurally validated here.
+_ALLOWED_TABLE_PROPERTY_KEY_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-"
+)
+
+
+def _normalize_table_property_key(key: str) -> str:
+    """Normalize a property key for consumed-key matching — lower-case and strip
+    ``-`` / ``_`` — mirroring :func:`_iceberg_merge_schema_enabled` so alias
+    spellings (``mergeSchema`` / ``merge-schema`` / ``merge_schema``) collapse to
+    the same consumed entry (SNOW-3974372, Ilesh review).
+    """
+    return key.lower().replace("-", "").replace("_", "")
+
+
+_CONSUMED_TABLE_PROPERTY_KEYS_NORMALIZED = frozenset(
+    _normalize_table_property_key(k) for k in _CLD_CONSUMED_TABLE_PROPERTY_KEYS
+)
+
+
+# SNOW-3974371: the 1P Iceberg spec properties SCOS otherwise translates into
+# dedicated Snowflake clauses (ICEBERG_VERSION / TARGET_FILE_SIZE / COMMENT /
+# DATA_RETENTION_TIME_IN_DAYS). Once the platform (GS) owns TABLE_PROPERTIES,
+# SCOS should stop translating them and forward them verbatim so GS owns the
+# mapping + catalog commit — on both managed and CLD. Gated on the existing
+# ENABLE_ICEBERG_TABLE_PROPERTIES_DDL config: on -> forward as-is; off -> today's
+# client-side translation. Plumbing keys (external_volume, catalog, base_location,
+# location), the Snowflake-native storage_serialization_policy, and V1 writer
+# option keys (path, merge-schema, overwriteSchema) are NOT Iceberg properties and
+# always stay client-side.
+_FORWARDABLE_TABLE_PROPERTY_KEYS = frozenset(
+    {
+        "format-version",
+        "iceberg.format-version",
+        "write.target-file-size",
+        "write.target-file-size-bytes",
+        "target_file_size",
+        "max-snapshot-age.ms",
+        "iceberg.max-snapshot-age.ms",
+        "comment",
+    }
+)
+
+_FORWARDABLE_TABLE_PROPERTY_KEYS_NORMALIZED = frozenset(
+    _normalize_table_property_key(k) for k in _FORWARDABLE_TABLE_PROPERTY_KEYS
+)
+
+
+def _effective_consumed_table_property_keys_normalized() -> frozenset:
+    """Return the consumed-key set used to decide what forwards as
+    ``TABLE_PROPERTIES``. When the DDL gate is on, the 1P Iceberg keys are no
+    longer consumed client-side (they forward verbatim to GS), so drop them from
+    the consumed set (SNOW-3974371). When off, the full set is consumed as before.
+    """
+    if _iceberg_table_properties_ddl_enabled():
+        return (
+            _CONSUMED_TABLE_PROPERTY_KEYS_NORMALIZED
+            - _FORWARDABLE_TABLE_PROPERTY_KEYS_NORMALIZED
+        )
+    return _CONSUMED_TABLE_PROPERTY_KEYS_NORMALIZED
+
+
+def _leftover_table_properties(options: dict | None) -> dict:
+    """Return the Spark table properties to forward verbatim as Snowflake
+    ``TABLE_PROPERTIES`` — everything not already mapped to a dedicated clause /
+    ``iceberg_config`` key (see ``_CLD_CONSUMED_TABLE_PROPERTY_KEYS``), dropping
+    ``None`` and empty-string values. Shared by the CLD DDL clause builder and the
+    managed ``iceberg_config['table_properties']`` path (SNOW-3974372).
+
+    Consumed-key matching is normalization-insensitive so camelCase / underscore
+    spellings do not slip through, and each forwarded key is validated against a
+    conservative character set to prevent DDL injection.
+    """
+    if not options:
+        return {}
+    consumed = _effective_consumed_table_property_keys_normalized()
+    leftover: dict = {}
+    for k, v in options.items():
+        if v is None or v == "":
+            continue
+        if _normalize_table_property_key(k) in consumed:
+            continue
+        if not k or not set(k) <= _ALLOWED_TABLE_PROPERTY_KEY_CHARS:
+            exception = AnalysisException(
+                f"Invalid Iceberg table property key {k!r}: keys may only contain "
+                "letters, digits, '.', '_', and '-'."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        leftover[k] = v
+    return leftover
+
+
+def _leftover_table_property_keys(options: dict | None) -> list[str]:
+    """Return the customer table-property keys that would be forwarded as
+    ``TABLE_PROPERTIES(...)`` (i.e. not consumed by a dedicated clause).
+
+    Telemetry view (SNOW-4077136) — observational, so unlike
+    :func:`_leftover_table_properties` it does not validate the key charset (it
+    never raises). Uses the same normalization-insensitive consumed-key matching
+    as the emit path so the two cannot drift.
+    """
+    if not options:
+        return []
+    consumed = _effective_consumed_table_property_keys_normalized()
+    return [
+        k
+        for k, v in options.items()
+        if v is not None
+        and v != ""
+        and _normalize_table_property_key(k) not in consumed
+    ]
+
+
+def _consumed_table_property_keys(options: dict | None) -> list[str]:
+    """Return the customer table-property keys that are consumed by a dedicated
+    clause (ICEBERG_VERSION, EXTERNAL_VOLUME, BASE_LOCATION, ...) rather than
+    forwarded as ``TABLE_PROPERTIES(...)``.
+
+    Reported to telemetry (SNOW-4077136) as ``detail="consumed_by_clause"`` so a
+    property set on CREATE is not read as zero usage just because it took effect
+    via a different clause. Uses the same normalization as the emit path.
+    """
+    if not options:
+        return []
+    consumed = _effective_consumed_table_property_keys_normalized()
+    return [
+        k
+        for k, v in options.items()
+        if v is not None and v != "" and _normalize_table_property_key(k) in consumed
+    ]
+
+
+def _apply_leftover_table_properties(config: dict, options: dict | None) -> None:
+    """Add leftover Spark table properties to a managed ``iceberg_config`` under the
+    ENABLE_ICEBERG_TABLE_PROPERTIES_DDL gate so Snowpark emits ``TABLE_PROPERTIES``
+    (SNOW-3974372). No-op when the gate is off or nothing remains. Managed only —
+    CLD emits the clause via the explicit ``CREATE ICEBERG TABLE`` DDL path, so
+    callers guard on ``not is_cld`` before calling. Shared by the managed
+    ``df.write`` (:func:`_build_iceberg_config`) and SQL CTAS
+    (:func:`_build_managed_iceberg_config_for_sql`) config builders.
+    """
+    if not _iceberg_table_properties_ddl_enabled():
+        return
+    leftover = _leftover_table_properties(options)
+    if leftover:
+        config["table_properties"] = leftover
 
 
 def _create_cld_iceberg_table_then_load(
@@ -3558,6 +3811,7 @@ def _create_cld_iceberg_table_then_load(
     comment: str | None = None,
     iceberg_version: int | None = None,
     statement_params: dict[str, str] | None = None,
+    op: str = "create",
 ) -> None:
     """Emit explicit ``CREATE ICEBERG TABLE`` for a CLD target, then append
     rows via Snowpark against the now-existing table.
@@ -3596,6 +3850,7 @@ def _create_cld_iceberg_table_then_load(
         partition_specs=partition_specs,
         comment=comment,
         iceberg_version=iceberg_version,
+        op=op,
     )
     writer.saveAsTable(
         table_name=snowpark_table_name,
@@ -3644,6 +3899,7 @@ def _create_cld_iceberg_table(
     partition_specs: list[V2PartitionSpec] | None = None,
     iceberg_version: int | None = None,
     comment: str | None = None,
+    op: str = "create",
 ) -> None:
     """Issue CREATE ICEBERG TABLE for a Catalog-Linked Database.
 
@@ -3704,10 +3960,32 @@ def _create_cld_iceberg_table(
     # TABLE_PROPERTIES = (...); GS commits them to the external catalog on the
     # unmanaged path. Only emit when ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is set,
     # otherwise GS hard-rejects the whole CREATE.
+    leftover_keys = _leftover_table_property_keys(options)
     if _iceberg_table_properties_ddl_enabled():
         table_properties = _build_table_properties_clause(options)
         if table_properties:
             parts.append(table_properties)
+            telemetry.report_iceberg_table_properties(
+                op, leftover_keys, outcome="emitted", catalog_kind="cld"
+            )
+    elif leftover_keys:
+        telemetry.report_iceberg_table_properties(
+            op,
+            leftover_keys,
+            outcome="dropped",
+            detail="ddl_gate_off",
+            catalog_kind="cld",
+        )
+    # Keys mapped to a dedicated clause (ICEBERG_VERSION, EXTERNAL_VOLUME, ...) took
+    # effect but not as TABLE_PROPERTIES; record them as emitted/consumed_by_clause
+    # so they aren't read as unused (honored, just via a different clause).
+    telemetry.report_iceberg_table_properties(
+        op,
+        _consumed_table_property_keys(options),
+        outcome="emitted",
+        detail="consumed_by_clause",
+        catalog_kind="cld",
+    )
 
     if comment:
         parts.append(f"COMMENT = '{escape_sql_comment(comment)}'")
@@ -3747,12 +4025,20 @@ def _build_iceberg_config(
         if location and location != "":
             config["base_location"] = location
 
-    tfs = options.get("write.target-file-size") or options.get("target_file_size")
-    if not tfs:
-        # SNOW-3674169: Fall back to the bucketed value derived from
-        # spark.sql.files.maxPartitionBytes, if the user has set it. An
-        # explicit per-table tableProperty above always wins.
+    # SNOW-3974371: when forwarding is on, an explicit write.target-file-size /
+    # target_file_size forwards raw to GS via TABLE_PROPERTIES, so it is not
+    # consumed into a dedicated iceberg_config key here. The session-derived
+    # default (spark.sql.files.maxPartitionBytes) is Snowflake-side write tuning,
+    # not a user table property, so it still applies.
+    if _iceberg_table_properties_ddl_enabled():
         tfs = get_iceberg_target_file_size_for_writes()
+    else:
+        tfs = options.get("write.target-file-size") or options.get("target_file_size")
+        if not tfs:
+            # SNOW-3674169: Fall back to the bucketed value derived from
+            # spark.sql.files.maxPartitionBytes, if the user has set it. An
+            # explicit per-table tableProperty above always wins.
+            tfs = get_iceberg_target_file_size_for_writes()
     if tfs:
         _validate_target_file_size(tfs)
         config["target_file_size"] = tfs
@@ -3760,6 +4046,15 @@ def _build_iceberg_config(
     iceberg_version = _extract_iceberg_format_version(options)
     if iceberg_version is not None:
         config["iceberg_version"] = iceberg_version
+
+    # SNOW-3974372: forward the leftover Spark table properties (those not mapped
+    # to a dedicated iceberg_config key above) via Snowpark's ``table_properties``,
+    # which emits ``TABLE_PROPERTIES = (...)`` on managed ``CREATE ICEBERG TABLE`` /
+    # CTAS so GS commits them. Managed (non-CLD) only — the CLD path emits the
+    # clause via _create_cld_iceberg_table. Gated on the same client flag as ALTER
+    # (SNOW-4061004); GS also requires ENABLE_ICEBERG_TABLE_PROPERTIES_ON_MANAGED_TABLES.
+    if not is_cld:
+        _apply_leftover_table_properties(config, options)
 
     if partition_cols:
         config["partition_by"] = partition_cols
@@ -3793,6 +4088,11 @@ def _extract_iceberg_format_version(options: dict) -> int | None:
     legacy V1 ``.option("format-version", 2)`` call can deliver an ``int``
     from a notebook caller, so we accept both.
     """
+    # SNOW-3974371: when forwarding is on, format-version is passed through raw to
+    # GS inside TABLE_PROPERTIES rather than translated to a dedicated
+    # ICEBERG_VERSION clause, so do not extract it here (GS owns the mapping).
+    if _iceberg_table_properties_ddl_enabled():
+        return None
     raw = options.get("format-version")
     if raw is None:
         raw = options.get("iceberg.format-version")
@@ -3817,17 +4117,31 @@ def _extract_iceberg_format_version(options: dict) -> int | None:
     return version
 
 
-def _reject_max_snapshot_age_for_cld(is_cld: bool, table_properties: dict) -> None:
+def _reject_max_snapshot_age_for_cld(
+    is_cld: bool, table_properties: dict, op: str = "create"
+) -> None:
     """Raise ``AnalysisException`` when ``max-snapshot-age.ms`` is specified
     for a CLD (Catalog-Linked Database) Iceberg table. ``max-snapshot-age.ms``
     is only supported for non-CLD iceberg tables.
     """
+    # SNOW-3974371: when forwarding is on, retention is passed through raw to GS
+    # inside TABLE_PROPERTIES (GS folds it into DATA_RETENTION on both managed and
+    # CLD), so SCOS no longer rejects it client-side on CLD.
+    if _iceberg_table_properties_ddl_enabled():
+        return
     if not is_cld:
         return
     if (
         "max-snapshot-age.ms" in table_properties
         or "iceberg.max-snapshot-age.ms" in table_properties
     ):
+        telemetry.report_iceberg_table_properties(
+            op,
+            ["max-snapshot-age.ms"],
+            outcome="rejected",
+            detail="max_snapshot_age",
+            catalog_kind="cld",
+        )
         exception = AnalysisException(
             "The 'max-snapshot-age.ms' table property is not supported for "
             "Catalog-Linked Database (CLD) Iceberg tables."
@@ -3851,6 +4165,11 @@ def _extract_max_snapshot_age_days(options: dict) -> int | None:
     (90 days for Enterprise, 1 day for Standard) is enforced server-side.
     A value of 0 is valid and disables Time Travel.
     """
+    # SNOW-3974371: when forwarding is on, max-snapshot-age forwards raw to GS
+    # inside TABLE_PROPERTIES (GS folds it into DATA_RETENTION_TIME_IN_DAYS), so
+    # do not translate it client-side here.
+    if _iceberg_table_properties_ddl_enabled():
+        return None
     if "max-snapshot-age.ms" in options:
         raw = options["max-snapshot-age.ms"]
     elif "iceberg.max-snapshot-age.ms" in options:

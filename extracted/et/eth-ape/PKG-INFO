@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eth-ape
-Version: 0.8.51
+Version: 0.8.52
 Summary: Ape Framework: Build and explore on-chain with Python
 Author-email: "ApeWorX Ltd." <admin@apeworx.io>
 License-Expression: Apache-2.0
@@ -61,7 +61,7 @@ Requires-Dist: ethpm-types<0.7,>=0.6.28
 Requires-Dist: eip712<0.4,>=0.3.0
 Requires-Dist: eth_pydantic_types<0.3,>=0.2.1
 Requires-Dist: evmchains<0.2,>=0.1.0
-Requires-Dist: evm-trace<0.3,>=0.2.6
+Requires-Dist: evm-trace<0.4,>=0.3.0
 Provides-Extra: recommended-plugins
 Requires-Dist: ape-alchemy; extra == "recommended-plugins"
 Requires-Dist: ape-ens; extra == "recommended-plugins"

@@ -1,18 +1,25 @@
+from __future__ import annotations
+
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Any, Optional, Union
 
+import click
 import requests
 import urllib3
 from pygitguardian import GGClient, GGClientCallbacks
 from pygitguardian.models import APITokensResponse, Detail, TokenScope
 from requests import Session
 from requests.adapters import HTTPAdapter
+from typing_extensions import Self
+
+from ggshield.utils.os import getenv_int
 
 from . import auth_check_cache, ui
 from .config import Config
-from .constants import DEFAULT_INSTANCE_URL
+from .constants import DEFAULT_API_TIMEOUT, DEFAULT_INSTANCE_URL
 from .errors import (
     APIKeyCheckError,
     MissingScopesError,
@@ -30,6 +37,34 @@ _RETRY_ALLOWED_METHODS = frozenset(
     {"HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"}
 )
 _RETRY_STATUS_FORCELIST = frozenset({502, 503, 504})
+
+
+class _RetryWithoutPostReadTimeout(urllib3.Retry):
+    """urllib3.Retry, but a read timeout on a POST is never retried.
+
+    A read timeout means the server already accepted the request and is
+    still working on it (e.g. an expensive scan); retrying only makes it
+    redo that work. Connection resets reach us as ProtocolError, not
+    ReadTimeoutError, so they still go through the normal retry path.
+    """
+
+    def increment(
+        self,
+        method: Optional[str] = None,
+        url: Optional[str] = None,
+        response: Optional[Any] = None,
+        error: Optional[Exception] = None,
+        _pool: Optional[Any] = None,
+        _stacktrace: Optional[Any] = None,
+    ) -> Self:
+        if (
+            error is not None
+            and method is not None
+            and method.upper() == "POST"
+            and isinstance(error, urllib3.exceptions.ReadTimeoutError)
+        ):
+            raise error
+        return super().increment(method, url, response, error, _pool, _stacktrace)
 
 
 class RetryProfile(Enum):
@@ -50,14 +85,14 @@ class RetryProfile(Enum):
 
 def _build_retry(profile: RetryProfile) -> urllib3.Retry:
     if profile is RetryProfile.PRE_RECEIVE:
-        return urllib3.Retry(
+        return _RetryWithoutPostReadTimeout(
             total=1,
             backoff_factor=0,
             backoff_jitter=0,
             status_forcelist=_RETRY_STATUS_FORCELIST,
             allowed_methods=_RETRY_ALLOWED_METHODS,
         )
-    return urllib3.Retry(
+    return _RetryWithoutPostReadTimeout(
         total=5,
         backoff_factor=0.5,
         backoff_max=8,
@@ -65,6 +100,44 @@ def _build_retry(profile: RetryProfile) -> urllib3.Retry:
         status_forcelist=_RETRY_STATUS_FORCELIST,
         allowed_methods=_RETRY_ALLOWED_METHODS,
     )
+
+
+# Name chosen to avoid colliding with GITGUARDIAN_TIMEOUT, which already
+# controls the pre-receive hook's own wall-clock budget (see
+# ggshield/core/git_hooks/prereceive.py) and means something else entirely.
+API_TIMEOUT_ENV_VAR = "GITGUARDIAN_API_TIMEOUT"
+
+MIN_API_TIMEOUT = 1
+# The ceiling also keeps the value small enough for socket.settimeout(), which
+# raises OverflowError on an int too large to convert to float.
+MAX_API_TIMEOUT = 3600
+
+
+def _resolve_timeout(config_timeout: int) -> int:
+    """Resolve the API timeout: env var overrides the config file value."""
+    raw = os.getenv(API_TIMEOUT_ENV_VAR)
+    source = API_TIMEOUT_ENV_VAR if raw is not None else "the 'api_timeout' config key"
+    try:
+        timeout = getenv_int(API_TIMEOUT_ENV_VAR, config_timeout)
+    except ValueError:
+        raise click.UsageError(
+            f"Invalid {API_TIMEOUT_ENV_VAR} value: '{raw}'. "
+            "It must be a whole number of seconds."
+        )
+
+    if not MIN_API_TIMEOUT <= timeout <= MAX_API_TIMEOUT:
+        raise click.UsageError(
+            f"Invalid value for {source}: {timeout}. The API timeout must be "
+            f"between {MIN_API_TIMEOUT} and {MAX_API_TIMEOUT} seconds."
+        )
+    return timeout
+
+
+def api_timeout_from_config(config: Config) -> int:
+    """Timeout to pass to create_client() when not going through
+    create_client_from_config(), so the config key and the environment
+    variable are honoured there too."""
+    return _resolve_timeout(config.user_config.api_timeout)
 
 
 def create_client_from_config(
@@ -80,24 +153,20 @@ def create_client_from_config(
         api_key = config.api_key
         api_url = config.api_url
     except UnknownInstanceError as e:
-        if e.instance == DEFAULT_INSTANCE_URL:
-            # This can happen when the user first tries the app and has not gone through
-            # the authentication procedure yet. In this case, replace the error message
-            # complaining about an unknown instance with a more user-friendly one.
-            raise APIKeyCheckError(
-                e.instance,
-                """A GitGuardian API key is needed to use ggshield.
+        login_command = "ggshield auth login"
+        if e.instance != DEFAULT_INSTANCE_URL:
+            login_command += f" --instance {e.instance}"
+        raise APIKeyCheckError(
+            e.instance,
+            f"""A GitGuardian API key is needed to use ggshield.
 To get one, authenticate to your dashboard by running:
 
-    ggshield auth login
+    {login_command}
 
-If you are using an on-prem version of GitGuardian, \
-use the --instance option to point to it.
+Alternatively, set the GITGUARDIAN_API_KEY environment variable.
 Read the following documentation for more information: \
 https://docs.gitguardian.com/ggshield-docs/reference/auth/login""",
-            )
-        else:
-            raise
+        )
 
     return create_client(
         api_key,
@@ -105,6 +174,7 @@ https://docs.gitguardian.com/ggshield-docs/reference/auth/login""",
         allow_self_signed=config.user_config.insecure,
         callbacks=callbacks,
         retry_profile=retry_profile,
+        timeout=api_timeout_from_config(config),
     )
 
 
@@ -115,11 +185,17 @@ def create_client(
     allow_self_signed: bool = False,
     callbacks: Optional[GGClientCallbacks] = None,
     retry_profile: RetryProfile = RetryProfile.DEFAULT,
+    timeout: Optional[int] = None,
 ) -> GGClient:
     """
     Implementation of create_client_from_config(). Exposed as a function for specific
     cases such as needing a GGClient instance while defining the config account.
+
+    Without an explicit timeout the environment variable is still honoured, so a
+    caller that forgets api_timeout_from_config() loses only the config file.
     """
+    if timeout is None:
+        timeout = _resolve_timeout(DEFAULT_API_TIMEOUT)
     session = create_session(
         allow_self_signed=allow_self_signed,
         retry_profile=retry_profile,
@@ -129,7 +205,7 @@ def create_client(
             api_key=api_key,
             base_uri=api_url,
             user_agent=os.getenv("GG_USER_AGENT", "ggshield"),
-            timeout=60,
+            timeout=timeout,
             session=session,
             callbacks=callbacks,
         )
@@ -204,6 +280,46 @@ def safe_response_json(response: requests.Response) -> Any:
         raise _non_json_error(response.url, exc) from exc
 
 
+def _read_metadata(client: GGClient) -> Detail | None:
+    try:
+        return client.read_metadata()
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceUnavailableError(
+            message="Failed to connect to GitGuardian server. Check your"
+            f" instance URL settings.\nDetails: {e}.",
+        )
+
+
+def _check_metadata_response(client: GGClient, response: Detail | None) -> None:
+    """Check the response from read_metadata() and raise a ggshield error if something went wrong."""
+    if response is None:
+        # None means success
+        return
+    if response.status_code == 401:
+        raise APIKeyCheckError(client.base_uri, "Invalid GitGuardian API key.")
+    if response.status_code == 404:
+        raise UnexpectedError(
+            "The server returned a 404 error. Check your instance URL settings.",
+        )
+    if response.status_code is not None and 500 <= response.status_code < 600:
+        raise ServiceUnavailableError(
+            message=f"GitGuardian server is not responding.\nDetails: {response.detail}",
+        )
+    raise UnexpectedError(
+        f"GitGuardian server is not responding as expected.\nDetails: {response.detail}"
+    )
+
+
+def _read_api_tokens(client: GGClient) -> APITokensResponse | Detail:
+    try:
+        return safe_api_tokens(client)
+    except requests.exceptions.ConnectionError as e:
+        raise ServiceUnavailableError(
+            message="Failed to connect to GitGuardian server. Check your"
+            f" instance URL settings.\nDetails: {e}.",
+        )
+
+
 def check_client_api_key(client: GGClient, required_scopes: set[TokenScope]) -> None:
     """
     Raises APIKeyCheckError if the API key configured for the client is not usable
@@ -228,52 +344,32 @@ def check_client_api_key(client: GGClient, required_scopes: set[TokenScope]) -> 
         if cached.remediation_messages is not None:
             client.remediation_messages = cached.remediation_messages
 
-    if cached is not None and (
-        not required_scopes
-        or (cached.scopes is not None and required_scopes <= cached.scopes)
-    ):
-        return
+        if not required_scopes or (
+            cached.scopes is not None and required_scopes <= cached.scopes
+        ):
+            return
 
+    api_tokens_response: APITokensResponse | Detail | None = None
     if cached is None:
-        try:
-            response = client.read_metadata()
-        except requests.exceptions.ConnectionError as e:
-            raise ServiceUnavailableError(
-                message="Failed to connect to GitGuardian server. Check your"
-                f" instance URL settings.\nDetails: {e}.",
-            )
-
-        if response is None:
-            # None means success
-            pass
-        elif response.status_code == 401:
-            raise APIKeyCheckError(client.base_uri, "Invalid GitGuardian API key.")
-        elif response.status_code == 404:
-            raise UnexpectedError(
-                "The server returned a 404 error. Check your instance URL settings.",
-            )
-        elif response.status_code is not None and 500 <= response.status_code < 600:
-            raise ServiceUnavailableError(
-                message=f"GitGuardian server is not responding.\nDetails: {response.detail}",
-            )
+        if required_scopes:
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                metadata_future = executor.submit(_read_metadata, client)
+                api_tokens_future = executor.submit(_read_api_tokens, client)
+            _check_metadata_response(client, metadata_future.result())
+            api_tokens_response = api_tokens_future.result()
         else:
-            raise UnexpectedError(
-                f"GitGuardian server is not responding as expected.\nDetails: {response.detail}"
-            )
+            metadata_response = _read_metadata(client)
+            _check_metadata_response(client, metadata_response)
 
-    api_scopes: Optional[set[TokenScope]] = (
-        cached.scopes if cached is not None else None
-    )
+    api_scopes: set[TokenScope] | None = cached.scopes if cached is not None else None
 
     # Check token scopes if required_scopes is not empty
     if required_scopes:
-        try:
-            response = safe_api_tokens(client)
-        except requests.exceptions.ConnectionError as e:
-            raise ServiceUnavailableError(
-                message="Failed to connect to GitGuardian server. Check your"
-                f" instance URL settings.\nDetails: {e}.",
-            )
+        response = (
+            api_tokens_response
+            if api_tokens_response is not None
+            else _read_api_tokens(client)
+        )
 
         if not isinstance(response, (Detail, APITokensResponse)):
             raise UnexpectedError("Unexpected api_tokens response")

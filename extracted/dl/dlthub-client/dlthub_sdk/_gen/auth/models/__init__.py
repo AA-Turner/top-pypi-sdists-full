@@ -2,9 +2,7 @@
 
 from .error_code import ErrorCode
 from .error_response_400 import ErrorResponse400
-from .error_response_400_extra import ErrorResponse400Extra
 from .error_response_401 import ErrorResponse401
-from .error_response_401_extra import ErrorResponse401Extra
 from .login_response import LoginResponse
 from .logout_request import LogoutRequest
 from .refresh_request import RefreshRequest
@@ -22,9 +20,7 @@ from .workos_token_exchange_request import WorkosTokenExchangeRequest
 __all__ = (
     "ErrorCode",
     "ErrorResponse400",
-    "ErrorResponse400Extra",
     "ErrorResponse401",
-    "ErrorResponse401Extra",
     "LoginResponse",
     "LogoutRequest",
     "RefreshRequest",

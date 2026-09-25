@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: comfy-cli
-Version: 1.20.0
+Version: 1.21.0
 Summary: A CLI tool for installing and using ComfyUI.
 Maintainer-email: Yoland Yan <yoland@drip.art>, James Kwon <hongilkwon316@gmail.com>, Robin Huang <robin@drip.art>, "Dr.Lt.Data" <dr.lt.data@gmail.com>
 License: GPL-3.0-only
@@ -45,7 +45,8 @@ Requires-Dist: jsonschema; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
+Requires-Dist: ruff==0.15.15; extra == "dev"
+Requires-Dist: typer>=0.24; extra == "dev"
 Provides-Extra: preview
 Requires-Dist: term-image<0.8,>=0.7; extra == "preview"
 Dynamic: license-file

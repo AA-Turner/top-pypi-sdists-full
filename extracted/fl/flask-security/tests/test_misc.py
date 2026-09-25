@@ -63,7 +63,7 @@ from flask_security.forms import (
 from flask_security import auth_required, roles_required
 from flask_security.utils import (
     base_render_json,
-    encode_string,
+    _encode_string,
     json_error_response,
     get_request_attr,
     hash_data,
@@ -71,7 +71,8 @@ from flask_security.utils import (
     uia_email_mapper,
     uia_phone_mapper,
     verify_hash,
-    get_post_action_redirect,
+    _get_post_action_redirect,
+    _td_format,
 )
 from flask_security.core import _get_serializer
 
@@ -87,7 +88,7 @@ def test_my_mail_util(app, sqlalchemy_datastore):
         def send_mail(
             self, template, subject, recipient, sender, body, html, user, **kwargs
         ):
-            assert template == "reset_instructions"
+            assert template == "security/email/reset_instructions"
             assert subject == app.config["SECURITY_EMAIL_SUBJECT_PASSWORD_RESET"]
             assert recipient == "matt@lp.com"
             assert user.email == "matt@lp.com"
@@ -330,7 +331,7 @@ def test_change_hash_type(app, sqlalchemy_datastore):
 @pytest.mark.settings(hashing_schemes=["hex_md5"], deprecated_hashing_schemes=[])
 @pytest.mark.parametrize("data", ["hellö", b"hello"])
 def test_legacy_hash(in_app_context, data):
-    legacy_hash = hashlib.md5(encode_string(data)).hexdigest()
+    legacy_hash = hashlib.md5(_encode_string(data)).hexdigest()
     new_hash = hash_data(data)
     assert legacy_hash == new_hash
 
@@ -347,7 +348,7 @@ def test_verify_hash(in_app_context):
     assert verify_hash(data, "hellö") is True
     assert verify_hash(data, "hello") is False
 
-    legacy_data = hashlib.md5(encode_string("hellö")).hexdigest()
+    legacy_data = hashlib.md5(_encode_string("hellö")).hexdigest()
     assert verify_hash(legacy_data, "hellö") is True
     assert verify_hash(legacy_data, "hello") is False
 
@@ -553,7 +554,9 @@ def test_no_email_sender(app, sqlalchemy_datastore, outbox):
 
     with app.app_context():
         user = TestUser("matt@lp.com")
-        send_mail("Test Default Sender", user.email, "welcome", user=user)
+        send_mail(
+            "Test Default Sender", user.email, "security/email/welcome", user=user
+        )
         assert 1 == len(outbox)
         assert "test@testme.com" == outbox[0].sender
 
@@ -575,7 +578,7 @@ def test_sender_tuple(app, sqlalchemy_datastore, outbox):
 
     with app.app_context():
         user = TestUser("matt@lp.com")
-        send_mail("Test Tuple Sender", user.email, "welcome", user=user)
+        send_mail("Test Tuple Sender", user.email, "security/email/welcome", user=user)
         assert 1 == len(outbox)
         assert outbox[0].sender == "Test User <test@testme.com>"
 
@@ -596,7 +599,9 @@ def test_send_mail_context(app, sqlalchemy_datastore, outbox):
 
     with app.app_context():
         user = TestUser("matt@lp.com")
-        send_mail("Test Default Sender", user.email, "welcome", user=user)
+        send_mail(
+            "Test Default Sender", user.email, "security/email/welcome", user=user
+        )
         assert 1 == len(outbox)
         assert "test@testme.com" == outbox[0].sender
         matcher = re.match(
@@ -605,17 +610,14 @@ def test_send_mail_context(app, sqlalchemy_datastore, outbox):
         assert matcher.group(1) == "bar-mail"
 
 
-@pytest.mark.babel()
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_xlation(app, client):
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
-
     response = client.get("/login")
-    assert b'<label for="password">Mot de passe</label>' in response.data
+    assert b'<label for="password">Password OKAY!</label>' in response.data
     response = authenticate(client)
     assert response.status_code in [302, 303]
     response = authenticate(client, follow_redirects=True)
-    assert b"Bienvenue matt@lp.com" in response.data
+    assert b"Welcome OKAY! matt@lp.com" in response.data
 
 
 @pytest.mark.babel()
@@ -642,56 +644,45 @@ def test_myxlation(app, sqlalchemy_datastore, pytestconfig):
     assert b"Passe - no-worky" in response.data
 
 
-@pytest.mark.babel()
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
-def test_myxlation_complete(app, sqlalchemy_datastore, pytestconfig):
-    # Test having own translations and not using builtin.
-    pytest.importorskip("flask_babel")
-    i18n_dirname = [
-        os.path.join(pytestconfig.rootdir, "tests/translations"),
-    ]
-    init_app_with_options(
-        app, sqlalchemy_datastore, **{"SECURITY_I18N_DIRNAME": i18n_dirname}
-    )
-
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
+@pytest.mark.babel(babel_default_locale="fr_FR", test_xlations=True)
+def test_myxlation_complete(app, client):
+    # Test having own translations and not using builtin
 
     app.config["SECURITY_MSG_INVALID_PASSWORD"] = ("Password no-worky", "error")
-
-    client = app.test_client()
     response = client.post("/login", data=dict(email="matt@lp.com", password="forgot"))
     assert b"Passe - no-worky" in response.data
 
 
-@pytest.mark.babel()
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
+def test_isstring_xlation(app, client):
+    # Test that IsString's error message is properly localized.
+    response = client.post(
+        "/login", json=dict(email={"not": "a string"}, password="password")
+    )
+    assert response.status_code == 400
+    assert "OKAY!" in response.json["response"]["errors"][0]
+
+
+@pytest.mark.babel(babel_default_locale="cic_US", test_xlations=True)
 def test_form_labels(app, sqlalchemy_datastore):
     app.security = Security()
     app.security.init_app(app, sqlalchemy_datastore)
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
 
     with app.test_request_context():
-        rform = RegisterForm()
-        assert str(rform.password.label.text) == "Mot de passe"
-        assert str(rform.password_confirm.label.text) == "Confirmer le mot de passe"
-        assert str(rform.email.label.text) == "Adresse email"
-        assert str(rform.submit.label.text) == "Inscription"
+        form = RegisterForm()
+        for field in ["password", "password_confirm", "email", "submit"]:
+            assert "OKAY!" in str(getattr(form, field).label.text)
 
         form = LoginForm()
-        assert str(form.password.label.text) == "Mot de passe"
-        assert str(form.remember.label.text) == "Se souvenir de moi"
-        assert str(form.email.label.text) == "Adresse email"
-        assert str(form.submit.label.text) == "Connexion"
+        for field in ["password", "remember", "email", "submit"]:
+            assert "OKAY!" in str(getattr(form, field).label.text)
 
         form = ChangePasswordForm()
-        assert str(form.password.label.text) == "Mot de passe"
-        assert str(form.new_password.label.text) == "Nouveau mot de passe"
-        assert str(form.new_password_confirm.label.text) == "Confirmer le mot de passe"
-        assert str(form.submit.label.text) == "Changer le mot de passe"
+        for field in ["password", "new_password", "new_password_confirm", "submit"]:
+            assert "OKAY!" in str(getattr(form, field).label.text)
 
 
-@pytest.mark.babel()
-@pytest.mark.app_settings(babel_default_locale="fr_FR")
+@pytest.mark.babel(babel_default_locale="fr_FR", test_xlations=True)
 def test_wtform_xlation(app, sqlalchemy_datastore):
     # Make sure wtform xlations work
     class MyLoginForm(LoginForm):
@@ -701,11 +692,10 @@ def test_wtform_xlation(app, sqlalchemy_datastore):
 
     app.security = Security()
     app.security.init_app(app, datastore=sqlalchemy_datastore, login_form=MyLoginForm)
-    assert check_xlation(app, "fr_FR"), "You must run python setup.py compile_catalog"
 
     client = app.test_client()
     response = client.get("/login")
-    assert b'<label for="password">Mot de passe</label>' in response.data
+    assert b'<label for="password">Mot de passe OKAY!</label>' in response.data
     data = dict(
         email="matt@lp.com", password="", remember="y", fixed_length="waytoolong"
     )
@@ -722,7 +712,7 @@ def test_wtform_xlation(app, sqlalchemy_datastore):
 
 
 @pytest.mark.changeable()
-@pytest.mark.babel()
+@pytest.mark.babel(test_xlations=True)
 def test_per_request_xlate(app, client):
     from flask import request, session
 
@@ -742,30 +732,33 @@ def test_per_request_xlate(app, client):
     babel.locale_selector_func = get_locale
     babel.locale_selector = get_locale  # Flask-Babel >= 3.0.0
 
-    response = client.get("/login", headers=[("Accept-Language", "fr")])
-    assert b'<label for="password">Mot de passe</label>' in response.data
+    response = client.get("/login", headers=[("Accept-Language", "cic_US")])
+    assert b'<label for="password">Password OKAY!</label>' in response.data
     # make sure template contents get xlated (not just form).
-    assert b"<h1>Connexion</h1>" in response.data
+    assert b"<h1>Login OKAY!</h1>" in response.data
 
     data = dict(email="matt@lp.com", password="", remember="y")
-    response = client.post("/login", data=data, headers=[("Accept-Language", "fr")])
+    response = client.post("/login", data=data, headers=[("Accept-Language", "cic_US")])
     assert response.status_code == 200
 
     # verify errors are xlated
-    assert b"Merci d&#39;indiquer un mot de passe" in response.data
+    assert b"Password not provided OKAY!" in response.data
 
     # log in correctly - this should set locale in session
     data = dict(email="matt@lp.com", password="password", remember="y")
     response = client.post(
-        "/login", data=data, headers=[("Accept-Language", "fr")], follow_redirects=True
+        "/login",
+        data=data,
+        headers=[("Accept-Language", "cic_US")],
+        follow_redirects=True,
     )
     assert response.status_code == 200
 
     # make sure further requests always get correct xlation w/o sending header
     response = client.get("/change", follow_redirects=True)
     assert response.status_code == 200
-    assert b"Nouveau mot de passe" in response.data
-    assert b"<h1>Changer le mot de passe</h1>" in response.data
+    assert b"<title>Change Password OKAY!</title>" in response.data
+    assert b"<h1>Change Password OKAY!</h1>" in response.data
 
     # try JSON
     response = client.post(
@@ -775,7 +768,7 @@ def test_per_request_xlate(app, client):
     )
     assert response.status_code == 400
     assert response.json["response"]["field_errors"]["new_password"] == [
-        "Merci d'indiquer un mot de passe"
+        "Password not provided OKAY!"
     ]
 
 
@@ -1247,6 +1240,28 @@ def test_verify_next(app, client, get_message):
     )
     assert response.location == "http://localhost/mynext"
 
+    # form.next (no query param)
+    response = client.post(
+        "/auth/",
+        data=dict(password="password", next="http://localhost/formnext"),
+        follow_redirects=False,
+    )
+    assert response.location == "http://localhost/formnext"
+
+    # GET should copy ?next into the hidden form field
+    response = client.get("/auth/?next=/profile")
+    assert b'name="next"' in response.data
+    assert b'value="/profile"' in response.data
+
+    # invalid form.next is rejected with INVALID_REDIRECT
+    response = client.post(
+        "/auth/",
+        data=dict(password="password", next="http://evil.example/phish"),
+        follow_redirects=False,
+    )
+    assert response.status_code == 200
+    assert get_message("INVALID_REDIRECT") in response.data
+
 
 @pytest.mark.webauthn(webauthn_util_cls=HackWebauthnUtil)
 def test_verify_wan(app, client, get_message):
@@ -1326,7 +1341,7 @@ def test_post_security_with_application_root(app, sqlalchemy_datastore):
     assert response.status_code in [302, 303]
     assert "/root" in response.location
 
-    response = client.get("/logout")
+    response = client.post("/logout")
     assert response.status_code in [302, 303]
     assert "/root" in response.location
 
@@ -1349,7 +1364,7 @@ def test_post_security_with_application_root_and_views(app, sqlalchemy_datastore
     assert response.status_code in [302, 303]
     assert "/post_login" in response.location
 
-    response = client.get("/logout")
+    response = client.post("/logout")
     assert response.status_code in [302, 303]
     assert "/post_logout" in response.location
 
@@ -1431,7 +1446,7 @@ def test_get_post_action_redirect(app, client):
     # test parts of get_post_action_redirect that are hard to get to via the client
     # e.g. port
     with app.test_request_context(base_url="https://lp.com:8080/"):
-        r = get_post_action_redirect(
+        r = _get_post_action_redirect(
             "SECURITY_POST_LOGIN_VIEW", dict(next="https://lp.com:8080/myredirect")
         )
         assert r == "https://lp.com:8080/myredirect"
@@ -1578,11 +1593,11 @@ def test_login_required(app, client, get_message):
 
 
 def test_simplify_url():
-    from flask_security.utils import simplify_url
+    from flask_security.utils import _simplify_url
 
-    s = simplify_url("https://localhost/profile", "https://localhost/login")
+    s = _simplify_url("https://localhost/profile", "https://localhost/login")
     assert s == "/login"
-    s = simplify_url("https:/myhost/profile", "https://localhost/login")
+    s = _simplify_url("https:/myhost/profile", "https://localhost/login")
     assert s == "https://localhost/login"
 
 
@@ -1663,6 +1678,34 @@ def test_null_user_id(app, client, get_message):
         sess["_user_id"] = ""
         sess["user_id"] = ""
     assert not is_authenticated(client, get_message)
+
+
+def test_td_format(app, monkeypatch):
+    # Test our internal timedelta formatter - we encourage using humanize but don't
+    # want to require that dependency.
+    import sys
+
+    monkeypatch.setitem(sys.modules, "humanize", None)
+    assert "4 seconds" == _td_format(timedelta(seconds=4))
+    assert "1 day" == _td_format(timedelta(days=1))
+    assert "1 day and 30 minutes" == _td_format(timedelta(days=1, minutes=30))
+    assert "1 day, 2 hours, 40 seconds" == _td_format(timedelta(hours=26, seconds=40))
+
+
+def test_td_format_humanize(app):
+    pytest.importorskip("humanize")
+    assert "1 day, 2 hours and 40 seconds" == _td_format(
+        timedelta(hours=26, seconds=40)
+    )
+
+
+@pytest.mark.parametrize("humanizer", ["fr_FR"], indirect=["humanizer"])
+def test_td_format_humanize_fr(app, humanizer):
+    # humanize has built in localization
+    # app responsible for setting it up.
+    assert "1 jour, 2 heures et 40 secondes" == _td_format(
+        timedelta(hours=26, seconds=40)
+    )
 
 
 @pytest.mark.settings(default_remember_me=True)

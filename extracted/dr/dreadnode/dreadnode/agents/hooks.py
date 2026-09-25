@@ -389,18 +389,12 @@ def _get_model_context_budget(model_or_generator: "str | Generator | None") -> i
     if not isinstance(model_str, str):
         return 100_000
     try:
-        import litellm
+        from dreadnode.app.model_catalog import resolve_model_info
 
-        lookup = model_str
-        while lookup not in litellm.model_cost:
-            if "/" not in lookup:
-                break
-            lookup = "/".join(lookup.split("/")[1:])
-        if lookup in litellm.model_cost:
-            info = litellm.model_cost[lookup]
-            max_input = info.get("max_input_tokens") or info.get("max_tokens", 0)
-            if max_input and max_input > 0:
-                return int(max_input * 0.75)
+        info = resolve_model_info(model_str)
+        max_input = info.get("max_input_tokens") or info.get("max_tokens", 0)
+        if max_input and max_input > 0:
+            return int(max_input * 0.75)
     except Exception:  # noqa: S110 - best-effort model metadata fallback should stay quiet
         pass
     return 100_000
@@ -934,6 +928,8 @@ def process_judge_hook(
                 approved = await bridge.request_tool_approval(
                     tool_name=tool_name,
                     tool_input=tool_input,
+                    tool_call_id=event.tool_call.id,
+                    reason=decision.reason,
                 )
                 event.policy_decision = _decision_metadata(
                     source="judge",

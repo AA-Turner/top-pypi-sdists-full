@@ -18,6 +18,7 @@ from dreadnode.app.api.client import ApiClient
 from dreadnode.app.config import Profile
 from dreadnode.app.tui.error_handler import INSUFFICIENT_CREDITS_MESSAGE
 from dreadnode.core.exceptions import InsufficientCreditsError
+from dreadnode.core.tls import cached_platform_ssl_context
 
 PLATFORM_MODELS_UNAVAILABLE_MESSAGE = "Platform-hosted models are not available"
 DREADNODE_LLM_BASE_ENV = "DREADNODE_LLM_BASE"
@@ -55,6 +56,8 @@ class ModelCatalogContext(t.Protocol):
 
 
 class ModelUiHost(t.Protocol):
+    def refresh_model_context(self) -> None: ...
+
     def model_browser_open(self) -> bool: ...
 
     def dismiss_pushed_screens(self) -> None: ...
@@ -166,7 +169,10 @@ class ModelManager:
         still spawns with the saved profile default.
         """
         current_model = self._context.current_model()
-        if not model_id or model_id == current_model:
+        if not model_id:
+            return
+        if model_id == current_model:
+            self._ui_host.refresh_model_context()
             return
         self._actions.mark_model_explicitly_selected()
         self._actions.apply_model(model_id)
@@ -669,6 +675,9 @@ class ModelManager:
             f"{base_url.rstrip('/')}/models",
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=10.0,
+            # The proxy is the operator's LiteLLM on a self-hosted install;
+            # verify against the native trust store, not certifi (WP1-66).
+            verify=cached_platform_ssl_context(),
         )
         response.raise_for_status()
         payload = response.json()
@@ -873,6 +882,7 @@ class ModelManager:
         if isinstance(base_url, str) and isinstance(api_key, str):
             os.environ[DREADNODE_LLM_BASE_ENV] = base_url
             os.environ[DREADNODE_LLM_API_KEY_ENV] = api_key
+            self._ui_host.refresh_model_context()
 
         self._state.litellm_key_expires_at = self.parse_expires_at(
             result.get("expires_at") or result.get("expiresAt")

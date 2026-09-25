@@ -37,7 +37,7 @@ from matrx_ai.config import (
 from matrx_ai.config.citations import normalize_xai_citations
 from matrx_ai.config.media_config import ImageContent
 from matrx_ai.providers.base_translator import BaseTranslator
-from matrx_ai.providers.outbound_params import resolve_outbound_params
+from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_structural_setting
 
 
 def provider_charge_from_xai_usage(usage: Any) -> ProviderCharge | None:
@@ -105,11 +105,14 @@ class XAITranslator(BaseTranslator):
         tools = self._build_tools(config)
         if tools:
             kwargs["tools"] = tools
-            if config.tool_choice == "required":
+            tool_choice = resolve_structural_setting(
+                config.tool_choice, "tool_choice", profile.controls, model=getattr(config, "model", "?")
+            )
+            if tool_choice == "required":
                 # native enum literal; a per-tool force would use required_tool(name)
                 kwargs["tool_choice"] = "required"
-            elif config.tool_choice in ("auto", "none"):
-                kwargs["tool_choice"] = config.tool_choice
+            elif tool_choice in ("auto", "none"):
+                kwargs["tool_choice"] = tool_choice
 
         return kwargs
 

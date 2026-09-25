@@ -705,6 +705,108 @@ def soil_moisture_features(
 
 
 # --------------------------------------------------------------------------
+# Terrain, humidity and season-block features (Franch et al. 2022 set)
+# --------------------------------------------------------------------------
+#: Month (1..12) of each day-of-year index 0..365 on a non-leap year; the
+#: 366th index is 31 December.
+_MONTH_OF_DOY = np.array(
+    [(pd.Timestamp(2025, 1, 1) + pd.Timedelta(days=d)).month for d in range(365)] + [12],
+    dtype=int,
+)
+
+#: Meteorological seasons in NORTHERN-hemisphere months. Southern-hemisphere
+#: rows use the same names shifted six months, so "winter" always means the
+#: cold season. Franch et al. use calendar DJF for "winter", which is summer in
+#: Argentina, so their feature means opposite things either side of the equator.
+SEASON_MONTHS_N = {"winter": (12, 1, 2), "spring": (3, 4, 5), "summer": (6, 7, 8), "fall": (9, 10, 11)}
+
+
+def terrain_features(elevation: Optional[float], slope: Optional[float]) -> dict:
+    """Crop-weighted mean elevation (m) and 5 km-grid slope (rise/run)."""
+    def _num(v):
+        return float(v) if v is not None and np.isfinite(v) else float("nan")
+
+    return {"elevation_m": _num(elevation), "terrain_slope": _num(slope)}
+
+
+def dewpoint_features(tdew: Optional[np.ndarray], tmean: Optional[np.ndarray]) -> dict:
+    """Humidity descriptors: dew point and dew-point depression (T - Td).
+
+    Dew point was the most important input in Franch et al.'s maize models. The
+    depression is the drying power of the air -- small in the humid season,
+    large in the dry one -- and its minimum marks the most humid part of the year.
+    """
+    out = {k: float("nan") for k in (
+        "tdew_min", "tdew_max", "tdew_mean", "tdew_amplitude",
+        "dewpoint_depression_min", "dewpoint_depression_max", "dewpoint_depression_mean",
+    )}
+    day_names = ("doy_tdew_min", "doy_tdew_max", "doy_dewpoint_depression_min")
+    _nan_days(out, day_names)
+    if tdew is None or not np.isfinite(np.asarray(tdew, dtype=float)).any():
+        return out
+    smooth = rolling_mean(np.asarray(tdew, dtype=float), SMOOTH_DAYS)
+    out["tdew_min"], out["tdew_max"] = _safe(np.nanmin, smooth), _safe(np.nanmax, smooth)
+    out["tdew_mean"] = _safe(np.nanmean, smooth)
+    out["tdew_amplitude"] = out["tdew_max"] - out["tdew_min"]
+    out["doy_tdew_min"], out["doy_tdew_max"] = _argext(smooth, np.nanargmin), _argext(smooth, np.nanargmax)
+    if tmean is not None and np.isfinite(np.asarray(tmean, dtype=float)).any():
+        dep = rolling_mean(np.asarray(tmean, dtype=float) - np.asarray(tdew, dtype=float), SMOOTH_DAYS)
+        out["dewpoint_depression_min"] = _safe(np.nanmin, dep)
+        out["dewpoint_depression_max"] = _safe(np.nanmax, dep)
+        out["dewpoint_depression_mean"] = _safe(np.nanmean, dep)
+        out["doy_dewpoint_depression_min"] = _argext(dep, np.nanargmin)
+    for name in day_names:
+        _with_circle(out, name)
+    return out
+
+
+def _monthly_means(daily: Optional[np.ndarray]) -> np.ndarray:
+    """12 monthly means of a 366-long daily climatology (NaN-aware)."""
+    out = np.full(12, np.nan)
+    if daily is None:
+        return out
+    arr = np.asarray(daily, dtype=float)
+    months = _MONTH_OF_DOY[: arr.size]
+    for m in range(1, 13):
+        vals = arr[months == m]
+        if vals.size and np.isfinite(vals).sum() >= 0.6 * vals.size:
+            out[m - 1] = np.nanmean(vals)
+    return out
+
+
+def season_block_features(
+    tmean: Optional[np.ndarray],
+    precip: Optional[np.ndarray],
+    tdew: Optional[np.ndarray],
+    hemisphere: str = "N",
+) -> dict:
+    """Min / max / amplitude of monthly means within each season and the year.
+
+    Franch et al. (2022)'s climate features -- e.g. their top maize input
+    ``dewpoint_avgSeasonMin-winter``, the lowest monthly-mean dew point of the
+    winter months. Seasons are hemisphere-aligned (see SEASON_MONTHS_N).
+    Precipitation is the monthly mean rate in mm/day.
+    """
+    shift = 6 if str(hemisphere).upper().startswith("S") else 0
+    seasons = {
+        name: tuple(((m - 1 + shift) % 12) + 1 for m in months)
+        for name, months in SEASON_MONTHS_N.items()
+    }
+    out: dict = {}
+    for var, daily in (("tmean", tmean), ("precip", precip), ("tdew", tdew)):
+        monthly = _monthly_means(daily)
+        blocks = {name: [monthly[m - 1] for m in months] for name, months in seasons.items()}
+        blocks["annual"] = list(monthly)
+        for block, values in blocks.items():
+            v = np.asarray(values, dtype=float)
+            lo, hi = _safe(np.nanmin, v), _safe(np.nanmax, v)
+            out[f"{var}_{block}_min"] = lo
+            out[f"{var}_{block}_max"] = hi
+            out[f"{var}_{block}_amplitude"] = hi - lo
+    return out
+
+
+# --------------------------------------------------------------------------
 # Row assembly
 # --------------------------------------------------------------------------
 def build_row(
@@ -733,6 +835,9 @@ def build_row(
     sm_surface_years: Optional[pd.DataFrame] = None,
     sm_rootzone: Optional[np.ndarray] = None,
     sm_rootzone_years: Optional[pd.DataFrame] = None,
+    tdew: Optional[np.ndarray] = None,
+    elevation: Optional[float] = None,
+    slope: Optional[float] = None,
     calendar_wraps_year: Optional[bool] = None,
     calendar_wall_to_wall: Optional[bool] = None,
     targets: Optional[dict] = None,
@@ -767,6 +872,11 @@ def build_row(
     row["esi_available"] = int(esi_years is not None)
     row["sm_surface_available"] = int(sm_surface is not None)
     row["sm_rootzone_available"] = int(sm_rootzone is not None)
+    row.update(terrain_features(elevation, slope))
+    row.update(dewpoint_features(tdew, tmean))
+    row.update(season_block_features(tmean, precip, tdew, hemisphere))
+    row["terrain_available"] = int(elevation is not None and bool(np.isfinite(elevation)))
+    row["tdew_available"] = int(tdew is not None)
 
     row["calendar_wraps_year"] = calendar_wraps_year
     row["calendar_wall_to_wall"] = calendar_wall_to_wall
@@ -826,6 +936,9 @@ FEATURE_GROUPS = {
     "esi": _probe_group(esi_features, None) + ("esi_available",),
     "sm_surface": _probe_group(soil_moisture_features, None, "sm_surface", rise=True) + ("sm_surface_available",),
     "sm_rootzone": _probe_group(soil_moisture_features, None, "sm_rootzone", fall=True) + ("sm_rootzone_available",),
+    "terrain": _probe_group(terrain_features, None, None) + ("terrain_available",),
+    "dewpoint": _probe_group(dewpoint_features, None, None) + ("tdew_available",),
+    "season_blocks": _probe_group(season_block_features, None, None, None),
 }
 assert set(FEATURE_NAMES) == set().union(*FEATURE_GROUPS.values()), "feature groups must partition FEATURE_NAMES"
 assert sum(len(v) for v in FEATURE_GROUPS.values()) == len(FEATURE_NAMES), "a feature is in two groups"

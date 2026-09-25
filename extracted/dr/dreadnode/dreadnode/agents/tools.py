@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import contextvars
 import functools
 import inspect
 import json
@@ -35,6 +36,11 @@ if t.TYPE_CHECKING:
 
 P = te.ParamSpec("P", default=...)
 R = te.TypeVar("R", default=t.Any)
+
+current_tool_call: contextvars.ContextVar["ToolCall | None"] = contextvars.ContextVar(
+    "current_tool_call", default=None
+)
+"""The tool call whose function is running, so code inside a tool can name its call."""
 
 
 @contextlib.asynccontextmanager
@@ -476,18 +482,22 @@ class Tool(BaseModel, t.Generic[P, R]):
             if self._type_adapter is not None:
                 kwargs = self._type_adapter.validate_python(kwargs)
             kwargs = kwargs or {}
+            call_token = current_tool_call.set(tool_call)
 
             # Call the function. Sync tools are offloaded to a worker thread
             # so blocking work (subprocess.run, network, large file I/O) does
             # not stall the event loop — the TUI shares that loop with input
             # parsing, and a multi-second block desyncs Textual's escape-
             # sequence parser, leaking raw mouse/key bytes into the composer.
-            if inspect.iscoroutinefunction(self.fn):
-                result = self.fn(**kwargs)  # ty: ignore[missing-argument]  # ParamSpec limitation
-            else:
-                result = await asyncio.to_thread(self.fn, **kwargs)  # ParamSpec limitation
-            if inspect.isawaitable(result):
-                result = await result
+            try:
+                if inspect.iscoroutinefunction(self.fn):
+                    result = self.fn(**kwargs)  # ty: ignore[missing-argument]  # ParamSpec limitation
+                else:
+                    result = await asyncio.to_thread(self.fn, **kwargs)  # ParamSpec limitation
+                if inspect.isawaitable(result):
+                    result = await result
+            finally:
+                current_tool_call.reset(call_token)
 
             if isinstance(result, Stop):
                 raise result  # noqa: TRY301 - intentional control-flow routing into Stop handler

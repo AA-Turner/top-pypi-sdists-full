@@ -196,6 +196,7 @@ if you need to include a literal ``{{``, ``{%``, or ``{#`` in the output.
 """
 
 import ast
+import builtins
 import datetime
 import linecache
 import os.path
@@ -203,6 +204,7 @@ import posixpath
 import re
 import threading
 from io import StringIO
+from types import MappingProxyType
 from typing import Dict, Union
 
 from tornado import escape
@@ -344,6 +346,8 @@ class Template:
         }
         namespace.update(self.namespace)
         namespace.update(kwargs)
+        # Set last so neither the loader namespace nor kwargs can swap in the real builtins
+        namespace["__builtins__"] = SAFE_BUILTINS
         exec_in(self.compiled, namespace)
         execute = namespace["_tt_execute"]
         # Clear the traceback module's cache of source data now that
@@ -589,6 +593,8 @@ class _ApplyBlock(_Node):
 
 class _ControlBlock(_Node):
     def __init__(self, statement, line, body=None):
+        if not disable_template_security_validation.get(False):
+            check_valid_control_statement(statement)
         self.statement = statement
         self.line = line
         self.body = body
@@ -606,6 +612,8 @@ class _ControlBlock(_Node):
 
 class _IntermediateControlBlock(_Node):
     def __init__(self, statement, line):
+        if not disable_template_security_validation.get(False):
+            check_valid_control_statement(statement)
         self.statement = statement
         self.line = line
 
@@ -617,6 +625,9 @@ class _IntermediateControlBlock(_Node):
 
 class _Statement(_Node):
     def __init__(self, statement, line):
+        # Backs both {% set %} (statement is the part after "set") and {% break/continue %}
+        if not disable_template_security_validation.get(False) and statement not in ("break", "continue"):
+            check_valid_set_statement(statement)
         self.statement = statement
         self.line = line
 
@@ -1137,6 +1148,9 @@ def check_valid_expr(expr):
             raise SecurityException(f"Invalid function: {ast.dump(expr)}")
         for subexpr in expr.args:
             check_valid_expr(subexpr)
+        # Keyword values are evaluated before the call, so they need the same checks as positional args
+        for keyword in expr.keywords:
+            check_valid_expr(keyword.value)
     elif isinstance(expr, ast.Constant):
         if isinstance(expr.value, int):
             return
@@ -1191,3 +1205,193 @@ def check_valid_expr(expr):
         check_valid_expr(expr.orelse)
     else:
         raise SecurityException(f"Invalid expression type: {ast.dump(expr)}")
+
+
+# Names that allow evaluating code, reflection or reading attributes by string. They are not part of
+# SAFE_BUILTINS either; rejecting them while parsing gives a clear error instead of a NameError.
+UNSAFE_NAMES = frozenset(
+    {
+        "eval",
+        "exec",
+        "compile",
+        "getattr",
+        "setattr",
+        "delattr",
+        "globals",
+        "locals",
+        "vars",
+        "dir",
+        "breakpoint",
+        "help",
+        "memoryview",
+        "type",
+        "object",
+        "super",
+        "classmethod",
+        "staticmethod",
+        "property",
+        "exit",
+        "quit",
+    }
+)
+
+# Common customer parameter names that collide with unsafe builtins (e.g. a `dir` sort-direction
+# parameter, or a `type` filter). Reads are allowed so `defined(dir)` keeps working; only calling the
+# builtin itself (`dir(...)`) is rejected.
+NAMES_ALLOWED_AS_PARAMETERS = frozenset({"type", "dir"})
+
+# Attributes that reach interpreter internals without a leading underscore (frames and code objects of
+# generators, coroutines and tracebacks) or that read arbitrary attributes through a format string
+# ("{0.__class__}".format(x)). Any attribute starting with "_" is rejected too. Same idea as jinja2.sandbox.
+UNSAFE_ATTRIBUTE_NAMES = frozenset(
+    {
+        "format",
+        "format_map",
+        "mro",
+        "gi_frame",
+        "gi_code",
+        "gi_yieldfrom",
+        "cr_frame",
+        "cr_code",
+        "cr_await",
+        "cr_origin",
+        "ag_frame",
+        "ag_code",
+        "ag_await",
+        "f_globals",
+        "f_locals",
+        "f_builtins",
+        "f_back",
+        "f_code",
+        "tb_frame",
+        "tb_next",
+    }
+)
+
+# Builtins exposed to compiled templates. Without an explicit "__builtins__" in the exec namespace
+# Python injects the real builtins module, so anything that slips through validation could reach them.
+# Private names are dropped because __loader__ and __spec__ can load the builtins module back. It is
+# read-only because the same mapping is shared by every render in the process.
+SAFE_BUILTINS = MappingProxyType(
+    {
+        name: value
+        for name, value in vars(builtins).items()
+        if not name.startswith("_")
+        and name not in UNSAFE_NAMES
+        # site's interactive helpers: license() pages its text through input()
+        and name not in ("open", "input", "print", "copyright", "credits", "license")
+    }
+)
+
+# Number of statements (including the "pass" bodies we add) each control block must parse to. Anything
+# else means the block smuggled extra statements, e.g. "{% if x: pass\nimport os\nif y %}" or "a = 1; b = 2".
+_CONTROL_BLOCK_SOURCES = {
+    "if": ("{statement}:\n pass", 2),
+    "while": ("{statement}:\n pass", 2),
+    "for": ("{statement}:\n pass", 2),
+    "elif": ("if 0:\n pass\n{statement}:\n pass", 4),
+    "except": ("try:\n pass\n{statement}:\n pass", 3),
+}
+
+
+def _is_dunder(name: str) -> bool:
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
+
+
+def _check_valid_statement_tree(tree: ast.Module, expected_statements: int, statement: str) -> None:
+    statements = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.stmt):
+            statements += 1
+        # Customer pipes use `type`/`dir` as parameters; allow reads but forbid calls to the unsafe builtin.
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in NAMES_ALLOWED_AS_PARAMETERS
+        ):
+            raise SecurityException(f"Invalid function name: {node.func.id}")
+        elif isinstance(node, ast.Attribute):
+            if node.attr.startswith("_") or node.attr in UNSAFE_ATTRIBUTE_NAMES:
+                raise SecurityException(f"Invalid attribute: {node.attr}")
+        elif isinstance(node, ast.Name):
+            if _is_dunder(node.id) or (node.id in UNSAFE_NAMES and node.id not in NAMES_ALLOWED_AS_PARAMETERS):
+                raise SecurityException(f"Invalid name: {node.id}")
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name and _is_dunder(node.name):
+                raise SecurityException(f"Invalid name: {node.name}")
+        elif isinstance(node, (ast.Yield, ast.YieldFrom, ast.Await)):
+            raise SecurityException(f"Invalid expression type: {ast.dump(node)}")
+    if statements != expected_statements:
+        raise SecurityException(f"Invalid control block: {statement}")
+
+
+def check_valid_control_statement(statement: str) -> None:
+    """Validate the Python code a {% if/elif/for/while/try/else/except/finally %} block emits verbatim.
+
+    Control blocks accept a wider set of expressions than {{ }} (comparisons, boolean operators, any
+    method), so instead of an allowlist they reject what gives access to the interpreter: dunder names
+    and attributes, frame/code attributes, eval-like builtins and extra smuggled statements.
+
+    >>> check_valid_control_statement("if defined(x) and x.lower() in ('a', 'b')")
+    >>> check_valid_control_statement("for i, item in enumerate(split_to_array(x, ''))")
+    >>> check_valid_control_statement("except Exception as e")
+    >>> check_valid_control_statement("if ().__class__.__base__.__subclasses__()")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid attribute: __subclasses__
+    >>> check_valid_control_statement("elif eval('1')")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid name: eval
+    >>> check_valid_control_statement("for x in (i for i in [1]).gi_frame.f_builtins")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid attribute: f_builtins
+    >>> check_valid_control_statement("else if 1")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid control block: else if 1
+    """
+    operator = statement.partition(" ")[0]
+    if operator in ("try", "else", "finally"):
+        if statement != operator:
+            raise SecurityException(f"Invalid control block: {statement}")
+        return
+    if operator not in _CONTROL_BLOCK_SOURCES:
+        raise SecurityException(f"Invalid control block: {statement}")
+    source, expected_statements = _CONTROL_BLOCK_SOURCES[operator]
+    try:
+        tree = ast.parse(source.format(statement=statement))
+    except SyntaxError:
+        # Compiling the generated template fails too, so nothing gets executed. Let that error surface
+        # since its message includes the template line number users rely on.
+        return
+    _check_valid_statement_tree(tree, expected_statements, statement)
+
+
+def check_valid_set_statement(statement: str) -> None:
+    """Validate the Python code a {% set %} block emits verbatim (``statement`` excludes "set").
+
+    >>> check_valid_set_statement("total = a + b * c")
+    >>> check_valid_set_statement("csv = ','.join(test)")
+    >>> check_valid_set_statement("x = ().__class__")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid attribute: __class__
+    >>> check_valid_set_statement("x = 1; y = 2")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid set statement: x = 1; y = 2
+    >>> check_valid_set_statement("import os")
+    Traceback (most recent call last):
+    ...
+    tinybird.tornado_template.SecurityException: Invalid set statement: import os
+    """
+    try:
+        tree = ast.parse(statement)
+    except SyntaxError:
+        # Same as in check_valid_control_statement: compiling the template raises a better error
+        return
+    if len(tree.body) != 1 or not isinstance(tree.body[0], (ast.Assign, ast.AugAssign, ast.Expr)):
+        raise SecurityException(f"Invalid set statement: {statement}")
+    _check_valid_statement_tree(tree, 1, statement)

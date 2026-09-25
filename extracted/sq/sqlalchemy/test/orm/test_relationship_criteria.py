@@ -10,6 +10,7 @@ from sqlalchemy import DateTime
 from sqlalchemy import delete
 from sqlalchemy import event
 from sqlalchemy import exc as sa_exc
+from sqlalchemy import exists
 from sqlalchemy import ForeignKey
 from sqlalchemy import func
 from sqlalchemy import insert
@@ -263,6 +264,158 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
     """
 
     __dialect__ = "default"
+
+    @testing.combinations(
+        (
+            "one",
+            lambda Address: select(Address.user_id)
+            .where(Address.user_id == 5)
+            .options(
+                with_loader_criteria(Address, Address.email_address != "foo")
+            ),
+            (
+                "SELECT addresses.user_id FROM addresses WHERE"
+                " addresses.user_id = :user_id_1 AND addresses.email_address"
+                " != :email_address_1"
+            ),
+        ),
+        (
+            "two",
+            lambda aliased_address: select(aliased_address.user_id)
+            .where(aliased_address.user_id == 5)
+            .options(
+                with_loader_criteria(
+                    aliased_address, aliased_address.email_address != "foo"
+                )
+            ),
+            (
+                "SELECT addresses_1.user_id FROM addresses AS addresses_1"
+                " WHERE addresses_1.user_id = :user_id_1 AND"
+                " addresses_1.email_address != :email_address_1"
+            ),
+        ),
+        (
+            "three",
+            lambda Address: select(1)
+            .where(Address.user_id == 5)
+            .options(
+                with_loader_criteria(Address, Address.email_address != "foo")
+            ),
+            (
+                "SELECT 1 FROM addresses WHERE addresses.user_id = :user_id_1"
+                " AND addresses.email_address != :email_address_1"
+            ),
+        ),
+        (
+            "four",
+            lambda aliased_address: select(1)
+            .where(aliased_address.user_id == 5)
+            .options(
+                with_loader_criteria(
+                    aliased_address, aliased_address.email_address != "foo"
+                )
+            ),
+            (
+                "SELECT 1 FROM addresses AS addresses_1 WHERE"
+                " addresses_1.user_id = :user_id_1 AND"
+                " addresses_1.email_address != :email_address_1"
+            ),
+        ),
+        (
+            "five",
+            lambda User, Address: select(User)
+            .where(User.addresses.any())
+            .options(
+                with_loader_criteria(Address, Address.email_address != "foo")
+            ),
+            (
+                "SELECT users.id, users.name FROM users WHERE EXISTS (SELECT 1"
+                " FROM addresses WHERE users.id = addresses.user_id AND"
+                " addresses.email_address != :email_address_1)"
+            ),
+        ),
+        (
+            "six",
+            lambda User, aliased_address: select(User)
+            .where(User.addresses.of_type(aliased_address).any())
+            .options(
+                with_loader_criteria(
+                    aliased_address, aliased_address.email_address != "foo"
+                )
+            ),
+            (
+                "SELECT users.id, users.name FROM users WHERE EXISTS (SELECT 1"
+                " FROM addresses AS addresses_1 WHERE users.id ="
+                " addresses_1.user_id AND addresses_1.email_address !="
+                " :email_address_1)"
+            ),
+        ),
+        (
+            "seven",
+            # note plugin_subject on this one is User, not Address.
+            lambda User, Address: select(User)
+            .where(exists(1).where(User.id == Address.user_id))
+            .options(
+                with_loader_criteria(Address, Address.email_address != "foo")
+            ),
+            (
+                "SELECT users.id, users.name FROM users WHERE EXISTS (SELECT 1"
+                " FROM addresses WHERE users.id = addresses.user_id AND"
+                " addresses.email_address != :email_address_1)"
+            ),
+        ),
+        (
+            "eight",
+            lambda User, aliased_address: select(User)
+            .where(exists(1).where(User.id == aliased_address.user_id))
+            .options(
+                with_loader_criteria(
+                    aliased_address, aliased_address.email_address != "foo"
+                )
+            ),
+            (
+                "SELECT users.id, users.name FROM users WHERE EXISTS (SELECT 1"
+                " FROM addresses AS addresses_1 WHERE users.id ="
+                " addresses_1.user_id AND addresses_1.email_address !="
+                " :email_address_1)"
+            ),
+        ),
+        (
+            "nine",
+            lambda User, Address: select(User)
+            .where(exists(Address.user_id).where(User.id == Address.user_id))
+            .options(
+                with_loader_criteria(Address, Address.email_address != "foo")
+            ),
+            (
+                "SELECT users.id, users.name FROM users WHERE EXISTS (SELECT"
+                " addresses.user_id FROM addresses WHERE users.id ="
+                " addresses.user_id AND addresses.email_address !="
+                " :email_address_1)"
+            ),
+        ),
+        argnames="statement, expected",
+        id_="iaa",
+    )
+    def test_search_harder_for_criteria(
+        self, user_address_fixture, statement, expected
+    ):
+        """test #13070
+
+        loader_criteria taking effect for SELECT(1) statements with only
+        WHERE criteria, has()/any() calls, exists(1) calls
+
+        """
+        User, Address = user_address_fixture
+
+        stmt = testing.resolve_lambda(
+            statement,
+            User=User,
+            Address=Address,
+            aliased_address=aliased(Address),
+        )
+
+        self.assert_compile(stmt, expected)
 
     def test_select_mapper_mapper_criteria(self, user_address_fixture):
         User, Address = user_address_fixture
@@ -772,14 +925,13 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
         if update_is_orm:
             self.assert_compile(
                 stmt,
-                "WITH pd AS (SELECT orders.id AS id, "
-                "orders.user_id AS user_id, "
-                "orders.address_id AS address_id, "
-                "orders.description AS description, orders.isopen AS isopen "
-                "FROM orders WHERE orders.description != %(description_1)s) "
-                "UPDATE orders SET description=%(description)s "
-                "FROM pd WHERE orders.id = pd.id "
-                "AND orders.description != %(description_2)s",
+                "WITH pd AS (SELECT orders.id AS id, orders.user_id AS"
+                " user_id, orders.address_id AS address_id, orders.description"
+                " AS description, orders.isopen AS isopen FROM orders WHERE"
+                " orders.description != %(description_1)s::VARCHAR) UPDATE"
+                " orders SET description=%(description)s::VARCHAR FROM pd"
+                " WHERE orders.id = pd.id AND orders.description !="
+                " %(description_2)s::VARCHAR",
                 dialect="postgresql",
                 checkparams={
                     "description": "newname",
@@ -792,13 +944,12 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
             # inside the SELECT
             self.assert_compile(
                 stmt,
-                "WITH pd AS (SELECT orders.id AS id, "
-                "orders.user_id AS user_id, "
-                "orders.address_id AS address_id, "
-                "orders.description AS description, orders.isopen AS isopen "
-                "FROM orders WHERE orders.description != %(description_1)s) "
-                "UPDATE orders SET description=%(description)s "
-                "FROM pd WHERE orders.id = pd.id",
+                "WITH pd AS (SELECT orders.id AS id, orders.user_id AS"
+                " user_id, orders.address_id AS address_id, orders.description"
+                " AS description, orders.isopen AS isopen FROM orders WHERE"
+                " orders.description != %(description_1)s::VARCHAR) UPDATE"
+                " orders SET description=%(description)s::VARCHAR FROM pd"
+                " WHERE orders.id = pd.id",
                 dialect="postgresql",
                 checkparams={
                     "description": "newname",
@@ -833,12 +984,12 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
         if delete_is_orm:
             self.assert_compile(
                 stmt,
-                "WITH pd AS (SELECT orders.id AS id, orders.user_id AS "
-                "user_id, orders.address_id AS address_id, "
-                "orders.description AS description, orders.isopen AS isopen "
-                "FROM orders WHERE orders.description != %(description_1)s) "
-                "DELETE FROM orders USING pd WHERE orders.id = pd.id "
-                "AND orders.description != %(description_2)s",
+                "WITH pd AS (SELECT orders.id AS id, orders.user_id AS"
+                " user_id, orders.address_id AS address_id, orders.description"
+                " AS description, orders.isopen AS isopen FROM orders WHERE"
+                " orders.description != %(description_1)s::VARCHAR) DELETE"
+                " FROM orders USING pd WHERE orders.id = pd.id AND"
+                " orders.description != %(description_2)s::VARCHAR",
                 dialect="postgresql",
                 checkparams={"description_1": "name", "description_2": "name"},
             )
@@ -847,11 +998,11 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
             # inside the SELECT
             self.assert_compile(
                 stmt,
-                "WITH pd AS (SELECT orders.id AS id, orders.user_id AS "
-                "user_id, orders.address_id AS address_id, "
-                "orders.description AS description, orders.isopen AS isopen "
-                "FROM orders WHERE orders.description != %(description_1)s) "
-                "DELETE FROM orders USING pd WHERE orders.id = pd.id",
+                "WITH pd AS (SELECT orders.id AS id, orders.user_id AS"
+                " user_id, orders.address_id AS address_id, orders.description"
+                " AS description, orders.isopen AS isopen FROM orders WHERE"
+                " orders.description != %(description_1)s::VARCHAR) DELETE"
+                " FROM orders USING pd WHERE orders.id = pd.id",
                 dialect="postgresql",
                 checkparams={"description_1": "name"},
             )
@@ -956,9 +1107,9 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                 [],
             ),
             CompiledSQL(
-                "SELECT addresses.user_id AS addresses_user_id, addresses.id "
-                "AS addresses_id, addresses.email_address "
-                "AS addresses_email_address FROM addresses "
+                "SELECT addresses.user_id, addresses.id, "
+                "addresses.email_address "
+                "FROM addresses "
                 "WHERE addresses.user_id IN (__[POSTCOMPILE_primary_keys]) "
                 "AND addresses.email_address != :email_address_1 "
                 "ORDER BY addresses.id",
@@ -992,9 +1143,9 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                 [],
             ),
             CompiledSQL(
-                "SELECT addresses.user_id AS addresses_user_id, addresses.id "
-                "AS addresses_id, addresses.email_address "
-                "AS addresses_email_address FROM addresses "
+                "SELECT addresses.user_id, addresses.id, "
+                "addresses.email_address "
+                "FROM addresses "
                 "WHERE addresses.user_id IN (__[POSTCOMPILE_primary_keys]) "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
@@ -1012,9 +1163,9 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                 [],
             ),
             CompiledSQL(
-                "SELECT addresses.user_id AS addresses_user_id, addresses.id "
-                "AS addresses_id, addresses.email_address "
-                "AS addresses_email_address FROM addresses "
+                "SELECT addresses.user_id, addresses.id, "
+                "addresses.email_address "
+                "FROM addresses "
                 "WHERE addresses.user_id IN (__[POSTCOMPILE_primary_keys]) "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
@@ -1047,36 +1198,36 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                 [],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :email_address_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 7, "email_address_1": "name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :email_address_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 8, "email_address_1": "name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :email_address_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 9, "email_address_1": "name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :email_address_1 "
                 "ORDER BY addresses.id",
@@ -1115,36 +1266,36 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                 [],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 7, "closure_1": "name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 8, "closure_1": "name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 9, "closure_1": "name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
@@ -1165,36 +1316,36 @@ class LoaderCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                 [],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 7, "closure_1": "new name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 8, "closure_1": "new name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
                 [{"param_1": 9, "closure_1": "new name"}],
             ),
             CompiledSQL(
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.user_id AS addresses_user_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.user_id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id "
                 "AND addresses.email_address != :closure_1 "
                 "ORDER BY addresses.id",
@@ -1994,9 +2145,9 @@ class RelationshipCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                     "SELECT users.id, users.name FROM users ORDER BY users.id"
                 ),
                 CompiledSQL(
-                    "SELECT addresses.user_id AS addresses_user_id, "
-                    "addresses.id AS addresses_id, addresses.email_address "
-                    "AS addresses_email_address FROM addresses "
+                    "SELECT addresses.user_id, addresses.id, "
+                    "addresses.email_address "
+                    "FROM addresses "
                     "WHERE addresses.user_id IN "
                     "(__[POSTCOMPILE_primary_keys]) "
                     "AND addresses.email_address != :email_address_1 "
@@ -2053,9 +2204,8 @@ class RelationshipCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                     "SELECT users.id, users.name FROM users ORDER BY users.id"
                 ),
                 CompiledSQL(
-                    "SELECT addresses.user_id AS addresses_user_id, "
-                    "addresses.id AS addresses_id, "
-                    "addresses.email_address AS addresses_email_address "
+                    "SELECT addresses.user_id, addresses.id, "
+                    "addresses.email_address "
                     # note the comma-separated FROM clause
                     "FROM addresses, (SELECT addresses_1.id AS id FROM "
                     "addresses AS addresses_1 "
@@ -2247,13 +2397,13 @@ class RelationshipCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                     [{"id_1": 7}],
                 ),
                 CompiledSQL(
-                    "SELECT orders.user_id AS orders_user_id, "
-                    "orders.id AS orders_id, "
-                    "orders.address_id AS orders_address_id, "
-                    "orders.description AS orders_description, "
-                    "orders.isopen AS orders_isopen, "
-                    "items_1.id AS items_1_id, "
-                    "items_1.description AS items_1_description "
+                    "SELECT orders.user_id, "
+                    "orders.id, "
+                    "orders.address_id, "
+                    "orders.description, "
+                    "orders.isopen, "
+                    "items_1.id, "
+                    "items_1.description "
                     "FROM orders LEFT OUTER JOIN "
                     "(order_items AS order_items_1 "
                     "JOIN items AS items_1 "
@@ -2310,36 +2460,36 @@ class RelationshipCriteriaTest(_Fixtures, testing.AssertsCompiledSQL):
                     "SELECT users.id, users.name FROM users ORDER BY users.id"
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS addresses_user_id, "
-                    "addresses.email_address AS addresses_email_address "
+                    "SELECT addresses.id, "
+                    "addresses.user_id, "
+                    "addresses.email_address "
                     "FROM addresses WHERE :param_1 = addresses.user_id "
                     "AND addresses.email_address != :email_address_1 "
                     "ORDER BY addresses.id",
                     [{"param_1": 7, "email_address_1": value}],
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS addresses_user_id, "
-                    "addresses.email_address AS addresses_email_address "
+                    "SELECT addresses.id, "
+                    "addresses.user_id, "
+                    "addresses.email_address "
                     "FROM addresses WHERE :param_1 = addresses.user_id "
                     "AND addresses.email_address != :email_address_1 "
                     "ORDER BY addresses.id",
                     [{"param_1": 8, "email_address_1": value}],
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS addresses_user_id, "
-                    "addresses.email_address AS addresses_email_address "
+                    "SELECT addresses.id, "
+                    "addresses.user_id, "
+                    "addresses.email_address "
                     "FROM addresses WHERE :param_1 = addresses.user_id "
                     "AND addresses.email_address != :email_address_1 "
                     "ORDER BY addresses.id",
                     [{"param_1": 9, "email_address_1": value}],
                 ),
                 CompiledSQL(
-                    "SELECT addresses.id AS addresses_id, "
-                    "addresses.user_id AS addresses_user_id, "
-                    "addresses.email_address AS addresses_email_address "
+                    "SELECT addresses.id, "
+                    "addresses.user_id, "
+                    "addresses.email_address "
                     "FROM addresses WHERE :param_1 = addresses.user_id "
                     "AND addresses.email_address != :email_address_1 "
                     "ORDER BY addresses.id",
@@ -2760,17 +2910,19 @@ class JoinedloadOfTypeAndTest(fixtures.DeclarativeMappedTest):
                 "SELECT owner.id, owner.name FROM owner",
             ),
             CompiledSQL(
-                "SELECT anon_1.animal_owner_id AS anon_1_animal_owner_id, "
-                "anon_1.animal_id AS anon_1_animal_id, anon_1.animal_type "
-                "AS anon_1_animal_type, anon_1.animal_name "
-                "AS anon_1_animal_name, anon_1.dog_id AS anon_1_dog_id, "
-                "anon_1.dog_breed AS anon_1_dog_breed FROM "
-                "(SELECT animal.id AS animal_id, animal.type AS animal_type, "
-                "animal.name AS animal_name, animal.owner_id AS "
-                "animal_owner_id, dog.id AS dog_id, dog.breed AS dog_breed "
-                "FROM animal LEFT OUTER JOIN dog ON animal.id = dog.id) "
-                "AS anon_1 WHERE anon_1.animal_owner_id "
-                "IN (__[POSTCOMPILE_primary_keys]) "
-                "AND anon_1.dog_breed = :breed_1"
+                "SELECT anon_1.animal_owner_id,"
+                " anon_1.animal_id, anon_1.animal_type,"
+                " anon_1.animal_name,"
+                " anon_1.dog_id, anon_1.dog_breed"
+                " FROM (SELECT animal.id AS animal_id,"
+                " animal.type AS animal_type,"
+                " animal.name AS animal_name,"
+                " animal.owner_id AS animal_owner_id,"
+                " dog.id AS dog_id, dog.breed AS dog_breed"
+                " FROM animal LEFT OUTER JOIN dog"
+                " ON animal.id = dog.id) AS anon_1"
+                " WHERE anon_1.animal_owner_id IN"
+                " (__[POSTCOMPILE_primary_keys])"
+                " AND anon_1.dog_breed = :breed_1",
             ),
         )

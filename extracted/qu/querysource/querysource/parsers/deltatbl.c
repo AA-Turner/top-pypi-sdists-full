@@ -1619,6 +1619,7 @@ struct __pyx_vtabstruct_11querysource_7parsers_8abstract_AbstractParser {
   PyObject *(*get_query_filters)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch);
   PyObject *(*where_cond)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, int __pyx_skip_dispatch);
   PyObject *(*query)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch);
+  int (*is_paged)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, int __pyx_skip_dispatch);
   PyObject *(*filtering_options)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, int __pyx_skip_dispatch);
   PyObject *(*_get_function_replacement)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *, PyObject *, PyObject *);
   PyObject *(*_merge_conditions_and_filters)(struct __pyx_obj_11querysource_7parsers_8abstract_AbstractParser *, PyObject *);

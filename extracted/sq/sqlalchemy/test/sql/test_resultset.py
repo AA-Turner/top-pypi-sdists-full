@@ -1,4 +1,3 @@
-import collections
 from collections import defaultdict
 import collections.abc as collections_abc
 from contextlib import contextmanager
@@ -34,6 +33,7 @@ from sqlalchemy import VARCHAR
 from sqlalchemy.engine import cursor as _cursor
 from sqlalchemy.engine import default
 from sqlalchemy.engine import Row
+from sqlalchemy.engine.result import IteratorResult
 from sqlalchemy.engine.result import SimpleResultMetaData
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import ColumnElement
@@ -48,6 +48,7 @@ from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import assertions
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
+from sqlalchemy.testing import expect_deprecated
 from sqlalchemy.testing import expect_raises
 from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import fixtures
@@ -155,47 +156,95 @@ class CursorResultTest(fixtures.TablesTest):
         )
 
     @testing.requires.insert_executemany_returning
-    def test_splice_horizontally(self, connection):
+    @testing.variation("filters", ["unique", "sliced", "plain"])
+    def test_splice_horizontally(self, connection, filters):
         users = self.tables.users
         addresses = self.tables.addresses
 
-        r1 = connection.execute(
-            users.insert().returning(users.c.user_name, users.c.user_id),
-            [
-                dict(user_id=1, user_name="john"),
-                dict(user_id=2, user_name="jack"),
-            ],
-        )
+        if filters.unique:
+            r1 = connection.execute(
+                users.insert().returning(users.c.user_name),
+                [
+                    dict(user_id=1, user_name="john"),
+                    dict(user_id=2, user_name="john"),
+                ],
+            )
+            r2 = connection.execute(
+                addresses.insert().returning(
+                    addresses.c.address,
+                ),
+                [
+                    dict(address_id=1, user_id=1, address="foo@bar.com"),
+                    dict(address_id=2, user_id=2, address="foo@bar.com"),
+                ],
+            )
+        else:
+            r1 = connection.execute(
+                users.insert().returning(users.c.user_name, users.c.user_id),
+                [
+                    dict(user_id=1, user_name="john"),
+                    dict(user_id=2, user_name="jack"),
+                ],
+            )
+            r2 = connection.execute(
+                addresses.insert().returning(
+                    addresses.c.address_id,
+                    addresses.c.address,
+                    addresses.c.user_id,
+                ),
+                [
+                    dict(address_id=1, user_id=1, address="foo@bar.com"),
+                    dict(address_id=2, user_id=2, address="bar@bat.com"),
+                ],
+            )
 
-        r2 = connection.execute(
-            addresses.insert().returning(
-                addresses.c.address_id,
-                addresses.c.address,
-                addresses.c.user_id,
-            ),
-            [
-                dict(address_id=1, user_id=1, address="foo@bar.com"),
-                dict(address_id=2, user_id=2, address="bar@bat.com"),
-            ],
-        )
+        if filters.sliced:
+            r1 = r1.columns(users.c.user_name)
+            r2 = r2.columns(addresses.c.address, addresses.c.user_id)
+        elif filters.unique:
+            r1 = r1.unique()
+            r2 = r2.unique()
 
         rows = r1.splice_horizontally(r2).all()
-        eq_(
-            rows,
-            [
-                ("john", 1, 1, "foo@bar.com", 1),
-                ("jack", 2, 2, "bar@bat.com", 2),
-            ],
-        )
 
-        eq_(rows[0]._mapping[users.c.user_id], 1)
-        eq_(rows[0]._mapping[addresses.c.user_id], 1)
-        eq_(rows[1].address, "bar@bat.com")
+        if filters.sliced:
+            eq_(
+                rows,
+                [
+                    ("john", "foo@bar.com", 1),
+                    ("jack", "bar@bat.com", 2),
+                ],
+            )
+            eq_(rows[0]._mapping[users.c.user_name], "john")
+            eq_(rows[0].address, "foo@bar.com")
+        elif filters.unique:
+            eq_(
+                rows,
+                [
+                    ("john", "foo@bar.com"),
+                ],
+            )
+            eq_(rows[0]._mapping[users.c.user_name], "john")
+            eq_(rows[0].address, "foo@bar.com")
+        elif filters.plain:
+            eq_(
+                rows,
+                [
+                    ("john", 1, 1, "foo@bar.com", 1),
+                    ("jack", 2, 2, "bar@bat.com", 2),
+                ],
+            )
 
-        with expect_raises_message(
-            exc.InvalidRequestError, "Ambiguous column name 'user_id'"
-        ):
-            rows[0].user_id
+            eq_(rows[0]._mapping[users.c.user_id], 1)
+            eq_(rows[0]._mapping[addresses.c.user_id], 1)
+            eq_(rows[1].address, "bar@bat.com")
+
+            with expect_raises_message(
+                exc.InvalidRequestError, "Ambiguous column name 'user_id'"
+            ):
+                rows[0].user_id
+        else:
+            filters.fail()
 
     def test_keys_no_rows(self, connection):
         for i in range(2):
@@ -268,6 +317,7 @@ class CursorResultTest(fixtures.TablesTest):
         r = connection.scalars(users.select().order_by(users.c.user_id))
         eq_(r.all(), [7, 8, 9])
 
+    @expect_deprecated(".*is deprecated, Row now behaves like a tuple.*")
     def test_result_tuples(self, connection):
         users = self.tables.users
 
@@ -284,6 +334,7 @@ class CursorResultTest(fixtures.TablesTest):
         ).tuples()
         eq_(r.all(), [(7, "jack"), (8, "ed"), (9, "fred")])
 
+    @expect_deprecated(".*is deprecated, Row now behaves like a tuple.*")
     def test_row_tuple(self, connection):
         users = self.tables.users
 
@@ -906,6 +957,7 @@ class CursorResultTest(fixtures.TablesTest):
         not_in("user_name", r._mapping)
         eq_(list(r._fields), ["users.user_id", "users.user_name"])
 
+    @testing.emits_warning("Column-expression-level unary distinct")
     def test_column_accessor_unary(self, connection):
         users = self.tables.users
 
@@ -1497,10 +1549,7 @@ class CursorResultTest(fixtures.TablesTest):
         row = result.first()
         dict_row = row._asdict()
 
-        # dictionaries aren't ordered in Python 3 until 3.7
-        odict_row = collections.OrderedDict(
-            [("user_id", 1), ("user_name", "foo")]
-        )
+        odict_row = dict([("user_id", 1), ("user_name", "foo")])
         eq_(dict_row, odict_row)
 
         mapping_row = row._mapping
@@ -1870,6 +1919,7 @@ class CursorResultTest(fixtures.TablesTest):
         eq_(row.key, "kv")
         eq_(row.count, "cv")
         eq_(row.index, "iv")
+        eq_(row.foo, "f")
 
         eq_(row._mapping["foo"], "f")
         eq_(row._mapping["count"], "cv")
@@ -1891,6 +1941,27 @@ class CursorResultTest(fixtures.TablesTest):
         eq_(row.index("cv"), 1)
         eq_(row.count("cv"), 1)
         eq_(row.count("x"), 0)
+
+    def test_row_precedence_normal_names(self):
+        f = ("_fields", "_asdict", "_mapping", "as_tuple")
+        v = ["ff", "ad", "mm", "at"]
+        metadata = SimpleResultMetaData(f)
+
+        class SubRow(Row):
+            # use subclass to ensure there is always a public method
+            @property
+            def as_tuple(self):
+                return tuple(self)
+
+        row = SubRow(metadata, None, metadata._key_to_index, v)
+
+        eq_(row._fields, f)
+        eq_(row._asdict(), dict(zip(f, v)))
+        eq_(row._mapping, dict(zip(f, v)))
+        eq_(row.as_tuple, tuple(v))
+
+        with expect_raises(AttributeError):
+            getattr(row, "")  # test cython getattr edge case
 
     def test_new_row_no_dict_behaviors(self):
         """This mode is not used currently but will be once we are in 2.0."""
@@ -3595,9 +3666,10 @@ class AlternateCursorResultTest(fixtures.TablesTest):
                 r = conn.execute(select(self.table).limit(1))
 
                 r.fetchone()
-                with mock.patch.object(
-                    r, "_soft_close", raise_
-                ), testing.expect_raises_message(IOError, "random non-DBAPI"):
+                with (
+                    mock.patch.object(r, "_soft_close", raise_),
+                    testing.expect_raises_message(IOError, "random non-DBAPI"),
+                ):
                     r.first()
                 r.close()
 
@@ -3847,3 +3919,115 @@ class GenerativeResultTest(fixtures.TablesTest):
             start += 20
 
         assert result._soft_closed
+
+
+class AllTuplesTest(fixtures.TablesTest):
+    """test Result._raw_all_tuples(), which ORM loading uses to fetch
+    processed rows without constructing Row objects."""
+
+    @classmethod
+    def define_tables(cls, metadata):
+        class UpperString(TypeDecorator):
+            impl = String(50)
+            cache_ok = True
+
+            def process_result_value(self, value, dialect):
+                return value.upper() if value is not None else None
+
+        Table(
+            "interim",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("plain", String(50)),
+            Column("upper", UpperString()),
+        )
+
+    @classmethod
+    def insert_data(cls, connection):
+        connection.execute(
+            cls.tables.interim.insert(),
+            [
+                {"id": 1, "plain": "p1", "upper": "u1"},
+                {"id": 2, "plain": "p2", "upper": None},
+            ],
+        )
+
+    def test_processors_applied(self, connection):
+        """rows are plain tuples with result processors applied"""
+        t = self.tables.interim
+        result = connection.execute(select(t).order_by(t.c.id))
+        rows = result._raw_all_tuples()
+        eq_(list(rows), [(1, "p1", "U1"), (2, "p2", None)])
+        for r in rows:
+            is_(type(r), tuple)
+
+    def test_no_processors(self, connection):
+        """rows with no result processors in play are plain tuples"""
+        t = self.tables.interim
+        result = connection.execute(select(t.c.id, t.c.plain).order_by(t.c.id))
+        rows = result._raw_all_tuples()
+        eq_(list(rows), [(1, "p1"), (2, "p2")])
+        for r in rows:
+            is_(type(r), tuple)
+
+    def test_empty_result(self, connection):
+        t = self.tables.interim
+        result = connection.execute(select(t).where(t.c.id == -1))
+        eq_(list(result._raw_all_tuples()), [])
+
+    def test_rejects_unique_filter(self, connection):
+        """_raw_all_tuples() does not apply uniquing, so asserts it's not
+        present"""
+        t = self.tables.interim
+        result = connection.execute(select(t).order_by(t.c.id))
+        with expect_raises(AssertionError):
+            result.unique()._raw_all_tuples()
+        result.close()
+
+    def test_rejects_post_creational_filter(self, connection):
+        """_raw_all_tuples() does not apply post-creational filters such as
+        the one used by mappings(), so asserts it's not present"""
+        t = self.tables.interim
+        result = connection.execute(select(t).order_by(t.c.id))
+        with expect_raises(AssertionError):
+            result.mappings()._raw_all_tuples()
+        result.close()
+
+    def test_rejects_scalar_source(self):
+        """_raw_all_tuples() asserts that interim_rows is not None, which
+        excludes results whose source delivers scalars without row
+        construction"""
+        result = IteratorResult(
+            SimpleResultMetaData(["a"]),
+            iter([(1,), (2,)]),
+            _source_supports_scalars=True,
+        )
+        result._generate_rows = False
+        with expect_raises(AssertionError):
+            result._raw_all_tuples()
+
+    def test_row_logging_falls_back_to_rows(self, debug_logging_engine):
+        """with debug-level engine logging established, Row objects are
+        built so that each row can be logged"""
+        t = self.tables.interim
+        testing_engine, buf = debug_logging_engine
+
+        engine = testing_engine(echo="debug")
+        with engine.connect() as conn:
+            result = conn.execute(select(t).order_by(t.c.id))
+            rows = result._raw_all_tuples()
+
+        eq_(len(rows), 2)
+        for r in rows:
+            is_true(isinstance(r, Row))
+        eq_(tuple(rows[0]), (1, "p1", "U1"))
+
+        row_messages = [
+            rec.getMessage()
+            for rec in buf.buffer
+            if rec.getMessage().startswith("Row ")
+        ]
+        eq_(
+            row_messages,
+            ["Row (1, 'p1', 'U1')", "Row (2, 'p2', None)"],
+        )

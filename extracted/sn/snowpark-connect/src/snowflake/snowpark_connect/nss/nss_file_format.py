@@ -8,11 +8,17 @@ TVF path.
 ``STAGE_FILE_READER`` takes a ``FILE_FORMAT`` by name; the FILE FORMAT is consumed by the
 TVF (at compile) and the XP external scanner (at read) — **not** by the sandbox Spark
 reader, which decodes from ``READER_OPTIONS``. So the format only needs the stage/scanner
-concerns: the file *type*, ``COMPRESSION``, ``MULTI_LINE``, and (CSV only)
+concerns: the file *type*, ``COMPRESSION``, ``MULTI_LINE`` (JSON/CSV only), and (CSV only)
 ``RECORD_DELIMITER``. Decoding options (field delimiters, mode, timestamp formats, …) are
 intentionally omitted to avoid conflicting with the Spark reader options (see plan Q4) —
 the clauses here are on the format because GS *reads them for splitability*, not because
 the scanner decodes with them.
+
+XML has neither clause: ``StageFormat.XML``'s format-options set has no
+``MULTI_LINE``/``RECORD_DELIMITER`` entry, so declaring either raises "option not
+applicable to type 'XML'". Nothing is lost — ``XmlFileFormat.isSplitable`` is
+unconditionally ``false`` (``<rowTag>`` nesting has no mid-file split point that survives
+a chunk boundary, unlike a newline), so byte-range parallel scan never applies to XML.
 
 ``COMPRESSION`` belongs on the format because the scanner splits files into byte chunks
 *before* the sandbox sees them — a compressed stream cannot be decoded from an arbitrary
@@ -68,7 +74,10 @@ from snowflake.snowpark_connect.relation.io_utils import (
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 
-_SF_FILE_TYPE = {"json": "JSON", "csv": "CSV"}
+_SF_FILE_TYPE = {"json": "JSON", "csv": "CSV", "xml": "XML"}
+
+# Formats whose Snowflake FILE FORMAT type has a MULTI_LINE clause (XML does not).
+_MULTI_LINE_CAPABLE_FORMATS = frozenset({"json", "csv"})
 
 _TRUE_VALUES = frozenset({"true", "1"})
 _FALSE_VALUES = frozenset({"false", "0", ""})
@@ -93,7 +102,7 @@ def resolve_nss_compression_option(reader_options: dict, fmt: str) -> str:
             lower-cased keys). ``compression`` is always present: ``map_read`` seeds the
             SCOS default and ``_resolve_read_compression`` may have already replaced it
             with a codec inferred from the file extensions.
-        fmt: ``"json"`` or ``"csv"``.
+        fmt: ``"json"``, ``"csv"``, or ``"xml"``.
 
     Returns:
         A Snowflake ``COMPRESSION`` value, upper-cased; ``"AUTO"`` when unset.
@@ -115,6 +124,9 @@ def resolve_nss_multiline_option(reader_options: dict) -> str:
     ``CSVOptions``, which throws, and SCOS's own ``str_to_bool`` rejects them on the COPY
     path. Coercing them to ``FALSE`` instead would silently declare a multi-line file
     splittable.
+
+    JSON/CSV only — XML has no ``multiLine`` option and no ``MULTI_LINE`` clause, so an XML
+    read should not call this at all.
 
     Args:
         reader_options: The read's ``options.config`` (Spark ``.option()`` values,
@@ -224,6 +236,9 @@ def _format_name(
     for a read that declared different clauses. Every clause that
     ``ensure_nss_temp_file_format`` emits must appear here, or ``CREATE ... IF NOT EXISTS``
     silently keeps the first read's format and the second read's options are dropped.
+
+    ``ensure_nss_temp_file_format`` normalizes ``multi_line`` to ``"FALSE"`` for formats
+    that have no such clause, so their names always collapse to the base name.
     """
     comp = compression.upper()
     suffix = "" if comp == "AUTO" else f"_{comp}"
@@ -249,15 +264,15 @@ def ensure_nss_temp_file_format(
 
     Args:
         session: Active Snowpark session.
-        fmt: ``"json"`` or ``"csv"``.
+        fmt: ``"json"``, ``"csv"``, or ``"xml"``.
         compression: Snowflake ``COMPRESSION`` value (``AUTO`` by default; e.g. ``GZIP``,
             ``BZ2``, ``NONE``). ``AUTO`` detects the codec from the file extension.
         multi_line: Snowflake ``MULTI_LINE`` value (``"FALSE"`` by default, matching
-            Spark's own ``multiLine`` default). Applies to both JSON and CSV.
+            Spark's own ``multiLine`` default). **JSON/CSV only** — ignored for ``xml``,
+            whose FILE FORMAT type has no such clause, rather than producing invalid DDL.
         record_delimiter: Snowflake ``RECORD_DELIMITER`` value, or ``None`` (default) to
-            omit the clause and keep Snowflake's ``'\\n'``. **CSV only** — a JSON FILE
-            FORMAT has no such property, so a value passed with ``fmt="json"`` is ignored
-            rather than producing invalid DDL.
+            omit the clause and keep Snowflake's ``'\\n'``. **CSV only** — ignored for any
+            other ``fmt``, for the same reason.
 
     Returns:
         The temp FILE FORMAT name to pass as ``FILE_FORMAT``.
@@ -265,7 +280,8 @@ def ensure_nss_temp_file_format(
     key = fmt.lower()
     sf_type = _SF_FILE_TYPE[key]
     comp = compression.upper()
-    ml = multi_line.upper()
+    supports_multi_line = key in _MULTI_LINE_CAPABLE_FORMATS
+    ml = multi_line.upper() if supports_multi_line else "FALSE"
     rd = record_delimiter if key == "csv" else None
     name = _format_name(key, comp, ml, rd)
 
@@ -281,10 +297,9 @@ def ensure_nss_temp_file_format(
     if name in created:
         return name
 
-    sql = (
-        f"CREATE TEMP FILE FORMAT IF NOT EXISTS {name} "
-        f"TYPE = {sf_type} COMPRESSION = {comp} MULTI_LINE = {ml}"
-    )
+    sql = f"CREATE TEMP FILE FORMAT IF NOT EXISTS {name} TYPE = {sf_type} COMPRESSION = {comp}"
+    if supports_multi_line:
+        sql += f" MULTI_LINE = {ml}"
     if rd is not None:
         sql += f" RECORD_DELIMITER = '{_sql_escape_delimiter(rd)}'"
     # NSS read path: internal temp-FILE-FORMAT DDL. Keep the log, but keep the "NSS"

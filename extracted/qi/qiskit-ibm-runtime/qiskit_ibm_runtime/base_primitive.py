@@ -45,8 +45,8 @@ def get_mode_service_backend(
     mode: BackendV2 | Session | Batch | None = None,
 ) -> tuple[
     Session | Batch | None,
-    QiskitRuntimeService | QiskitRuntimeLocalService | None,
-    BackendV2 | None,
+    QiskitRuntimeService | QiskitRuntimeLocalService,
+    BackendV2,
 ]:
     """A utility function that returns mode, service, and backend for a given execution mode.
 
@@ -123,11 +123,19 @@ class BasePrimitiveV2(ABC, Generic[OptionsT]):
         self._mode, self._service, self._backend = get_mode_service_backend(mode)
         self._set_options(options)
 
-    def _run(self, pubs: list[EstimatorPub] | list[SamplerPub]) -> RuntimeJobV2:
+    def _run(
+        self, pubs: list[EstimatorPub] | list[SamplerPub], dry_run: bool = False
+    ) -> RuntimeJobV2:
         """Run the primitive.
 
         Args:
             pubs: Inputs PUBs to pass to the primitive.
+            dry_run: If ``True``, performs a dry run without executing the job on a QPU. This mode
+                can be used to validate the job, estimate usage consumption, and retrieve circuit
+                timing metadata. Returned results preserve the expected schema but contain
+                **randomized mock data** rather than actual or simulated measurement results.
+                Unlike the fake backends, the processing of this dry run happens on the server-side,
+                so the job may not finish immediately and access to this feature may be restricted.
 
         Returns:
             Submitted job.
@@ -165,6 +173,7 @@ class BasePrimitiveV2(ABC, Generic[OptionsT]):
                 inputs=primitive_inputs,
                 options=runtime_options,
                 calibration_id=calibration_id,
+                dry_run=dry_run,
             )
 
         if self._backend:
@@ -187,6 +196,7 @@ class BasePrimitiveV2(ABC, Generic[OptionsT]):
                 options=runtime_options,
                 inputs=primitive_inputs,
                 calibration_id=calibration_id,
+                dry_run=dry_run,
             )
 
         return self._service._run(
@@ -194,6 +204,7 @@ class BasePrimitiveV2(ABC, Generic[OptionsT]):
             options=runtime_options,
             inputs=primitive_inputs,
             calibration_id=calibration_id,
+            dry_run=dry_run,
         )
 
     @property

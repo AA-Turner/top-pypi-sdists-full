@@ -419,6 +419,14 @@ def details(cls):
     return inst
 
 
+class EqException(Exception):
+    def __init__(self, msg):
+        self.msg = msg
+
+    def __eq__(self, other):
+        return isinstance(other, EqException) and other.msg == self.msg
+
+
 ALL_EXC = [
     (
         [sa_exceptions.SQLAlchemyError],
@@ -426,8 +434,13 @@ ALL_EXC = [
     ),
     ([sa_exceptions.ObjectNotExecutableError], [lambda cls: cls("xx")]),
     (
+        [sa_exceptions.EmulatedDBAPIException],
+        [lambda cls: cls("xx", EqException("original"))],
+    ),
+    (
         [
             sa_exceptions.ArgumentError,
+            sa_exceptions.AmbiguousColumnError,
             sa_exceptions.DuplicateColumnError,
             sa_exceptions.ConstraintColumnNotFoundError,
             sa_exceptions.NoSuchModuleError,
@@ -440,6 +453,7 @@ ALL_EXC = [
             sa_exceptions.TimeoutError,
             sa_exceptions.InvalidRequestError,
             sa_exceptions.IllegalStateChangeError,
+            sa_exceptions.NoDBAPILoaded,
             sa_exceptions.NoInspectionAvailable,
             sa_exceptions.PendingRollbackError,
             sa_exceptions.ResourceClosedError,

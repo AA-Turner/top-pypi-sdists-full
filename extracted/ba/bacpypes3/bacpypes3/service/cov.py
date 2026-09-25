@@ -1,38 +1,38 @@
 """
 Change Of Value Services
 """
-
 from __future__ import annotations
 
 import asyncio
 from functools import partial
+
 from typing import (
     Any as _Any,
-)
-from typing import (
     Callable,
     Optional,
     Tuple,
 )
 
-from ..apdu import (
-    ConfirmedCOVNotificationRequest,
-    ErrorRejectAbortNack,
-    SimpleAckPDU,
-    SubscribeCOVRequest,
-    UnconfirmedCOVNotificationRequest,
-)
-from ..basetypes import PropertyIdentifier, PropertyValue
-from ..constructeddata import Array
-from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
+from ..settings import settings
+from ..debugging import bacpypes_debugging, DebugContents, ModuleLogger
+
+from ..pdu import Address
+
 from ..errors import (
     DecodingError,
     ExecutionError,
     ServicesError,
 )
-from ..pdu import Address
-from ..primitivedata import ObjectIdentifier, Unsigned
-from ..settings import settings
+from ..primitivedata import Unsigned, ObjectIdentifier
+from ..constructeddata import Array
+from ..basetypes import PropertyIdentifier, PropertyValue
+from ..apdu import (
+    SimpleAckPDU,
+    ErrorRejectAbortNack,
+    SubscribeCOVRequest,
+    ConfirmedCOVNotificationRequest,
+    UnconfirmedCOVNotificationRequest,
+)
 from ..vendor import get_vendor_info
 
 # some debugging
@@ -44,7 +44,7 @@ _log = ModuleLogger(globals())
 class SubscriptionContextManager:
     _debug: Callable[..., None]
 
-    app: Application  # noqa: F821
+    app: "Application"  # noqa: F821
     address: Address
     monitored_object_identifier: ObjectIdentifier
     subscriber_process_identifier: int
@@ -53,7 +53,7 @@ class SubscriptionContextManager:
 
     def __init__(
         self,
-        app: Application,  # noqa: F821
+        app: "Application",  # noqa: F821
         address: Address,
         monitored_object_identifier: ObjectIdentifier,
         subscriber_process_identifier: int,

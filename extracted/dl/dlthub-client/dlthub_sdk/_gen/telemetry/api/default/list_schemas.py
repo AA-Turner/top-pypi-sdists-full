@@ -8,8 +8,8 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.error_response_400 import ErrorResponse400
+from ...models.list_page_schema_name_item import ListPageSchemaNameItem
 from ...models.list_schemas_order_type_0_item import ListSchemasOrderType0Item
-from ...models.list_schemas_response_200 import ListSchemasResponse200
 from ...models.list_schemas_sort_type_0_item import ListSchemasSortType0Item
 from ...types import UNSET, Response, Unset
 
@@ -23,6 +23,7 @@ def _get_kwargs(
     dataset_name: list[str] | None | Unset = UNSET,
     sort: list[ListSchemasSortType0Item] | None | Unset = UNSET,
     order: list[ListSchemasOrderType0Item] | None | Unset = UNSET,
+    cursor: None | str | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -76,6 +77,13 @@ def _get_kwargs(
         json_order = order
     params["order"] = json_order
 
+    json_cursor: None | str | Unset
+    if isinstance(cursor, Unset):
+        json_cursor = UNSET
+    else:
+        json_cursor = cursor
+    params["cursor"] = json_cursor
+
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     _kwargs: dict[str, Any] = {
@@ -91,9 +99,9 @@ def _get_kwargs(
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> ErrorResponse400 | ListSchemasResponse200 | None:
+) -> ErrorResponse400 | ListPageSchemaNameItem | None:
     if response.status_code == 200:
-        response_200 = ListSchemasResponse200.from_dict(response.json())
+        response_200 = ListPageSchemaNameItem.from_dict(response.json())
 
         return response_200
 
@@ -110,7 +118,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[ErrorResponse400 | ListSchemasResponse200]:
+) -> Response[ErrorResponse400 | ListPageSchemaNameItem]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -129,7 +137,8 @@ def sync_detailed(
     dataset_name: list[str] | None | Unset = UNSET,
     sort: list[ListSchemasSortType0Item] | None | Unset = UNSET,
     order: list[ListSchemasOrderType0Item] | None | Unset = UNSET,
-) -> Response[ErrorResponse400 | ListSchemasResponse200]:
+    cursor: None | str | Unset = UNSET,
+) -> Response[ErrorResponse400 | ListPageSchemaNameItem]:
     """ListSchemas
 
     Args:
@@ -145,13 +154,16 @@ def sync_detailed(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListSchemasOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ListSchemasResponse200]
+        Response[ErrorResponse400 | ListPageSchemaNameItem]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -161,6 +173,7 @@ def sync_detailed(
         dataset_name=dataset_name,
         sort=sort,
         order=order,
+        cursor=cursor,
     )
 
     response = client.get_httpx_client().request(
@@ -180,7 +193,8 @@ def sync(
     dataset_name: list[str] | None | Unset = UNSET,
     sort: list[ListSchemasSortType0Item] | None | Unset = UNSET,
     order: list[ListSchemasOrderType0Item] | None | Unset = UNSET,
-) -> ErrorResponse400 | ListSchemasResponse200 | None:
+    cursor: None | str | Unset = UNSET,
+) -> ErrorResponse400 | ListPageSchemaNameItem | None:
     """ListSchemas
 
     Args:
@@ -196,13 +210,16 @@ def sync(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListSchemasOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ListSchemasResponse200
+        ErrorResponse400 | ListPageSchemaNameItem
     """
     return sync_detailed(
         workspace_id=workspace_id,
@@ -213,6 +230,7 @@ def sync(
         dataset_name=dataset_name,
         sort=sort,
         order=order,
+        cursor=cursor,
     ).parsed
 
 
@@ -226,7 +244,8 @@ async def asyncio_detailed(
     dataset_name: list[str] | None | Unset = UNSET,
     sort: list[ListSchemasSortType0Item] | None | Unset = UNSET,
     order: list[ListSchemasOrderType0Item] | None | Unset = UNSET,
-) -> Response[ErrorResponse400 | ListSchemasResponse200]:
+    cursor: None | str | Unset = UNSET,
+) -> Response[ErrorResponse400 | ListPageSchemaNameItem]:
     """ListSchemas
 
     Args:
@@ -242,13 +261,16 @@ async def asyncio_detailed(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListSchemasOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse400 | ListSchemasResponse200]
+        Response[ErrorResponse400 | ListPageSchemaNameItem]
     """
     kwargs = _get_kwargs(
         workspace_id=workspace_id,
@@ -258,6 +280,7 @@ async def asyncio_detailed(
         dataset_name=dataset_name,
         sort=sort,
         order=order,
+        cursor=cursor,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -275,7 +298,8 @@ async def asyncio(
     dataset_name: list[str] | None | Unset = UNSET,
     sort: list[ListSchemasSortType0Item] | None | Unset = UNSET,
     order: list[ListSchemasOrderType0Item] | None | Unset = UNSET,
-) -> ErrorResponse400 | ListSchemasResponse200 | None:
+    cursor: None | str | Unset = UNSET,
+) -> ErrorResponse400 | ListPageSchemaNameItem | None:
     """ListSchemas
 
     Args:
@@ -291,13 +315,16 @@ async def asyncio(
             order given. Pairs positionally with `order`, which must have the same number of entries.
         order (list[ListSchemasOrderType0Item] | None | Unset): Sort directions, one per `sort`
             key and in the same order. Required whenever `sort` is supplied.
+        cursor (None | str | Unset): Opaque cursor from a previous response's `next_cursor`;
+            returns the rows after it under the same `sort` and `order`. Mutually exclusive with
+            `offset`.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse400 | ListSchemasResponse200
+        ErrorResponse400 | ListPageSchemaNameItem
     """
     return (
         await asyncio_detailed(
@@ -309,5 +336,6 @@ async def asyncio(
             dataset_name=dataset_name,
             sort=sort,
             order=order,
+            cursor=cursor,
         )
     ).parsed

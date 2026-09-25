@@ -557,15 +557,15 @@ class UpdateDeleteTest(fixtures.MappedTest):
         to_assert = [
             # refresh john
             CompiledSQL(
-                "SELECT users.id AS users_id, users.name AS users_name, "
-                "users.age_int AS users_age_int FROM users "
+                "SELECT users.id, users.name, users.age_int "
+                "FROM users "
                 "WHERE users.id = :pk_1",
                 [{"pk_1": 1}],
             ),
             # refresh jill
             CompiledSQL(
-                "SELECT users.id AS users_id, users.name AS users_name, "
-                "users.age_int AS users_age_int FROM users "
+                "SELECT users.id, users.name, users.age_int "
+                "FROM users "
                 "WHERE users.id = :pk_1",
                 [{"pk_1": 3}],
             ),
@@ -575,8 +575,8 @@ class UpdateDeleteTest(fixtures.MappedTest):
             to_assert.append(
                 # refresh jane for partial attributes
                 CompiledSQL(
-                    "SELECT users.name AS users_name, "
-                    "users.age_int AS users_age_int FROM users "
+                    "SELECT users.name, users.age_int "
+                    "FROM users "
                     "WHERE users.id = :pk_1",
                     [{"pk_1": 4}],
                 )
@@ -672,9 +672,9 @@ class UpdateDeleteTest(fixtures.MappedTest):
         if testing.db.dialect.update_returning:
             asserter.assert_(
                 CompiledSQL(
-                    "UPDATE users SET age_int=(users.age_int + %(age_int_1)s) "
-                    "WHERE users.name IS NOT NULL "
-                    "RETURNING users.id",
+                    "UPDATE users SET age_int=(users.age_int +"
+                    " %(age_int_1)s::INTEGER) WHERE users.name IS NOT NULL"
+                    " RETURNING users.id",
                     [{"age_int_1": 10}],
                     dialect="postgresql",
                 ),
@@ -682,8 +682,7 @@ class UpdateDeleteTest(fixtures.MappedTest):
         else:
             asserter.assert_(
                 CompiledSQL(
-                    "SELECT users.id FROM users "
-                    "WHERE users.name IS NOT NULL"
+                    "SELECT users.id FROM users WHERE users.name IS NOT NULL"
                 ),
                 CompiledSQL(
                     "UPDATE users SET age_int=(users.age_int + :age_int_1) "
@@ -701,15 +700,15 @@ class UpdateDeleteTest(fixtures.MappedTest):
         asserter.assert_(
             # refresh john
             CompiledSQL(
-                "SELECT users.id AS users_id, users.name AS users_name, "
-                "users.age_int AS users_age_int FROM users "
+                "SELECT users.id, users.name, users.age_int "
+                "FROM users "
                 "WHERE users.id = :pk_1",
                 [{"pk_1": 1}],
             ),
             # refresh jill
             CompiledSQL(
-                "SELECT users.id AS users_id, users.name AS users_name, "
-                "users.age_int AS users_age_int FROM users "
+                "SELECT users.id, users.name, users.age_int "
+                "FROM users "
                 "WHERE users.id = :pk_1",
                 [{"pk_1": 3}],
             ),
@@ -1230,8 +1229,9 @@ class UpdateDeleteTest(fixtures.MappedTest):
         if implicit_returning and testing.db.dialect.update_returning:
             asserter.assert_(
                 CompiledSQL(
-                    "UPDATE users SET age_int=(users.age_int - %(age_int_1)s) "
-                    "WHERE users.age_int > %(age_int_2)s RETURNING users.id",
+                    "UPDATE users SET age_int=(users.age_int -"
+                    " %(age_int_1)s::INTEGER) WHERE users.age_int >"
+                    " %(age_int_2)s::INTEGER RETURNING users.id",
                     [{"age_int_1": 10, "age_int_2": 29}],
                     dialect="postgresql",
                 ),
@@ -1276,8 +1276,9 @@ class UpdateDeleteTest(fixtures.MappedTest):
         if testing.db.dialect.update_returning:
             asserter.assert_(
                 CompiledSQL(
-                    "UPDATE users SET age_int=(users.age_int - %(age_int_1)s) "
-                    "WHERE users.age_int > %(age_int_2)s RETURNING users.id",
+                    "UPDATE users SET age_int=(users.age_int -"
+                    " %(age_int_1)s::INTEGER) WHERE users.age_int >"
+                    " %(age_int_2)s::INTEGER RETURNING users.id",
                     [{"age_int_1": 10, "age_int_2": 29}],
                     dialect="postgresql",
                 ),
@@ -1322,8 +1323,9 @@ class UpdateDeleteTest(fixtures.MappedTest):
 
         asserter.assert_(
             CompiledSQL(
-                "UPDATE users SET age_int=(users.age_int - %(age_int_1)s) "
-                "WHERE users.age_int > %(age_int_2)s RETURNING users.id",
+                "UPDATE users SET age_int=(users.age_int -"
+                " %(age_int_1)s::INTEGER) WHERE users.age_int >"
+                " %(age_int_2)s::INTEGER RETURNING users.id",
                 [{"age_int_1": 10, "age_int_2": 29}],
                 dialect="postgresql",
             ),
@@ -1364,10 +1366,11 @@ class UpdateDeleteTest(fixtures.MappedTest):
 
         asserter.assert_(
             CompiledSQL(
-                "UPDATE users SET age_int=(users.age_int - %(age_int_1)s) "
+                "UPDATE users SET "
+                "age_int=(users.age_int - %(age_int_1)s::INTEGER) "
                 "FROM addresses "
                 "WHERE users.id = addresses.user_id AND "
-                "users.age_int > %(age_int_2)s "
+                "users.age_int > %(age_int_2)s::INTEGER "
                 "RETURNING users.id, addresses.email_address, "
                 "char_length(users.name) AS char_length_1",
                 [{"age_int_1": 10, "age_int_2": 29}],
@@ -1497,8 +1500,8 @@ class UpdateDeleteTest(fixtures.MappedTest):
         if implicit_returning and testing.db.dialect.delete_returning:
             asserter.assert_(
                 CompiledSQL(
-                    "DELETE FROM users WHERE users.age_int > %(age_int_1)s "
-                    "RETURNING users.id",
+                    "DELETE FROM users WHERE users.age_int >"
+                    " %(age_int_1)s::INTEGER RETURNING users.id",
                     [{"age_int_1": 29}],
                     dialect="postgresql",
                 ),
@@ -1542,8 +1545,8 @@ class UpdateDeleteTest(fixtures.MappedTest):
         if testing.db.dialect.delete_returning:
             asserter.assert_(
                 CompiledSQL(
-                    "DELETE FROM users WHERE users.age_int > %(age_int_1)s "
-                    "RETURNING users.id",
+                    "DELETE FROM users WHERE users.age_int >"
+                    " %(age_int_1)s::INTEGER RETURNING users.id",
                     [{"age_int_1": 29}],
                     dialect="postgresql",
                 ),
@@ -2032,11 +2035,9 @@ class UpdateDeleteTest(fixtures.MappedTest):
         def do_orm_execute(bulk_ud):
             cols = [
                 c.key
-                for c, v in (
-                    (
-                        bulk_ud.result.context
-                    ).compiled.compile_state.statement._ordered_values
-                )
+                for c in (
+                    bulk_ud.result.context
+                ).compiled.compile_state.statement._values
             ]
             m1(cols)
 
@@ -2090,11 +2091,7 @@ class UpdateDeleteTest(fixtures.MappedTest):
         result = session.execute(stmt)
         cols = [
             c.key
-            for c, v in (
-                (
-                    result.context
-                ).compiled.compile_state.statement._ordered_values
-            )
+            for c in (result.context).compiled.compile_state.statement._values
         ]
         eq_(["age_int", "name"], cols)
 
@@ -2111,9 +2108,7 @@ class UpdateDeleteTest(fixtures.MappedTest):
         result = session.execute(stmt)
         cols = [
             c.key
-            for c, v in (
-                result.context
-            ).compiled.compile_state.statement._ordered_values
+            for c in (result.context).compiled.compile_state.statement._values
         ]
         eq_(["name", "age_int"], cols)
 

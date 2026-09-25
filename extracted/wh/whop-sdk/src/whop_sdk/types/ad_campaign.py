@@ -34,7 +34,17 @@ class AdCampaign(UniversalBaseModel):
 
     budget_amount: typing.Optional[float] = pydantic.Field(default=None)
     """
-    The campaign's budget, in the ad account's currency. `null` when each ad group sets its own budget instead.
+    The campaign's budget in USD, which is what it is stored and billed in. `null` when each ad group sets its own budget instead.
+    """
+
+    budget_amount_local: typing.Optional[float] = pydantic.Field(default=None)
+    """
+    The same budget stated in `budget_currency` at today's exchange rate, for display in the account's ads reporting currency. `null` when `budget_amount` is.
+    """
+
+    budget_currency: str = pydantic.Field()
+    """
+    The ISO 4217 code `budget_amount_local` is in: the account's `ads_reporting_currency` preference. `usd` unless the account changed it.
     """
 
     budget_optimization: typing.Optional[AdCampaignBudgetOptimization] = pydantic.Field(default=None)
@@ -159,7 +169,7 @@ class AdCampaign(UniversalBaseModel):
 
     delivery_status: AdCampaignDeliveryStatus = pydantic.Field()
     """
-    Whether the campaign's ads are delivering right now, and if not, why. When several states apply at once, the highest-precedence one is returned.
+    Whether the campaign's ads are delivering right now, and if not, why. Account billing failures set payment_failed without changing the configured status. Successful payment retry clears that block and recalculates delivery. When several states apply at once, the highest-precedence one is returned.
     """
 
     frequency: typing.Optional[float] = pydantic.Field(default=None)
@@ -266,7 +276,7 @@ class AdCampaign(UniversalBaseModel):
 
     status: AdCampaignStatus = pydantic.Field()
     """
-    The lifecycle status of the ad campaign.
+    The configured lifecycle status of the ad campaign. Billing failures preserve active or paused here and set delivery_status to payment_failed.
     """
 
     submitted_application_value: float = pydantic.Field()

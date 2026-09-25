@@ -96,7 +96,12 @@ class PermissionBridge(t.Protocol):
     """
 
     async def request_tool_approval(
-        self, *, tool_name: str, tool_input: dict[str, t.Any]
+        self,
+        *,
+        tool_name: str,
+        tool_input: dict[str, t.Any],
+        tool_call_id: str | None = None,
+        reason: str | None = None,
     ) -> bool: ...
 
 

@@ -5,7 +5,9 @@ from .add_organization_member_request import AddOrganizationMemberRequest
 from .add_organization_member_response_409 import AddOrganizationMemberResponse409
 from .add_workspace_member_request import AddWorkspaceMemberRequest
 from .add_workspace_member_response_409 import AddWorkspaceMemberResponse409
+from .alert_filters import AlertFilters
 from .alert_response import AlertResponse
+from .alert_upsert_request import AlertUpsertRequest
 from .archive_script_response_409 import ArchiveScriptResponse409
 from .archive_workspace_response_409 import ArchiveWorkspaceResponse409
 from .backoffice_org_member_response import BackofficeOrgMemberResponse
@@ -32,6 +34,7 @@ from .create_organization_request import CreateOrganizationRequest
 from .create_run_request import CreateRunRequest
 from .create_run_response_409 import CreateRunResponse409
 from .create_script_request import CreateScriptRequest
+from .create_script_request_job_definition import CreateScriptRequestJobDefinition
 from .create_user_api_key_request import CreateUserApiKeyRequest
 from .create_user_api_key_response import CreateUserApiKeyResponse
 from .create_user_api_key_response_409 import CreateUserApiKeyResponse409
@@ -46,6 +49,7 @@ from .dataplane_access_token_response import DataplaneAccessTokenResponse
 from .dataplane_info import DataplaneInfo
 from .delete_workspace_api_key_response_409 import DeleteWorkspaceApiKeyResponse409
 from .deploy_manifest_request import DeployManifestRequest
+from .deploy_manifest_request_jobs_item import DeployManifestRequestJobsItem
 from .deploy_manifest_response import DeployManifestResponse
 from .deploy_response_409 import DeployResponse409
 from .deployment_create_payload import DeploymentCreatePayload
@@ -61,63 +65,69 @@ from .email_subscription_upsert import EmailSubscriptionUpsert
 from .enable_public_url_response_409 import EnablePublicUrlResponse409
 from .error_code import ErrorCode
 from .error_response_400 import ErrorResponse400
-from .error_response_400_extra import ErrorResponse400Extra
 from .error_response_401 import ErrorResponse401
-from .error_response_401_extra import ErrorResponse401Extra
 from .error_response_403 import ErrorResponse403
-from .error_response_403_extra import ErrorResponse403Extra
 from .error_response_404 import ErrorResponse404
-from .error_response_404_extra import ErrorResponse404Extra
 from .error_response_409 import ErrorResponse409
-from .error_response_409_extra import ErrorResponse409Extra
 from .executor_run_status_request import ExecutorRunStatusRequest
+from .facet_value import FacetValue
 from .instance_size import InstanceSize
 from .instance_usage import InstanceUsage
 from .interactive_url_response import InteractiveUrlResponse
 from .invite_response import InviteResponse
 from .invite_status import InviteStatus
+from .job_category import JobCategory
 from .list_configurations_order_type_0_item import ListConfigurationsOrderType0Item
-from .list_configurations_response_200 import ListConfigurationsResponse200
 from .list_configurations_sort_type_0_item import ListConfigurationsSortType0Item
 from .list_deployments_order_type_0_item import ListDeploymentsOrderType0Item
-from .list_deployments_response_200 import ListDeploymentsResponse200
 from .list_deployments_sort_type_0_item import ListDeploymentsSortType0Item
 from .list_organization_invites_order_type_0_item import (
     ListOrganizationInvitesOrderType0Item,
 )
-from .list_organization_invites_response_200 import ListOrganizationInvitesResponse200
 from .list_organization_members_order_type_0_item import (
     ListOrganizationMembersOrderType0Item,
 )
-from .list_organization_members_response_200 import ListOrganizationMembersResponse200
 from .list_organization_members_sort_type_0_item import (
     ListOrganizationMembersSortType0Item,
 )
 from .list_organizations_order_type_0_item import ListOrganizationsOrderType0Item
-from .list_organizations_response_200 import ListOrganizationsResponse200
 from .list_organizations_sort_type_0_item import ListOrganizationsSortType0Item
+from .list_page_backoffice_org_member_response import (
+    ListPageBackofficeOrgMemberResponse,
+)
+from .list_page_backoffice_workspace_member_response import (
+    ListPageBackofficeWorkspaceMemberResponse,
+)
+from .list_page_configuration_response import ListPageConfigurationResponse
+from .list_page_deployment_response import ListPageDeploymentResponse
+from .list_page_detailed_run_response import ListPageDetailedRunResponse
+from .list_page_detailed_script_response import ListPageDetailedScriptResponse
+from .list_page_invite_response import ListPageInviteResponse
+from .list_page_organization_member_response import ListPageOrganizationMemberResponse
+from .list_page_organization_response import ListPageOrganizationResponse
+from .list_page_organization_workspace_response import (
+    ListPageOrganizationWorkspaceResponse,
+)
+from .list_page_script_version_response import ListPageScriptVersionResponse
+from .list_page_user_api_key_response import ListPageUserApiKeyResponse
+from .list_page_user_response import ListPageUserResponse
+from .list_page_workspace_api_key_response import ListPageWorkspaceApiKeyResponse
+from .list_page_workspace_member_response import ListPageWorkspaceMemberResponse
+from .list_page_workspace_response import ListPageWorkspaceResponse
 from .list_runs_order_type_0_item import ListRunsOrderType0Item
-from .list_runs_response_200 import ListRunsResponse200
 from .list_runs_sort_type_0_item import ListRunsSortType0Item
 from .list_script_versions_order_type_0_item import ListScriptVersionsOrderType0Item
-from .list_script_versions_response_200 import ListScriptVersionsResponse200
 from .list_script_versions_sort_type_0_item import ListScriptVersionsSortType0Item
 from .list_scripts_order_type_0_item import ListScriptsOrderType0Item
-from .list_scripts_response_200 import ListScriptsResponse200
 from .list_scripts_sort_type_0_item import ListScriptsSortType0Item
 from .list_user_api_keys_order_type_0_item import ListUserApiKeysOrderType0Item
-from .list_user_api_keys_response_200 import ListUserApiKeysResponse200
 from .list_workspace_api_keys_order_type_0_item import (
     ListWorkspaceApiKeysOrderType0Item,
 )
-from .list_workspace_api_keys_response_200 import ListWorkspaceApiKeysResponse200
 from .list_workspace_invites_order_type_0_item import ListWorkspaceInvitesOrderType0Item
-from .list_workspace_invites_response_200 import ListWorkspaceInvitesResponse200
 from .list_workspace_members_order_type_0_item import ListWorkspaceMembersOrderType0Item
-from .list_workspace_members_response_200 import ListWorkspaceMembersResponse200
 from .list_workspace_members_sort_type_0_item import ListWorkspaceMembersSortType0Item
 from .list_workspaces_order_type_0_item import ListWorkspacesOrderType0Item
-from .list_workspaces_response_200 import ListWorkspacesResponse200
 from .list_workspaces_sort_type_0_item import ListWorkspacesSortType0Item
 from .me_response import MeResponse
 from .organization_billing_type import OrganizationBillingType
@@ -145,11 +155,13 @@ from .resume_script_response_409 import ResumeScriptResponse409
 from .revoke_workspace_invite_response_409 import RevokeWorkspaceInviteResponse409
 from .run_bucket_data import RunBucketData
 from .run_bucket_data_duration_seconds_by_type import RunBucketDataDurationSecondsByType
+from .run_facets import RunFacets
 from .run_mode import RunMode
 from .run_response import RunResponse
 from .run_stats_bucket import RunStatsBucket
 from .run_stats_response import RunStatsResponse
 from .run_status import RunStatus
+from .script_facets import ScriptFacets
 from .script_response import ScriptResponse
 from .script_type import ScriptType
 from .script_version_response import ScriptVersionResponse
@@ -157,6 +169,7 @@ from .set_organization_region_request import SetOrganizationRegionRequest
 from .set_workspace_org_role_response_409 import SetWorkspaceOrgRoleResponse409
 from .start_shared_run_response_409 import StartSharedRunResponse409
 from .status_counts import StatusCounts
+from .t_agent_definition import TAgentDefinition
 from .t_deliver_spec import TDeliverSpec
 from .t_entry_point import TEntryPoint
 from .t_entry_point_job_type import TEntryPointJobType
@@ -165,15 +178,29 @@ from .t_expose_spec import TExposeSpec
 from .t_expose_spec_category import TExposeSpecCategory
 from .t_expose_spec_interface import TExposeSpecInterface
 from .t_interval_spec import TIntervalSpec
+from .t_interval_spec_mode import TIntervalSpecMode
 from .t_job_definition import TJobDefinition
-from .t_job_definition_refresh import TJobDefinitionRefresh
+from .t_job_definition_auto_refresh_pipeline_mode import (
+    TJobDefinitionAutoRefreshPipelineMode,
+)
+from .t_job_definition_incremental_mode import TJobDefinitionIncrementalMode
+from .t_job_definition_inputs import TJobDefinitionInputs
+from .t_job_definition_output import TJobDefinitionOutput
+from .t_job_definition_refresh_propagation import TJobDefinitionRefreshPropagation
+from .t_job_object_input import TJobObjectInput
+from .t_job_object_input_entity_type import TJobObjectInputEntityType
 from .t_require_spec import TRequireSpec
 from .t_require_spec_instance import TRequireSpecInstance
 from .t_timeout_spec import TTimeoutSpec
+from .t_workspace_access import TWorkspaceAccess
+from .t_workspace_access_context_item import TWorkspaceAccessContextItem
+from .t_workspace_access_data_item import TWorkspaceAccessDataItem
+from .t_workspace_access_local_item import TWorkspaceAccessLocalItem
 from .trigger_catalog_entry import TriggerCatalogEntry
 from .trigger_jobs_request import TriggerJobsRequest
 from .trigger_jobs_response import TriggerJobsResponse
 from .trigger_jobs_response_409 import TriggerJobsResponse409
+from .trigger_kind import TriggerKind
 from .trigger_type import TriggerType
 from .triggered_job import TriggeredJob
 from .triggered_job_status import TriggeredJobStatus
@@ -220,7 +247,9 @@ __all__ = (
     "AddOrganizationMemberResponse409",
     "AddWorkspaceMemberRequest",
     "AddWorkspaceMemberResponse409",
+    "AlertFilters",
     "AlertResponse",
+    "AlertUpsertRequest",
     "ArchiveScriptResponse409",
     "ArchiveWorkspaceResponse409",
     "BackofficeOrgMemberResponse",
@@ -247,6 +276,7 @@ __all__ = (
     "CreateRunRequest",
     "CreateRunResponse409",
     "CreateScriptRequest",
+    "CreateScriptRequestJobDefinition",
     "CreateUserApiKeyRequest",
     "CreateUserApiKeyResponse",
     "CreateUserApiKeyResponse409",
@@ -261,6 +291,7 @@ __all__ = (
     "DataplaneInfo",
     "DeleteWorkspaceApiKeyResponse409",
     "DeployManifestRequest",
+    "DeployManifestRequestJobsItem",
     "DeployManifestResponse",
     "DeploymentCreatePayload",
     "DeploymentResponse",
@@ -276,55 +307,55 @@ __all__ = (
     "EnablePublicUrlResponse409",
     "ErrorCode",
     "ErrorResponse400",
-    "ErrorResponse400Extra",
     "ErrorResponse401",
-    "ErrorResponse401Extra",
     "ErrorResponse403",
-    "ErrorResponse403Extra",
     "ErrorResponse404",
-    "ErrorResponse404Extra",
     "ErrorResponse409",
-    "ErrorResponse409Extra",
     "ExecutorRunStatusRequest",
+    "FacetValue",
     "InstanceSize",
     "InstanceUsage",
     "InteractiveUrlResponse",
     "InviteResponse",
     "InviteStatus",
+    "JobCategory",
     "ListConfigurationsOrderType0Item",
-    "ListConfigurationsResponse200",
     "ListConfigurationsSortType0Item",
     "ListDeploymentsOrderType0Item",
-    "ListDeploymentsResponse200",
     "ListDeploymentsSortType0Item",
     "ListOrganizationInvitesOrderType0Item",
-    "ListOrganizationInvitesResponse200",
     "ListOrganizationMembersOrderType0Item",
-    "ListOrganizationMembersResponse200",
     "ListOrganizationMembersSortType0Item",
     "ListOrganizationsOrderType0Item",
-    "ListOrganizationsResponse200",
     "ListOrganizationsSortType0Item",
+    "ListPageBackofficeOrgMemberResponse",
+    "ListPageBackofficeWorkspaceMemberResponse",
+    "ListPageConfigurationResponse",
+    "ListPageDeploymentResponse",
+    "ListPageDetailedRunResponse",
+    "ListPageDetailedScriptResponse",
+    "ListPageInviteResponse",
+    "ListPageOrganizationMemberResponse",
+    "ListPageOrganizationResponse",
+    "ListPageOrganizationWorkspaceResponse",
+    "ListPageScriptVersionResponse",
+    "ListPageUserApiKeyResponse",
+    "ListPageUserResponse",
+    "ListPageWorkspaceApiKeyResponse",
+    "ListPageWorkspaceMemberResponse",
+    "ListPageWorkspaceResponse",
     "ListRunsOrderType0Item",
-    "ListRunsResponse200",
     "ListRunsSortType0Item",
     "ListScriptsOrderType0Item",
-    "ListScriptsResponse200",
     "ListScriptsSortType0Item",
     "ListScriptVersionsOrderType0Item",
-    "ListScriptVersionsResponse200",
     "ListScriptVersionsSortType0Item",
     "ListUserApiKeysOrderType0Item",
-    "ListUserApiKeysResponse200",
     "ListWorkspaceApiKeysOrderType0Item",
-    "ListWorkspaceApiKeysResponse200",
     "ListWorkspaceInvitesOrderType0Item",
-    "ListWorkspaceInvitesResponse200",
     "ListWorkspaceMembersOrderType0Item",
-    "ListWorkspaceMembersResponse200",
     "ListWorkspaceMembersSortType0Item",
     "ListWorkspacesOrderType0Item",
-    "ListWorkspacesResponse200",
     "ListWorkspacesSortType0Item",
     "MeResponse",
     "OrganizationBillingType",
@@ -348,11 +379,13 @@ __all__ = (
     "RevokeWorkspaceInviteResponse409",
     "RunBucketData",
     "RunBucketDataDurationSecondsByType",
+    "RunFacets",
     "RunMode",
     "RunResponse",
     "RunStatsBucket",
     "RunStatsResponse",
     "RunStatus",
+    "ScriptFacets",
     "ScriptResponse",
     "ScriptType",
     "ScriptVersionResponse",
@@ -360,6 +393,7 @@ __all__ = (
     "SetWorkspaceOrgRoleResponse409",
     "StartSharedRunResponse409",
     "StatusCounts",
+    "TAgentDefinition",
     "TDeliverSpec",
     "TEntryPoint",
     "TEntryPointJobType",
@@ -368,8 +402,15 @@ __all__ = (
     "TExposeSpecCategory",
     "TExposeSpecInterface",
     "TIntervalSpec",
+    "TIntervalSpecMode",
     "TJobDefinition",
-    "TJobDefinitionRefresh",
+    "TJobDefinitionAutoRefreshPipelineMode",
+    "TJobDefinitionIncrementalMode",
+    "TJobDefinitionInputs",
+    "TJobDefinitionOutput",
+    "TJobDefinitionRefreshPropagation",
+    "TJobObjectInput",
+    "TJobObjectInputEntityType",
     "TRequireSpec",
     "TRequireSpecInstance",
     "TriggerCatalogEntry",
@@ -378,8 +419,13 @@ __all__ = (
     "TriggerJobsRequest",
     "TriggerJobsResponse",
     "TriggerJobsResponse409",
+    "TriggerKind",
     "TriggerType",
     "TTimeoutSpec",
+    "TWorkspaceAccess",
+    "TWorkspaceAccessContextItem",
+    "TWorkspaceAccessDataItem",
+    "TWorkspaceAccessLocalItem",
     "UnarchiveScriptResponse409",
     "UnarchiveWorkspaceResponse409",
     "UpdatedScript",

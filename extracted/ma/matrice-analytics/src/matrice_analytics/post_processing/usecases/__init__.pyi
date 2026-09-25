@@ -1,6 +1,7 @@
 """Stub file for post_processing.usecases directory."""
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+from . import lpr_ocr_source
 from ...analytics.engine_session import map_detection_categories
 from ...analytics.redis_publisher import AnalyticsRedisPublisher
 from ..Trackers import ConfigDrivenTracker, TrackerProfile
@@ -138,6 +139,10 @@ HAS_MATRICE_SESSION: bool = ...  # From license_plate_monitoring
 major_version: Any = ...  # From license_plate_monitoring
 minor_version: Any = ...  # From license_plate_monitoring
 logger: Any = ...  # From liquid_leak_detection
+OCR_SOURCE_ENV: str = ...  # From lpr_ocr_source
+OCR_SOURCE_LOCAL: str = ...  # From lpr_ocr_source
+OCR_SOURCE_UPSTREAM: str = ...  # From lpr_ocr_source
+VALID_OCR_SOURCES: Tuple[Any, ...] = ...  # From lpr_ocr_source
 MASK_CATEGORY_AGGREGATION: Dict[Any, Any] = ...  # From mask_detection
 logger: Any = ...  # From phone_screen_defect_detection
 logger: Any = ...  # From pipe_corrosion_detection
@@ -243,6 +248,49 @@ def hands_raised_above_head(detection: Dict[str, Any], kp_conf_thresh: float, ma
     facial landmark in frame).
     
     Returns (passed, head_ref_y, best_wrist_y) for telemetry; refs may be None if no pass.
+    """
+    ...
+
+# From lpr_ocr_source
+def build_upstream_ocr_analysis(use_case: Any, data: Any, config: Any) -> List[Dict[str, Any]]:
+    """
+    ``ocr_analysis`` built from the rows' own ``plate_text``, in detection order.
+    
+        Mirrors ``_analyze_ocr_in_image``'s record-per-detection contract, minus the crop. A
+        smoother-carried row (``_smoothed``) keeps the previous frame's text, so it gets an
+        empty record rather than a second vote for a stale read.
+    """
+    ...
+
+# From lpr_ocr_source
+def frame_rejection(use_case: Any, input_bytes: Any, config: Any) -> str | None:
+    """
+    The error to return for this frame, or ``None`` to process it.
+    
+        Replaces the ``input_bytes`` guard at the top of ``process``: ``local`` keeps that guard
+        and its message and warning unchanged; ``upstream`` needs no frame; anything else is
+        refused on every frame, since continuing as ``local`` would hide the misconfiguration.
+    """
+    ...
+
+# From lpr_ocr_source
+def is_upstream(config: Any) -> bool: ...
+
+# From lpr_ocr_source
+def resolve_ocr_source(config: Any) -> Tuple[str, str]:
+    """
+    ``(value, origin)``. The env var wins over the config whenever it is set and non-empty.
+    
+        The value is normalised (stripped, lower-cased) but not validated here; callers refuse
+        anything outside ``VALID_OCR_SOURCES`` rather than falling back to ``local``.
+    """
+    ...
+
+# From lpr_ocr_source
+def validation_errors(config: Any) -> List[str]:
+    """
+    The ``validate()`` half of the refusal. ``frame_rejection`` is the half that bites,
+        because the processing path does not call ``validate()``.
     """
     ...
 
@@ -524,6 +572,25 @@ class AgeGenderUseCase:
     def reset_tracker(self: Any) -> None:
         """
         Reset the advanced tracker instance.
+        """
+        ...
+
+
+# From alerts_verification
+class AlertsVerificationConfig:
+    # Configuration for Alerts Verification.
+
+    ...
+
+# From alerts_verification
+class AlertsVerificationUseCase:
+    # Raise a fire alert from a single detection, ready for remote verification.
+
+    def __init__(self: Any) -> None: ...
+
+    def process(self: Any, data: Any, config: Any, context: Optional[Any] = None, stream_info: Optional[Dict[str, Any]] = None) -> Any:
+        """
+        Alert on this frame's fire, if any.
         """
         ...
 
@@ -6131,4 +6198,4 @@ class WoundSegmentationUseCase:
         ...
 
 
-from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation
+from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, alerts_verification, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_ocr_source, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation

@@ -36,6 +36,8 @@ from dlthub_sdk.domain.files import FileEntry
 from dlthub_sdk.domain.job_runs import (
     CancelledRun,
     CancelReport,
+    JobResult,
+    JobResultTrace,
     JobRun,
     JobRuns,
     JobRunStatus,
@@ -224,6 +226,8 @@ __all__ = [
     "FileEntry",
     "InvalidResponse",
     "Job",
+    "JobResult",
+    "JobResultTrace",
     "JobRun",
     "JobRunStatus",
     "JobRuns",

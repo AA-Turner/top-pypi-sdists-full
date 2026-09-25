@@ -110,6 +110,7 @@ from snowflake.snowpark_connect.relation.iceberg_branch_dml import (
     _validate_iceberg_branch_name,
     relation_identifier_parts,
     resolve_iceberg_ref_dml_target_from_parts,
+    snowflake_cherrypick_sql,
     snowflake_fast_forward_sql,
     snowpark_table_for_ref_dml,
 )
@@ -146,16 +147,19 @@ from snowflake.snowpark_connect.relation.utils import (
     is_aggregate_function,
 )
 from snowflake.snowpark_connect.relation.write.map_write import (
+    _apply_leftover_table_properties,
     _build_base_location_clause,
     _build_table_properties_clause,
     _coerce_to_unstructured_complex_target,
     _column_order_for_write,
+    _consumed_table_property_keys,
     _create_cld_iceberg_table,
     _extract_iceberg_format_version,
     _get_writer_for_table_creation,
     _iceberg_table_properties_ddl_enabled,
     _is_unstructured_array,
     _is_unstructured_object,
+    _leftover_table_property_keys,
     _reject_max_snapshot_age_for_cld,
     _store_assignment_is_legacy,
     _store_assignment_policy,
@@ -333,6 +337,19 @@ def _execute_alter(
     session.sql(sql).collect()
 
 
+def _report_iceberg_ddl_if_iceberg(op: str, is_iceberg: bool) -> None:
+    """Emit an ``iceberg_ddl`` telemetry event for a table DDL op (SNOW-3985860).
+
+    No-op when the target isn't an Iceberg table; ``catalog_kind`` is derived from
+    the session CLD hint. Shared by the column-evolution and drop-table sites so the
+    gate/derivation don't drift.
+    """
+    if is_iceberg:
+        telemetry.report_iceberg_ddl(
+            op, catalog_kind="cld" if is_in_cld_context() else "managed"
+        )
+
+
 def _build_set_table_properties_sql(
     table_name: str, props: dict[str, str]
 ) -> str | None:
@@ -389,20 +406,40 @@ def _dispatch_set_table_properties(
     regular tables (e.g. ``test_truncate_option``). SNOW-3974370.
     """
     table_name = get_relation_identifier_name(logical_plan.table(), True)
-    if not _alter_target_is_iceberg(session, table_name):
-        _translate_and_execute_alter_via_sqlglot(session, sql_string)
-        return
-    # Gate parity with CREATE (SNOW-4061004): GS rejects TABLE_PROPERTIES unless
-    # ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is on, so no-op instead of failing.
-    if not _iceberg_table_properties_ddl_enabled():
-        return
     props: dict[str, str] = {}
     props_iter = logical_plan.properties().iterator()
     while props_iter.hasNext():
         pair = props_iter.next()
         props[str(pair._1())] = str(pair._2())
+    # Session-level CLD hint; "managed" here means "non-CLD session" (ALTER has no
+    # per-table catalog kind to read), so query 4 gets a value instead of NULL.
+    catalog_kind = "cld" if is_in_cld_context() else "managed"
+    if not _alter_target_is_iceberg(session, table_name):
+        telemetry.report_iceberg_table_properties(
+            "alter_set",
+            props.keys(),
+            outcome="dropped",
+            detail="non_iceberg_fallback",
+            catalog_kind=catalog_kind,
+        )
+        _translate_and_execute_alter_via_sqlglot(session, sql_string)
+        return
+    # Gate parity with CREATE (SNOW-4061004): GS rejects TABLE_PROPERTIES unless
+    # ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is on, so no-op instead of failing.
+    if not _iceberg_table_properties_ddl_enabled():
+        telemetry.report_iceberg_table_properties(
+            "alter_set",
+            props.keys(),
+            outcome="dropped",
+            detail="ddl_gate_off",
+            catalog_kind=catalog_kind,
+        )
+        return
     snowflake_sql = _build_set_table_properties_sql(table_name, props)
     if snowflake_sql:
+        telemetry.report_iceberg_table_properties(
+            "alter_set", props.keys(), outcome="emitted", catalog_kind=catalog_kind
+        )
         _execute_alter(session, snowflake_sql, table_name, known_iceberg=True)
 
 
@@ -414,14 +451,33 @@ def _dispatch_unset_table_properties(
     is not translated yet (GS UNSET IF EXISTS semantics unverified). SNOW-3974370.
     """
     table_name = get_relation_identifier_name(logical_plan.table(), True)
+    keys = [str(k) for k in as_java_list(logical_plan.propertyKeys())]
+    # Session-level CLD hint; see _dispatch_set_table_properties.
+    catalog_kind = "cld" if is_in_cld_context() else "managed"
     if not _alter_target_is_iceberg(session, table_name):
+        telemetry.report_iceberg_table_properties(
+            "alter_unset",
+            keys,
+            outcome="dropped",
+            detail="non_iceberg_fallback",
+            catalog_kind=catalog_kind,
+        )
         _translate_and_execute_alter_via_sqlglot(session, sql_string)
         return
     if not _iceberg_table_properties_ddl_enabled():  # gate parity with SET/CREATE
+        telemetry.report_iceberg_table_properties(
+            "alter_unset",
+            keys,
+            outcome="dropped",
+            detail="ddl_gate_off",
+            catalog_kind=catalog_kind,
+        )
         return
-    keys = [str(k) for k in as_java_list(logical_plan.propertyKeys())]
     snowflake_sql = _build_unset_table_properties_sql(table_name, keys)
     if snowflake_sql:
+        telemetry.report_iceberg_table_properties(
+            "alter_unset", keys, outcome="emitted", catalog_kind=catalog_kind
+        )
         _execute_alter(session, snowflake_sql, table_name, known_iceberg=True)
 
 
@@ -1099,15 +1155,21 @@ def _resolve_iceberg_system_procedure(proc_name_parts: list[str]) -> str:
         proc_name_parts[-2].lower() if len(proc_name_parts) >= 2 else ""
     )
     if immediate_namespace != "system":
+        telemetry.report_iceberg_unsupported_feature("proc_non_system_namespace")
         exception = SnowparkConnectNotImplementedError(
             f"Iceberg procedure '{'.'.join(proc_name_parts)}' is not supported."
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
-    supported = {"ancestors_of", "fast_forward", "create_changelog_view"}
+    supported = {
+        "ancestors_of",
+        # SNOW-3866418: CALL system.cherrypick_snapshot → ALTER ICEBERG TABLE … CHERRYPICK
+        "cherrypick_snapshot",
+        "fast_forward",
+        "create_changelog_view",
+    }
     if proc not in supported:
-        # Sizes PrPr demand for unimplemented WAP publish procedures
-        # (notably ``cherrypick_snapshot``) and any other system proc.
+        # Sizes PrPr demand for unimplemented Iceberg system procedures.
         telemetry.report_iceberg_wap(
             op="unsupported",
             surface="sql_call",
@@ -1164,6 +1226,63 @@ def _parse_fast_forward_args(logical_plan: object) -> tuple[str, str, str]:
     return str(table_val), branch, to_branch
 
 
+def _iceberg_call_snapshot_id(expr: object) -> int:
+    """Resolve ``cherrypick_snapshot`` ``snapshot_id`` to an int.
+
+    Iceberg's procedure contract is a long literal
+    (``CALL … cherrypick_snapshot('t', 1)``). The Iceberg CALL parser
+    does not accept a parenthesized ``SELECT`` argument
+    (SNOW-3866418).
+    """
+    simple_name = str(expr.getClass().getSimpleName())
+    if simple_name != "Literal":
+        exception = AnalysisException(
+            "Iceberg procedure `system.cherrypick_snapshot` `snapshot_id` "
+            f"must be a long literal; got {simple_name}."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    raw = expr.value()
+    try:
+        return int(str(raw))
+    except (TypeError, ValueError):
+        exception = AnalysisException(
+            "Iceberg procedure `system.cherrypick_snapshot` `snapshot_id` "
+            f"must be an integer; got `{raw}`."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception from None
+
+
+def _parse_cherrypick_snapshot_args(logical_plan: object) -> tuple[str, int]:
+    """Extract (table, snapshot_id) from ``system.cherrypick_snapshot``."""
+    positional_exprs: list = []
+    named_exprs: dict = {}
+    for arg in as_java_list(logical_plan.args()):
+        if str(arg.getClass().getSimpleName()) == "NamedArgument":
+            named_exprs[str(arg.name()).lower()] = arg.expr()
+        else:
+            positional_exprs.append(arg.expr())
+
+    table_expr = named_exprs.get(
+        "table", positional_exprs[0] if positional_exprs else None
+    )
+    snapshot_expr = named_exprs.get(
+        "snapshot_id", positional_exprs[1] if len(positional_exprs) > 1 else None
+    )
+    if table_expr is None or snapshot_expr is None:
+        exception = AnalysisException(
+            "Iceberg procedure `system.cherrypick_snapshot` requires `table` "
+            "and `snapshot_id` arguments."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    table_val = _iceberg_call_literal_value(table_expr)
+    snapshot_id = _iceberg_call_snapshot_id(snapshot_expr)
+    return str(table_val), snapshot_id
+
+
 def _raise_mapped_ancestors_of_error(
     e: Exception,
     table_name: str,
@@ -1194,6 +1313,9 @@ def _raise_mapped_ancestors_of_error(
     if code == 2004 and _looks_like_missing_iceberg_metadata_function(
         e, "ancestors_of"
     ):
+        telemetry.report_iceberg_unsupported_feature(
+            "proc_ancestors_of_function_unavailable"
+        )
         exception = AnalysisException(
             "Iceberg procedure `system.ancestors_of` requires the Snowflake "
             "`INFORMATION_SCHEMA.ICEBERG_TABLE_*` table functions, which are not "
@@ -1389,9 +1511,12 @@ def _create_cld_iceberg_table_as_select(
     """
     session = get_or_create_snowpark_session()
     properties = _extract_table_properties(logical_plan)
+    # RTAS (CREATE OR REPLACE ... AS SELECT) uses mode="overwrite"; plain/IF NOT
+    # EXISTS CTAS otherwise. Used only for telemetry labeling.
+    tp_op = "rtas" if mode == "overwrite" else "ctas"
     # Parity with the df.write CLD paths: reject max-snapshot-age.ms up front
     # with the explicit unsupported error (it is otherwise silently filtered).
-    _reject_max_snapshot_age_for_cld(True, properties)
+    _reject_max_snapshot_age_for_cld(True, properties, op=tp_op)
     iceberg_version = _extract_iceberg_format_version(properties)
     partition_cols = _extract_identity_partition_columns(logical_plan)
     # Thread a Spark LOCATION clause into BASE_LOCATION (consumed key, so it is
@@ -1414,6 +1539,7 @@ def _create_cld_iceberg_table_as_select(
             partition_cols=partition_cols or None,
             iceberg_version=iceberg_version,
             comment=comment,
+            op=tp_op,
         )
     except SnowparkSQLException as e:
         # CREATE TABLE IF NOT EXISTS AS SELECT: 2002 = "object already exists".
@@ -2055,6 +2181,9 @@ def _insert_into_table(logical_plan, session: Session) -> int | None:
 
             if table_partition_spec.uses_transform():
                 # TODO (SNOW-3046385): add support for transforms
+                telemetry.report_iceberg_unsupported_feature(
+                    "partition_overwrite_non_identity_transform"
+                )
                 raise SnowparkConnectNotImplementedError(
                     "Non-identity transforms are not supported for partition overwrites"
                 )
@@ -2421,6 +2550,7 @@ def _nested_struct_add_unsupported_on_cld(
     one stable error regardless of which path the request took.
     """
     nested_path = ".".join(col_name_parts)
+    telemetry.report_iceberg_unsupported_feature("nested_struct_add_on_cld")
     exception = SnowparkConnectNotImplementedError(
         "Nested struct schema evolution "
         f"(ALTER TABLE ... ADD COLUMNS ({nested_path} ...)) "
@@ -2807,6 +2937,7 @@ def _translate_create_view_snowpark_error(
         attach_custom_error_code(exception, ErrorCodes.INVALID_OPERATION)
         raise exception from e
     if getattr(e, "sql_error_code", None) == 93678 and is_in_cld_context():
+        telemetry.report_iceberg_unsupported_feature("create_view_on_cld")
         exception = AnalysisException(
             "CREATE VIEW is not supported on Snowflake "
             "catalog-linked databases (Glue / Unity "
@@ -2915,7 +3046,7 @@ def map_sql_to_pandas_df(
         # TODO: Add support for temporary views for SQL cases such as ShowViews, ShowColumns ect. (Currently the cases are not compatible with Spark, returning raw Snowflake rows)
         match class_name:
             case "CallStatement":
-                # SNOW-3527695 / SNOW-3471824: Iceberg
+                # SNOW-3527695 / SNOW-3471824 / SNOW-3866418: Iceberg
                 # `CALL [<catalog>.]system.<proc>(...)`.
                 proc_name_parts = [
                     str(part) for part in as_java_list(logical_plan.name())
@@ -2937,6 +3068,22 @@ def map_sql_to_pandas_df(
                         surface="sql_call",
                         ref_type="branch",
                         detail="fast_forward",
+                    )
+                    return pandas.DataFrame(), '{"type": "struct", "fields": []}'
+
+                if proc == "cherrypick_snapshot":
+                    table_sql, snapshot_id = _parse_cherrypick_snapshot_args(
+                        logical_plan
+                    )
+                    table_name = _spark_table_sql_to_snowflake(table_sql)
+                    _refresh_iceberg_table_metadata(session, table_name)
+                    cp_sql = snowflake_cherrypick_sql(table_name, snapshot_id)
+                    session.sql(cp_sql).collect()
+                    telemetry.report_iceberg_wap(
+                        op="publish",
+                        surface="sql_call",
+                        ref_type="snapshot",
+                        detail="cherrypick_snapshot",
                     )
                     return pandas.DataFrame(), '{"type": "struct", "fields": []}'
 
@@ -2973,6 +3120,11 @@ def map_sql_to_pandas_df(
             case "AddColumns":
                 # Handle ALTER TABLE ... ADD COLUMNS (col_name data_type) -> ADD COLUMN col_name data_type
                 table_name = get_relation_identifier_name(logical_plan.table(), True)
+
+                # One iceberg_ddl event per ADD COLUMNS statement (SNOW-3985860),
+                # regardless of how many columns; reused for the _execute_alter gate.
+                is_iceberg = _alter_target_is_iceberg(session, table_name)
+                _report_iceberg_ddl_if_iceberg("add_columns", is_iceberg)
 
                 # Get column definitions from logical plan
                 columns_to_add = logical_plan.columnsToAdd()
@@ -3029,7 +3181,9 @@ def map_sql_to_pandas_df(
                         f"ALTER TABLE {table_name} ADD COLUMN {col_name} {col_type}"
                     )
                     # Use helper to handle Iceberg tables automatically
-                    _execute_alter(session, snowflake_sql, table_name)
+                    _execute_alter(
+                        session, snowflake_sql, table_name, known_iceberg=is_iceberg
+                    )
             case "AlterColumn":
                 # Handle ALTER TABLE ... CHANGE COLUMN (translate to ALTER TABLE ... ALTER COLUMN)
                 table_name = get_relation_identifier_name(logical_plan.table(), True)
@@ -3080,7 +3234,11 @@ def map_sql_to_pandas_df(
                     alter_clause = ", ".join(alter_parts)
                     snowflake_sql = f"ALTER TABLE {table_name} ALTER COLUMN {column_name} {alter_clause}"
                     # Use helper to handle Iceberg tables automatically
-                    _execute_alter(session, snowflake_sql, table_name)
+                    is_iceberg = _alter_target_is_iceberg(session, table_name)
+                    _report_iceberg_ddl_if_iceberg("alter_column", is_iceberg)
+                    _execute_alter(
+                        session, snowflake_sql, table_name, known_iceberg=is_iceberg
+                    )
                 else:
                     exception = ValueError(
                         f"No alter operations found in AlterColumn logical plan for table {table_name}, column {column_name}"
@@ -3089,6 +3247,10 @@ def map_sql_to_pandas_df(
                     raise exception
             case "CreateNamespace":
                 name = get_relation_identifier_name(logical_plan.name(), True)
+                # Namespace DDL is Iceberg-meaningful only in a CLD (external
+                # catalog) session; managed CREATE SCHEMA is a plain Snowflake schema.
+                if is_in_cld_context():
+                    telemetry.report_iceberg_ddl("create_namespace", catalog_kind="cld")
                 _execute_create_namespace(session, name, logical_plan.ifNotExists())
             case "CreateOrReplaceTag":
                 # Iceberg Spark SQL Extension DDL:
@@ -3113,11 +3275,11 @@ def map_sql_to_pandas_df(
                 # Iceberg Spark SQL Extension branch DDL:
                 #   ALTER TABLE <t> CREATE [OR REPLACE] BRANCH <name>
                 #       [IF NOT EXISTS] [AS OF VERSION <id>]
-                # Translated to Snowflake ``CREATE [OR REPLACE] BRANCH
-                # '<name>'`` on ``ALTER ICEBERG TABLE``. Snapshot-pinned
-                # branch create and bare REPLACE raise
-                # ``UNSUPPORTED_OPERATION`` — see ``iceberg_branch_ddl``.
-                # Gated on ``spark.sql.extensions``.
+                #   ALTER TABLE <t> REPLACE BRANCH <name> [AS OF VERSION <id>]
+                # Translated to the same statement on ``ALTER ICEBERG TABLE``.
+                # ``numSnapshots`` / retention bindings and the reserved
+                # ``main`` name raise ``UNSUPPORTED_OPERATION`` — see
+                # ``iceberg_branch_ddl``. Gated on ``spark.sql.extensions``.
                 _require_iceberg_sql_extensions_for_tag_ddl()
                 table_name = _spark_to_snowflake(logical_plan.table())
                 snowflake_sql = translate_create_or_replace_branch(
@@ -3599,6 +3761,10 @@ def map_sql_to_pandas_df(
             case "DropNamespace":
                 name = get_relation_identifier_name(logical_plan.namespace(), True)
                 if_exists = "IF EXISTS " if logical_plan.ifExists() else ""
+                # Namespace DDL is Iceberg-meaningful only in a CLD (external
+                # catalog) session; managed DROP SCHEMA is a plain Snowflake schema.
+                if is_in_cld_context():
+                    telemetry.report_iceberg_ddl("drop_namespace", catalog_kind="cld")
                 session.sql(f"DROP SCHEMA {if_exists}{name}").collect()
             case "DropTable":
                 # Spark resolves DROP TABLE to a shadowing temp view before the
@@ -3615,6 +3781,9 @@ def map_sql_to_pandas_df(
                 if not unregister_snowflake_temp_view(
                     session, temporary_view_name, name, logical_plan.ifExists()
                 ):
+                    _report_iceberg_ddl_if_iceberg(
+                        "drop_table", _alter_target_is_iceberg(session, name)
+                    )
                     try:
                         _execute_drop_table(
                             session,
@@ -4022,7 +4191,14 @@ def map_sql_to_pandas_df(
                 # Pass through to Snowflake
                 snowflake_sql = f"ALTER TABLE {full_table_identifier} RENAME COLUMN {old_column_name} TO {new_column_name}"
                 # Use helper to handle Iceberg tables automatically
-                _execute_alter(session, snowflake_sql, full_table_identifier)
+                is_iceberg = _alter_target_is_iceberg(session, full_table_identifier)
+                _report_iceberg_ddl_if_iceberg("rename_column", is_iceberg)
+                _execute_alter(
+                    session,
+                    snowflake_sql,
+                    full_table_identifier,
+                    known_iceberg=is_iceberg,
+                )
             case "SetTableProperties":
                 _dispatch_set_table_properties(session, logical_plan, sql_string)
             case "UnsetTableProperties":
@@ -5081,6 +5257,9 @@ def map_logical_plan_relation(
             base = rel.relation()
             base_class = str(base.getClass().getSimpleName())
             if base_class != "UnresolvedRelation":
+                telemetry.report_iceberg_unsupported_feature(
+                    "time_travel_on_non_base_table"
+                )
                 exception = AnalysisException(
                     "Iceberg SQL time travel can only be applied to a base "
                     f"table reference; got {base_class!r}. Reference the "
@@ -6152,15 +6331,40 @@ def _build_create_iceberg_table_clauses(
     if base_location_clause:
         parts.append(base_location_clause)
 
-    # SNOW-4061004: on the unmanaged (CLD) path GS commits leftover Spark table
-    # properties to the external catalog, so forward them as TABLE_PROPERTIES.
-    # Managed targets reject the clause (SNOW-3974372 / SNOW-3899188), so gate on CLD.
-    # Only emit when ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is set — with the flag
-    # off GS hard-rejects the whole CREATE ("invalid property 'TABLE_PROPERTIES'").
-    if is_cld and _iceberg_table_properties_ddl_enabled():
+    # SNOW-4061004 / SNOW-3974372: forward leftover Spark table properties as
+    # TABLE_PROPERTIES. On the unmanaged (CLD) path GS commits them to the external
+    # catalog; on the managed path GS folds them into the table's config/metadata.
+    # CREATE now has parity with ALTER SET TBLPROPERTIES (which is not CLD-gated).
+    # Only emit when ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is set — with the flag off
+    # GS hard-rejects the whole CREATE. GS additionally requires
+    # ENABLE_ICEBERG_TABLE_PROPERTIES_ON_MANAGED_TABLES to accept it on a managed target.
+    leftover_keys = _leftover_table_property_keys(properties)
+    catalog_kind = "cld" if is_cld else "managed"
+    if _iceberg_table_properties_ddl_enabled():
         table_properties_clause = _build_table_properties_clause(properties)
         if table_properties_clause:
             parts.append(table_properties_clause)
+            telemetry.report_iceberg_table_properties(
+                "create", leftover_keys, outcome="emitted", catalog_kind=catalog_kind
+            )
+    elif leftover_keys:
+        telemetry.report_iceberg_table_properties(
+            "create",
+            leftover_keys,
+            outcome="dropped",
+            detail="ddl_gate_off",
+            catalog_kind=catalog_kind,
+        )
+    # Keys mapped to a dedicated clause (ICEBERG_VERSION, EXTERNAL_VOLUME, ...) took
+    # effect but not as TABLE_PROPERTIES; record them as emitted/consumed_by_clause
+    # so they aren't read as unused (honored, just via a different clause).
+    telemetry.report_iceberg_table_properties(
+        "create",
+        _consumed_table_property_keys(properties),
+        outcome="emitted",
+        detail="consumed_by_clause",
+        catalog_kind=catalog_kind,
+    )
 
     if not parts:
         return ""
@@ -6213,6 +6417,11 @@ def _build_managed_iceberg_config_for_sql(
     iceberg_version = _extract_iceberg_format_version(properties)
     if iceberg_version is not None:
         config["iceberg_version"] = iceberg_version
+
+    # SNOW-3974372: forward leftover Spark table properties on managed CTAS via
+    # Snowpark's ``table_properties`` iceberg_config key (emits TABLE_PROPERTIES).
+    # Gated on the same client flag as ALTER/CREATE (SNOW-4061004).
+    _apply_leftover_table_properties(config, properties)
 
     partition_cols = _extract_identity_partition_columns(logical_plan)
     if partition_cols:

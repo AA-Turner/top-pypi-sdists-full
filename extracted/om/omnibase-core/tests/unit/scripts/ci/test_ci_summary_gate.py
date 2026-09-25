@@ -46,7 +46,6 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 EXTERNAL_CONTEXT_PRODUCER_WORKFLOWS: dict[str, str] = {
     "DB ownership CI twin (B1)": "check-db-ownership.yml",
-    "LLM refs drift check (OMN-11932)": "check-llm-refs-drift.yml",
     "advisory-job-gate / advisory-job-gate": "advisory-job-gate.yml",
 }
 
@@ -515,8 +514,8 @@ class TestExternalContextEventContracts:
         ("event_name", "expected"),
         [
             ("pull_request", EXPECTED_EXTERNAL_CONTEXTS),
-            ("push", EXPECTED_EXTERNAL_CONTEXTS[:2]),
-            ("workflow_dispatch", EXPECTED_EXTERNAL_CONTEXTS[:2]),
+            ("push", EXPECTED_EXTERNAL_CONTEXTS[:1]),
+            ("workflow_dispatch", EXPECTED_EXTERNAL_CONTEXTS[:1]),
             ("merge_group", ()),
             ("schedule", ()),
         ],
@@ -552,10 +551,7 @@ class TestExternalContextEventContracts:
         assert "edited" in ci_pull_request["types"]
 
         expected_default_activities = {"opened", "synchronize", "reopened", "edited"}
-        for context in (
-            "DB ownership CI twin (B1)",
-            "LLM refs drift check (OMN-11932)",
-        ):
+        for context in ("DB ownership CI twin (B1)",):
             document = yaml.safe_load(
                 (
                     WORKFLOWS_DIR / EXTERNAL_CONTEXT_PRODUCER_WORKFLOWS[context]
@@ -569,9 +565,9 @@ class TestExternalContextEventContracts:
 class TestExpectedExternalContexts:
     """L4 EXPECTED_EXTERNAL_CONTEXTS (enforce-everything gate audit).
 
-    "DB ownership CI twin (B1)" and "LLM refs drift check (OMN-11932)" live in
-    separate workflow files (check-db-ownership.yml / check-llm-refs-drift.yml)
-    and are therefore invisible to the in-run jobs sweep above; these tests pin
+    "DB ownership CI twin (B1)" and the advisory-job gate live in separate
+    workflow files (check-db-ownership.yml / advisory-job-gate.yml) and are
+    therefore invisible to the in-run jobs sweep above; these tests pin
     the resolution against ``commits/{sha}/check-runs`` fixtures directly.
     """
 
@@ -701,21 +697,25 @@ class TestContractComplianceFailClosed:
         for event in ("pull_request", "merge_group", "push"):
             assert f"github.event_name == '{event}'" in condition, condition
 
-    def test_empty_pr_number_branch_fails_closed_not_open(self) -> None:
-        text = CI_YML.read_text(encoding="utf-8")
-        marker = 'if [ -z "${PR_NUMBER:-}" ]; then'
-        idx = text.index(marker)
-        # OMN-16346: bound the branch by its own terminator only. This used to
-        # slice a fixed `text[idx : idx + 400]` window first, which silently
-        # made the pin depend on how many COMMENT characters happen to sit
-        # between the `if` and the `exit 1` -- adding an explanatory comment
-        # inside the branch pushed `exit 1` past offset 400 and failed this
-        # test while the fail-closed property it guards was fully intact. The
-        # `\n          fi` split already bounds the branch exactly, so the
-        # character cap was never load-bearing, only brittle.
-        branch = text[idx:].split("\n          fi", 1)[0]
-        assert "exit 1" in branch, branch
-        assert "exit 0" not in branch, branch
+    def test_pr_resolution_is_delegated_to_the_fail_closed_evidence_resolver(
+        self,
+    ) -> None:
+        """The resolver owns push/merge-group PR admission after OMN-18157."""
+        workflow = yaml.safe_load(CI_YML.read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["contract-compliance"]["steps"]
+        resolver = next(
+            step
+            for step in steps
+            if step.get("id") == "resolve_contract_compliance_evidence"
+        )
+        assert "resolve_contract_compliance_evidence.py" in resolver["run"]
+        assert '--event-name "${{ github.event_name }}"' in resolver["run"]
+        assert '--commit-sha "${{ github.sha }}"' in resolver["run"]
+        resolver_source = (
+            REPO_ROOT / "scripts/ci/resolve_contract_compliance_evidence.py"
+        ).read_text(encoding="utf-8")
+        assert "No PR number could be resolved" in resolver_source
+        assert "return 1" in resolver_source
 
 
 class TestContractComplianceNameDistinction:
@@ -754,7 +754,6 @@ _OCC_PREFLIGHT_CONTEXT = "occ-preflight / eligibility"
 EXTERNAL_CONTEXT_FILES: frozenset[str] = frozenset(
     {
         "check-db-ownership.yml",
-        "check-llm-refs-drift.yml",
         # OMN-18796: the advisory-job gate's caller. Its job resolves to the L4
         # context "advisory-job-gate / advisory-job-gate", so it is classified
         # by EXPECTED_EXTERNAL_CONTEXTS and not by a direct-required row.

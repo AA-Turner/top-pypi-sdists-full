@@ -6,6 +6,7 @@ from sqlalchemy import cast
 from sqlalchemy import Column
 from sqlalchemy import Computed
 from sqlalchemy import DateTime
+from sqlalchemy import delete
 from sqlalchemy import exc
 from sqlalchemy import false
 from sqlalchemy import ForeignKey
@@ -14,7 +15,6 @@ from sqlalchemy import Index
 from sqlalchemy import inspect
 from sqlalchemy import Integer
 from sqlalchemy import literal_column
-from sqlalchemy import MetaData
 from sqlalchemy import or_
 from sqlalchemy import schema
 from sqlalchemy import select
@@ -24,6 +24,8 @@ from sqlalchemy import Table
 from sqlalchemy import testing
 from sqlalchemy import text
 from sqlalchemy import true
+from sqlalchemy import update
+from sqlalchemy.dialects.mysql import limit
 from sqlalchemy.dialects.mysql import TIMESTAMP
 from sqlalchemy.sql.ddl import CreateSequence
 from sqlalchemy.sql.ddl import DropSequence
@@ -36,6 +38,8 @@ from sqlalchemy.testing import fixtures
 from sqlalchemy.testing import is_
 from sqlalchemy.testing import is_false
 from sqlalchemy.testing import is_true
+from sqlalchemy.testing.assertsql import CompiledSQL
+from sqlalchemy.testing.fixtures import fixture_session
 
 
 class IdiosyncrasyTest(fixtures.TestBase):
@@ -423,7 +427,10 @@ class ComputedTest(fixtures.TestBase):
         ("unset"),
         argnames="nullable",
     )
-    def test_column_computed_for_nullable(self, connection, nullable):
+    @testing.variation("setnull", ["constructor", "assign"])
+    def test_column_computed_for_nullable(
+        self, metadata, connection, nullable, setnull: testing.Variation
+    ):
         """test #10056
 
         we want to make sure that nullable is always set to True for computed
@@ -431,26 +438,163 @@ class ComputedTest(fixtures.TestBase):
         ref: https://mariadb.com/kb/en/generated-columns/#statement-support
 
         """
-        m = MetaData()
-        kwargs = {"nullable": nullable} if nullable != "unset" else {}
+
+        if setnull.assign:
+            kwargs = {}
+        elif setnull.constructor:
+            kwargs = {"nullable": nullable} if nullable != "unset" else {}
+        else:
+            setnull.fail()
+
         t = Table(
             "t",
-            m,
+            metadata,
             Column("x", Integer),
             Column("y", Integer, Computed("x + 2"), **kwargs),
         )
-        if connection.engine.dialect.name == "mariadb" and nullable in (
-            False,
-            None,
+
+        # the "assign" path here is to exercise the actual bug shown at
+        # #10056; user defined nullable is not passed, but MappedColumn
+        # sets it after the fact.   Previously this path was not exercised
+        if setnull.assign and nullable != "unset":
+            t.c.y.nullable = nullable
+
+        if (
+            connection.engine.dialect.name == "mariadb"
+            and setnull.constructor
+            and nullable in (False, None)
         ):
+            # if nullable was passed explicitly as False or None,
+            # then we dont touch .nullable
             assert_raises(
                 exc.ProgrammingError,
                 connection.execute,
                 schema.CreateTable(t),
             )
-            # If assertion happens table won't be created so
-            #  return from test
-            return
-        # Create and then drop table
-        connection.execute(schema.CreateTable(t))
-        connection.execute(schema.DropTable(t))
+        else:
+            # assert table can be created
+            connection.execute(schema.CreateTable(t))
+
+
+class LimitORMTest(fixtures.MappedTest):
+    __only_on__ = "mysql >= 5.7", "mariadb"
+    __backend__ = True
+
+    @classmethod
+    def define_tables(cls, metadata):
+        Table(
+            "users",
+            metadata,
+            Column("id", Integer, primary_key=True),
+            Column("name", String(32)),
+            Column("age_int", Integer),
+        )
+
+    @classmethod
+    def setup_classes(cls):
+        class User(cls.Comparable):
+            pass
+
+    @classmethod
+    def insert_data(cls, connection):
+        users = cls.tables.users
+
+        connection.execute(
+            users.insert(),
+            [
+                dict(id=1, name="john", age_int=25),
+                dict(id=2, name="jack", age_int=47),
+                dict(id=3, name="jill", age_int=29),
+                dict(id=4, name="jane", age_int=37),
+            ],
+        )
+
+    @classmethod
+    def setup_mappers(cls):
+        User = cls.classes.User
+        users = cls.tables.users
+
+        cls.mapper_registry.map_imperatively(
+            User,
+            users,
+            properties={
+                "age": users.c.age_int,
+            },
+        )
+
+    def test_update_limit_orm_select(self):
+        User = self.classes.User
+
+        s = fixture_session()
+        with self.sql_execution_asserter() as asserter:
+            s.execute(
+                update(User)
+                .where(User.name.startswith("j"))
+                .ext(limit(2))
+                .values({"age": User.age + 3})
+            )
+
+        asserter.assert_(
+            CompiledSQL(
+                "UPDATE users SET age_int=(users.age_int + %s) "
+                "WHERE (users.name LIKE concat(%s, '%%')) "
+                "LIMIT __[POSTCOMPILE_param_1]",
+                [{"age_int_1": 3, "name_1": "j", "param_1": 2}],
+                dialect="mysql",
+            ),
+        )
+
+    def test_delete_limit_orm_select(self):
+        User = self.classes.User
+
+        s = fixture_session()
+        with self.sql_execution_asserter() as asserter:
+            s.execute(
+                delete(User).where(User.name.startswith("j")).ext(limit(2))
+            )
+
+        asserter.assert_(
+            CompiledSQL(
+                "DELETE FROM users WHERE (users.name LIKE concat(%s, '%%')) "
+                "LIMIT __[POSTCOMPILE_param_1]",
+                [{"name_1": "j", "param_1": 2}],
+                dialect="mysql",
+            ),
+        )
+
+    def test_update_limit_legacy_query(self):
+        User = self.classes.User
+
+        s = fixture_session()
+        with self.sql_execution_asserter() as asserter:
+            s.query(User).where(User.name.startswith("j")).ext(
+                limit(2)
+            ).update({"age": User.age + 3})
+
+        asserter.assert_(
+            CompiledSQL(
+                "UPDATE users SET age_int=(users.age_int + %s) "
+                "WHERE (users.name LIKE concat(%s, '%%')) "
+                "LIMIT __[POSTCOMPILE_param_1]",
+                [{"age_int_1": 3, "name_1": "j", "param_1": 2}],
+                dialect="mysql",
+            ),
+        )
+
+    def test_delete_limit_legacy_query(self):
+        User = self.classes.User
+
+        s = fixture_session()
+        with self.sql_execution_asserter() as asserter:
+            s.query(User).where(User.name.startswith("j")).ext(
+                limit(2)
+            ).delete()
+
+        asserter.assert_(
+            CompiledSQL(
+                "DELETE FROM users WHERE (users.name LIKE concat(%s, '%%')) "
+                "LIMIT __[POSTCOMPILE_param_1]",
+                [{"name_1": "j", "param_1": 2}],
+                dialect="mysql",
+            ),
+        )

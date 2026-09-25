@@ -2,10 +2,12 @@
 from __future__ import print_function, unicode_literals
 import logging
 import json
+import os
+import weakref
 
 from .compat import queue
 from .helpers import DEFAULT_CONTEXT
-from .flusher import FlushWorker
+from .flusher import FlushWorker, TransportFrame, in_flush_worker
 from .uploader import Uploader
 from .frame import create_frame
 
@@ -17,6 +19,8 @@ DEFAULT_RAISE_EXCEPTIONS = False
 DEFAULT_DROP_EXTRA_EVENTS = True
 DEFAULT_INCLUDE_EXTRA_ATTRIBUTES = True
 DEFAULT_TIMEOUT = 30
+
+_handlers = weakref.WeakSet()
 
 
 class LogtailHandler(logging.Handler):
@@ -50,6 +54,7 @@ class LogtailHandler(logging.Handler):
         self.dropcount = 0
         # Do not initialize the flush thread yet because it causes issues on Render.
         self.flush_thread = None
+        _handlers.add(self)
 
     def ensure_flush_thread_alive(self):
         if self.flush_thread and self.flush_thread.is_alive():
@@ -71,8 +76,12 @@ class LogtailHandler(logging.Handler):
             message = self.format(record)
             frame = create_frame(record, message, self.context, include_extra_attributes=self.include_extra_attributes)
             serializable_frame = json.loads(json.dumps(frame, default=str))
+            transport = in_flush_worker()
+            if transport:
+                serializable_frame = TransportFrame(serializable_frame)
             try:
-                self.pipe.put(serializable_frame, block=(not self.drop_extra_events))
+                # The flush worker must never block on its own queue, so its records are dropped when full.
+                self.pipe.put(serializable_frame, block=(not self.drop_extra_events) and not transport)
             except queue.Full:
                 # Only raised when not blocking, which means that extra events
                 # should be dropped.
@@ -84,3 +93,20 @@ class LogtailHandler(logging.Handler):
     def flush(self):
         if self.flush_thread and self.flush_thread.is_alive():
              self.flush_thread.flush()
+
+    def _reset_after_fork(self):
+        # A forked child inherits the parent's queue with whatever was still buffered in it,
+        # a flush thread object whose thread does not exist in the child, and an HTTP session
+        # whose socket it shares with the parent, so it starts over with fresh ones.
+        self.pipe = queue.Queue(maxsize=self.buffer_capacity)
+        self.flush_thread = None
+        self.uploader = Uploader(self.source_token, self.host, self.uploader.timeout)
+
+
+def _reset_handlers_after_fork():
+    for handler in _handlers:
+        handler._reset_after_fork()
+
+
+if hasattr(os, 'register_at_fork'):
+    os.register_at_fork(after_in_child=_reset_handlers_after_fork)

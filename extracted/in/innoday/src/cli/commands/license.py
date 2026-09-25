@@ -11,6 +11,7 @@ from typing import Optional
 from rich.console import Console
 
 from src.cli.config import CLIConfig
+from src.cli.utils import guidance
 from src.cli.utils.formatters import format_error, format_warning
 
 console = Console()
@@ -96,11 +97,7 @@ class LicenseCommands:
         # Validate organization configuration
         organization = config.get_current_organization()
         if not organization:
-            console.print(
-                format_error(
-                    "No organization configured. Run 'innoday config init' first."
-                )
-            )
+            console.print(format_error(guidance.NO_PROJECT))
             return 1
 
         try:
@@ -114,14 +111,7 @@ class LicenseCommands:
             elif args.license_command == "upgrade":
                 user_id = config.get_user_id()
                 if not user_id:
-                    console.print(
-                        format_error(
-                            # `config set` takes {api-url,api-timeout,format,color,team-secret};
-                            # there has never been a `user-id` key. Identity is
-                            # created by the init wizard.
-                            "No user configured. Run 'innoday init' first."
-                        )
-                    )
+                    console.print(format_error(guidance.IDENTITY_NOT_CACHED))
                     return 1
                 return await LicenseCommands._upgrade_license(
                     organization, user_id, config, args.tier, args.reason, args.confirm

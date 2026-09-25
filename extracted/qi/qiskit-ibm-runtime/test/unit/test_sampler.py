@@ -15,7 +15,7 @@
 from unittest.mock import MagicMock
 
 import numpy as np
-from ddt import data, ddt, named_data, unpack
+from ddt import data, ddt, unpack
 from qiskit import ClassicalRegister, QuantumCircuit, QuantumRegister, transpile
 from qiskit.circuit import Parameter
 from qiskit.circuit.library import real_amplitudes
@@ -27,11 +27,12 @@ from qiskit.transpiler import Target
 
 from qiskit_ibm_runtime import IBMInputValueError, SamplerOptions, SamplerV2, Session
 from qiskit_ibm_runtime.fake_provider import FakeCusco, FakeFractionalBackend, FakeSherbrooke
+from qiskit_ibm_runtime.qiskit_runtime_service import QiskitRuntimeService
 
+from ..decorators import mock_responses
 from ..ibm_test_case import IBMTestCase
+from ..registries import Backend, OneInstanceDryRunRegistry
 from ..utils import get_mocked_backend, transpile_pubs
-from .mock.fake_api_backend import FakeApiBackendSpecs
-from .mock.fake_runtime_service import FakeRuntimeService
 
 
 class MockSession(Session):
@@ -41,14 +42,14 @@ class MockSession(Session):
     _instance = None
 
 
-def _measured(n):
+def _measured(n: int) -> QuantumCircuit:
     """Return an n-qubit circuit with all qubits measured."""
     qc = QuantumCircuit(n)
     qc.measure_all()
     return qc
 
 
-def _real_amplitudes_measured(num_qubits, reps):
+def _real_amplitudes_measured(num_qubits: int, reps: int) -> QuantumCircuit:
     """Return a real_amplitudes circuit with all qubits measured."""
     qc = real_amplitudes(num_qubits=num_qubits, reps=reps)
     qc.measure_all()
@@ -57,7 +58,7 @@ def _real_amplitudes_measured(num_qubits, reps):
 
 @ddt
 class TestSamplerV2(IBMTestCase):
-    """Class for testing the Estimator class."""
+    """Class for testing the Sampler class."""
 
     def setUp(self) -> None:
         """Test level setup."""
@@ -176,13 +177,11 @@ class TestSamplerV2(IBMTestCase):
             ):
                 inst.run([(circ,)])
 
-    def test_run_dynamic_circuit_with_fractional_opted(self):
+    @mock_responses
+    def test_run_dynamic_circuit_with_fractional_opted(self, registry):
         """Fractional opted backend can run dynamic circuits."""
-        service = FakeRuntimeService(
-            channel="ibm_quantum_platform",
-            token="my_token",
-            backend_specs=[FakeApiBackendSpecs(backend_name="FakeFractionalBackend")],
-        )
+        registry.add_backend(Backend.from_(FakeFractionalBackend), "a")
+        service = QiskitRuntimeService(token="my_token")
         backend = service.backends("fake_fractional", use_fractional_gates=True)[0]
 
         dynamic_circuit = QuantumCircuit(3, 1)
@@ -191,37 +190,30 @@ class TestSamplerV2(IBMTestCase):
             (0, True), QuantumCircuit(3, 1), QuantumCircuit(3, 1), [0, 1, 2], [0]
         )
 
-        inst = SamplerV2(mode=backend)
-        inst.run([dynamic_circuit])
+        sampler = SamplerV2(mode=backend)
+        sampler.run([dynamic_circuit])
 
-    def test_run_fractional_circuit_without_fractional_opted(self):
+    @mock_responses
+    def test_run_fractional_circuit_without_fractional_opted(self, registry):
         """Fractional non-opted backend cannot run fractional circuits."""
-        service = FakeRuntimeService(
-            channel="ibm_quantum_platform",
-            token="my_token",
-            backend_specs=[FakeApiBackendSpecs(backend_name="FakeFractionalBackend")],
-        )
+        registry.add_backend(Backend.from_(FakeFractionalBackend), "a")
+        service = QiskitRuntimeService(token="my_token")
         backend = service.backends("fake_fractional", use_fractional_gates=False)[0]
 
         fractional_circuit = QuantumCircuit(1, 1)
         fractional_circuit.rx(1.23, 0)
         fractional_circuit.measure(0, 0)
 
-        inst = SamplerV2(mode=backend)
+        sampler = SamplerV2(mode=backend)
         with self.assertRaises(IBMInputValueError):
-            inst.run([fractional_circuit])
+            sampler.run([fractional_circuit])
 
-    @named_data(
-        ("without_fractional", False),
-    )
-    def test_run_fractional_dynamic_mix(self, use_fractional):
+    @mock_responses
+    def test_run_fractional_dynamic_mix(self, registry):
         """Any backend cannot run mixture of fractional and dynamic circuits."""
-        service = FakeRuntimeService(
-            channel="ibm_quantum_platform",
-            token="my_token",
-            backend_specs=[FakeApiBackendSpecs(backend_name="FakeFractionalBackend")],
-        )
-        backend = service.backends("fake_fractional", use_fractional_gates=use_fractional)[0]
+        registry.add_backend(Backend.from_(FakeFractionalBackend), "a")
+        service = QiskitRuntimeService(token="my_token")
+        backend = service.backends("fake_fractional", use_fractional_gates=False)[0]
 
         dynamic_circuit = QuantumCircuit(3, 1)
         dynamic_circuit.measure(0, 0)
@@ -549,3 +541,12 @@ class TestSamplerV2(IBMTestCase):
 
         with self.assertWarnsStrict(DeprecationWarning, warning_msg, num_appearances):
             inst.run(pubs, shots=run_shots)
+
+    @mock_responses(OneInstanceDryRunRegistry)
+    def test_run_dry_run(self, registry):
+        """Sampler can run in `dry-run` mode."""
+        service = QiskitRuntimeService(token="my_token")
+        backend = service.backend("ibm_foo")
+        sampler = SamplerV2(mode=backend)
+        job = sampler.run((self.circuit,), dry_run=True)
+        self.assertEqual(job.backend().name, "mock_foo")

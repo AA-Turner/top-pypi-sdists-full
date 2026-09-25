@@ -432,3 +432,95 @@ class TestFormatSize:
     )
     def test_format(self, n, expected):
         assert messages._format_size(n) == expected
+
+
+class TestNetworkRejectionRendering:
+    """A 401/403 the relay attributed to an intermediary is a network
+    rejection: no "security policy (enforced by Runlayer)" framing, a VPN
+    remedy, and nothing from the untrusted body."""
+
+    def test_intermediary_403_is_network_wording(self):
+        user, agent = messages.tool_api_unreachable(
+            tool_name="Bash",
+            failure=_ctx(kind="http", status_code=403, origin="intermediary"),
+            hostname="LAPTOP-42",
+        )
+        assert agent.startswith("# Runlayer Verification Blocked by Network")
+        assert "This is not a Runlayer policy decision." in agent
+        assert "- Block type: Network" in agent
+        assert "- Tool: Bash" in agent
+        assert "- Device hostname: LAPTOP-42" in agent
+        assert "answered with HTTP 403 by a network device" in agent
+        assert "VPN or zero-trust client" in agent
+        assert "Security Violation Detected" not in agent
+        assert "enforced by Runlayer" not in agent
+        assert "security violation" not in agent
+        assert user == (
+            "Runlayer verification blocked by your network (HTTP 403) — "
+            "check your VPN or zero-trust client and retry"
+        )
+
+    def test_intermediary_401_is_network_not_credential_wording(self):
+        _, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=401, origin="intermediary"),
+        )
+        assert "- Block type: Network" in agent
+        assert "HTTP 401" in agent
+        assert "credentials" not in agent
+        assert "runlayer login" not in agent
+
+    def test_mcp_variant_uses_the_same_network_wording(self):
+        _, agent = messages.api_unreachable(
+            tool_name="search",
+            failure=_ctx(kind="http", status_code=403, origin="intermediary"),
+        )
+        assert "- Block type: Network" in agent
+        assert (
+            "The MCP execution verification request was answered with HTTP 403" in agent
+        )
+
+    @pytest.mark.parametrize("status", [429, 500, 502, 503])
+    def test_other_intermediary_statuses_keep_generic_wording(self, status: int):
+        """An ALB 5xx or a proxy 429 is not a policy misattribution; the
+        answered-request wording already blames the request, not Runlayer."""
+        _, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=status, origin="intermediary"),
+        )
+        assert f"was answered with HTTP {status}" in agent
+        assert "Block type: Network" not in agent
+        assert "Request ID" not in agent
+
+    def test_runlayer_403_appends_detail_and_request_id(self):
+        _, agent = messages.tool_api_unreachable(
+            failure=_ctx(
+                kind="http",
+                status_code=403,
+                origin="runlayer",
+                request_id="785aa763-a5a4-45b7-9232-4f38434910c5",
+                detail="Bearer tokens are not accepted on this hook endpoint",
+            ),
+        )
+        assert "was answered with HTTP 403" in agent
+        assert (
+            '- Detail: "Bearer tokens are not accepted on this hook endpoint"' in agent
+        )
+        assert "- Request ID: 785aa763-a5a4-45b7-9232-4f38434910c5" in agent
+        assert agent.startswith("# Security Violation Detected")
+
+    def test_unclassified_403_has_no_origin_lines(self):
+        """origin=None (unclassified) renders the status-only text: no
+        Detail/Request ID lines, no network framing."""
+        _, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=403, elapsed_s=0.2)
+        )
+        assert "Request ID" not in agent
+        assert "Detail:" not in agent
+        assert "Block type" not in agent
+        assert "was answered with HTTP 403" in agent
+
+    def test_unclassified_401_keeps_credential_wording(self):
+        _, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=401)
+        )
+        assert "credentials" in agent
+        assert "Block type: Network" not in agent

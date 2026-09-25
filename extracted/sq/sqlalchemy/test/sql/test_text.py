@@ -403,7 +403,8 @@ class BindParamTest(fixtures.TestBase, AssertsCompiledSQL):
             text(
                 "select * from foo where lala=:bar and hoho=:whee"
             ).bindparams(bar=4, whee=7),
-            "select * from foo where lala=%(bar)s and hoho=%(whee)s",
+            "select * from foo where lala=%(bar)s::INTEGER "
+            "and hoho=%(whee)s::INTEGER",
             checkparams={"bar": 4, "whee": 7},
             dialect="postgresql",
         )
@@ -840,7 +841,9 @@ class TextErrorsTest(fixtures.TestBase, AssertsCompiledSQL):
         self._test(select(table1.c.myid).select_from, "mytable", "mytable")
 
 
-class OrderByLabelResolutionTest(fixtures.TestBase, AssertsCompiledSQL):
+class OrderByLabelResolutionTest(
+    fixtures.TestBase, AssertsCompiledSQL, fixtures.DistinctOnFixture
+):
     __dialect__ = "default"
 
     def _test_exception(self, stmt, offending_clause, dialect=None):
@@ -851,7 +854,9 @@ class OrderByLabelResolutionTest(fixtures.TestBase, AssertsCompiledSQL):
             "Textual SQL "
             "expression %r should be explicitly "
             r"declared as text\(%r\)" % (offending_clause, offending_clause),
-            stmt.compile,
+            self.assert_compile,
+            stmt,
+            "not expected",
             dialect=dialect,
         )
 
@@ -934,27 +939,19 @@ class OrderByLabelResolutionTest(fixtures.TestBase, AssertsCompiledSQL):
         stmt = select(table1.c.myid).order_by("foobar")
         self._test_exception(stmt, "foobar")
 
-    def test_distinct_label(self):
-        stmt = select(table1.c.myid.label("foo")).distinct("foo")
+    def test_distinct_label(self, distinct_on_fixture):
+        stmt = distinct_on_fixture(select(table1.c.myid.label("foo")), "foo")
         self.assert_compile(
             stmt,
             "SELECT DISTINCT ON (foo) mytable.myid AS foo FROM mytable",
             dialect="postgresql",
         )
 
-    def test_distinct_label_keyword(self):
-        stmt = select(table1.c.myid.label("foo")).distinct("foo")
-        self.assert_compile(
-            stmt,
-            "SELECT DISTINCT ON (foo) mytable.myid AS foo FROM mytable",
-            dialect="postgresql",
+    def test_unresolvable_distinct_label(self, distinct_on_fixture):
+        stmt = distinct_on_fixture(
+            select(table1.c.myid.label("foo")), "not a label"
         )
-
-    def test_unresolvable_distinct_label(self):
-        from sqlalchemy.dialects import postgresql
-
-        stmt = select(table1.c.myid.label("foo")).distinct("not a label")
-        self._test_exception(stmt, "not a label", dialect=postgresql.dialect())
+        self._test_exception(stmt, "not a label", dialect="postgresql")
 
     def test_group_by_label(self):
         stmt = select(table1.c.myid.label("foo")).group_by("foo")
@@ -1043,8 +1040,8 @@ class OrderByLabelResolutionTest(fixtures.TestBase, AssertsCompiledSQL):
             "mytable.description FROM mytable ORDER BY fb DESC",
         )
 
-    def test_pg_distinct(self):
-        stmt = select(table1).distinct("name")
+    def test_pg_distinct(self, distinct_on_fixture):
+        stmt = distinct_on_fixture(select(table1), "name")
         self.assert_compile(
             stmt,
             "SELECT DISTINCT ON (mytable.name) mytable.myid, "

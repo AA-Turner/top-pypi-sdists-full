@@ -17,6 +17,7 @@ class ErrorCode(str, Enum):
     INVALID_FILES_MANIFEST = "invalid_files_manifest"
     INVALID_REQUIREMENTS_MANIFEST = "invalid_requirements_manifest"
     INVALID_TARBALL_UPLOAD = "invalid_tarball_upload"
+    JOB_RESULT_TRACE_TOO_LARGE = "job_result_trace_too_large"
     PERMISSION_DENIED = "permission_denied"
     RESERVED_VARIABLE_NAMES = "reserved_variable_names"
     RUN_PACKAGE_ALREADY_CONSUMED = "run_package_already_consumed"

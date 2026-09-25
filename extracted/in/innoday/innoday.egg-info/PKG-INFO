@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: innoday
-Version: 0.1.355b0
+Version: 0.1.364b0
 Summary: AI-Powered Team Orchestration Platform - Streamline product development and team collaboration with AI
 Author-email: Haviland Software <support@haviland-software.com>
 Maintainer-email: Haviland Software <support@haviland-software.com>
@@ -811,7 +811,7 @@ Two files at two scopes — keep them straight:
 
 | File | Scope | What it holds |
 |---|---|---|
-| `~/.innoday/config.json` | Your machine, all projects | Identity: profile, API URL, your user id, team secret, a cached org map. **Never stores integration secrets** — only pointers (system keyring / Supabase Vault). The current org/project is **never** persisted here. |
+| `~/.innoday/config.json` | Your machine, all projects | Identity: profile, API URL, your user id, team secret (operators only), a cached org map. **Never stores integration secrets** — only pointers (system keyring / Supabase Vault). The current org/project is **never** persisted here. |
 | `<workspace>/.innoday/project.yml` | One project workspace | Which org + project this directory is, plus the repos that make it up. Written by `innoday init` / `innoday refresh`. |
 
 **Context is resolved from your current directory:** every tool (CLI, MCP server, `blastoff`) walks up from where you are until it finds a `.innoday/project.yml`, and uses the org/project in it — so running from inside a workspace "just works" with zero flags. There is no persistent "switch" command; a `--org`/`--project` flag overrides for one call only.
@@ -826,7 +826,7 @@ Only needed if you're self-hosting InnoDay or developing on this repo itself —
 git clone git@github.com:havilandsoftware/innoday.git
 cd innoday
 ./install.sh
-innoday platform init   # Interactive setup wizard (new terminal)
+innoday platform start --env local   # start the API (new terminal)
 ```
 
 The full walkthrough — prerequisites, database setup, environment variables, verification, platform staff roles, known limitations — is the canonical **[Platform Setup Guide](docs/PLATFORM_SETUP.md)**; this README doesn't duplicate it.

@@ -117,6 +117,7 @@ class RawPlansClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "plans",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -203,6 +204,7 @@ class RawPlansClient:
         *,
         account_id: typing.Optional[str] = OMIT,
         adaptive_pricing_enabled: typing.Optional[bool] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         billing_period: typing.Optional[int] = OMIT,
         checkout_styling: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         currency: typing.Optional[str] = OMIT,
@@ -219,6 +221,7 @@ class RawPlansClient:
         product_id: typing.Optional[str] = OMIT,
         release_method: typing.Optional[str] = OMIT,
         renewal_price: typing.Optional[float] = OMIT,
+        sku: typing.Optional[str] = OMIT,
         split_pay_required_payments: typing.Optional[int] = OMIT,
         stock: typing.Optional[int] = OMIT,
         three_ds_level: typing.Optional[CreatePlansRequestThreeDsLevel] = OMIT,
@@ -238,6 +241,9 @@ class RawPlansClient:
 
         adaptive_pricing_enabled : typing.Optional[bool]
             Whether this plan accepts local currency payments via adaptive pricing.
+
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Attribute values that make this plan one variant of its product, as a map of attribute name to value, e.g. `{"size": "Large", "color": "Blue"}`. Names are normalized to snake_case identifiers (`Ring Size` becomes `ring_size`) and come back in alphabetical order. Every variant plan on a product must carry the same attribute names and a distinct set of values. Send `null` to make the plan an ordinary pricing option again.
 
         billing_period : typing.Optional[int]
             Recurring billing interval in days, such as 30 for monthly or 365 for annual.
@@ -273,7 +279,7 @@ class RawPlansClient:
             Override the default tax classification for this specific plan.
 
         payment_method_configuration : typing.Optional[CreatePlansRequestPaymentMethodConfiguration]
-            Explicit payment method configuration for the plan. When not provided, the account's defaults apply.
+            Explicit payment method configuration for the plan. When not provided, the account's defaults apply. Send at least one of `enabled` or `disabled`; an omitted one is empty.
 
         plan_type : typing.Optional[str]
             Plan billing type, such as `one_time` or `renewal`.
@@ -287,6 +293,9 @@ class RawPlansClient:
         renewal_price : typing.Optional[float]
             The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
 
+        sku : typing.Optional[str]
+            Stock keeping unit for this plan. Maximum 100 characters. Free text, not enforced unique.
+
         split_pay_required_payments : typing.Optional[int]
             Installment payments required before the subscription pauses.
 
@@ -297,7 +306,7 @@ class RawPlansClient:
             3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
-            The display name of the plan shown to customers on the product page.
+            The display name of the plan shown to customers on the product page. Maximum 30 characters.
 
         trial_period_days : typing.Optional[int]
             Free trial duration before the first recurring charge.
@@ -318,10 +327,12 @@ class RawPlansClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             "plans",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
                 "adaptive_pricing_enabled": adaptive_pricing_enabled,
+                "attributes": attributes,
                 "billing_period": billing_period,
                 "checkout_styling": checkout_styling,
                 "currency": currency,
@@ -348,6 +359,7 @@ class RawPlansClient:
                 "product_id": product_id,
                 "release_method": release_method,
                 "renewal_price": renewal_price,
+                "sku": sku,
                 "split_pay_required_payments": split_pay_required_payments,
                 "stock": stock,
                 "three_ds_level": three_ds_level,
@@ -433,6 +445,7 @@ class RawPlansClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -487,6 +500,7 @@ class RawPlansClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="DELETE",
             request_options=request_options,
         )
@@ -525,6 +539,7 @@ class RawPlansClient:
         id: str,
         *,
         adaptive_pricing_enabled: typing.Optional[bool] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         billing_period: typing.Optional[int] = OMIT,
         cancel_discount_intervals: typing.Optional[int] = OMIT,
         cancel_discount_percentage: typing.Optional[int] = OMIT,
@@ -542,6 +557,7 @@ class RawPlansClient:
         payment_method_configuration: typing.Optional[UpdatePlansRequestPaymentMethodConfiguration] = OMIT,
         release_method: typing.Optional[str] = OMIT,
         renewal_price: typing.Optional[float] = OMIT,
+        sku: typing.Optional[str] = OMIT,
         stock: typing.Optional[int] = OMIT,
         strike_through_initial_price: typing.Optional[float] = OMIT,
         strike_through_renewal_price: typing.Optional[float] = OMIT,
@@ -562,6 +578,9 @@ class RawPlansClient:
 
         adaptive_pricing_enabled : typing.Optional[bool]
             Whether this plan accepts local currency payments via adaptive pricing.
+
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Attribute values that make this plan one variant of its product, as a map of attribute name to value, e.g. `{"size": "Large", "color": "Blue"}`. Names are normalized to snake_case identifiers (`Ring Size` becomes `ring_size`) and come back in alphabetical order. Every variant plan on a product must carry the same attribute names and a distinct set of values. Send `null` to make the plan an ordinary pricing option again.
 
         billing_period : typing.Optional[int]
             Recurring billing interval in days, such as 30 for monthly or 365 for annual.
@@ -606,13 +625,16 @@ class RawPlansClient:
             Override the default tax classification for this specific plan.
 
         payment_method_configuration : typing.Optional[UpdatePlansRequestPaymentMethodConfiguration]
-            Explicit payment method configuration for the plan. When not provided, the account's defaults apply.
+            Explicit payment method configuration for the plan. When not provided, the account's defaults apply. Send at least one of `enabled` or `disabled`; an omitted one is empty.
 
         release_method : typing.Optional[str]
             Sales method for this plan.
 
         renewal_price : typing.Optional[float]
             The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
+
+        sku : typing.Optional[str]
+            Stock keeping unit for this plan. Maximum 100 characters. Free text, not enforced unique.
 
         stock : typing.Optional[int]
             The maximum number of units available for purchase. Ignored when unlimited_stock is true.
@@ -627,7 +649,7 @@ class RawPlansClient:
             3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
-            The display name of the plan shown to customers on the product page.
+            The display name of the plan shown to customers on the product page. Maximum 30 characters.
 
         trial_period_days : typing.Optional[int]
             Free trial duration before the first recurring charge.
@@ -648,9 +670,11 @@ class RawPlansClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "adaptive_pricing_enabled": adaptive_pricing_enabled,
+                "attributes": attributes,
                 "billing_period": billing_period,
                 "cancel_discount_intervals": cancel_discount_intervals,
                 "cancel_discount_percentage": cancel_discount_percentage,
@@ -678,6 +702,7 @@ class RawPlansClient:
                 ),
                 "release_method": release_method,
                 "renewal_price": renewal_price,
+                "sku": sku,
                 "stock": stock,
                 "strike_through_initial_price": strike_through_initial_price,
                 "strike_through_renewal_price": strike_through_renewal_price,
@@ -759,6 +784,7 @@ class RawPlansClient:
         """
         _response = self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}/calculate_tax",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "address": convert_and_respect_annotation_metadata(
@@ -928,6 +954,7 @@ class AsyncRawPlansClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "plans",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             params={
                 "account_id": account_id,
@@ -1017,6 +1044,7 @@ class AsyncRawPlansClient:
         *,
         account_id: typing.Optional[str] = OMIT,
         adaptive_pricing_enabled: typing.Optional[bool] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         billing_period: typing.Optional[int] = OMIT,
         checkout_styling: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         currency: typing.Optional[str] = OMIT,
@@ -1033,6 +1061,7 @@ class AsyncRawPlansClient:
         product_id: typing.Optional[str] = OMIT,
         release_method: typing.Optional[str] = OMIT,
         renewal_price: typing.Optional[float] = OMIT,
+        sku: typing.Optional[str] = OMIT,
         split_pay_required_payments: typing.Optional[int] = OMIT,
         stock: typing.Optional[int] = OMIT,
         three_ds_level: typing.Optional[CreatePlansRequestThreeDsLevel] = OMIT,
@@ -1052,6 +1081,9 @@ class AsyncRawPlansClient:
 
         adaptive_pricing_enabled : typing.Optional[bool]
             Whether this plan accepts local currency payments via adaptive pricing.
+
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Attribute values that make this plan one variant of its product, as a map of attribute name to value, e.g. `{"size": "Large", "color": "Blue"}`. Names are normalized to snake_case identifiers (`Ring Size` becomes `ring_size`) and come back in alphabetical order. Every variant plan on a product must carry the same attribute names and a distinct set of values. Send `null` to make the plan an ordinary pricing option again.
 
         billing_period : typing.Optional[int]
             Recurring billing interval in days, such as 30 for monthly or 365 for annual.
@@ -1087,7 +1119,7 @@ class AsyncRawPlansClient:
             Override the default tax classification for this specific plan.
 
         payment_method_configuration : typing.Optional[CreatePlansRequestPaymentMethodConfiguration]
-            Explicit payment method configuration for the plan. When not provided, the account's defaults apply.
+            Explicit payment method configuration for the plan. When not provided, the account's defaults apply. Send at least one of `enabled` or `disabled`; an omitted one is empty.
 
         plan_type : typing.Optional[str]
             Plan billing type, such as `one_time` or `renewal`.
@@ -1101,6 +1133,9 @@ class AsyncRawPlansClient:
         renewal_price : typing.Optional[float]
             The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
 
+        sku : typing.Optional[str]
+            Stock keeping unit for this plan. Maximum 100 characters. Free text, not enforced unique.
+
         split_pay_required_payments : typing.Optional[int]
             Installment payments required before the subscription pauses.
 
@@ -1111,7 +1146,7 @@ class AsyncRawPlansClient:
             3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
-            The display name of the plan shown to customers on the product page.
+            The display name of the plan shown to customers on the product page. Maximum 30 characters.
 
         trial_period_days : typing.Optional[int]
             Free trial duration before the first recurring charge.
@@ -1132,10 +1167,12 @@ class AsyncRawPlansClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             "plans",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "account_id": account_id,
                 "adaptive_pricing_enabled": adaptive_pricing_enabled,
+                "attributes": attributes,
                 "billing_period": billing_period,
                 "checkout_styling": checkout_styling,
                 "currency": currency,
@@ -1162,6 +1199,7 @@ class AsyncRawPlansClient:
                 "product_id": product_id,
                 "release_method": release_method,
                 "renewal_price": renewal_price,
+                "sku": sku,
                 "split_pay_required_payments": split_pay_required_payments,
                 "stock": stock,
                 "three_ds_level": three_ds_level,
@@ -1249,6 +1287,7 @@ class AsyncRawPlansClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="GET",
             request_options=request_options,
         )
@@ -1303,6 +1342,7 @@ class AsyncRawPlansClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="DELETE",
             request_options=request_options,
         )
@@ -1341,6 +1381,7 @@ class AsyncRawPlansClient:
         id: str,
         *,
         adaptive_pricing_enabled: typing.Optional[bool] = OMIT,
+        attributes: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         billing_period: typing.Optional[int] = OMIT,
         cancel_discount_intervals: typing.Optional[int] = OMIT,
         cancel_discount_percentage: typing.Optional[int] = OMIT,
@@ -1358,6 +1399,7 @@ class AsyncRawPlansClient:
         payment_method_configuration: typing.Optional[UpdatePlansRequestPaymentMethodConfiguration] = OMIT,
         release_method: typing.Optional[str] = OMIT,
         renewal_price: typing.Optional[float] = OMIT,
+        sku: typing.Optional[str] = OMIT,
         stock: typing.Optional[int] = OMIT,
         strike_through_initial_price: typing.Optional[float] = OMIT,
         strike_through_renewal_price: typing.Optional[float] = OMIT,
@@ -1378,6 +1420,9 @@ class AsyncRawPlansClient:
 
         adaptive_pricing_enabled : typing.Optional[bool]
             Whether this plan accepts local currency payments via adaptive pricing.
+
+        attributes : typing.Optional[typing.Dict[str, typing.Any]]
+            Attribute values that make this plan one variant of its product, as a map of attribute name to value, e.g. `{"size": "Large", "color": "Blue"}`. Names are normalized to snake_case identifiers (`Ring Size` becomes `ring_size`) and come back in alphabetical order. Every variant plan on a product must carry the same attribute names and a distinct set of values. Send `null` to make the plan an ordinary pricing option again.
 
         billing_period : typing.Optional[int]
             Recurring billing interval in days, such as 30 for monthly or 365 for annual.
@@ -1422,13 +1467,16 @@ class AsyncRawPlansClient:
             Override the default tax classification for this specific plan.
 
         payment_method_configuration : typing.Optional[UpdatePlansRequestPaymentMethodConfiguration]
-            Explicit payment method configuration for the plan. When not provided, the account's defaults apply.
+            Explicit payment method configuration for the plan. When not provided, the account's defaults apply. Send at least one of `enabled` or `disabled`; an omitted one is empty.
 
         release_method : typing.Optional[str]
             Sales method for this plan.
 
         renewal_price : typing.Optional[float]
             The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
+
+        sku : typing.Optional[str]
+            Stock keeping unit for this plan. Maximum 100 characters. Free text, not enforced unique.
 
         stock : typing.Optional[int]
             The maximum number of units available for purchase. Ignored when unlimited_stock is true.
@@ -1443,7 +1491,7 @@ class AsyncRawPlansClient:
             3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
-            The display name of the plan shown to customers on the product page.
+            The display name of the plan shown to customers on the product page. Maximum 30 characters.
 
         trial_period_days : typing.Optional[int]
             Free trial duration before the first recurring charge.
@@ -1464,9 +1512,11 @@ class AsyncRawPlansClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}",
+            base_url=self._client_wrapper.get_environment().api,
             method="PATCH",
             json={
                 "adaptive_pricing_enabled": adaptive_pricing_enabled,
+                "attributes": attributes,
                 "billing_period": billing_period,
                 "cancel_discount_intervals": cancel_discount_intervals,
                 "cancel_discount_percentage": cancel_discount_percentage,
@@ -1494,6 +1544,7 @@ class AsyncRawPlansClient:
                 ),
                 "release_method": release_method,
                 "renewal_price": renewal_price,
+                "sku": sku,
                 "stock": stock,
                 "strike_through_initial_price": strike_through_initial_price,
                 "strike_through_renewal_price": strike_through_renewal_price,
@@ -1575,6 +1626,7 @@ class AsyncRawPlansClient:
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"plans/{encode_path_param(id)}/calculate_tax",
+            base_url=self._client_wrapper.get_environment().api,
             method="POST",
             json={
                 "address": convert_and_respect_annotation_metadata(

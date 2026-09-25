@@ -18,23 +18,24 @@ from flask_login import current_user
 
 from .decorators import anonymous_user_required, auth_required, unauth_csrf
 from .forms import (
-    build_form_from_request,
-    get_form_field_label,
+    _build_form_from_request,
+    _get_form_field_label,
     get_form_field_xlate,
     Form,
     RequiredLocalize,
     StringField,
     SubmitField,
+    IsString,
 )
 from .proxies import _datastore, _security
 from .tf_plugin import tf_check_state, tf_illegal_state
 from .utils import (
     _,
     base_render_json,
-    config_value as cv,
+    _config_value as cv,
     get_message,
-    get_post_login_redirect,
-    view_commit,
+    _get_post_login_redirect,
+    _view_commit,
 )
 
 if t.TYPE_CHECKING:  # pragma: no cover
@@ -139,12 +140,14 @@ class MfRecoveryCodesForm(Form):
     """Generate and fetch recovery codes"""
 
     # show_codes is a GET option., generate_new_codes is a POST option
-    show_codes = SubmitField(get_form_field_xlate(_("Show Recovery Codes")))
-    generate_new_codes = SubmitField(
+    show_codes: SubmitField = SubmitField(
+        get_form_field_xlate(_("Show Recovery Codes"))
+    )
+    generate_new_codes: SubmitField = SubmitField(
         get_form_field_xlate(_("Generate New Recovery Codes"))
     )
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
 
     def validate(self, **kwargs: t.Any) -> bool:
@@ -156,11 +159,11 @@ class MfRecoveryCodesForm(Form):
 class MfRecoveryForm(Form):
     """Accept recovery code for second factor authentication"""
 
-    code = StringField(
+    code: StringField = StringField(
         get_form_field_xlate(_("Recovery Code")),
-        validators=[RequiredLocalize()],
+        validators=[IsString(), RequiredLocalize()],
     )
-    submit = SubmitField(get_form_field_label("submitcode"))
+    submit: SubmitField = SubmitField(_get_form_field_label("submitcode"))
 
     def __init__(self, *args: t.Any, **kwargs: t.Any):
         super().__init__(*args, **kwargs)
@@ -193,13 +196,13 @@ def mf_recovery_codes() -> ResponseValue:
     the form has a show_codes submit button.
     """
     form = t.cast(
-        MfRecoveryCodesForm, build_form_from_request("mf_recovery_codes_form")
+        MfRecoveryCodesForm, _build_form_from_request("mf_recovery_codes_form")
     )
 
     if form.validate_on_submit():
         # generate new codes
         codes = _security.mf_recovery_codes_util.create_recovery_codes(current_user)
-        after_this_request(view_commit)
+        after_this_request(_view_commit)
         if _security._want_json(request):
             payload = dict(recovery_codes=codes)
             return base_render_json(form, include_user=False, additional=payload)
@@ -229,28 +232,29 @@ def mf_recovery_codes() -> ResponseValue:
 
 @anonymous_user_required
 @unauth_csrf()
-def mf_recovery():
+def mf_recovery() -> ResponseValue:
     """View for entering a recovery code.
 
     User must have already provided valid username/password.
     User must have already established 2FA
 
     """
-    form = t.cast(MfRecoveryForm, build_form_from_request("mf_recovery_form"))
+    form = t.cast(MfRecoveryForm, _build_form_from_request("mf_recovery_form"))
     form.user = tf_check_state(["ready"])
     if not form.user:
         return tf_illegal_state(form, cv("TWO_FACTOR_ERROR_VIEW"))
 
     if form.validate_on_submit():
         # Valid code - we want these to be one time - so remove it from list
+        assert form.code.data
         _security.mf_recovery_codes_util.delete_recovery_code(form.user, form.code.data)
-        after_this_request(view_commit)
+        after_this_request(_view_commit)
 
         # In the recovery case - don't set/offer validity token.
         _security.two_factor_plugins.tf_complete(form.user, True)
 
         if not _security._want_json(request):
-            return redirect(get_post_login_redirect())
+            return redirect(_get_post_login_redirect())
         else:
             return base_render_json(form)
 

@@ -1520,6 +1520,34 @@ _OFFICE_FONT_TELLS = (
     "Bookman Old Style",
 )
 
+# macOS OS fonts — the core set present on essentially every real Mac. Their
+# absence on a macOS-spoofing Linux host degrades results, just as a Windows-
+# spoofing host needs the Windows set above. Several entries (Arial, Georgia,
+# Times New Roman, Courier New, Tahoma) also ship on a Windows-provisioned box,
+# so a partial count on a non-Mac host is normal, not a fault.
+_MAC_FONT_TELLS = (
+    "Apple Color Emoji",
+    "Arial",
+    "Arial Narrow",
+    "Arial Unicode MS",
+    "Comic Sans MS",
+    "Courier",
+    "Courier New",
+    "Georgia",
+    "Gill Sans",
+    "Helvetica",
+    "Helvetica Neue",
+    "Impact",
+    "Menlo",
+    "Microsoft Sans Serif",
+    "Monaco",
+    "Tahoma",
+    "Times New Roman",
+    "Trebuchet MS",
+    "Webdings",
+    "Wingdings",
+)
+
 _font_warning_checked = False
 
 

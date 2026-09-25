@@ -251,7 +251,7 @@ def _build_agent_context(trials: "list[Trial[str]]", agent_role: str) -> str:
         context_lines.append(f"Attempt {i} (score: {trial.score:.2f}):")
         context_lines.append(f"  Prompt: {trial.candidate[:200]}...")
         if trial.evaluation_result and trial.evaluation_result.samples:
-            response = trial.evaluation_result.samples[0].output[:200]  # ty: ignore[not-subscriptable]
+            response = str(trial.evaluation_result.samples[0].output)[:200]
             context_lines.append(f"  Response: {response}...")
         context_lines.append("")
 

@@ -11,6 +11,8 @@ from urllib.parse import urljoin
 import httpx
 from rich.console import Console
 
+from src.cli.utils import guidance
+
 console = Console()
 
 
@@ -26,6 +28,26 @@ class APIError(Exception):
         super().__init__(message)
         self.status_code = status_code
         self.response_data = response_data
+
+
+class SignInRejected(APIError):
+    """The API refused the caller's token: expired, revoked, or never valid."""
+
+
+async def _reject_dead_sign_in(response: httpx.Response) -> None:
+    """Turn a rejected token into one clear error, wherever it happens (PF-460).
+
+    Around forty commands read `response.status_code` themselves and printed
+    "HTTP 401". Raising here means every one of them says what to do instead;
+    `execute_command` prints it. A missing team secret is a different 401 and
+    is left for the command to report (it only comes from operator routes).
+    """
+    if response.status_code != 401:
+        return
+    await response.aread()
+    if "X-Team-Secret" in response.text:
+        return
+    raise SignInRejected(guidance.SIGN_IN_REJECTED, 401)
 
 
 class InnoDayAPIClient:
@@ -81,6 +103,7 @@ class InnoDayAPIClient:
             ),
             follow_redirects=True,
             headers=default_headers,
+            event_hooks={"response": [_reject_dead_sign_in]},
         )
 
     async def __aenter__(self):
@@ -134,9 +157,14 @@ class InnoDayAPIClient:
                 f"Not found: {error_message}", response.status_code, response_data
             )
         elif response.status_code == 401:
-            raise APIError(
-                f"Unauthorized: {error_message}", response.status_code, response_data
+            # Say what to do, not the status code: a secret-gated route is
+            # operator work; anything else is the caller's sign-in (PF-460).
+            hint = (
+                guidance.OPERATOR_ONLY
+                if "X-Team-Secret" in str(error_message)
+                else guidance.SIGN_IN_REJECTED
             )
+            raise APIError(hint, response.status_code, response_data)
         elif response.status_code == 403:
             raise APIError(
                 f"Forbidden: {error_message}", response.status_code, response_data
@@ -171,7 +199,7 @@ class InnoDayAPIClient:
 
         `/health` is mounted at the app root, NOT under `/api/v1`. This built
         `_build_api_url("health")` -> `/api/v1/health`, which does not exist and
-        answers 401 behind the team-secret middleware, so the method could never
+        answered 401 (it was behind the global team-secret gate), so it could never
         have worked -- which is why it sat with zero callers while three other
         places re-implemented a `/health` read with raw httpx.
         """

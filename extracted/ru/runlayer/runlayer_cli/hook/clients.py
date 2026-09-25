@@ -124,7 +124,7 @@ def normalize_event_name(event: str) -> str:
 _POST_TOOL_EVENTS = frozenset({"PostToolUse", "PostToolUseFailure"})
 
 # Session events whose hook output may add model-visible context.
-_CONTEXT_EVENTS = frozenset({"SessionStart", "UserPromptSubmit"})
+_CONTEXT_EVENTS = frozenset({"SessionStart"})
 _CONTEXT_CLIENTS = frozenset({Client.CLAUDE_CODE, Client.CODEX})
 
 # Cline parses stdout by scanning for lines prefixed ``HOOK_CONTROL\t`` (last one
@@ -762,7 +762,7 @@ class HookResponse:
         """Allow a session event and add model-visible context.
 
         Claude Code and Codex share the ``hookSpecificOutput.additionalContext``
-        contract on session start and prompt submit.
+        contract on session start.
         """
         if self._client in _CONTEXT_CLIENTS and self._event in _CONTEXT_EVENTS:
             return json.dumps(

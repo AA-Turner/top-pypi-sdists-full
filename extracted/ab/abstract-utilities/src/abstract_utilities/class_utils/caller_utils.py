@@ -35,22 +35,37 @@ def get_initial_caller_dir() -> str:
     caller = get_initial_caller()
     return os.path.dirname(caller) if caller else None
 
+def _stack_files(frame) -> list:
+    """Filenames of the call stack from `frame` outward (innermost first).
+
+    Same order and content as ``[f.filename for f in inspect.stack()]`` but
+    without reading source: ``inspect.stack()`` calls ``getmodule`` on every
+    frame, which touches every module in ``sys.modules`` and so forces each
+    LazyLoader dependency (pandas, geopandas, PyPDF2, ...) to really import.
+    """
+    files = []
+    while frame is not None:
+        files.append(frame.f_code.co_filename)
+        frame = frame.f_back
+    return files
+
+
 def get_caller(i: Optional[int] = None) -> str:
     """
     Return the filename of the calling frame.
 
     Args:
-        i: Optional stack depth offset. 
+        i: Optional stack depth offset.
            None = immediate caller (depth 1).
 
     Returns:
         Absolute path of the file for the stack frame.
     """
     depth = 1 if i is None else int(i)
-    stack = inspect.stack()
+    stack = _stack_files(sys._getframe())
     if depth >= len(stack):
         depth = len(stack) - 1
-    return stack[depth].filename
+    return stack[depth]
 
 
 def get_caller_path(i: Optional[int] = None) -> str:
@@ -83,17 +98,16 @@ def get_original_caller_dir(levels_up: int = None) -> Path:
         Path object pointing to caller's directory.
     """
 
-    stack = inspect.stack()
+    stack = _stack_files(sys._getframe())
 
     # If the user specifies an exact depth
     if levels_up is not None:
         target = min(levels_up + 1, len(stack) - 1)
-        frame = stack[target]
-        return Path(frame.filename).resolve().parent
+        return Path(stack[target]).resolve().parent
 
     # Otherwise, auto-detect the FIRST file that isn't inside site-packages or abstract_* utilities
-    for frameinfo in reversed(stack):
-        file_path = Path(frameinfo.filename).resolve()
+    for filename in reversed(stack):
+        file_path = Path(filename).resolve()
 
         # Skip internal interpreter/frame files
         if "site-packages" in str(file_path):
@@ -106,4 +120,4 @@ def get_original_caller_dir(levels_up: int = None) -> Path:
         return file_path.parent
 
     # Fallback: last entry in the stack
-    return Path(stack[-1].filename).resolve().parent
+    return Path(stack[-1]).resolve().parent

@@ -2,6 +2,7 @@
 Create tenancy config returns "Created" response
 """
 
+from os import environ
 from datadog_api_client import ApiClient, Configuration
 from datadog_api_client.v2.api.oci_integration_api import OCIIntegrationApi
 from datadog_api_client.v2.model.create_tenancy_config_data import CreateTenancyConfigData
@@ -76,7 +77,7 @@ body = CreateTenancyConfigRequest(
 )
 
 configuration = Configuration()
-configuration.unstable_operations["create_tenancy_config"] = True
+configuration.access_token = environ["DD_BEARER_TOKEN"]
 with ApiClient(configuration) as api_client:
     api_instance = OCIIntegrationApi(api_client)
     response = api_instance.create_tenancy_config(body=body)

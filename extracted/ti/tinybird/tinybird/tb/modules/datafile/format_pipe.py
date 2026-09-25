@@ -23,6 +23,7 @@ from tinybird.tb.modules.datafile.format_common import (
     format_tags,
     format_tokens,
 )
+from tinybird.utils.bools import parse_optional_bool
 
 
 def format_node_sql(
@@ -81,6 +82,9 @@ def format_node_type(file_parts: List[str], node: Dict[str, Any]) -> List[str]:
             file_parts.append(
                 f"{CopyParameters.COPY_SCHEDULE.upper()} {ON_DEMAND if is_ondemand else node[CopyParameters.COPY_SCHEDULE]}"
             )
+        if parse_optional_bool(node.get(CopyParameters.ON_DEMAND_COMPUTE)):
+            file_parts.append(DATAFILE_NEW_LINE)
+            file_parts.append("ON_DEMAND_COMPUTE true")
         file_parts.append(DATAFILE_NEW_LINE)
 
     # Sink or Stream pipe

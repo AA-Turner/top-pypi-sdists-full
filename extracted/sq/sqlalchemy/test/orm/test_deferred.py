@@ -91,7 +91,7 @@ class DeferredTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                     {},
                 ),
                 (
-                    "SELECT orders.description AS orders_description "
+                    "SELECT orders.description "
                     "FROM orders WHERE orders.id = :pk_1",
                     {"pk_1": 3},
                 ),
@@ -132,7 +132,7 @@ class DeferredTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                     {},
                 ),
                 (
-                    "SELECT orders.description AS orders_description "
+                    "SELECT orders.description "
                     "FROM orders WHERE orders.id = :pk_1",
                     {"pk_1": 3},
                 ),
@@ -384,10 +384,10 @@ class DeferredTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                     {},
                 ),
                 (
-                    "SELECT orders.user_id AS orders_user_id, "
-                    "orders.address_id AS orders_address_id, "
-                    "orders.description AS orders_description, "
-                    "orders.isopen AS orders_isopen "
+                    "SELECT orders.user_id, "
+                    "orders.address_id, "
+                    "orders.description, "
+                    "orders.isopen "
                     "FROM orders WHERE orders.id = :pk_1",
                     {"pk_1": 3},
                 ),
@@ -517,7 +517,7 @@ class DeferredOptionsTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                     {},
                 ),
                 (
-                    "SELECT orders.user_id AS orders_user_id "
+                    "SELECT orders.user_id "
                     "FROM orders WHERE orders.id = :pk_1",
                     {"pk_1": 1},
                 ),
@@ -535,8 +535,8 @@ class DeferredOptionsTest(AssertsCompiledSQL, _fixtures.FixtureTest):
         q2 = q.options(undefer(Order.user_id))
         with expect_raises_message(
             sa.exc.InvalidRequestError,
-            r"Loader strategies for ORM Path\[Mapper\[Order\(orders\)\] -> "
-            r"Order.user_id\] conflict",
+            r"Loader strategy replacement undefer\(Order.user_id\) "
+            r"is in conflict with existing strategy defer\(Order.user_id\)",
         ):
             q2.all()
 
@@ -756,7 +756,7 @@ class DeferredOptionsTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                     {"id_1": 3},
                 ),
                 (
-                    "SELECT users.id AS users_id, users.name AS users_name "
+                    "SELECT users.id, users.name "
                     "FROM users WHERE users.id IN "
                     "(__[POSTCOMPILE_primary_keys])",
                     [{"primary_keys": [7]}],
@@ -815,11 +815,11 @@ class DeferredOptionsTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                     {"id_1": 7},
                 ),
                 (
-                    "SELECT orders.id AS orders_id, "
-                    "orders.user_id AS orders_user_id, "
-                    "orders.address_id AS orders_address_id, "
-                    "orders.description AS orders_description, "
-                    "orders.isopen AS orders_isopen "
+                    "SELECT orders.id, "
+                    "orders.user_id, "
+                    "orders.address_id, "
+                    "orders.description, "
+                    "orders.isopen "
                     "FROM orders WHERE :param_1 = orders.user_id "
                     "ORDER BY orders.id",
                     {"param_1": 7},
@@ -1457,14 +1457,14 @@ class DeferredOptionsTest(AssertsCompiledSQL, _fixtures.FixtureTest):
                 {"id_1": [7, 8]},
             ),
             (
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id",
                 {"param_1": 7},
             ),
             (
-                "SELECT addresses.id AS addresses_id, "
-                "addresses.email_address AS addresses_email_address "
+                "SELECT addresses.id, "
+                "addresses.email_address "
                 "FROM addresses WHERE :param_1 = addresses.user_id",
                 {"param_1": 8},
             ),
@@ -2117,7 +2117,8 @@ class InheritanceTest(_Polymorphic):
 
         assert_raises_message(
             sa.exc.ArgumentError,
-            r"Mapped class Mapper\[Manager\(managers\)\] does not apply to "
+            r"Mapped class Manager referenced in option "
+            r"undefer\(Manager.status\) does not apply to "
             "any of the root entities in this query, e.g. "
             r"with_polymorphic\(Person, \[Manager\]\).",
             s.query(wp).options(load_only(Manager.status))._compile_context,

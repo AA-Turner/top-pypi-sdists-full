@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import random
+import re
 from typing import Optional
 from typing import TYPE_CHECKING
 
@@ -30,6 +31,7 @@ from sqlalchemy.testing import assert_raises_message
 from sqlalchemy.testing import assert_warnings
 from sqlalchemy.testing import engines
 from sqlalchemy.testing import eq_
+from sqlalchemy.testing import expect_raises
 from sqlalchemy.testing import expect_raises_message
 from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
@@ -246,34 +248,55 @@ class SessionTransactionTest(fixtures.RemovesEvents, FixtureTest):
             external_state.fail()
 
     @join_transaction_mode
-    def test_join_transaction_mode_with_event(self, join_transaction_mode):
+    @testing.variation("operation", ["commit", "close", "rollback"])
+    def test_join_transaction_mode_with_event(
+        self, join_transaction_mode, operation
+    ):
         eng = engines.testing_engine()
+        eng_conn = None
+        events = []
+
+        @event.listens_for(eng, "commit")
+        def on_commit(conn):
+            events.append("commit")
+
+        @event.listens_for(eng, "rollback")
+        def on_rollback(conn):
+            events.append("rollback")
+
+        @event.listens_for(eng.pool, "checkin")
+        def on_checkin(conn, record):
+            events.append("checkin")
 
         @event.listens_for(eng, "engine_connect")
-        def make_transaction(conn):
+        def make_stat(conn):
+            nonlocal eng_conn
+            eng_conn = conn
             conn.begin()
 
         if join_transaction_mode.none:
             s = Session(eng)
         else:
             s = Session(eng, join_transaction_mode=join_transaction_mode.name)
-        if (
-            join_transaction_mode.none
-            or join_transaction_mode.conditional_savepoint
-        ):
-            with expect_warnings(
-                "The engine provided as bind produced a "
-                "connection that is already in a transaction. "
-                "This is usually caused by a core event, "
-                "such as 'engine_connect', that has left a "
-                "transaction open. The effective join "
-                "transaction mode used by this session is "
-                "'rollback_only'. To silence this "
-                "warning, do not leave transactions open"
-            ):
-                s.connection()
+
+        s.connection()
+
+        expected = []
+        if operation.commit:
+            s.commit()
+            expected.append("commit")
+        elif operation.rollback:
+            s.rollback()
+            expected.append("rollback")
+        elif operation.close:
+            s.close()
+            expected.append("rollback")
         else:
-            s.connection()
+            operation.fail()
+        is_(eng_conn.in_transaction(), False)
+
+        expected.append("checkin")
+        eq_(events, expected)
 
     def test_subtransaction_on_external_commit(self, connection_no_trans):
         users, User = self.tables.users, self.classes.User
@@ -650,13 +673,16 @@ class SessionTransactionTest(fixtures.RemovesEvents, FixtureTest):
         def fail(*arg, **kw):
             raise BaseException("some base exception")
 
-        with mock.patch.object(
-            testing.db.dialect, "do_rollback", side_effect=fail
-        ) as fail_mock, mock.patch.object(
-            testing.db.dialect,
-            "do_commit",
-            side_effect=testing.db.dialect.do_commit,
-        ) as succeed_mock:
+        with (
+            mock.patch.object(
+                testing.db.dialect, "do_rollback", side_effect=fail
+            ) as fail_mock,
+            mock.patch.object(
+                testing.db.dialect,
+                "do_commit",
+                side_effect=testing.db.dialect.do_commit,
+            ) as succeed_mock,
+        ):
             # sess.begin() -> commit().  why would do_rollback() be called?
             # because of connection pool finalize_fairy *after* the commit.
             # this will cause the conn.close() in session.commit() to fail,
@@ -2219,6 +2245,33 @@ class ContextManagerPlusFutureTest(FixtureTest):
                     u1.name = "newname"
                 elif check_operation == "delete":
                     session.delete(u1)
+
+    def test_rollback_exception_in_ctxmanager_error_message(self):
+        """test that when a flush-level exception causes the transaction to
+        be rolled back inside a context manager, subsequent session use raises
+        an error that includes the original exception. #11297"""
+        users, User = self.tables.users, self.classes.User
+
+        self.mapper_registry.map_imperatively(User, users)
+
+        sess = fixture_session()
+
+        with expect_raises(sa_exc.DBAPIError):
+            with sess.begin():
+                sess.add(User())  # name can't be null
+                try:
+                    sess.flush()
+                except sa_exc.DBAPIError as flush_err:
+                    with expect_raises_message(
+                        sa_exc.InvalidRequestError,
+                        "Can't operate on closed transaction inside context "
+                        "manager.  The transaction was rolled back due to "
+                        f"an exception: {re.escape(str(flush_err))}.  "
+                        "Please complete the context manager before "
+                        "emitting further commands.",
+                    ):
+                        sess.connection()
+                    raise
 
 
 class TransactionFlagsTest(fixtures.TestBase):

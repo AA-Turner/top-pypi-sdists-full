@@ -26,6 +26,7 @@ __all__ = (
     "AttributeEntityTypeType",
     "AuthTypeType",
     "AuthenticationTypeType",
+    "BlueprintCategoryType",
     "ChangeActionType",
     "ComputeEnvironmentsType",
     "ConfigurableActionTypeAuthorizationType",
@@ -178,6 +179,7 @@ AcceptRuleBehaviorType = Literal["ALL", "NONE"]
 AttributeEntityTypeType = Literal["ASSET", "LISTING"]
 AuthTypeType = Literal["DISABLED", "IAM_IDC"]
 AuthenticationTypeType = Literal["BASIC", "CUSTOM", "OAUTH2"]
+BlueprintCategoryType = Literal["TOOLING"]
 ChangeActionType = Literal["PUBLISH", "UNPUBLISH"]
 ComputeEnvironmentsType = Literal["ATHENA", "PYTHON", "SPARK"]
 ConfigurableActionTypeAuthorizationType = Literal["HTTPS", "IAM"]
@@ -632,6 +634,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -706,6 +709,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -829,6 +833,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

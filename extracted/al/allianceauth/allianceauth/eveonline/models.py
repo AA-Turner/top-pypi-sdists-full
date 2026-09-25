@@ -239,8 +239,7 @@ class EveAllianceInfo(models.Model):
             return self
 
         for corp_id in corp_ids:
-            if not EveCorporationInfo.objects.filter(corporation_id=corp_id).exists():
-                EveCorporationInfo.objects.create_corporation(corporation_id=corp_id)
+            EveCorporationInfo.objects.get_or_create_esi(corporation_id=corp_id)
         EveCorporationInfo.objects.filter(
             corporation_id__in=corp_ids
         ).update(
@@ -266,10 +265,7 @@ class EveAllianceInfo(models.Model):
             return self
 
         if alliance.faction_id:
-            try:
-                self.faction = EveFactionInfo.objects.get(faction_id=alliance.faction_id)
-            except EveFactionInfo.DoesNotExist:
-                self.faction = EveFactionInfo.objects.create_faction(faction_id=alliance.faction_id)
+            self.faction = EveFactionInfo.objects.get_or_create_esi(faction_id=alliance.faction_id)
         else:
             self.faction = None
 
@@ -402,18 +398,12 @@ class EveCorporationInfo(models.Model):
             return self
 
         if corporation.alliance_id:
-            try:
-                self.alliance = EveAllianceInfo.objects.get(alliance_id=corporation.alliance_id)
-            except EveAllianceInfo.DoesNotExist:
-                self.alliance = EveAllianceInfo.objects.create_alliance(alliance_id=corporation.alliance_id)
+            self.alliance = EveAllianceInfo.objects.get_or_create_esi(alliance_id=corporation.alliance_id)
         else:
             self.alliance = None
 
         if corporation.faction_id:
-            try:
-                self.faction = EveFactionInfo.objects.get(faction_id=corporation.faction_id)
-            except EveFactionInfo.DoesNotExist:
-                self.faction = EveFactionInfo.objects.create_faction(faction_id=corporation.faction_id)
+            self.faction = EveFactionInfo.objects.get_or_create_esi(faction_id=corporation.faction_id)
         else:
             self.faction = None
 

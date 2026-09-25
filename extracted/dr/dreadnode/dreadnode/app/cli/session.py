@@ -95,7 +95,7 @@ def _status_tokens(payload: dict[str, t.Any]) -> list[str]:
     if payload.get("archived_at"):
         tokens.append("[dim]archived[/dim]")
     if payload.get("visibility") == "workspace":
-        tokens.append("[dim]shared[/dim]")
+        tokens.append("[dim]listed[/dim]")
     return tokens
 
 
@@ -583,7 +583,9 @@ def share(
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
     platform: PlatformScopeArgs = PlatformScopeArgs(),
 ) -> None:
-    """Share a private session with the workspace. Cannot be undone.
+    """Show an unlisted session in workspace lists. Cannot be undone.
+
+    Workspace members can already read the session by ID; this changes discovery.
 
     Args:
         session_id: Session UUID, or a unique prefix (e.g. the 8-char id shown by `dn session list`).
@@ -593,8 +595,8 @@ def share(
     api, profile = platform.connect()
     short = _short_id(session_id)
     if not confirm_destructive(
-        f"Share session [cyan]{short}[/cyan] with the workspace? Everyone in "
-        "the workspace will be able to see this session and its transcript. "
+        f"Show session [cyan]{short}[/cyan] in workspace lists? Workspace members "
+        "can already read it by ID. "
         "This cannot be undone.",
         yes=yes,
     ):
@@ -606,7 +608,7 @@ def share(
     if as_json:
         _print_json(payload)
         return
-    console.print(f"  {short}  [green]shared[/green]")
+    console.print(f"  {short}  [green]listed[/green]")
 
 
 @cli.command()

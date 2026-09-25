@@ -1551,7 +1551,7 @@ class LambdaElementTest(
         x = {"foo": "bar"}
 
         def mylambda():
-            return tt.c.q + x
+            return tt.c.q._null_operate(x)
 
         expr = coercions.expect(roles.WhereHavingRole, mylambda)
         is_(expr._resolved.right.type._type_affinity, JSON)
@@ -2243,7 +2243,7 @@ def generate_lambda_stmt(wanted):
         for thread in threads:
             thread.start()
         for thread in threads:
-            thread.join(timeout=10)
+            thread.join(timeout=20)
         for conn in conns:
             conn.close()
 

@@ -23,9 +23,8 @@ def available_states_query(character):
 
 class CharacterOwnershipManager(Manager):
     def create_by_token(self, token):
-        if not EveCharacter.objects.filter(character_id=token.character_id).exists():
-            EveCharacter.objects.create_character(token.character_id)
-        return self.create(character=EveCharacter.objects.get(character_id=token.character_id), user=token.user, owner_hash=token.character_owner_hash)
+        character = EveCharacter.objects.get_or_create_esi(token.character_id)
+        return self.create(character=character, user=token.user, owner_hash=token.character_owner_hash)
 
 
 class StateQuerySet(QuerySet):

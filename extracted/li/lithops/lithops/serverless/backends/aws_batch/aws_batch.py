@@ -141,7 +141,7 @@ class AWSBatchBackend:
             if self.env_type in {'EC2', 'SPOT'}:
                 compute_resources_spec['instanceRole'] = self.aws_batch_config['instance_role']
                 compute_resources_spec['minvCpus'] = 0
-                compute_resources_spec['instanceTypes'] = ['optimal']
+                compute_resources_spec['instanceTypes'] = self.aws_batch_config.get('instance_types') or ['optimal']
 
             res = self.batch_client.create_compute_environment(
                 computeEnvironmentName=self._compute_env_name,
@@ -544,7 +544,7 @@ class AWSBatchBackend:
             payload['chunksize'] = chunksize
 
         logger.debug(
-            f'ExecutorID {executor_id} | JobID {job_id} - Required Workers: {total_workers}'
+            f'{utils.log_prefix(executor_id, job_id)} - Required Workers: {total_workers}'
         )
 
         job_name = '{}_{}'.format(self._format_jobdef_name(runtime_name, runtime_memory), payload['job_key'])

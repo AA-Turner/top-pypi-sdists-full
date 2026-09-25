@@ -124,7 +124,9 @@ class VendorInfo(DebugContents):
             )
         return self.registered_object_classes.get(
             object_type, None
-        ) or ASHRAE_vendor_info.registered_object_classes.get(object_type, None)  # type: ignore[attr-defined]
+        ) or ASHRAE_vendor_info.registered_object_classes.get(
+            object_type, None
+        )  # type: ignore[attr-defined]
 
 
 # ASHRAE is Vendor ID 0

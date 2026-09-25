@@ -627,10 +627,8 @@ def test_the_page_and_retarget_choose_the_same_slot_two():
     Stated as the two callers agreeing rather than as either one being correct,
     because the defect was never that one of them was wrong on its own.
     """
-    from src.routers.webui import data as webui_data
     from src.services import release_pipeline
     from src.services.release_planning import slot_two
 
     # Both modules must reach the *same* function, not two copies of it.
-    assert webui_data.slot_two is slot_two
     assert release_pipeline.slot_two is slot_two
