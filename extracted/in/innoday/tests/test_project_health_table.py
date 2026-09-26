@@ -69,16 +69,16 @@ class TestOneTableForEveryDependency:
 class TestReachabilityIsThreeValued:
     def test_nothing_proved_is_not_a_failure(self):
         """`None` means probing was skipped, no credential is stored, or the
-        budget ran out. Collapsing that into ❌ reports a working board as
+        budget ran out. Collapsing that into ✗ reports a working board as
         broken."""
-        assert "❌" not in reach_mark(None)
-        assert "✅" not in reach_mark(None)
-        assert "❌" in reach_mark(False)
-        assert "✅" in reach_mark(True)
+        assert "✗" not in reach_mark(None)
+        assert "✓" not in reach_mark(None)
+        assert "✗" in reach_mark(False)
+        assert "✓" in reach_mark(True)
 
     def test_a_disconnected_database_shows_as_failed(self):
         row = _cells(health_table({**HEALTHY, "database": "disconnected"}))
-        assert "❌" in row[2][0]
+        assert "✗" in row[2][0]
 
 
 class TestGitHubSaysWhyWhenItMatters:

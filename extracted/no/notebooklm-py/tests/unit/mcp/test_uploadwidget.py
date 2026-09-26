@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import json
+import shutil
+import subprocess
 import time
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
@@ -19,6 +22,7 @@ import pytest
 pytest.importorskip("fastmcp")
 
 from notebooklm.mcp import _uploadwidget  # noqa: E402
+from notebooklm.mcp._clientprovider import ClientProvider  # noqa: E402
 from notebooklm.mcp._filelink import (  # noqa: E402
     UPLOAD_TTL,
     WIDGET_UPLOAD_TTL,
@@ -52,6 +56,7 @@ def test_widget_html_is_cross_host() -> None:
     # Renders + acquires the tool result on both claude.ai/Grok (postMessage) and ChatGPT
     # (window.openai.toolOutput), with the unconditional initialized handshake and a universal
     # <input type=file> + direct POST to the upload_url.
+    """Keep the widget handshake and confirmation hooks usable on supported hosts."""
     for marker in (
         'method:"ui/notifications/initialized"',  # claude.ai render gate
         "window.openai",  # ChatGPT bridge
@@ -69,17 +74,80 @@ def test_widget_html_is_cross_host() -> None:
         assert marker in _WIDGET_HTML, marker
 
 
-def test_widget_html_auto_confirms_only_on_success() -> None:
-    # #1891: the auto-confirm fires from inside the res.ok branch (a committed upload), never on a
-    # failed POST — a corrupted/failed upload must not tell the model a source was added.
+def test_widget_html_confirms_committed_outcomes() -> None:
+    # The tool distinguishes successful and unconfirmed registrations.
+    """Preserve the tool confirmation contract after retiring a consumed upload URL."""
     assert "uploadUrls[i]=null;confirmUpload(tok)" in _WIDGET_HTML
     # It reads the confirm contract the tool returns for the arg/link...
     assert "confirmSpec=d.confirm" in _WIDGET_HTML
 
 
+@pytest.mark.skipif(shutil.which("node") is None, reason="Node.js is needed for widget execution")
+@pytest.mark.parametrize("mixed_batch", [False, True])
+def test_widget_retires_frozen_link_without_retry(mixed_batch: bool) -> None:
+    """Execute the widget to verify that unconfirmed uploads retire their single-use link."""
+    script = _WIDGET_HTML.split('<script type="module">', 1)[1].split("</script>", 1)[0]
+    harness = r"""
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const elements = Object.fromEntries(['sub', 'out', 'f', 'up'].map(id => [id, {
+  textContent: '', disabled: true, listeners: {},
+  addEventListener(event, fn) { this.listeners[event] = fn; }
+}]));
+const confirms = [];
+let requests = 0, retryRequests = 0;
+const mixedBatch = MIXED_BATCH;
+const context = {
+  document: { getElementById: id => elements[id], documentElement: {} },
+  window: { parent: {postMessage() {}}, addEventListener() {}, openai: {
+    toolOutput: { upload_urls: ['https://example.test/files/ul/token',
+      ...(mixedBatch ? ['https://example.test/files/ul/retry'] : [])],
+      confirm: {tool: 'await_upload', arg: 'upload_link'} },
+    callTool: async (name, args) => { confirms.push({name, args}); }
+  } },
+  setTimeout() {}, setInterval() {}, clearInterval() {},
+  fetch: async url => { requests++;
+    if (url.includes("/retry?")) {
+      retryRequests++;
+      return {ok: retryRequests > 1, status: retryRequests > 1 ? 200 : 503,
+        headers: {get: () => null}, text: async () => "transient or recovered"};
+    }
+    return {
+    ok: false, status: 502,
+    headers: {get: name => name === 'X-NotebookLM-Upload-Status' ? 'unconfirmed' : null},
+    text: async () => 'registration unconfirmed'
+  }; }
+};
+vm.createContext(context);
+vm.runInContext(SCRIPT, context);
+vm.runInContext('pullOai()', context);
+elements.f.files = [{name: 'note.txt', size: 3, type: 'text/plain'},
+  ...(mixedBatch ? [{name: 'retry.txt', size: 3, type: 'text/plain'}] : [])];
+elements.f.listeners.change();
+(async () => {
+  await elements.up.listeners.click();
+  assert.equal(elements.up.disabled, !mixedBatch);
+  assert.match(elements.sub.textContent, /unconfirmed/);
+  assert.match(elements.out.textContent, /source_list/);
+  assert.equal(confirms.length, 1);
+  await elements.up.listeners.click();
+  assert.equal(requests, mixedBatch ? 3 : 1);
+  if (mixedBatch) {
+    assert.equal(elements.up.disabled, true);
+    assert.match(elements.sub.textContent, /1 unconfirmed/);
+    assert.match(elements.sub.textContent, /source_list/);
+    assert.doesNotMatch(elements.sub.textContent, /you can close/);
+    assert.equal(confirms.length, 2);
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""".replace("SCRIPT", json.dumps(script)).replace("MIXED_BATCH", json.dumps(mixed_batch))
+    subprocess.run(["node", "-e", harness], check=True, capture_output=True, text=True)
+
+
 def test_widget_html_hard_allowlists_the_confirm_tool() -> None:
     # SECURITY: confirmSpec arrives via the un-origin-checked postMessage handler, so the tool name
     # must be hard-allowlisted — a spoofed message must not be able to redirect which tool runs.
+    """Reject arbitrary tool names from widget output before invoking confirmation."""
     assert 'CONFIRM_TOOL="await_upload"' in _WIDGET_HTML
     assert "confirmSpec.tool!==CONFIRM_TOOL" in _WIDGET_HTML  # gate before invoking
     # The invocation uses the constant, never the message-supplied name.
@@ -159,7 +227,9 @@ async def test_widget_tool_returns_single_use_token_pool(monkeypatch) -> None:
     monkeypatch.setattr(_uploadwidget, "resolve_notebook", AsyncMock(return_value="nb-123"))
     ctx = SimpleNamespace(
         request_context=SimpleNamespace(
-            lifespan_context=SimpleNamespace(client=MagicMock(), file_transfer=cfg)
+            lifespan_context=SimpleNamespace(
+                client_provider=ClientProvider.of(MagicMock()), file_transfer=cfg
+            )
         )
     )
 
@@ -184,7 +254,9 @@ async def test_widget_tool_returns_auto_confirm_contract(monkeypatch) -> None:
     monkeypatch.setattr(_uploadwidget, "resolve_notebook", AsyncMock(return_value="nb-123"))
     ctx = SimpleNamespace(
         request_context=SimpleNamespace(
-            lifespan_context=SimpleNamespace(client=MagicMock(), file_transfer=cfg)
+            lifespan_context=SimpleNamespace(
+                client_provider=ClientProvider.of(MagicMock()), file_transfer=cfg
+            )
         )
     )
 
@@ -210,7 +282,9 @@ async def test_widget_pool_tokens_carry_the_longer_widget_ttl(monkeypatch) -> No
     monkeypatch.setattr(_uploadwidget, "resolve_notebook", AsyncMock(return_value="nb-123"))
     ctx = SimpleNamespace(
         request_context=SimpleNamespace(
-            lifespan_context=SimpleNamespace(client=MagicMock(), file_transfer=cfg)
+            lifespan_context=SimpleNamespace(
+                client_provider=ClientProvider.of(MagicMock()), file_transfer=cfg
+            )
         )
     )
 

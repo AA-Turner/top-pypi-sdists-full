@@ -68,7 +68,7 @@ class InstanceUpdateParams(TypedDict, total=False):
     index_method: IndexMethod
     """Controls which storage backends are used during indexing.
 
-    Defaults to vector-only.
+    Defaults to vector and keyword indexing for new instances.
     """
 
     indexing_options: Optional[IndexingOptions]
@@ -130,7 +130,7 @@ class CustomMetadata(TypedDict, total=False):
 class IndexMethod(TypedDict, total=False):
     """Controls which storage backends are used during indexing.
 
-    Defaults to vector-only.
+    Defaults to vector and keyword indexing for new instances.
     """
 
     keyword: Required[bool]
@@ -148,6 +148,12 @@ class IndexingOptions(TypedDict, total=False):
     language queries). trigram enables character-level substring matching (good for
     partial matches, code, identifiers). Changing this triggers a full re-index.
     Defaults to porter.
+    """
+
+    use_ocr: bool
+    """Enables OCR ingestion for PDFs and images.
+
+    Changing this triggers a full re-index. Defaults to false.
     """
 
 

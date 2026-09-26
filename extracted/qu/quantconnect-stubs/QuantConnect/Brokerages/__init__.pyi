@@ -1462,6 +1462,27 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         ...
 
     @property
+    def group_order_cache_manager(self) -> QuantConnect.Orders.GroupOrderCacheManager:
+        """
+        Cache holding the legs of a combo order until all of them have been placed, so the brokerage can submit them together
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def contingent_order_cache(self) -> QuantConnect.Orders.ContingentOrderCache:
+        """
+        Cache holding the orders of a set of contingent orders (OCO, OTO, OUO, brackets) until all of them have been placed,
+        so the brokerage can submit them together
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
     def account_base_currency(self) -> str:
         """Returns the brokerage account's base currency"""
         ...
@@ -1631,6 +1652,20 @@ class Brokerage(System.Object, QuantConnect.Interfaces.IBrokerage, metaclass=abc
         
         
         This Class is protected.
+        """
+        ...
+
+    def on_contingent_orders_triggered(self, order_events: typing.Sequence[QuantConnect.Orders.OrderEvent], order_provider: QuantConnect.Securities.IOrderProvider) -> None:
+        """
+        Helper method for brokerages which support contingent orders (OCO, OTO, OUO, brackets): to be called after emitting fill order events,
+        it will notify through on_order_updated the children orders which were triggered by an order which completely filled,
+        all its legs for a combo order, so they are no longer held by the brokerage but working in the market
+        
+        
+        This Class is protected.
+        
+        :param order_events: The order events that were emitted
+        :param order_provider: The order provider to use
         """
         ...
 
@@ -3085,6 +3120,16 @@ class InteractiveBrokersBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageM
         ...
 
     @property
+    def supported_contingency_types(self) -> System.Collections.Generic.HashSet[QuantConnect.Orders.ContingencyType]:
+        """
+        Supported contingency types
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
     def supported_order_types(self) -> System.Collections.Generic.HashSet[QuantConnect.Orders.OrderType]:
         """
         Supported order types
@@ -3528,6 +3573,40 @@ class BrokerageExtensions(System.Object):
         :param quantity: The order quantity; the sign gives the order direction
         :param holdings_quantity: The current holdings quantity
         :returns: A copy of the properties without the locate; null when there is nothing to remove.
+        """
+        ...
+
+    @staticmethod
+    def unsupported_contingent_orders_shape(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, reason: str) -> QuantConnect.Brokerages.BrokerageMessageEvent:
+        """Helper to create the message of a set of contingent orders with a shape not supported by the brokerage"""
+        ...
+
+    @staticmethod
+    def validate_contingent_order(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order, supported_contingency_types: System.Collections.Generic.IReadOnlySet[QuantConnect.Orders.ContingencyType], message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent], supports_combo_orders: bool = True, supports_multiple_symbols: bool = True, supports_nesting: bool = True, maximum_order_count: int = ...) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Validates the contingencies of the given order are of a type supported by the brokerage
+        
+        :param brokerage_model: The brokerage model
+        :param order: The order to validate
+        :param supported_contingency_types: The contingency types supported by the brokerage
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :param supports_combo_orders: True if combo orders can be part of a set of contingent orders
+        :param supports_multiple_symbols: True if the orders in the set can be for different symbols
+        :param supports_nesting: True if an order triggered by another can trigger others in turn
+        :param maximum_order_count: The maximum number of orders in the set
+        :returns: True if the order is not a contingent order or all its contingencies are supported.
+        """
+        ...
+
+    @staticmethod
+    def validate_contingent_orders_not_supported(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Rejects contingent orders (OCO, OTO, OUO, brackets), for the brokerage models of brokerages which don't support them
+        
+        :param brokerage_model: The brokerage model
+        :param order: The order to validate
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: False if the order is a contingent order.
         """
         ...
 
@@ -4153,6 +4232,18 @@ class CharlesSchwabBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel)
         """
         ...
 
+    def can_update_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, request: QuantConnect.Orders.UpdateOrderRequest, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage would allow updating the order as specified by the request
+        
+        :param security: The security of the order
+        :param order: The order to be updated
+        :param request: The requested update to be made to the order
+        :param message: If this function returns false, a brokerage message detailing why the order may not be updated
+        :returns: True if the brokerage would allow updating the order, false otherwise.
+        """
+        ...
+
     def get_fee_model(self, security: QuantConnect.Securities.Security) -> QuantConnect.Orders.Fees.IFeeModel:
         """
         Provides TradeStation fee model
@@ -4594,6 +4685,18 @@ class BinanceUSBrokerageModel(QuantConnect.Brokerages.BinanceBrokerageModel):
         Initializes a new instance of the BinanceBrokerageModel class
         
         :param account_type: The type of account to be modeled, defaults to AccountType.CASH
+        """
+        ...
+
+    def can_submit_order(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, message: typing.Optional[QuantConnect.Brokerages.BrokerageMessageEvent]) -> typing.Tuple[bool, QuantConnect.Brokerages.BrokerageMessageEvent]:
+        """
+        Returns true if the brokerage could accept this order. Binance US does not expose the order list endpoints,
+        so contingent orders are not supported
+        
+        :param security: The security of the order
+        :param order: The order to be processed
+        :param message: If this function returns false, a brokerage message detailing why the order may not be submitted
+        :returns: True if the brokerage could process the order, false otherwise.
         """
         ...
 

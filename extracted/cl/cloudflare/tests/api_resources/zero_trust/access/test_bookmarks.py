@@ -10,10 +10,7 @@ import pytest
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
 from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
-from cloudflare.types.zero_trust.access import (
-    Bookmark,
-    BookmarkDeleteResponse,
-)
+from cloudflare.types.zero_trust.access import Bookmark, BookmarkDeleteResponse
 
 # pyright: reportDeprecated=false
 
@@ -29,7 +26,6 @@ class TestBookmarks:
             bookmark = client.zero_trust.access.bookmarks.create(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert_matches_type(Optional[Bookmark], bookmark, path=["response"])
@@ -40,7 +36,6 @@ class TestBookmarks:
             response = client.zero_trust.access.bookmarks.with_raw_response.create(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert response.is_closed is True
@@ -54,7 +49,6 @@ class TestBookmarks:
             with client.zero_trust.access.bookmarks.with_streaming_response.create(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -71,14 +65,12 @@ class TestBookmarks:
                 client.zero_trust.access.bookmarks.with_raw_response.create(
                     bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                     account_id="",
-                    body={},
                 )
 
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `bookmark_id` but received ''"):
                 client.zero_trust.access.bookmarks.with_raw_response.create(
                     bookmark_id="",
                     account_id="699d98642c564d2e855e9661899b7252",
-                    body={},
                 )
 
     @parametrize
@@ -87,7 +79,6 @@ class TestBookmarks:
             bookmark = client.zero_trust.access.bookmarks.update(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert_matches_type(Optional[Bookmark], bookmark, path=["response"])
@@ -98,7 +89,6 @@ class TestBookmarks:
             response = client.zero_trust.access.bookmarks.with_raw_response.update(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert response.is_closed is True
@@ -112,7 +102,6 @@ class TestBookmarks:
             with client.zero_trust.access.bookmarks.with_streaming_response.update(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -129,14 +118,12 @@ class TestBookmarks:
                 client.zero_trust.access.bookmarks.with_raw_response.update(
                     bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                     account_id="",
-                    body={},
                 )
 
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `bookmark_id` but received ''"):
                 client.zero_trust.access.bookmarks.with_raw_response.update(
                     bookmark_id="",
                     account_id="699d98642c564d2e855e9661899b7252",
-                    body={},
                 )
 
     @parametrize
@@ -300,7 +287,6 @@ class TestAsyncBookmarks:
             bookmark = await async_client.zero_trust.access.bookmarks.create(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert_matches_type(Optional[Bookmark], bookmark, path=["response"])
@@ -311,7 +297,6 @@ class TestAsyncBookmarks:
             response = await async_client.zero_trust.access.bookmarks.with_raw_response.create(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert response.is_closed is True
@@ -325,7 +310,6 @@ class TestAsyncBookmarks:
             async with async_client.zero_trust.access.bookmarks.with_streaming_response.create(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -342,14 +326,12 @@ class TestAsyncBookmarks:
                 await async_client.zero_trust.access.bookmarks.with_raw_response.create(
                     bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                     account_id="",
-                    body={},
                 )
 
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `bookmark_id` but received ''"):
                 await async_client.zero_trust.access.bookmarks.with_raw_response.create(
                     bookmark_id="",
                     account_id="699d98642c564d2e855e9661899b7252",
-                    body={},
                 )
 
     @parametrize
@@ -358,7 +340,6 @@ class TestAsyncBookmarks:
             bookmark = await async_client.zero_trust.access.bookmarks.update(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert_matches_type(Optional[Bookmark], bookmark, path=["response"])
@@ -369,7 +350,6 @@ class TestAsyncBookmarks:
             response = await async_client.zero_trust.access.bookmarks.with_raw_response.update(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             )
 
         assert response.is_closed is True
@@ -383,7 +363,6 @@ class TestAsyncBookmarks:
             async with async_client.zero_trust.access.bookmarks.with_streaming_response.update(
                 bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                 account_id="699d98642c564d2e855e9661899b7252",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -400,14 +379,12 @@ class TestAsyncBookmarks:
                 await async_client.zero_trust.access.bookmarks.with_raw_response.update(
                     bookmark_id="f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
                     account_id="",
-                    body={},
                 )
 
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `bookmark_id` but received ''"):
                 await async_client.zero_trust.access.bookmarks.with_raw_response.update(
                     bookmark_id="",
                     account_id="699d98642c564d2e855e9661899b7252",
-                    body={},
                 )
 
     @parametrize

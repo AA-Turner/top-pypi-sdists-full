@@ -505,6 +505,7 @@ class RawTasksClient:
         predictions_score: typing.Optional[float] = OMIT,
         project: typing.Optional[int] = OMIT,
         reviewed: typing.Optional[bool] = OMIT,
+        reviewed_at: typing.Optional[dt.datetime] = OMIT,
         reviews_accepted: typing.Optional[int] = OMIT,
         reviews_rejected: typing.Optional[int] = OMIT,
         total_annotations: typing.Optional[int] = OMIT,
@@ -563,6 +564,8 @@ class RawTasksClient:
 
         reviewed : typing.Optional[bool]
 
+        reviewed_at : typing.Optional[dt.datetime]
+
         reviews_accepted : typing.Optional[int]
 
         reviews_rejected : typing.Optional[int]
@@ -603,6 +606,7 @@ class RawTasksClient:
                 "predictions_score": predictions_score,
                 "project": project,
                 "reviewed": reviewed,
+                "reviewed_at": reviewed_at,
                 "reviews_accepted": reviews_accepted,
                 "reviews_rejected": reviews_rejected,
                 "total_annotations": total_annotations,
@@ -641,6 +645,7 @@ class RawTasksClient:
         event_key: str,
         event_time: dt.datetime,
         annotation: typing.Optional[int] = OMIT,
+        annotation_draft: typing.Optional[int] = OMIT,
         annotation_draft_id: typing.Optional[int] = OMIT,
         meta: typing.Optional[typing.Any] = OMIT,
         review: typing.Optional[int] = OMIT,
@@ -711,6 +716,9 @@ class RawTasksClient:
         annotation : typing.Optional[int]
             Annotation ID associated with this event
 
+        annotation_draft : typing.Optional[int]
+            Draft annotation ID associated with this event (alias for annotation_draft_id)
+
         annotation_draft_id : typing.Optional[int]
             Draft annotation ID associated with this event
 
@@ -733,6 +741,7 @@ class RawTasksClient:
             method="POST",
             json={
                 "annotation": annotation,
+                "annotation_draft": annotation_draft,
                 "annotation_draft_id": annotation_draft_id,
                 "event_key": event_key,
                 "event_time": event_time,
@@ -1293,6 +1302,7 @@ class AsyncRawTasksClient:
         predictions_score: typing.Optional[float] = OMIT,
         project: typing.Optional[int] = OMIT,
         reviewed: typing.Optional[bool] = OMIT,
+        reviewed_at: typing.Optional[dt.datetime] = OMIT,
         reviews_accepted: typing.Optional[int] = OMIT,
         reviews_rejected: typing.Optional[int] = OMIT,
         total_annotations: typing.Optional[int] = OMIT,
@@ -1351,6 +1361,8 @@ class AsyncRawTasksClient:
 
         reviewed : typing.Optional[bool]
 
+        reviewed_at : typing.Optional[dt.datetime]
+
         reviews_accepted : typing.Optional[int]
 
         reviews_rejected : typing.Optional[int]
@@ -1391,6 +1403,7 @@ class AsyncRawTasksClient:
                 "predictions_score": predictions_score,
                 "project": project,
                 "reviewed": reviewed,
+                "reviewed_at": reviewed_at,
                 "reviews_accepted": reviews_accepted,
                 "reviews_rejected": reviews_rejected,
                 "total_annotations": total_annotations,
@@ -1429,6 +1442,7 @@ class AsyncRawTasksClient:
         event_key: str,
         event_time: dt.datetime,
         annotation: typing.Optional[int] = OMIT,
+        annotation_draft: typing.Optional[int] = OMIT,
         annotation_draft_id: typing.Optional[int] = OMIT,
         meta: typing.Optional[typing.Any] = OMIT,
         review: typing.Optional[int] = OMIT,
@@ -1499,6 +1513,9 @@ class AsyncRawTasksClient:
         annotation : typing.Optional[int]
             Annotation ID associated with this event
 
+        annotation_draft : typing.Optional[int]
+            Draft annotation ID associated with this event (alias for annotation_draft_id)
+
         annotation_draft_id : typing.Optional[int]
             Draft annotation ID associated with this event
 
@@ -1521,6 +1538,7 @@ class AsyncRawTasksClient:
             method="POST",
             json={
                 "annotation": annotation,
+                "annotation_draft": annotation_draft,
                 "annotation_draft_id": annotation_draft_id,
                 "event_key": event_key,
                 "event_time": event_time,

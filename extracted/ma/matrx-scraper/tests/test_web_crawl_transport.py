@@ -443,10 +443,10 @@ async def test_standalone_filesystem_supports_parser_and_canonical_persistence(
         def __init__(self, file_manager: object) -> None:
             self.file_manager = file_manager
 
-        async def upload_with_intent(self, content: bytes, **kwargs: object) -> dict:
+        async def upload_for_organization(self, content: bytes, **kwargs: object) -> dict:
             uploads.append(kwargs)
             file_id = (
-                screenshot_file_id if str(kwargs["file_path"]).endswith(".png") else body_file_id
+                screenshot_file_id if str(kwargs["file_name"]).endswith(".png") else body_file_id
             )
             return {
                 "result": SyncResult(
@@ -697,12 +697,12 @@ async def test_canonical_persister_never_deletes_an_access_denied_duplicate(
     )
     upload = AsyncMock(side_effect=PermissionError("canonical duplicate is not reachable"))
     persister.files = SimpleNamespace(
-        upload_with_intent=upload,
+        upload_for_organization=upload,
     )
 
     with pytest.raises(PermissionError, match="canonical duplicate is not reachable"):
         await persister._write_artifact(
-            file_path="system-files/scraper/capture/body.md",
+            file_path="sessions/s-1/pages/p-1/captures/capture/body.md",
             content="# Captured",
             mime_type="text/markdown",
             artifact_kind="markdown_body",

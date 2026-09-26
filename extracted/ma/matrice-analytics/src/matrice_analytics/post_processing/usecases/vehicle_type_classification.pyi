@@ -7,6 +7,7 @@ from ..core.base import BaseProcessor, ConfigProtocol, ProcessingContext, Proces
 from ..core.config import AlertConfig, BaseConfig
 from ..utils import BBoxSmoothingConfig, BBoxSmoothingTracker, apply_category_mapping, bbox_smoothing, count_objects_in_zones, filter_by_confidence, match_results_structure
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
+from .vehicle_type_classification_stats_utils import build_count_lists, build_detection_objects
 
 # Classes
 class VehicleTypeClassificationConfig:

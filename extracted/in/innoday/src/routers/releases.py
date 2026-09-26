@@ -306,7 +306,7 @@ def _advance_release_pipeline(release: Release, session: Session) -> List[str]:
 
     **This lives on "a release became RELEASED", not on the command that caused
     it.** Every path that ships a version goes through this router -- the
-    ``innoday release`` proxy via ``InnoDayVersionStore.record_release``, the
+    ``innoday blastoff`` proxy via ``InnoDayVersionStore.record_release``, the
     ``blastoff`` MCP tool, GitHub release discovery, and a person in the UI. A
     rotation implemented in the version store would have covered only the first.
 

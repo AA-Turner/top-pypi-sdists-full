@@ -65,7 +65,8 @@ class ExtensionsResource(SyncAPIResource):
     ) -> SyncCursorPagination[ExtensionListResponse]:
         """
         Returns metadata and JSON Schema documents describing the expected input
-        structure for registration operations on each supported extension (TLD).
+        structure for registration and transfer operations on each supported extension
+        (TLD).
 
         This endpoint uses cursor-based pagination. Results are ordered by extension
         name by default. To fetch the next page, pass the `cursor` value from the
@@ -138,7 +139,8 @@ class ExtensionsResource(SyncAPIResource):
     ) -> ExtensionGetResponse:
         """
         Returns metadata and JSON Schema documents describing the expected input
-        structure for registration operations on a specific extension (TLD).
+        structure for registration and transfer operations on a specific extension
+        (TLD).
 
         Supports HTTP conditional GET via `ETag`. Include the `ETag` value from a
         previous response in an `If-None-Match` header to receive a `304 Not Modified`
@@ -214,7 +216,8 @@ class AsyncExtensionsResource(AsyncAPIResource):
     ) -> AsyncPaginator[ExtensionListResponse, AsyncCursorPagination[ExtensionListResponse]]:
         """
         Returns metadata and JSON Schema documents describing the expected input
-        structure for registration operations on each supported extension (TLD).
+        structure for registration and transfer operations on each supported extension
+        (TLD).
 
         This endpoint uses cursor-based pagination. Results are ordered by extension
         name by default. To fetch the next page, pass the `cursor` value from the
@@ -287,7 +290,8 @@ class AsyncExtensionsResource(AsyncAPIResource):
     ) -> ExtensionGetResponse:
         """
         Returns metadata and JSON Schema documents describing the expected input
-        structure for registration operations on a specific extension (TLD).
+        structure for registration and transfer operations on a specific extension
+        (TLD).
 
         Supports HTTP conditional GET via `ETag`. Include the `ETag` value from a
         previous response in an `If-None-Match` header to receive a `304 Not Modified`

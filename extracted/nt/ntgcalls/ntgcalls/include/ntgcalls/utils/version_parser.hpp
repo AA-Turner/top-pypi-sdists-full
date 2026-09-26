@@ -1,19 +1,19 @@
 //
-// Created by Laky64 on 13/10/24.
+// Created by Lauren on 13/10/24.
 //
 
 #pragma once
 
 #include <string>
 
-namespace ntgcalls {
+namespace ntgcalls::utils {
 
     struct VersionParser {
         int major = 0;
         int minor = 0;
         int micro = 0;
 
-        static VersionParser Parse(const std::string& version);
+        static VersionParser parse(const std::string& version);
 
         bool operator>=(const VersionParser& other);
 
@@ -25,7 +25,7 @@ namespace ntgcalls {
 
         bool operator==(const VersionParser& other);
 
-        [[nodiscard]] std::string toString() const;
+        [[nodiscard]] std::string to_string() const;
     };
 
-} // ntgcalls
+} // ntgcalls::utils

@@ -9,6 +9,8 @@ import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
+from cloudflare._utils import parse_datetime
+from cloudflare.pagination import SyncV4PagePagination, AsyncV4PagePagination
 from cloudflare.types.workers.scripts import (
     Deployment,
     DeploymentListResponse,
@@ -30,7 +32,7 @@ class TestDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
         )
@@ -45,7 +47,7 @@ class TestDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
             force=True,
@@ -62,7 +64,7 @@ class TestDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
         )
@@ -81,7 +83,7 @@ class TestDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
         ) as response:
@@ -103,7 +105,7 @@ class TestDeployments:
                 versions=[
                     {
                         "percentage": 100,
-                        "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                     }
                 ],
             )
@@ -116,7 +118,7 @@ class TestDeployments:
                 versions=[
                     {
                         "percentage": 100,
-                        "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                     }
                 ],
             )
@@ -127,7 +129,19 @@ class TestDeployments:
             script_name="this-is_my_script-01",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(DeploymentListResponse, deployment, path=["response"])
+        assert_matches_type(SyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Cloudflare) -> None:
+        deployment = client.workers.scripts.deployments.list(
+            script_name="this-is_my_script-01",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            page=1,
+            per_page=1,
+            since=parse_datetime("2019-12-27T18:11:19.117Z"),
+            until=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(SyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
@@ -139,7 +153,7 @@ class TestDeployments:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         deployment = response.parse()
-        assert_matches_type(DeploymentListResponse, deployment, path=["response"])
+        assert_matches_type(SyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
 
     @parametrize
     def test_streaming_response_list(self, client: Cloudflare) -> None:
@@ -151,7 +165,7 @@ class TestDeployments:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             deployment = response.parse()
-            assert_matches_type(DeploymentListResponse, deployment, path=["response"])
+            assert_matches_type(SyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -304,7 +318,7 @@ class TestAsyncDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
         )
@@ -319,7 +333,7 @@ class TestAsyncDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
             force=True,
@@ -336,7 +350,7 @@ class TestAsyncDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
         )
@@ -355,7 +369,7 @@ class TestAsyncDeployments:
             versions=[
                 {
                     "percentage": 100,
-                    "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                 }
             ],
         ) as response:
@@ -377,7 +391,7 @@ class TestAsyncDeployments:
                 versions=[
                     {
                         "percentage": 100,
-                        "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                     }
                 ],
             )
@@ -390,7 +404,7 @@ class TestAsyncDeployments:
                 versions=[
                     {
                         "percentage": 100,
-                        "version_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                        "version_id": "023e105f-2a42-4f8b-a1c1-73f6a2a30c0f",
                     }
                 ],
             )
@@ -401,7 +415,19 @@ class TestAsyncDeployments:
             script_name="this-is_my_script-01",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(DeploymentListResponse, deployment, path=["response"])
+        assert_matches_type(AsyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        deployment = await async_client.workers.scripts.deployments.list(
+            script_name="this-is_my_script-01",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            page=1,
+            per_page=1,
+            since=parse_datetime("2019-12-27T18:11:19.117Z"),
+            until=parse_datetime("2019-12-27T18:11:19.117Z"),
+        )
+        assert_matches_type(AsyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -413,7 +439,7 @@ class TestAsyncDeployments:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         deployment = await response.parse()
-        assert_matches_type(DeploymentListResponse, deployment, path=["response"])
+        assert_matches_type(AsyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -425,7 +451,7 @@ class TestAsyncDeployments:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             deployment = await response.parse()
-            assert_matches_type(DeploymentListResponse, deployment, path=["response"])
+            assert_matches_type(AsyncV4PagePagination[DeploymentListResponse], deployment, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

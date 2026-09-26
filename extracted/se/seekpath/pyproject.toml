@@ -30,13 +30,14 @@ classifiers = [
 requires-python = ">=3.8"
 dependencies = [
     "numpy>=1.0",
+    "packaging",
     "spglib>=1.14.1",
 ]
 license = {text = "The MIT license"}
 
 [project.urls]
 Homepage = "https://github.com/materialscloud-org/seekpath"
-Downloads = "https://github.com/materialscloud-org/seekpath/archive/v2.2.1.tar.gz"
+Downloads = "https://github.com/materialscloud-org/seekpath/archive/v2.2.2.tar.gz"
 
 [project.optional-dependencies]
 bz = [

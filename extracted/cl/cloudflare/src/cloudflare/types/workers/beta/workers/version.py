@@ -39,6 +39,7 @@ __all__ = [
     "BindingWorkersBindingKindMTLSCertificate",
     "BindingWorkersBindingKindPlainText",
     "BindingWorkersBindingKindPipelines",
+    "BindingWorkersBindingKindK2",
     "BindingWorkersBindingKindQueue",
     "BindingWorkersBindingKindRatelimit",
     "BindingWorkersBindingKindRatelimitSimple",
@@ -108,6 +109,14 @@ class Annotations(BaseModel):
 
 class AssetsConfig(BaseModel):
     """Configuration for assets within a Worker."""
+
+    base_path: Optional[str] = None
+    """The public URL path prefix under which assets are served.
+
+    A null request value resets it to `/`; responses represent the root as `/`. All
+    versions in a gradual deployment must use the same canonical value. To change
+    it, first deploy the version containing the change at 100%.
+    """
 
     html_handling: Optional[Literal["auto-trailing-slash", "force-trailing-slash", "drop-trailing-slash", "none"]] = (
         None
@@ -432,6 +441,19 @@ class BindingWorkersBindingKindPipelines(BaseModel):
     """The kind of resource that the binding provides."""
 
 
+class BindingWorkersBindingKindK2(BaseModel):
+    """A K2 stream binding. Available only to accounts enabled for K2."""
+
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    stream: str
+    """ID of a K2 stream owned by the account deploying the Worker."""
+
+    type: Literal["k2"]
+    """The kind of resource that the binding provides."""
+
+
 class BindingWorkersBindingKindQueue(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
@@ -711,6 +733,7 @@ Binding: TypeAlias = Annotated[
         BindingWorkersBindingKindMTLSCertificate,
         BindingWorkersBindingKindPlainText,
         BindingWorkersBindingKindPipelines,
+        BindingWorkersBindingKindK2,
         BindingWorkersBindingKindQueue,
         BindingWorkersBindingKindRatelimit,
         BindingWorkersBindingKindR2Bucket,
@@ -1288,6 +1311,12 @@ class Version(BaseModel):
     files should be included as modules named `_headers` and `_redirects` with
     content type `text/plain`.
     """
+
+    author_email: Optional[str] = None
+    """Email of the user who created the version."""
+
+    author_id: Optional[str] = None
+    """Identifier of the user who created the version."""
 
     bindings: Optional[List[Binding]] = None
     """List of bindings attached to a Worker.

@@ -4,12 +4,12 @@ description = "Durable Task integration for Microsoft Agent Framework."
 authors = [{ name = "Microsoft", email = "af-support@microsoft.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
-version = "1.0.0b260730"
+version = "1.0.0b260922"
 license-files = ["LICENSE"]
 urls.homepage = "https://aka.ms/agent-framework"
-urls.source = "https://github.com/microsoft/agent-framework/tree/main/python"
-urls.release_notes = "https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true"
-urls.issues = "https://github.com/microsoft/agent-framework/issues"
+urls.source = "https://github.com/microsoft/agent-framework-durable-extension/tree/main/python"
+urls.release_notes = "https://github.com/microsoft/agent-framework-durable-extension/releases"
+urls.issues = "https://github.com/microsoft/agent-framework-durable-extension/issues"
 classifiers = [
   "License :: OSI Approved :: MIT License",
   "Development Status :: 4 - Beta",
@@ -30,7 +30,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "types-python-dateutil==2.9.0.20260716",
+    "types-python-dateutil==2.9.0.20260518",
 ]
 
 [tool.uv]
@@ -58,7 +58,7 @@ markers = [
     "integration: marks tests as integration tests",
     "integration_test: marks tests as integration tests (alternative marker)",
     "sample: marks tests as sample tests",
-    "requires_azure_openai: marks tests that require Azure OpenAI",
+    "requires_foundry: marks tests that require Azure AI Foundry",
     "requires_dts: marks tests that require Durable Task Scheduler",
     "requires_redis: marks tests that require Redis"
 ]
@@ -75,20 +75,6 @@ omit = [
 extends = "../../pyproject.toml"
 include = ["agent_framework_durabletask"]
 
-[tool.mypy]
-plugins = ['pydantic.mypy']
-strict = true
-python_version = "3.10"
-ignore_missing_imports = true
-disallow_untyped_defs = true
-no_implicit_optional = true
-check_untyped_defs = true
-warn_return_any = true
-show_error_codes = true
-warn_unused_ignores = false
-disallow_incomplete_defs = true
-disallow_untyped_decorators = true
-
 [tool.bandit]
 targets = ["agent_framework_durabletask"]
 exclude_dirs = ["tests"]
@@ -98,8 +84,8 @@ executor.type = "uv"
 include = "../../shared_tasks.toml"
 
 [tool.poe.tasks.mypy]
-help = "Run MyPy for this package."
-cmd = "mypy --config-file $POE_ROOT/pyproject.toml agent_framework_durabletask"
+help = "Run MyPy for this package's tests."
+cmd = "mypy --config-file $POE_ROOT/pyproject.toml tests"
 
 [tool.poe.tasks.test]
 help = "Run the default unit test suite for this package."

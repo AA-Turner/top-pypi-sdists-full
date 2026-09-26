@@ -199,6 +199,117 @@ class TestPAMCreateRecordRotationCommand(unittest.TestCase):
         self.assertEqual(mock_typed_record.record_key, b'\x00' * 16)
 
     @patch('keepercommander.commands.discoveryrotation.api.sync_down')
+    @patch('keepercommander.vault.KeeperRecord.load')
+    @patch('keepercommander.commands.discoveryrotation.TunnelDAG')
+    @patch('keepercommander.rest_api.SERVER_PUBLIC_KEYS', {8: ec.generate_private_key(ec.SECP256R1()).public_key()})
+    def test_execute_default_trust_cache_skips_forced_sync(self, mock_TunnelDAG, mock_load, mock_sync_down):
+        # Direct .execute() calls (bulk PAM import/extend) default to trust_cache=True
+        # and must not pay for an extra sync_down per record.
+        mock_params, mock_typed_record = create_mock_params_and_record()
+        mock_load.return_value = mock_typed_record
+
+        mock_dag_instance = mock_TunnelDAG.return_value
+        mock_dag_instance.linking_dag.has_graph = True
+        mock_dag_instance.check_if_resource_has_admin.return_value = True
+        mock_dag_instance.get_all_owners.return_value = [TEST_RESOURCE_UID]
+        mock_dag_instance.resource_belongs_to_config.return_value = True
+        mock_dag_instance.user_belongs_to_resource.return_value = True
+        mock_dag_instance.record.record_uid = TEST_CONFIG_UID
+
+        self.command.execute(mock_params, record_name=TEST_RECORD_UID, force=True)
+        mock_sync_down.assert_not_called()
+
+    @patch('keepercommander.commands.discoveryrotation.api.sync_down')
+    @patch('keepercommander.vault.KeeperRecord.load')
+    @patch('keepercommander.commands.discoveryrotation.TunnelDAG')
+    @patch('keepercommander.rest_api.SERVER_PUBLIC_KEYS', {8: ec.generate_private_key(ec.SECP256R1()).public_key()})
+    def test_execute_trust_cache_false_forces_sync_down(self, mock_TunnelDAG, mock_load, mock_sync_down):
+        # trust_cache=False (the mode used by CLI dispatch) must refresh the local
+        # rotation cache before any cached revision is read, to avoid submitting a
+        # stale revision that collides with a real change made elsewhere.
+        mock_params, mock_typed_record = create_mock_params_and_record()
+        mock_load.return_value = mock_typed_record
+
+        mock_dag_instance = mock_TunnelDAG.return_value
+        mock_dag_instance.linking_dag.has_graph = True
+        mock_dag_instance.check_if_resource_has_admin.return_value = True
+        mock_dag_instance.get_all_owners.return_value = [TEST_RESOURCE_UID]
+        mock_dag_instance.resource_belongs_to_config.return_value = True
+        mock_dag_instance.user_belongs_to_resource.return_value = True
+        mock_dag_instance.record.record_uid = TEST_CONFIG_UID
+
+        self.command.execute(mock_params, record_name=TEST_RECORD_UID, force=True, trust_cache=False)
+        mock_sync_down.assert_called_once_with(mock_params)
+
+    @patch('keepercommander.commands.discoveryrotation.api.sync_down')
+    @patch('keepercommander.vault.KeeperRecord.load')
+    @patch('keepercommander.commands.discoveryrotation.TunnelDAG')
+    @patch('keepercommander.rest_api.SERVER_PUBLIC_KEYS', {8: ec.generate_private_key(ec.SECP256R1()).public_key()})
+    def test_execute_trust_cache_non_false_values_skip_forced_sync(self, mock_TunnelDAG, mock_load, mock_sync_down):
+        # Only a literal False must opt into the forced-resync path; any other
+        # value (None, 0, garbage) falls back to the safe/performant True default.
+        mock_params, mock_typed_record = create_mock_params_and_record()
+        mock_load.return_value = mock_typed_record
+
+        mock_dag_instance = mock_TunnelDAG.return_value
+        mock_dag_instance.linking_dag.has_graph = True
+        mock_dag_instance.check_if_resource_has_admin.return_value = True
+        mock_dag_instance.get_all_owners.return_value = [TEST_RESOURCE_UID]
+        mock_dag_instance.resource_belongs_to_config.return_value = True
+        mock_dag_instance.user_belongs_to_resource.return_value = True
+        mock_dag_instance.record.record_uid = TEST_CONFIG_UID
+
+        for ambiguous_value in (None, 0, ''):
+            mock_sync_down.reset_mock()
+            self.command.execute(mock_params, record_name=TEST_RECORD_UID, force=True,
+                                  trust_cache=ambiguous_value)
+            mock_sync_down.assert_not_called()
+
+    def test_execute_args_defaults_trust_cache_false_and_sets_sync_data(self):
+        mock_params = MagicMock()
+        mock_params.sync_data = False
+        with patch.object(self.command, 'execute') as mock_execute:
+            self.command.execute_args(mock_params, f'--record {TEST_RECORD_UID} --force')
+        self.assertTrue(mock_execute.called)
+        called_kwargs = mock_execute.call_args.kwargs
+        self.assertEqual(called_kwargs.get('trust_cache'), False)
+        self.assertTrue(mock_params.sync_data)
+
+    def test_execute_args_trust_cache_true_override_skips_sync_data(self):
+        # A caller could still opt a dispatched invocation into cache-trusting mode
+        # explicitly; when it does, execute_args must not force a post-sync.
+        mock_params = MagicMock()
+        mock_params.sync_data = False
+        with patch.object(self.command, 'execute') as mock_execute:
+            self.command.execute_args(mock_params, f'--record {TEST_RECORD_UID} --force', trust_cache=True)
+        called_kwargs = mock_execute.call_args.kwargs
+        self.assertEqual(called_kwargs.get('trust_cache'), True)
+        self.assertFalse(mock_params.sync_data)
+
+    def test_execute_args_ambiguous_trust_cache_values_normalize_to_true(self):
+        # Same identity rule at the execute_args() layer: only a literal False
+        # forces the post-sync; None/0/'' normalize to True (no forced post-sync).
+        for ambiguous_value in (None, 0, ''):
+            mock_params = MagicMock()
+            mock_params.sync_data = False
+            with patch.object(self.command, 'execute') as mock_execute:
+                self.command.execute_args(mock_params, f'--record {TEST_RECORD_UID} --force',
+                                          trust_cache=ambiguous_value)
+            called_kwargs = mock_execute.call_args.kwargs
+            self.assertEqual(called_kwargs.get('trust_cache'), True)
+            self.assertFalse(mock_params.sync_data)
+
+    def test_execute_args_sets_sync_data_even_when_execute_raises(self):
+        # The post-sync guarantee must hold even if the command fails validation
+        # partway through (e.g. "No PAM record is found").
+        mock_params = MagicMock()
+        mock_params.sync_data = False
+        with patch.object(self.command, 'execute', side_effect=CommandError('', 'boom')):
+            with self.assertRaises(CommandError):
+                self.command.execute_args(mock_params, f'--record {TEST_RECORD_UID} --force')
+        self.assertTrue(mock_params.sync_data)
+
+    @patch('keepercommander.commands.discoveryrotation.api.sync_down')
     @patch('keepercommander.commands.discoveryrotation.router_set_record_rotation_information')
     @patch('keepercommander.vault_extensions.find_records')
     @patch('keepercommander.commands.discoveryrotation.resolve_pam_record')
@@ -859,6 +970,195 @@ class TestPAMRouterGetRotationInfo(unittest.TestCase):
         cmd = PAMRouterGetRotationInfo()
         result = cmd.execute(mock_params, record_uid=record_uid, format='table')
         self.assertIsNone(result)
+
+    @patch('keepercommander.commands.discoveryrotation.gateway_helper.get_all_gateways')
+    @patch('keepercommander.commands.discoveryrotation.router_get_rotation_schedules')
+    @patch('keepercommander.commands.discoveryrotation.record_rotation_get')
+    def test_gateway_name_resolved_from_uid_when_empty(self, mock_rrg, mock_schedules, mock_get_gateways):
+        """When controllerName is empty, it should be resolved from gateway list using controllerUid."""
+        from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
+        record_uid = 'test_record_uid_'
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+
+        rri = self._make_rri('RRS_ONLINE')
+        rri.controllerName = ''
+
+        mock_rrg.return_value = rri
+
+        sched_mock = MagicMock()
+        sched_mock.schedules = [self._make_schedule(record_uid_bytes)]
+        mock_schedules.return_value = sched_mock
+
+        mock_gateway = MagicMock()
+        mock_gateway.controllerUid = rri.controllerUid
+        mock_gateway.controllerName = 'gw-test-resolved'
+        mock_get_gateways.return_value = [mock_gateway]
+
+        mock_params = create_mock_params()
+        mock_params.record_cache = {}
+
+        cmd = PAMRouterGetRotationInfo()
+        result = cmd.execute(mock_params, record_uid=record_uid, format='json')
+
+        self.assertIsNotNone(result, "Expected JSON string, got None")
+        data = json.loads(result)
+        self.assertEqual(data['gateway_name'], 'gw-test-resolved')
+
+    @patch('keepercommander.commands.discoveryrotation.gateway_helper.get_all_gateways')
+    @patch('keepercommander.commands.discoveryrotation.router_get_rotation_schedules')
+    @patch('keepercommander.commands.discoveryrotation.record_rotation_get')
+    def test_gateway_name_present_unchanged(self, mock_rrg, mock_schedules, mock_get_gateways):
+        """When controllerName is present, it should be used without looking up gateways."""
+        from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
+        record_uid = 'test_record_uid_'
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+
+        rri = self._make_rri('RRS_ONLINE')
+        rri.controllerName = 'gw-original'
+
+        mock_rrg.return_value = rri
+
+        sched_mock = MagicMock()
+        sched_mock.schedules = [self._make_schedule(record_uid_bytes)]
+        mock_schedules.return_value = sched_mock
+
+        mock_params = create_mock_params()
+        mock_params.record_cache = {}
+
+        cmd = PAMRouterGetRotationInfo()
+        result = cmd.execute(mock_params, record_uid=record_uid, format='json')
+
+        self.assertIsNotNone(result)
+        data = json.loads(result)
+        self.assertEqual(data['gateway_name'], 'gw-original')
+        mock_get_gateways.assert_not_called()
+
+    @patch('keepercommander.commands.discoveryrotation.gateway_helper.get_all_gateways')
+    @patch('keepercommander.commands.discoveryrotation.router_get_rotation_schedules')
+    @patch('keepercommander.commands.discoveryrotation.record_rotation_get')
+    def test_gateway_name_empty_no_match_falls_back_to_dash(self, mock_rrg, mock_schedules, mock_get_gateways):
+        """When controllerName is empty and no gateway matches, should fall back to '-'."""
+        from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
+        record_uid = 'test_record_uid_'
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+
+        rri = self._make_rri('RRS_ONLINE')
+        rri.controllerName = ''
+
+        mock_rrg.return_value = rri
+
+        sched_mock = MagicMock()
+        sched_mock.schedules = [self._make_schedule(record_uid_bytes)]
+        mock_schedules.return_value = sched_mock
+
+        mock_gateway = MagicMock()
+        mock_gateway.controllerUid = b'different_uid_'
+        mock_gateway.controllerName = 'gw-other'
+        mock_get_gateways.return_value = [mock_gateway]
+
+        mock_params = create_mock_params()
+        mock_params.record_cache = {}
+
+        cmd = PAMRouterGetRotationInfo()
+        result = cmd.execute(mock_params, record_uid=record_uid, format='json')
+
+        self.assertIsNotNone(result)
+        data = json.loads(result)
+        self.assertEqual(data['gateway_name'], '-')
+
+    @patch('keepercommander.commands.discoveryrotation.gateway_helper.get_all_gateways')
+    @patch('keepercommander.commands.discoveryrotation.router_get_rotation_schedules')
+    @patch('keepercommander.commands.discoveryrotation.record_rotation_get')
+    def test_gateway_name_resolved_with_different_uid_types(self, mock_rrg, mock_schedules, mock_get_gateways):
+        """When controllerUid types differ (bytes vs string), should still resolve correctly."""
+        from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
+        from keepercommander import utils
+        record_uid = 'test_record_uid_'
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+
+        rri = self._make_rri('RRS_ONLINE')
+        rri.controllerName = ''
+
+        mock_rrg.return_value = rri
+
+        sched_mock = MagicMock()
+        sched_mock.schedules = [self._make_schedule(record_uid_bytes)]
+        mock_schedules.return_value = sched_mock
+
+        mock_gateway = MagicMock()
+        mock_gateway.controllerUid = utils.base64_url_encode(rri.controllerUid)
+        mock_gateway.controllerName = 'gw-test-resolved'
+        mock_get_gateways.return_value = [mock_gateway]
+
+        mock_params = create_mock_params()
+        mock_params.record_cache = {}
+
+        cmd = PAMRouterGetRotationInfo()
+        result = cmd.execute(mock_params, record_uid=record_uid, format='json')
+
+        self.assertIsNotNone(result)
+        data = json.loads(result)
+        self.assertEqual(data['gateway_name'], 'gw-test-resolved')
+
+    @patch('keepercommander.commands.discoveryrotation.gateway_helper.get_all_gateways')
+    @patch('keepercommander.commands.discoveryrotation.router_get_rotation_schedules')
+    @patch('keepercommander.commands.discoveryrotation.record_rotation_get')
+    def test_gateway_list_returns_none_falls_back_gracefully(self, mock_rrg, mock_schedules, mock_get_gateways):
+        """When get_all_gateways returns None, should fall back to '-' gracefully."""
+        from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
+        record_uid = 'test_record_uid_'
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+
+        rri = self._make_rri('RRS_ONLINE')
+        rri.controllerName = ''
+
+        mock_rrg.return_value = rri
+
+        sched_mock = MagicMock()
+        sched_mock.schedules = [self._make_schedule(record_uid_bytes)]
+        mock_schedules.return_value = sched_mock
+
+        mock_get_gateways.return_value = None
+
+        mock_params = create_mock_params()
+        mock_params.record_cache = {}
+
+        cmd = PAMRouterGetRotationInfo()
+        result = cmd.execute(mock_params, record_uid=record_uid, format='json')
+
+        self.assertIsNotNone(result)
+        data = json.loads(result)
+        self.assertEqual(data['gateway_name'], '-')
+
+    @patch('keepercommander.commands.discoveryrotation.gateway_helper.get_all_gateways')
+    @patch('keepercommander.commands.discoveryrotation.router_get_rotation_schedules')
+    @patch('keepercommander.commands.discoveryrotation.record_rotation_get')
+    def test_gateway_list_raises_exception_falls_back_gracefully(self, mock_rrg, mock_schedules, mock_get_gateways):
+        """When get_all_gateways raises an exception, should fall back to '-' without crashing."""
+        from keeper_secrets_manager_core.utils import url_safe_str_to_bytes
+        record_uid = 'test_record_uid_'
+        record_uid_bytes = url_safe_str_to_bytes(record_uid)
+
+        rri = self._make_rri('RRS_ONLINE')
+        rri.controllerName = ''
+
+        mock_rrg.return_value = rri
+
+        sched_mock = MagicMock()
+        sched_mock.schedules = [self._make_schedule(record_uid_bytes)]
+        mock_schedules.return_value = sched_mock
+
+        mock_get_gateways.side_effect = RuntimeError("Gateway service unavailable")
+
+        mock_params = create_mock_params()
+        mock_params.record_cache = {}
+
+        cmd = PAMRouterGetRotationInfo()
+        result = cmd.execute(mock_params, record_uid=record_uid, format='json')
+
+        self.assertIsNotNone(result)
+        data = json.loads(result)
+        self.assertEqual(data['gateway_name'], '-')
 
 
 class TestUsesDefaultRotationSchedule(unittest.TestCase):

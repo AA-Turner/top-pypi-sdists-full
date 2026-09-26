@@ -104,8 +104,10 @@ class TestIdentityExtraction:
         assert ident["email"] == "x@y.com"
         assert ident["full_name"] == "Ex Ample"
 
-    def test_falls_back_to_metadata_email_and_name(self):
+    def test_name_falls_back_to_metadata_but_email_never_does(self):
+        """user_metadata is writable by the token's holder, so it may supply a
+        display name but never the email identity is matched on (PF-465)."""
         claims = {"sub": "sb-2", "user_metadata": {"email": "m@e.com", "name": "M E"}}
         ident = extract_identity(claims)
-        assert ident["email"] == "m@e.com"
+        assert ident["email"] is None
         assert ident["full_name"] == "M E"

@@ -47,6 +47,9 @@ class MaintenanceConfig(BaseModel):
     compaction: Optional[MaintenanceConfigCompaction] = None
     """Configures compaction for catalog maintenance."""
 
+    interval: Optional[str] = None
+    """Scheduling interval between normal table maintenance runs."""
+
     snapshot_expiration: Optional[MaintenanceConfigSnapshotExpiration] = None
     """Configures snapshot expiration settings."""
 

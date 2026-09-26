@@ -293,7 +293,9 @@ fn same_json_number_wire(left: &serde_json::Number, right: &serde_json::Number) 
 fn fast_user_data_pointer(user: &StatsigUserLoggable) -> Option<usize> {
     match &user.data {
         StatsigUserLoggableData::Fast(data) => Some(Arc::as_ptr(data) as usize),
-        StatsigUserLoggableData::Public(_) => None,
+        // Prepared metadata may be shared by distinct identities. Do not use
+        // its base Arc as a serialization-cache identity.
+        StatsigUserLoggableData::Public(_) | StatsigUserLoggableData::Prepared(_) => None,
     }
 }
 

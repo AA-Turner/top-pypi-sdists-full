@@ -1733,7 +1733,7 @@ class CloudFormationResourceJson:
         '''A node in the construct creation stack trace.
 
         :param logical_id: The logical ID of the resource in the CloudFormation template.
-        :param template_path: The path to the CloudFormation template containing this resource.
+        :param template_path: The path to the CloudFormation template containing this resource. This path is relative to the Cloud Assembly root directory.
         :param property_paths: Properties within the construct where the violation was detected. Either a single component, in which case it regards a top-level property name, or a JSON path (starting with ``$.``) to indicate a deeper property. Default: - no locations
 
         :exampleMetadata: fixture=_generated
@@ -1774,7 +1774,10 @@ class CloudFormationResourceJson:
 
     @builtins.property
     def template_path(self) -> builtins.str:
-        '''The path to the CloudFormation template containing this resource.'''
+        '''The path to the CloudFormation template containing this resource.
+
+        This path is relative to the Cloud Assembly root directory.
+        '''
         result = self._values.get("template_path")
         assert result is not None, "Required property 'template_path' is missing"
         return typing.cast(builtins.str, result)
@@ -7458,6 +7461,7 @@ class PluginContextQuery:
         "violations": "violations",
         "metadata": "metadata",
         "plugin_version": "pluginVersion",
+        "preamble": "preamble",
         "suppressed_violations": "suppressedViolations",
     },
 )
@@ -7470,6 +7474,7 @@ class PluginReportJson:
         violations: typing.Sequence[typing.Union["PolicyViolationJson", typing.Dict[builtins.str, typing.Any]]],
         metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         plugin_version: typing.Optional[builtins.str] = None,
+        preamble: typing.Optional[builtins.str] = None,
         suppressed_violations: typing.Optional[typing.Sequence[typing.Union["SuppressedViolationJson", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''A report from a single validation plugin.
@@ -7479,6 +7484,7 @@ class PluginReportJson:
         :param violations: Violations found by this plugin.
         :param metadata: Additional plugin-specific metadata. Default: - no metadata
         :param plugin_version: Version of the plugin that produced this report. Default: - no version
+        :param preamble: Any preamble text that the plugin wants to include in the report that is not a violation itself. Default: - no preamble
         :param suppressed_violations: Violations that were suppressed via acknowledgement. These violations matched an acknowledged rule ID and were excluded from the active violations list. They are retained for audit trail and reporting purposes. Default: - no suppressed violations
 
         Example::
@@ -7500,6 +7506,7 @@ class PluginReportJson:
             check_type(argname="argument violations", value=violations, expected_type=type_hints["violations"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
             check_type(argname="argument plugin_version", value=plugin_version, expected_type=type_hints["plugin_version"])
+            check_type(argname="argument preamble", value=preamble, expected_type=type_hints["preamble"])
             check_type(argname="argument suppressed_violations", value=suppressed_violations, expected_type=type_hints["suppressed_violations"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "conclusion": conclusion,
@@ -7510,6 +7517,8 @@ class PluginReportJson:
             self._values["metadata"] = metadata
         if plugin_version is not None:
             self._values["plugin_version"] = plugin_version
+        if preamble is not None:
+            self._values["preamble"] = preamble
         if suppressed_violations is not None:
             self._values["suppressed_violations"] = suppressed_violations
 
@@ -7550,6 +7559,15 @@ class PluginReportJson:
         :default: - no version
         '''
         result = self._values.get("plugin_version")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def preamble(self) -> typing.Optional[builtins.str]:
+        '''Any preamble text that the plugin wants to include in the report that is not a violation itself.
+
+        :default: - no preamble
+        '''
+        result = self._values.get("preamble")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -11014,6 +11032,7 @@ def _typecheckingstub__0b848d9165601d29c707960e358566dce4c0330a961ea095e05a2efa0
     violations: typing.Sequence[typing.Union[PolicyViolationJson, typing.Dict[builtins.str, typing.Any]]],
     metadata: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     plugin_version: typing.Optional[builtins.str] = None,
+    preamble: typing.Optional[builtins.str] = None,
     suppressed_violations: typing.Optional[typing.Sequence[typing.Union[SuppressedViolationJson, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

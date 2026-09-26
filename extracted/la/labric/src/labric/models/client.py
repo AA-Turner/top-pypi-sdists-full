@@ -43,9 +43,8 @@ class ModelsClient:
 
         Identify the model by ml_model_id, or by ml_model_name (the name of a
         non-archived model). Each row in data maps the model's feature columns to
-        values -- use the ml-models tool to discover models and the columns each
-        expects. Returns one prediction per input row, plus per-class
-        probabilities for classifiers.
+        values; list_ml_models shows the columns each model expects. Returns one
+        prediction per input row, plus per-class probabilities for classifiers.
 
         Requires an API key with the `read` scope.
 
@@ -117,16 +116,12 @@ class ModelsClient:
 
     def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.List[ToolsMlModelDetailSchema]:
         """
-        Returns information about models in the organization.
-        If model_id is given, return information about that model.
-        If model_id is None, return a list of all models.
+        List the organization's ML models, newest first.
 
-        Returns every non-archived model. To fetch one model by id, use the
-        get-ml-model tool instead.
-
-
-        Note that the currently active model may not be the most recently trained one.
-        Also note that the status might not be perfectly up-to-date.
+        Returns every non-archived model with its task type, target and feature
+        columns, training status, and evaluation metrics. The status describes the
+        newest version. A model serves predictions only while currently_active is
+        true; a retrain stops it serving until the new version is ready.
 
         Requires an API key with the `read` scope.
 
@@ -168,9 +163,13 @@ class ModelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ToolsMlModelDetailSchema:
         """
-        API endpoint trains a ML model.
-        To train a new model, the name is required and model_id should not be provided.
-        To retrain an existing model, provide the model_id and do not provide the name.
+        Train a new ML model on a dataset, or retrain an existing one.
+
+        To train a new model, pass name and omit ml_model_id. To retrain, pass
+        ml_model_id and omit name; the model keeps its name and gains a new
+        version. dataset_id and target_column are always required, and every
+        column must exist in the dataset. Training runs in the background;
+        check its progress with get_ml_model.
 
         Requires an API key with the `write` scope.
 
@@ -239,8 +238,8 @@ class ModelsClient:
 
         Overlapping retrains can leave several versions pending or training at
         once, so the cancel is model-wide: every in-flight version is marked
-        'cancelled' and its cloud training jobs are stopped. Returns 400 when
-        no training is pending or running.
+        'cancelled' and its cloud training jobs are stopped. Fails when no
+        training is pending or running.
 
         Requires an API key with the `write` scope.
 
@@ -299,9 +298,8 @@ class AsyncModelsClient:
 
         Identify the model by ml_model_id, or by ml_model_name (the name of a
         non-archived model). Each row in data maps the model's feature columns to
-        values -- use the ml-models tool to discover models and the columns each
-        expects. Returns one prediction per input row, plus per-class
-        probabilities for classifiers.
+        values; list_ml_models shows the columns each model expects. Returns one
+        prediction per input row, plus per-class probabilities for classifiers.
 
         Requires an API key with the `read` scope.
 
@@ -391,16 +389,12 @@ class AsyncModelsClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.List[ToolsMlModelDetailSchema]:
         """
-        Returns information about models in the organization.
-        If model_id is given, return information about that model.
-        If model_id is None, return a list of all models.
+        List the organization's ML models, newest first.
 
-        Returns every non-archived model. To fetch one model by id, use the
-        get-ml-model tool instead.
-
-
-        Note that the currently active model may not be the most recently trained one.
-        Also note that the status might not be perfectly up-to-date.
+        Returns every non-archived model with its task type, target and feature
+        columns, training status, and evaluation metrics. The status describes the
+        newest version. A model serves predictions only while currently_active is
+        true; a retrain stops it serving until the new version is ready.
 
         Requires an API key with the `read` scope.
 
@@ -450,9 +444,13 @@ class AsyncModelsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ToolsMlModelDetailSchema:
         """
-        API endpoint trains a ML model.
-        To train a new model, the name is required and model_id should not be provided.
-        To retrain an existing model, provide the model_id and do not provide the name.
+        Train a new ML model on a dataset, or retrain an existing one.
+
+        To train a new model, pass name and omit ml_model_id. To retrain, pass
+        ml_model_id and omit name; the model keeps its name and gains a new
+        version. dataset_id and target_column are always required, and every
+        column must exist in the dataset. Training runs in the background;
+        check its progress with get_ml_model.
 
         Requires an API key with the `write` scope.
 
@@ -529,8 +527,8 @@ class AsyncModelsClient:
 
         Overlapping retrains can leave several versions pending or training at
         once, so the cancel is model-wide: every in-flight version is marked
-        'cancelled' and its cloud training jobs are stopped. Returns 400 when
-        no training is pending or running.
+        'cancelled' and its cloud training jobs are stopped. Fails when no
+        training is pending or running.
 
         Requires an API key with the `write` scope.
 

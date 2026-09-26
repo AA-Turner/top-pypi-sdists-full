@@ -41,10 +41,6 @@ __all__ = [
     "NamedAgent",
     "PromptManagers",
     "PromptType",
-    "SchemaCoerceAgent",
-    "SchemaCoerceErrorResponse",
-    "SchemaCoerceInputs",
-    "SchemaCoerceResult",
     "JsonExtraction",
     "extract_json",
     "extract_json_block",
@@ -171,20 +167,4 @@ def __getattr__(name: str):
         from matrx_ai.agents.output import resolve_output_schema
 
         return resolve_output_schema
-    elif name == "SchemaCoerceAgent":
-        from matrx_ai.agents.library import SchemaCoerceAgent
-
-        return SchemaCoerceAgent
-    elif name == "SchemaCoerceErrorResponse":
-        from matrx_ai.agents.library import SchemaCoerceErrorResponse
-
-        return SchemaCoerceErrorResponse
-    elif name == "SchemaCoerceInputs":
-        from matrx_ai.agents.library import SchemaCoerceInputs
-
-        return SchemaCoerceInputs
-    elif name == "SchemaCoerceResult":
-        from matrx_ai.agents.library import SchemaCoerceResult
-
-        return SchemaCoerceResult
     raise AttributeError(f"module 'matrx_ai.agents' has no attribute '{name}'")

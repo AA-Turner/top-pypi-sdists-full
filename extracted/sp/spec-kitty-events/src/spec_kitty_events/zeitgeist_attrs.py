@@ -68,6 +68,20 @@ declared in :data:`UNBROADCAST_FIELDS` and stay local:
   stakeholder-facing text that would otherwise live on the team relay for
   the whole retention window.
 
+Two sanctioned exceptions carry prose on the wire, both under
+``HIC-TEAM-TRUST-BOUNDARY-BOUNDED-PROSE-2026-09-14.md`` (a team is a trust
+boundary; bounded one-line prose may ride the relay inline):
+
+* the derived ``summary`` attr (see "Bounded moment summaries" below) —
+  a deterministic, truncated projection of otherwise-dropped prose, the
+  pattern the summary-source families use;
+* ``CoordinationMessagePayload.body`` (events#54) — a coordination
+  message's content *is* the prose, so it rides under its own ``body``
+  attr key rather than a derived summary: it is validated at creation to
+  one printable line within the 240-byte bound (error, never truncation —
+  a truncated message would corrupt meaning), and the codec's generic
+  per-attr bound re-checks it on both directions.
+
 Everything else the family declares rides in attrs; any carried value over
 the bound raises rather than truncates: an oversize payload simply does not
 broadcast (the CLI fan-out seam is fire-and-forget; a dropped moment is
@@ -80,8 +94,12 @@ Bounded moment summaries
 :data:`SUMMARY_SOURCE_EVENT_TYPES` names the kinds whose moment needs a
 short, human-readable gist alongside its identifiers: decision points
 (question/answer plus a bounded slice of the rationale), mission creation
-(friendly name plus purpose), and the three artifact-lifecycle ``*Completed``
-kinds (their own producer-supplied ``summary`` field). For these kinds only,
+(friendly name plus purpose), the three artifact-lifecycle ``*Completed``
+kinds and ``WPStatusChanged`` (their own producer-supplied ``summary``
+field — for a WP transition, a one-line gist validated by the CLI producer
+at creation, spec-kitty/spec-kitty#4327, while the full note stays local in
+``reason`` and the external-review pointer rides ``review_ref``). For these
+kinds only,
 :func:`to_zeitgeist_attrs` derives a single extra ``summary`` attr by joining
 a fixed, per-kind, deterministic sequence of source fields with ``"; "``,
 collapsing whitespace to one line. Unlike every other attr, ``summary`` is
@@ -151,6 +169,7 @@ drift or a version bump, update :data:`ZEITGEIST_FORBIDDEN_KEYS_V1`,
 from __future__ import annotations
 
 import dataclasses
+import re
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from enum import Enum
@@ -159,6 +178,11 @@ from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel
 
+from spec_kitty_events.coordination_message import (
+    COORDINATION_MESSAGE,
+    COORDINATION_MESSAGE_CONTRACT_VERSION,
+    CoordinationMessagePayload,
+)
 from spec_kitty_events.decisionpoint import (
     DECISION_POINT_OPENED,
     DECISION_POINT_RESOLVED,
@@ -365,6 +389,10 @@ class UnknownContractVersionError(ZeitgeistAttrsError):
 #: ``OpsInvocationCompleted`` (Ops/Invocation moments;
 #: EXPERIMENTAL-spec-kitty-events#78) joined the vocabulary in 8.3.0 — their
 #: own family, so Ops shares this timeline without reusing a mission kind.
+#: ``CoordinationMessage`` (bounded cross-mission messages, events#54) joined
+#: in 10.3.0 — one event type whose payload ``kind`` field carries the
+#: fact/proposal/question/answer/closure vocabulary, its own family so
+#: authored communication never reuses a lifecycle event kind.
 VOLATILE_EVENT_TYPES: frozenset[str] = frozenset(
     {
         WP_STATUS_CHANGED,
@@ -387,6 +415,7 @@ VOLATILE_EVENT_TYPES: frozenset[str] = frozenset(
         TASKS_COMPLETED,
         OPS_INVOCATION_STARTED,
         OPS_INVOCATION_COMPLETED,
+        COORDINATION_MESSAGE,
     }
 )
 
@@ -423,6 +452,7 @@ PAYLOAD_MODEL_BY_EVENT_TYPE: Mapping[str, type[BaseModel] | tuple[type[BaseModel
     TASKS_COMPLETED: TasksCompletedPayload,
     OPS_INVOCATION_STARTED: OpsInvocationStartedPayload,
     OPS_INVOCATION_COMPLETED: OpsInvocationCompletedPayload,
+    COORDINATION_MESSAGE: CoordinationMessagePayload,
 }
 
 
@@ -450,7 +480,7 @@ def _payload_types(event_type: str) -> tuple[type[BaseModel], ...]:
 #: keeps the ADR-Resolved projection (the tightest of the four variants)
 #: inside the 16-key bound.
 UNBROADCAST_FIELDS: Mapping[str, frozenset[str]] = {
-    WP_STATUS_CHANGED: frozenset({"evidence", "reason"}),
+    WP_STATUS_CHANGED: frozenset({"evidence", "reason", "summary"}),
     MISSION_CREATED: frozenset({"friendly_name", "purpose_tldr", "purpose_context"}),
     DECISION_INPUT_REQUESTED: frozenset({"options", "question"}),
     DECISION_INPUT_ANSWERED: frozenset({"answer"}),
@@ -506,13 +536,18 @@ ENVELOPE_ATTR_KEYS: frozenset[str] = frozenset({"event_id", "occurred_at"})
 #: Event types whose projection carries a derived ``summary`` attr: a
 #: bounded, single-line, human-readable projection built from prose fields
 #: that :data:`UNBROADCAST_FIELDS` would otherwise drop outright (see
-#: "Bounded moment summaries" below). ``WPStatusChanged`` is deliberately
-#: absent — ``StatusTransitionPayload`` carries no title/objective/purpose
-#: field at all (that data lives only on the separate ``WPCreated`` event,
-#: local to the CLI producer at emit time), and this contract only ever
-#: derives a summary from data the *payload itself* carries.
+#: "Bounded moment summaries" below). ``WPStatusChanged`` derives its
+#: summary from the payload's own optional ``summary`` field — a
+#: producer-supplied, producer-validated one-line gist
+#: (spec-kitty/spec-kitty#4327); ``StatusTransitionPayload`` still carries
+#: no title/objective/purpose field (that data lives only on the separate
+#: ``WPCreated`` event, local to the CLI producer at emit time), and this
+#: contract only ever derives a summary from data the *payload itself*
+#: carries — which ``summary`` now is. ``reason`` (the full note) stays
+#: local: only the bounded gist rides.
 SUMMARY_SOURCE_EVENT_TYPES: frozenset[str] = frozenset(
     {
+        WP_STATUS_CHANGED,
         MISSION_CREATED,
         DECISION_POINT_OPENED,
         DECISION_POINT_RESOLVED,
@@ -551,14 +586,16 @@ DETAIL_REF_SOURCE_EVENT_TYPES: frozenset[str] = frozenset(
 #: Event types whose projection carries an explicit ``contract_version``
 #: attr — a version of the *payload shape*, distinct from the envelope's
 #: fixed ``schema_version`` (see :mod:`spec_kitty_events.ops_invocation`'s
-#: "Contract versioning" section). :func:`from_zeitgeist_attrs` rejects a
-#: ``contract_version`` outside :data:`KNOWN_CONTRACT_VERSIONS_BY_EVENT_TYPE`
-#: with :class:`UnknownContractVersionError` instead of silently decoding a
-#: future revision's attrs under today's assumptions.
+#: "Contract versioning" section). :func:`to_zeitgeist_attrs` and
+#: :func:`from_zeitgeist_attrs` both reject a ``contract_version`` outside
+#: :data:`KNOWN_CONTRACT_VERSIONS_BY_EVENT_TYPE` with
+#: :class:`UnknownContractVersionError` instead of silently encoding or
+#: decoding a future revision's attrs under today's assumptions.
 CONTRACT_VERSIONED_EVENT_TYPES: frozenset[str] = frozenset(
     {
         OPS_INVOCATION_STARTED,
         OPS_INVOCATION_COMPLETED,
+        COORDINATION_MESSAGE,
     }
 )
 
@@ -567,6 +604,7 @@ CONTRACT_VERSIONED_EVENT_TYPES: frozenset[str] = frozenset(
 KNOWN_CONTRACT_VERSIONS_BY_EVENT_TYPE: Mapping[str, frozenset[str]] = {
     OPS_INVOCATION_STARTED: frozenset({"1"}),
     OPS_INVOCATION_COMPLETED: frozenset({"1"}),
+    COORDINATION_MESSAGE: frozenset({str(COORDINATION_MESSAGE_CONTRACT_VERSION)}),
 }
 
 
@@ -679,10 +717,14 @@ def _mission_created_summary(payload: BaseModel) -> str | None:
     )
 
 
-def _artifact_completed_summary(payload: BaseModel) -> str | None:
-    """Derive an artifact-lifecycle ``*Completed`` payload's bounded
-    ``summary`` from its own optional ``summary: str | None`` field —
-    absent when the producer supplied none (deterministic omission)."""
+def _producer_summary(payload: BaseModel) -> str | None:
+    """Derive a payload's bounded ``summary`` from its own optional
+    ``summary: str | None`` field — absent when the producer supplied none
+    (deterministic omission). Shared by the artifact-lifecycle ``*Completed``
+    kinds and ``WPStatusChanged`` (spec-kitty/spec-kitty#4327): the producer
+    validates the gist at creation (one printable line, ≤240 UTF-8 bytes);
+    this codec still bounds and one-lines it independently, because the
+    codec is the only authority over the wire."""
     return _bounded_summary([getattr(payload, "summary", None) or ""])
 
 
@@ -702,12 +744,13 @@ def _ops_invocation_completed_summary(payload: BaseModel) -> str | None:
 
 #: Per-type summary builder, keyed the same as :data:`SUMMARY_SOURCE_EVENT_TYPES`.
 _SUMMARY_BUILDER_BY_EVENT_TYPE: Mapping[str, Any] = {
+    WP_STATUS_CHANGED: _producer_summary,
     MISSION_CREATED: _mission_created_summary,
     DECISION_POINT_OPENED: _decision_summary,
     DECISION_POINT_RESOLVED: _decision_summary,
-    SPECIFY_COMPLETED: _artifact_completed_summary,
-    PLAN_COMPLETED: _artifact_completed_summary,
-    TASKS_COMPLETED: _artifact_completed_summary,
+    SPECIFY_COMPLETED: _producer_summary,
+    PLAN_COMPLETED: _producer_summary,
+    TASKS_COMPLETED: _producer_summary,
     OPS_INVOCATION_STARTED: _ops_invocation_started_summary,
     OPS_INVOCATION_COMPLETED: _ops_invocation_completed_summary,
 }
@@ -717,11 +760,27 @@ _SUMMARY_BUILDER_BY_EVENT_TYPE: Mapping[str, Any] = {
 
 
 def _encode_scalar(field: str, value: Any) -> str:
-    """Encode one leaf value as its bounded string form."""
+    """Encode one leaf value as its bounded string form.
+
+    A ``tuple[str, ...]`` joins its elements with ``","`` into one bounded
+    string — the wire form for a payload's bounded reference list (first
+    used by ``CoordinationMessagePayload.evidence_refs``, events#54). The
+    family contract owns comma-freedom of the elements (the coordination
+    message's evidence grammar is ASCII and comma-free by pattern, and its
+    1..3 × ≤72-char bound keeps the join inside the 240-byte attr bound);
+    decode treats the joined value as opaque like every other payload
+    value, never splitting it back.
+    """
     if isinstance(value, bool):  # before int: bool subclasses int
         return "true" if value else "false"
     if isinstance(value, datetime):
         return value.isoformat()
+    if isinstance(value, tuple):
+        if not all(isinstance(element, str) for element in value):
+            raise UnencodableFieldValueError(
+                f"field {field!r}: only tuple[str, ...] has a bounded flat-string encoding"
+            )
+        return ",".join(value)
     if isinstance(value, Enum):
         raw = value.value
         encoded = raw if isinstance(raw, str) else str(raw)
@@ -839,6 +898,69 @@ def _utf8_size(subject: str, value: str) -> int:
         return len(value.encode("utf-8"))
     except UnicodeEncodeError as exc:
         raise ZeitgeistAttrsError(f"{subject} is not UTF-8 encodable") from exc
+
+
+#: Matches the two calendar-date spellings this attrs contract accepts. The
+#: alternatives bind date and time together, so a basic date can never pair
+#: with an extended time (or vice versa), week/ordinal dates cannot enter
+#: through an independent alternation, and Python 3.11+'s arbitrary
+#: single-character separator is deliberately outside the contract.
+_OCCURRED_AT_RE = re.compile(
+    r"^(?:(?P<extended_date>\d{4}-\d{2}-\d{2})"
+    r"[T ](?P<extended_time>\d{2}(?::\d{2}(?::\d{2})?)?)"
+    r"|(?P<basic_date>\d{8})"
+    r"[T ](?P<basic_time>\d{2}(?:\d{2}(?:\d{2})?)?))"
+    r"(?P<fraction>[.,]\d+)?"
+    r"(?P<offset>Z|[+-](?:\d{2}:\d{2}(?::\d{2})?|\d{4}(?:\d{2})?))$"
+)
+
+
+def _occurred_at_candidate(value: str) -> str | None:
+    """Return a Python-3.10-parseable spelling for a contract-valid value.
+
+    The attrs value itself is never rewritten. This private candidate reshapes
+    a valid basic timestamp (and pads reduced precision) into the extended
+    spelling ``datetime.fromisoformat`` accepted on the declared 3.10 floor.
+    A non-match returns ``None`` so the caller can reject the original wire
+    bytes with the same typed error as every other malformed timestamp.
+    """
+    match = _OCCURRED_AT_RE.fullmatch(value)
+    if match is None:
+        return None
+
+    extended_date, basic_date = match.group("extended_date", "basic_date")
+    extended_time, basic_time = match.group("extended_time", "basic_time")
+    date = extended_date
+    if basic_date is not None:
+        date = f"{basic_date[0:4]}-{basic_date[4:6]}-{basic_date[6:8]}"
+
+    time = extended_time
+    if basic_time is not None:
+        if len(basic_time) == 2:
+            time = f"{basic_time}:00:00"
+        elif len(basic_time) == 4:
+            time = f"{basic_time[0:2]}:{basic_time[2:4]}:00"
+        else:
+            time = f"{basic_time[0:2]}:{basic_time[2:4]}:{basic_time[4:6]}"
+    elif time.count(":") == 0:
+        time = f"{time}:00:00"
+    elif time.count(":") == 1:
+        time = f"{time}:00"
+
+    fraction = ""
+    if match["fraction"] is not None:
+        digits = match["fraction"][1:]
+        fraction = f".{digits[:6].ljust(6, '0')}"
+
+    offset = match["offset"]
+    if offset == "Z":
+        offset = "+00:00"
+    elif len(offset) == 5:
+        offset = f"{offset[0:3]}:{offset[3:5]}"
+    elif len(offset) == 7:
+        offset = f"{offset[0:3]}:{offset[3:5]}:{offset[5:7]}"
+
+    return f"{date}T{time}{fraction}{offset}"
 
 
 def to_zeitgeist_attrs(payload: BaseModel, envelope: Event) -> dict[str, str]:
@@ -982,6 +1104,7 @@ REF_FIELD_BY_EVENT_TYPE: Mapping[str, str] = {
     TASKS_COMPLETED: "mission_slug",
     OPS_INVOCATION_STARTED: "invocation_id",
     OPS_INVOCATION_COMPLETED: "invocation_id",
+    COORDINATION_MESSAGE: "scope",
 }
 
 
@@ -1185,9 +1308,9 @@ def from_zeitgeist_attrs(event_type: str, attrs: Mapping[str, str]) -> VolatileM
     exception: ``event_id`` is reparsed and canonicalized via
     :func:`~spec_kitty_events.models.normalize_event_id`, a derived
     ``detail_ref`` is rewritten to that canonical spelling, and
-    ``occurred_at`` is reparsed via :func:`datetime.fromisoformat` and
-    rejected if timezone-naive. An inbound mapping missing an *optional*
-    payload key
+    ``occurred_at`` is reparsed via :func:`datetime.fromisoformat` after
+    its shape check requires a UTC offset. An inbound mapping missing an
+    *optional* payload key
     (one whose annotation admits ``None``) decodes with that key absent,
     since rebuilding the journal payload remains impossible by design
     ("Projection, not reconstruction").
@@ -1201,8 +1324,8 @@ def from_zeitgeist_attrs(event_type: str, attrs: Mapping[str, str]) -> VolatileM
             malformed — ``event_id`` does not match one of the three shapes
             :func:`~spec_kitty_events.models.normalize_event_id` accepts
             (26-char Crockford-base32 ULID, 36-char hyphenated UUID, 32-char
-            bare hex UUID), ``occurred_at`` does not parse as ISO-8601 or
-            parses but is timezone-naive, or a derived ``detail_ref`` does
+            bare hex UUID), ``occurred_at`` does not parse as ISO-8601
+            with a UTC offset, or a derived ``detail_ref`` does
             not resolve to the same moment.
         ZeitgeistAttrsControlCharacterError: a value carries a non-printable
             character (``not str.isprintable()``).
@@ -1282,34 +1405,13 @@ def from_zeitgeist_attrs(event_type: str, attrs: Mapping[str, str]) -> VolatileM
         decoded_attrs["detail_ref"] = f"{event_type}:{decoded_attrs['event_id']}"
 
     occurred_at = attrs["occurred_at"]
-    # datetime.fromisoformat() only accepts the "Z" UTC designator from
-    # Python 3.11 on; this repo's declared floor is 3.10 (pyproject.toml),
-    # so a textbook Z-suffixed timestamp would otherwise be wrongly
-    # rejected on 3.10 while passing on 3.11+ for the exact same wire
-    # bytes (spec-kitty-events#55). Normalize before parsing so the
-    # accept/reject outcome doesn't depend on the interpreter's minor
-    # version. A well-formed value has at most this one trailing "Z"; if
-    # another "Z" remains after stripping it, the input was already
-    # malformed and must not be laundered into something 3.10's laxer
-    # fromisoformat() would accept (e.g. a doubled "...00ZZ"). The
-    # residual check is case-insensitive: a mixed-case doubled
-    # designator (e.g. "...00zZ") is just as malformed, and Python
-    # 3.11+'s fromisoformat is itself case-insensitive on "Z", so a
-    # case-sensitive guard here would let it through on some
-    # interpreters and not others — the exact split this fix removes.
-    if occurred_at.endswith("Z"):
-        candidate = occurred_at[:-1]
-        if "z" in candidate.lower():
-            raise ZeitgeistAttrsError(f"attr 'occurred_at' is not ISO-8601: {occurred_at!r}")
-        candidate += "+00:00"
-    else:
-        candidate = occurred_at
+    candidate = _occurred_at_candidate(occurred_at)
+    if candidate is None:
+        raise ZeitgeistAttrsError(f"attr 'occurred_at' is not ISO-8601: {occurred_at!r}")
     try:
-        parsed_occurred_at = datetime.fromisoformat(candidate)
+        datetime.fromisoformat(candidate)
     except ValueError as exc:
         raise ZeitgeistAttrsError(f"attr 'occurred_at' is not ISO-8601: {occurred_at!r}") from exc
-    if parsed_occurred_at.tzinfo is None:
-        raise ZeitgeistAttrsError(f"attr 'occurred_at' must be timezone-aware: {occurred_at!r}")
 
     if event_type in CONTRACT_VERSIONED_EVENT_TYPES:
         # contract_version is in _REQUIRED_KEYS_BY_EVENT_TYPE for every

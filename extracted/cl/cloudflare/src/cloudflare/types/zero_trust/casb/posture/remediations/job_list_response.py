@@ -31,12 +31,10 @@ class AssetCategory(BaseModel):
         "Jira",
         "Microsoft",
         "Microsoft Internal",
-        "Okta",
         "OpenAI",
         "Slack",
         "Salesforce",
         "ServiceNow",
-        "Workday",
         "Zoom",
     ]
     """Display names for vendor types."""

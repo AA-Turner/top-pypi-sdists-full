@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastparquet
-Version: 2026.5.0
+Version: 2026.9.0
 Summary: Python support for Parquet file format
 Home-page: https://github.com/dask/fastparquet/
 Author: Martin Durant

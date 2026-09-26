@@ -13,6 +13,7 @@ __all__ = ["SuppressionEditParams"]
 
 class SuppressionEditParams(TypedDict, total=False):
     account_id: Required[str]
+    """Cloudflare account ID."""
 
     expires_at: Annotated[Union[str, datetime, None], PropertyInfo(format="iso8601")]
     """New expiry.
@@ -24,4 +25,11 @@ class SuppressionEditParams(TypedDict, total=False):
     """Replacement advisory note.
 
     Send an empty string to clear it; omit to leave it unchanged.
+    """
+
+    scope: object
+    """Not editable.
+
+    Scope is fixed when the suppression is created; any value returns 400 with code
+    `scope_immutable`. Delete and recreate the suppression to change it.
     """

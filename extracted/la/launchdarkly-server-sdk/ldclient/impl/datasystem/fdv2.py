@@ -129,7 +129,7 @@ class _FeatureStoreClientWrapper(FeatureStore):
                 poller_to_stop = self.__poller
                 self.__poller = None
             elif self.__poller is None:
-                task_to_start = RepeatingTask("ldclient.check-availability", 0.5, 0, self.__check_availability)
+                task_to_start = RepeatingTask.at_interval("ldclient.check-availability", 0.5, 0, self.__check_availability)
                 self.__poller = task_to_start
 
         if available:
@@ -230,6 +230,10 @@ class FDv2(_FDv2Base, DataSystem):
 
         self._config = config
         self._data_system_config = data_system_config
+
+        if config.payload_filter_key is not None:
+            log.warning("Payload filtering is not supported with the FDv2 data system; the configured payload filter has no effect on FDv2 requests")
+
         self._synchronizers: List[DataSourceBuilder[Synchronizer]] = list(data_system_config.synchronizers) if data_system_config.synchronizers else []
         self._fdv1_fallback_synchronizer_builder = data_system_config.fdv1_fallback_synchronizer
         self._disabled = config.offline
@@ -532,7 +536,7 @@ class FDv2(_FDv2Base, DataSystem):
         :return: the ConditionDirective describing how to proceed
         """
         action_queue: Queue = Queue()
-        timer = RepeatingTask(
+        timer = RepeatingTask.at_interval(
             label="FDv2-sync-cond-timer",
             interval=10,
             initial_delay=10,

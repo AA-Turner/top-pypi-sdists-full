@@ -99,6 +99,7 @@ from .utils import (
     HasReqsHints,
     adjustDirObjs,
     normalizeFilesDirs,
+    path_to_loc,
     processes_to_kill,
     trim_listing,
     versionstring,
@@ -367,11 +368,19 @@ def load_job_order(
         input_basedir = (
             args.basedir if args.basedir else os.path.abspath(os.path.dirname(job_order_file))
         )
-        job_order_object, _ = loader.resolve_ref(
-            job_order_file,
-            checklinks=False,
-            content_types=CWL_CONTENT_TYPES,
-        )
+        try:
+            job_order_object, _ = loader.resolve_ref(
+                job_order_file,
+                checklinks=False,
+                content_types=CWL_CONTENT_TYPES,
+            )
+        except StopIteration:
+            _logger.error(
+                "CWL input object at %s is empty. It should be a JSON/YAML dictionary "
+                "of the input parameters, or '{}' if the process takes no inputs.",
+                job_order_file,
+            )
+            sys.exit(1)
 
     if (
         isinstance(job_order_object, CommentedMap)
@@ -473,11 +482,6 @@ def init_job_order(
             if not job_order_object:
                 job_order_object = {}
             job_order_object[shortname(inp["id"])] = inp["default"]
-
-    def path_to_loc(p: CWLFileType | CWLDirectoryType) -> None:
-        if "location" not in p and "path" in p:
-            p["location"] = p["path"]
-            del p["path"]
 
     ns: ContextType = {}
     ns.update(cast(ContextType, job_order_object.get("$namespaces", {})))
@@ -986,6 +990,8 @@ def main(
         user_agent += f" {progname}"  # append the real program name as well
     append_word_to_default_user_agent(user_agent)
 
+    # By default, we log errors to standard error in the default way if we
+    # can't find a place for them.
     err_handler: logging.Handler = defaultStreamHandler
     try:
         if args is None:
@@ -1003,11 +1009,17 @@ def main(
                     args.cidfile_dir = os.getcwd()
                 del args.record_container_id
         if logger_handler is not None:
+            # Log errors to the provided handler
             err_handler = logger_handler
+            # And log there in general
             _logger.addHandler(err_handler)
         else:
+            # We aren't having the logging hooked, so set it up to be colorful.
             coloredlogs.install(logger=_logger, stream=stdout if args.validate else stderr)
-            err_handler = _logger.handlers[-1]
+            if len(_logger.handlers) > 0:
+                # If any logging is set up, log the errors there instead of the
+                # default cwltool place.
+                err_handler = _logger.handlers[-1]
         logging.getLogger("salad").handlers = _logger.handlers
 
         if runtimeContext is None:

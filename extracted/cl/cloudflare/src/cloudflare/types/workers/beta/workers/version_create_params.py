@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable
+from typing import Dict, List, Union, Iterable, Optional
 from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
 from ....._types import SequenceNotStr, Base64FileInput
@@ -40,6 +40,7 @@ __all__ = [
     "BindingWorkersBindingKindMTLSCertificate",
     "BindingWorkersBindingKindPlainText",
     "BindingWorkersBindingKindPipelines",
+    "BindingWorkersBindingKindK2",
     "BindingWorkersBindingKindQueue",
     "BindingWorkersBindingKindRatelimit",
     "BindingWorkersBindingKindRatelimitSimple",
@@ -212,6 +213,14 @@ class Annotations(TypedDict, total=False):
 
 class AssetsConfig(TypedDict, total=False):
     """Configuration for assets within a Worker."""
+
+    base_path: Optional[str]
+    """The public URL path prefix under which assets are served.
+
+    A null request value resets it to `/`; responses represent the root as `/`. All
+    versions in a gradual deployment must use the same canonical value. To change
+    it, first deploy the version containing the change at 100%.
+    """
 
     html_handling: Literal["auto-trailing-slash", "force-trailing-slash", "drop-trailing-slash", "none"]
     """Determines the redirects and rewrites of requests for HTML content."""
@@ -534,6 +543,19 @@ class BindingWorkersBindingKindPipelines(TypedDict, total=False):
     """The kind of resource that the binding provides."""
 
 
+class BindingWorkersBindingKindK2(TypedDict, total=False):
+    """A K2 stream binding. Available only to accounts enabled for K2."""
+
+    name: Required[str]
+    """A JavaScript variable name for the binding."""
+
+    stream: Required[str]
+    """ID of a K2 stream owned by the account deploying the Worker."""
+
+    type: Required[Literal["k2"]]
+    """The kind of resource that the binding provides."""
+
+
 class BindingWorkersBindingKindQueue(TypedDict, total=False):
     name: Required[str]
     """A JavaScript variable name for the binding."""
@@ -827,6 +849,7 @@ Binding: TypeAlias = Union[
     BindingWorkersBindingKindMTLSCertificate,
     BindingWorkersBindingKindPlainText,
     BindingWorkersBindingKindPipelines,
+    BindingWorkersBindingKindK2,
     BindingWorkersBindingKindQueue,
     BindingWorkersBindingKindRatelimit,
     BindingWorkersBindingKindR2Bucket,

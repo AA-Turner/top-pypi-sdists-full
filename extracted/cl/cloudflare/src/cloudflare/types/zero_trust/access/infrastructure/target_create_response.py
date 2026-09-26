@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import Dict, Optional
 from datetime import datetime
 
 from ....._models import BaseModel
@@ -59,3 +59,6 @@ class TargetCreateResponse(BaseModel):
 
     modified_at: datetime
     """Date and time at which the target was modified"""
+
+    tags: Optional[Dict[str, str]] = None
+    """Tags assigned to the target. Empty when no tags are assigned."""

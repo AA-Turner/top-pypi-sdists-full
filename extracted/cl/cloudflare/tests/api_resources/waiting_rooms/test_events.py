@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 
@@ -30,7 +30,7 @@ class TestEvents:
             event_start_time="2021-09-28T15:30:00Z",
             name="production_webinar_event",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
@@ -53,7 +53,7 @@ class TestEvents:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
@@ -68,7 +68,7 @@ class TestEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_streaming_response_create(self, client: Cloudflare) -> None:
@@ -83,7 +83,7 @@ class TestEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -117,7 +117,7 @@ class TestEvents:
             event_start_time="2021-09-28T15:30:00Z",
             name="production_webinar_event",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_method_update_with_all_params(self, client: Cloudflare) -> None:
@@ -141,7 +141,7 @@ class TestEvents:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_raw_response_update(self, client: Cloudflare) -> None:
@@ -157,7 +157,7 @@ class TestEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_streaming_response_update(self, client: Cloudflare) -> None:
@@ -173,7 +173,7 @@ class TestEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -274,7 +274,7 @@ class TestEvents:
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             waiting_room_id="699d98642c564d2e855e9661899b7252",
         )
-        assert_matches_type(EventDeleteResponse, event, path=["response"])
+        assert_matches_type(Optional[EventDeleteResponse], event, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
@@ -287,7 +287,7 @@ class TestEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = response.parse()
-        assert_matches_type(EventDeleteResponse, event, path=["response"])
+        assert_matches_type(Optional[EventDeleteResponse], event, path=["response"])
 
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
@@ -300,7 +300,7 @@ class TestEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = response.parse()
-            assert_matches_type(EventDeleteResponse, event, path=["response"])
+            assert_matches_type(Optional[EventDeleteResponse], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -337,7 +337,7 @@ class TestEvents:
             event_start_time="2021-09-28T15:30:00Z",
             name="production_webinar_event",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_method_edit_with_all_params(self, client: Cloudflare) -> None:
@@ -361,7 +361,7 @@ class TestEvents:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_raw_response_edit(self, client: Cloudflare) -> None:
@@ -377,7 +377,7 @@ class TestEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_streaming_response_edit(self, client: Cloudflare) -> None:
@@ -393,7 +393,7 @@ class TestEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -436,7 +436,7 @@ class TestEvents:
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             waiting_room_id="699d98642c564d2e855e9661899b7252",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
@@ -449,7 +449,7 @@ class TestEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
@@ -462,7 +462,7 @@ class TestEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -504,7 +504,7 @@ class TestAsyncEvents:
             event_start_time="2021-09-28T15:30:00Z",
             name="production_webinar_event",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -527,7 +527,7 @@ class TestAsyncEvents:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
@@ -542,7 +542,7 @@ class TestAsyncEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = await response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
@@ -557,7 +557,7 @@ class TestAsyncEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = await response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -591,7 +591,7 @@ class TestAsyncEvents:
             event_start_time="2021-09-28T15:30:00Z",
             name="production_webinar_event",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -615,7 +615,7 @@ class TestAsyncEvents:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncCloudflare) -> None:
@@ -631,7 +631,7 @@ class TestAsyncEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = await response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncCloudflare) -> None:
@@ -647,7 +647,7 @@ class TestAsyncEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = await response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -748,7 +748,7 @@ class TestAsyncEvents:
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             waiting_room_id="699d98642c564d2e855e9661899b7252",
         )
-        assert_matches_type(EventDeleteResponse, event, path=["response"])
+        assert_matches_type(Optional[EventDeleteResponse], event, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -761,7 +761,7 @@ class TestAsyncEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = await response.parse()
-        assert_matches_type(EventDeleteResponse, event, path=["response"])
+        assert_matches_type(Optional[EventDeleteResponse], event, path=["response"])
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -774,7 +774,7 @@ class TestAsyncEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = await response.parse()
-            assert_matches_type(EventDeleteResponse, event, path=["response"])
+            assert_matches_type(Optional[EventDeleteResponse], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -811,7 +811,7 @@ class TestAsyncEvents:
             event_start_time="2021-09-28T15:30:00Z",
             name="production_webinar_event",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_method_edit_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -835,7 +835,7 @@ class TestAsyncEvents:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_raw_response_edit(self, async_client: AsyncCloudflare) -> None:
@@ -851,7 +851,7 @@ class TestAsyncEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = await response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_streaming_response_edit(self, async_client: AsyncCloudflare) -> None:
@@ -867,7 +867,7 @@ class TestAsyncEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = await response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -910,7 +910,7 @@ class TestAsyncEvents:
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             waiting_room_id="699d98642c564d2e855e9661899b7252",
         )
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -923,7 +923,7 @@ class TestAsyncEvents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         event = await response.parse()
-        assert_matches_type(Event, event, path=["response"])
+        assert_matches_type(Optional[Event], event, path=["response"])
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -936,7 +936,7 @@ class TestAsyncEvents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             event = await response.parse()
-            assert_matches_type(Event, event, path=["response"])
+            assert_matches_type(Optional[Event], event, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

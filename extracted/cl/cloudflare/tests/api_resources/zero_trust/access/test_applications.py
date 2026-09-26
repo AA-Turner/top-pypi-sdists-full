@@ -62,10 +62,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -100,13 +112,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -373,10 +413,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -411,13 +463,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -566,10 +646,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -604,13 +696,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -1082,7 +1202,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -1098,6 +1217,18 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -1140,7 +1271,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -1160,7 +1290,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -1183,7 +1312,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -1196,7 +1324,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -1212,7 +1339,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -1229,6 +1355,18 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -1255,10 +1393,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -1293,13 +1443,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -1372,7 +1550,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -1393,7 +1570,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -1417,7 +1593,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -1431,7 +1606,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -1462,10 +1636,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -1500,13 +1686,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             http_only_cookie_attribute=True,
             logo_url="https://www.cloudflare.com/img/logo-web-badges/cf-logo-on-white-bg.svg",
@@ -1624,10 +1838,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -1662,13 +1888,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             domain="test.example.com/admin",
             http_only_cookie_attribute=True,
@@ -1803,10 +2057,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -1841,13 +2107,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -2140,10 +2434,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -2178,13 +2484,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -2347,10 +2681,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -2385,13 +2731,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -2940,7 +3314,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -2957,6 +3330,18 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -3000,7 +3385,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -3021,7 +3405,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -3045,7 +3428,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -3059,7 +3441,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -3073,7 +3454,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -3090,7 +3470,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -3108,6 +3487,18 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -3134,10 +3525,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -3172,13 +3575,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -3252,7 +3683,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -3274,7 +3704,6 @@ class TestApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -3299,7 +3728,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -3314,7 +3742,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -3329,7 +3756,6 @@ class TestApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -3362,10 +3788,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -3400,13 +3838,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             http_only_cookie_attribute=True,
             logo_url="https://www.cloudflare.com/img/logo-web-badges/cf-logo-on-white-bg.svg",
@@ -3537,10 +4003,22 @@ class TestApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -3575,13 +4053,41 @@ class TestApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             domain="test.example.com/admin",
             http_only_cookie_attribute=True,
@@ -3995,10 +4501,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -4033,13 +4551,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -4306,10 +4852,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -4344,13 +4902,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -4499,10 +5085,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -4537,13 +5135,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -5015,7 +5641,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -5031,6 +5656,18 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -5073,7 +5710,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -5093,7 +5729,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -5116,7 +5751,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -5129,7 +5763,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -5145,7 +5778,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -5162,6 +5794,18 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -5188,10 +5832,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -5226,13 +5882,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -5305,7 +5989,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -5326,7 +6009,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -5350,7 +6032,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -5364,7 +6045,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -5395,10 +6075,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -5433,13 +6125,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             http_only_cookie_attribute=True,
             logo_url="https://www.cloudflare.com/img/logo-web-badges/cf-logo-on-white-bg.svg",
@@ -5557,10 +6277,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -5595,13 +6327,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             domain="test.example.com/admin",
             http_only_cookie_attribute=True,
@@ -5736,10 +6496,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -5774,13 +6546,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -6073,10 +6873,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -6111,13 +6923,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -6280,10 +7120,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -6318,13 +7170,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -6873,7 +7753,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -6890,6 +7769,18 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -6933,7 +7824,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -6954,7 +7844,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "SSH",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="infrastructure",
@@ -6978,7 +7867,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -6992,7 +7880,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -7006,7 +7893,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "SSH",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="infrastructure",
@@ -7023,7 +7909,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -7041,6 +7926,18 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
+                    "exclude": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "include": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
+                    "require": {
+                        "tags": {"environment": ["production"]},
+                        "target_attributes": {"hostname": ["web-*"]},
+                    },
                     "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
@@ -7067,10 +7964,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -7105,13 +8014,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             eager_redirect_cookie_setting=True,
             enable_binding_cookie=True,
@@ -7185,7 +8122,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -7207,7 +8143,6 @@ class TestAsyncApplications:
                 {
                     "port": 22,
                     "protocol": "RDP",
-                    "target_attributes": {"hostname": ["test-server", "production-server"]},
                 }
             ],
             type="self_hosted",
@@ -7232,7 +8167,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -7247,7 +8181,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -7262,7 +8195,6 @@ class TestAsyncApplications:
                     {
                         "port": 22,
                         "protocol": "RDP",
-                        "target_attributes": {"hostname": ["test-server", "production-server"]},
                     }
                 ],
                 type="self_hosted",
@@ -7295,10 +8227,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -7333,13 +8277,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             http_only_cookie_attribute=True,
             logo_url="https://www.cloudflare.com/img/logo-web-badges/cf-logo-on-white-bg.svg",
@@ -7470,10 +8442,22 @@ class TestAsyncApplications:
             custom_pages=["699d98642c564d2e855e9661899b7252"],
             destinations=[
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.example.com/admin",
                 },
                 {
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                     "type": "public",
                     "uri": "test.anotherexample.com/staff",
                 },
@@ -7508,13 +8492,41 @@ class TestAsyncApplications:
                 {
                     "type": "worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
                 {
                     "type": "preview_worker",
                     "worker_id": "617f1d0431a98306ff61e336d79fce86",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
                 },
-                {"type": "all_workers"},
-                {"type": "all_preview_workers"},
+                {
+                    "type": "all_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
+                {
+                    "type": "all_preview_workers",
+                    "overrides": [
+                        {
+                            "behavior": "public",
+                            "path_pattern": "/health/*",
+                        }
+                    ],
+                },
             ],
             domain="test.example.com/admin",
             http_only_cookie_attribute=True,

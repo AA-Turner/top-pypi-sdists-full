@@ -8,7 +8,6 @@ import argparse
 import json
 from typing import Any, Dict, List
 
-from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
 from src.cli.client import APIError, InnoDayAPIClient
@@ -24,9 +23,10 @@ from src.cli.utils.formatters import (
     format_warning,
 )
 from src.cli.utils.health_table import health_table
+from src.cli.utils.presentation import make_console
 from src.domain.project import ProjectPriority, ProjectStatus
 
-console = Console()
+console = make_console()
 
 # Choices are derived from the enums so they cannot drift from what the API
 # accepts. Every value of both flags previously returned HTTP 422 -- the

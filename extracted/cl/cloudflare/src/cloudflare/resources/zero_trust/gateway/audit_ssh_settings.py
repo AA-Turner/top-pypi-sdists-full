@@ -61,6 +61,8 @@ class AuditSSHSettingsResource(SyncAPIResource):
         an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           public_key: Provide the Base64-encoded HPKE public key that encrypts SSH session logs. See
               https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-infrastructure-access/#enable-ssh-command-logging.
 
@@ -105,6 +107,8 @@ class AuditSSHSettingsResource(SyncAPIResource):
         settings for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -143,6 +147,8 @@ class AuditSSHSettingsResource(SyncAPIResource):
         through the Cloudflare SSH Proxy.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -203,6 +209,8 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           public_key: Provide the Base64-encoded HPKE public key that encrypts SSH session logs. See
               https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/use-cases/ssh/ssh-infrastructure-access/#enable-ssh-command-logging.
 
@@ -247,6 +255,8 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         settings for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -285,6 +295,8 @@ class AsyncAuditSSHSettingsResource(AsyncAPIResource):
         through the Cloudflare SSH Proxy.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

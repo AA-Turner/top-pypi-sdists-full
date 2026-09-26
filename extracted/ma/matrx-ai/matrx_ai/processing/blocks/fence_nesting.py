@@ -19,9 +19,11 @@ CommonMark — a ```bash heredoc is code, not a document):
     closer and the rest of the message).
 
 Spec (one copy): common-docs/systems/content-ir-system/NESTED-FENCES.md.
-Frontend twin: matrx-frontend components/markdown-core/fence-nesting.ts —
-both sides split a message identically. Guard:
-tests/test_nested_fence_splitting.py.
+THE rule (TypeScript, defined once): @ai-matrx/content-ir
+source/fence-nesting.ts — the source tokenizer and matrx-frontend's splitters
+import it; this module is held to it by the generated vectors. Guards: processing/blocks/tests/test_nested_fence_splitting.py
+and the shared package-generated vectors,
+processing/blocks/tests/test_fence_nesting_vectors.py.
 """
 
 from __future__ import annotations
@@ -32,6 +34,46 @@ InnerFenceLine = Literal["content", "open-nested", "close-nested", "close-outer"
 
 #: Fence languages whose body is itself a markdown document.
 NESTING_FENCE_LANGUAGES: frozenset[str] = frozenset({"markdown", "md", "mdx"})
+
+
+#: The whitespace a fence line may carry: CommonMark's ASCII whitespace ONLY.
+#: Defined explicitly because Python's ``str.strip()`` also strips U+0085 and
+#: U+001C–U+001F while JavaScript's ``trim()`` strips U+FEFF instead — the two
+#: twins disagreed on such lines (verify-RC-B3 residual R4). Mirrors
+#: ``FENCE_WHITESPACE`` in the TypeScript rule.
+FENCE_WHITESPACE = " \t\n\r\f\v"
+
+
+def trim_fence_line(line: str) -> str:
+    """Strip FENCE_WHITESPACE (and nothing else) from both ends of a line."""
+    return line.strip(FENCE_WHITESPACE)
+
+
+#: The whitespace around a fence OPENER and inside its info string: exactly
+#: JavaScript's ``String#trim()`` / ``/\s/`` set (ECMAScript WhiteSpace +
+#: LineTerminator), because the renderer parses openers that way. Python's
+#: ``str.strip()`` / ``str.split()`` differ on U+0085, U+001C–U+001F (not JS
+#: whitespace) and U+FEFF (JS whitespace) — verify-RC-B3 residual R4′. Mirrors
+#: ``FENCE_OPENER_WHITESPACE`` in the TypeScript rule; the shared vectors pin it.
+FENCE_OPENER_WHITESPACE = (
+    "\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007"
+    "\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+)
+
+
+def parse_fence_opener(line: str) -> tuple[int, str] | None:
+    """Parse a backtick fence OPENER the renderer's way: ``(ticks, lang)`` or None."""
+    trimmed = line.strip(FENCE_OPENER_WHITESPACE)
+    ticks = 0
+    while ticks < len(trimmed) and trimmed[ticks] == "`":
+        ticks += 1
+    if ticks < 3:
+        return None
+    info = trimmed[ticks:].lstrip(FENCE_OPENER_WHITESPACE)
+    end = 0
+    while end < len(info) and info[end] not in FENCE_OPENER_WHITESPACE:
+        end += 1
+    return ticks, info[:end]
 
 
 def fence_nests_inner_fences(language: str | None) -> bool:
@@ -48,7 +90,7 @@ def classify_inner_fence_line(
         ticks += 1
     if ticks < 3:
         return "content"
-    info = trimmed[ticks:].strip()
+    info = trim_fence_line(trimmed[ticks:])
     if info == "":
         if ticks < open_ticks:
             return "content"

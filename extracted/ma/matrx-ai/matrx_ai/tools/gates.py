@@ -94,7 +94,10 @@ def _is_admin(args: Mapping[str, Any], ctx: Any) -> bool:
     """
     if ctx is None:
         return False
-    return bool(getattr(ctx, "is_admin", False))
+    # THE ADMIN SURFACE (2026-09-25): admin identity AND an admin surface.
+    from matrx_connect import admin_surface_active
+
+    return admin_surface_active(ctx) if hasattr(ctx, "admin_surface") else admin_surface_active()
 
 
 @register("requires_client_executor")

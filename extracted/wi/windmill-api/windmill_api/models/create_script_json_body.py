@@ -31,7 +31,12 @@ class CreateScriptJsonBody:
             this path within the transaction (ignoring parent_hash), instead of failing with a "lineage must be linear"
             error when the supplied parent_hash is stale.
         description (Union[Unset, str]):
-        schema (Union[Unset, CreateScriptJsonBodySchema]):
+        schema (Union[Unset, CreateScriptJsonBodySchema]): JSON Schema of the arguments of `main`, which is what a run
+            form and an MCP tool offer. Omitted (or `{}`), it is inferred from `content` for TypeScript, Python, Go, Bash,
+            PowerShell, SQL, GraphQL and Ansible scripts. For other languages, or code that does not parse, a new script
+            gets none. A new version of an existing script also keeps what the previous version's schema says about each
+            argument, or that whole schema when nothing can be inferred. A dbt script always takes its schema from its
+            descriptor, whatever is sent.
         is_template (Union[Unset, bool]):
         lock (Union[Unset, str]):
         kind (Union[Unset, CreateScriptJsonBodyKind]):

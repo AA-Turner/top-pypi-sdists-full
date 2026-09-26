@@ -59,7 +59,7 @@ async def remote_exception_handler(request, exc: RemoteException):
 async def overloaded_error_handler(request, exc: ValueError):
     logger.exception("Overloaded Error", exc_info=exc)
     return await http_exception_handler(
-        request, HTTPException(status_code=503, detail=str(exc))
+        request, HTTPException(status_code=503, detail="Service Unavailable")
     )
 
 

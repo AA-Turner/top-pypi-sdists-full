@@ -191,6 +191,8 @@ class GatewayResource(SyncAPIResource):
         Create a Zero Trust account for an existing Cloudflare account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -228,6 +230,8 @@ class GatewayResource(SyncAPIResource):
         Retrieve information about the current Zero Trust account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -330,6 +334,8 @@ class AsyncGatewayResource(AsyncAPIResource):
         Create a Zero Trust account for an existing Cloudflare account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -367,6 +373,8 @@ class AsyncGatewayResource(AsyncAPIResource):
         Retrieve information about the current Zero Trust account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

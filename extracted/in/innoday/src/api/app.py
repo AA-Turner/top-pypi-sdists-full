@@ -271,9 +271,7 @@ async def root(request: Request):
 
 
 @app.get("/health", tags=["Health"])
-async def health_check(
-    request: Request, response: Response, db: Session = Depends(get_session)
-):
+async def health_check(response: Response, db: Session = Depends(get_session)):
     """Health check endpoint — performs a real database connectivity check."""
     # Uses Depends(get_session) rather than calling next(get_session())
     # directly -- the latter bypasses FastAPI's DI container entirely, so
@@ -290,8 +288,6 @@ async def health_check(
     if not healthy:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
-    port = getattr(request.app.state, "port", None) or int(os.getenv("PORT", 8002))
-
     return {
         "status": "healthy" if healthy else "unhealthy",
         "service": "InnoDay Platform",
@@ -304,7 +300,8 @@ async def health_check(
         # same process, answered `dev` (#619). Same resolver both sides now, so
         # they cannot disagree again.
         "environment": get_environment(),
-        "port": port,
+        # No `port`: this route is anonymous, and the port is deployment detail
+        # (PF-463). Platform admins still see it on /api/v1/public/status.
     }
 
 

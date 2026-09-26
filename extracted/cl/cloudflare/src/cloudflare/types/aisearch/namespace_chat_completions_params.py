@@ -125,6 +125,13 @@ class AISearchOptions(TypedDict, total=False):
 
     cache: AISearchOptionsCache
 
+    custom_metadata: Dict[str, Union[str, float, bool]]
+    """Metadata added to AI Gateway logs for requests triggered by this operation.
+
+    Accepts up to 2 string, number, or boolean entries. Keys 'ai-search', 'task',
+    'origin', and keys beginning with 'cf.' are reserved.
+    """
+
     query_rewrite: AISearchOptionsQueryRewrite
 
     reranking: AISearchOptionsReranking

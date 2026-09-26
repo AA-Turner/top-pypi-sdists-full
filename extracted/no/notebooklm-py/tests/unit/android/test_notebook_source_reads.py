@@ -10,6 +10,7 @@ from typing import Any, cast, get_type_hints
 import pytest
 from google.protobuf import text_format
 from google.protobuf.timestamp_pb2 import Timestamp
+from tests._fixtures.fake_core import declared_noop_operation_scope, declared_spawn_child
 
 from notebooklm._android.codecs.sources import decode_source
 from notebooklm._android.notebooks import (
@@ -86,6 +87,9 @@ class FakeSession:
         if self.error is not None:
             raise self.error
         return self.responses[method]
+
+    operation_scope = staticmethod(declared_noop_operation_scope)
+    spawn_child = staticmethod(declared_spawn_child)
 
 
 def _android_session(fake: FakeSession) -> AndroidSession:
@@ -203,8 +207,9 @@ def _graph(
 def test_exact_abstract_sets_and_android_adapters_are_concrete() -> None:
     assert NotebooksAPI.__abstractmethods__ == frozenset(
         {
+            "_operation_scope",
+            "_send_copy",
             "_send_create",
-            "copy",
             "delete",
             "get",
             "get_description",
@@ -220,17 +225,18 @@ def test_exact_abstract_sets_and_android_adapters_are_concrete() -> None:
     )
     assert SourcesAPI.__abstractmethods__ == frozenset(
         {
+            "_operation_scope",
+            "_send_add_urls_async",
+            "_send_append_text",
+            "_send_copy",
+            "_send_upload",
             "add_drive",
             "add_drive_file",
-            "add_file",
             "add_play_book",
             "list_play_books",
             "add_text",
             "add_url",
-            "add_urls_async",
-            "append_text",
             "check_freshness",
-            "copy",
             "delete",
             "get_fulltext",
             "get_guide",
@@ -242,7 +248,7 @@ def test_exact_abstract_sets_and_android_adapters_are_concrete() -> None:
     )
     assert AndroidNotebooksAPI.__abstractmethods__ == frozenset()
     assert AndroidSourcesAPI.__abstractmethods__ == frozenset()
-    assert "_add_urls_batch" in AndroidSourcesAPI.__dict__
+    assert "add_urls_batch" in AndroidSourcesAPI.__dict__
 
 
 def test_notebook_public_callable_manifest_is_exact() -> None:
@@ -815,3 +821,39 @@ def test_decode_source_without_expert_intelligence_leaves_field_none() -> None:
         url="https://example.test/article",
     )
     assert decode_source(raw, method_id=GET_PROJECT_METHOD).expert_intelligence is None
+
+
+def test_decode_source_populates_created_at_from_source_added_timestamp() -> None:
+    metadata = read_pb2.SourceMetadata(
+        original_source_content_type=read_pb2.SOURCE_CONTENT_TYPE_URL,
+        webpage_metadata=read_pb2.WebpageMetadata(url="https://example.test/article"),
+        source_added_timestamp=Timestamp(seconds=1723890544, nanos=740182000),
+    )
+    raw = read_pb2.Source(
+        source_id=read_pb2.SourceId(id="src-1"),
+        title="Article",
+        metadata=metadata,
+        settings=source_settings_pb2.SourceSettings(
+            status=source_settings_pb2.SOURCE_STATUS_COMPLETE,
+        ),
+    )
+    decoded = decode_source(raw, method_id=GET_PROJECT_METHOD)
+    assert decoded.created_at is not None
+    assert decoded.created_at.isoformat() == "2024-08-17T10:29:04.740182+00:00"
+
+
+def test_decode_source_without_source_added_timestamp_leaves_created_at_none() -> None:
+    metadata = read_pb2.SourceMetadata(
+        original_source_content_type=read_pb2.SOURCE_CONTENT_TYPE_URL,
+        webpage_metadata=read_pb2.WebpageMetadata(url="https://example.test/article"),
+    )
+    raw = read_pb2.Source(
+        source_id=read_pb2.SourceId(id="src-1"),
+        title="Article",
+        metadata=metadata,
+        settings=source_settings_pb2.SourceSettings(
+            status=source_settings_pb2.SOURCE_STATUS_COMPLETE,
+        ),
+    )
+    decoded = decode_source(raw, method_id=GET_PROJECT_METHOD)
+    assert decoded.created_at is None

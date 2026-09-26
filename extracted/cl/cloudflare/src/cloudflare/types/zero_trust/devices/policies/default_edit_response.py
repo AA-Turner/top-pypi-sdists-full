@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List, Optional
+from typing_extensions import Literal
 
 from ....._models import BaseModel
 from ..fallback_domain import FallbackDomain
@@ -40,6 +41,12 @@ class GlobalAcceleration(BaseModel):
     """IP:port entries for the WireGuard tunnel endpoints.
 
     Either wireguard_endpoints or masque_endpoints must be provided.
+    """
+
+    autoswitch: Optional[bool] = None
+    """Automatically switch Global Acceleration regions based on device location.
+
+    Defaults to false when not provided.
     """
 
 
@@ -126,6 +133,12 @@ class DefaultEditResponse(BaseModel):
 
     policy_id: Optional[str] = None
 
+    profile_type: Optional[Literal["warp", "browser_extension"]] = None
+    """The client type to which the device settings profile applies.
+
+    This field is set when the profile is created and cannot be changed.
+    """
+
     register_interface_ip_with_dns: Optional[bool] = None
     """
     Determines if the operating system will register WARP's local interface IP with
@@ -150,6 +163,12 @@ class DefaultEditResponse(BaseModel):
 
     tunnel_protocol: Optional[str] = None
     """Determines which tunnel protocol to use."""
+
+    uninstall_protection: Optional[bool] = None
+    """Determines whether uninstalling the WARP client requires an override code.
+
+    (Windows only).
+    """
 
     virtual_networks: Optional[VirtualNetworks] = None
     """Virtual network access settings for the device."""

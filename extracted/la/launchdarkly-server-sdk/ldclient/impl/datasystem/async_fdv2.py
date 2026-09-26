@@ -148,7 +148,7 @@ class _AsyncFeatureStoreClientWrapper(AsyncFeatureStore):
         else:
             log.warning("Detected persistent store unavailability; updates will be cached until it recovers")
             if self._poller is None:
-                task_to_start = AsyncRepeatingTask("ldclient.check-availability", 0.5, 0, self._check_availability)
+                task_to_start = AsyncRepeatingTask.at_interval("ldclient.check-availability", 0.5, 0, self._check_availability)
                 self._poller = task_to_start
 
         self._status_sink(DataStoreStatus(available, True))
@@ -247,6 +247,10 @@ class AsyncFDv2(_FDv2Base, AsyncDataSystem):
 
         self._config = config
         self._data_system_config = data_system_config
+
+        if config.payload_filter_key is not None:
+            log.warning("Payload filtering is not supported with the FDv2 data system; the configured payload filter has no effect on FDv2 requests")
+
         self._synchronizers: List[DataSourceBuilder[AsyncSynchronizer]] = list(data_system_config.synchronizers) if data_system_config.synchronizers else []
         self._fdv1_fallback_synchronizer_builder = data_system_config.fdv1_fallback_synchronizer
         self._disabled = config.offline
@@ -541,7 +545,7 @@ class AsyncFDv2(_FDv2Base, AsyncDataSystem):
         :return: the ConditionDirective describing how to proceed
         """
         action_queue: AsyncQueue = AsyncQueue()
-        timer = AsyncRepeatingTask(
+        timer = AsyncRepeatingTask.at_interval(
             label="AsyncFDv2-sync-cond-timer",
             interval=10,
             initial_delay=10,

@@ -10,6 +10,9 @@ __all__ = ["InstanceListParams"]
 class InstanceListParams(TypedDict, total=False):
     account_id: Required[str]
 
+    hostname: str
+    """Filter by exact Search for Agents hostname (case-insensitive)."""
+
     namespace: str
     """Filter by namespace."""
 

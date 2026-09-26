@@ -143,6 +143,7 @@ LAZY_SUBMODULES = frozenset(
         "vehicle_speed_estimation",
         "vehicle_speed_estimation_config",
         "vehicle_type_classification",
+        "vehicle_type_classification_stats_utils",
         "violence_detection",
         "violence_detection_testing",
         "warehouse_object_segmentation",

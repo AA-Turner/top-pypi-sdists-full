@@ -12,3 +12,8 @@ class TopupCreateParams(TypedDict, total=False):
 
     amount: Required[int]
     """Top-up amount in cents (min 1000)."""
+
+    payment_method_id: str
+    """
+    Stripe PaymentMethod to charge instead of the customer's default payment method.
+    """

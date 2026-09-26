@@ -10,6 +10,12 @@ from notify.models import Actor
 from ...exceptions import ComponentError, FileNotFound
 from ...interfaces.flow import FlowComponent
 from ...interfaces import DBSupport
+from ...utils.msgraph_patch import apply_msgraph_patches
+
+# The Teams provider uses msgraph-core: restore its middleware pipeline under
+# kiota-http >= 1.14 (otherwise ``graph.me.get()`` 404s on
+# ``me-token-to-replace``) and sanitise the HostOs telemetry header.
+apply_msgraph_patches()
 
 
 def expand_path(filename: str) -> Iterable[Path]:

@@ -33,6 +33,18 @@ class Schema(BaseModel):
 
     annotations: Optional[SchemaAnnotations] = None
 
+    deprecated: Optional[bool] = None
+    """
+    Marks a field as unavailable for new values while retaining its definition for
+    historical values.
+    """
+
+    deprecated_values: Optional[List[str]] = FieldInfo(alias="deprecatedValues", default=None)
+    """
+    Enum values unavailable for new writes but retained in allowedValues for
+    historical display.
+    """
+
     element: Optional[object] = None
 
     enforcement: Optional[Literal["error", "warn", "off"]] = None

@@ -24,13 +24,19 @@ from notebooklm._app.artifacts import (
     get_artifact_prompt,
     poll_artifact,
     rename_artifact,
+    require_complete_artifact_listing,
     retry_artifact,
     status_view,
     wait_for_artifact,
 )
-from notebooklm.exceptions import ArtifactNotFoundError
+from notebooklm.exceptions import ArtifactNotFoundError, RPCError
 from notebooklm.types import (
     Artifact,
+    ArtifactListing,
+    ArtifactListingComponent,
+    ArtifactListingFailure,
+    ArtifactLookup,
+    ArtifactLookupStatus,
     ExportType,
     GenerationStatus,
     MindMap,
@@ -55,22 +61,73 @@ def _client() -> MagicMock:
 async def test_get_artifact_returns_artifact() -> None:
     client = _client()
     art = Artifact(id="art_1", title="T", _artifact_type=1, status=3)
-    client.artifacts.get_or_none = AsyncMock(return_value=art)
+    client.artifacts.lookup = AsyncMock(
+        return_value=ArtifactLookup(ArtifactLookupStatus.FOUND, artifact=art)
+    )
     result = await get_artifact(client, "nb", "art_1")
     assert result is art
-    client.artifacts.get_or_none.assert_awaited_once_with("nb", "art_1")
+    client.artifacts.lookup.assert_awaited_once_with("nb", "art_1")
 
 
 @pytest.mark.asyncio
 async def test_get_artifact_raises_not_found() -> None:
     client = _client()
-    client.artifacts.get_or_none = AsyncMock(return_value=None)
-    client.artifacts.list = AsyncMock(return_value=[])
+    client.artifacts.lookup = AsyncMock(return_value=ArtifactLookup(ArtifactLookupStatus.MISSING))
     with pytest.raises(ArtifactNotFoundError):
         await get_artifact(client, "nb", "art_gone")
-    # No list call — the neutral get is a single get_or_none (the partial-id
-    # resolution + full-id fast path live in the CLI resolver, not here).
-    client.artifacts.list.assert_not_called()
+    client.artifacts.lookup.assert_awaited_once_with("nb", "art_gone")
+
+
+@pytest.mark.asyncio
+async def test_get_artifact_projects_unknown_as_sanitized_rpc_error() -> None:
+    client = _client()
+    failure = ArtifactListingFailure(
+        ArtifactListingComponent.NOTE_BACKED_MIND_MAPS,
+        "RPCError",
+        "The note-backed mind-map listing is unavailable.",
+    )
+    client.artifacts.lookup = AsyncMock(
+        return_value=ArtifactLookup(ArtifactLookupStatus.UNKNOWN, failures=(failure,))
+    )
+
+    with pytest.raises(RPCError, match="note_backed_mind_maps") as raised:
+        await get_artifact(client, "nb", "art_gone")
+
+    assert raised.value.method_id == "artifacts.lookup"
+    assert "cookie" not in str(raised.value).lower()
+
+
+# ---------------------------------------------------------------------------
+# require_complete_artifact_listing — fuzzy-resolution inventory gate
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_require_complete_artifact_listing_returns_items() -> None:
+    client = _client()
+    art = Artifact(id="art_1", title="Q1 Report", _artifact_type=1, status=3)
+    client.artifacts.list_with_status = AsyncMock(
+        return_value=ArtifactListing(items=(art,), is_complete=True)
+    )
+    assert await require_complete_artifact_listing(client, "nb") == [art]
+    client.artifacts.list_with_status.assert_awaited_once_with("nb")
+
+
+@pytest.mark.asyncio
+async def test_require_complete_artifact_listing_refuses_partial_inventory() -> None:
+    client = _client()
+    art = Artifact(id="art_1", title="Q1 Report", _artifact_type=1, status=3)
+    failure = ArtifactListingFailure(
+        ArtifactListingComponent.NOTE_BACKED_MIND_MAPS,
+        "RPCError",
+        "The note-backed mind-map listing is unavailable.",
+    )
+    client.artifacts.list_with_status = AsyncMock(
+        return_value=ArtifactListing(items=(art,), is_complete=False, failures=(failure,))
+    )
+    with pytest.raises(RPCError, match="note_backed_mind_maps") as raised:
+        await require_complete_artifact_listing(client, "nb")
+    assert raised.value.method_id == "artifacts.lookup"
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +141,7 @@ async def test_get_artifact_prompt_returns_prompt() -> None:
     client.artifacts.get_prompt = AsyncMock(return_value="Explain the technique.")
     result = await get_artifact_prompt(client, "nb", "art_1")
     assert result == "Explain the technique."
-    client.artifacts.get_prompt.assert_awaited_once_with("nb", "art_1")
+    client.artifacts.get_prompt.assert_awaited_once_with("nb", "art_1", require_complete=True)
 
 
 @pytest.mark.asyncio

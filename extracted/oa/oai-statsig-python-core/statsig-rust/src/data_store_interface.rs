@@ -88,6 +88,13 @@ impl DataStoreCacheKeys {
 
 #[async_trait]
 pub trait DataStoreTrait: Send + Sync {
+    /// Whether this instance only reads cached specs. Read-only stores still
+    /// initialize and serve bootstrap/polling reads, but the SDK skips preparing
+    /// and writing cache snapshots. Keep this capability stable during an update.
+    fn is_read_only(&self) -> bool {
+        false
+    }
+
     async fn initialize(&self) -> Result<(), StatsigErr>;
     async fn shutdown(&self) -> Result<(), StatsigErr>;
     async fn get(&self, key: &str) -> Result<DataStoreResponse, StatsigErr>;

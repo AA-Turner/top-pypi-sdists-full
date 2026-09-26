@@ -42,6 +42,8 @@ class Queue(BaseModel):
 
     created_on: Optional[str] = None
 
+    jurisdiction: Optional[Literal["eu", "us", "fedramp"]] = None
+
     modified_on: Optional[str] = None
 
     producers: Optional[List[Producer]] = None

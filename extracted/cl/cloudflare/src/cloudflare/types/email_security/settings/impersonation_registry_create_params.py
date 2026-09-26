@@ -26,4 +26,6 @@ class ImpersonationRegistryCreateParams(TypedDict, total=False):
 
     external_directory_node_id: Optional[str]
 
-    provenance: Literal["A1S_INTERNAL", "SNOOPY-CASB_OFFICE_365", "SNOOPY-OFFICE_365", "SNOOPY-GOOGLE_DIRECTORY"]
+    provenance: Optional[
+        Literal["A1S_INTERNAL", "SNOOPY-CASB_OFFICE_365", "SNOOPY-OFFICE_365", "SNOOPY-GOOGLE_DIRECTORY"]
+    ]

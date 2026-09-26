@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: frictionless
-Version: 5.19.0
+Version: 5.19.1
 Summary: Data management framework for Python that provides functionality to describe, extract, validate, and transform tabular data
 Project-URL: homepage, https://github.com/frictionlessdata/frictionless-py
 Project-URL: changelog, https://github.com/frictionlessdata/framework/blob/main/CHANGELOG.md

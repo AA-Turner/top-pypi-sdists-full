@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -43,7 +43,10 @@ def home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     paths._reset_config_cache()
 
 
-def _doctor_paths() -> DoctorPaths:
+def _doctor_paths(
+    *,
+    headless_reauth_check: Callable[[], dict[str, str]] | None = None,
+) -> DoctorPaths:
     """Bundle the real path helpers, mirroring ``cli/doctor_cmd._doctor_paths``."""
     return DoctorPaths(
         get_path_info=paths.get_path_info,
@@ -51,7 +54,7 @@ def _doctor_paths() -> DoctorPaths:
         get_profile_dir=paths.get_profile_dir,
         get_storage_path=paths.get_storage_path,
         get_config_path=paths.get_config_path,
-        headless_reauth_check=_headless_reauth_check,
+        headless_reauth_check=headless_reauth_check or _headless_reauth_check,
     )
 
 
@@ -61,7 +64,7 @@ def _headless_reauth_check() -> dict[str, str]:
     Uses the real readiness probe pointed at the per-test browser-profile dir,
     so these app-level tests exercise the same mapping the CLI forwards.
     """
-    from notebooklm._auth.headless_reauth import headless_reauth_readiness
+    from notebooklm._browser.headless_reauth import headless_reauth_readiness
 
     readiness = headless_reauth_readiness(browser_profile=paths.get_browser_profile_dir())
     return {
@@ -70,8 +73,17 @@ def _headless_reauth_check() -> dict[str, str]:
     }
 
 
-def _run(*, fix: bool = False, platform: str | None = None) -> DoctorReport:
-    return run_checks(fix=fix, paths=_doctor_paths(), platform=platform)
+def _run(
+    *,
+    fix: bool = False,
+    platform: str | None = None,
+    headless_reauth_check: Callable[[], dict[str, str]] | None = None,
+) -> DoctorReport:
+    return run_checks(
+        fix=fix,
+        paths=_doctor_paths(headless_reauth_check=headless_reauth_check),
+        platform=platform,
+    )
 
 
 def _write_json(path: Path, data: object) -> None:
@@ -164,7 +176,8 @@ def test_reports_legacy_layout_without_migration(home: Path) -> None:
         _storage([{"name": "SID", "value": "x"}, {"name": "__Secure-1PSIDTS", "value": "y"}]),
     )
 
-    report = _run()
+    with pytest.warns(DeprecationWarning, match="pre-profiles home-root layout"):
+        report = _run()
 
     assert report.checks["migration"] == {"status": "fail", "detail": "legacy layout detected"}
     assert report.checks["profile_dir"]["status"] == "fail"
@@ -338,7 +351,8 @@ def test_fix_no_longer_greenlights_a_wide_mode_dir_after_migration(home: Path) -
     # A legacy file alongside profiles/ puts migration into its "warn" state.
     _write_json(home / "storage_state.json", _storage([{"name": "SID", "value": "x"}]))
 
-    report = _run(fix=True, platform="linux")
+    with pytest.warns(DeprecationWarning, match="pre-profiles home-root layout"):
+        report = _run(fix=True, platform="linux")
 
     assert f"Fixed permissions on {profile_dir}" in report.fixes_applied
     assert report.checks["profile_dir"] == {"status": "pass", "detail": str(profile_dir)}
@@ -401,7 +415,8 @@ def test_warn_only_layout_has_no_failures(home: Path) -> None:
     _write_json(profile_dir / "storage_state.json", _storage([{"name": "SID", "value": "x"}]))
     _write_json(home / "context.json", {"current_notebook": "nb_123"})
 
-    report = _run()
+    with pytest.warns(DeprecationWarning, match="pre-profiles home-root layout"):
+        report = _run()
 
     assert report.checks["migration"]["status"] == "warn"
     assert not report.has_failures
@@ -542,7 +557,8 @@ def test_fix_migrates_legacy_layout(home: Path) -> None:
     _write_json(home / "storage_state.json", storage_payload)
     _write_json(home / "context.json", context_payload)
 
-    report = _run(fix=True)
+    with pytest.warns(DeprecationWarning, match="pre-profiles home-root layout"):
+        report = _run(fix=True)
 
     profile_dir = home / "profiles" / "default"
     assert not (home / "storage_state.json").exists()
@@ -579,21 +595,18 @@ def _make_browser_profile(home: Path, name: str = "default") -> Path:
     return bp
 
 
-def test_headless_reauth_pass_when_profile_and_playwright(
-    home: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_headless_reauth_pass_when_profile_and_playwright(home: Path) -> None:
     """A populated browser profile + playwright present → pass row."""
     profile_dir = _make_profile(home)
     _make_browser_profile(home)
     _write_json(profile_dir / "storage_state.json", _storage([{"name": "SID", "value": "x"}]))
     _write_json(home / "config.json", {"default_profile": "default"})
-    # The ``browser`` extra is installed in CI; pin it so the test is robust
-    # regardless of the runner's extras.
-    from notebooklm._auth import headless_reauth as hr
-
-    monkeypatch.setattr(hr, "_playwright_installed", lambda: True)
-
-    report = _run()
+    report = _run(
+        headless_reauth_check=lambda: {
+            "status": "pass",
+            "detail": "ready (persistent profile + playwright present)",
+        }
+    )
 
     assert report.checks["headless_reauth"]["status"] == "pass"
     assert "ready" in report.checks["headless_reauth"]["detail"]
@@ -601,16 +614,15 @@ def test_headless_reauth_pass_when_profile_and_playwright(
     assert not report.has_failures
 
 
-def test_headless_reauth_warns_without_browser_profile(
-    home: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_headless_reauth_warns_without_browser_profile(home: Path) -> None:
     """No persistent browser profile → warn (optional fallback unavailable)."""
     _make_profile(home)
-    from notebooklm._auth import headless_reauth as hr
-
-    monkeypatch.setattr(hr, "_playwright_installed", lambda: True)
-
-    report = _run()
+    report = _run(
+        headless_reauth_check=lambda: {
+            "status": "warn",
+            "detail": "unavailable: no reusable browser profile",
+        }
+    )
 
     assert report.checks["headless_reauth"]["status"] == "warn"
     assert "no reusable browser profile" in report.checks["headless_reauth"]["detail"]
@@ -618,18 +630,17 @@ def test_headless_reauth_warns_without_browser_profile(
     assert report.checks["headless_reauth"]["status"] != "fail"
 
 
-def test_headless_reauth_warn_does_not_force_failure(
-    home: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_headless_reauth_warn_does_not_force_failure(home: Path) -> None:
     """An unavailable L3 fallback alone must not make ``has_failures`` true."""
     profile_dir = _make_profile(home)
     _write_json(profile_dir / "storage_state.json", _storage([{"name": "SID", "value": "x"}]))
     _write_json(home / "config.json", {"default_profile": "default"})
-    from notebooklm._auth import headless_reauth as hr
-
-    monkeypatch.setattr(hr, "_playwright_installed", lambda: False)
-
-    report = _run()
+    report = _run(
+        headless_reauth_check=lambda: {
+            "status": "warn",
+            "detail": "unavailable: playwright not installed",
+        }
+    )
 
     assert report.checks["headless_reauth"]["status"] == "warn"
     assert not report.has_failures

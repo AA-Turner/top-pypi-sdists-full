@@ -31,6 +31,8 @@ from matrx_graph.content_ir.directives import (
 from matrx_ai.processing.blocks.fence_nesting import (
     classify_inner_fence_line,
     fence_nests_inner_fences,
+    parse_fence_opener,
+    trim_fence_line,
 )
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
 from matrx_graph.content_ir.envelope import KIND_KEY
@@ -884,6 +886,9 @@ _IMAGE_COUNT_RE = re.compile(
     r"""!\[(.*?)\]\((https?://[^\s)]+)(?:\s+(?:"[^"]*"|'[^']*'))?\)"""
 )
 _IMAGE_CUSTOM_RE = re.compile(r"\[Image URL: (https?://[^\s\]]+)\]")
+TITLED_IMAGE_LINE_RE = re.compile(
+    r"""^[ \t]{0,3}!\[[^\]\n]*\]\(\s*<?[^\s)>]+>?\s+(?:"[^"\n]+"|'[^'\n]+')\s*\)[ \t]*$"""
+)
 _VIDEO_CUSTOM_RE = re.compile(r"\[Video URL: (https?://[^\s\]]+)\]")
 
 
@@ -894,15 +899,13 @@ def detect_code_fence(line: str) -> tuple[bool, str | None, int]:
     the block only on a later BARE run of at least that many backticks, which
     is how a ``` block nests inside a longer ```` fence.
     """
-    trimmed = line.strip()
-    ticks = 0
-    while ticks < len(trimmed) and trimmed[ticks] == "`":
-        ticks += 1
-    if ticks < 3:
+    # THE opener parse, shared with the renderer (verify-RC-B3 residual R4′):
+    # JavaScript's whitespace set, never str.strip()/str.split().
+    parsed = parse_fence_opener(line)
+    if parsed is None:
         return False, None, 0
-    rest = trimmed[ticks:].strip()
-    lang = rest.split()[0] if rest.split() else None
-    return True, lang, ticks
+    ticks, lang = parsed
+    return True, (lang or None), ticks
 
 
 def detect_code_block(line: str) -> tuple[bool, str | None]:
@@ -961,7 +964,8 @@ def extract_code_block(
 
     while i < len(lines):
         line = lines[i]
-        trimmed = line.strip()
+        # The shared rule's whitespace, never str.strip() (verify-RC-B3 R4).
+        trimmed = trim_fence_line(line)
 
         if trimmed.startswith("```"):
             if is_json:
@@ -1011,7 +1015,7 @@ def extract_code_block(
             close_ticks = _backtick_run_length(line, backtick_idx)
             if (
                 close_ticks >= open_ticks
-                and line[backtick_idx + close_ticks :].strip() == ""
+                and trim_fence_line(line[backtick_idx + close_ticks :]) == ""
                 and nested_depth == 0
             ):
                 before = line[:backtick_idx]
@@ -1250,7 +1254,50 @@ def _read_xml_tag(source: str, start: int) -> tuple[int, str, bool, bool] | None
     return None
 
 
+# Page-break directive — MIRROR of `isPageBreakLine` in @ai-matrx/print/directives
+# (aidream apps/shared/print/src/directives.ts), the one grammar the printers and
+# the chat preview share. A `<div style="page-break-after: always"></div>` line is
+# a directive the markdown renderer draws as a divider, never an XML code block.
+_PAGE_BREAK_COMMENT_RE = re.compile(r"^<!--\s*(?:page[\s_-]?break|new[\s_-]?page)\s*-->$", re.I)
+_PAGE_BREAK_LATEX_RE = re.compile(r"^\\(?:pagebreak|newpage|clearpage)\s*(?:\{\s*\})?$", re.I)
+_PAGE_BREAK_DIV_RE = re.compile(r"^<div\b([^>]*)>\s*</div>$|^<div\b([^>]*)/>$", re.I)
+_PAGE_BREAK_DIV_ATTR_RE = re.compile(
+    r"(?:page-break-(?:after|before)\s*:\s*always|break-(?:after|before)\s*:\s*page"
+    r"|class\s*=\s*[\"'](?:[^\"']*\s)?page-?break(?:\s[^\"']*)?[\"'])",
+    re.I,
+)
+
+
+def _indent_columns(line: str) -> int:
+    cols = 0
+    for ch in line:
+        if ch in (" ", "\u00a0"):
+            cols += 1
+        elif ch == "\t":
+            cols += 4
+        else:
+            break
+    return cols
+
+
+def is_page_break_line(line: str) -> bool:
+    # Indented 4+ columns is a markdown code block, never a directive.
+    if _indent_columns(line) >= 4:
+        return False
+    t = line.strip()
+    if len(t) < 8 or len(t) > 200:
+        return False
+    if _PAGE_BREAK_COMMENT_RE.match(t) or _PAGE_BREAK_LATEX_RE.match(t):
+        return True
+    div = _PAGE_BREAK_DIV_RE.match(t)
+    if not div:
+        return False
+    return bool(_PAGE_BREAK_DIV_ATTR_RE.search(div.group(1) or div.group(2) or ""))
+
+
 def _generic_xml_opening(source: str) -> tuple[int, str, bool, bool] | None:
+    if is_page_break_line(source):
+        return None
     tag = _read_xml_tag(source.lstrip(), 0)
     if (
         not tag
@@ -1263,6 +1310,8 @@ def _generic_xml_opening(source: str) -> tuple[int, str, bool, bool] | None:
 
 
 def _unclosed_generic_xml_opening(source: str) -> bool:
+    if is_page_break_line(source):
+        return False
     prefix = re.match(r"^<([A-Za-z_][\w.:-]*)(?=\s|/|$)", source.lstrip())
     if not prefix or prefix[1] in KNOWN_XML_TAG_NAMES or prefix[1].lower() in ALLOWED_RAW_HTML_TAGS:
         return False
@@ -1937,6 +1986,68 @@ SPLITTER_ONLY_BLOCK_TYPES: frozenset[str] = frozenset(
 )
 
 
+# ── Directive containers (`:::tabs` … `:::`) — ONE text region ────────────
+# Mirror of matrx-frontend components/markdown-core/directive-container.ts:
+# a container's fences, tables and images stay inside it; the close is a bare
+# colon run at least as long as the innermost open container's; colons inside
+# a code fence never close anything.
+DIRECTIVE_CONTAINER_OPEN_RE = re.compile(r"^[ \t]{0,3}(:{3,})[A-Za-z][\w-]*")
+_DIRECTIVE_CLOSE_RE = re.compile(r"^[ \t]{0,3}(:{3,})[ \t]*$")
+_DIRECTIVE_FENCE_RE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
+
+
+class DirectiveContainerTracker:
+    def __init__(self, opening_line: str) -> None:
+        m = DIRECTIVE_CONTAINER_OPEN_RE.match(opening_line)
+        self._stack = [len(m.group(1)) if m else 3]
+        self._fence: str | None = None
+
+    def consume(self, line: str) -> bool:
+        """Feed the next line; True once the outermost container closed on it."""
+        f = _DIRECTIVE_FENCE_RE.match(line)
+        if f:
+            marker = f.group(1)
+            if self._fence is None:
+                self._fence = marker
+            elif (
+                marker[0] == self._fence[0]
+                and len(marker) >= len(self._fence)
+                and re.fullmatch(r"[`~]+", line.strip())
+            ):
+                self._fence = None
+            return False
+        if self._fence is not None:
+            return False
+        opened = DIRECTIVE_CONTAINER_OPEN_RE.match(line)
+        if opened:
+            self._stack.append(len(opened.group(1)))
+            return False
+        close = _DIRECTIVE_CLOSE_RE.match(line)
+        if close and len(close.group(1)) >= (self._stack[-1] if self._stack else 3):
+            self._stack.pop()
+            return not self._stack
+        return False
+
+
+def front_matter_line_count(lines: list[str]) -> int:
+    """How many lines of front matter open the text (0 when none) -- the TS
+    splitter's ``frontMatterLineCount`` (markdown-core ``splitFrontmatter``
+    grammar): line 1 is exactly ``---`` or ``+++`` and the region ends at the
+    same fence (YAML also ``...``). Nothing inside it is ever a block: an
+    ``<artifact>`` in a YAML value must not open a card (RC-B3r R1).
+    """
+    if len(lines) < 2 or lines[0] not in ("---", "+++"):
+        return 0
+    opener = lines[0]
+    for k in range(1, len(lines)):
+        if lines[k] == opener or (opener == "---" and lines[k] == "..."):
+            return k + 1
+    return 0
+
+
+_THINKING_OPENERS = {"thinking": ("<thinking>", "<think>"), "reasoning": ("<reasoning>",)}
+
+
 def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
     """
     Split markdown content into typed blocks.
@@ -1958,6 +2069,13 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
             blocks.append(DetectedBlock(type="text", content=current_text.rstrip()))
             current_text = ""
 
+    front_matter_lines = front_matter_line_count(lines)
+    if front_matter_lines > 0:
+        current_text = "\n".join(normalize_line(x) for x in lines[:front_matter_lines]) + (
+            "\n" if front_matter_lines < len(lines) else ""
+        )
+        i = front_matter_lines
+
     while i < len(lines):
         line = lines[i]
         processed_line = normalize_line(line)
@@ -1975,6 +2093,20 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
             flush_text()
             blocks.append(DetectedBlock(type="heavy-divider", content=trimmed_line))
             i += 1
+            continue
+
+        # 1c. A directive container (`:::tabs` … `:::`) is ONE text region —
+        #     its fences, tables and images stay inside it.
+        if DIRECTIVE_CONTAINER_OPEN_RE.match(processed_line):
+            tracker = DirectiveContainerTracker(processed_line)
+            j = i
+            while j < len(lines):
+                container_line = normalize_line(lines[j])
+                current_text += container_line + ("\n" if j < len(lines) - 1 else "")
+                j += 1
+                if j - 1 > i and tracker.consume(container_line):
+                    break
+            i = j
             continue
 
         # 2. Code block
@@ -2092,6 +2224,39 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
         #     tag must never leak to the user as text.
         orphan_close = detect_orphan_thinking_close(trimmed_line)
         if orphan_close:
+            # A SELF-CONTAINED span (`… <thinking> note </thinking> …` on one
+            # line) is not an orphan (TS splitter, RC-B3r). With prose before
+            # the opener it sits inside a sentence -- an inline span, kept in
+            # its text (R2); at the line start only the tagged bytes are the region.
+            same_line_opener = -1
+            same_line_len = 0
+            for opener in _THINKING_OPENERS[orphan_close["type"]]:
+                idx = orphan_close["before"].rfind(opener)
+                if idx > same_line_opener:
+                    same_line_opener = idx
+                    same_line_len = len(opener)
+            if same_line_opener >= 0 and orphan_close["before"][:same_line_opener].strip():
+                current_text += processed_line + ("\n" if i < len(lines) - 1 else "")
+                i += 1
+                continue
+            if same_line_opener >= 0:
+                prose_before = current_text + orphan_close["before"][:same_line_opener]
+                if prose_before.strip():
+                    blocks.append(DetectedBlock(type="text", content=prose_before.rstrip()))
+                current_text = ""
+                span = orphan_close["before"][same_line_opener + same_line_len :].strip()
+                if span:
+                    blocks.append(
+                        DetectedBlock(
+                            type=orphan_close["type"],
+                            content=span,
+                            metadata={"isComplete": True},
+                        )
+                    )
+                if orphan_close["remainder"]:
+                    lines.insert(i + 1, orphan_close["remainder"])
+                i += 1
+                continue
             # Mid-line opener rescue: `Some prose <thinking>` never matches the
             # line-start detector (3b), so the region's OPENER may sit inside
             # the accumulated text. Split there.
@@ -2165,7 +2330,9 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
         # 4. Image. Only a SINGLE image on the line becomes a standalone
         #    full-width block; 2+ fall through to text so they lay out inline.
         is_img, src, alt = detect_image(line)
-        if is_img and count_inline_images(line) < 2:
+        # A TITLED image stays in the text block — the renderer draws it as a
+        # numbered figure (matrx-frontend components/markdown-core/image-figure.ts).
+        if is_img and count_inline_images(line) < 2 and not TITLED_IMAGE_LINE_RE.match(line):
             flush_text()
             blocks.append(DetectedBlock(type="image", content=trimmed_line, src=src, alt=alt))
             i += 1

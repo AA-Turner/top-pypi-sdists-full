@@ -17,6 +17,10 @@ class Verifycommand:
     # Aliases from record.py — CommandExecutor checks tokens before cli expands them.
     _RECORD_EDIT_COMMANDS = frozenset({'record-add', 'ra', 'record-update', 'ru'})
 
+    _PROTECTED_RECORD_MSG = (
+        'Service Mode configuration records are not accessible through Service Mode'
+    )
+
     # Legacy Commands category — plugin-based rotation/connection commands have no safe Service Mode form
     # and are blocked unconditionally, regardless of what an API key's command_list allows.
     _LEGACY_COMMANDS = frozenset({
@@ -34,6 +38,11 @@ class Verifycommand:
     # nested group boundary, desyncing position-based checks below (e.g. pam tunnel).
     _DOUBLE_DASH_MSG = (
         "The '--' argument separator is not permitted through Service Mode"
+    )
+
+    # expand_cmd_args (commands/base.py) substitutes ${VARNAME} after this check runs but before execution -- ban it outright.
+    _ENV_VAR_EXPANSION_MSG = (
+        "The '${VARNAME}' environment-variable syntax is not permitted through Service Mode"
     )
 
     # WARNING: everything below is a DENYLIST. Any command/flag that reads or
@@ -85,6 +94,7 @@ class Verifycommand:
 
         for validator in (
             Verifycommand.validate_service_mode_double_dash,
+            Verifycommand.validate_service_mode_env_var_expansion_command,
             Verifycommand.validate_service_mode_legacy_command,
             Verifycommand.validate_service_mode_pam_tunnel_command,
             Verifycommand.validate_service_mode_download_attachment_command,
@@ -100,10 +110,45 @@ class Verifycommand:
         return None
 
     @staticmethod
+    def _record_reference_candidates(tok):
+        """tok itself, plus its value if tok is a --flag=value (or -f=value) option."""
+        if '=' in tok:
+            _, _, value = tok.partition('=')
+            if value:
+                return (tok, value)
+        return (tok,)
+
+    @staticmethod
+    def validate_service_mode_protected_record_command(command_tokens, protected_uids=None):
+        """Reject any command with a protected title/UID as a whole token or --flag=value; indirect forms (comma lists, path-qualified titles) rely on protected_records.hide_from_record_cache instead."""
+        if not command_tokens:
+            return None
+
+        from .protected_records import get_protected_record_title_set
+        protected_titles = get_protected_record_title_set()
+
+        uid_set = set(protected_uids) if protected_uids else set()
+        for tok in command_tokens[1:]:
+            for candidate in Verifycommand._record_reference_candidates(tok):
+                if candidate.lower() in protected_titles:
+                    return Verifycommand._PROTECTED_RECORD_MSG
+                if candidate in uid_set:
+                    return Verifycommand._PROTECTED_RECORD_MSG
+        return None
+
+    @staticmethod
     def validate_service_mode_double_dash(command_tokens, request_temp_dir=None):
         """Block bare '--' anywhere in Service Mode input; error or None."""
         if '--' in command_tokens:
             return Verifycommand._DOUBLE_DASH_MSG
+        return None
+
+    @staticmethod
+    def validate_service_mode_env_var_expansion_command(command_tokens, request_temp_dir=None):
+        """Block '${VARNAME}' anywhere in Service Mode input; error or None."""
+        from ...commands.base import parameter_pattern
+        if any(parameter_pattern.search(tok) for tok in command_tokens):
+            return Verifycommand._ENV_VAR_EXPANSION_MSG
         return None
 
     @staticmethod

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-__lazy_modules__ = {f"{__spec__.parent}._logging", "subprocess", "typing"}
+__lazy_modules__ = {"shlex", "subprocess", "typing", f"{__spec__.parent}._logging"}
 
 import dataclasses
 import os
+import shlex
 import subprocess
 from typing import ClassVar
 
@@ -24,7 +25,7 @@ def __dir__() -> list[str]:
 class Run:
     env: dict[str, str] | None = None
     cwd: os.PathLike[str] | None = None
-    timeout: None | float = None
+    timeout: float | None = None
 
     # Stores last printout, for cleaner debug logging
     _prev_env: ClassVar[dict[str, str]] = {}
@@ -67,7 +68,7 @@ class Run:
                 logger.debug("RUNENV - changes since last run only:\n  {}", msg)
                 type(self)._prev_env = self.env.copy()
 
-        logger.info("RUN: {}", " ".join(options))
+        logger.info("RUN: {}", shlex.join(options))
 
         return subprocess.run(
             options,

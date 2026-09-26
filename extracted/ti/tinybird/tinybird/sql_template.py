@@ -1385,17 +1385,16 @@ _namespace = {
     "close": None,
     "print": None,
     "input": None,
-    # Keep customer parameters named `type`/`dir` usable without restoring the unsafe builtins.
-    "type": None,
-    "dir": None,
 }
 
 
 reserved_vars = {"_tt_tmp", "_tt_append", "isinstance", "str", "error", "custom_error", *list(vars(builtins))}
 for p in DEFAULT_PARAM_NAMES:  # we handle these in an specific manner
     reserved_vars.discard(p)  # `format` is part of builtins
-# Allow 'id' to be used as a template parameter - https://gitlab.com/tinybird/analytics/-/issues/19119
+# Allow 'id', 'type' and 'dir' as template parameter names despite being builtins.
 reserved_vars.discard("id")
+reserved_vars.discard("type")
+reserved_vars.discard("dir")
 error_vars = ["error", "custom_error"]
 
 
@@ -1471,9 +1470,8 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
         return Expression(f"-- disable {feature}\n")
 
     namespace.update(_namespace)
-    # This is to fix the issue https://gitlab.com/tinybird/analytics/-/issues/19119
-    # We need to do the override here because if we modify the _namespace, we would filter out parameters from the users
-    namespace.update({"id": None})
+    # Default these here, not in _namespace, so they stay visible to variable extraction.
+    namespace.update({"id": None, "type": None, "dir": None})
     namespace.update(kwargs)
     namespace.update(
         {

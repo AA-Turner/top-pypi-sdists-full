@@ -12,4 +12,8 @@ class DNSGetParams(TypedDict, total=False):
     """Identifier."""
 
     subdomain: str
-    """Domain of your zone."""
+    """Deprecated.
+
+    When supplied, the response shape differs from the documented default and is not
+    modeled in generated SDKs. Do not rely on this parameter.
+    """

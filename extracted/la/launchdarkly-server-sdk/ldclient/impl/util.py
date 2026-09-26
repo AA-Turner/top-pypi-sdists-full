@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Any, Dict, Generic, Mapping, Optional, TypeVar, Union
 from urllib.parse import urlparse, urlunparse
 
-from ldclient.impl.http import _base_headers
+from ldclient.impl.http import SYNC_USER_AGENT, _base_headers
 
 
 def current_time_millis() -> int:
@@ -82,8 +82,8 @@ def validate_sdk_key_format(sdk_key: str, logger: logging.Logger) -> str:
     return sdk_key
 
 
-def _headers(config):
-    base_headers = _base_headers(config)
+def _headers(config, user_agent=SYNC_USER_AGENT):
+    base_headers = _base_headers(config, user_agent)
     base_headers.update({'Content-Type': "application/json"})
     return base_headers
 
@@ -134,6 +134,9 @@ def throw_if_unsuccessful_response(resp):
 
 
 def is_http_error_recoverable(status):
+    """
+    Deprecated. Use :func:`ldclient.impl.retry.classify_http_status` instead.
+    """
     if status >= 400 and status < 500:
         return status in _RETRYABLE_STATUSES  # all other 4xx besides these are unrecoverable
     return True  # all other errors are recoverable
@@ -144,6 +147,10 @@ def http_error_description(status):
 
 
 def http_error_message(status, context, retryable_message="will retry"):
+    """
+    Deprecated. The FDv1 data sources build their own message, so that it can
+    report the real retry delay.
+    """
     return "Received %s for %s - %s" % (http_error_description(status), context, retryable_message if is_http_error_recoverable(status) else "giving up permanently")
 
 

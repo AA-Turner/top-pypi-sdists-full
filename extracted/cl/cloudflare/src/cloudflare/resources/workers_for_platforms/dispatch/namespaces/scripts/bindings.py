@@ -57,7 +57,7 @@ class BindingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[BindingGetResponse]:
         """
-        Fetch script bindings from a script uploaded to a Workers for Platforms
+        Fetch bindings from a script uploaded to a Workers for Platforms dispatch
         namespace.
 
         Args:
@@ -130,7 +130,7 @@ class AsyncBindingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[BindingGetResponse, AsyncSinglePage[BindingGetResponse]]:
         """
-        Fetch script bindings from a script uploaded to a Workers for Platforms
+        Fetch bindings from a script uploaded to a Workers for Platforms dispatch
         namespace.
 
         Args:

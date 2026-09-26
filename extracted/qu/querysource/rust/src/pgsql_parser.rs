@@ -6,7 +6,7 @@
 
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyString};
+use pyo3::types::{PyAny, PyDict, PyList, PyString};
 use rayon::prelude::*;
 use std::collections::HashMap;
 
@@ -38,6 +38,7 @@ fn pg_validate_operator(op: &str) -> bool {
     COMPARISON_TOKENS.contains(&op)
         || VALID_OPERATORS.contains(&op)
         || JSONB_OPERATORS.contains(&op)
+        || PG_TEXT_OPERATORS.contains(&op)
 }
 
 /// Quote a value as a PostgreSQL string literal.
@@ -77,7 +78,16 @@ const COMPARISON_TOKENS: &[&str] = &[">=", "<=", "<>", "!=", "<", ">"];
 const VALID_OPERATORS: &[&str] = &["<", ">", ">=", "<=", "<>", "!=", "IS NOT", "IS"];
 
 /// JSONB operators accepted as the key of a dict-typed filter value.
-const JSONB_OPERATORS: &[&str] = &["@>", "<@", "->", "->>"];
+/// `@>|` is the any-of form: a list of containment operands OR-ed together.
+const JSONB_OPERATORS: &[&str] = &["@>", "<@", "@>|", "->", "->>"];
+
+/// Key suffixes (negation, overlap, ...) carry no meaning for JSONB filters
+/// and are stripped from the column name.
+const JSONB_KEY_SUFFIXES: &[char] = &['|', '!', '~', '#', '@', ':'];
+
+/// Case-insensitive pattern operators accepted as the key of a dict filter value
+/// (qsurl text_match pushdown, FEAT-152). The value is a ready LIKE pattern.
+const PG_TEXT_OPERATORS: &[&str] = &["ILIKE", "NOT ILIKE"];
 
 // ---------------------------------------------------------------------------
 // Rust-native types for parallel processing (Send + Sync)
@@ -200,6 +210,30 @@ fn jsonb_operand(obj: &Bound<'_, PyAny>) -> PyResult<String> {
     orjson_dumps(obj)
 }
 
+/// Render `{"@>|": [a, b, ...]}` as OR-ed containment checks.
+///
+/// Each item is a containment operand (dict, list, scalar or JSON text) and
+/// renders `col @> '<json>'::jsonb`; the checks are OR-ed. This is the
+/// "any of" counterpart of `@>`, whose array form is conjunctive. Returns
+/// `None` when the operand is not a non-empty list.
+fn jsonb_any_of_condition(col: &str, operand: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
+    let Ok(items) = operand.cast::<PyList>() else {
+        return Ok(None);
+    };
+    if items.is_empty() {
+        return Ok(None);
+    }
+    let mut parts: Vec<String> = Vec::with_capacity(items.len());
+    for item in items.iter() {
+        parts.push(format!("{} @> {}::jsonb", col, pg_literal(&jsonb_operand(&item)?)));
+    }
+    if parts.len() == 1 {
+        Ok(parts.pop())
+    } else {
+        Ok(Some(format!("({})", parts.join(" OR "))))
+    }
+}
+
 /// Render `{"->>": {"path": value, ...}}` / `{"->": {...}}` as key comparisons.
 ///
 /// `->>` compares the text of the key (non-string values are compared by
@@ -245,10 +279,14 @@ fn jsonb_path_condition(col: &str, op: &str, operand: &Bound<'_, PyAny>) -> PyRe
 ///   `col @> '<json>'::jsonb`.
 /// * `{"@>": operand}` / `{"<@": operand}`: explicit containment; the
 ///   operand is a dict/list/scalar or a JSON text string.
+/// * `{"@>|": [operand, ...]}`: any-of containment, the checks are OR-ed
+///   (see [`jsonb_any_of_condition`]).
 /// * `{"->>": {...}}` / `{"->": {...}}`: key comparisons (see
 ///   [`jsonb_path_condition`]).
 /// * A first key that is a comparison token is left to the generic path;
 ///   dicts mixing operator and plain keys are dropped.
+///
+/// Key suffixes such as `|` or `!` are stripped from the column name.
 fn jsonb_condition(key: &str, dict: &Bound<'_, PyDict>) -> JsonbOutcome {
     if dict.is_empty() {
         return JsonbOutcome::NotJsonb;
@@ -262,6 +300,15 @@ fn jsonb_condition(key: &str, dict: &Bound<'_, PyDict>) -> JsonbOutcome {
     let Some((op_obj, operand)) = dict.iter().next() else {
         return JsonbOutcome::NotJsonb;
     };
+    if let Ok(op) = op_obj.extract::<String>() {
+        // qsurl text-match operators (FEAT-152) are handled by process_dict_value,
+        // never as implicit JSONB containment (they are not in `is_operator`, so
+        // `operators` would otherwise stay 0 and fall through to the containment
+        // branch below).
+        if PG_TEXT_OPERATORS.contains(&op.as_str()) {
+            return JsonbOutcome::NotJsonb;
+        }
+    }
     if operators > 0 {
         if let Ok(op) = op_obj.extract::<String>() {
             if COMPARISON_TOKENS.contains(&op.as_str()) {
@@ -269,8 +316,8 @@ fn jsonb_condition(key: &str, dict: &Bound<'_, PyDict>) -> JsonbOutcome {
             }
         }
     }
-    // SECURITY: the column must be a safe identifier.
-    let Some(col) = pg_safe_identifier_key(key) else {
+    // SECURITY: the column must be a safe identifier (suffixes stripped).
+    let Some(col) = pg_safe_identifier_key(key.trim_end_matches(JSONB_KEY_SUFFIXES)) else {
         return JsonbOutcome::Skip;
     };
     let rendered = if operators == 0 {
@@ -282,6 +329,7 @@ fn jsonb_condition(key: &str, dict: &Bound<'_, PyDict>) -> JsonbOutcome {
         match op.as_str() {
             "@>" | "<@" => jsonb_operand(&operand)
                 .map(|j| Some(format!("{} {} {}::jsonb", col, op, pg_literal(&j)))),
+            "@>|" => jsonb_any_of_condition(&col, &operand),
             _ => jsonb_path_condition(&col, &op, &operand),
         }
     };
@@ -360,6 +408,43 @@ fn process_dict_value(
         // SECURITY: escape the comparison value
         let safe_v = quote_string(&escape_string(&v.as_str()), true);
         return Some(format!("{} {} {}", key, op, safe_v));
+    }
+
+    // Case-insensitive pattern match (FEAT-152): string values only, quoted by
+    // pg_literal. The caller (translate.split, TASK-771) is responsible for
+    // escaping LIKE metacharacters in the pattern; this builder only quotes.
+    //
+    // The Python-side `is_valid()` pre-processing (abstract.pyx `_where_element`,
+    // run during `set_options()`/`set_where()` BEFORE `pgsql_filter_conditions`
+    // is ever called from `filter_conditions()`) already wraps every non-numeric
+    // string filter value in a single-quote pair when `noquote=False` (the
+    // pgSQLParser default). The COMPARISON_TOKENS branch above tolerates that via
+    // `quote_string`'s strip-then-requote behaviour (validators.rs); mirror it
+    // here (`pg_literal` does not strip) so a pattern is not quoted twice
+    // (confirmed via the qsurl end-to-end dry-run tests, TASK-776).
+    //
+    // The value reaching this function was pre-quoted by the *Python*
+    // `is_valid()` (types/validators.pyx `quoteString()`), which wraps a plain
+    // string in a single-quote pair and doubles any embedded `'` (PG-style
+    // escaping — ledger issue:48c9b3050a0c, fixed). Strip that outer pair AND
+    // undo the doubling before handing the clean inner text to `pg_literal`,
+    // which does its own real escaping from scratch (mirrored in pgsql.pyx,
+    // which also mirrors bigquery.pyx's `bq_quote_string`). Undoing via
+    // `.replace("''", "'")` rather than assuming escaping happened keeps this
+    // correct against either `quoteString()` behaviour (pre- or post-fix).
+    if PG_TEXT_OPERATORS.contains(&op.as_str()) {
+        return match v {
+            FilterValue::Str(s) => {
+                let bytes = s.as_bytes();
+                let stripped = if bytes.len() >= 2 && bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\'' {
+                    s[1..s.len() - 1].replace("''", "'")
+                } else {
+                    s.clone()
+                };
+                Some(format!("{} {} {}", key, op, pg_literal(&stripped)))
+            }
+            _ => None, // non-string values are rejected, never str()-ified
+        };
     }
 
     None
@@ -835,6 +920,63 @@ mod tests {
         assert_eq!(
             process_entry(&entry),
             Some("age >= 18".to_string())
+        );
+    }
+
+    #[test]
+    fn test_process_ilike_dict_operator() {
+        let entry = FilterEntry {
+            key: "city".to_string(),
+            value: FilterValue::Dict(vec![
+                ("ILIKE".to_string(), FilterValue::Str("%san%".to_string())),
+            ]),
+            format_hint: None,
+        };
+        assert_eq!(
+            process_entry(&entry),
+            Some("city ILIKE '%san%'".to_string())
+        );
+    }
+
+    #[test]
+    fn test_process_not_ilike_dict_operator() {
+        let entry = FilterEntry {
+            key: "city".to_string(),
+            value: FilterValue::Dict(vec![
+                ("NOT ILIKE".to_string(), FilterValue::Str("%san%".to_string())),
+            ]),
+            format_hint: None,
+        };
+        assert_eq!(
+            process_entry(&entry),
+            Some("city NOT ILIKE '%san%'".to_string())
+        );
+    }
+
+    #[test]
+    fn test_process_ilike_rejects_non_string_value() {
+        let entry = FilterEntry {
+            key: "n".to_string(),
+            value: FilterValue::Dict(vec![
+                ("ILIKE".to_string(), FilterValue::Int(5)),
+            ]),
+            format_hint: None,
+        };
+        assert_eq!(process_entry(&entry), None);
+    }
+
+    #[test]
+    fn test_process_ilike_quotes_embedded_quote() {
+        let entry = FilterEntry {
+            key: "name".to_string(),
+            value: FilterValue::Dict(vec![
+                ("ILIKE".to_string(), FilterValue::Str("o'brien%".to_string())),
+            ]),
+            format_hint: None,
+        };
+        assert_eq!(
+            process_entry(&entry),
+            Some("name ILIKE 'o''brien%'".to_string())
         );
     }
 

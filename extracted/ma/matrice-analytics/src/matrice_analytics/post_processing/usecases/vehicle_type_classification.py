@@ -42,6 +42,44 @@ from ..utils import (
     match_results_structure,
 )
 from ..utils.geometry_utils import get_bbox_bottom25_center, point_in_polygon
+from .vehicle_type_classification_stats_utils import build_count_lists, build_detection_objects
+
+#: The ViT classifier's own ImageNet-1k vehicle-type vocabulary (the *attribute*, decoded
+#: upstream by the chained classifier node) -- module-level so the new engine flow's
+#: ``vehicle_type_classification`` app (ml-applications) can import the one real table
+#: rather than re-typing a second copy that can drift from this one. Real ImageNet-1k
+#: indices (index = line_number - 14 in imagenet1k_labels.py's IMAGENET1K_LABELS tuple);
+#: road-relevant subset only -- excludes tank, half track, amphibian, snowmobile, oxcart,
+#: horse cart, jinrikisha, forklift, freight car.
+VEHICLE_TYPE_INDEX_TO_CATEGORY: Dict[int, str] = {
+    407: "ambulance",
+    555: "fire engine",
+    569: "garbage truck",
+    779: "school bus",
+    654: "minibus",
+    656: "minivan",
+    675: "moving van",
+    734: "police van",
+    864: "tow truck",
+    867: "trailer truck",
+    829: "streetcar",
+    874: "trolleybus",
+    609: "jeep",
+    627: "limousine",
+    717: "pickup",
+    817: "sports car",
+    511: "convertible",
+    468: "cab",
+    705: "passenger car",
+    436: "beach wagon",
+    575: "golfcart",
+    803: "snowplow",
+    665: "moped",
+    670: "motor scooter",
+    444: "bicycle-built-for-two",
+    870: "tricycle",
+    880: "unicycle",
+}
 
 # ---------------------------------------------------------------------------
 # Vehicle-type attribute decode. Mirrors age_gender_detection.py's
@@ -77,7 +115,9 @@ def _predictor_output_to_vehicle_type(
     best_idx = int(max(range(len(predictor_output)), key=lambda i: predictor_output[i]))
     # A JSON-delivered config carries string keys (e.g. "817"); an in-code default carries int
     # keys (817) -- try both rather than silently missing every JSON-sourced mapping.
-    label = vehicle_type_index_to_category.get(best_idx) or vehicle_type_index_to_category.get(str(best_idx))
+    label = vehicle_type_index_to_category.get(best_idx) or vehicle_type_index_to_category.get(
+        str(best_idx)
+    )
     if not label:
         return {}
     exp_vals = [math.exp(v) for v in predictor_output]
@@ -118,14 +158,18 @@ def _classification_record_to_vehicle_type(
     if not label:
         return {}
 
-    if isinstance(label, (int, float)) or (isinstance(label, str) and label.strip().lstrip("-").isdigit()):
+    if isinstance(label, (int, float)) or (
+        isinstance(label, str) and label.strip().lstrip("-").isdigit()
+    ):
         # The chained enrichment path hands back a raw ImageNet-1k class index (e.g. 817 or
         # "817") rather than a decoded label -- map it the same way the raw-logits path does,
         # dropping the record if it doesn't resolve rather than publishing a bare index string.
         idx = int(float(label))
         mapped = None
         if vehicle_type_index_to_category:
-            mapped = vehicle_type_index_to_category.get(idx) or vehicle_type_index_to_category.get(str(idx))
+            mapped = vehicle_type_index_to_category.get(idx) or vehicle_type_index_to_category.get(
+                str(idx)
+            )
         if not mapped:
             return {}
         label = mapped
@@ -141,14 +185,20 @@ def _is_classification_record(det: Dict[str, Any]) -> bool:
     return any(key in det for key in ("heads", "top_k", "class_confidence", "label"))
 
 
-def _attach_vehicle_type_attributes(data: Any, vehicle_type_index_to_category: Optional[Dict[int, str]]) -> Any:
+def _attach_vehicle_type_attributes(
+    data: Any, vehicle_type_index_to_category: Optional[Dict[int, str]]
+) -> Any:
     """Decode the ViT classifier's per-detection vehicle-type attribute onto each detection dict,
     in place, before category normalization drops any unrecognized fields. Handles the same
     list / {'detections': [...]} / frame_id -> list shapes as _normalize_yolo_results."""
 
     def _fill(det: Dict[str, Any]) -> None:
         if "predictor_output" in det:
-            det.update(_predictor_output_to_vehicle_type(det["predictor_output"], vehicle_type_index_to_category))
+            det.update(
+                _predictor_output_to_vehicle_type(
+                    det["predictor_output"], vehicle_type_index_to_category
+                )
+            )
         elif _is_classification_record(det):
             det.update(_classification_record_to_vehicle_type(det, vehicle_type_index_to_category))
 
@@ -199,8 +249,12 @@ class VehicleTypeClassificationConfig(BaseConfig):
     # class set has no native van class, so cars/trucks that are actually vans just surface
     # under their detector category as usual -- this override does not touch
     # VehicleMonitoringConfig or any other usecase's category list.
-    usecase_categories: List[str] = field(default_factory=lambda: ["bicycle", "motorcycle", "car", "bus", "truck"])
-    target_categories: List[str] = field(default_factory=lambda: ["bicycle", "motorcycle", "car", "bus", "truck"])
+    usecase_categories: List[str] = field(
+        default_factory=lambda: ["bicycle", "motorcycle", "car", "bus", "truck"]
+    )
+    target_categories: List[str] = field(
+        default_factory=lambda: ["bicycle", "motorcycle", "car", "bus", "truck"]
+    )
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
             0: "bicycle",
@@ -212,42 +266,12 @@ class VehicleTypeClassificationConfig(BaseConfig):
     )
     alert_config: Optional[AlertConfig] = None
 
-    # The ViT classifier's own ImageNet-1k vehicle-type vocabulary (the *attribute*, decoded
-    # upstream by the chained classifier node). Consumed here for the legacy predictor_output
-    # fallback and for config-shape parity -- same role index_to_category plays for
-    # age_gender_detection.py's gender head. Real ImageNet-1k indices (index = line_number - 14
-    # in imagenet1k_labels.py's IMAGENET1K_LABELS tuple); road-relevant subset only -- excludes
-    # tank, half track, amphibian, snowmobile, oxcart, horse cart, jinrikisha, forklift, freight car.
+    # Consumed here for the legacy predictor_output fallback and for config-shape parity --
+    # same role index_to_category plays for age_gender_detection.py's gender head. Backed by
+    # the module-level VEHICLE_TYPE_INDEX_TO_CATEGORY (not a second literal) so this dataclass
+    # default and any other consumer of that table can never drift apart.
     vehicle_type_index_to_category: Dict[int, str] = field(
-        default_factory=lambda: {
-            407: "ambulance",
-            555: "fire engine",
-            569: "garbage truck",
-            779: "school bus",
-            654: "minibus",
-            656: "minivan",
-            675: "moving van",
-            734: "police van",
-            864: "tow truck",
-            867: "trailer truck",
-            829: "streetcar",
-            874: "trolleybus",
-            609: "jeep",
-            627: "limousine",
-            717: "pickup",
-            817: "sports car",
-            511: "convertible",
-            468: "cab",
-            705: "passenger car",
-            436: "beach wagon",
-            575: "golfcart",
-            803: "snowplow",
-            665: "moped",
-            670: "motor scooter",
-            444: "bicycle-built-for-two",
-            870: "tricycle",
-            880: "unicycle",
-        }
+        default_factory=lambda: dict(VEHICLE_TYPE_INDEX_TO_CATEGORY)
     )
 
 
@@ -307,8 +331,7 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         context: Optional[ProcessingContext] = None,
         stream_info: Optional[Dict[str, Any]] = None,
     ) -> ProcessingResult:
-        _ = (input_bytes,)  # kept for call-convention parity; the ViT classifier is chained
-        # upstream (py_inference/deployment level), so no raw frame bytes are needed here.
+        _ = (input_bytes,)  # call-convention parity; the chained ViT classifier needs no raw bytes
         processing_start = time.monotonic()
         is_valid_config = isinstance(config, VehicleTypeClassificationConfig) or (
             hasattr(config, "usecase")
@@ -331,41 +354,35 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 context=context,
             )
         if not isinstance(context, ProcessingContext):
-            # The chained ViT-classifier deployment path passes a plain dict here instead of a
-            # ProcessingContext (unlike the standard py_analytics-internal dispatch) -- normalize
-            # rather than crash on the attribute/method access below.
+            # Chained ViT-classifier path passes a plain dict; normalize instead of crashing below.
             context = ProcessingContext()
-
         has_zones = bool(config.zone_config and config.zone_config.get("zones"))
-
-        # Decode the ViT classifier's vehicle_type attribute onto each detection BEFORE category
-        # normalization, since normalization rebuilds each detection dict from a fixed key
-        # whitelist and would otherwise drop heads/top_k/label/predictor_output.
-        data = _attach_vehicle_type_attributes(data, getattr(config, "vehicle_type_index_to_category", None))
-
+        # Decode vehicle_type onto each detection BEFORE category normalization rebuilds the dicts.
+        data = _attach_vehicle_type_attributes(
+            data, getattr(config, "vehicle_type_index_to_category", None)
+        )
         # Normalize typical YOLO outputs (COCO pretrained) to internal schema
         data = self._normalize_yolo_results(data, getattr(config, "index_to_category", None))
-
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
-
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+            self.logger.debug(
+                f"Applied confidence filtering, threshold={config.confidence_threshold}"
+            )
         else:
             processed_data = data
             self.logger.debug("Did not apply confidence filtering since no threshold provided")
-
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
             self.logger.debug("Applied category mapping")
-
         processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
         if config.target_categories:
-            processed_data = [d for d in processed_data if d.get("category") in self.target_categories]
+            processed_data = [
+                d for d in processed_data if d.get("category") in self.target_categories
+            ]
             self.logger.debug("Applied category filtering")
-
         for det in processed_data:
             if not isinstance(det, dict):
                 continue
@@ -383,7 +400,6 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 if candidate is not None:
                     det["track_id"] = candidate
                     break
-
         if config.enable_smoothing:
             if self.smoothing_tracker is None:
                 smoothing_config = BBoxSmoothingConfig(
@@ -395,8 +411,9 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                     enable_smoothing=True,
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-
+            processed_data = bbox_smoothing(
+                processed_data, self.smoothing_tracker.config, self.smoothing_tracker
+            )
         if getattr(config, "enable_advanced_tracker", True):
             try:
                 from ..advanced_tracker import AdvancedTracker
@@ -424,14 +441,12 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                         f"(class_aggregation={config.enable_class_aggregation}, namespace={tracker_namespace})"
                     )
                 processed_data = self.tracker.update(processed_data)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - tracker failure must not crash the pipeline
                 self.logger.warning(f"AdvancedTracker failed: {e}")
         elif getattr(config, "enable_simple_tracker", False):
             processed_data = self._simple_tracker_update(processed_data)
-
         self._update_tracking_state(processed_data, _has_zones=has_zones)
         self._total_frame_counter += 1
-
         frame_number = None
         if stream_info:
             input_settings = stream_info.get("input_settings", {})
@@ -439,29 +454,34 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
             end_frame = input_settings.get("end_frame")
             if start_frame is not None and end_frame is not None and start_frame == end_frame:
                 frame_number = start_frame
-
         counting_summary = self._count_categories(processed_data, config)
         total_counts = self.get_total_counts()
         counting_summary["total_counts"] = total_counts
         counting_summary["categories"] = {}
         for detection in processed_data:
             category = detection.get("category", "unknown")
-            counting_summary["categories"][category] = counting_summary["categories"].get(category, 0) + 1
-
+            counting_summary["categories"][category] = (
+                counting_summary["categories"].get(category, 0) + 1
+            )
         zone_analysis = {}
         if has_zones:
             frame_data = processed_data
-            zone_analysis = count_objects_in_zones(frame_data, config.zone_config["zones"], stream_info)
-
+            zone_analysis = count_objects_in_zones(
+                frame_data, config.zone_config["zones"], stream_info
+            )
             if zone_analysis:
-                enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, processed_data, config)
+                enhanced_zone_analysis = self._update_zone_tracking(
+                    zone_analysis, processed_data, config
+                )
                 for zone_name, enhanced_data in enhanced_zone_analysis.items():
                     zone_analysis[zone_name] = enhanced_data
-
                 per_category_count = {
-                    cat: len(self._current_frame_track_ids.get(cat, set())) for cat in self.target_categories
+                    cat: len(self._current_frame_track_ids.get(cat, set()))
+                    for cat in self.target_categories
                 }
-                counting_summary["per_category_count"] = {k: v for k, v in per_category_count.items() if v > 0}
+                counting_summary["per_category_count"] = {
+                    k: v for k, v in per_category_count.items() if v > 0
+                }
                 counting_summary["total_count"] = sum(per_category_count.values())
         else:
             global_current_ids = set()
@@ -470,7 +490,6 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
             global_total_ids = set()
             for cat_ids in self._per_category_total_track_ids.values():
                 global_total_ids |= cat_ids
-
             zone_analysis = {
                 "global": {
                     "current_count": len(global_current_ids),
@@ -480,15 +499,15 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                     "original_counts": dict(counting_summary.get("categories", {})),
                 }
             }
-
         alerts = self._check_alerts(counting_summary, zone_analysis, frame_number, config)
         self._extract_predictions(processed_data)
-        _ = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_number, stream_info)
+        _ = self._generate_incidents(
+            counting_summary, zone_analysis, alerts, config, frame_number, stream_info
+        )
         incidents_list = []
         tracking_stats_list = self._generate_tracking_stats(
             counting_summary, zone_analysis, alerts, config, frame_number, stream_info
         )
-
         business_analytics_list = self._generate_business_analytics(
             counting_summary, zone_analysis, alerts, config, stream_info, is_empty=True
         )
@@ -500,7 +519,6 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
             business_analytics_list,
             alerts,
         )
-
         incidents = incidents_list[0] if incidents_list else {}
         tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
         business_analytics = business_analytics_list[0] if business_analytics_list else {}
@@ -515,7 +533,6 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 "human_text": summary,
             }
         }
-
         context.mark_completed()
         result = self.create_result(
             data={"agg_summary": agg_summary},
@@ -549,7 +566,9 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         zones = config.zone_config["zones"]
 
         track_to_cat = {
-            det.get("track_id"): det.get("category") for det in detections if det.get("track_id") is not None
+            det.get("track_id"): det.get("category")
+            for det in detections
+            if det.get("track_id") is not None
         }
 
         current_frame_zone_tracks = {}
@@ -611,7 +630,9 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
 
         return enhanced_zone_analysis
 
-    def _normalize_yolo_results(self, data: Any, index_to_category: Optional[Dict[int, str]] = None) -> Any:
+    def _normalize_yolo_results(
+        self, data: Any, index_to_category: Optional[Dict[int, str]] = None
+    ) -> Any:
         """
         Normalize YOLO-style outputs to internal detection schema:
         - category/category_id: prefer string label using COCO mapping if available
@@ -725,11 +746,12 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
             vt = det.get("vehicle_type")
             if vt and vt != "unknown":
                 vehicle_type_count[vt] = vehicle_type_count.get(vt, 0) + 1
-
         if not config.alert_config:
             return alerts
-
-        if hasattr(config.alert_config, "count_thresholds") and config.alert_config.count_thresholds:
+        if (
+            hasattr(config.alert_config, "count_thresholds")
+            and config.alert_config.count_thresholds
+        ):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_detections > threshold:
                     alerts.append(
@@ -738,12 +760,19 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                             "alert_id": f"alert_{category}_{frame_key}",
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
+                                # strict=False: alert_type/alert_value are independently-defaulted
+                                # config lists: a length mismatch truncates to the shorter one
+                                # rather than raising, preserving existing behavior for configs
+                                # that already carry unequal lengths.
                                 for t, v in zip(
                                     getattr(config.alert_config, "alert_type", ["Default"]),
                                     getattr(config.alert_config, "alert_value", ["JSON"]),
+                                    strict=False,
                                 )
                             },
                         }
@@ -755,12 +784,19 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                             "alert_id": f"alert_{category}_{frame_key}",
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
+                                # strict=False: alert_type/alert_value are independently-defaulted
+                                # config lists: a length mismatch truncates to the shorter one
+                                # rather than raising, preserving existing behavior for configs
+                                # that already carry unequal lengths.
                                 for t, v in zip(
                                     getattr(config.alert_config, "alert_type", ["Default"]),
                                     getattr(config.alert_config, "alert_value", ["JSON"]),
+                                    strict=False,
                                 )
                             },
                         }
@@ -774,12 +810,19 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                             "alert_id": f"alert_{category}_{frame_key}",
                             "incident_category": self.CASE_TYPE,
                             "threshold_level": threshold,
-                            "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                            "ascending": get_trend(
+                                self._ascending_alert_list, lookback=900, threshold=0.8
+                            ),
                             "settings": {
                                 t: v
+                                # strict=False: alert_type/alert_value are independently-defaulted
+                                # config lists: a length mismatch truncates to the shorter one
+                                # rather than raising, preserving existing behavior for configs
+                                # that already carry unequal lengths.
                                 for t, v in zip(
                                     getattr(config.alert_config, "alert_type", ["Default"]),
                                     getattr(config.alert_config, "alert_value", ["JSON"]),
+                                    strict=False,
                                 )
                             },
                         }
@@ -800,25 +843,27 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         total_detections = counting_summary.get("total_count", 0)
         current_timestamp = self._get_current_timestamp_str(stream_info)
         camera_info = self.get_camera_info_from_stream(stream_info)
-
         self._ascending_alert_list = (
-            self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+            self._ascending_alert_list[-900:]
+            if len(self._ascending_alert_list) > 900
+            else self._ascending_alert_list
         )
-
         if total_detections > 0:
             start_timestamp = self._get_start_timestamp_str(stream_info)
             self._debug_stream_timing("start_timestamp", start_timestamp)
             if start_timestamp and self.current_incident_end_timestamp == "N/A":
                 self.current_incident_end_timestamp = "Incident still active"
             elif start_timestamp and self.current_incident_end_timestamp == "Incident still active":
-                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5:
+                if (
+                    len(self._ascending_alert_list) >= 15
+                    and sum(self._ascending_alert_list[-15:]) / 15 < 1.5
+                ):
                     self.current_incident_end_timestamp = current_timestamp
             elif (
                 self.current_incident_end_timestamp != "Incident still active"
                 and self.current_incident_end_timestamp != "N/A"
             ):
                 self.current_incident_end_timestamp = "N/A"
-
             if (
                 config.alert_config
                 and hasattr(config.alert_config, "count_thresholds")
@@ -851,11 +896,9 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 else:
                     level = "low"
                     self._ascending_alert_list.append(0)
-
             human_text_lines = [f"VEHICLE TYPE INCIDENTS DETECTED @ {current_timestamp}:"]
             human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE, level)}")
             human_text = "\n".join(human_text_lines)
-
             alert_settings = []
             if config.alert_config and hasattr(config.alert_config, "alert_type"):
                 alert_settings.append(
@@ -870,14 +913,16 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                         "ascending": True,
                         "settings": {
                             t: v
+                            # strict=False: preserves existing truncate-to-shorter behavior for
+                            # configs with unequal alert_type/alert_value lengths.
                             for t, v in zip(
                                 getattr(config.alert_config, "alert_type", ["Default"]),
                                 getattr(config.alert_config, "alert_value", ["JSON"]),
+                                strict=False,
                             )
                         },
                     }
                 )
-
             event = self.create_incident(
                 incident_id=f"{self.CASE_TYPE}_{frame_number}",
                 incident_type=self.CASE_TYPE,
@@ -913,50 +958,30 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         current_timestamp = self._get_current_timestamp_str(stream_info, precision=False)
         start_timestamp = self._get_start_timestamp_str(stream_info, precision=False)
         self._debug_stream_timing("start_timestamp", start_timestamp)
-        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_start_timestamp = self._get_current_timestamp_str(
+            stream_info, precision=True
+        )
         high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
-
         new_counts_dict = self.get_new_counts_this_frame()
-
         raw_detections = counting_summary.get("detections", [])
         detection_count_by_category = {}
         for det in raw_detections:
             cat = det.get("category", "vehicle")
             detection_count_by_category[cat] = detection_count_by_category.get(cat, 0) + 1
-
-        total_counts = [{"category": cat, "count": count} for cat, count in total_counts_dict.items() if count > 0]
-        current_counts = [{"category": cat, "count": count} for cat, count in detection_count_by_category.items()]
-        if not current_counts and total_detections > 0:
-            current_counts = [{"category": cat, "count": count} for cat, count in per_category_count.items()]
-        current_new_counts = [{"category": cat, "count": count} for cat, count in new_counts_dict.items()]
-
+        total_counts, current_counts, current_new_counts = build_count_lists(
+            total_counts_dict,
+            detection_count_by_category,
+            per_category_count,
+            total_detections,
+            new_counts_dict,
+        )
         curr_total = sum(c.get("count", 0) for c in current_counts)
         new_total = sum(c.get("count", 0) for c in current_new_counts)
         total_total = sum(c.get("count", 0) for c in total_counts)
         print(f"[STATS] F{frame_number} | current={curr_total} new={new_total} total={total_total}")
-
-        # BUILD DETECTIONS WITH VEHICLE TYPE (mirrors vehicle_color_detection.py's color merge)
-        detections = []
-        for detection in counting_summary.get("detections", []):
-            bbox = detection.get("bounding_box", {})
-            category = detection.get("category", "vehicle")
-            if detection.get("masks"):
-                segmentation = detection.get("masks", [])
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            elif detection.get("segmentation"):
-                segmentation = detection.get("segmentation")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            elif detection.get("mask"):
-                segmentation = detection.get("mask")
-                detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
-            else:
-                detection_obj = self.create_detection_object(category, bbox)
-
-            detection_obj["vehicle_type"] = detection.get("vehicle_type", "unknown")
-            detection_obj["vehicle_type_confidence"] = detection.get("vehicle_type_confidence", 0.0)
-
-            detections.append(detection_obj)
-
+        detections = build_detection_objects(
+            counting_summary.get("detections", []), self.create_detection_object
+        )
         alert_settings = []
         if config.alert_config and hasattr(config.alert_config, "alert_type"):
             alert_settings.append(
@@ -964,22 +989,24 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                     "alert_type": getattr(config.alert_config, "alert_type", ["Default"]),
                     "incident_category": self.CASE_TYPE,
                     "threshold_level": (
-                        config.alert_config.count_thresholds if hasattr(config.alert_config, "count_thresholds") else {}
+                        config.alert_config.count_thresholds
+                        if hasattr(config.alert_config, "count_thresholds")
+                        else {}
                     ),
                     "ascending": True,
                     "settings": {
                         t: v
+                        # strict=False: preserves truncate-to-shorter behavior on unequal lengths.
                         for t, v in zip(
                             getattr(config.alert_config, "alert_type", ["Default"]),
                             getattr(config.alert_config, "alert_value", ["JSON"]),
+                            strict=False,
                         )
                     },
                 }
             )
-
         human_text_lines = []
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-
         if zone_analysis:
             human_text_lines.append("\t- Vehicles Detected by Zone:")
             for zone_name, zone_data in zone_analysis.items():
@@ -1003,7 +1030,6 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 new_count = new_counts_dict.get(cat, 0)
                 human_text_lines.append(f"\t- Total Vehicles in Frame ({cat}): {count}")
                 human_text_lines.append(f"\t- New Vehicles (just entered) ({cat}): {new_count}")
-
         vehicle_type_counts: Dict[str, int] = {}
         for detection in counting_summary.get("detections", []):
             vt = detection.get("vehicle_type", "unknown")
@@ -1013,11 +1039,11 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
             human_text_lines.append("\t- Vehicle Types (this frame):")
             for vt, count in vehicle_type_counts.items():
                 human_text_lines.append(f"\t\t- {vt}: {count}")
-
         human_text_lines.append("")
         human_text = "\n".join(human_text_lines)
-
-        reset_settings = [{"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}]
+        reset_settings = [
+            {"interval_type": "daily", "reset_time": {"value": 9, "time_unit": "hour"}}
+        ]
         tracking_stat = self.create_tracking_stats(
             total_counts=total_counts,
             current_counts=current_counts,
@@ -1065,10 +1091,13 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         lines.append("Application Name: " + self.CASE_TYPE)
         lines.append("Application Version: " + self.CASE_VERSION)
         if len(incidents) > 0:
-            lines.append("Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}")
+            lines.append(
+                "Incidents: " + f"\n\t{incidents[0].get('human_text', 'No incidents detected')}"
+            )
         if len(tracking_stats) > 0:
             lines.append(
-                "Tracking Statistics: " + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
+                "Tracking Statistics: "
+                + f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}"
             )
         if len(business_analytics) > 0:
             lines.append(
@@ -1119,7 +1148,10 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
             self._current_frame_track_ids.setdefault(cat, set()).add(canonical_id)
 
         self._new_track_ids_this_frame = {
-            cat: (self._current_frame_track_ids.get(cat, set()) - self._per_category_total_track_ids.get(cat, set()))
+            cat: (
+                self._current_frame_track_ids.get(cat, set())
+                - self._per_category_total_track_ids.get(cat, set())
+            )
             for cat in self.target_categories
         }
 
@@ -1148,13 +1180,19 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                     f"(ratio={ratio:.1f}x) - possible tracker instability or use case recreation"
                 )
 
-        self._previous_frame_track_ids = {cat: set(ids) for cat, ids in self._current_frame_track_ids.items()}
+        self._previous_frame_track_ids = {
+            cat: set(ids) for cat, ids in self._current_frame_track_ids.items()
+        }
 
     def get_total_counts(self):
-        return {cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_per_category_total_track_ids", {}).items()
+        }
 
     def get_new_counts_this_frame(self) -> Dict[str, int]:
-        return {cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()}
+        return {
+            cat: len(ids) for cat, ids in getattr(self, "_new_track_ids_this_frame", {}).items()
+        }
 
     def get_current_frame_counts(self) -> Dict[str, int]:
         return {cat: len(ids) for cat, ids in getattr(self, "_current_frame_track_ids", {}).items()}
@@ -1189,8 +1227,8 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 if len(parts) >= 4:
                     formatted = f"{parts[0]}:{parts[1]}:{parts[2]} {'-'.join(parts[3:])}"
                     return formatted
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 - best-effort reformat; fall through to the raw string
+            self.logger.debug("timestamp reformat failed for %r", timestamp_clean, exc_info=True)
 
         return timestamp_clean
 
@@ -1207,43 +1245,55 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         if precision:
             if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
                 if frame_id:
-                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                    start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                        "original_fps", 30
+                    )
                 else:
-                    start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                        "input_settings", {}
-                    ).get("original_fps", 30)
+                    start_time = stream_info.get("input_settings", {}).get(
+                        "start_frame", 30
+                    ) / stream_info.get("input_settings", {}).get("original_fps", 30)
                 stream_time_str = self._format_timestamp_for_video(start_time)
                 self._debug_stream_timing("stream_time_str", stream_time_str)
-                return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+                return self._format_timestamp(
+                    stream_info.get("input_settings", {}).get("stream_time", "NA")
+                )
             else:
                 return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
         if stream_info.get("input_settings", {}).get("start_frame", "na") != "na":
             if frame_id:
-                start_time = int(frame_id) / stream_info.get("input_settings", {}).get("original_fps", 30)
+                start_time = int(frame_id) / stream_info.get("input_settings", {}).get(
+                    "original_fps", 30
+                )
             else:
-                start_time = stream_info.get("input_settings", {}).get("start_frame", 30) / stream_info.get(
-                    "input_settings", {}
-                ).get("original_fps", 30)
+                start_time = stream_info.get("input_settings", {}).get(
+                    "start_frame", 30
+                ) / stream_info.get("input_settings", {}).get("original_fps", 30)
 
             stream_time_str = self._format_timestamp_for_video(start_time)
 
             self._debug_stream_timing("stream_time_str", stream_time_str)
-            return self._format_timestamp(stream_info.get("input_settings", {}).get("stream_time", "NA"))
+            return self._format_timestamp(
+                stream_info.get("input_settings", {}).get("stream_time", "NA")
+            )
         else:
-            stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            stream_time_str = (
+                stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+            )
             if stream_time_str:
                 try:
                     timestamp_str = stream_time_str.replace(" UTC", "")
                     dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                     timestamp = dt.replace(tzinfo=timezone.utc).timestamp()
                     return self._format_timestamp_for_stream(timestamp)
-                except Exception:
+                except Exception:  # noqa: BLE001 - malformed stream_time; fall back to wall clock
                     return self._format_timestamp_for_stream(time.time())
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
+    def _get_start_timestamp_str(
+        self, stream_info: Optional[Dict[str, Any]], precision=False
+    ) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
@@ -1267,16 +1317,20 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         if self.start_timer is None:
             candidate = stream_info.get("input_settings", {}).get("stream_time")
             if not candidate or candidate == "NA":
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(self._tracking_start_time, timezone.utc).strftime(
-                            "%Y-%m-%d-%H:%M:%S.%f UTC"
-                        )
-                    except Exception:
+                        candidate = datetime.fromtimestamp(
+                            self._tracking_start_time, timezone.utc
+                        ).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+                    except Exception:  # noqa: BLE001 - malformed stream_time; fall back to now()
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -1285,14 +1339,20 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
         elif stream_info.get("input_settings", {}).get("start_frame", "na") == 1:
             candidate = stream_info.get("input_settings", {}).get("stream_time")
             if not candidate or candidate == "NA":
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         ts = dt.replace(tzinfo=timezone.utc).timestamp()
-                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
-                    except Exception:
+                        candidate = datetime.fromtimestamp(ts, timezone.utc).strftime(
+                            "%Y-%m-%d-%H:%M:%S.%f UTC"
+                        )
+                    except Exception:  # noqa: BLE001 - malformed stream_time; fall back to now()
                         candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
                 else:
                     candidate = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
@@ -1304,13 +1364,17 @@ class VehicleTypeClassificationUseCase(BaseProcessor):
                 return self._format_timestamp(self.start_timer)
 
             if self._tracking_start_time is None:
-                stream_time_str = stream_info.get("input_settings", {}).get("stream_info", {}).get("stream_time", "")
+                stream_time_str = (
+                    stream_info.get("input_settings", {})
+                    .get("stream_info", {})
+                    .get("stream_time", "")
+                )
                 if stream_time_str:
                     try:
                         timestamp_str = stream_time_str.replace(" UTC", "")
                         dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H:%M:%S.%f")
                         self._tracking_start_time = dt.replace(tzinfo=timezone.utc).timestamp()
-                    except Exception:
+                    except Exception:  # noqa: BLE001 - malformed stream_time; fall back to wall clock
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()

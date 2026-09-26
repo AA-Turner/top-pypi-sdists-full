@@ -37,6 +37,7 @@ __all__ = [
     "BindingWorkersBindingKindMTLSCertificate",
     "BindingWorkersBindingKindPlainText",
     "BindingWorkersBindingKindPipelines",
+    "BindingWorkersBindingKindK2",
     "BindingWorkersBindingKindQueue",
     "BindingWorkersBindingKindRatelimit",
     "BindingWorkersBindingKindRatelimitSimple",
@@ -73,6 +74,7 @@ __all__ = [
     "Migrations",
     "MigrationsWorkersMultipleStepMigrations",
     "Observability",
+    "ObservabilityIssues",
     "ObservabilityLogs",
     "ObservabilityTraces",
     "Placement",
@@ -398,6 +400,19 @@ class BindingWorkersBindingKindPipelines(BaseModel):
     """The kind of resource that the binding provides."""
 
 
+class BindingWorkersBindingKindK2(BaseModel):
+    """A K2 stream binding. Available only to accounts enabled for K2."""
+
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    stream: str
+    """ID of a K2 stream owned by the account deploying the Worker."""
+
+    type: Literal["k2"]
+    """The kind of resource that the binding provides."""
+
+
 class BindingWorkersBindingKindQueue(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
@@ -677,6 +692,7 @@ Binding: TypeAlias = Annotated[
         BindingWorkersBindingKindMTLSCertificate,
         BindingWorkersBindingKindPlainText,
         BindingWorkersBindingKindPipelines,
+        BindingWorkersBindingKindK2,
         BindingWorkersBindingKindQueue,
         BindingWorkersBindingKindRatelimit,
         BindingWorkersBindingKindR2Bucket,
@@ -1109,6 +1125,13 @@ class MigrationsWorkersMultipleStepMigrations(BaseModel):
 Migrations: TypeAlias = Union[SingleStepMigration, MigrationsWorkersMultipleStepMigrations]
 
 
+class ObservabilityIssues(BaseModel):
+    """Real-time Issues settings for the Worker."""
+
+    enabled: Optional[bool] = None
+    """Whether real-time Issues are enabled for the Worker."""
+
+
 class ObservabilityLogs(BaseModel):
     """Log settings for the Worker."""
 
@@ -1168,6 +1191,9 @@ class Observability(BaseModel):
 
     From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1.
     """
+
+    issues: Optional[ObservabilityIssues] = None
+    """Real-time Issues settings for the Worker."""
 
     logs: Optional[ObservabilityLogs] = None
     """Log settings for the Worker."""

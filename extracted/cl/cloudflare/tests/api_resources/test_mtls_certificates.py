@@ -11,10 +11,8 @@ from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
 from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
 from cloudflare.types.mtls_certificates import (
-    MTLSCertificateGetResponse,
-    MTLSCertificateListResponse,
+    MTLSCertificate,
     MTLSCertificateCreateResponse,
-    MTLSCertificateDeleteResponse,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -85,7 +83,7 @@ class TestMTLSCertificates:
         mtls_certificate = client.mtls_certificates.list(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(SyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+        assert_matches_type(SyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_method_list_with_all_params(self, client: Cloudflare) -> None:
@@ -93,7 +91,7 @@ class TestMTLSCertificates:
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             type=["custom"],
         )
-        assert_matches_type(SyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+        assert_matches_type(SyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
@@ -104,7 +102,7 @@ class TestMTLSCertificates:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         mtls_certificate = response.parse()
-        assert_matches_type(SyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+        assert_matches_type(SyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_streaming_response_list(self, client: Cloudflare) -> None:
@@ -115,7 +113,7 @@ class TestMTLSCertificates:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             mtls_certificate = response.parse()
-            assert_matches_type(SyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+            assert_matches_type(SyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -132,7 +130,7 @@ class TestMTLSCertificates:
             mtls_certificate_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(Optional[MTLSCertificateDeleteResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
@@ -144,7 +142,7 @@ class TestMTLSCertificates:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         mtls_certificate = response.parse()
-        assert_matches_type(Optional[MTLSCertificateDeleteResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
@@ -156,7 +154,7 @@ class TestMTLSCertificates:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             mtls_certificate = response.parse()
-            assert_matches_type(Optional[MTLSCertificateDeleteResponse], mtls_certificate, path=["response"])
+            assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -180,7 +178,7 @@ class TestMTLSCertificates:
             mtls_certificate_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(Optional[MTLSCertificateGetResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
@@ -192,7 +190,7 @@ class TestMTLSCertificates:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         mtls_certificate = response.parse()
-        assert_matches_type(Optional[MTLSCertificateGetResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
@@ -204,7 +202,7 @@ class TestMTLSCertificates:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             mtls_certificate = response.parse()
-            assert_matches_type(Optional[MTLSCertificateGetResponse], mtls_certificate, path=["response"])
+            assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -290,7 +288,7 @@ class TestAsyncMTLSCertificates:
         mtls_certificate = await async_client.mtls_certificates.list(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AsyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+        assert_matches_type(AsyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -298,7 +296,7 @@ class TestAsyncMTLSCertificates:
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             type=["custom"],
         )
-        assert_matches_type(AsyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+        assert_matches_type(AsyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -309,7 +307,7 @@ class TestAsyncMTLSCertificates:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         mtls_certificate = await response.parse()
-        assert_matches_type(AsyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+        assert_matches_type(AsyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -320,7 +318,7 @@ class TestAsyncMTLSCertificates:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             mtls_certificate = await response.parse()
-            assert_matches_type(AsyncSinglePage[MTLSCertificateListResponse], mtls_certificate, path=["response"])
+            assert_matches_type(AsyncSinglePage[MTLSCertificate], mtls_certificate, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -337,7 +335,7 @@ class TestAsyncMTLSCertificates:
             mtls_certificate_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(Optional[MTLSCertificateDeleteResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -349,7 +347,7 @@ class TestAsyncMTLSCertificates:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         mtls_certificate = await response.parse()
-        assert_matches_type(Optional[MTLSCertificateDeleteResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -361,7 +359,7 @@ class TestAsyncMTLSCertificates:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             mtls_certificate = await response.parse()
-            assert_matches_type(Optional[MTLSCertificateDeleteResponse], mtls_certificate, path=["response"])
+            assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -385,7 +383,7 @@ class TestAsyncMTLSCertificates:
             mtls_certificate_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(Optional[MTLSCertificateGetResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -397,7 +395,7 @@ class TestAsyncMTLSCertificates:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         mtls_certificate = await response.parse()
-        assert_matches_type(Optional[MTLSCertificateGetResponse], mtls_certificate, path=["response"])
+        assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -409,7 +407,7 @@ class TestAsyncMTLSCertificates:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             mtls_certificate = await response.parse()
-            assert_matches_type(Optional[MTLSCertificateGetResponse], mtls_certificate, path=["response"])
+            assert_matches_type(Optional[MTLSCertificate], mtls_certificate, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

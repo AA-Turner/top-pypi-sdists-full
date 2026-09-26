@@ -1,11 +1,21 @@
+"""The four tests which run by default.
+
+These are the tests ``--test-alembic`` inserts when no explicit selection is made:
+the history has a single head, it upgrades cleanly, the models match the DDL the
+migrations produce, and every migration can be undone. Anything more invasive lives
+in :mod:`pytest_alembic.tests.experimental` instead.
+"""
+
 import logging
 import warnings
+from typing import Any
 
 import pytest
 from alembic.autogenerate.api import AutogenContext
 from alembic.autogenerate.render import _render_cmd_body
 
 from pytest_alembic.plugin.error import AlembicTestFailure
+from pytest_alembic.runner import MigrationContext
 
 log = logging.getLogger(__name__)
 
@@ -17,8 +27,8 @@ NOT_IMPLEMENTED_WARNING = (
 )
 
 
-@pytest.mark.alembic()
-def test_single_head_revision(alembic_runner):
+@pytest.mark.alembic
+def test_single_head_revision(alembic_runner: MigrationContext) -> None:
     """Assert that there only exists one head revision.
 
     We're not sure what realistic scenario involves a diverging history to be desirable. We
@@ -29,17 +39,17 @@ def test_single_head_revision(alembic_runner):
     head_count = len(heads)
 
     if head_count != 1:
-        heads = "\n".join([h.strip() for h in heads])
+        heads_str = "\n".join([h.strip() for h in heads])
 
         message = f"Expected 1 head revision, found {head_count}"
         raise AlembicTestFailure(
             message,
-            context=[("Heads", heads)],
+            context=[("Heads", heads_str)],
         )
 
 
-@pytest.mark.alembic()
-def test_upgrade(alembic_runner):
+@pytest.mark.alembic
+def test_upgrade(alembic_runner: MigrationContext) -> None:
     """Assert that the revision history can be run through from base to head."""
     try:
         alembic_runner.migrate_up_to("heads", return_current=False)
@@ -54,8 +64,8 @@ def test_upgrade(alembic_runner):
         )
 
 
-@pytest.mark.alembic()
-def test_model_definitions_match_ddl(alembic_runner):
+@pytest.mark.alembic
+def test_model_definitions_match_ddl(alembic_runner: MigrationContext) -> None:
     """Assert that the state of the migrations matches the state of the models describing the DDL.
 
     In general, the set of migrations in the history should coalesce into DDL which is described
@@ -64,7 +74,7 @@ def test_model_definitions_match_ddl(alembic_runner):
     history) and your models).
     """
 
-    def verify_is_empty_revision(migration_context, __, directives):
+    def verify_is_empty_revision(migration_context: Any, __: Any, directives: Any) -> None:
         script = directives[0]
 
         migration_is_empty = script.upgrade_ops.is_empty()
@@ -72,22 +82,21 @@ def test_model_definitions_match_ddl(alembic_runner):
             autogen_context = AutogenContext(migration_context)
             rendered_upgrade = _render_cmd_body(script.upgrade_ops, autogen_context)
 
-            if not migration_is_empty:
-                message = (
-                    "The models describing the DDL of your database are out of sync with the set of "
-                    "steps described in the revision history. This usually means that someone has "
-                    "made manual changes to the database's DDL, or some model has been changed "
-                    "without also generating a migration to describe that change."
-                )
-                raise AlembicTestFailure(
-                    message,
-                    context=[
-                        (
-                            "The upgrade which would have been generated would look like",
-                            rendered_upgrade,
-                        )
-                    ],
-                )
+            message = (
+                "The models describing the DDL of your database are out of sync with the set of "
+                "steps described in the revision history. This usually means that someone has "
+                "made manual changes to the database's DDL, or some model has been changed "
+                "without also generating a migration to describe that change."
+            )
+            raise AlembicTestFailure(
+                message,
+                context=[
+                    (
+                        "The upgrade which would have been generated would look like",
+                        rendered_upgrade,
+                    )
+                ],
+            )
 
     test_upgrade(alembic_runner)
     alembic_runner.generate_revision(
@@ -98,8 +107,8 @@ def test_model_definitions_match_ddl(alembic_runner):
     )
 
 
-@pytest.mark.alembic()
-def test_up_down_consistency(alembic_runner):
+@pytest.mark.alembic
+def test_up_down_consistency(alembic_runner: MigrationContext) -> None:
     """Assert that all downgrades succeed.
 
     While downgrading may not be lossless operation data-wise, there's a theory of database

@@ -47,7 +47,10 @@ class TestDiscoverAgentsJobSpec(unittest.TestCase):
                     vendor = '', 
                     query = '', 
                     query_language = '', 
-                    lookback_window_seconds = 56, ),
+                    lookback_window_seconds = 56, 
+                    source_fields = {
+                        'key' : ''
+                        }, ),
                 scan_id = ''
             )
         else:

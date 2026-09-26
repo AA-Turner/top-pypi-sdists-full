@@ -25,12 +25,12 @@ retry-delay directly — the retry/backoff budget for the refresh path
 is owned by ``AuthRefreshMiddleware`` and by
 ``RpcExecutor.try_refresh_and_retry``, both of which read
 ``chain_host._refresh_retry_delay`` live through provider lambdas wired
-in ``_runtime.init.wire_middleware_chain``. Integration tests that
-assign ``client._composed.chain_host._refresh_retry_delay = 0`` keep
+in ``_web.transport.init.wire_middleware_chain``. Integration tests that
+assign ``client._web_runtime.composed.chain_host._refresh_retry_delay = 0`` keep
 steering the live delay.
 
 Construction order in :func:`compose_client_internals`:
-:func:`notebooklm._runtime.init.build_runtime_transport` constructs the
+:func:`notebooklm._web.transport.init.build_runtime_transport` constructs the
 transport **before** :func:`wire_middleware_chain`. The wired chain
 leaf is :meth:`MiddlewareChainHost._authed_post_chain_terminal` (a
 one-line forward to :meth:`RuntimeTransport.terminal`) — wiring through
@@ -41,7 +41,7 @@ The chain itself is reached by the transport through an injected
 ``chain_host._authed_post_chain`` live, late on every
 :meth:`perform_authed_post` call; this both breaks the construction
 cycle and preserves the long-standing test pattern of reassigning
-``core._composed.chain_host._authed_post_chain`` to install a fake chain. The
+``core._web_runtime.composed.chain_host._authed_post_chain`` to install a fake chain. The
 :class:`AuthRefreshCoordinator` snapshot is reached via an injected
 ``snapshot_provider`` callable so :class:`RuntimeTransport` never has
 to hold a direct back-reference to the composition root.
@@ -56,17 +56,22 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from ..._idempotency import bound_operation_journal_entries
+from ..._request_policy import RequestPolicyOwner, request_scoped
+from ...outcomes import CommitState
 from .errors import raise_mapped_post_error
 from .middleware.context import (
     RPC_CONTEXT_AUTH_SNAPSHOT,
     RPC_CONTEXT_BUILD_REQUEST,
     RPC_CONTEXT_DISABLE_INTERNAL_RETRIES,
     RPC_CONTEXT_DISABLE_READ_TIMEOUT_RETRIES,
+    RPC_CONTEXT_JOURNAL,
     RPC_CONTEXT_LOG_LABEL,
     RPC_CONTEXT_MAX_RESPONSE_BYTES,
     RPC_CONTEXT_READ_TIMEOUT,
     RPC_CONTEXT_REFRESH_BUDGET,
     RPC_CONTEXT_RESOURCE_EPOCH,
+    RPC_CONTEXT_RETRY_BUDGET,
     RPC_CONTEXT_RETRY_DEADLINE,
     RPC_CONTEXT_RPC_METHOD,
 )
@@ -80,12 +85,14 @@ from .request_types import AuthSnapshot, BuildRequest
 
 if TYPE_CHECKING:
     from ..._deadline import RuntimeDeadline
+    from ..._idempotency import JournalEntry
+    from ..._runtime.auth_refresh_retry import RefreshBudget
     from ..._runtime.call_supervisor import CallLease, CallSupervisor
-    from .auth_refresh_retry import RefreshBudget
+    from ..._runtime.retry_budget import RetryBudget
     from .kernel import Kernel
 
 
-class RuntimeTransport:
+class RuntimeTransport(RequestPolicyOwner):
     """Authed POST chain leaf and entry-point collaborator.
 
     Owns the three authed-POST hot-path methods.
@@ -125,7 +132,7 @@ class RuntimeTransport:
         # :class:`MiddlewareChainHost` AFTER :class:`RuntimeTransport`
         # is constructed (the chain's leaf is :meth:`terminal`, so the
         # transport must exist first). Tests also reassign
-        # ``core._composed.chain_host._authed_post_chain`` post-construction to
+        # ``core._web_runtime.composed.chain_host._authed_post_chain`` post-construction to
         # install a fake chain — going through a provider closure
         # (called late in :meth:`perform_authed_post`) ensures those
         # reassignments take effect on the next call without any
@@ -139,6 +146,7 @@ class RuntimeTransport:
         """Capture auth only through a generation-bearing resource proof."""
         return await self._snapshot_provider(expected_epoch)
 
+    @request_scoped
     async def refresh_request_for_current_auth(self, request: RpcRequest) -> RpcRequest:
         """Rebuild the envelope from the current auth snapshot before every POST.
 
@@ -236,8 +244,17 @@ class RuntimeTransport:
         if RPC_CONTEXT_MAX_RESPONSE_BYTES in context:
             post_kwargs["max_response_bytes"] = context[RPC_CONTEXT_MAX_RESPONSE_BYTES]
         start = time.perf_counter()
+        bound = context.get(RPC_CONTEXT_JOURNAL)
+        entries: tuple[JournalEntry, ...]
+        if bound is None:
+            entries = ()
+        elif isinstance(bound, tuple):
+            entries = bound
+        else:
+            entries = (bound,)
         try:
             expected_epoch = context.get(RPC_CONTEXT_RESOURCE_EPOCH)
+            attempts = tuple(entry.mark_dispatched() for entry in entries)
             response = await self._kernel.post(
                 request.url,
                 headers=request.headers,
@@ -247,6 +264,13 @@ class RuntimeTransport:
                 **post_kwargs,
             )
         except (httpx.HTTPStatusError, httpx.RequestError) as exc:
+            if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+                for entry, attempt in zip(entries, attempts, strict=True):
+                    entry.record(
+                        CommitState.NOT_SENT,
+                        "verified transport failure before write",
+                        attempt=attempt,
+                    )
             raise_mapped_post_error(
                 log_label=log_label,
                 exc=exc,
@@ -255,6 +279,7 @@ class RuntimeTransport:
             )
         return RpcResponse(response=response, context=context)
 
+    @request_scoped
     async def perform_authed_post(
         self,
         *,
@@ -264,6 +289,7 @@ class RuntimeTransport:
         rpc_method: str | None = None,
         refresh_budget: RefreshBudget | None = None,
         retry_deadline: RuntimeDeadline | None = None,
+        retry_budget: RetryBudget | None = None,
         read_timeout: float | None = None,
         max_response_bytes: int | None = None,
         disable_read_timeout_retries: bool = False,
@@ -278,6 +304,7 @@ class RuntimeTransport:
             rpc_method=rpc_method,
             refresh_budget=refresh_budget,
             retry_deadline=retry_deadline,
+            retry_budget=retry_budget,
             read_timeout=read_timeout,
             max_response_bytes=max_response_bytes,
             disable_read_timeout_retries=disable_read_timeout_retries,
@@ -294,6 +321,7 @@ class RuntimeTransport:
         rpc_method: str | None = None,
         refresh_budget: RefreshBudget | None = None,
         retry_deadline: RuntimeDeadline | None = None,
+        retry_budget: RetryBudget | None = None,
         read_timeout: float | None = None,
         max_response_bytes: int | None = None,
         disable_read_timeout_retries: bool = False,
@@ -313,7 +341,7 @@ class RuntimeTransport:
         checks.
 
         ``refresh_budget`` is an optional
-        :class:`notebooklm._web.transport.auth_refresh_retry.RefreshBudget`
+        :class:`notebooklm._runtime.auth_refresh_retry.RefreshBudget`
         seeded by the RPC executor so the HTTP-status refresh layer
         (:class:`AuthRefreshMiddleware`) shares its once-per-logical-call
         refresh allowance with the executor's decoded-RPC refresh layer
@@ -334,7 +362,7 @@ class RuntimeTransport:
         Raises:
             RuntimeError: if the chain provider returns ``None``. The
                 wired chain is installed by the composition root in
-                :func:`notebooklm._runtime.init.wire_middleware_chain`
+                :func:`notebooklm._web.transport.init.wire_middleware_chain`
                 (driven from ``NotebookLMClient.__init__``) immediately
                 after :class:`RuntimeTransport` is built; a ``None`` value
                 indicates a construction-time wiring bug, not a runtime
@@ -347,12 +375,17 @@ class RuntimeTransport:
         # fixture); it raises only when the currently-running loop differs
         # from the one captured at ``open()``-time.
         self._bound_loop_check()
+        journal_entries = bound_operation_journal_entries()
         context: dict[str, Any] = {
             RPC_CONTEXT_BUILD_REQUEST: build_request,
             RPC_CONTEXT_LOG_LABEL: log_label,
             RPC_CONTEXT_DISABLE_INTERNAL_RETRIES: disable_internal_retries,
             RPC_CONTEXT_RPC_METHOD: rpc_method,
         }
+        if journal_entries:
+            context[RPC_CONTEXT_JOURNAL] = (
+                next(iter(journal_entries)) if len(journal_entries) == 1 else journal_entries
+            )
         if read_timeout is not None:
             context[RPC_CONTEXT_READ_TIMEOUT] = read_timeout
         if max_response_bytes is not None:
@@ -372,6 +405,8 @@ class RuntimeTransport:
         # ``_start_retry_deadline()`` (issue #1873).
         if retry_deadline is not None:
             context[RPC_CONTEXT_RETRY_DEADLINE] = retry_deadline
+        if retry_budget is not None:
+            context[RPC_CONTEXT_RETRY_BUDGET] = retry_budget
 
         # Snapshot/materialization historically ran before the outer Metrics
         # and Semaphore policies.  It must stay there for public accounting,

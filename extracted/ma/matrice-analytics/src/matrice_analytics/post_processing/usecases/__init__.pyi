@@ -1,5 +1,5 @@
 """Stub file for post_processing.usecases directory."""
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from . import lpr_ocr_source
 from ...analytics.engine_session import map_detection_categories
@@ -101,6 +101,7 @@ from .license_plate_monitoring import LicensePlateMonitorConfig, LicensePlateMon
 from .overcrowding_detection import PostProcessingConfigClient, lift_ai_camera_zones_into_post_processing
 from .people_counting import PeopleCountingUseCase
 from .vehicle_speed_estimation_config import FACTORS, UNIT_LABELS, VEHICLE_SPEED_ESTIMATION_SCHEMA, VehicleSpeedEstimationConfig
+from .vehicle_type_classification_stats_utils import build_count_lists, build_detection_objects
 
 # Constants
 LAZY_SUBMODULES: Any = ...  # From _lazy_exports
@@ -342,6 +343,24 @@ def lift_ai_camera_zones_into_post_processing(doc: Dict[str, Any]) -> Dict[str, 
     
         Matrice UI / exports may place ``zone_config`` under a top-level camera id key;
         this merges those into ``postProcessing`` without overwriting existing keys.
+    """
+    ...
+
+# From vehicle_type_classification_stats_utils
+def build_count_lists(total_counts_dict: Dict[str, int], detection_count_by_category: Dict[str, int], per_category_count: Dict[str, int], total_detections: int, new_counts_dict: Dict[str, int]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    ``(total_counts, current_counts, current_new_counts)`` -- the three ``[{category, count}]``
+        lists ``_generate_tracking_stats`` builds before assembling the tracking-stat record.
+    """
+    ...
+
+# From vehicle_type_classification_stats_utils
+def build_detection_objects(raw_detections: List[Dict[str, Any]], create_detection_object: Callable[..., Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    The ``vehicle_type``-tagged detection objects for ``tracking_stats["detections"]``.
+    
+        ``create_detection_object`` is the use-case's own bound method -- passed in rather than
+        imported, so this stays a plain data transform with no dependency on the use-case class.
     """
     ...
 
@@ -6198,4 +6217,4 @@ class WoundSegmentationUseCase:
         ...
 
 
-from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, alerts_verification, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_ocr_source, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation
+from . import Histopathological_Cancer_Detection_img, _lazy_exports, _typing_surface, abandoned_object_detection, accident_detection, advanced_customer_service, age_detection, age_gender_detection, alerts_verification, animal_detection, anti_spoofing_detection, area_utilization, assembly_line_detection, banana_defect_detection, basic_counting_tracking, blood_cancer_detection_img, bottle_defect_detection, burglary_detection, car_damage_detection, car_part_segmentation, car_service, cardiomegaly_classification, cell_microscopy_segmentation, chicken_pose_detection, child_monitoring, claude_people_counting_usecase, color_detection, color_map_utils, concrete_crack_detection, crop_weed_detection, crowd_density_heatmaps, crowdflow, customer_service, deep_oc_sort, defect_detection_products, distracted_driver_detection, drone_detection, drone_traffic_monitoring, drowsy_driver_detection, dwell_detection, emergency_vehicle_detection, face_covering_detection_pose, face_emotion, face_recognition, fall_detection, fashion_detection, fast_people_counting, fence_climbing_detection, fence_climbing_detection_pose, fence_climbing_with_zone, field_mapping, fire_detection, flare_analysis, flood_detection, flower_segmentation, footfall, footfall_bkcp, fr_access_control, fr_surveillance, gas_leak_detection, gender_detection, gloves_boots_detection, hazard_zone_entry, heatmaps, human_activity_recognition, illegal_parking_detection, intrusion_detection, landslide_detection, leaf, leaf_disease, leak_detection, license_plate_detection, license_plate_monitoring, liquid_leak_detection, litter_monitoring, loitering_detection, lpr_access_control, lpr_ocr_source, lpr_surveillance, mask_detection, mask_type_detection, natural_disaster, overcrowding_detection, package_detection, parking, parking_lot_analytics, parking_space_detection, pcb_defect_detection, pedestrian_detection, people_counting, people_counting_bckp, people_counting_in_zone, people_tracking, people_tracking_bkcp, phone_screen_defect_detection, pipe_corrosion_detection, pipe_gas_leak_detection, pipeline_detection, plaque_segmentation_img, pothole_detection, pothole_segmentation, ppe_compliance, price_tag_detection, proximity_detection, road_lane_detection, road_traffic_density, road_view_segmentation, running_detection, shelf_inventory_detection, shoplifting_detection, shopping_cart_analysis, skin_cancer_classification_img, smoker_detection, solar_panel, stopped_vehicle_monitoring, street_vendor_detection, suspicious_activity_detection, tailgating_detection, template_usecase, theft_detection, traffic_sign_monitoring, unauthorized_encampment_detection, underground_pipeline_defect_detection, underwater_pollution_detection, unwanted_animal_detection, vegetable_detection, vehicle_color_detection, vehicle_monitoring, vehicle_monitoring_drone_view, vehicle_monitoring_parking_lot, vehicle_monitoring_wrong_way, vehicle_segmentation, vehicle_speed_estimation, vehicle_speed_estimation_config, vehicle_type_classification, vehicle_type_classification_stats_utils, violence_detection, violence_detection_testing, warehouse_object_segmentation, waterbody_segmentation, weapon_detection, weapon_human_detection, weld_defect_detection, wildlife_monitoring, windmill_maintenance, wound_segmentation

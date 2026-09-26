@@ -41,7 +41,6 @@ from notebooklm._client_metrics import ClientMetrics
 from notebooklm._notes import NotesAPI
 from notebooklm._runtime.call_supervisor import CallSupervisor
 from notebooklm._sharing import SharingAPI
-from notebooklm._transport_drain import TransportDrainTracker
 from notebooklm.exceptions import (
     AuthError,
     DecodingError,
@@ -224,7 +223,6 @@ class SupervisedSharingSession:
     def __init__(self) -> None:
         self.supervisor = CallSupervisor(
             metrics=ClientMetrics(),
-            drain_tracker=TransportDrainTracker(),
             max_concurrent_rpcs=None,
         )
         self.supervisor.set_bound_loop(asyncio.get_running_loop())
@@ -274,7 +272,6 @@ class SupervisedNotesSession:
     def __init__(self, *, block_method: str) -> None:
         self.supervisor = CallSupervisor(
             metrics=ClientMetrics(),
-            drain_tracker=TransportDrainTracker(),
             max_concurrent_rpcs=None,
         )
         self.supervisor.set_bound_loop(asyncio.get_running_loop())
@@ -403,6 +400,7 @@ def test_backend_contracts_are_split_and_android_adapters_are_concrete() -> None
 
     assert NotesAPI.__abstractmethods__ == frozenset(
         {
+            "_operation_scope",
             "create",
             "delete",
             "delete_mind_map",
@@ -414,7 +412,14 @@ def test_backend_contracts_are_split_and_android_adapters_are_concrete() -> None
         }
     )
     assert SharingAPI.__abstractmethods__ == frozenset(
-        {"get_status", "remove_user", "set_public", "set_users", "set_view_level"}
+        {
+            "_operation_scope",
+            "get_status",
+            "remove_user",
+            "set_public",
+            "set_users",
+            "set_view_level",
+        }
     )
     assert AndroidNotesAPI.__abstractmethods__ == frozenset()
     assert AndroidSharingAPI.__abstractmethods__ == frozenset()
@@ -436,6 +441,7 @@ def test_backend_contracts_are_split_and_android_adapters_are_concrete() -> None
         name: str(inspect.signature(getattr(AndroidNotesAPI, name)))
         for name in NotesAPI.__abstractmethods__
     } == {
+        "_operation_scope": "(self, label: 'str') -> 'AsyncIterator[OperationLease]'",
         "list": "(self, notebook_id: 'str') -> 'builtins.list[Note]'",
         "get": "(self, notebook_id: 'str', note_id: 'str') -> 'Note'",
         "get_or_none": "(self, notebook_id: 'str', note_id: 'str') -> 'Note | None'",
@@ -1050,7 +1056,7 @@ async def test_note_create_readback_completes_in_one_epoch_during_graceful_drain
     generation = session.supervisor._current
     assert generation is not None
     assert generation.in_flight == 0
-    assert generation.drain._in_flight_posts == 0
+    assert generation.in_flight == 0
 
 
 @pytest.mark.asyncio
@@ -1072,7 +1078,7 @@ async def test_note_delete_cancellation_settles_scope_without_polling() -> None:
     generation = session.supervisor._current
     assert generation is not None
     assert generation.in_flight == 0
-    assert generation.drain._in_flight_posts == 0
+    assert generation.in_flight == 0
 
 
 @pytest.mark.asyncio
@@ -1180,7 +1186,7 @@ async def test_sharing_set_public_readback_completes_during_graceful_drain() -> 
     generation = session.supervisor._current
     assert generation is not None
     assert generation.in_flight == 0
-    assert generation.drain._in_flight_posts == 0
+    assert generation.in_flight == 0
 
 
 @pytest.mark.asyncio
@@ -1199,7 +1205,7 @@ async def test_sharing_set_public_cancellation_settles_operation_without_readbac
     generation = session.supervisor._current
     assert generation is not None
     assert generation.in_flight == 0
-    assert generation.drain._in_flight_posts == 0
+    assert generation.in_flight == 0
 
 
 @pytest.mark.asyncio
@@ -1393,3 +1399,374 @@ async def test_sharing_status_five_maps_to_notebook_not_found() -> None:
         await _sharing(mutation_session)[0].set_public("missing-project", True)
     assert mutation_session.calls[0][2]["replay_safe"] is False
     assert mutation_session.calls[0][2]["expected_epoch"] == 7
+
+
+# ===========================================================================
+# Sharing: NOT_FOUND mapping and unconfirmed read-back
+#
+# Every sharing mutation maps a NOT_FOUND onto NotebookNotFoundError and lets
+# any other RPC error through untouched. When the write lands but the follow-up
+# status read fails, the result must be marked unconfirmed: the mutation may
+# already have taken effect (and, for set_users, already sent an invite email),
+# so a caller must not treat it as safely retryable.
+# ===========================================================================
+
+
+def _not_found() -> RPCError:
+    return RPCError("no such project", method_id="m", rpc_code=5)
+
+
+def _denied() -> RPCError:
+    return RPCError("permission denied", method_id="m", rpc_code=7)
+
+
+@pytest.mark.asyncio
+async def test_set_public_maps_not_found_to_the_typed_notebook_error() -> None:
+    session = SequencedSession({SHARE_PROJECT_METHOD: [_not_found()]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(NotebookNotFoundError) as caught:
+        await api.set_public("nb-missing", True)
+
+    assert caught.value.__cause__ is not None
+
+
+@pytest.mark.asyncio
+async def test_set_public_lets_other_rpc_errors_through_unchanged() -> None:
+    denied = _denied()
+    session = SequencedSession({SHARE_PROJECT_METHOD: [denied]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(RPCError) as caught:
+        await api.set_public("nb-1", True)
+
+    assert caught.value is denied
+
+
+@pytest.mark.asyncio
+async def test_a_landed_set_public_with_a_failed_read_back_is_unconfirmed() -> None:
+    session = SequencedSession(
+        {
+            SHARE_PROJECT_METHOD: [exact_sharing_pb2.ShareProjectResponse()],
+            GET_PROJECT_DETAILS_METHOD: [NetworkError("status read lost")],
+        }
+    )
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(NetworkError) as caught:
+        await api.set_public("nb-1", True)
+
+    assert getattr(caught.value, "unconfirmed", False) is True
+
+
+@pytest.mark.asyncio
+async def test_set_view_level_maps_not_found_to_the_typed_notebook_error() -> None:
+    session = SequencedSession({MUTATE_PROJECT_METHOD: [_not_found()]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(NotebookNotFoundError):
+        await api.set_view_level("nb-missing", ShareViewLevel.FULL_NOTEBOOK)
+
+
+@pytest.mark.asyncio
+async def test_set_view_level_lets_other_rpc_errors_through_unchanged() -> None:
+    denied = _denied()
+    session = SequencedSession({MUTATE_PROJECT_METHOD: [denied]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(RPCError) as caught:
+        await api.set_view_level("nb-1", ShareViewLevel.FULL_NOTEBOOK)
+
+    assert caught.value is denied
+
+
+@pytest.mark.asyncio
+async def test_a_landed_view_level_change_with_a_failed_read_back_is_unconfirmed() -> None:
+    session = SequencedSession(
+        {
+            MUTATE_PROJECT_METHOD: [read_pb2.Project(id="nb-1")],
+            GET_PROJECT_DETAILS_METHOD: [ServerError("status read failed")],
+        }
+    )
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(ServerError) as caught:
+        await api.set_view_level("nb-1", ShareViewLevel.FULL_NOTEBOOK)
+
+    assert getattr(caught.value, "unconfirmed", False) is True
+
+
+@pytest.mark.asyncio
+async def test_a_successful_view_level_change_reports_the_requested_level() -> None:
+    fake = FakeNotesSharingServer()
+    api, _compat = _sharing(fake)
+
+    status = await api.set_view_level("nb-1", ShareViewLevel.FULL_NOTEBOOK)
+
+    assert status.view_level is ShareViewLevel.FULL_NOTEBOOK
+    assert fake.view_level == ShareViewLevel.FULL_NOTEBOOK.value
+
+
+@pytest.mark.asyncio
+async def test_set_users_maps_not_found_to_the_typed_notebook_error() -> None:
+    session = SequencedSession({SHARE_PROJECT_METHOD: [_not_found()]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(NotebookNotFoundError):
+        await api.set_users("nb-missing", [("a@example.test", SharePermission.VIEWER)])
+
+
+@pytest.mark.asyncio
+async def test_set_users_lets_other_rpc_errors_through_unchanged() -> None:
+    denied = _denied()
+    session = SequencedSession({SHARE_PROJECT_METHOD: [denied]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(RPCError) as caught:
+        await api.set_users("nb-1", [("a@example.test", SharePermission.VIEWER)])
+
+    assert caught.value is denied
+
+
+@pytest.mark.asyncio
+async def test_a_landed_grant_with_a_failed_read_back_is_unconfirmed() -> None:
+    """An invite email may already have been sent — never look safe to retry."""
+    session = SequencedSession(
+        {
+            SHARE_PROJECT_METHOD: [exact_sharing_pb2.ShareProjectResponse()],
+            GET_PROJECT_DETAILS_METHOD: [NetworkError("status read lost")],
+        }
+    )
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(NetworkError) as caught:
+        await api.set_users("nb-1", [("a@example.test", SharePermission.VIEWER)])
+
+    assert getattr(caught.value, "unconfirmed", False) is True
+
+
+@pytest.mark.asyncio
+async def test_remove_user_maps_not_found_to_the_typed_notebook_error() -> None:
+    session = SequencedSession({SHARE_PROJECT_METHOD: [_not_found()]})
+    api = AndroidSharingAPI(_session(session))
+
+    with pytest.raises(NotebookNotFoundError):
+        await api.remove_user("nb-missing", "a@example.test")
+
+
+# ===========================================================================
+# Notes: confirmation policy
+#
+# Every mutation distinguishes three outcomes: confirmed, refused, and
+# *unconfirmed*. The last is load-bearing — a caller that retries an
+# unconfirmed create duplicates the note, so a create whose row cannot be
+# decoded or validated must never be reported as either success or failure.
+# ===========================================================================
+
+
+def test_a_notes_api_needs_at_least_one_deletion_poll_attempt() -> None:
+    session = SequencedSession({})
+
+    with pytest.raises(ValueError, match="at least one attempt"):
+        AndroidNotesAPI(_session(session), deletion_poll_delays=())
+
+
+@pytest.mark.asyncio
+async def test_a_create_whose_row_cannot_be_decoded_is_unconfirmed() -> None:
+    """The envelope proves dispatch; an unusable row cannot say which row landed."""
+    session = SequencedSession(
+        {CREATE_NOTE_METHOD: [notes_pb2.CreateNoteResponse(note=notes_pb2.ProjectNote(id=""))]}
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(DecodingError) as caught:
+        await api.create("nb-1", title="T", content="B")
+
+    assert getattr(caught.value, "unconfirmed", False) is True
+
+
+@pytest.mark.asyncio
+async def test_a_create_whose_read_back_is_unavailable_returns_the_validated_response() -> None:
+    """A failed *optional* verification must not make a confirmed create ambiguous."""
+    created = notes_pb2.ProjectNote(id="note-created", name="T", content="B")
+    session = SequencedSession(
+        {
+            CREATE_NOTE_METHOD: [notes_pb2.CreateNoteResponse(note=created)],
+            GET_NOTES_METHOD: [NetworkError("verification read lost")],
+        }
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    note = await api.create("nb-1", title="T", content="B")
+
+    assert note.id == "note-created"
+
+
+@pytest.mark.asyncio
+async def test_a_create_whose_row_is_not_yet_visible_returns_the_validated_response() -> None:
+    created = notes_pb2.ProjectNote(id="note-created", name="T", content="B")
+    session = SequencedSession(
+        {
+            CREATE_NOTE_METHOD: [notes_pb2.CreateNoteResponse(note=created)],
+            GET_NOTES_METHOD: [notes_pb2.GetNotesResponse(notes=[])],
+        }
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    note = await api.create("nb-1", title="T", content="B")
+
+    assert note.id == "note-created"
+
+
+@pytest.mark.asyncio
+async def test_a_create_whose_read_back_disagrees_is_unconfirmed() -> None:
+    """The row landed but carries different content — neither success nor failure."""
+    created = notes_pb2.ProjectNote(id="note-created", name="T", content="B")
+    divergent = notes_pb2.ProjectNote(id="note-created", name="OTHER", content="OTHER")
+    session = SequencedSession(
+        {
+            CREATE_NOTE_METHOD: [notes_pb2.CreateNoteResponse(note=created)],
+            GET_NOTES_METHOD: [
+                notes_pb2.GetNotesResponse(notes=[notes_pb2.NoteOrStatus(note=divergent)])
+            ],
+        }
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(DecodingError) as caught:
+        await api.create("nb-1", title="T", content="B")
+
+    assert getattr(caught.value, "unconfirmed", False) is True
+
+
+@pytest.mark.asyncio
+async def test_updating_an_absent_note_reports_it_as_not_found() -> None:
+    session = SequencedSession({GET_NOTES_METHOD: [notes_pb2.GetNotesResponse(notes=[])]})
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(NoteNotFoundError):
+        await api.update("nb-1", "note-absent", title="T", content="B")
+
+
+def _note_row(note_id: str = "note-1", *, title: str = "T", content: str = "B") -> Any:
+    return notes_pb2.GetNotesResponse(
+        notes=[
+            notes_pb2.NoteOrStatus(
+                note=notes_pb2.ProjectNote(
+                    id=note_id,
+                    name=title,
+                    content=content,
+                    metadata=notes_pb2.NoteMetadata(type=notes_pb2.USER_WRITTEN),
+                )
+            )
+        ]
+    )
+
+
+@pytest.mark.asyncio
+async def test_reading_an_absent_note_reports_it_as_not_found() -> None:
+    session = SequencedSession({GET_NOTES_METHOD: [notes_pb2.GetNotesResponse(notes=[])]})
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(NoteNotFoundError):
+        await api.get("nb-1", "note-absent")
+
+
+@pytest.mark.asyncio
+async def test_an_update_that_returns_a_different_note_identity_is_drift() -> None:
+    """Silently accepting it would report another note's row as this one's."""
+    session = SequencedSession(
+        {
+            GET_NOTES_METHOD: [_note_row()],
+            MUTATE_NOTE_METHOD: [
+                notes_pb2.MutateNoteResponse(
+                    note=notes_pb2.ProjectNote(id="other-note", name="T", content="B")
+                )
+            ],
+        }
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(DecodingError, match="changed note identity"):
+        await api.update("nb-1", "note-1", title="T", content="B")
+
+
+@pytest.mark.asyncio
+async def test_an_update_whose_row_vanishes_before_read_back_reports_not_found() -> None:
+    session = SequencedSession(
+        {
+            GET_NOTES_METHOD: [_note_row(), notes_pb2.GetNotesResponse(notes=[])],
+            MUTATE_NOTE_METHOD: [
+                notes_pb2.MutateNoteResponse(
+                    note=notes_pb2.ProjectNote(id="note-1", name="T", content="B")
+                )
+            ],
+        }
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(NoteNotFoundError):
+        await api.update("nb-1", "note-1", title="T", content="B")
+
+
+@pytest.mark.asyncio
+async def test_deleting_an_already_absent_note_issues_no_write() -> None:
+    """Delete is idempotent — the preflight short-circuits it."""
+    session = SequencedSession({GET_NOTES_METHOD: [notes_pb2.GetNotesResponse(notes=[])]})
+    api = AndroidNotesAPI(_session(session))
+
+    await api.delete("nb-1", "note-absent")
+
+    assert [method for method, _req, _kw in session.calls] == [GET_NOTES_METHOD]
+
+
+@pytest.mark.asyncio
+async def test_a_concurrent_delete_reported_as_not_found_is_the_idempotent_outcome() -> None:
+    """The preflight proved it existed, so a status-5 means someone else won."""
+    session = SequencedSession(
+        {
+            GET_NOTES_METHOD: [_note_row()],
+            DELETE_NOTES_METHOD: [RPCError("gone", method_id="m", rpc_code=5)],
+        }
+    )
+    api = AndroidNotesAPI(_session(session))
+
+    await api.delete("nb-1", "note-1")
+
+
+@pytest.mark.asyncio
+async def test_a_delete_refused_for_another_reason_propagates() -> None:
+    denied = RPCError("permission denied", method_id="m", rpc_code=7)
+    session = SequencedSession({GET_NOTES_METHOD: [_note_row()], DELETE_NOTES_METHOD: [denied]})
+    api = AndroidNotesAPI(_session(session))
+
+    with pytest.raises(RPCError) as caught:
+        await api.delete("nb-1", "note-1")
+
+    assert caught.value is denied
+
+
+@pytest.mark.asyncio
+async def test_a_delete_polls_until_absence_becomes_visible() -> None:
+    """The row stays readable for one poll, then disappears."""
+    slept: list[float] = []
+
+    async def _sleep(delay: float) -> None:
+        slept.append(delay)
+
+    session = SequencedSession(
+        {
+            GET_NOTES_METHOD: [
+                _note_row(),
+                _note_row(),
+                notes_pb2.GetNotesResponse(notes=[]),
+            ],
+            DELETE_NOTES_METHOD: [notes_pb2.DeleteNotesResponse()],
+        }
+    )
+    api = AndroidNotesAPI(_session(session), sleep=_sleep, deletion_poll_delays=(0.0, 0.05))
+
+    await api.delete("nb-1", "note-1")
+
+    # The first attempt has a zero delay and must not sleep at all.
+    assert slept == [0.05]

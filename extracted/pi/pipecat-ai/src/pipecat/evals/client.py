@@ -21,7 +21,7 @@ import mimetypes
 import time
 from collections import deque
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -71,7 +71,6 @@ from pipecat.frames.frames import (
     TTSStartedFrame,
     TTSStoppedFrame,
     TTSTextFrame,
-    UninterruptibleFrame,
     VADUserStartedSpeakingFrame,
     VADUserStoppedSpeakingFrame,
 )
@@ -123,7 +122,7 @@ class _BotSegmentTranscriptionFrame(TranscriptionFrame):
 
 
 @dataclass
-class _BotSegmentTranscribedFrame(DataFrame, UninterruptibleFrame):
+class _BotSegmentTranscribedFrame(DataFrame):
     """Closes a segment's transcription run, whatever it yielded.
 
     Sent after the run's frames, it reaches the sink once the aggregator has
@@ -132,6 +131,8 @@ class _BotSegmentTranscribedFrame(DataFrame, UninterruptibleFrame):
     this frame passes. Uninterruptible because a transcript that opens a turn
     also raises an interruption, which flushes the queued frames behind it.
     """
+
+    interruptible: bool = field(default=False, init=False)
 
 
 def _tag_bot_segments(stt: SegmentedSTTService, starts: "deque[float]") -> None:
@@ -470,6 +471,10 @@ class EvalClient:
         self._user_tts = user_tts
         self._bot_stt = bot_stt
         self._persona = persona
+        # The aggregator that turns the bot's transcribed speech into turns
+        # (audio mode), kept so a send that talks over the bot can drop what
+        # it holds of the bot's speech from before the send.
+        self._bot_turns: LLMUserAggregator | None = None
 
         # The eval pipeline's worker (built by start()) and the runner task driving it.
         self._worker: PipelineWorker | None = None
@@ -629,6 +634,7 @@ class EvalClient:
         Args:
             text: The user's turn.
         """
+        await self._drop_bot_speech_if_talking_over()
         await self.send(RTVI.Message(**self._text_turn_message(text)))
 
     async def send_dtmf(self, keys: str) -> None:
@@ -639,6 +645,7 @@ class EvalClient:
         Args:
             keys: The keys to press, in order.
         """
+        await self._drop_bot_speech_if_talking_over()
         await self.send(self._message("dtmf", {"buttons": list(keys)}))
 
     async def send_image(self, image_path: str) -> None:
@@ -666,6 +673,7 @@ class EvalClient:
             text: What the user says.
         """
         assert self._sink is not None  # pipeline built before any send
+        await self._drop_bot_speech_if_talking_over()
         await self._sink.inject(TTSSpeakFrame(text))
 
     async def play(self, path: str) -> None:
@@ -678,6 +686,7 @@ class EvalClient:
             path: Path to the audio file.
         """
         assert self._sink is not None  # pipeline built before any send
+        await self._drop_bot_speech_if_talking_over()
         pcm, sample_rate = await load_user_audio(path)
         for frame in (
             TTSStartedFrame(),
@@ -685,6 +694,21 @@ class EvalClient:
             TTSStoppedFrame(),
         ):
             await self._sink.inject(frame)
+
+    async def _drop_bot_speech_if_talking_over(self) -> None:
+        """Before a send that talks over the bot, drop its speech held in an open turn.
+
+        An ordinary send waits for the bot's speech to be transcribed and
+        closed into a turn. A send over a speaking bot cannot, and the bot's
+        turn open at that moment holds transcripts of what it said before the
+        send; left there, they would close into a turn after the bot's LLM has
+        restarted and pass for the reply. The transcripts still with the STT
+        are dropped by the gate as they land (see :class:`_BotSpeechGate`).
+        """
+        if self._bot_turns is None or not self._stream.bot_speaking:
+            return
+        self._trace.log("discard: bot speech held in its open turn before the interrupting send")
+        await self._bot_turns.reset()
 
     async def configure_persona(self, instruction: str) -> None:
         """Give the persona LLM its instruction, and say whether its replies are spoken.
@@ -784,11 +808,8 @@ class EvalClient:
             if isinstance(bot_stt, SegmentedSTTService):
                 starts = deque()
                 _tag_bot_segments(bot_stt, starts)
-            inbound += [
-                bot_stt,
-                _BotSpeechGate(self._stream, self._trace, starts),
-                self._bot_turn_aggregator(context),
-            ]
+            self._bot_turns = self._bot_turn_aggregator(context)
+            inbound += [bot_stt, _BotSpeechGate(self._stream, self._trace, starts), self._bot_turns]
 
         speech = [user_tts] if user_tts is not None else []
         if persona is None:

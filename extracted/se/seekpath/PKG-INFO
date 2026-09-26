@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seekpath
-Version: 2.2.1
+Version: 2.2.2
 Summary: A module to obtain and visualize k-vector coefficients and obtain band paths in the Brillouin zone of crystal structures
 Keywords: path,band structure,Brillouin,crystallography,physics,primitive cell,conventional cell
 Author: Giovanni Pizzi
@@ -20,6 +20,7 @@ Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 License-File: LICENSE.txt
 Requires-Dist: numpy>=1.0
+Requires-Dist: packaging
 Requires-Dist: spglib>=1.14.1
 Requires-Dist: scipy>=1 ; extra == "bz"
 Requires-Dist: black==23.3.0 ; extra == "dev"
@@ -27,7 +28,7 @@ Requires-Dist: pre-commit~=3.5 ; extra == "dev"
 Requires-Dist: prospector==1.11.0 ; extra == "dev"
 Requires-Dist: pytest==7.3.1 ; extra == "dev"
 Requires-Dist: sphinx~=7.1.0 ; extra == "docs"
-Project-URL: Downloads, https://github.com/materialscloud-org/seekpath/archive/v2.2.1.tar.gz
+Project-URL: Downloads, https://github.com/materialscloud-org/seekpath/archive/v2.2.2.tar.gz
 Project-URL: Homepage, https://github.com/materialscloud-org/seekpath
 Provides-Extra: bz
 Provides-Extra: dev

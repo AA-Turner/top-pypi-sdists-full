@@ -17,7 +17,8 @@ import builtins
 import logging
 from typing import Any
 
-from ..exceptions import ArtifactNotFoundError, DecodingError, ValidationError
+from .._artifacts import _ArtifactCopyResult
+from .._idempotency import call_unconfirmed_on_transport_loss
 from ..types import (
     ArtifactCustomizationChoices,
     CopiedArtifact,
@@ -26,8 +27,8 @@ from ..types import (
 )
 from .artifact_proto import ARTIFACTS_PROTO as _PROTO
 from .codecs.artifacts import decode_artifact
+from .epoch import workflow_epoch_for
 from .session import AndroidSession
-from .write_safety import call_unconfirmed_on_transport_loss
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +56,12 @@ class AndroidArtifactTransferMixin:
 
     _transport: AndroidSession
 
-    async def copy(
+    async def _send_copy(
         self,
         notebook_id: str,
         artifact_ids: builtins.list[str],
         target_notebook_id: str,
-    ) -> builtins.list[CopiedArtifact]:
+    ) -> _ArtifactCopyResult:
         """Copy ``artifact_ids`` into ``target_notebook_id`` (``CopyArtifactsAsync``).
 
         Request: context #1, bare-string artifact ids #2, target project #3
@@ -70,27 +71,23 @@ class AndroidArtifactTransferMixin:
         so an empty mapping raises :class:`ArtifactNotFoundError`.
         """
         del notebook_id  # The route is addressed by artifact ids + target alone.
-        if not artifact_ids:
-            raise ValidationError("artifact_ids must not be empty")
-        if any(not artifact_id for artifact_id in artifact_ids):
-            raise ValidationError("artifact_ids must not contain empty entries")
-        if not target_notebook_id:
-            raise ValidationError("target_notebook_id must not be empty")
         request = _PROTO.CopyArtifactsAsyncRequest(
             request_context=_request_context(),
             artifact_ids=list(artifact_ids),
             target_project_id=target_notebook_id,
         )
-        async with self._transport.operation_scope("artifacts.copy") as lease:
-            response = await call_unconfirmed_on_transport_loss(
-                lambda: self._transport.unary(
-                    COPY_ARTIFACTS_ASYNC_METHOD,
-                    request,
-                    replay_safe=False,
-                    response_type=_PROTO.CopyArtifactsAsyncResponse,
-                    expected_epoch=lease.epoch,
-                )
-            )
+        response = await call_unconfirmed_on_transport_loss(
+            lambda: self._transport.unary(
+                COPY_ARTIFACTS_ASYNC_METHOD,
+                request,
+                replay_safe=False,
+                response_type=_PROTO.CopyArtifactsAsyncResponse,
+                expected_epoch=workflow_epoch_for(self._transport),
+            ),
+            method=COPY_ARTIFACTS_ASYNC_METHOD,
+            what="CopyArtifactsAsync",
+            chain=None,
+        )
         # Malformed entries are skipped, not fatal: the well-formed ones are the
         # only proof of copies that have already committed.
         copied: builtins.list[CopiedArtifact] = []
@@ -106,36 +103,16 @@ class AndroidArtifactTransferMixin:
                 logger.warning("CopyArtifactsAsync returned a malformed mapping entry")
                 continue
             copied.append(CopiedArtifact(original_id=entry.source_artifact_id, artifact=artifact))
-        if not copied:
-            if malformed:
-                raise DecodingError(
-                    "CopyArtifactsAsync returned only malformed mapping entries",
-                    method_id=COPY_ARTIFACTS_ASYNC_METHOD,
-                )
-            raise ArtifactNotFoundError(
-                ", ".join(artifact_ids), method_id=COPY_ARTIFACTS_ASYNC_METHOD
-            )
-        missing = set(artifact_ids) - {item.original_id for item in copied}
-        if missing:
-            logger.warning(
-                "CopyArtifactsAsync copied %d of %d artifact(s) into %s; not copied: %s",
-                len(copied),
-                len(artifact_ids),
-                target_notebook_id,
-                ", ".join(sorted(missing)),
-            )
-        return copied
+        return _ArtifactCopyResult(
+            copied,
+            COPY_ARTIFACTS_ASYNC_METHOD,
+            malformed_count=malformed,
+        )
 
-    async def get_customization_choices(
+    async def _read_customization_choices(
         self, notebook_id: str | None = None
     ) -> ArtifactCustomizationChoices:
-        """Return the Studio option tables (``GetArtifactCustomizationChoices``).
-
-        Account-level: an empty request, a bogus project id and every
-        ``artifact_type`` returned the identical 3238-byte table live, so only
-        the request context is required; ``project_id`` is sent when given to
-        mirror the app's exact request shape.
-        """
+        """Read and decode the Android customization table."""
         request = _PROTO.GetArtifactCustomizationChoicesRequest(request_context=_request_context())
         if notebook_id:
             request.project_id = notebook_id

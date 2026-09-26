@@ -17,7 +17,12 @@ from moyopy._data import (
 )
 
 class MoyoDataset:
-    """A dataset containing symmetry information of the input crystal structure."""
+    """A dataset containing symmetry information of the input crystal structure.
+
+    See the [returned-cell specification](https://spglib.github.io/moyo/standardization/#returned-cell-specification)
+    for the geometry and symmetry of the standardized cells.
+    Both the lattice and atomic positions are refined for either value of ``rotate_basis``.
+    """
     def __init__(
         self,
         cell: Cell,
@@ -39,8 +44,8 @@ class MoyoDataset:
         setting: Setting | None
             Preference for the setting of the space group.
         rotate_basis: bool
-            Whether to rotate the basis vectors of the input cell to those of the standardized
-            cell.
+            Whether to apply the canonical Cartesian orientation to the refined lattice.
+            Lattice and positions are refined for either value.
         """
     # Space-group type
     @property
@@ -76,30 +81,27 @@ class MoyoDataset:
     def std_cell(self) -> Cell:
         """Standardized cell.
 
-        The input cell is related to the standardized cell by
-        ``(std_linear, std_origin_shift)`` and ``std_rotation_matrix``:
+        The selected coordinate system, before lattice and position refinement, is::
 
-        Lattice::
+            basis_selected = cell.basis.T @ std_linear
+            x_selected = np.linalg.inv(std_linear) @ (x_input - std_origin_shift)
 
-            std_cell.basis.T = std_rotation_matrix @ cell.basis.T @ std_linear
-
-        Fractional positions::
-
-            x_std = np.linalg.inv(std_linear) @ (x_input - std_origin_shift)
-
-        ``std_rotation_matrix`` is a rigid rotation (orthogonal matrix) applied
-        only to the Cartesian lattice basis. It does not affect fractional
-        coordinates.
+        Both the lattice and positions are then refined to the detected symmetry.
+        See the [returned-cell specification](https://spglib.github.io/moyo/standardization/#returned-cell-specification)
+        for refinement and Cartesian orientation.
         """
     @property
     def std_linear(self) -> list[list[float]]:
-        """Linear part of transformation from the input cell to the standardized cell."""
+        """Linear part of the transformation from the input cell to ``std_cell``."""
     @property
     def std_origin_shift(self) -> list[float]:
-        """Origin shift of transformation from the input cell to the standardized cell."""
+        """Origin shift of the transformation from the input cell to ``std_cell``."""
     @property
     def std_rotation_matrix(self) -> list[list[float]]:
-        """Rigid rotation (orthogonal matrix) applied to the lattice basis."""
+        """Proper Cartesian rotation applied after lattice refinement.
+
+        Identity when ``rotate_basis`` is false; it does not encode the lattice stretch.
+        """
     @property
     def pearson_symbol(self) -> str:
         """Pearson symbol for standardized cell."""
@@ -108,18 +110,15 @@ class MoyoDataset:
     def prim_std_cell(self) -> Cell:
         """Primitive standardized cell.
 
-        Same transformation convention as the standardized cell above::
-
-            prim_std_cell.basis.T = std_rotation_matrix @ cell.basis.T @ prim_std_linear
-            x_prim_std = np.linalg.inv(prim_std_linear) @ (x_input - prim_std_origin_shift)
+        Uses ``prim_std_linear`` and ``prim_std_origin_shift`` with the same
+        pre-refinement coordinate convention as ``std_cell``.
         """
     @property
     def prim_std_linear(self) -> list[list[float]]:
-        """Linear part of transformation from the input cell to the primitive standardized cell."""
+        """Linear part of the transformation from the input cell to ``prim_std_cell``."""
     @property
     def prim_std_origin_shift(self) -> list[float]:
-        """Origin shift of transformation from the input cell to the primitive standardized
-        cell."""
+        """Origin shift of the transformation from the input cell to ``prim_std_cell``."""
     @property
     def mapping_std_prim(self) -> list[int]:
         """Mapping sites in the input cell to those in the primitive standardized cell.
@@ -224,8 +223,8 @@ class MoyoCollinearMagneticDataset:
         is_axial: bool
             Whether the magnetic moments are axial on improper operations.
         rotate_basis: bool
-            Whether to rotate the basis vectors of the input cell to those of the standardized
-            cell.
+            Whether to apply the canonical Cartesian orientation to the refined lattice.
+            Lattice, positions, and magnetic moments are refined for either value.
         """
     # Magnetic space-group type
     @property
@@ -247,52 +246,41 @@ class MoyoCollinearMagneticDataset:
     def std_mag_cell(self) -> CollinearMagneticCell:
         """Standardized magnetic cell.
 
-        The input magnetic cell is related to the standardized magnetic cell by
-        ``(std_linear, std_origin_shift)`` and ``std_rotation_matrix``:
-
-        Lattice::
-
-            std_mag_cell.cell.basis.T = std_rotation_matrix @ mag_cell.cell.basis.T @ std_linear
-
-        Fractional positions::
-
-            x_std = np.linalg.inv(std_linear) @ (x_input - std_origin_shift)
-
-        ``std_rotation_matrix`` is a rigid rotation (orthogonal matrix) applied
-        only to the Cartesian lattice basis. It does not affect fractional
-        coordinates.
+        Uses the same pre-refinement coordinate convention as ``MoyoDataset.std_cell``.
+        Magnetic moments are rotated by ``std_rotation_matrix``, then averaged under
+        the magnetic group using the refined lattice. Lattice stretch is not applied
+        to magnetic moments.
         """
     @property
     def std_linear(self) -> list[list[float]]:
-        """Linear part of transformation from the input magnetic cell to the standardized
-        magnetic cell."""
+        """Linear part of the transformation from the input magnetic cell to ``std_mag_cell``."""
     @property
     def std_origin_shift(self) -> list[float]:
-        """Origin shift of transformation from the input magnetic cell to the standardized
-        magnetic cell."""
+        """Origin shift of the transformation from the input magnetic cell to ``std_mag_cell``."""
     @property
     def std_rotation_matrix(self) -> list[list[float]]:
-        """Rigid rotation (orthogonal matrix) applied to the lattice basis."""
+        """Proper Cartesian rotation applied to the refined lattice and magnetic moments.
+
+        Identity when ``rotate_basis`` is false; it does not encode the lattice stretch.
+        """
     # Primitive standardized magnetic cell
     @property
     def prim_std_mag_cell(self) -> CollinearMagneticCell:
         """Primitive standardized magnetic cell.
 
-        Same transformation convention as the standardized magnetic cell above::
-
-            prim_std_mag_cell.cell.basis.T = (
-                std_rotation_matrix @ mag_cell.cell.basis.T @ prim_std_linear
-            )
-            x_prim_std = np.linalg.inv(prim_std_linear) @ (x_input - prim_std_origin_shift)
+        Uses ``prim_std_linear`` and ``prim_std_origin_shift`` with the same
+        pre-refinement coordinate convention as ``std_mag_cell``.
         """
     @property
     def prim_std_linear(self) -> list[list[float]]:
-        """Linear part of transformation from the input magnetic cell to the primitive
-        standardized magnetic cell."""
+        """Linear part of the transformation from the input magnetic cell to
+        ``prim_std_mag_cell``.
+        """
     @property
     def prim_std_origin_shift(self) -> list[float]:
-        """Origin shift of transformation from the input magnetic cell to the primitive
-        standardized magnetic cell."""
+        """Origin shift of the transformation from the input magnetic cell to
+        ``prim_std_mag_cell``.
+        """
     @property
     def mapping_std_prim(self) -> list[int]:
         """Mapping sites in the input magnetic cell to those in the primitive standardized
@@ -461,8 +449,8 @@ class MoyoNonCollinearMagneticDataset:
         is_axial: bool
             Whether the magnetic moments are axial on improper operations.
         rotate_basis: bool
-            Whether to rotate the basis vectors of the input cell to those of the standardized
-            cell.
+            Whether to apply the canonical Cartesian orientation to the refined lattice.
+            Lattice, positions, and magnetic moments are refined for either value.
         """
     # Magnetic space-group type
     @property
@@ -484,52 +472,41 @@ class MoyoNonCollinearMagneticDataset:
     def std_mag_cell(self) -> NonCollinearMagneticCell:
         """Standardized magnetic cell.
 
-        The input magnetic cell is related to the standardized magnetic cell by
-        ``(std_linear, std_origin_shift)`` and ``std_rotation_matrix``:
-
-        Lattice::
-
-            std_mag_cell.cell.basis.T = std_rotation_matrix @ mag_cell.cell.basis.T @ std_linear
-
-        Fractional positions::
-
-            x_std = np.linalg.inv(std_linear) @ (x_input - std_origin_shift)
-
-        ``std_rotation_matrix`` is a rigid rotation (orthogonal matrix) applied
-        only to the Cartesian lattice basis. It does not affect fractional
-        coordinates.
+        Uses the same pre-refinement coordinate convention as ``MoyoDataset.std_cell``.
+        Magnetic moments are rotated by ``std_rotation_matrix``, then averaged under
+        the magnetic group using the refined lattice. Lattice stretch is not applied
+        to magnetic moments.
         """
     @property
     def std_linear(self) -> list[list[float]]:
-        """Linear part of transformation from the input magnetic cell to the standardized
-        magnetic cell."""
+        """Linear part of the transformation from the input magnetic cell to ``std_mag_cell``."""
     @property
     def std_origin_shift(self) -> list[float]:
-        """Origin shift of transformation from the input magnetic cell to the standardized
-        magnetic cell."""
+        """Origin shift of the transformation from the input magnetic cell to ``std_mag_cell``."""
     @property
     def std_rotation_matrix(self) -> list[list[float]]:
-        """Rigid rotation (orthogonal matrix) applied to the lattice basis."""
+        """Proper Cartesian rotation applied to the refined lattice and magnetic moments.
+
+        Identity when ``rotate_basis`` is false; it does not encode the lattice stretch.
+        """
     # Primitive standardized magnetic cell
     @property
     def prim_std_mag_cell(self) -> NonCollinearMagneticCell:
         """Primitive standardized magnetic cell.
 
-        Same transformation convention as the standardized magnetic cell above::
-
-            prim_std_mag_cell.cell.basis.T = (
-                std_rotation_matrix @ mag_cell.cell.basis.T @ prim_std_linear
-            )
-            x_prim_std = np.linalg.inv(prim_std_linear) @ (x_input - prim_std_origin_shift)
+        Uses ``prim_std_linear`` and ``prim_std_origin_shift`` with the same
+        pre-refinement coordinate convention as ``std_mag_cell``.
         """
     @property
     def prim_std_linear(self) -> list[list[float]]:
-        """Linear part of transformation from the input magnetic cell to the primitive
-        standardized magnetic cell."""
+        """Linear part of the transformation from the input magnetic cell to
+        ``prim_std_mag_cell``.
+        """
     @property
     def prim_std_origin_shift(self) -> list[float]:
-        """Origin shift of transformation from the input magnetic cell to the primitive
-        standardized magnetic cell."""
+        """Origin shift of the transformation from the input magnetic cell to
+        ``prim_std_mag_cell``.
+        """
     @property
     def mapping_std_prim(self) -> list[int]:
         """Mapping sites in the input magnetic cell to those in the primitive standardized

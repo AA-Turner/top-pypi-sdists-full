@@ -665,6 +665,19 @@ extern "C"{
         new_row_nnz[new_phys_row] = count;
     }
 
+    __global__ void accumulate_hessian_diag__SELL__REAL(
+        const float* __restrict__ values,
+        const unsigned int* __restrict__ colinds,
+        long long total_nnz,
+        float* __restrict__ diag
+    ) {
+        long long idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= total_nnz) return;
+        float v = values[idx];
+        if (v == 0.0f) return;
+        atomicAdd(&diag[colinds[idx]], v * v);
+    }
+
     /**
     * Kernel: fill_after_truncation__SELL__REAL
     * Purpose: Populate the new SELL matrix directly on GPU.
@@ -947,32 +960,13 @@ extern "C"{
         long long total_nnz,
         float* __restrict__ col_sum
     ) {
-        const unsigned full_mask = 0xffffffffu;
-        long long gid = (long long)blockIdx.x * blockDim.x + threadIdx.x;
-        long long stride = (long long)blockDim.x * gridDim.x;
-        int lane = threadIdx.x & 31; 
-
-        for (long long idx = gid; idx < total_nnz; idx += stride) {
-            unsigned int col = col_ind[idx];
-            float v = fabsf(values[idx]); 
-
-            float sum = v;
-            for (int offset = 1; offset <= 16; offset <<= 1) {
-                unsigned int col_down = __shfl_down_sync(full_mask, col, offset);
-                float sum_down = __shfl_down_sync(full_mask, sum, offset); 
-                if (col_down == col) {
-                    sum += sum_down;
-                }
-            }
-
-            unsigned int col_up = __shfl_up_sync(full_mask, col, 1);
-            bool is_head = (lane == 0) || (col != col_up);
-
-            if (is_head && sum > 0.0f) {
-                atomicAdd(&col_sum[col], sum);
-            }
-        }
+        long long idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= total_nnz) return;
+        float v = fabsf(values[idx]);
+        if (v != 0.0f) atomicAdd(&col_sum[col_ind[idx]], v);
     }
+
+    
 
     /**
     * Kernel: accumulate_columns_atomic__COMPLEX
@@ -983,36 +977,14 @@ extern "C"{
         const float2* __restrict__ values,
         const unsigned int* __restrict__ col_ind,
         long long total_nnz,
-        float* __restrict__ col_sum 
+        float* __restrict__ col_sum
     ) {
-        const unsigned full_mask = 0xffffffffu;
-        long long gid = (long long)blockIdx.x * blockDim.x + threadIdx.x;
-        long long stride = (long long)blockDim.x * gridDim.x;
-        int lane = threadIdx.x & 31; 
-
-        for (long long idx = gid; idx < total_nnz; idx += stride) {
-            unsigned int col = col_ind[idx];
-            float2 val = values[idx];
-            
-            float v = hypotf(val.x, val.y); 
-
-            float sum = v;
-            for (int offset = 1; offset <= 16; offset <<= 1) {
-                unsigned int col_down = __shfl_down_sync(full_mask, col, offset);
-                float sum_down = __shfl_down_sync(full_mask, sum, offset);
-                if (col_down == col) {
-                    sum += sum_down;
-                }
-            }
-
-            unsigned int col_up = __shfl_up_sync(full_mask, col, 1);
-            bool is_head = (lane == 0) || (col != col_up);
-
-            if (is_head && sum > 0.0f) {
-                atomicAdd(&col_sum[col], sum);
-            }
-        }
+        long long idx = (long long)blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx >= total_nnz) return;
+        float v = hypotf(values[idx].x, values[idx].y);
+        if (v != 0.0f) atomicAdd(&col_sum[col_ind[idx]], v);
     }
+
 
     /**
     * Kernel: accumulate_abs_columns_atomic__REAL

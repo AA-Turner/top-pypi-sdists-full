@@ -31,6 +31,16 @@ class TestTopup:
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
+    def test_method_create_with_all_params(self, client: Cloudflare) -> None:
+        topup = client.ai_gateway.billing.topup.create(
+            account_id="account_id",
+            amount=5000,
+            payment_method_id="pm_123",
+        )
+        assert_matches_type(TopupCreateResponse, topup, path=["response"])
+
+    @pytest.mark.skip(reason="HTTP 404 error from prism")
+    @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.ai_gateway.billing.topup.with_raw_response.create(
             account_id="account_id",
@@ -124,6 +134,16 @@ class TestAsyncTopup:
         topup = await async_client.ai_gateway.billing.topup.create(
             account_id="account_id",
             amount=5000,
+        )
+        assert_matches_type(TopupCreateResponse, topup, path=["response"])
+
+    @pytest.mark.skip(reason="HTTP 404 error from prism")
+    @parametrize
+    async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        topup = await async_client.ai_gateway.billing.topup.create(
+            account_id="account_id",
+            amount=5000,
+            payment_method_id="pm_123",
         )
         assert_matches_type(TopupCreateResponse, topup, path=["response"])
 

@@ -28,7 +28,7 @@ class TestActiveSession:
         active_session = client.realtime_kit.active_session.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
         )
@@ -40,7 +40,7 @@ class TestActiveSession:
         active_session = client.realtime_kit.active_session.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
             anonymous=True,
@@ -54,7 +54,7 @@ class TestActiveSession:
         response = client.realtime_kit.active_session.with_raw_response.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
         )
@@ -70,7 +70,7 @@ class TestActiveSession:
         with client.realtime_kit.active_session.with_streaming_response.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
         ) as response:
@@ -89,7 +89,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.create_poll(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 options=["string"],
                 question="question",
             )
@@ -107,7 +107,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.create_poll(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 options=["string"],
                 question="question",
             )
@@ -118,7 +118,7 @@ class TestActiveSession:
         active_session = client.realtime_kit.active_session.get_active_session(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(ActiveSessionGetActiveSessionResponse, active_session, path=["response"])
 
@@ -128,7 +128,7 @@ class TestActiveSession:
         response = client.realtime_kit.active_session.with_raw_response.get_active_session(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -142,7 +142,7 @@ class TestActiveSession:
         with client.realtime_kit.active_session.with_streaming_response.get_active_session(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -159,7 +159,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.get_active_session(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -173,7 +173,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.get_active_session(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires active WebRTC session with real participants")
@@ -182,7 +182,7 @@ class TestActiveSession:
         active_session = client.realtime_kit.active_session.kick_all_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(ActiveSessionKickAllParticipantsResponse, active_session, path=["response"])
 
@@ -192,7 +192,7 @@ class TestActiveSession:
         response = client.realtime_kit.active_session.with_raw_response.kick_all_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -206,7 +206,7 @@ class TestActiveSession:
         with client.realtime_kit.active_session.with_streaming_response.kick_all_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -223,7 +223,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.kick_all_participants(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -237,7 +237,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.kick_all_participants(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires active WebRTC session with real participants")
@@ -246,7 +246,7 @@ class TestActiveSession:
         active_session = client.realtime_kit.active_session.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(ActiveSessionKickParticipantsResponse, active_session, path=["response"])
 
@@ -256,7 +256,7 @@ class TestActiveSession:
         active_session = client.realtime_kit.active_session.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_ids=["string"],
             participant_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
         )
@@ -268,7 +268,7 @@ class TestActiveSession:
         response = client.realtime_kit.active_session.with_raw_response.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -282,7 +282,7 @@ class TestActiveSession:
         with client.realtime_kit.active_session.with_streaming_response.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -299,7 +299,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.kick_participants(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -313,7 +313,7 @@ class TestActiveSession:
             client.realtime_kit.active_session.with_raw_response.kick_participants(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
 
@@ -328,7 +328,7 @@ class TestAsyncActiveSession:
         active_session = await async_client.realtime_kit.active_session.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
         )
@@ -340,7 +340,7 @@ class TestAsyncActiveSession:
         active_session = await async_client.realtime_kit.active_session.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
             anonymous=True,
@@ -354,7 +354,7 @@ class TestAsyncActiveSession:
         response = await async_client.realtime_kit.active_session.with_raw_response.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
         )
@@ -370,7 +370,7 @@ class TestAsyncActiveSession:
         async with async_client.realtime_kit.active_session.with_streaming_response.create_poll(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             options=["string"],
             question="question",
         ) as response:
@@ -389,7 +389,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.create_poll(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 options=["string"],
                 question="question",
             )
@@ -407,7 +407,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.create_poll(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 options=["string"],
                 question="question",
             )
@@ -418,7 +418,7 @@ class TestAsyncActiveSession:
         active_session = await async_client.realtime_kit.active_session.get_active_session(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(ActiveSessionGetActiveSessionResponse, active_session, path=["response"])
 
@@ -428,7 +428,7 @@ class TestAsyncActiveSession:
         response = await async_client.realtime_kit.active_session.with_raw_response.get_active_session(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -442,7 +442,7 @@ class TestAsyncActiveSession:
         async with async_client.realtime_kit.active_session.with_streaming_response.get_active_session(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -459,7 +459,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.get_active_session(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -473,7 +473,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.get_active_session(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires active WebRTC session with real participants")
@@ -482,7 +482,7 @@ class TestAsyncActiveSession:
         active_session = await async_client.realtime_kit.active_session.kick_all_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(ActiveSessionKickAllParticipantsResponse, active_session, path=["response"])
 
@@ -492,7 +492,7 @@ class TestAsyncActiveSession:
         response = await async_client.realtime_kit.active_session.with_raw_response.kick_all_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -506,7 +506,7 @@ class TestAsyncActiveSession:
         async with async_client.realtime_kit.active_session.with_streaming_response.kick_all_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -523,7 +523,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.kick_all_participants(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -537,7 +537,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.kick_all_participants(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires active WebRTC session with real participants")
@@ -546,7 +546,7 @@ class TestAsyncActiveSession:
         active_session = await async_client.realtime_kit.active_session.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(ActiveSessionKickParticipantsResponse, active_session, path=["response"])
 
@@ -556,7 +556,7 @@ class TestAsyncActiveSession:
         active_session = await async_client.realtime_kit.active_session.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_ids=["string"],
             participant_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
         )
@@ -568,7 +568,7 @@ class TestAsyncActiveSession:
         response = await async_client.realtime_kit.active_session.with_raw_response.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -582,7 +582,7 @@ class TestAsyncActiveSession:
         async with async_client.realtime_kit.active_session.with_streaming_response.kick_participants(
             meeting_id="meeting_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -599,7 +599,7 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.kick_participants(
                 meeting_id="meeting_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -613,5 +613,5 @@ class TestAsyncActiveSession:
             await async_client.realtime_kit.active_session.with_raw_response.kick_participants(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )

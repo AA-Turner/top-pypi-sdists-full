@@ -86,7 +86,7 @@ class EventsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """Only available for the Waiting Room Advanced subscription.
 
         Creates an event for
@@ -193,9 +193,9 @@ class EventsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
     def update(
@@ -226,7 +226,7 @@ class EventsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """
         Updates a configured event for a waiting room.
 
@@ -330,9 +330,9 @@ class EventsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
     def list(
@@ -406,7 +406,7 @@ class EventsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> EventDeleteResponse:
+    ) -> Optional[EventDeleteResponse]:
         """
         Deletes an event for a waiting room.
 
@@ -439,9 +439,9 @@ class EventsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[EventDeleteResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[EventDeleteResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[EventDeleteResponse], ResultWrapper[EventDeleteResponse]),
+            cast_to=cast(Type[Optional[EventDeleteResponse]], ResultWrapper[EventDeleteResponse]),
         )
 
     def edit(
@@ -472,7 +472,7 @@ class EventsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """
         Patches a configured event for a waiting room.
 
@@ -576,9 +576,9 @@ class EventsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
     def get(
@@ -593,7 +593,7 @@ class EventsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """
         Fetches a single configured event for a waiting room.
 
@@ -626,9 +626,9 @@ class EventsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
 
@@ -683,7 +683,7 @@ class AsyncEventsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """Only available for the Waiting Room Advanced subscription.
 
         Creates an event for
@@ -790,9 +790,9 @@ class AsyncEventsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
     async def update(
@@ -823,7 +823,7 @@ class AsyncEventsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """
         Updates a configured event for a waiting room.
 
@@ -927,9 +927,9 @@ class AsyncEventsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
     def list(
@@ -1003,7 +1003,7 @@ class AsyncEventsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> EventDeleteResponse:
+    ) -> Optional[EventDeleteResponse]:
         """
         Deletes an event for a waiting room.
 
@@ -1036,9 +1036,9 @@ class AsyncEventsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[EventDeleteResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[EventDeleteResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[EventDeleteResponse], ResultWrapper[EventDeleteResponse]),
+            cast_to=cast(Type[Optional[EventDeleteResponse]], ResultWrapper[EventDeleteResponse]),
         )
 
     async def edit(
@@ -1069,7 +1069,7 @@ class AsyncEventsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """
         Patches a configured event for a waiting room.
 
@@ -1173,9 +1173,9 @@ class AsyncEventsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
     async def get(
@@ -1190,7 +1190,7 @@ class AsyncEventsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Event:
+    ) -> Optional[Event]:
         """
         Fetches a single configured event for a waiting room.
 
@@ -1223,9 +1223,9 @@ class AsyncEventsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Event]._unwrapper,
+                post_parser=ResultWrapper[Optional[Event]]._unwrapper,
             ),
-            cast_to=cast(Type[Event], ResultWrapper[Event]),
+            cast_to=cast(Type[Optional[Event]], ResultWrapper[Event]),
         )
 
 

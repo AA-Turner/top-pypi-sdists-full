@@ -30,9 +30,9 @@ from uuid import uuid4
 import pytest
 
 from notebooklm import AuthTokens, NotebookLMClient
-from notebooklm._android import auth as android_auth
 from notebooklm._android import phenotype as android_phenotype
 from notebooklm._android import session as android_session
+from notebooklm.options import AndroidBackendConfig, ClientConfig
 
 from .android_grpc_cassette import (
     ProtoRedactor,
@@ -98,7 +98,7 @@ class CassetteValues:
 
 
 def _fresh_correlations() -> tuple[str, ...]:
-    from notebooklm._android.sources import _CORRELATION_PREFIX
+    from notebooklm._android.source_transfers import _CORRELATION_PREFIX
 
     return tuple(f"{_CORRELATION_PREFIX}{uuid4().hex}" for _ in range(CORRELATION_BUDGET))
 
@@ -163,7 +163,7 @@ def _inject_correlation_names(monkeypatch: pytest.MonkeyPatch, names: tuple[str,
 def _live_client() -> Any:
     """The canonical profile-backed client (honours ``NOTEBOOKLM_PROFILE``)."""
 
-    return NotebookLMClient.from_storage(backend="android")
+    return NotebookLMClient.from_storage(config=ClientConfig(backend=AndroidBackendConfig()))
 
 
 async def create_scratch_notebook() -> ScratchNotebook:
@@ -198,6 +198,8 @@ async def delete_scratch_notebook(scratch: ScratchNotebook) -> None:
 
 
 def _inject_grpc_loader(monkeypatch: pytest.MonkeyPatch, grpc_module: Any) -> None:
+    from notebooklm._android import assembly as android_assembly
+
     production_session = android_session.AndroidSession
 
     def seamed_session(
@@ -205,15 +207,25 @@ def _inject_grpc_loader(monkeypatch: pytest.MonkeyPatch, grpc_module: Any) -> No
         supervisor: Any,
         *,
         timeout: float | None,
+        rate_limit_max_retries: int,
+        server_error_max_retries: int,
+        refresh_retry_delay: float,
+        metrics: Any,
+        sleep: Any,
     ) -> android_session.AndroidSession:
         return production_session(
             bearer_provider,
             supervisor,
             timeout=timeout,
+            rate_limit_max_retries=rate_limit_max_retries,
+            server_error_max_retries=server_error_max_retries,
+            refresh_retry_delay=refresh_retry_delay,
+            metrics=metrics,
+            sleep=sleep,
             grpc_loader=lambda: grpc_module,
         )
 
-    monkeypatch.setattr(android_session, "AndroidSession", seamed_session)
+    monkeypatch.setattr(android_assembly, "AndroidSession", seamed_session)
 
 
 RecordedCallback = Callable[[Path, Path], None]
@@ -240,6 +252,7 @@ async def android_cassette_client(
     question: str = QUESTION,
     phenotype_cassette_path: Path | None = None,
     on_recorded: RecordedCallback | None = None,
+    require_scratch: bool = True,
 ) -> AsyncIterator[tuple[NotebookLMClient, CassetteValues]]:
     """Open the public Android client bound to ``cassette_path`` in the current mode.
 
@@ -255,6 +268,8 @@ async def android_cassette_client(
     phenotype_staging_path: Path | None = None
     phenotype_http_post: Any | None = None
     if phenotype_cassette_path is not None:
+        from notebooklm._android import assembly as android_assembly
+
         from .android_phenotype_http_cassette import build_phenotype_http_post
 
         provider_type = android_phenotype.PhenotypeTokenProvider
@@ -271,13 +286,15 @@ async def android_cassette_client(
             kwargs["http_post"] = phenotype_http_post
             return provider_type(*args, **kwargs)
 
-        monkeypatch.setattr(android_phenotype, "PhenotypeTokenProvider", cassette_provider)
+        monkeypatch.setattr(android_assembly, "PhenotypeTokenProvider", cassette_provider)
     if record:
-        if scratch is None:
+        if scratch is None and require_scratch:
             raise RuntimeError("Recording requires the android_record_scratch fixture")
         values = bind_values(
             redactor,
-            notebook_id=scratch.notebook_id,
+            notebook_id=(
+                scratch.notebook_id if scratch is not None else "unused-account-scoped-notebook"
+            ),
             question=question,
             record=True,
             correlations=_fresh_correlations(),
@@ -340,14 +357,22 @@ async def android_cassette_client(
         sanitizer=compose_sanitizers(normalize_request, redactor),
     )
     bearer = ReplayBearer()
-    monkeypatch.setattr(android_auth, "_make_bearer_provider", lambda _storage_path: bearer)
+    from notebooklm._android import assembly as android_assembly
+
+    monkeypatch.setattr(
+        android_assembly,
+        "_make_bearer_provider",
+        lambda _master_token_reader, _oauth_minter: bearer,
+    )
     _inject_grpc_loader(monkeypatch, replay)
     auth = AuthTokens(
         cookies={"SID": "synthetic-cookie"},
         csrf_token="synthetic-csrf",
         session_id="synthetic-session",
     )
-    async with NotebookLMClient(auth, backend="android") as client:
+    async with NotebookLMClient(
+        auth, config=ClientConfig(backend=AndroidBackendConfig())
+    ) as client:
         assert set(client.backends.values()) == {"android"}
         yield client, values
     if phenotype_http_post is not None:

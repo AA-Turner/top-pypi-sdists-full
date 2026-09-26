@@ -61,6 +61,10 @@ __all__ = [
     "AggTypeLiteral",
     "AppManifest",
     "AppSpec",
+    "AttributeBandConfig",
+    "AttributeCountConfig",
+    "AttributeVoteConfig",
+    "BandSpec",
     "CategoryLiteral",
     "CustomConfig",
     "DerivedMetricSpec",
@@ -1887,6 +1891,320 @@ class FaceRecognitionProfile(ManifestModel):
     )
 
 
+# --- attribute_count / attribute_vote ---------------------------------------
+
+
+class AttributeCountConfig(PrimitiveConfig):
+    """``attribute_count`` — counts by the value of a decoded second-stage attribute.
+
+    The counting half of every chained-classifier app: ``vehicle_type_classification``'s
+    ``vehicle_type_counts`` (``:1007-1014``), ``age_gender_detection``'s per-gender counts,
+    ``face_emotion``'s per-emotion counts.  Reads
+    :attr:`~matrice_analytics.engine.primitives.base.PipelineDetection.attributes`; never
+    looks at a pixel and never runs a model -- the classifier is chained upstream
+    (``classification-primitives.md`` P0).
+
+    ``<value>.count`` is a *level*, so the window publishes two readings of each under two
+    names -- the last frame's and the window's peak (**PY-1**, and the same shape
+    :class:`DetectConfig` uses).  Sourcing one name with two ``agg_type``\\ s cannot produce
+    two numbers.
+    """
+
+    PRIMITIVE: ClassVar[str] = "attribute_count"
+    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "labelled_count",
+            "unknown_count",
+            "other_count",
+            "other_new",
+            "instance_count",
+            "max_confidence",
+        }
+    )
+    STATIC_WINDOW_OUTPUTS: ClassVar[frozenset[str] | None] = frozenset(
+        {
+            "labelled_count",
+            "labelled_count_peak",
+            "unknown_count",
+            "other_count",
+            "other_new",
+            "instance_count",
+            "max_confidence",
+        }
+    )
+    REQUIRES: ClassVar[tuple[str, ...]] = ("detect",)
+
+    kind: Literal["attribute_count"] = "attribute_count"
+    attribute: str = Field(
+        description="The attribute name on the detection, e.g. 'vehicle_type'. Produced by "
+        "intake/attributes.attach_attributes, not by this stage."
+    )
+    subject: list[str] = Field(
+        min_length=1,
+        description="Entity names (from model.entity_mapping) whose detections carry the "
+        "attribute -- usually the detector's coarse classes, e.g. [car, bus, truck].",
+    )
+    values: list[str] = Field(
+        min_length=1,
+        description=(
+            "The attribute's closed vocabulary. Each one becomes a '<value>.count' (a level) "
+            "and a '<value>.new' (a first-ever-sighting event count, summable across "
+            "windows) output a metric can source, which is why it must be declared rather "
+            "than discovered: an undeclared source is a load error, and a runtime-discovered "
+            "legend is not something a dashboard can be built against. A label the producer "
+            "sends that is not listed here is counted in 'other_count'/'other_new' -- "
+            "visible, never dropped (PY-10)."
+        ),
+    )
+    min_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Attribute confidence floor. Below it the detection counts as unknown, "
+        "not as its label -- a low-confidence crop classification is an absence of "
+        "information, and counting it dilutes every bucket.",
+    )
+
+    def frame_output_names(self) -> frozenset[str]:
+        counts = {f"{value}.count" for value in self.values}
+        news = {f"{value}.new" for value in self.values}
+        return self.STATIC_OUTPUTS | counts | news
+
+    def window_output_names(self) -> frozenset[str]:
+        counts = {f"{value}.count" for value in self.values}
+        peaks = {f"{value}.count_peak" for value in self.values}
+        news = {f"{value}.new" for value in self.values}
+        return (self.STATIC_WINDOW_OUTPUTS or frozenset()) | counts | peaks | news
+
+    @model_validator(mode="after")
+    def _check_values_distinct(self) -> "AttributeCountConfig":
+        duplicates = {v for v in self.values if self.values.count(v) > 1}
+        if duplicates:
+            raise ValueError(
+                f"attribute_count declares duplicate values {sorted(duplicates)}. Each value "
+                "becomes one '<value>.count' output, so a duplicate is either a typo or two "
+                "labels the app wants merged -- and merging is the producer's job, not a "
+                "silent collapse here."
+            )
+        return self
+
+
+class AttributeVoteConfig(PrimitiveConfig):
+    """``attribute_vote`` — one stable attribute value per track.
+
+    The primitive ``_REJECTED_PRIMITIVES['attribute_classify']`` asks for by name: *"per-track
+    attribute stabilisation, written four times with four different algorithms (EMA, majority
+    vote, running mean, modal)"*.  The four, with their legacy defaults:
+
+    ================== ========================================== ====== =========================
+    method             legacy source                              window notes
+    ================== ========================================== ====== =========================
+    ``majority``       ``gender_detection.GenderStabilizer``          10  ``include_current: false``
+    ``modal``          ``advanced_tracker.TrackClassAggregator``      30  ``include_current: true``
+    ``ema``            ``face_emotion`` (0.3 current / 0.7 prev)       -  needs ``top_k``
+    (numeric mean)     ``age_detection.AgeSmoother``                  20  use ``attribute_band``
+    ================== ========================================== ====== =========================
+
+    ``include_current`` and ``tie_policy`` are explicit fields because those are exactly the
+    two points where the four implementations disagree, and the disagreement is invisible in
+    the output.  ``TrackClassAggregator``'s docstring claims a tie goes to "the most recent
+    among tied classes"; ``Counter.most_common`` gives it to the **first inserted**, i.e. the
+    oldest.  Porting that silently would keep a documented behaviour that never existed.
+
+    ``ema`` is not implemented by this rollout phase (``classification-primitives.md`` §5.3):
+    it needs the full ``top_k`` probability vector, which
+    :class:`~matrice_analytics.engine.primitives.base.AttributeRef` does not carry.  A manifest
+    naming it validates -- the vocabulary is closed and real -- but construction refuses it
+    loudly rather than degrade to a one-hot vote.
+    """
+
+    PRIMITIVE: ClassVar[str] = "attribute_vote"
+    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset(
+        {"stable_count", "undecided_count", "switch_count", "tracked_count"}
+    )
+    STATIC_WINDOW_OUTPUTS: ClassVar[frozenset[str] | None] = frozenset(
+        {"stable_count", "undecided_count", "switch_count", "switch_total", "tracked_count"}
+    )
+    REQUIRES: ClassVar[tuple[str, ...]] = ("detect", "track")
+
+    kind: Literal["attribute_vote"] = "attribute_vote"
+    attribute: str = Field(description="The attribute name to stabilise.")
+    subject: list[str] = Field(min_length=1, description="Entity names carrying it.")
+    method: Literal["majority", "modal", "ema"] = Field(
+        default="majority",
+        description=(
+            "majority: vote over the track's window, requiring min_votes before it commits. "
+            "modal: the most frequent value, committing immediately (TrackClassAggregator's "
+            "semantics). ema: exponential moving average over the top_k probability vector, "
+            "then argmax (face_emotion's) -- requires the producer to send top_k, and fails "
+            "loudly at construction if the app cannot supply one."
+        ),
+    )
+    window_frames: int = Field(
+        default=10,
+        ge=1,
+        description="Frames of history per track. The legacy values are 10 (majority), "
+        "30 (modal) and 20 (the numeric mean); state it rather than inherit it.",
+    )
+    min_votes: int = Field(
+        default=3,
+        ge=1,
+        description="majority only: how much history before the vote commits. Below it the "
+        "current frame's label passes through unstabilised, which is what "
+        "GenderStabilizer does -- an early frame is not 'undecided', it is unvoted.",
+    )
+    include_current: bool = Field(
+        default=False,
+        description=(
+            "Whether this frame's observation joins the vote it decides. false reproduces "
+            "GenderStabilizer, whose comment calls it out as deliberate: 'majority vote over "
+            "PREVIOUS frames (no current-frame bias)'. true reproduces "
+            "TrackClassAggregator. It changes the result on every flicker frame."
+        ),
+    )
+    tie_policy: Literal["previous", "oldest", "newest"] = Field(
+        default="previous",
+        description=(
+            "Which value wins when two are tied. previous: the track's last committed value "
+            "(GenderStabilizer). oldest: the first-seen among the tied (what "
+            "Counter.most_common actually does, despite TrackClassAggregator's docstring). "
+            "newest: the most recent (what that docstring claims)."
+        ),
+    )
+    min_confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Attribute confidence floor, the same meaning as "
+        "AttributeCountConfig.min_confidence: below it an observation is treated as absent "
+        "for this frame (the track's last committed value holds) rather than as a vote.",
+    )
+    smoothing_weight: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description="ema only: the weight on the current frame. face_emotion uses 0.3 "
+        "current / 0.7 previous.",
+    )
+    expose_attribute_as_category: bool = Field(
+        default=False,
+        description=(
+            "Publish the stabilised value as each detection's wire 'category' via "
+            "PrimitiveOutput.wire_detections, the way line_crossing.expose_corridor_state "
+            "does. This REPLACES the detector's coarse class on the overlay rather than "
+            "sitting beside it, and only one stage per app may set wire_detections -- so it "
+            "is opt-in and mutually exclusive with expose_corridor_state. Prefer the wire's "
+            "Detection.attributes field once it lands (classification-primitives.md P4 "
+            "Option B)."
+        ),
+    )
+    category_format: Literal["value_only", "diagnostic"] = Field(
+        default="value_only",
+        description=(
+            "expose_attribute_as_category only -- what the replaced 'category' string "
+            "contains. value_only: just the stabilised value (every shipped app's "
+            "convention). diagnostic: 'detector | now: <raw current> | stable: <voted>' -- "
+            "the detector's original coarse class plus this frame's raw, unstabilised "
+            "observation plus the voted decision, all in the one wire field the contract "
+            "has (Detection.category is the ONLY overlay label field -- no sub-label exists "
+            "to carry these separately). A debug/demo aid for verifying the vote actually "
+            "differs from the raw signal on a live overlay, not a production default -- "
+            "expect a longer label and unverified truncation behaviour on the real VMS "
+            "client."
+        ),
+    )
+
+
+class BandSpec(ManifestModel):
+    """One named bucket of ``attribute_band``'s scale, e.g. ``Child`` for age <= 19.
+
+    ``upper`` is the band's inclusive upper bound. Omitting it means "and above" -- legal
+    only on the last band, checked by :meth:`AttributeBandConfig._check_bands_ordered`.
+    """
+
+    name: str = Field(min_length=1, description="Becomes a '<name>.count' output.")
+    upper: float | None = Field(
+        default=None,
+        description="Inclusive upper bound, or omitted to mean 'and above' (last band only).",
+    )
+
+
+class AttributeBandConfig(PrimitiveConfig):
+    """``attribute_band`` — a numeric per-detection attribute, averaged per track and banded.
+
+    Replaces ``age_detection.AgeSmoother`` (a 20-frame running mean per track) plus
+    ``_get_age_category`` (the Child/Adult/Senior cut points, ``age <= 19``, ``age <= 60``,
+    else Senior), which are two halves of one operation split across two places in legacy,
+    with the cut points hard-coded in a method body where no manifest can reach them.
+
+    Deliberately separate from ``incident_quantise``: that maps a magnitude to a
+    **severity** and feeds the incident lifecycle. This maps a measurement to a **named
+    bucket** that gets counted. Same arithmetic, different output type, and fusing them
+    would put ``"Senior"`` where a ``Severity`` is expected.
+    """
+
+    PRIMITIVE: ClassVar[str] = "attribute_band"
+    STATIC_OUTPUTS: ClassVar[frozenset[str]] = frozenset(
+        {"measured_count", "unknown_count", "instance_count", "mean_value"}
+    )
+    REQUIRES: ClassVar[tuple[str, ...]] = ("detect", "track")
+
+    kind: Literal["attribute_band"] = "attribute_band"
+    attribute: str = Field(description="The numeric attribute, e.g. 'age'.")
+    subject: list[str] = Field(min_length=1, description="Entity names carrying it.")
+    bands: list[BandSpec] = Field(
+        min_length=1,
+        description="Ordered, ascending, non-overlapping. Each becomes a '<name>.count' "
+        "output. The last band's upper bound may be omitted to mean 'and above'.",
+    )
+    smooth_frames: int = Field(
+        default=20,
+        ge=1,
+        description="Running-mean window per track, in frames. AgeSmoother's 20. A single "
+        "frame's crop-level age estimate is noisy by tens of years; the mean is the "
+        "measurement, not the instant.",
+    )
+
+    def frame_output_names(self) -> frozenset[str]:
+        return self.STATIC_OUTPUTS | {f"{band.name}.count" for band in self.bands}
+
+    @model_validator(mode="after")
+    def _check_bands_ordered(self) -> "AttributeBandConfig":
+        """Ascending and non-overlapping, checked at load.
+
+        Overlapping or out-of-order bands make a value's bucket depend on iteration order,
+        so two readings of one number disagree with no error -- the class of defect this
+        engine's validators exist to remove.
+        """
+        previous: float | None = None
+        for index, band in enumerate(self.bands):
+            is_last = index == len(self.bands) - 1
+            if band.upper is None and not is_last:
+                raise ValueError(
+                    f"attribute_band.bands[{index}] ({band.name!r}) omits 'upper', but it is "
+                    f"not the last band. Only the last band may mean 'and above' -- every "
+                    f"earlier band needs a real upper bound or its range is undefined."
+                )
+            if band.upper is not None and previous is not None and band.upper <= previous:
+                raise ValueError(
+                    f"attribute_band.bands[{index}] ({band.name!r}, upper={band.upper}) is not "
+                    f"greater than the previous band's upper ({previous}). Bands must be "
+                    f"strictly ascending, or a value's bucket depends on iteration order."
+                )
+            if band.upper is not None:
+                previous = band.upper
+        names = [band.name for band in self.bands]
+        duplicates = {name for name in names if names.count(name) > 1}
+        if duplicates:
+            raise ValueError(
+                f"attribute_band declares duplicate band names {sorted(duplicates)}. Each "
+                "becomes one '<name>.count' output, so a duplicate is either a typo or two "
+                "bands the app wants merged -- and merging is a manifest decision, not a "
+                "silent collapse here."
+            )
+        return self
+
+
 class IdentityMatchConfig(PrimitiveConfig):
     """``identity_match`` — count subjects by an identity resolved **upstream**.
 
@@ -2104,6 +2422,9 @@ PipelineStage = Annotated[
         ProximityConfig,
         KeypointPoseConfig,
         SegmentationAreaConfig,
+        AttributeCountConfig,
+        AttributeVoteConfig,
+        AttributeBandConfig,
         IdentityMatchConfig,
         CustomConfig,
     ],
@@ -2128,6 +2449,9 @@ PRIMITIVES: dict[str, type[PrimitiveConfig]] = {
         ProximityConfig,
         KeypointPoseConfig,
         SegmentationAreaConfig,
+        AttributeCountConfig,
+        AttributeVoteConfig,
+        AttributeBandConfig,
         IdentityMatchConfig,
         CustomConfig,
     )
@@ -3040,6 +3364,7 @@ class AppManifest(ManifestModel):
         self._check_entities()
         self._check_detect_floors()
         self._check_ordering()
+        self._check_attribute_order()
         self._check_emits_something()
         self._check_metric_sources()
         self._check_derived()
@@ -3093,6 +3418,10 @@ class AppManifest(ManifestModel):
             elif isinstance(stage, ProximityConfig):
                 check([stage.subject], f"{where}.subject")
                 check([stage.target], f"{where}.target")
+            elif isinstance(
+                stage, (AttributeCountConfig, AttributeVoteConfig, AttributeBandConfig)
+            ):
+                check(stage.subject, f"{where}.subject")
 
     def _check_detect_floors(self) -> None:
         """A ``min_confidence_per_class`` floor for a class the stage does not detect is dead.
@@ -3142,6 +3471,34 @@ class AppManifest(ManifestModel):
             if stage.PRIMITIVE not in seen:
                 # Reference either by explicit name or by primitive name.
                 seen.append(stage.PRIMITIVE)
+
+    def _check_attribute_order(self) -> None:
+        """``attribute_vote`` must run before ``attribute_count`` on the same attribute.
+
+        Not a :attr:`PrimitiveConfig.REQUIRES` dependency -- ``attribute_count`` works with
+        no ``attribute_vote`` stage at all, and :meth:`_check_ordering` already enforces every
+        *unconditional* dependency. This is conditional: only wrong when an app runs both over
+        the same attribute name and gets the order backwards, which is silent — counting
+        unstabilised labels and then stabilising them produces numbers that look plausible and
+        flicker, exactly the failure the four legacy stabilisers each existed to fix
+        (``classification-primitives.md`` §8).
+        """
+        first_count_index: dict[str, int] = {}
+        for index, stage in enumerate(self.pipeline):
+            if isinstance(stage, AttributeCountConfig) and stage.attribute not in first_count_index:
+                first_count_index[stage.attribute] = index
+        for index, stage in enumerate(self.pipeline):
+            if not isinstance(stage, AttributeVoteConfig):
+                continue
+            count_index = first_count_index.get(stage.attribute)
+            if count_index is not None and count_index < index:
+                raise ValueError(
+                    f"pipeline[{count_index}].attribute_count and pipeline[{index}]."
+                    f"{stage.stage_name} both name attribute {stage.attribute!r}, but "
+                    f"attribute_count runs first. Move attribute_vote before attribute_count "
+                    "-- counting unstabilised labels and then stabilising them produces "
+                    "numbers that look plausible and flicker."
+                )
 
     def _check_emits_something(self) -> None:
         if not self.metrics and not self.derived and self.incidents is None:

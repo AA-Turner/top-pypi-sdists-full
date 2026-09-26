@@ -1054,10 +1054,14 @@ SUPER_ADMIN = "super_admin"
 def _current_admin_level() -> str | None:
     """The caller's admin tier from AppContext, or None. The executor's
     admin_only gate already guarantees SOME admin reached here; this decides
-    which tier's authority the statement runs under."""
+    which tier's authority the statement runs under. Outside an admin surface
+    there is no tier at all (THE ADMIN SURFACE, 2026-09-25) — an admin in a
+    normal chat is an ordinary person."""
     try:
-        from matrx_connect import get_app_context
+        from matrx_connect import admin_surface_active, get_app_context
 
+        if not admin_surface_active():
+            return None
         return getattr(get_app_context(), "admin_level", None)
     except Exception:
         return None

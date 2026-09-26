@@ -27,6 +27,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListActorMessagesPaginator,
     ListAgentSpacesPaginator,
     ListApplicationsPaginator,
     ListArtifactsPaginator,
@@ -142,6 +143,8 @@ from .type_defs import (
     ImportSecurityRequirementsOutputTypeDef,
     InitiateProviderRegistrationInputTypeDef,
     InitiateProviderRegistrationOutputTypeDef,
+    ListActorMessagesInputTypeDef,
+    ListActorMessagesOutputTypeDef,
     ListAgentSpacesInputTypeDef,
     ListAgentSpacesOutputTypeDef,
     ListApplicationsRequestTypeDef,
@@ -754,6 +757,17 @@ class SecurityAgentClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#initiate_provider_registration)
         """
 
+    def list_actor_messages(
+        self, **kwargs: Unpack[ListActorMessagesInputTypeDef]
+    ) -> ListActorMessagesOutputTypeDef:
+        """
+        Returns a paginated list of the email MFA messages received for an actor at its
+        server-generated email address, most recent first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/list_actor_messages.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#list_actor_messages)
+        """
+
     def list_agent_spaces(
         self, **kwargs: Unpack[ListAgentSpacesInputTypeDef]
     ) -> ListAgentSpacesOutputTypeDef:
@@ -1194,6 +1208,17 @@ class SecurityAgentClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/verify_target_domain.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#verify_target_domain)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_actor_messages"]
+    ) -> ListActorMessagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityagent/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityagent/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

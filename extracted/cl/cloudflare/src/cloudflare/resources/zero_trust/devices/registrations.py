@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Type, Optional, cast
 from typing_extensions import Literal
 
@@ -63,6 +64,7 @@ class RegistrationsResource(SyncAPIResource):
         include: str | Omit = omit,
         per_page: int | Omit = omit,
         policy: registration_list_params.Policy | Omit = omit,
+        registration_type: Literal["warp", "browser_extension"] | Omit = omit,
         search: str | Omit = omit,
         seen_after: str | Omit = omit,
         seen_before: str | Omit = omit,
@@ -91,6 +93,8 @@ class RegistrationsResource(SyncAPIResource):
               registration response. Supported values are: "policy".
 
           per_page: The maximum number of devices to return in a single response.
+
+          registration_type: Filter by registration client type.
 
           search: Filter by registration details.
 
@@ -132,6 +136,7 @@ class RegistrationsResource(SyncAPIResource):
                         "include": include,
                         "per_page": per_page,
                         "policy": policy,
+                        "registration_type": registration_type,
                         "search": search,
                         "seen_after": seen_after,
                         "seen_before": seen_before,
@@ -280,6 +285,7 @@ class RegistrationsResource(SyncAPIResource):
             cast_to=cast(Type[RegistrationGetResponse], ResultWrapper[RegistrationGetResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def revoke(
         self,
         *,
@@ -292,8 +298,10 @@ class RegistrationsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Revokes a list of WARP registrations.
+        """Revokes a list of WARP registrations.
+
+        Prefer "delete" operation instead,
+        "revoke" does not release virtual IPs.
 
         Args:
           id: A list of registration IDs to revoke.
@@ -321,6 +329,7 @@ class RegistrationsResource(SyncAPIResource):
             cast_to=cast(Type[object], ResultWrapper[object]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def unrevoke(
         self,
         *,
@@ -393,6 +402,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         include: str | Omit = omit,
         per_page: int | Omit = omit,
         policy: registration_list_params.Policy | Omit = omit,
+        registration_type: Literal["warp", "browser_extension"] | Omit = omit,
         search: str | Omit = omit,
         seen_after: str | Omit = omit,
         seen_before: str | Omit = omit,
@@ -421,6 +431,8 @@ class AsyncRegistrationsResource(AsyncAPIResource):
               registration response. Supported values are: "policy".
 
           per_page: The maximum number of devices to return in a single response.
+
+          registration_type: Filter by registration client type.
 
           search: Filter by registration details.
 
@@ -462,6 +474,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
                         "include": include,
                         "per_page": per_page,
                         "policy": policy,
+                        "registration_type": registration_type,
                         "search": search,
                         "seen_after": seen_after,
                         "seen_before": seen_before,
@@ -612,6 +625,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
             cast_to=cast(Type[RegistrationGetResponse], ResultWrapper[RegistrationGetResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def revoke(
         self,
         *,
@@ -624,8 +638,10 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Revokes a list of WARP registrations.
+        """Revokes a list of WARP registrations.
+
+        Prefer "delete" operation instead,
+        "revoke" does not release virtual IPs.
 
         Args:
           id: A list of registration IDs to revoke.
@@ -653,6 +669,7 @@ class AsyncRegistrationsResource(AsyncAPIResource):
             cast_to=cast(Type[object], ResultWrapper[object]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def unrevoke(
         self,
         *,
@@ -711,11 +728,15 @@ class RegistrationsResourceWithRawResponse:
         self.get = to_raw_response_wrapper(
             registrations.get,
         )
-        self.revoke = to_raw_response_wrapper(
-            registrations.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                registrations.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unrevoke = to_raw_response_wrapper(
-            registrations.unrevoke,
+        self.unrevoke = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                registrations.unrevoke,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -735,11 +756,15 @@ class AsyncRegistrationsResourceWithRawResponse:
         self.get = async_to_raw_response_wrapper(
             registrations.get,
         )
-        self.revoke = async_to_raw_response_wrapper(
-            registrations.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                registrations.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unrevoke = async_to_raw_response_wrapper(
-            registrations.unrevoke,
+        self.unrevoke = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                registrations.unrevoke,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -759,11 +784,15 @@ class RegistrationsResourceWithStreamingResponse:
         self.get = to_streamed_response_wrapper(
             registrations.get,
         )
-        self.revoke = to_streamed_response_wrapper(
-            registrations.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                registrations.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unrevoke = to_streamed_response_wrapper(
-            registrations.unrevoke,
+        self.unrevoke = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                registrations.unrevoke,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -783,9 +812,13 @@ class AsyncRegistrationsResourceWithStreamingResponse:
         self.get = async_to_streamed_response_wrapper(
             registrations.get,
         )
-        self.revoke = async_to_streamed_response_wrapper(
-            registrations.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                registrations.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unrevoke = async_to_streamed_response_wrapper(
-            registrations.unrevoke,
+        self.unrevoke = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                registrations.unrevoke,  # pyright: ignore[reportDeprecated],
+            )
         )

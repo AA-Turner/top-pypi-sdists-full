@@ -1,10 +1,22 @@
+"""The experimental test for models that never reach the ``MetaData``.
+
+A model defined but not imported by ``env.py`` is invisible to autogenerate, so its
+table is silently missing from every migration this project generates. Detecting that
+means comparing what a bare import registers against what importing *every* module
+below the model package registers — and the former only holds in a fresh interpreter,
+which is why part of this runs in a subprocess.
+"""
+
 import importlib
 import json
 import logging
 import pkgutil
 import re
 import subprocess  # nosec
-from typing import List, Optional, Set, Tuple
+import sys
+from collections.abc import Callable, Iterator
+from types import ModuleType
+from typing import Any
 
 from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
@@ -22,7 +34,7 @@ try:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
     async_engine_cls = True
-except ImportError:
+except ImportError:  # pragma: no cover
     async_engine_cls = False
 
 
@@ -31,11 +43,11 @@ log = logging.getLogger(__name__)
 
 def test_all_models_register_on_metadata(
     alembic_runner: MigrationContext,
-    model_package: Optional[str] = None,
+    model_package: str | None = None,  # noqa: PT028
     *,
-    offline: bool = False,
-    async_: Optional[bool] = None,
-):
+    offline: bool = False,  # noqa: PT028
+    async_: bool | None = None,  # noqa: PT028
+) -> None:
     """Assert that all tables defined on your `MetaData`, are imported in the `env.py`.
 
     We'll call a "bare import", the minimum import of the model base/MetaData which is
@@ -124,7 +136,7 @@ def test_all_models_register_on_metadata(
 
 def get_bare_import_tableset(
     url: str, *, offline: bool = False, async_: bool = False
-) -> Tuple[List[str], Set[str]]:
+) -> tuple[list[str], set[str]]:
     """Get the set of tables which would have been added to the metadata on a bare ma.models import.
 
     Importantly, this cannot simply import the MetaData directly, as that may have already
@@ -136,7 +148,15 @@ def get_bare_import_tableset(
     """
 
     command = [
-        "python",
+        # `sys.executable`, not the string "python": the child has to import this very
+        # package, so it has to be *this* interpreter. Resolving "python" through PATH
+        # instead finds whichever one happens to be first, which is not the running one
+        # under tox, or under any runner that invokes a venv's interpreter by absolute
+        # path without activating it -- and on Windows is frequently not an interpreter
+        # at all. The failure then surfaces through the `CalledProcessError` handler
+        # below as an `AlembicTestFailure`, i.e. as a problem with the user's migrations
+        # rather than with their environment.
+        sys.executable,
         "-m",
         "pytest_alembic.tests.experimental.collect_clean_alembic_environment",
         url,
@@ -160,7 +180,18 @@ def get_bare_import_tableset(
     return modules, tablenames
 
 
-def parse_collection_output(raw_output: str):
+def parse_collection_output(raw_output: str) -> dict[str, list[str]]:
+    """Extract the JSON payload the collection subprocess printed.
+
+    The subprocess communicates through stdout, which it does not have exclusively:
+    alembic's offline mode prints its own output there too. The payload is therefore
+    wrapped in sentinel tags, and everything outside them is ignored.
+
+    Raises:
+        RuntimeError: If no payload is found, carrying the raw output. This means the
+            subprocess never got as far as reporting, so it indicates a bug here rather
+            than a problem with the migrations under test.
+    """
     # The default env.py offline execution mode, emits extra output that is
     # irrelevant to the expected output that a script execution would normally
     # produce, so we surround it with sentinel content.
@@ -172,7 +203,7 @@ def parse_collection_output(raw_output: str):
     raise RuntimeError(raw_output)
 
 
-def get_full_tableset(*module_names: str) -> Set[str]:
+def get_full_tableset(*module_names: str) -> set[str]:
     """Get the set of full set of tables which are defined.
 
     The theory is that if we import every module in the tree below ma.models, we should
@@ -211,9 +242,9 @@ def get_full_tableset(*module_names: str) -> Set[str]:
 
 def traverse_modules(
     package_name: str,
-    import_module=importlib.import_module,
-    walk_packages=pkgutil.walk_packages,
-):
+    import_module: Callable[..., ModuleType] = importlib.import_module,
+    walk_packages: Callable[..., Any] = pkgutil.walk_packages,
+) -> Iterator[ModuleType]:
     """Dynamically traverse the tree of packages below a given root and import them.
 
     Note this will perform the import of each module, which is an operation which can
@@ -249,6 +280,12 @@ def traverse_modules(
 
 
 def url_to_string(url: URL) -> str:
+    """Render a sqlalchemy URL back to a string, password included.
+
+    The password has to survive, because the string is handed to a subprocess which needs
+    to connect with it. Which call does that has changed across sqlalchemy versions, so
+    the alternatives are tried in turn.
+    """
     try:
         return url.render_as_string(hide_password=False)
     except TypeError:

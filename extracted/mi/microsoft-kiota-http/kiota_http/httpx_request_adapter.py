@@ -487,16 +487,14 @@ class HttpxRequestAdapter(RequestAdapter):
         )
         attribute_span.set_attribute(ERROR_BODY_FOUND_KEY, bool(root_node))
 
+        if not root_node or not error_class:
+            return None
         _get_obj_ctx = trace.set_span_in_context(_throw_failed_resp_span)
         _get_obj_span = tracer.start_span("get_object_value", context=_get_obj_ctx)
-
-        if not root_node:
-            return None
-        error = None
-        if error_class:
-            error = root_node.get_object_value(error_class)
+        try:
+            return root_node.get_object_value(error_class)
+        finally:
             _get_obj_span.end()
-        return error
 
     async def throw_failed_responses(
         self,
@@ -575,7 +573,7 @@ class HttpxRequestAdapter(RequestAdapter):
                 exc = APIError(
                     (
                         "The server returned an unexpected status code and the error registered"
-                        f" for this code failed to deserialize: {type(error)}"
+                        f" for this code failed to deserialize: {response_status_code}"
                     ),
                     response_status_code,
                     response_headers,  # type: ignore
@@ -677,9 +675,11 @@ class HttpxRequestAdapter(RequestAdapter):
             HTTP_REQUEST_METHOD: method.value,
             SERVER_ADDRESS: url.hostname,
             URL_SCHEME: url.scheme,
-            "url.uri_template": request_info.url_template,
         }
 
+        # A request whose URL was set directly (PageIterator, LargeFileUploadTask) has no template
+        if request_info.url_template is not None:
+            otel_attributes["url.uri_template"] = request_info.url_template
         if url.port is not None:
             otel_attributes["http.port"] = str(url.port)
 

@@ -50,7 +50,7 @@ class TestObjects:
             per_page=1,
             prefix="prefix",
             start_after="start_after",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(SyncCursorPagination[ObjectListResponse], object_, path=["response"])
 
@@ -114,7 +114,7 @@ class TestObjects:
             object_key="path/to/my-object.txt",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(ObjectDeleteResponse, object_, path=["response"])
 
@@ -198,7 +198,7 @@ class TestObjects:
             object_key="path/to/my-object.txt",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
             if_modified_since="If-Modified-Since",
             if_none_match="If-None-Match",
         )
@@ -288,7 +288,7 @@ class TestObjects:
             body=b"Example data",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
             cf_r2_storage_class="Standard",
         )
         assert_matches_type(ObjectUploadResponse, object_, path=["response"])
@@ -378,7 +378,7 @@ class TestAsyncObjects:
             per_page=1,
             prefix="prefix",
             start_after="start_after",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(AsyncCursorPagination[ObjectListResponse], object_, path=["response"])
 
@@ -442,7 +442,7 @@ class TestAsyncObjects:
             object_key="path/to/my-object.txt",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(ObjectDeleteResponse, object_, path=["response"])
 
@@ -526,7 +526,7 @@ class TestAsyncObjects:
             object_key="path/to/my-object.txt",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
             if_modified_since="If-Modified-Since",
             if_none_match="If-None-Match",
         )
@@ -616,7 +616,7 @@ class TestAsyncObjects:
             body=b"Example data",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
             cf_r2_storage_class="Standard",
         )
         assert_matches_type(ObjectUploadResponse, object_, path=["response"])

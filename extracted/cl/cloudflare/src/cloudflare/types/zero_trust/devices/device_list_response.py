@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
+from typing import Dict, Optional
 
 from ...._models import BaseModel
 
@@ -69,6 +69,9 @@ class DeviceListResponse(BaseModel):
 
     name: str
     """The name of the device."""
+
+    tags: Dict[str, str]
+    """Tags assigned to the device. An empty object if the device has no tags."""
 
     updated_at: str
     """The RFC3339 timestamp when the device was last updated."""

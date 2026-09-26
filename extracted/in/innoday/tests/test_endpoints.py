@@ -88,7 +88,6 @@ class TestFastAPIEndpoints:
             "version",
             "database",
             "environment",
-            "port",
         ]
         for field in required_fields:
             assert field in data, f"Missing required field: {field}"
@@ -178,12 +177,12 @@ class TestFastAPIEndpoints:
             == "9.9.9-agreement-test"
         )
 
-    def test_health_endpoint_default_port_without_run_api(self, client):
-        """Test health endpoint falls back to a sane port when run_api() was never called"""
+    def test_health_endpoint_does_not_expose_port(self, client):
+        """/health is anonymous, so it must not give out the port (PF-463)."""
         response = client.get("/health")
         data = response.json()
 
-        assert isinstance(data["port"], int)
+        assert "port" not in data
 
     def test_nonexistent_endpoint(self, client):
         """Test that non-existent endpoints return 404"""

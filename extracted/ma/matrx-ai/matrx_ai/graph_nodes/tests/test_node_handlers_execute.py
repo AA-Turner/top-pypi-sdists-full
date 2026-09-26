@@ -467,33 +467,56 @@ def _fx_extend_video(monkeypatch):
     )
 
 
+def _image_pipeline_holders(monkeypatch) -> None:
+    """The three image-pipeline steps resolve their own mandates (2026-09-25)."""
+    from matrx_ai.graph_nodes.image_pipeline_actions import (
+        IMAGE_CONCEPT_MANDATE,
+        IMAGE_PROMPT_WRITE_MANDATE,
+        IMAGE_QC_JUDGE_MANDATE,
+    )
+    from matrx_ai.testing.holders import install_inline_holders
+
+    holder = {"model": "holder-model", "messages": [{"role": "system", "content": "HOLDER"}]}
+    install_inline_holders(
+        monkeypatch,
+        {
+            IMAGE_CONCEPT_MANDATE: holder,
+            IMAGE_PROMPT_WRITE_MANDATE: holder,
+            IMAGE_QC_JUDGE_MANDATE: holder,
+        },
+    )
+
+
 @node_fixture("ai.image.concept_generate")
 def _fx_image_concept_generate(monkeypatch):
+    _image_pipeline_holders(monkeypatch)
     from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ConceptGenerateInput
 
     async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
         return _minimal_model(output_cls)
 
-    monkeypatch.setattr(image_pipeline_actions, "llm_to_pydantic", _fake_llm_to_pydantic)
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", _fake_llm_to_pydantic)
     return ConceptGenerateInput(topic="photosynthesis"), _ctx()
 
 
 @node_fixture("ai.image.prompt_write")
 def _fx_image_prompt_write(monkeypatch):
+    _image_pipeline_holders(monkeypatch)
     from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ImageConcept, PromptWriteInput
 
     async def _fake_llm_to_pydantic(*, output_cls: type[BaseModel], **_kw: Any) -> BaseModel:
         return _minimal_model(output_cls)
 
-    monkeypatch.setattr(image_pipeline_actions, "llm_to_pydantic", _fake_llm_to_pydantic)
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", _fake_llm_to_pydantic)
     concept = ImageConcept(name="Leaf cell", description="A cross-section of a leaf cell")
     return PromptWriteInput(concept=concept), _ctx()
 
 
 @node_fixture("ai.image.qc_judge")
 def _fx_image_qc_judge(monkeypatch):
+    _image_pipeline_holders(monkeypatch)
     from matrx_ai.graph_nodes import image_pipeline_actions
     from matrx_ai.graph_nodes.image_pipeline_actions import ImageQcInput, ImageQcVerdict
 
@@ -503,8 +526,7 @@ def _fx_image_qc_judge(monkeypatch):
         assert output_cls is ImageQcVerdict
         return ImageQcVerdict(passed=True, confidence=0.9, reasoning="looks fine")
 
-    monkeypatch.setattr(
-        image_pipeline_actions, "llm_messages_to_pydantic", _fake_llm_messages_to_pydantic
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", _fake_llm_messages_to_pydantic
     )
     return (
         # api_key set directly so the node never calls resolve_api_key

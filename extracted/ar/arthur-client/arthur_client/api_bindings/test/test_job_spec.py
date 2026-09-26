@@ -35,7 +35,7 @@ class TestJobSpec(unittest.TestCase):
         model = JobSpec()
         if include_optional:
             return JobSpec(
-                job_type = 'compliance_policy_check',
+                job_type = 'fetch_discovered_agents',
                 dataset_id = '',
                 available_dataset_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -110,11 +110,16 @@ class TestJobSpec(unittest.TestCase):
                     vendor = '', 
                     query = '', 
                     query_language = '', 
-                    lookback_window_seconds = 56, ),
+                    lookback_window_seconds = 56, 
+                    source_fields = {
+                        'key' : ''
+                        }, ),
                 scan_id = '',
                 errored_alert_rule_ids = [
                     ''
-                    ]
+                    ],
+                discovery_source_id = '',
+                reported_since = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return JobSpec(
@@ -148,6 +153,7 @@ class TestJobSpec(unittest.TestCase):
                 test_custom_aggregation_id = '',
                 workspace_id = '',
                 data_plane_id = '',
+                discovery_source_id = '',
         )
         """
 

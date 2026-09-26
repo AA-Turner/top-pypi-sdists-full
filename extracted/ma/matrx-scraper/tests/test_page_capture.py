@@ -351,7 +351,7 @@ async def test_backlink_screenshot_stores_against_the_admitted_organization(
         def __init__(self, _fm: object) -> None:
             pass
 
-        async def upload_with_intent(self, _data: bytes, **kwargs: object) -> dict[str, str]:
+        async def upload_for_organization(self, _data: bytes, **kwargs: object) -> dict[str, str]:
             seen["organization_id"] = kwargs["organization_id"]
             seen["metadata_organization_id"] = kwargs["metadata"]["organization_id"]
             return {"file_id": "file-1"}

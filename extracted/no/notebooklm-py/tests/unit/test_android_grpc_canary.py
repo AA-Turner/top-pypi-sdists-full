@@ -46,7 +46,6 @@ from notebooklm._auth.master_token_types import MasterToken
 from notebooklm._auth.mint_service import MintedOAuthToken
 from notebooklm._client_metrics import ClientMetrics
 from notebooklm._runtime.call_supervisor import CallSupervisor
-from notebooklm._transport_drain import TransportDrainTracker
 from notebooklm.exceptions import AuthError
 from scripts import android_grpc_canary as canary
 
@@ -71,7 +70,7 @@ class _Bearer:
         self.invalidated: list[int] = []
         self._cached: BearerCredential | None = None
 
-    async def activate(self, epoch: int) -> None:
+    async def activate_for_epoch(self, epoch: int) -> None:
         self.epoch = epoch
 
     async def get(self, expected_epoch: int) -> BearerCredential:
@@ -185,7 +184,6 @@ async def _running_client(service: _Service, bearer: _Bearer) -> AsyncIterator[A
     )
     supervisor = CallSupervisor(
         metrics=ClientMetrics(),
-        drain_tracker=TransportDrainTracker(),
         max_concurrent_rpcs=2,
     )
     loop = asyncio.get_running_loop()
@@ -216,8 +214,7 @@ async def _running_client(service: _Service, bearer: _Bearer) -> AsyncIterator[A
         )
         client = SimpleNamespace(
             backends=dict(ANDROID_BACKENDS),
-            _android_session=session,
-            _android_bearer_provider=bearer,
+            _android_runtime=SimpleNamespace(session=session, bearer_provider=bearer),
             notebooks=notebooks,
             chat=chat,
         )
@@ -238,6 +235,7 @@ async def _run(
     bearer: _Bearer | None = None,
     *,
     baseline_path: Path | None = None,
+    progress: canary.Emit | None = None,
 ) -> tuple[int, list[str]]:
     lines: list[str] = []
     code = await canary.run_canary(
@@ -245,6 +243,7 @@ async def _run(
         NOTEBOOK_ID,
         baseline_path=baseline_path,
         out=lines.append,
+        progress=progress,
     )
     return code, lines
 
@@ -284,7 +283,8 @@ def _write_baseline(tmp_path: Path, document: dict[str, Any]) -> Path:
 async def test_all_steps_pass_exits_zero() -> None:
     service = _Service()
     bearer = _Bearer()
-    code, lines = await _run(service, bearer)
+    progress: list[str] = []
+    code, lines = await _run(service, bearer, progress=progress.append)
 
     assert code == 0
     assert _line(lines, "OK open") == "OK open backends=android"
@@ -305,6 +305,15 @@ async def test_all_steps_pass_exits_zero() -> None:
     assert service.list_sessions_calls == 2
     assert bearer.invalidated == [1]
     assert bearer.generation == 2
+    live = "\n".join(progress)
+    assert f"START get_project {canary.GET_PROJECT_METHOD}" in live
+    assert f"START list_chat_sessions {canary.LIST_CHAT_SESSIONS_METHOD}" in live
+    assert "OK get_project id round-trip; elapsed=" in live
+    assert "SHAPE GetProject " in live
+    assert "UNKNOWN GetProject 0" in live
+    assert NOTEBOOK_ID not in live
+    assert "conversation-1" not in live
+    assert "fake-server-token" not in live
 
 
 @pytest.mark.asyncio
@@ -323,6 +332,39 @@ async def test_output_carries_hashes_but_no_ids_or_tokens() -> None:
     assert "conversation-1" not in joined
     assert "fake-server-token" not in joined
     assert "Canary" not in joined
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_on", ["START", "OK open"])
+async def test_progress_pipe_failure_does_not_change_canary_result(fail_on, capsys) -> None:
+    failed = False
+
+    def broken_progress(line: str) -> None:
+        nonlocal failed
+        assert not failed, "progress writes must stop after the first pipe failure"
+        if fail_on in line:
+            failed = True
+            raise BrokenPipeError("closed diagnostic stream")
+
+    code, lines = await _run(_Service(), progress=broken_progress)
+    assert code == 0
+    assert failed
+    assert _line(lines, "OK get_project") == "OK get_project id round-trip"
+    assert capsys.readouterr().err.count("could not write live Android progress") == 1
+
+
+def test_invalid_progress_descriptor_still_runs_android_canary(capsys):
+    service = _Service()
+    code = canary.main(
+        ["--notebook-id", NOTEBOOK_ID, "--progress-fd", "-1"],
+        client_factory=_factory(service, _Bearer()),
+    )
+    assert code == 0
+    assert service.get_project_calls == 2
+    assert service.list_sessions_calls == 2
+    output = capsys.readouterr()
+    assert "OK get_project id round-trip" in output.out
+    assert "could not open CI progress stream" in output.err
 
 
 @pytest.mark.asyncio
@@ -667,10 +709,12 @@ async def test_forced_refresh_advances_generation_on_real_provider() -> None:
     minter = _Minter()
     provider = BearerProvider(_Reader(), minter)
     provider.set_bound_loop(asyncio.get_running_loop())
-    await provider.activate(1)
+    await provider.activate_for_epoch(1)
     client = SimpleNamespace(
-        _android_session=SimpleNamespace(active_epoch=1),
-        _android_bearer_provider=provider,
+        _android_runtime=SimpleNamespace(
+            session=SimpleNamespace(active_epoch=1),
+            bearer_provider=provider,
+        ),
     )
     try:
         detail = await canary.check_bearer(client)
@@ -687,7 +731,7 @@ async def test_forced_refresh_advances_generation_on_real_provider() -> None:
 
 @pytest.mark.asyncio
 async def test_bearer_step_requires_an_active_session() -> None:
-    client = SimpleNamespace(_android_session=None, _android_bearer_provider=None)
+    client = SimpleNamespace(_android_runtime=None)
     with pytest.raises(RuntimeError, match="not active"):
         await canary.check_bearer(client)
 
@@ -749,10 +793,12 @@ async def test_refresh_mint_retry_backs_off_exactly_once() -> None:
         slept.append(seconds)
 
     bearer = _ThrottledBearer(failures=1)
-    await bearer.activate(1)
+    await bearer.activate_for_epoch(1)
     client = SimpleNamespace(
-        _android_session=SimpleNamespace(active_epoch=1),
-        _android_bearer_provider=bearer,
+        _android_runtime=SimpleNamespace(
+            session=SimpleNamespace(active_epoch=1),
+            bearer_provider=bearer,
+        ),
     )
     assert await canary.check_bearer(client, sleep=sleep) == "generation 1->2"
     assert slept == [canary._REFRESH_RETRY_BACKOFF_SECONDS] == [5.0]
@@ -763,10 +809,12 @@ async def test_refresh_mint_retry_backs_off_exactly_once() -> None:
             raise AuthError("cold mint refused")
 
     cold = _ColdThrottle()
-    await cold.activate(1)
+    await cold.activate_for_epoch(1)
     client = SimpleNamespace(
-        _android_session=SimpleNamespace(active_epoch=1),
-        _android_bearer_provider=cold,
+        _android_runtime=SimpleNamespace(
+            session=SimpleNamespace(active_epoch=1),
+            bearer_provider=cold,
+        ),
     )
     slept.clear()
     with pytest.raises(AuthError, match="cold mint refused"):
@@ -787,20 +835,18 @@ async def test_schema_setup_failure_is_labelled_schema_not_close() -> None:
     # And through the whole run the verdict stays ``schema``, never ``close``.
     client = SimpleNamespace(
         backends=dict(ANDROID_BACKENDS),
-        _android_session=None,
-        _android_bearer_provider=None,
+        _android_runtime=None,
         notebooks=SimpleNamespace(),
         chat=SimpleNamespace(),
     )
     full: list[str] = []
     assert await canary.run_canary(lambda: _FakeContext(client), NOTEBOOK_ID, out=full.append) == 1
-    # ``_android_session`` resolves (to None) so each per-RPC probe fails on
+    # ``_android_runtime`` resolves (to None) so each per-RPC probe fails on
     # its own ``schema <rpc>`` line — still ``schema``, never ``close``.
     assert [line.split(" ")[1] for line in full if line.startswith("FAIL")] == [
         "bearer",
         "get_project",
         "list_chat_sessions",
-        "schema",
         "schema",
     ]
     assert not [line for line in full if line.startswith("FAIL close")]
@@ -1000,6 +1046,7 @@ def test_main_prefers_the_flag_over_env_and_forwards_the_baseline(
         baseline_path: Any,
         missing_baseline_grace_until: Any = None,
         out: Any,
+        progress: Any = None,
     ) -> int:
         captured.append((notebook_id, baseline_path))
         return await original(
@@ -1008,6 +1055,7 @@ def test_main_prefers_the_flag_over_env_and_forwards_the_baseline(
             baseline_path=baseline_path,
             missing_baseline_grace_until=missing_baseline_grace_until,
             out=out,
+            progress=progress,
         )
 
     monkeypatch.setattr(canary, "run_canary", spy)

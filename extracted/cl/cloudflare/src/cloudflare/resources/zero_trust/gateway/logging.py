@@ -61,6 +61,8 @@ class LoggingResource(SyncAPIResource):
         Update logging settings for the current Zero Trust account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           redact_pii: Indicate whether to redact personally identifiable information from activity
               logging (PII fields include source IP, user email, user ID, device ID, URL,
               referrer, and user agent).
@@ -111,6 +113,8 @@ class LoggingResource(SyncAPIResource):
         Retrieve the current logging settings for the Zero Trust account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -171,6 +175,8 @@ class AsyncLoggingResource(AsyncAPIResource):
         Update logging settings for the current Zero Trust account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           redact_pii: Indicate whether to redact personally identifiable information from activity
               logging (PII fields include source IP, user email, user ID, device ID, URL,
               referrer, and user agent).
@@ -221,6 +227,8 @@ class AsyncLoggingResource(AsyncAPIResource):
         Retrieve the current logging settings for the Zero Trust account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

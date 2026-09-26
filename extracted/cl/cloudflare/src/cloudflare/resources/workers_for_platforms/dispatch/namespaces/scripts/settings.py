@@ -60,7 +60,8 @@ class SettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingEditResponse]:
         """
-        Patch script metadata, such as bindings.
+        Patch metadata for a script uploaded to a Workers for Platforms dispatch
+        namespace, such as bindings.
 
         Args:
           account_id: Identifier.
@@ -124,7 +125,8 @@ class SettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingGetResponse]:
         """
-        Get script settings from a script uploaded to a Workers for Platforms namespace.
+        Get settings for a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -200,7 +202,8 @@ class AsyncSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingEditResponse]:
         """
-        Patch script metadata, such as bindings.
+        Patch metadata for a script uploaded to a Workers for Platforms dispatch
+        namespace, such as bindings.
 
         Args:
           account_id: Identifier.
@@ -264,7 +267,8 @@ class AsyncSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SettingGetResponse]:
         """
-        Get script settings from a script uploaded to a Workers for Platforms namespace.
+        Get settings for a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.

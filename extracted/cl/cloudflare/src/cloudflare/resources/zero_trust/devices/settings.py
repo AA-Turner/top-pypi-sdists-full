@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Type, Optional, cast
 
 import httpx
@@ -44,6 +45,7 @@ class SettingsResource(SyncAPIResource):
         """
         return SettingsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def update(
         self,
         *,
@@ -65,7 +67,7 @@ class SettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DeviceSettings]:
         """
-        Updates the current device settings for a Zero Trust account.
+        Deprecated: use "PATCH /accounts/{account_id}/devices/settings" instead
 
         Args:
           disable_for_time: Sets the time limit, in seconds, that a user can use an override code to bypass
@@ -187,7 +189,7 @@ class SettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DeviceSettings]:
         """
-        Patches the current device settings for a Zero Trust account.
+        Updates the device settings for a Zero Trust account.
 
         Args:
           disable_for_time: Sets the time limit, in seconds, that a user can use an override code to bypass
@@ -309,6 +311,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         """
         return AsyncSettingsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def update(
         self,
         *,
@@ -330,7 +333,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DeviceSettings]:
         """
-        Updates the current device settings for a Zero Trust account.
+        Deprecated: use "PATCH /accounts/{account_id}/devices/settings" instead
 
         Args:
           disable_for_time: Sets the time limit, in seconds, that a user can use an override code to bypass
@@ -452,7 +455,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DeviceSettings]:
         """
-        Patches the current device settings for a Zero Trust account.
+        Updates the device settings for a Zero Trust account.
 
         Args:
           disable_for_time: Sets the time limit, in seconds, that a user can use an override code to bypass
@@ -558,8 +561,10 @@ class SettingsResourceWithRawResponse:
     def __init__(self, settings: SettingsResource) -> None:
         self._settings = settings
 
-        self.update = to_raw_response_wrapper(
-            settings.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                settings.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = to_raw_response_wrapper(
             settings.delete,
@@ -576,8 +581,10 @@ class AsyncSettingsResourceWithRawResponse:
     def __init__(self, settings: AsyncSettingsResource) -> None:
         self._settings = settings
 
-        self.update = async_to_raw_response_wrapper(
-            settings.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                settings.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = async_to_raw_response_wrapper(
             settings.delete,
@@ -594,8 +601,10 @@ class SettingsResourceWithStreamingResponse:
     def __init__(self, settings: SettingsResource) -> None:
         self._settings = settings
 
-        self.update = to_streamed_response_wrapper(
-            settings.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                settings.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = to_streamed_response_wrapper(
             settings.delete,
@@ -612,8 +621,10 @@ class AsyncSettingsResourceWithStreamingResponse:
     def __init__(self, settings: AsyncSettingsResource) -> None:
         self._settings = settings
 
-        self.update = async_to_streamed_response_wrapper(
-            settings.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                settings.update,  # pyright: ignore[reportDeprecated],
+            )
         )
         self.delete = async_to_streamed_response_wrapper(
             settings.delete,

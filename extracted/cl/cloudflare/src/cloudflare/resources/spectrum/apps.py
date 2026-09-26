@@ -61,13 +61,14 @@ class AppsResource(SyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"],
+        traffic_type: Literal["direct", "http", "https", "worker"],
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -94,7 +95,8 @@ class AppsResource(SyncAPIResource):
               Spectrum will send traffic directly to your origin, and the application's type
               is derived from the `protocol`. When set to "http" or "https", Spectrum will
               apply Cloudflare's HTTP/HTTPS features as it sends traffic to your origin, and
-              the application type matches this property exactly.
+              the application type matches this property exactly. When set to "worker",
+              traffic is sent to the Worker specified by `origin_worker_id`.
 
           argo_smart_routing: Enables Argo Smart Routing for this application. Notes: Only available for TCP
               or UDP applications with traffic_type set to "direct".
@@ -114,6 +116,11 @@ class AppsResource(SyncAPIResource):
               `1000`, or a string to specify a range of origin ports, for example
               `"1000-2000"`. Notes: If specifying a port range, the number of ports in the
               range must match the number of ports specified in the "protocol" field.
+
+          origin_worker_id: Optional Worker script tag (worker ID) to use as the application's origin. Only
+              supported for TCP applications with traffic_type "worker"; mutually exclusive
+              with origin_direct, origin_dns, origin_port, proxy_protocol, and
+              argo_smart_routing. tls may only be "off" or "flexible".
 
           proxy_protocol: Enables Proxy Protocol to the origin. Refer to
               [Enable Proxy protocol](https://developers.cloudflare.com/spectrum/getting-started/proxy-protocol/)
@@ -182,13 +189,14 @@ class AppsResource(SyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"] | Omit = omit,
+        traffic_type: Literal["direct", "http", "https", "worker"] | Omit = omit,
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -216,6 +224,7 @@ class AppsResource(SyncAPIResource):
                         "origin_direct": origin_direct,
                         "origin_dns": origin_dns,
                         "origin_port": origin_port,
+                        "origin_worker_id": origin_worker_id,
                         "proxy_protocol": proxy_protocol,
                         "tls": tls,
                         "virtual_network_id": virtual_network_id,
@@ -243,13 +252,14 @@ class AppsResource(SyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"],
+        traffic_type: Literal["direct", "http", "https", "worker"],
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -278,7 +288,8 @@ class AppsResource(SyncAPIResource):
               Spectrum will send traffic directly to your origin, and the application's type
               is derived from the `protocol`. When set to "http" or "https", Spectrum will
               apply Cloudflare's HTTP/HTTPS features as it sends traffic to your origin, and
-              the application type matches this property exactly.
+              the application type matches this property exactly. When set to "worker",
+              traffic is sent to the Worker specified by `origin_worker_id`.
 
           argo_smart_routing: Enables Argo Smart Routing for this application. Notes: Only available for TCP
               or UDP applications with traffic_type set to "direct".
@@ -298,6 +309,11 @@ class AppsResource(SyncAPIResource):
               `1000`, or a string to specify a range of origin ports, for example
               `"1000-2000"`. Notes: If specifying a port range, the number of ports in the
               range must match the number of ports specified in the "protocol" field.
+
+          origin_worker_id: Optional Worker script tag (worker ID) to use as the application's origin. Only
+              supported for TCP applications with traffic_type "worker"; mutually exclusive
+              with origin_direct, origin_dns, origin_port, proxy_protocol, and
+              argo_smart_routing. tls may only be "off" or "flexible".
 
           proxy_protocol: Enables Proxy Protocol to the origin. Refer to
               [Enable Proxy protocol](https://developers.cloudflare.com/spectrum/getting-started/proxy-protocol/)
@@ -370,13 +386,14 @@ class AppsResource(SyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"] | Omit = omit,
+        traffic_type: Literal["direct", "http", "https", "worker"] | Omit = omit,
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -406,6 +423,7 @@ class AppsResource(SyncAPIResource):
                         "origin_direct": origin_direct,
                         "origin_dns": origin_dns,
                         "origin_port": origin_port,
+                        "origin_worker_id": origin_worker_id,
                         "proxy_protocol": proxy_protocol,
                         "tls": tls,
                         "virtual_network_id": virtual_network_id,
@@ -608,13 +626,14 @@ class AsyncAppsResource(AsyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"],
+        traffic_type: Literal["direct", "http", "https", "worker"],
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -641,7 +660,8 @@ class AsyncAppsResource(AsyncAPIResource):
               Spectrum will send traffic directly to your origin, and the application's type
               is derived from the `protocol`. When set to "http" or "https", Spectrum will
               apply Cloudflare's HTTP/HTTPS features as it sends traffic to your origin, and
-              the application type matches this property exactly.
+              the application type matches this property exactly. When set to "worker",
+              traffic is sent to the Worker specified by `origin_worker_id`.
 
           argo_smart_routing: Enables Argo Smart Routing for this application. Notes: Only available for TCP
               or UDP applications with traffic_type set to "direct".
@@ -661,6 +681,11 @@ class AsyncAppsResource(AsyncAPIResource):
               `1000`, or a string to specify a range of origin ports, for example
               `"1000-2000"`. Notes: If specifying a port range, the number of ports in the
               range must match the number of ports specified in the "protocol" field.
+
+          origin_worker_id: Optional Worker script tag (worker ID) to use as the application's origin. Only
+              supported for TCP applications with traffic_type "worker"; mutually exclusive
+              with origin_direct, origin_dns, origin_port, proxy_protocol, and
+              argo_smart_routing. tls may only be "off" or "flexible".
 
           proxy_protocol: Enables Proxy Protocol to the origin. Refer to
               [Enable Proxy protocol](https://developers.cloudflare.com/spectrum/getting-started/proxy-protocol/)
@@ -729,13 +754,14 @@ class AsyncAppsResource(AsyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"] | Omit = omit,
+        traffic_type: Literal["direct", "http", "https", "worker"] | Omit = omit,
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -763,6 +789,7 @@ class AsyncAppsResource(AsyncAPIResource):
                         "origin_direct": origin_direct,
                         "origin_dns": origin_dns,
                         "origin_port": origin_port,
+                        "origin_worker_id": origin_worker_id,
                         "proxy_protocol": proxy_protocol,
                         "tls": tls,
                         "virtual_network_id": virtual_network_id,
@@ -790,13 +817,14 @@ class AsyncAppsResource(AsyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"],
+        traffic_type: Literal["direct", "http", "https", "worker"],
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -825,7 +853,8 @@ class AsyncAppsResource(AsyncAPIResource):
               Spectrum will send traffic directly to your origin, and the application's type
               is derived from the `protocol`. When set to "http" or "https", Spectrum will
               apply Cloudflare's HTTP/HTTPS features as it sends traffic to your origin, and
-              the application type matches this property exactly.
+              the application type matches this property exactly. When set to "worker",
+              traffic is sent to the Worker specified by `origin_worker_id`.
 
           argo_smart_routing: Enables Argo Smart Routing for this application. Notes: Only available for TCP
               or UDP applications with traffic_type set to "direct".
@@ -845,6 +874,11 @@ class AsyncAppsResource(AsyncAPIResource):
               `1000`, or a string to specify a range of origin ports, for example
               `"1000-2000"`. Notes: If specifying a port range, the number of ports in the
               range must match the number of ports specified in the "protocol" field.
+
+          origin_worker_id: Optional Worker script tag (worker ID) to use as the application's origin. Only
+              supported for TCP applications with traffic_type "worker"; mutually exclusive
+              with origin_direct, origin_dns, origin_port, proxy_protocol, and
+              argo_smart_routing. tls may only be "off" or "flexible".
 
           proxy_protocol: Enables Proxy Protocol to the origin. Refer to
               [Enable Proxy protocol](https://developers.cloudflare.com/spectrum/getting-started/proxy-protocol/)
@@ -917,13 +951,14 @@ class AsyncAppsResource(AsyncAPIResource):
         zone_id: str,
         dns: DNSParam,
         protocol: str,
-        traffic_type: Literal["direct", "http", "https"] | Omit = omit,
+        traffic_type: Literal["direct", "http", "https", "worker"] | Omit = omit,
         argo_smart_routing: bool | Omit = omit,
         edge_ips: EdgeIPsParam | Omit = omit,
         ip_firewall: bool | Omit = omit,
         origin_direct: SequenceNotStr[str] | Omit = omit,
         origin_dns: OriginDNSParam | Omit = omit,
         origin_port: OriginPortParam | Omit = omit,
+        origin_worker_id: str | Omit = omit,
         proxy_protocol: Literal["off", "v1", "v2", "simple"] | Omit = omit,
         tls: Literal["off", "flexible", "full", "strict"] | Omit = omit,
         virtual_network_id: str | Omit = omit,
@@ -953,6 +988,7 @@ class AsyncAppsResource(AsyncAPIResource):
                         "origin_direct": origin_direct,
                         "origin_dns": origin_dns,
                         "origin_port": origin_port,
+                        "origin_worker_id": origin_worker_id,
                         "proxy_protocol": proxy_protocol,
                         "tls": tls,
                         "virtual_network_id": virtual_network_id,

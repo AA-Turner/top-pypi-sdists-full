@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
     "platform",
-    "re",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{__spec__.parent}.cmake_args",
 }
 
 import os
 import platform
-import re
 from typing import NamedTuple
 
 from .._logging import logger
+from .cmake_args import iter_cmake_defines
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -56,32 +56,16 @@ def get_cmake_osx_deployment_target(
     """
     Find an explicit ``CMAKE_OSX_DEPLOYMENT_TARGET`` known before the build
     directory exists: a ``cmake.define`` entry or a ``-DCMAKE_OSX_DEPLOYMENT_TARGET=``
-    in ``cmake.args``. Handles both the joined ``-DVAR=value`` and the
-    two-token ``-D VAR=value`` forms (mirroring ``parse_generator``'s ``-G``
-    handling). The args value wins over the define, mirroring CMake's own
+    in ``cmake.args``. The args value wins over the define, mirroring CMake's own
     command-line-over-cache precedence. Settings in ``CMakeLists.txt`` or a
     toolchain file cannot be seen here and are not honored.
     """
     target: str | None = None
     if cmake_defines is not None:
         target = cmake_defines.get("CMAKE_OSX_DEPLOYMENT_TARGET", None)
-    expecting_value = False
-    for arg in cmake_args:
-        if expecting_value:
-            match = re.fullmatch(
-                r"CMAKE_OSX_DEPLOYMENT_TARGET(?::[^=]*)?=(.*)", arg.strip()
-            )
-            if match:
-                target = match.group(1)
-            expecting_value = False
-        elif arg == "-D":
-            expecting_value = True
-        else:
-            match = re.fullmatch(
-                r"-D\s*CMAKE_OSX_DEPLOYMENT_TARGET(?::[^=]*)?=(.*)", arg
-            )
-            if match:
-                target = match.group(1)
+    for define in iter_cmake_defines(cmake_args):
+        if define.name == "CMAKE_OSX_DEPLOYMENT_TARGET":
+            target = define.value
     return target
 
 
@@ -90,6 +74,7 @@ def get_macosx_deployment_target(
     arm: bool,
     cmake_defines: Mapping[str, str] | None = None,
     cmake_args: Sequence[str] = (),
+    env: Mapping[str, str] | None = None,
 ) -> MacOSVer:
     """
     Get the deployment target used for the wheel platform tag. An explicit
@@ -98,7 +83,12 @@ def get_macosx_deployment_target(
     is the fallback default CMake itself applies). If neither is set, the current
     macOS version is used. If arm=True, then this will always return at least
     (11, 0). Versions after 11 will be normalized to 0 for minor version.
+
+    ``env`` is the build environment (``os.environ`` plus the ``env`` settings
+    table); it defaults to ``os.environ``.
     """
+    if env is None:
+        env = os.environ
     plat_ver_str, _, _ = platform.mac_ver()
     plat_target = normalize_macos_version(plat_ver_str, arm=arm)
 
@@ -113,7 +103,7 @@ def get_macosx_deployment_target(
             logger.debug("CMAKE_OSX_DEPLOYMENT_TARGET is set to {}", cmake_target)
             return norm_cmake_target
 
-    target = os.environ.get("MACOSX_DEPLOYMENT_TARGET", None)
+    target = env.get("MACOSX_DEPLOYMENT_TARGET", None)
     if target is None:
         logger.debug("MACOSX_DEPLOYMENT_TARGET not set, using {}", plat_target)
         return plat_target

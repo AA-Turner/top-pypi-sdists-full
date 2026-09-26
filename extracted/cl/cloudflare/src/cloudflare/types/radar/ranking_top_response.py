@@ -1,7 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+import datetime
 from typing import List, Optional
-from datetime import datetime
 from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
@@ -14,6 +14,7 @@ __all__ = [
     "MetaConfidenceInfo",
     "MetaConfidenceInfoAnnotation",
     "MetaDateRange",
+    "MetaTop0",
     "MetaUnit",
     "Top0",
     "Top0Category",
@@ -54,7 +55,7 @@ class MetaConfidenceInfoAnnotation(BaseModel):
 
     description: str
 
-    end_date: datetime = FieldInfo(alias="endDate")
+    end_date: datetime.datetime = FieldInfo(alias="endDate")
 
     event_type: Literal["GENERAL", "OUTAGE", "PARTIAL_PROJECTION", "PIPELINE", "TRAFFIC_ANOMALY"] = FieldInfo(
         alias="eventType"
@@ -66,7 +67,7 @@ class MetaConfidenceInfoAnnotation(BaseModel):
 
     linked_url: str = FieldInfo(alias="linkedUrl")
 
-    start_date: datetime = FieldInfo(alias="startDate")
+    start_date: datetime.datetime = FieldInfo(alias="startDate")
 
     tags: Optional[List[str]] = None
 
@@ -79,11 +80,15 @@ class MetaConfidenceInfo(BaseModel):
 
 
 class MetaDateRange(BaseModel):
-    end_time: datetime = FieldInfo(alias="endTime")
+    end_time: datetime.datetime = FieldInfo(alias="endTime")
     """Adjusted end of date range."""
 
-    start_time: datetime = FieldInfo(alias="startTime")
+    start_time: datetime.datetime = FieldInfo(alias="startTime")
     """Adjusted start of date range."""
+
+
+class MetaTop0(BaseModel):
+    date: datetime.date
 
 
 class MetaUnit(BaseModel):
@@ -97,7 +102,7 @@ class Meta(BaseModel):
 
     date_range: List[MetaDateRange] = FieldInfo(alias="dateRange")
 
-    last_updated: datetime = FieldInfo(alias="lastUpdated")
+    last_updated: datetime.datetime = FieldInfo(alias="lastUpdated")
     """Timestamp of the last dataset update."""
 
     normalization: Literal[
@@ -116,16 +121,18 @@ class Meta(BaseModel):
     [Normalization methods](https://developers.cloudflare.com/radar/concepts/normalization/).
     """
 
+    top_0: MetaTop0
+
     units: List[MetaUnit]
     """Measurement units for the results."""
 
 
 class Top0Category(BaseModel):
-    id: float
+    id: int
 
     name: str
 
-    super_category_id: float = FieldInfo(alias="superCategoryId")
+    super_category_id: int = FieldInfo(alias="superCategoryId")
 
 
 class Top0(BaseModel):

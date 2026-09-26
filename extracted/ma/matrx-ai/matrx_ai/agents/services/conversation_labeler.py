@@ -1,7 +1,7 @@
 """Conversation Labeling Service.
 
 Automatically generates title, description, and keywords for conversations
-using a fast, cheap LLM call (Groq). Handles:
+through the conversation.label_chat / conversation.label_agent_run mandates. Handles:
 
 - Regular chat conversations (full message history)
 - Agent-initiated conversations (emphasizes user variables over template)

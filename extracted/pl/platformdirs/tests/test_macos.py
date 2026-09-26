@@ -13,24 +13,17 @@ from platformdirs.macos import MacOS
 if TYPE_CHECKING:
     from pytest_mock import MockerFixture
 
-_XDG_ENV_VARS = (
-    "XDG_DATA_HOME",
-    "XDG_DATA_DIRS",
-    "XDG_CONFIG_HOME",
-    "XDG_CONFIG_DIRS",
-    "XDG_CACHE_HOME",
-    "XDG_STATE_HOME",
-    "XDG_RUNTIME_DIR",
-    "XDG_DOCUMENTS_DIR",
-    "XDG_DOWNLOAD_DIR",
-    "XDG_PICTURES_DIR",
-    "XDG_VIDEOS_DIR",
-    "XDG_MUSIC_DIR",
-    "XDG_DESKTOP_DIR",
-    "XDG_PROJECTS_DIR",
-    "XDG_PUBLICSHARE_DIR",
-    "XDG_TEMPLATES_DIR",
-)
+_MEDIA_DIRS: Final = [
+    pytest.param("XDG_DOCUMENTS_DIR", "user_documents_dir", id="user_documents_dir"),
+    pytest.param("XDG_DOWNLOAD_DIR", "user_downloads_dir", id="user_downloads_dir"),
+    pytest.param("XDG_PICTURES_DIR", "user_pictures_dir", id="user_pictures_dir"),
+    pytest.param("XDG_VIDEOS_DIR", "user_videos_dir", id="user_videos_dir"),
+    pytest.param("XDG_MUSIC_DIR", "user_music_dir", id="user_music_dir"),
+    pytest.param("XDG_DESKTOP_DIR", "user_desktop_dir", id="user_desktop_dir"),
+    pytest.param("XDG_PROJECTS_DIR", "user_projects_dir", id="user_projects_dir"),
+    pytest.param("XDG_PUBLICSHARE_DIR", "user_publicshare_dir", id="user_publicshare_dir"),
+    pytest.param("XDG_TEMPLATES_DIR", "user_templates_dir", id="user_templates_dir"),
+]
 
 
 @pytest.fixture(autouse=True)
@@ -39,12 +32,6 @@ def _fix_os_pathsep(mocker: MockerFixture) -> None:
     if sys.platform != "darwin":  # pragma: darwin no cover
         mocker.patch("os.pathsep", ":")
         mocker.patch("os.path.pathsep", ":")
-
-
-@pytest.fixture
-def _clear_xdg_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for var in _XDG_ENV_VARS:
-        monkeypatch.delenv(var, raising=False)
 
 
 @pytest.fixture
@@ -59,7 +46,7 @@ def _homebrew_py_prefix(mocker: MockerFixture) -> None:
 
 @pytest.fixture
 def _builtin_py_prefix(mocker: MockerFixture) -> None:
-    """Keep ``sys.base_prefix`` off the ``/opt/python`` Homebrew heuristic so directories use the system defaults."""
+    """Keep ``sys.base_prefix`` off the Homebrew Python layout so directories use the system defaults."""
     py_version = sys.version_info
     mocker.patch(
         "sys.base_prefix",
@@ -249,33 +236,29 @@ def test_macos_xdg_site_dirs(
         assert result == "/custom/first"
 
 
-@pytest.mark.parametrize(
-    ("env_var", "prop"),
-    [
-        pytest.param("XDG_DOCUMENTS_DIR", "user_documents_dir", id="user_documents_dir"),
-        pytest.param("XDG_DOWNLOAD_DIR", "user_downloads_dir", id="user_downloads_dir"),
-        pytest.param("XDG_PICTURES_DIR", "user_pictures_dir", id="user_pictures_dir"),
-        pytest.param("XDG_VIDEOS_DIR", "user_videos_dir", id="user_videos_dir"),
-        pytest.param("XDG_MUSIC_DIR", "user_music_dir", id="user_music_dir"),
-        pytest.param("XDG_DESKTOP_DIR", "user_desktop_dir", id="user_desktop_dir"),
-        pytest.param("XDG_PROJECTS_DIR", "user_projects_dir", id="user_projects_dir"),
-        pytest.param("XDG_PUBLICSHARE_DIR", "user_publicshare_dir", id="user_publicshare_dir"),
-        pytest.param("XDG_TEMPLATES_DIR", "user_templates_dir", id="user_templates_dir"),
-    ],
-)
+@pytest.mark.parametrize(("env_var", "prop"), _MEDIA_DIRS)
 def test_macos_xdg_media_dirs(monkeypatch: pytest.MonkeyPatch, env_var: str, prop: str) -> None:
     monkeypatch.setenv(env_var, "/custom/media")
     assert getattr(MacOS(), prop) == "/custom/media"
 
 
-@pytest.mark.parametrize("ensure_exists", [True, False], ids=["created", "not-created"])
-def test_macos_xdg_media_dir_ensure_exists(
-    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, ensure_exists: bool
+@pytest.mark.parametrize(("xdg_value", "created"), [("/custom/media", True), (None, False)], ids=["xdg", "default"])
+@pytest.mark.parametrize(("env_var", "prop"), _MEDIA_DIRS)
+def test_macos_ensure_exists_creates_configured_media_dir_only(  # ruff:ignore[too-many-arguments]
+    mocker: MockerFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    env_var: str,
+    prop: str,
+    xdg_value: str | None,
+    created: bool,
 ) -> None:
-    monkeypatch.setenv("XDG_DOCUMENTS_DIR", "/custom/media")
+    if xdg_value is None:
+        monkeypatch.delenv(env_var, raising=False)
+    else:
+        monkeypatch.setenv(env_var, xdg_value)
     mkdir = mocker.patch.object(Path, "mkdir", autospec=True)
-    assert MacOS(ensure_exists=ensure_exists).user_documents_dir == "/custom/media"
-    assert [call.args[0] for call in mkdir.call_args_list] == ([Path("/custom/media")] if ensure_exists else [])
+    getattr(MacOS(ensure_exists=True), prop)
+    assert [call.args[0] for call in mkdir.call_args_list] == ([Path("/custom/media")] if created else [])
 
 
 @pytest.mark.parametrize(
@@ -636,3 +619,26 @@ def test_non_homebrew_base_ignores_virtual_environment_name(
 ) -> None:
     monkeypatch.setattr(sys, "prefix", (tmp_path / "opt/python/.venv").as_posix())
     assert getattr(MacOS(), prop) == expected
+
+
+@pytest.mark.usefixtures("_clear_xdg_env")
+@pytest.mark.parametrize(
+    "base_prefix",
+    [
+        pytest.param("/opt/python/3.12.4", id="opt-python-at-root"),
+        pytest.param("/opt/python3.12", id="opt-python-versioned-dir"),
+        pytest.param("/srv/opt/python/3.12.4", id="opt-python-nested"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("prop", "expected"),
+    [
+        pytest.param("site_data_dir", "/Library/Application Support", id="data"),
+        pytest.param("site_cache_dir", "/Library/Caches", id="cache"),
+    ],
+)
+def test_non_homebrew_opt_python_uses_system_site_dirs(
+    mocker: MockerFixture, base_prefix: str, prop: str, expected: str
+) -> None:
+    mocker.patch("sys.base_prefix", base_prefix)
+    assert getattr(MacOS(multipath=True), prop) == expected

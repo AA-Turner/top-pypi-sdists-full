@@ -8,11 +8,7 @@ Mirrors: packages/memory/src/processors/observational-memory/observer-runner.ts
 import logging
 from typing import Callable, Coroutine, Optional
 
-from .observer_agent import (
-    build_observer_prompt,
-    build_observer_system_prompt,
-    run_observer,
-)
+from .observer_agent import build_observer_prompt, run_observer
 from .types import Message, ModelConfig, ObservationConfig, ObserverResult
 
 logger = logging.getLogger(__name__)
@@ -28,7 +24,7 @@ class ObserverRunner:
         self,
         observation_config: ObservationConfig,
         observed_message_ids: set[str],
-        llm_call_fn: Callable[[str, list[dict], float, int], Coroutine[None, None, str]],
+        llm_call_fn: Callable[..., Coroutine[None, None, str]],
     ):
         self.observation_config = observation_config
         self.observed_message_ids = observed_message_ids
@@ -46,17 +42,13 @@ class ObserverRunner:
         """
         Call the Observer agent for a single thread.
         """
-        system_prompt = build_observer_system_prompt(
-            multi_thread=False,
-            instruction=self.observation_config.instruction,
-        )
-        
         user_prompt = build_observer_prompt(
             existing_observations=existing_observations,
             messages=messages_to_observe,
             timezone=timezone,
             current_task=prior_current_task,
             previous_response_hint=prior_suggested_response,
+            instruction=self.observation_config.instruction,
         )
 
         # Mark messages as observed immediately
@@ -66,13 +58,12 @@ class ObserverRunner:
         try:
             result = await run_observer(
                 model_config=self.observation_config.model,
-                system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 llm_call_fn=self.llm_call_fn
             )
             
             self.last_exchange = {
-                "system_prompt": system_prompt,
+                "mandate_key": self.observation_config.model.mandate_key,
                 "user_prompt": user_prompt,
                 "parsed_result": result,
                 "is_multi_thread": False

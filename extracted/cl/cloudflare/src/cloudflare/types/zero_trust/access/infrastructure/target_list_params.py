@@ -88,6 +88,14 @@ class TargetListParams(TypedDict, total=False):
     per_page: int
     """Max amount of entries returned per page"""
 
+    tag: SequenceNotStr[str]
+    """Filter by tag key:value pairs.
+
+    Multiple `tag` params are AND'd. Format: `tag=key:value` (e.g.,
+    `tag=environment:production`). Key and value must both be non-empty;
+    `tag=:value` and `tag=key:` return 400.
+    """
+
     target_ids: SequenceNotStr[str]
     """Filters for targets that have any of the following UUIDs.
 

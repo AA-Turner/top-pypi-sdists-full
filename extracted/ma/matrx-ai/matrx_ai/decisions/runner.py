@@ -21,7 +21,12 @@ from matrx_ai.providers.errors import (
     report_unbilled_provider_failure,
 )
 from matrx_ai.providers.keys import resolve_api_key
-from matrx_ai.providers.typesafe import SystemOneRequest, SystemOneResult, call_system_one
+from matrx_ai.providers.typesafe import (
+    DEFAULT_BASE_URL,
+    SystemOneRequest,
+    SystemOneResult,
+    call_system_one,
+)
 from matrx_ai.providers.typesafe.client import Answer, Question, SystemOneState
 
 
@@ -96,6 +101,13 @@ async def execute_decision(
     and billed-usage handling from here — there is exactly one place that pays
     TypeSafe.
 
+    MANDATES (2026-09-25): this is PROVIDER-LAYER machinery, not a decision
+    maker — it chooses no model and no questions; both arrive on ``request``.
+    Its callers are the ones held: ``UnifiedAIClient`` (below an already-held
+    funnel call), the ``ai.decision`` workflow step (held by
+    ``workflow.step_intelligence``), and the ``/ai/decisions`` API (a declared
+    pass-through — the API caller names the model).
+
     Invalid request bodies are validated by ``SystemOneRequest`` before any
     credential lookup or transport activity.  This function intentionally does
     not instantiate ``UnifiedConfig`` or use ``UnifiedAIClient``.
@@ -132,7 +144,8 @@ async def execute_decision(
             raw = await caller(
                 dispatched,
                 api_key=api_key,
-                base_url=profile.base_url or "https://api.typesafe.ai",
+                # The vendor host belongs to the provider adapter, never this engine.
+                base_url=profile.base_url or DEFAULT_BASE_URL,
             )
     except Exception as exc:
         billed = get_billed_usage(exc)

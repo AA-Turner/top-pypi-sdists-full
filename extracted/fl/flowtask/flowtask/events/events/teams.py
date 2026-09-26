@@ -28,10 +28,11 @@ class TeamsMessage(AbstractEvent):
     async def __call__(self, *args, **kwargs):
         # LAZY LOADING: Import Teams only when event is executed, not during LoadEvents()
         # This avoids loading Azure/MSAL libraries until they're actually needed
-        from ...utils.msgraph_patch import patch_graph_host_os_header
+        from ...utils.msgraph_patch import apply_msgraph_patches
         # Sanitise the msgraph-core HostOs telemetry header (trailing-space
-        # kernel versions otherwise trigger h11 "Illegal header value").
-        patch_graph_host_os_header()
+        # kernel versions otherwise trigger h11 "Illegal header value") and
+        # restore the middleware pipeline under kiota-http >= 1.14.
+        apply_msgraph_patches()
         from notify.providers.teams import Teams
 
         tm = Teams(

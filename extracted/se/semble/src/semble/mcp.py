@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from collections import OrderedDict
 from collections.abc import Sequence
@@ -27,6 +28,9 @@ _REPO_DESCRIPTION = (
 )
 
 _CACHE_MAX_SIZE = 10  # Max number of cached indexes to keep in memory
+_CACHE_IDLE_TIMEOUT = float(
+    os.environ.get("SEMBLE_MCP_IDLE_TIMEOUT", 0)
+)  # Idle seconds before dropping an index (0 = never)
 _MIN_REVALIDATE_FACTOR = 3  # Don't recheck staleness sooner than this many times the last build's duration
 ContentSelection = Literal["code", "docs", "config", "all"]
 _CacheKey = tuple[str, tuple[ContentType, ...]]
@@ -198,6 +202,7 @@ class _IndexCache:
 
     def __init__(self) -> None:
         """Initialise an empty cache."""
+        self._idle_timers: dict[_CacheKey, asyncio.TimerHandle] = {}
         self._model_path: str | None = None
         self._model_error: BaseException | None = None
         self._model_ready = asyncio.Event()
@@ -220,23 +225,17 @@ class _IndexCache:
         assert self._model_path is not None
         return self._model_path
 
-    def _compute_cache_key(
-        self,
-        source: str,
-        ref: str | None = None,
-        content: Sequence[ContentType] = (ContentType.CODE,),
-    ) -> _CacheKey:
+    def _compute_cache_key(self, source: str, content: Sequence[ContentType] = (ContentType.CODE,)) -> _CacheKey:
         """Compute the canonical key for an exact index variant."""
-        is_git = is_git_url(source)
-        source_key = (f"{source}@{ref}" if ref else source) if is_git else str(Path(source).resolve())
+        source_key = source if is_git_url(source) else str(Path(source).resolve())
         normalized = tuple(content_type for content_type in ContentType if content_type in content)
         return source_key, normalized
 
-    def _build_index(self, source: str, ref: str | None, model_path: str, cache_key: _CacheKey) -> SembleIndex:
+    def _build_index(self, source: str, model_path: str, cache_key: _CacheKey) -> SembleIndex:
         """Build an index for the given source and cache it."""
         source_key, content = cache_key
         index = (
-            SembleIndex.from_git(source, ref=ref, model_path=model_path, content=content)
+            SembleIndex.from_git(source, model_path=model_path, content=content)
             if is_git_url(source)
             else SembleIndex.from_path(source_key, model_path=model_path, content=content)
         )
@@ -246,14 +245,14 @@ class _IndexCache:
             logger.warning("Failed to save index cache for %r", source_key, exc_info=True)
         return index
 
-    async def _build_tracked(self, source: str, ref: str | None, model_path: str, cache_key: _CacheKey) -> SembleIndex:
+    async def _build_tracked(self, source: str, model_path: str, cache_key: _CacheKey) -> SembleIndex:
         """Build an index and, for local paths, record when its staleness cooldown ends.
 
         The cooldown write happens after the await, i.e. back on the event loop thread,
         regardless of which thread `_build_index` itself ran on.
         """
         start = time.monotonic()
-        index = await asyncio.to_thread(self._build_index, source, ref, model_path, cache_key)
+        index = await asyncio.to_thread(self._build_index, source, model_path, cache_key)
         if not is_git_url(source):
             finished = time.monotonic()
             self._revalidate_after[cache_key] = finished + (finished - start) * _MIN_REVALIDATE_FACTOR
@@ -263,6 +262,13 @@ class _IndexCache:
         """Evict one exact index variant from memory."""
         self._tasks.pop(cache_key, None)
         self._revalidate_after.pop(cache_key, None)
+        if (timer := self._idle_timers.pop(cache_key, None)) is not None:
+            timer.cancel()
+
+    def _evict_idle(self, cache_key: _CacheKey) -> None:
+        """Drop an entry that has not been accessed within the idle timeout; the disk cache is kept."""
+        self.evict(cache_key)
+        self._merged = None  # may hold a reference to the evicted index
 
     async def _evict_if_stale(self, cache_key: _CacheKey) -> None:
         """Evict a cached local-path entry whose on-disk cache no longer matches its files.
@@ -286,18 +292,13 @@ class _IndexCache:
         if validated is None and self._tasks.get(cache_key) is cached:
             self.evict(cache_key)
 
-    async def get(
-        self,
-        source: str,
-        ref: str | None = None,
-        content: Sequence[ContentType] = (ContentType.CODE,),
-    ) -> SembleIndex:
+    async def get(self, source: str, content: Sequence[ContentType] = (ContentType.CODE,)) -> SembleIndex:
         """Return an index for the requested source, building and caching it on first access.
 
         Local paths are revalidated against the on-disk cache on every call (subject to a
         cooldown scaled by build time), so an entry is rebuilt once its files change.
         """
-        cache_key = self._compute_cache_key(source, ref, content)
+        cache_key = self._compute_cache_key(source, content)
         await self._evict_if_stale(cache_key)
 
         if cache_key not in self._tasks:
@@ -305,13 +306,12 @@ class _IndexCache:
             # Re-check after the await: another caller may have populated the entry.
             if cache_key not in self._tasks:
                 if len(self._tasks) >= _CACHE_MAX_SIZE:
-                    evicted_key, _ = self._tasks.popitem(last=False)
-                    self._revalidate_after.pop(evicted_key, None)
-                self._tasks[cache_key] = asyncio.create_task(self._build_tracked(source, ref, model_path, cache_key))
+                    self.evict(next(iter(self._tasks)))
+                self._tasks[cache_key] = asyncio.create_task(self._build_tracked(source, model_path, cache_key))
         self._tasks.move_to_end(cache_key)
         task = self._tasks[cache_key]
         try:
-            return await asyncio.shield(task)
+            index = await asyncio.shield(task)
         except asyncio.CancelledError:  # pragma: no cover
             if task.done():
                 self.evict(cache_key)
@@ -321,3 +321,11 @@ class _IndexCache:
             if self._tasks.get(cache_key) is task:
                 self.evict(cache_key)
             raise
+        # Start the idle timer only once the index is ready, so slow builds are not evicted mid-build.
+        if _CACHE_IDLE_TIMEOUT > 0 and self._tasks.get(cache_key) is task:
+            if timer := self._idle_timers.get(cache_key):
+                timer.cancel()
+            self._idle_timers[cache_key] = asyncio.get_running_loop().call_later(
+                _CACHE_IDLE_TIMEOUT, self._evict_idle, cache_key
+            )
+        return index

@@ -17,6 +17,8 @@ from cloudflare.types.cloudforce_one.threat_events import (
     CategoryDeleteResponse,
 )
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -140,19 +142,22 @@ class TestCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_method_delete(self, client: Cloudflare) -> None:
-        category = client.cloudforce_one.threat_events.categories.delete(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = client.cloudforce_one.threat_events.categories.delete(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
+
         assert_matches_type(CategoryDeleteResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
-        response = client.cloudforce_one.threat_events.categories.with_raw_response.delete(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.cloudforce_one.threat_events.categories.with_raw_response.delete(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -162,63 +167,70 @@ class TestCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
-        with client.cloudforce_one.threat_events.categories.with_streaming_response.delete(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.cloudforce_one.threat_events.categories.with_streaming_response.delete(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            category = response.parse()
-            assert_matches_type(CategoryDeleteResponse, category, path=["response"])
+                category = response.parse()
+                assert_matches_type(CategoryDeleteResponse, category, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_path_params_delete(self, client: Cloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            client.cloudforce_one.threat_events.categories.with_raw_response.delete(
-                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                client.cloudforce_one.threat_events.categories.with_raw_response.delete(
+                    category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
-            client.cloudforce_one.threat_events.categories.with_raw_response.delete(
-                category_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
+                client.cloudforce_one.threat_events.categories.with_raw_response.delete(
+                    category_id="",
+                    account_id="account_id",
+                )
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_method_edit(self, client: Cloudflare) -> None:
-        category = client.cloudforce_one.threat_events.categories.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = client.cloudforce_one.threat_events.categories.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
+
         assert_matches_type(CategoryEditResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_method_edit_with_all_params(self, client: Cloudflare) -> None:
-        category = client.cloudforce_one.threat_events.categories.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-            kill_chain=0,
-            mitre_attack=["T1234"],
-            mitre_capec=["123"],
-            name="name",
-            shortname="shortname",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = client.cloudforce_one.threat_events.categories.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+                kill_chain=0,
+                mitre_attack=["T1234"],
+                mitre_capec=["123"],
+                name="name",
+                shortname="shortname",
+            )
+
         assert_matches_type(CategoryEditResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_raw_response_edit(self, client: Cloudflare) -> None:
-        response = client.cloudforce_one.threat_events.categories.with_raw_response.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.cloudforce_one.threat_events.categories.with_raw_response.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -228,49 +240,54 @@ class TestCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_streaming_response_edit(self, client: Cloudflare) -> None:
-        with client.cloudforce_one.threat_events.categories.with_streaming_response.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.cloudforce_one.threat_events.categories.with_streaming_response.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            category = response.parse()
-            assert_matches_type(CategoryEditResponse, category, path=["response"])
+                category = response.parse()
+                assert_matches_type(CategoryEditResponse, category, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_path_params_edit(self, client: Cloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            client.cloudforce_one.threat_events.categories.with_raw_response.edit(
-                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                client.cloudforce_one.threat_events.categories.with_raw_response.edit(
+                    category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
-            client.cloudforce_one.threat_events.categories.with_raw_response.edit(
-                category_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
+                client.cloudforce_one.threat_events.categories.with_raw_response.edit(
+                    category_id="",
+                    account_id="account_id",
+                )
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_method_get(self, client: Cloudflare) -> None:
-        category = client.cloudforce_one.threat_events.categories.get(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = client.cloudforce_one.threat_events.categories.get(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
+
         assert_matches_type(CategoryGetResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
-        response = client.cloudforce_one.threat_events.categories.with_raw_response.get(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.cloudforce_one.threat_events.categories.with_raw_response.get(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -280,32 +297,34 @@ class TestCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
-        with client.cloudforce_one.threat_events.categories.with_streaming_response.get(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.cloudforce_one.threat_events.categories.with_streaming_response.get(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            category = response.parse()
-            assert_matches_type(CategoryGetResponse, category, path=["response"])
+                category = response.parse()
+                assert_matches_type(CategoryGetResponse, category, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     def test_path_params_get(self, client: Cloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            client.cloudforce_one.threat_events.categories.with_raw_response.get(
-                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                client.cloudforce_one.threat_events.categories.with_raw_response.get(
+                    category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
-            client.cloudforce_one.threat_events.categories.with_raw_response.get(
-                category_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
+                client.cloudforce_one.threat_events.categories.with_raw_response.get(
+                    category_id="",
+                    account_id="account_id",
+                )
 
 
 class TestAsyncCategories:
@@ -430,19 +449,22 @@ class TestAsyncCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_method_delete(self, async_client: AsyncCloudflare) -> None:
-        category = await async_client.cloudforce_one.threat_events.categories.delete(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = await async_client.cloudforce_one.threat_events.categories.delete(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
+
         assert_matches_type(CategoryDeleteResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
-        response = await async_client.cloudforce_one.threat_events.categories.with_raw_response.delete(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.cloudforce_one.threat_events.categories.with_raw_response.delete(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -452,63 +474,70 @@ class TestAsyncCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
-        async with async_client.cloudforce_one.threat_events.categories.with_streaming_response.delete(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.cloudforce_one.threat_events.categories.with_streaming_response.delete(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            category = await response.parse()
-            assert_matches_type(CategoryDeleteResponse, category, path=["response"])
+                category = await response.parse()
+                assert_matches_type(CategoryDeleteResponse, category, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncCloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            await async_client.cloudforce_one.threat_events.categories.with_raw_response.delete(
-                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                await async_client.cloudforce_one.threat_events.categories.with_raw_response.delete(
+                    category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
-            await async_client.cloudforce_one.threat_events.categories.with_raw_response.delete(
-                category_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
+                await async_client.cloudforce_one.threat_events.categories.with_raw_response.delete(
+                    category_id="",
+                    account_id="account_id",
+                )
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_method_edit(self, async_client: AsyncCloudflare) -> None:
-        category = await async_client.cloudforce_one.threat_events.categories.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = await async_client.cloudforce_one.threat_events.categories.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
+
         assert_matches_type(CategoryEditResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_method_edit_with_all_params(self, async_client: AsyncCloudflare) -> None:
-        category = await async_client.cloudforce_one.threat_events.categories.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-            kill_chain=0,
-            mitre_attack=["T1234"],
-            mitre_capec=["123"],
-            name="name",
-            shortname="shortname",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = await async_client.cloudforce_one.threat_events.categories.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+                kill_chain=0,
+                mitre_attack=["T1234"],
+                mitre_capec=["123"],
+                name="name",
+                shortname="shortname",
+            )
+
         assert_matches_type(CategoryEditResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_raw_response_edit(self, async_client: AsyncCloudflare) -> None:
-        response = await async_client.cloudforce_one.threat_events.categories.with_raw_response.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.cloudforce_one.threat_events.categories.with_raw_response.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -518,49 +547,54 @@ class TestAsyncCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_streaming_response_edit(self, async_client: AsyncCloudflare) -> None:
-        async with async_client.cloudforce_one.threat_events.categories.with_streaming_response.edit(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.cloudforce_one.threat_events.categories.with_streaming_response.edit(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            category = await response.parse()
-            assert_matches_type(CategoryEditResponse, category, path=["response"])
+                category = await response.parse()
+                assert_matches_type(CategoryEditResponse, category, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_path_params_edit(self, async_client: AsyncCloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            await async_client.cloudforce_one.threat_events.categories.with_raw_response.edit(
-                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                await async_client.cloudforce_one.threat_events.categories.with_raw_response.edit(
+                    category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
-            await async_client.cloudforce_one.threat_events.categories.with_raw_response.edit(
-                category_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
+                await async_client.cloudforce_one.threat_events.categories.with_raw_response.edit(
+                    category_id="",
+                    account_id="account_id",
+                )
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
-        category = await async_client.cloudforce_one.threat_events.categories.get(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            category = await async_client.cloudforce_one.threat_events.categories.get(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
+
         assert_matches_type(CategoryGetResponse, category, path=["response"])
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
-        response = await async_client.cloudforce_one.threat_events.categories.with_raw_response.get(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.cloudforce_one.threat_events.categories.with_raw_response.get(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -570,29 +604,31 @@ class TestAsyncCategories:
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
-        async with async_client.cloudforce_one.threat_events.categories.with_streaming_response.get(
-            category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.cloudforce_one.threat_events.categories.with_streaming_response.get(
+                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            category = await response.parse()
-            assert_matches_type(CategoryGetResponse, category, path=["response"])
+                category = await response.parse()
+                assert_matches_type(CategoryGetResponse, category, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: HTTP 401 from prism")
     @parametrize
     async def test_path_params_get(self, async_client: AsyncCloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            await async_client.cloudforce_one.threat_events.categories.with_raw_response.get(
-                category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                await async_client.cloudforce_one.threat_events.categories.with_raw_response.get(
+                    category_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
-            await async_client.cloudforce_one.threat_events.categories.with_raw_response.get(
-                category_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `category_id` but received ''"):
+                await async_client.cloudforce_one.threat_events.categories.with_raw_response.get(
+                    category_id="",
+                    account_id="account_id",
+                )

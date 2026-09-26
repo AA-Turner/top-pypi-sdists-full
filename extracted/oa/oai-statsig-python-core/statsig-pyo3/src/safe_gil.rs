@@ -15,8 +15,11 @@ pub fn notify_python_shutdown() {
 
 #[gen_stub_pyfunction(module = "statsig_python_core")]
 #[pyfunction]
-pub fn notify_python_fork() {
-    StatsigGlobal::reset();
+pub fn notify_python_fork(py: Python<'_>) {
+    // Reset drops the shared Tokio runtime and may wait for workers that are
+    // finishing Python callbacks. Let those workers acquire the GIL before
+    // the fork proceeds.
+    py.detach(StatsigGlobal::reset);
 }
 
 pub struct SafeGil;

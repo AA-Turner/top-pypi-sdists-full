@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from .list_field import ListField as ListField
+from .source_field import SourceField as SourceField
+from .struct_field import StructField as StructField
+from .list_field_param import ListFieldParam as ListFieldParam
 from .sink_list_params import SinkListParams as SinkListParams
 from .sink_get_response import SinkGetResponse as SinkGetResponse
 from .sink_create_params import SinkCreateParams as SinkCreateParams
 from .sink_list_response import SinkListResponse as SinkListResponse
+from .source_field_param import SourceFieldParam as SourceFieldParam
 from .stream_list_params import StreamListParams as StreamListParams
+from .struct_field_param import StructFieldParam as StructFieldParam
 from .stream_get_response import StreamGetResponse as StreamGetResponse
 from .pipeline_list_params import PipelineListParams as PipelineListParams
 from .sink_create_response import SinkCreateResponse as SinkCreateResponse

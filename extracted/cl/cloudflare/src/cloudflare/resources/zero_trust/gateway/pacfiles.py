@@ -17,9 +17,9 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._wrappers import ResultWrapper
-from ....pagination import SyncSinglePage, AsyncSinglePage
+from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.zero_trust.gateway import pacfile_create_params, pacfile_update_params
+from ....types.zero_trust.gateway import pacfile_list_params, pacfile_create_params, pacfile_update_params
 from ....types.zero_trust.gateway.pacfile_get_response import PacfileGetResponse
 from ....types.zero_trust.gateway.pacfile_list_response import PacfileListResponse
 from ....types.zero_trust.gateway.pacfile_create_response import PacfileCreateResponse
@@ -67,6 +67,8 @@ class PacfilesResource(SyncAPIResource):
         Create a new Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           contents: Actual contents of the PAC file
 
           name: Name of the PAC file.
@@ -126,6 +128,8 @@ class PacfilesResource(SyncAPIResource):
         Update a configured Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           contents: Actual contents of the PAC file
 
           description: Detailed description of the PAC file.
@@ -170,17 +174,25 @@ class PacfilesResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncSinglePage[PacfileListResponse]:
+    ) -> SyncV4PagePaginationArray[PacfileListResponse]:
         """
         List all Zero Trust Gateway PAC files for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
+          page: Page number of paginated results.
+
+          per_page: Number of items per page.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -193,9 +205,19 @@ class PacfilesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
             path_template("/accounts/{account_id}/gateway/pacfiles", account_id=account_id),
-            page=SyncSinglePage[PacfileListResponse],
+            page=SyncV4PagePaginationArray[PacfileListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    pacfile_list_params.PacfileListParams,
+                ),
             ),
             model=PacfileListResponse,
         )
@@ -216,6 +238,8 @@ class PacfilesResource(SyncAPIResource):
         Delete a configured Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -258,6 +282,8 @@ class PacfilesResource(SyncAPIResource):
         Get a single Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -324,6 +350,8 @@ class AsyncPacfilesResource(AsyncAPIResource):
         Create a new Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           contents: Actual contents of the PAC file
 
           name: Name of the PAC file.
@@ -383,6 +411,8 @@ class AsyncPacfilesResource(AsyncAPIResource):
         Update a configured Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           contents: Actual contents of the PAC file
 
           description: Detailed description of the PAC file.
@@ -427,17 +457,25 @@ class AsyncPacfilesResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[PacfileListResponse, AsyncSinglePage[PacfileListResponse]]:
+    ) -> AsyncPaginator[PacfileListResponse, AsyncV4PagePaginationArray[PacfileListResponse]]:
         """
         List all Zero Trust Gateway PAC files for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
+          page: Page number of paginated results.
+
+          per_page: Number of items per page.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -450,9 +488,19 @@ class AsyncPacfilesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
             path_template("/accounts/{account_id}/gateway/pacfiles", account_id=account_id),
-            page=AsyncSinglePage[PacfileListResponse],
+            page=AsyncV4PagePaginationArray[PacfileListResponse],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    pacfile_list_params.PacfileListParams,
+                ),
             ),
             model=PacfileListResponse,
         )
@@ -473,6 +521,8 @@ class AsyncPacfilesResource(AsyncAPIResource):
         Delete a configured Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -515,6 +565,8 @@ class AsyncPacfilesResource(AsyncAPIResource):
         Get a single Zero Trust Gateway PAC file.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

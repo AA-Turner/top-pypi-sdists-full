@@ -777,3 +777,20 @@ _CONVERSATION_HISTORY_WINDOW_KEY = "conversation_history_window"
 def get_conversation_history_window() -> Any:
     """Return the host-injected conversation history window, or None when unset."""
     return _registry.get(_CONVERSATION_HISTORY_WINDOW_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Edited assistant answers (what the model sees after a person edits one)
+# ---------------------------------------------------------------------------
+#
+# The host injects ``async resolver(organization_id) -> bool`` answering the
+# organization's ``agents.messages / edited_answer_visible_to_model`` knob.
+# OPTIONAL: unconfigured → the platform default (the edited text replays).
+# Consumer + contract: ``matrx_ai/db/edited_answers.py``.
+
+_EDITED_ANSWER_VISIBILITY_RESOLVER_KEY = "edited_answer_visibility_resolver"
+
+
+def get_edited_answer_visibility_resolver() -> Any:
+    """Return the host-injected edited-answer resolver, or None when unset."""
+    return _registry.get(_EDITED_ANSWER_VISIBILITY_RESOLVER_KEY)

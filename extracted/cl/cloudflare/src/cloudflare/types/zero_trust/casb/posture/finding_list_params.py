@@ -85,5 +85,6 @@ class FindingListParams(TypedDict, total=False):
         "SALESFORCE",
         "SERVICENOW",
         "SLACK",
+        "ZOOM",
     ]
     """Filter by vendor"""

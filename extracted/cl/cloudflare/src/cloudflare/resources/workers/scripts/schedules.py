@@ -59,7 +59,7 @@ class SchedulesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleUpdateResponse:
         """
-        Updates Cron Triggers for a Worker.
+        Update the schedules (Cron Triggers) for a Worker script.
 
         Args:
           account_id: Identifier.
@@ -108,7 +108,7 @@ class SchedulesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleGetResponse:
         """
-        Fetches Cron Triggers for a Worker.
+        Get the schedules (Cron Triggers) for a Worker script.
 
         Args:
           account_id: Identifier.
@@ -178,7 +178,7 @@ class AsyncSchedulesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleUpdateResponse:
         """
-        Updates Cron Triggers for a Worker.
+        Update the schedules (Cron Triggers) for a Worker script.
 
         Args:
           account_id: Identifier.
@@ -227,7 +227,7 @@ class AsyncSchedulesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScheduleGetResponse:
         """
-        Fetches Cron Triggers for a Worker.
+        Get the schedules (Cron Triggers) for a Worker script.
 
         Args:
           account_id: Identifier.

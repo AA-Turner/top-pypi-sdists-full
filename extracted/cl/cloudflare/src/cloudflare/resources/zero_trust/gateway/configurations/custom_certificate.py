@@ -59,6 +59,8 @@ class CustomCertificateResource(SyncAPIResource):
         Retrieve the current Zero Trust certificate configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -114,6 +116,8 @@ class AsyncCustomCertificateResource(AsyncAPIResource):
         Retrieve the current Zero Trust certificate configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

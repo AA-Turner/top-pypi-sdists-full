@@ -1,7 +1,7 @@
 use crate::pyo_utils::py_dict_to_json_value_map;
 use crate::raw_evaluation_compat_py::{
-    LayerParamExposureDataPy, raw_dynamic_config_to_py_dict, raw_experiment_to_py_dict,
-    raw_gate_to_py_dict, raw_layer_to_py_dict,
+    FeatureGatePartsPy, LayerParamExposureDataPy, raw_dynamic_config_to_py_dict,
+    raw_experiment_to_py_dict, raw_gate_to_py_dict, raw_gate_to_py_parts, raw_layer_to_py_dict,
 };
 use crate::safe_gil::SafeGil;
 use crate::statsig_options_py::{StatsigOptionsPy, safe_convert_to_statsig_options};
@@ -9,6 +9,9 @@ use crate::statsig_persistent_storage_override_adapter_py::convert_dict_to_user_
 use crate::statsig_types_py::{
     BulkEvaluationOptionsPy, InitializeDetailsPy, ParameterStoreEvaluationOptionsPy,
     ParameterStorePy,
+};
+use crate::statsig_user_context_py::{
+    StatsigRandomUserIDPy, StatsigUserContextPy, prepare_anonymous_user, prepare_user,
 };
 use crate::{
     statsig_types_py::{
@@ -323,6 +326,240 @@ impl StatsigBasePy {
         Ok(())
     }
 
+    /// Evaluate with a fresh native cryptographic identity and optional request fields.
+    #[pyo3(signature = (name, id_options, *, context=None, custom=None, custom_ids=None, ip=None, country=None, locale=None, user_agent=None, options=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn check_gate_anonymous(
+        &self,
+        py: Python<'_>,
+        name: &str,
+        id_options: &StatsigRandomUserIDPy,
+        context: Option<&StatsigUserContextPy>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        #[gen_stub(override_type(type_repr = "typing.Optional[CustomIdsDict]"))] custom_ids: Option<
+            &Bound<'_, PyDict>,
+        >,
+        ip: Option<&str>,
+        country: Option<&str>,
+        locale: Option<&str>,
+        user_agent: Option<&str>,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+    ) -> PyResult<bool> {
+        let user = prepare_anonymous_user(
+            id_options, context, custom, custom_ids, ip, country, locale, user_agent,
+        )?;
+        let statsig = &self.inner;
+        let options = options.map_or(FeatureGateEvaluationOptions::default(), Into::into);
+        // name's immutable Python string is kept alive by the scoped method call.
+        Ok(py.detach(move || {
+            let internal = StatsigUserInternal::from_prepared_user(&user, Some(statsig));
+            statsig.check_gate_with_options_for_internal_user(&internal, name, options)
+        }))
+    }
+
+    #[pyo3(name="_INTERNAL_get_feature_gate_anonymous_parts", signature = (name, id_options, context=None, custom=None, custom_ids=None, ip=None, country=None, locale=None, user_agent=None, options=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn _internal_get_feature_gate_anonymous_parts(
+        &self,
+        py: Python<'_>,
+        name: &str,
+        id_options: &StatsigRandomUserIDPy,
+        context: Option<&StatsigUserContextPy>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        #[gen_stub(override_type(type_repr = "typing.Optional[CustomIdsDict]"))] custom_ids: Option<
+            &Bound<'_, PyDict>,
+        >,
+        ip: Option<&str>,
+        country: Option<&str>,
+        locale: Option<&str>,
+        user_agent: Option<&str>,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+    ) -> PyResult<FeatureGatePartsPy> {
+        let user = prepare_anonymous_user(
+            id_options, context, custom, custom_ids, ip, country, locale, user_agent,
+        )?;
+        let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
+        self.inner
+            .use_raw_feature_gate_with_options_for_internal_user(
+                &internal,
+                name,
+                options.map_or(FeatureGateEvaluationOptions::default(), Into::into),
+                |raw| Ok(raw_gate_to_py_parts(py, raw)),
+            )
+    }
+
+    #[pyo3(name="_INTERNAL_get_layer_anonymous", signature = (name, id_options, context=None, custom=None, custom_ids=None, ip=None, country=None, locale=None, user_agent=None, options=None, evaluation_cache_keys=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn _internal_get_layer_anonymous(
+        &self,
+        py: Python<'_>,
+        name: &str,
+        id_options: &StatsigRandomUserIDPy,
+        context: Option<&StatsigUserContextPy>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        #[gen_stub(override_type(type_repr = "typing.Optional[CustomIdsDict]"))] custom_ids: Option<
+            &Bound<'_, PyDict>,
+        >,
+        ip: Option<&str>,
+        country: Option<&str>,
+        locale: Option<&str>,
+        user_agent: Option<&str>,
+        options: Option<LayerEvaluationOptionsPy>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]", imports = ("typing", "collections.abc", "builtins")))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
+    ) -> PyResult<Py<PyDict>> {
+        let mut options_actual = options
+            .as_ref()
+            .map_or(LayerEvaluationOptions::default(), Into::into);
+        options_actual.user_persisted_values = options
+            .and_then(|o| o.user_persisted_values)
+            .and_then(|v| extract_user_persisted_values(py, name, v));
+        let user = prepare_anonymous_user(
+            id_options, context, custom, custom_ids, ip, country, locale, user_agent,
+        )?;
+        let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
+        self.inner.use_raw_layer_with_options_for_internal_user(
+            &internal,
+            name,
+            options_actual,
+            |raw| raw_layer_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
+        )
+    }
+
+    /// Evaluate with reusable metadata and an independently supplied identity.
+    #[pyo3(signature = (context, name, user_id=None, custom=None, options=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn check_gate_with_context(
+        &self,
+        py: Python<'_>,
+        context: Option<&StatsigUserContextPy>,
+        name: &str,
+        user_id: Option<&str>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+    ) -> bool {
+        let statsig = &self.inner;
+        let user = prepare_user(context, user_id, custom);
+        let options = options.map_or(FeatureGateEvaluationOptions::default(), Into::into);
+        py.detach(move || {
+            let internal = StatsigUserInternal::from_prepared_user(&user, Some(statsig));
+            statsig.check_gate_with_options_for_internal_user(&internal, name, options)
+        })
+    }
+
+    #[pyo3(name="_INTERNAL_get_feature_gate_with_context", signature = (context, name, user_id=None, custom=None, options=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn _internal_get_feature_gate_with_context(
+        &self,
+        py: Python<'_>,
+        context: Option<&StatsigUserContextPy>,
+        name: &str,
+        user_id: Option<&str>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+    ) -> PyResult<Py<PyDict>> {
+        let user = prepare_user(context, user_id, custom);
+        let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
+        self.inner
+            .use_raw_feature_gate_with_options_for_internal_user(
+                &internal,
+                name,
+                options.map_or(FeatureGateEvaluationOptions::default(), Into::into),
+                |raw| raw_gate_to_py_dict(py, raw),
+            )
+    }
+
+    #[pyo3(name="_INTERNAL_get_feature_gate_with_context_parts", signature = (context, name, user_id=None, custom=None, options=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn _internal_get_feature_gate_with_context_parts(
+        &self,
+        py: Python<'_>,
+        context: Option<&StatsigUserContextPy>,
+        name: &str,
+        user_id: Option<&str>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+    ) -> PyResult<FeatureGatePartsPy> {
+        let user = prepare_user(context, user_id, custom);
+        let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
+        self.inner
+            .use_raw_feature_gate_with_options_for_internal_user(
+                &internal,
+                name,
+                options.map_or(FeatureGateEvaluationOptions::default(), Into::into),
+                |raw| Ok(raw_gate_to_py_parts(py, raw)),
+            )
+    }
+
+    #[pyo3(name="_INTERNAL_get_dynamic_config_with_context", signature = (context, name, user_id=None, custom=None, options=None, evaluation_cache_keys=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn _internal_get_dynamic_config_with_context(
+        &self,
+        py: Python<'_>,
+        context: Option<&StatsigUserContextPy>,
+        name: &str,
+        user_id: Option<&str>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        options: Option<DynamicConfigEvaluationOptionsPy>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]", imports = ("typing", "collections.abc", "builtins")))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
+    ) -> PyResult<Py<PyDict>> {
+        let user = prepare_user(context, user_id, custom);
+        let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
+        self.inner
+            .use_raw_dynamic_config_with_options_for_internal_user(
+                &internal,
+                name,
+                options.map_or(DynamicConfigEvaluationOptions::default(), Into::into),
+                |raw| raw_dynamic_config_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
+            )
+    }
+
+    #[pyo3(name="_INTERNAL_get_layer_with_context", signature = (context, name, user_id=None, custom=None, options=None, evaluation_cache_keys=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn _internal_get_layer_with_context(
+        &self,
+        py: Python<'_>,
+        context: Option<&StatsigUserContextPy>,
+        name: &str,
+        user_id: Option<&str>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[AttributesDict]"))] custom: Option<
+            &Bound<'_, PyDict>,
+        >,
+        options: Option<LayerEvaluationOptionsPy>,
+        #[gen_stub(override_type(type_repr = "typing.Optional[collections.abc.KeysView[builtins.int]]", imports = ("typing", "collections.abc", "builtins")))]
+        evaluation_cache_keys: Option<Bound<PyAny>>,
+    ) -> PyResult<Py<PyDict>> {
+        let mut options_actual = options
+            .as_ref()
+            .map_or(LayerEvaluationOptions::default(), Into::into);
+        options_actual.user_persisted_values = options
+            .and_then(|o| o.user_persisted_values)
+            .and_then(|v| extract_user_persisted_values(py, name, v));
+        let user = prepare_user(context, user_id, custom);
+        let internal = StatsigUserInternal::from_prepared_user(&user, Some(&self.inner));
+        self.inner.use_raw_layer_with_options_for_internal_user(
+            &internal,
+            name,
+            options_actual,
+            |raw| raw_layer_to_py_dict(py, raw, evaluation_cache_keys.as_ref(), None),
+        )
+    }
+
     #[pyo3(signature = (user, name, options=None))]
     pub fn check_gate(
         &self,
@@ -354,6 +591,24 @@ impl StatsigBasePy {
                 name,
                 options.map_or(FeatureGateEvaluationOptions::default(), |o| o.into()),
                 |raw| raw_gate_to_py_dict(py, raw),
+            )
+    }
+
+    #[pyo3(name="_INTERNAL_get_feature_gate_parts", signature = (user, name, options=None))]
+    pub fn _internal_get_feature_gate_parts(
+        &self,
+        py: Python,
+        user: &StatsigUserPy,
+        name: &str,
+        options: Option<FeatureGateEvaluationOptionsPy>,
+    ) -> PyResult<FeatureGatePartsPy> {
+        let user_internal = StatsigUserInternal::from_fast_user(&user.inner, Some(&self.inner));
+        self.inner
+            .use_raw_feature_gate_with_options_for_internal_user(
+                &user_internal,
+                name,
+                options.map_or(FeatureGateEvaluationOptions::default(), Into::into),
+                |raw| Ok(raw_gate_to_py_parts(py, raw)),
             )
     }
 

@@ -1,29 +1,26 @@
 __lazy_modules__ = {
     "argparse",
     "dataclasses",
+    "json",
+    "pathlib",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.builtins",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.utils.typing",
     f"{__spec__.parent}.model.cache",
     f"{__spec__.parent}.model.cmakefiles",
     f"{__spec__.parent}.model.codemodel",
     f"{__spec__.parent}.model.index",
     f"{__spec__.parent}.model.toolchains",
-    "json",
-    "pathlib",
 }
 
 import argparse
 import builtins
 import dataclasses
 import json
-import sys
 import typing
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Type, TypeVar, Union  # noqa: TID251
+from typing import Any, Callable, TypeVar, Union, get_args, get_origin  # noqa: TID251
 
-from .._compat.builtins import ExceptionGroup
-from .._compat.typing import get_args, get_origin
+from .._compat.builtins import ExceptionGroup, add_note
 from ..utils.typing import (
     get_target_raw_type,
     is_union_type,
@@ -31,20 +28,20 @@ from ..utils.typing import (
 )
 from .model.cache import Cache
 from .model.cmakefiles import CMakeFiles
-from .model.codemodel import CodeModel, Target
+from .model.codemodel import CodeModel, Directory, Target
 from .model.index import Index
 from .model.toolchains import Toolchains
 
 __all__ = ["load_reply_dir"]
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return __all__
 
 
 T = TypeVar("T")
 
-InputDict = Dict[str, Any]
+InputDict = dict[str, Any]
 
 
 class Converter:
@@ -55,36 +52,55 @@ class Converter:
         """
         Load the newest index.json file and return the Index object.
         """
-        index_file = sorted(self.base_dir.glob("index-*"))[-1]
-        with index_file.open(encoding="utf-8") as f:
-            data = json.load(f)
+        # max() would raise ValueError, not IndexError, when there is no index
+        index_file = sorted(self.base_dir.glob("index-*"))[-1]  # noqa: FURB192
+        return self.make_class(self._read_json(index_file), Index)
 
-        return self.make_class(data, Index)
+    def _read_json(self, path: Path) -> Any:
+        """
+        Read a JSON file, wrapping decode errors in an ExceptionGroup.
+        """
+        with path.open(encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except ValueError as err:
+                # JSONDecodeError and UnicodeDecodeError are both ValueErrors
+                msg = f"Failed to read {path}"
+                raise ExceptionGroup(msg, [err]) from None
 
-    def _load_from_json(self, name: Path, target: Type[T]) -> T:
-        with self.base_dir.joinpath(name).open(encoding="utf-8") as f:
-            data = json.load(f)
-
-        return self.make_class(data, target)
-
-    def make_class(self, data: InputDict, target: Type[T]) -> T:
+    def make_class(self, data: InputDict, target: type[T]) -> T:
         """
         Convert a dict to a dataclass. Automatically load a few nested jsonFile classes.
-        """
-        if (
-            target in {CodeModel, Target, Cache, CMakeFiles, Toolchains}
-            and "jsonFile" in data
-            and data["jsonFile"] is not None
-        ):
-            return self._load_from_json(Path(data["jsonFile"]), target)
 
-        input_dict: Dict[str, Type[Any]] = {}
-        exceptions: List[Exception] = []
+        Every conversion failure is raised as an ExceptionGroup.
+        """
+        msg = f"Failed converting {target}"
+        if not isinstance(data, dict):
+            err = TypeError(f"Expected a dict, got {type(data).__name__}: {data!r}")
+            raise ExceptionGroup(msg, [err])
+
+        if (
+            target in {CodeModel, Target, Cache, CMakeFiles, Toolchains, Directory}
+            and data.get("jsonFile") is not None
+        ):
+            file_data = self._read_json(self.base_dir.joinpath(data["jsonFile"]))
+            if not isinstance(file_data, dict):
+                err = TypeError(f"Expected a dict in {data['jsonFile']}")
+                raise ExceptionGroup(msg, [err])
+            # Keep members only present on the reference, like directoryIndex
+            # and projectIndex on codemodel target entries
+            data = {**file_data, **data}
+
+        input_dict: dict[str, Any] = {}
+        exceptions: list[Exception] = []
 
         # We don't have DataclassInstance exposed in typing yet
         for field in dataclasses.fields(target):  # type: ignore[arg-type]
-            json_field = field.name.replace("_v", "-v").replace(
-                "cmakefiles", "cmakeFiles"
+            # A trailing underscore escapes a reserved word, like "from_"
+            json_field = (
+                field.name.rstrip("_")
+                .replace("_v", "-v")
+                .replace("cmakefiles", "cmakeFiles")
             )
             if json_field in data:
                 field_type = field.type
@@ -92,28 +108,30 @@ class Converter:
                     input_dict[field.name] = self._convert_any(
                         data[json_field], field_type
                     )
-                except TypeError as err:
-                    msg = f"Failed to convert field {field.name!r} of type {field_type}"
-                    if sys.version_info < (3, 11):
-                        err.__notes__ = [*getattr(err, "__notes__", []), msg]  # type: ignore[attr-defined]
-                    else:
-                        err.add_note(msg)  # pylint: disable=no-member
+                except (TypeError, ValueError) as err:
+                    add_note(
+                        err,
+                        f"Failed to convert field {field.name!r} of type {field_type}",
+                    )
                     exceptions.append(err)
                 except ExceptionGroup as err:
                     exceptions.append(err)
 
         if exceptions:
-            msg = f"Failed converting {target}"
             raise ExceptionGroup(msg, exceptions)
 
-        return target(**input_dict)
+        try:
+            return target(**input_dict)
+        except TypeError as err:
+            # Missing required fields
+            raise ExceptionGroup(msg, [err]) from None
 
     @typing.overload
-    def _convert_any(self, item: Any, target: Type[T]) -> T: ...
+    def _convert_any(self, item: Any, target: type[T]) -> T: ...
     @typing.overload
     def _convert_any(self, item: Any, target: Any) -> Any: ...
 
-    def _convert_any(self, item: Any, target: Union[Type[T], Any]) -> Any:
+    def _convert_any(self, item: Any, target: Union[type[T], Any]) -> Any:
         target = process_union(target)
         if dataclasses.is_dataclass(target) and isinstance(target, type):
             # We don't have DataclassInstance exposed in typing yet
@@ -135,7 +153,7 @@ class Converter:
                     continue
                 try:
                     return self._convert_any(item, maybe_target)
-                except (ExceptionGroup, TypeError) as err:
+                except (ExceptionGroup, TypeError, ValueError) as err:
                     last_err = err
                     continue
             raise last_err

@@ -17,6 +17,7 @@ from cwsandbox._types import (
     Endpoint,
     EndpointAuth,
     EndpointKind,
+    EndpointShareToken,
     IngressRule,
     NetworkOptions,
     ObjectStorageAccess,
@@ -190,8 +191,8 @@ class TestEgressRule:
         from cwsandbox._proto import sandbox_pb2
         from cwsandbox._spec import egress_rule_from_proto
 
-        proto = sandbox_pb2.EgressRule(dns_name="pypi.org")
-        proto.dns_name_except.append("files.pypi.org")
+        proto = sandbox_pb2.EgressRule(https_hostname="pypi.org")
+        proto.https_hostname_except.append("files.pypi.org")
         proto.ports.add(port=80)
         rule = egress_rule_from_proto(proto)
         assert rule.dns_name == "pypi.org"
@@ -241,6 +242,32 @@ class TestNetworkOptions:
     def test_egress_rejects_bare_string(self) -> None:
         with pytest.raises(TypeError, match="sequence"):
             NetworkOptions(egress="pypi.org")  # type: ignore[arg-type]
+
+
+class TestEndpointShareToken:
+    """Tests for redacted endpoint credentials."""
+
+    def test_redacts_string_and_repr(self) -> None:
+        token = EndpointShareToken("secret-value")
+
+        assert str(token) == "<redacted>"
+        assert f"{token}" == "<redacted>"
+        assert repr(token) == "EndpointShareToken(<redacted>)"
+        assert repr({"token": token}) == "{'token': EndpointShareToken(<redacted>)}"
+        assert "secret-value" not in str(token)
+        assert "secret-value" not in repr(token)
+
+    def test_explicit_secret_access(self) -> None:
+        token = EndpointShareToken("secret-value")
+
+        assert token.get_secret_value() == "secret-value"
+        assert token.as_headers() == {"X-Sandbox-Share-Token": "secret-value"}
+
+    def test_rejects_invalid_values(self) -> None:
+        with pytest.raises(TypeError, match="must be str"):
+            EndpointShareToken(123)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="must not be empty"):
+            EndpointShareToken("")
 
 
 class TestService:
@@ -300,6 +327,14 @@ class TestService:
         ep = Endpoint(kind="https", auth="open")
         assert ep.kind == EndpointKind.HTTPS
         assert ep.auth == EndpointAuth.OPEN
+
+    def test_endpoint_share_token_enum_and_string_coercion(self) -> None:
+        assert EndpointAuth.SHARE_TOKEN == "share_token"
+        from_enum = Endpoint(kind=EndpointKind.HTTPS, auth=EndpointAuth.SHARE_TOKEN)
+        assert from_enum.auth == EndpointAuth.SHARE_TOKEN
+        from_string = Endpoint(kind="https", auth="share_token")
+        assert from_string.kind == EndpointKind.HTTPS
+        assert from_string.auth == EndpointAuth.SHARE_TOKEN
 
     def test_endpoint_unknown_auth_string(self) -> None:
         with pytest.raises(ValueError):

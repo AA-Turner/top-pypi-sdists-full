@@ -1,5 +1,6 @@
 # File: matrx_scraper/db/models_scraper.py
-from matrx_orm import BooleanField, CharField, DateTimeField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
+from matrx_orm import BooleanField, CharField, DateTimeField, EnumField, ForeignKey, IntegerField, JSONBField, MatrxEntity, Model, TextField, UUIDField, model_registry, BaseDTO, BaseManager
+from enum import Enum
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -50,6 +51,14 @@ class ScrapeFailureLog(MatrxEntity):
     _is_org_scoped = False
     _rls_variant = "system"
 
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
 class ScrapeParsedPage(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     page_name = CharField(null=False)
@@ -72,15 +81,29 @@ class ScrapeParsedPage(MatrxEntity):
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
     version = IntegerField(null=False, default=1)
+    canonical_url = TextField()
+    content_hash = TextField()
+    title = TextField()
+    final_url = TextField()
+    capture_method = TextField()
+    captured_by_rung = TextField()
+    origin_client = TextField()
+    rung_trail = JSONBField(null=False, default=[])
+    html_file_id = ForeignKey(to_model='Files', to_column='id', to_schema='files', )
+    processed_document_id = ForeignKey(to_model='ProcessedDocuments', to_column='id', to_schema='docproc', )
+    owner_id = UUIDField()
+    visibility = EnumField(enum_class=Visibility, null=False)
+    custom_fields = JSONBField(null=False, default={})
+    deleted_at = DateTimeField()
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
     _database = "matrx_scraper"
     _table_name = "scrape_parsed_page"
     _db_schema = "scraper"
     _entity_token = "scrape_parsed_page"
     _is_versioned = False
-    _has_soft_delete = False
+    _has_soft_delete = True
     _is_org_scoped = True
-    _rls_variant = "restricted"
+    _rls_variant = "entity"
 
 class ScrapeDomainSettings(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
@@ -178,6 +201,7 @@ __all__ = [
     "ScrapePathPattern",
     "ScrapeRetryQueue",
     "ScrapePathOverride",
+    "Visibility",
 ]
 
 

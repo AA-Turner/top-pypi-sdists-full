@@ -60,7 +60,7 @@ class TimeTravelResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TimeTravelGetBookmarkResponse:
         """
-        Retrieves the current bookmark, or the nearest bookmark at or before a provided
+        Retrieve the current bookmark, or the nearest bookmark at or before a provided
         timestamp. Bookmarks can be used with the restore endpoint to revert the
         database to a previous point in time.
 
@@ -118,7 +118,7 @@ class TimeTravelResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TimeTravelRestoreResponse:
         """
-        Restores a D1 database to a previous point in time either via a bookmark or a
+        Restore a D1 database to a previous point in time either via a bookmark or a
         timestamp.
 
         Args:
@@ -201,7 +201,7 @@ class AsyncTimeTravelResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TimeTravelGetBookmarkResponse:
         """
-        Retrieves the current bookmark, or the nearest bookmark at or before a provided
+        Retrieve the current bookmark, or the nearest bookmark at or before a provided
         timestamp. Bookmarks can be used with the restore endpoint to revert the
         database to a previous point in time.
 
@@ -259,7 +259,7 @@ class AsyncTimeTravelResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TimeTravelRestoreResponse:
         """
-        Restores a D1 database to a previous point in time either via a bookmark or a
+        Restore a D1 database to a previous point in time either via a bookmark or a
         timestamp.
 
         Args:

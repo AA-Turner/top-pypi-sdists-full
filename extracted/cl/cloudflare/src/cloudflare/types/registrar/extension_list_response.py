@@ -20,7 +20,7 @@ class Metadata(BaseModel):
 
 class ExtensionListResponse(BaseModel):
     """
-    Extension entry with metadata and JSON Schema documents for the registration operation.
+    Extension entry with metadata and JSON Schema documents for registration and transfer operations.
     """
 
     metadata: Metadata
@@ -30,4 +30,10 @@ class ExtensionListResponse(BaseModel):
     """
     JSON Schema describing the expected input structure for registration operations
     on this extension.
+    """
+
+    transfer_schema: object
+    """
+    JSON Schema describing the expected input structure for transfer operations on
+    this extension.
     """

@@ -16,13 +16,15 @@ from typing import Any, Dict, List, Optional
 import keyring
 from keyring.errors import NoKeyringError, PasswordDeleteError
 from rich.console import Console
+from rich.markup import escape
 
+from src.cli.utils.presentation import make_console
 from src.cli.utils.project_context import (
     LegacyProjectFileError,
     load_project_context,
 )
 
-console = Console()
+console = make_console()
 
 # Notices emitted while a CLIConfig is being *constructed* — the load-degraded
 # warning, the api_url/api_port migrations, the board-secret purge — go to
@@ -164,6 +166,40 @@ _PROFILE_DEFAULTS: Dict[str, Any] = {
 # it actively misinformed.
 _DEAD_PROFILE_KEYS = ("session",)
 _DEAD_TOP_LEVEL_KEYS = ("platform_server",)
+
+
+def _describe_unreadable(path: Path, error: Exception) -> str:
+    """Which file, where it breaks, and how to get going again (PF-464).
+
+    The broken line is shown with every quoted *value* masked -- keys stay, so
+    the line can be found -- because this file holds the team secret and board
+    tokens, and the message lands in terminals and pasted bug reports.
+    """
+    where = ""
+    if isinstance(error, json.JSONDecodeError):
+        lines = error.doc.splitlines()
+        line = lines[error.lineno - 1] if 0 < error.lineno <= len(lines) else ""
+        # Walk the quoted strings in order: a key (followed by ':') stays, a
+        # value is masked. A single lookahead regex mis-pairs the quotes.
+        masked = re.sub(
+            r'"(?:[^"\\]|\\.)*"(\s*:)?',
+            lambda m: m.group(0) if m.group(1) else '"…"',
+            line,
+        ).strip()
+        where = (
+            f" isn't valid JSON: {error.msg} at line {error.lineno}, "
+            f"column {error.colno}" + (f" (near: {masked})" if masked else "")
+        )
+        if error.msg.startswith("Expecting ','"):
+            # JSON reports the line *after* the gap.
+            where += " -- usually a missing comma at the end of the line above"
+    else:
+        where = f" couldn't be read: {error}"
+    return (
+        f"{path}{where}.\n"
+        f"Fix that line, or keep a copy and start fresh:\n"
+        f"  mv {path} {path}.broken && innoday login"
+    )
 
 
 class CLIConfig:
@@ -309,9 +345,11 @@ class CLIConfig:
             # `config set team-secret`. The warning below was the only signal,
             # and it is invisible the moment output is redirected.
             self._load_degraded = True
+            self._load_error = _describe_unreadable(self.config_path, e)
             _notices.print(
-                f"[yellow]Warning: Could not load config: {e} — using defaults "
-                f"for this command. Writes are blocked until it is fixed.[/yellow]"
+                f"[yellow]Warning: {escape(self._load_error)}\nUsing defaults for "
+                f"this command; nothing will be saved until the file is fixed.[/yellow]",
+                soft_wrap=True,  # the recovery command must stay copy-pasteable
             )
             return copy.deepcopy(self.DEFAULT_CONFIG)
 
@@ -1096,7 +1134,7 @@ class CLIConfig:
                 f"Refusing to overwrite {self.config_path}: it exists but could "
                 f"not be read, so the in-memory config is defaults rather than "
                 f"your real settings. Saving now would discard every profile in "
-                f"that file. Fix or move the file, then retry."
+                f"that file.\n{getattr(self, '_load_error', '')}"
             )
         try:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)

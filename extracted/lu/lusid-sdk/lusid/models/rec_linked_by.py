@@ -22,14 +22,14 @@ from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
 from typing_extensions import Annotated
 from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
-from lusid.models.rec_link_key import RecLinkKey
+from lusid.models.rec_result_link_key import RecResultLinkKey
 
 class RecLinkedBy(BaseModel):
     """
-    The item keys a link between two rec results was established on, per side.  # noqa: E501
+    The item pairings a link between two rec results was established on, per side.  # noqa: E501
     """
-    left: List[RecLinkKey] = Field(description="The keys shared by the two results' left-side items. May be empty.")
-    right: List[RecLinkKey] = Field(description="The keys shared by the two results' right-side items. May be empty.")
+    left: List[RecResultLinkKey] = Field(description="The pairings between the two results' left-side items, one entry per pairing. May be empty.")
+    right: List[RecResultLinkKey] = Field(description="The pairings between the two results' right-side items, one entry per pairing. May be empty.")
     __properties = ["left", "right"]
 
     class Config:
@@ -90,8 +90,8 @@ class RecLinkedBy(BaseModel):
             return RecLinkedBy.parse_obj(obj)
 
         _obj = RecLinkedBy.parse_obj({
-            "left": [RecLinkKey.from_dict(_item) for _item in obj.get("left")] if obj.get("left") is not None else None,
-            "right": [RecLinkKey.from_dict(_item) for _item in obj.get("right")] if obj.get("right") is not None else None
+            "left": [RecResultLinkKey.from_dict(_item) for _item in obj.get("left")] if obj.get("left") is not None else None,
+            "right": [RecResultLinkKey.from_dict(_item) for _item in obj.get("right")] if obj.get("right") is not None else None
         })
         return _obj
 

@@ -12,6 +12,7 @@ from ..types.agreement_methodology_enum import AgreementMethodologyEnum
 from ..types.all_roles_project_list import AllRolesProjectList
 from ..types.annotator_evaluation_metric_enum import AnnotatorEvaluationMetricEnum
 from ..types.assignment_settings_request import AssignmentSettingsRequest
+from ..types.collection_mode_enum import CollectionModeEnum
 from ..types.control_tag_weight_request import ControlTagWeightRequest
 from ..types.import_api_request import ImportApiRequest
 from ..types.lse_project_create import LseProjectCreate
@@ -30,6 +31,8 @@ from .raw_client import AsyncRawProjectsClient, RawProjectsClient
 from .types.duplicate_projects_response import DuplicateProjectsResponse
 from .types.import_predictions_projects_response import ImportPredictionsProjectsResponse
 from .types.import_tasks_projects_response import ImportTasksProjectsResponse
+from .types.lse_project_create_request_dm_column_defaults import LseProjectCreateRequestDmColumnDefaults
+from .types.patched_lse_project_update_request_dm_column_defaults import PatchedLseProjectUpdateRequestDmColumnDefaults
 
 if typing.TYPE_CHECKING:
     from .assignments.client import AssignmentsClient, AsyncAssignmentsClient
@@ -87,7 +90,12 @@ class ProjectsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[AllRolesProjectList, PaginatedAllRolesProjectListList]:
         """
-        Retrieve a list of projects.
+        Retrieve a list of projects. Counter fields in each result follow one of two scopes:
+
+        * **Per-user progress** — computed for the authenticated user and their project role (for example `reviewed_number`, `review_total_tasks`, `queue_done`, `queue_total`, `queue_left`). These power project-card progress in the UI and differ across users. Note: `queue_left` counts manual review assignments only; when it is `0`, the card uses `review_total_tasks` / `reviewed_number` for auto-review progress.
+        * **Project-wide totals** — the same for every caller (for example `task_number`, `finished_task_number`).
+
+        For organization-level reviewed-task totals (all reviewers combined), use `GET /api/analytics/kpis/tasks_reviewed?projects={id}&tz=UTC` rather than `reviewed_number`. See Analytics KPI `tasks_reviewed`, `tasks_pending_review`, `annotated_tasks`, and `total_tasks` for other project-wide metrics.
 
         Parameters
         ----------
@@ -173,6 +181,7 @@ class ProjectsClient:
         self,
         *,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
+        collection_mode: typing.Optional[CollectionModeEnum] = OMIT,
         color: typing.Optional[str] = OMIT,
         control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
@@ -180,6 +189,7 @@ class ProjectsClient:
         custom_interface_compiled: typing.Optional[str] = OMIT,
         custom_interface_params: typing.Optional[typing.Any] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dm_column_defaults: typing.Optional[LseProjectCreateRequestDmColumnDefaults] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
@@ -221,6 +231,12 @@ class ProjectsClient:
         annotator_evaluation_enabled : typing.Optional[bool]
             Enable annotator evaluation for the project
 
+        collection_mode : typing.Optional[CollectionModeEnum]
+            Data Collection project mode (assigned or open). Set only at creation; immutable afterwards. Requires use_custom_interface.
+
+            * `assigned` - Assigned
+            * `open` - Open
+
         color : typing.Optional[str]
 
         control_weights : typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]]
@@ -237,6 +253,9 @@ class ProjectsClient:
 
         description : typing.Optional[str]
             Description (Public)
+
+        dm_column_defaults : typing.Optional[LseProjectCreateRequestDmColumnDefaults]
+            Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
 
         enable_empty_annotation : typing.Optional[bool]
             Allow annotators to submit empty annotations
@@ -341,6 +360,7 @@ class ProjectsClient:
         """
         _response = self._raw_client.create(
             annotator_evaluation_enabled=annotator_evaluation_enabled,
+            collection_mode=collection_mode,
             color=color,
             control_weights=control_weights,
             created_by=created_by,
@@ -348,6 +368,7 @@ class ProjectsClient:
             custom_interface_compiled=custom_interface_compiled,
             custom_interface_params=custom_interface_params,
             description=description,
+            dm_column_defaults=dm_column_defaults,
             enable_empty_annotation=enable_empty_annotation,
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
@@ -483,7 +504,7 @@ class ProjectsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> LseProjectResponse:
         """
-        Retrieve information about a project by project ID.
+        Retrieve information about a project by project ID. Counter fields use per-user or project-wide scope as documented on each field; for all reviewed tasks in the project use `GET /api/analytics/kpis/tasks_reviewed?projects={id}&tz=UTC`.
 
         Parameters
         ----------
@@ -569,6 +590,7 @@ class ProjectsClient:
         custom_script: typing.Optional[str] = OMIT,
         custom_task_lock_ttl: typing.Optional[int] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dm_column_defaults: typing.Optional[PatchedLseProjectUpdateRequestDmColumnDefaults] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
@@ -682,6 +704,9 @@ class ProjectsClient:
 
         description : typing.Optional[str]
             Description (Public)
+
+        dm_column_defaults : typing.Optional[PatchedLseProjectUpdateRequestDmColumnDefaults]
+            Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
 
         enable_empty_annotation : typing.Optional[bool]
             Allow empty annotations
@@ -829,6 +854,7 @@ class ProjectsClient:
             custom_script=custom_script,
             custom_task_lock_ttl=custom_task_lock_ttl,
             description=description,
+            dm_column_defaults=dm_column_defaults,
             enable_empty_annotation=enable_empty_annotation,
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
@@ -1297,7 +1323,12 @@ class AsyncProjectsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[AllRolesProjectList, PaginatedAllRolesProjectListList]:
         """
-        Retrieve a list of projects.
+        Retrieve a list of projects. Counter fields in each result follow one of two scopes:
+
+        * **Per-user progress** — computed for the authenticated user and their project role (for example `reviewed_number`, `review_total_tasks`, `queue_done`, `queue_total`, `queue_left`). These power project-card progress in the UI and differ across users. Note: `queue_left` counts manual review assignments only; when it is `0`, the card uses `review_total_tasks` / `reviewed_number` for auto-review progress.
+        * **Project-wide totals** — the same for every caller (for example `task_number`, `finished_task_number`).
+
+        For organization-level reviewed-task totals (all reviewers combined), use `GET /api/analytics/kpis/tasks_reviewed?projects={id}&tz=UTC` rather than `reviewed_number`. See Analytics KPI `tasks_reviewed`, `tasks_pending_review`, `annotated_tasks`, and `total_tasks` for other project-wide metrics.
 
         Parameters
         ----------
@@ -1392,6 +1423,7 @@ class AsyncProjectsClient:
         self,
         *,
         annotator_evaluation_enabled: typing.Optional[bool] = OMIT,
+        collection_mode: typing.Optional[CollectionModeEnum] = OMIT,
         color: typing.Optional[str] = OMIT,
         control_weights: typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]] = OMIT,
         created_by: typing.Optional[UserSimpleRequest] = OMIT,
@@ -1399,6 +1431,7 @@ class AsyncProjectsClient:
         custom_interface_compiled: typing.Optional[str] = OMIT,
         custom_interface_params: typing.Optional[typing.Any] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dm_column_defaults: typing.Optional[LseProjectCreateRequestDmColumnDefaults] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
@@ -1440,6 +1473,12 @@ class AsyncProjectsClient:
         annotator_evaluation_enabled : typing.Optional[bool]
             Enable annotator evaluation for the project
 
+        collection_mode : typing.Optional[CollectionModeEnum]
+            Data Collection project mode (assigned or open). Set only at creation; immutable afterwards. Requires use_custom_interface.
+
+            * `assigned` - Assigned
+            * `open` - Open
+
         color : typing.Optional[str]
 
         control_weights : typing.Optional[typing.Dict[str, typing.Optional[ControlTagWeightRequest]]]
@@ -1456,6 +1495,9 @@ class AsyncProjectsClient:
 
         description : typing.Optional[str]
             Description (Public)
+
+        dm_column_defaults : typing.Optional[LseProjectCreateRequestDmColumnDefaults]
+            Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
 
         enable_empty_annotation : typing.Optional[bool]
             Allow annotators to submit empty annotations
@@ -1568,6 +1610,7 @@ class AsyncProjectsClient:
         """
         _response = await self._raw_client.create(
             annotator_evaluation_enabled=annotator_evaluation_enabled,
+            collection_mode=collection_mode,
             color=color,
             control_weights=control_weights,
             created_by=created_by,
@@ -1575,6 +1618,7 @@ class AsyncProjectsClient:
             custom_interface_compiled=custom_interface_compiled,
             custom_interface_params=custom_interface_params,
             description=description,
+            dm_column_defaults=dm_column_defaults,
             enable_empty_annotation=enable_empty_annotation,
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,
@@ -1718,7 +1762,7 @@ class AsyncProjectsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> LseProjectResponse:
         """
-        Retrieve information about a project by project ID.
+        Retrieve information about a project by project ID. Counter fields use per-user or project-wide scope as documented on each field; for all reviewed tasks in the project use `GET /api/analytics/kpis/tasks_reviewed?projects={id}&tz=UTC`.
 
         Parameters
         ----------
@@ -1820,6 +1864,7 @@ class AsyncProjectsClient:
         custom_script: typing.Optional[str] = OMIT,
         custom_task_lock_ttl: typing.Optional[int] = OMIT,
         description: typing.Optional[str] = OMIT,
+        dm_column_defaults: typing.Optional[PatchedLseProjectUpdateRequestDmColumnDefaults] = OMIT,
         enable_empty_annotation: typing.Optional[bool] = OMIT,
         evaluate_predictions_automatically: typing.Optional[bool] = OMIT,
         expert_instruction: typing.Optional[str] = OMIT,
@@ -1933,6 +1978,9 @@ class AsyncProjectsClient:
 
         description : typing.Optional[str]
             Description (Public)
+
+        dm_column_defaults : typing.Optional[PatchedLseProjectUpdateRequestDmColumnDefaults]
+            Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
 
         enable_empty_annotation : typing.Optional[bool]
             Allow empty annotations
@@ -2088,6 +2136,7 @@ class AsyncProjectsClient:
             custom_script=custom_script,
             custom_task_lock_ttl=custom_task_lock_ttl,
             description=description,
+            dm_column_defaults=dm_column_defaults,
             enable_empty_annotation=enable_empty_annotation,
             evaluate_predictions_automatically=evaluate_predictions_automatically,
             expert_instruction=expert_instruction,

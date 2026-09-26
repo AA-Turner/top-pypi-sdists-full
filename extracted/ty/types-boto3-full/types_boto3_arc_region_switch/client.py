@@ -35,6 +35,7 @@ from .paginator import (
     ListPlansPaginator,
     ListRoute53HealthChecksInRegionPaginator,
     ListRoute53HealthChecksPaginator,
+    ListServiceQuotaWarningsPaginator,
 )
 from .type_defs import (
     ApprovePlanExecutionStepRequestTypeDef,
@@ -62,6 +63,8 @@ from .type_defs import (
     ListRoute53HealthChecksInRegionResponseTypeDef,
     ListRoute53HealthChecksRequestTypeDef,
     ListRoute53HealthChecksResponseTypeDef,
+    ListServiceQuotaWarningsRequestTypeDef,
+    ListServiceQuotaWarningsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     StartPlanExecutionRequestTypeDef,
@@ -263,6 +266,16 @@ class ARCRegionswitchClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#list_route53_health_checks_in_region)
         """
 
+    def list_service_quota_warnings(
+        self, **kwargs: Unpack[ListServiceQuotaWarningsRequestTypeDef]
+    ) -> ListServiceQuotaWarningsResponseTypeDef:
+        """
+        Lists the service quota warnings for the plans that you can access.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/client/list_service_quota_warnings.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#list_service_quota_warnings)
+        """
+
     def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -408,6 +421,17 @@ class ARCRegionswitchClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_route53_health_checks"]
     ) -> ListRoute53HealthChecksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/arc-region-switch/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_region_switch/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_service_quota_warnings"]
+    ) -> ListServiceQuotaWarningsPaginator:
         """
         Create a paginator for an operation.
 

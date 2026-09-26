@@ -561,7 +561,9 @@ async def validate_plan_agents(plan: AgentPlan, app_ctx: Any) -> list[PlanIssue]
         # Access: admin / owner / canonical viewer-level access — same policy as
         # agent_call._can_access (viewer access = may run, per the 2026-08-12
         # is_public-cut ruling; iam.has_access_for owns the ladder).
-        is_admin = bool(getattr(app_ctx, "is_admin", False))
+        from matrx_connect import admin_surface_active
+
+        is_admin = admin_surface_active(app_ctx)  # admin reach only on an admin surface
         user_id = getattr(app_ctx, "user_id", None)
         is_owner = bool(user_id) and str(getattr(row, "created_by", "") or "") == str(user_id)
         has_viewer = False

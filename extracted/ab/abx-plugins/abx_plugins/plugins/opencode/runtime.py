@@ -16,6 +16,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 import httpx
+import psutil
 import requests
 
 _PROCESS: subprocess.Popen | None = None
@@ -94,19 +95,46 @@ def _signal_owned_process(process: subprocess.Popen, sig: signal.Signals) -> Non
             pass
 
 
+def _owned_process_group_running(process: subprocess.Popen) -> bool:
+    for member in psutil.process_iter(["pid", "status"]):
+        if member.info["status"] == psutil.STATUS_ZOMBIE:
+            continue
+        try:
+            if os.getpgid(member.pid) == process.pid:
+                return True
+        except (OSError, psutil.Error):
+            continue
+    return False
+
+
 def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
     global _PROCESS, _PROCESS_READY
     owned_process = process or _PROCESS
     if owned_process is None:
         return
-    if owned_process.poll() is None:
+    if _owned_process_group_running(owned_process):
         _signal_owned_process(owned_process, signal.SIGCONT)
         _signal_owned_process(owned_process, signal.SIGTERM)
-        try:
-            owned_process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+        deadline = time.monotonic() + 5
+        while (
+            _owned_process_group_running(owned_process) and time.monotonic() < deadline
+        ):
+            time.sleep(0.05)
+        if _owned_process_group_running(owned_process):
             _signal_owned_process(owned_process, signal.SIGKILL)
-            owned_process.wait()
+            kill_deadline = time.monotonic() + 1
+            while (
+                _owned_process_group_running(owned_process)
+                and time.monotonic() < kill_deadline
+            ):
+                time.sleep(0.05)
+    elif owned_process.poll() is None:
+        # A caller may supply a process without its own process group.  In that
+        # case there is no group to signal, but the process still needs to be
+        # resumed before SIGTERM can take effect if it was stopped.
+        owned_process.send_signal(signal.SIGCONT)
+        owned_process.terminate()
+    owned_process.wait(timeout=1)
     if _PROCESS is owned_process:
         _PROCESS = None
     if _PROCESS_READY is owned_process:
@@ -535,17 +563,14 @@ atexit.register(_stop_owned_process)
 
 
 def agent_context(settings: dict) -> dict:
-    ok, error = _ensure_opencode(settings)
-    if not ok:
-        raise RuntimeError(error)
-    with _SESSION_LOCK:
-        session_id = _ensure_default_session(settings)
     return {
         "title": "Agent",
-        "proxy_url": _project_route(settings["workdir"], session_id),
+        # The authenticated iframe request resolves the default session. Do not
+        # hold the wrapper response open while OpenCode starts on a cold visit.
+        "proxy_url": _project_route(settings["workdir"]),
         "proxy_prefix": _PROXY_PREFIX,
         "workdir": str(settings["workdir"].resolve()),
-        "recent_session_id": session_id,
+        "recent_session_id": "",
     }
 
 
@@ -647,6 +672,26 @@ def proxy(settings: dict, method: str, path: str, params, headers, body: bytes):
                 "X-Accel-Buffering": "no",
             },
             _event_chunks(settings, path, method, params, forwarded),
+        )
+
+    # This entry route belongs to the wrapper iframe. Resolve its collection
+    # session here so the welcome panel and admin navigation load immediately.
+    session_entry = _project_route(settings["workdir"]).removeprefix(
+        _PROXY_PREFIX + "/",
+    )
+    if method == "GET" and path == session_entry:
+        ok, error = _ensure_opencode(settings)
+        if not ok:
+            raise RuntimeError(error)
+        with _SESSION_LOCK:
+            session_id = _ensure_default_session(settings)
+        return (
+            302,
+            {
+                "Location": _project_route(settings["workdir"], session_id),
+                "Cache-Control": "no-store",
+            },
+            b"",
         )
 
     if path == "global/health" or not _owned_process_ready():

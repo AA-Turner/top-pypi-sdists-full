@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy
-Version: 2.1.0
+Version: 2.1.1
 Summary: Database Abstraction Library
 Author-email: Mike Bayer <mike_mp@zzzcomputing.com>
 License-Expression: MIT
@@ -86,28 +86,6 @@ Requires-Dist: sqlalchemy[asyncio]; extra == "aiosqlite"
 Requires-Dist: aiosqlite; extra == "aiosqlite"
 Provides-Extra: sqlcipher
 Requires-Dist: sqlcipher3_binary; extra == "sqlcipher"
-Provides-Extra: mssql-pymssql
-Requires-Dist: sqlalchemy[mssql-pymssql]; extra == "mssql-pymssql"
-Provides-Extra: mssql-pyodbc
-Requires-Dist: sqlalchemy[mssql-pyodbc]; extra == "mssql-pyodbc"
-Provides-Extra: mysql-connector
-Requires-Dist: sqlalchemy[mysql-connector]; extra == "mysql-connector"
-Provides-Extra: mariadb-connector
-Requires-Dist: sqlalchemy[mariadb-connector]; extra == "mariadb-connector"
-Provides-Extra: oracle-oracledb
-Requires-Dist: sqlalchemy[oracle-oracledb]; extra == "oracle-oracledb"
-Provides-Extra: postgresql-pg8000
-Requires-Dist: sqlalchemy[postgresql-pg8000]; extra == "postgresql-pg8000"
-Provides-Extra: postgresql-asyncpg
-Requires-Dist: sqlalchemy[postgresql-asyncpg]; extra == "postgresql-asyncpg"
-Provides-Extra: postgresql-psycopg2binary
-Requires-Dist: sqlalchemy[postgresql-psycopg2binary]; extra == "postgresql-psycopg2binary"
-Provides-Extra: postgresql-psycopg2cffi
-Requires-Dist: sqlalchemy[postgresql-psycopg2cffi]; extra == "postgresql-psycopg2cffi"
-Provides-Extra: postgresql-psycopg
-Requires-Dist: sqlalchemy[postgresql-psycopg]; extra == "postgresql-psycopg"
-Provides-Extra: postgresql-psycopgbinary
-Requires-Dist: sqlalchemy[postgresql-psycopgbinary]; extra == "postgresql-psycopgbinary"
 Dynamic: license-file
 
 SQLAlchemy

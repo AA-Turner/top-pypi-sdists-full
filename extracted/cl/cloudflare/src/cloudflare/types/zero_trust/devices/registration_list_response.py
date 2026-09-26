@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import Optional
+from typing_extensions import Literal
 
 from ...._models import BaseModel
 
@@ -73,6 +74,9 @@ class RegistrationListResponse(BaseModel):
 
     last_seen_at: str
     """The RFC3339 timestamp when the registration was last seen."""
+
+    registration_type: Literal["warp", "browser_extension"]
+    """The registration client type, derived from device_type."""
 
     updated_at: str
     """The RFC3339 timestamp when the registration was last updated."""

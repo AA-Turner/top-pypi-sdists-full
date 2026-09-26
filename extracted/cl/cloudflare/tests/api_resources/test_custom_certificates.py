@@ -180,7 +180,6 @@ class TestCustomCertificates:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-    @pytest.mark.skip(reason="Test missing required parameters: certificate and private_key (Issue #4)")
     @parametrize
     def test_method_edit(self, client: Cloudflare) -> None:
         custom_certificate = client.custom_certificates.edit(
@@ -204,7 +203,6 @@ class TestCustomCertificates:
         )
         assert_matches_type(Optional[CustomCertificate], custom_certificate, path=["response"])
 
-    @pytest.mark.skip(reason="Test missing required parameters: certificate and private_key (Issue #4)")
     @parametrize
     def test_raw_response_edit(self, client: Cloudflare) -> None:
         response = client.custom_certificates.with_raw_response.edit(
@@ -217,7 +215,6 @@ class TestCustomCertificates:
         custom_certificate = response.parse()
         assert_matches_type(Optional[CustomCertificate], custom_certificate, path=["response"])
 
-    @pytest.mark.skip(reason="Test missing required parameters: certificate and private_key (Issue #4)")
     @parametrize
     def test_streaming_response_edit(self, client: Cloudflare) -> None:
         with client.custom_certificates.with_streaming_response.edit(
@@ -459,7 +456,6 @@ class TestAsyncCustomCertificates:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-    @pytest.mark.skip(reason="Test missing required parameters: certificate and private_key (Issue #4)")
     @parametrize
     async def test_method_edit(self, async_client: AsyncCloudflare) -> None:
         custom_certificate = await async_client.custom_certificates.edit(
@@ -483,7 +479,6 @@ class TestAsyncCustomCertificates:
         )
         assert_matches_type(Optional[CustomCertificate], custom_certificate, path=["response"])
 
-    @pytest.mark.skip(reason="Test missing required parameters: certificate and private_key (Issue #4)")
     @parametrize
     async def test_raw_response_edit(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.custom_certificates.with_raw_response.edit(
@@ -496,7 +491,6 @@ class TestAsyncCustomCertificates:
         custom_certificate = await response.parse()
         assert_matches_type(Optional[CustomCertificate], custom_certificate, path=["response"])
 
-    @pytest.mark.skip(reason="Test missing required parameters: certificate and private_key (Issue #4)")
     @parametrize
     async def test_streaming_response_edit(self, async_client: AsyncCloudflare) -> None:
         async with async_client.custom_certificates.with_streaming_response.edit(

@@ -11,6 +11,8 @@ from ..types.default_role import DefaultRole
 from ..types.lse_organization import LseOrganization
 from ..types.organization_id import OrganizationId
 from ..types.organization_invite import OrganizationInvite
+from ..types.organization_member_membership_option import OrganizationMemberMembershipOption
+from ..types.organization_member_skills_option import OrganizationMemberSkillsOption
 from ..types.organization_role_enum import OrganizationRoleEnum
 from .raw_client import AsyncRawOrganizationsClient, RawOrganizationsClient
 
@@ -137,7 +139,6 @@ class OrganizationsClient:
         id: int,
         *,
         contact_info: typing.Optional[str] = OMIT,
-        created_by: typing.Optional[int] = OMIT,
         custom_interfaces_enabled: typing.Optional[bool] = OMIT,
         custom_scripts_enabled: typing.Optional[bool] = OMIT,
         email_notification_settings: typing.Optional[typing.Any] = OMIT,
@@ -164,8 +165,6 @@ class OrganizationsClient:
         id : int
 
         contact_info : typing.Optional[str]
-
-        created_by : typing.Optional[int]
 
         custom_interfaces_enabled : typing.Optional[bool]
             Enable or disable custom interfaces for this organization
@@ -218,7 +217,6 @@ class OrganizationsClient:
         _response = self._raw_client.update(
             id,
             contact_info=contact_info,
-            created_by=created_by,
             custom_interfaces_enabled=custom_interfaces_enabled,
             custom_scripts_enabled=custom_scripts_enabled,
             email_notification_settings=email_notification_settings,
@@ -230,6 +228,80 @@ class OrganizationsClient:
             title=title,
             token=token,
             request_options=request_options,
+        )
+        return _response.data
+
+    def api_organizations_memberships_filter_options_membership_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[OrganizationMemberMembershipOption]:
+        """
+        Return the actor-accessible workspaces, each with its projects, plus unparented projects.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[OrganizationMemberMembershipOption]
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.organizations.api_organizations_memberships_filter_options_membership_list(
+            id=1,
+        )
+        """
+        _response = self._raw_client.api_organizations_memberships_filter_options_membership_list(
+            id, search=search, request_options=request_options
+        )
+        return _response.data
+
+    def api_organizations_memberships_filter_options_skills_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[OrganizationMemberSkillsOption]:
+        """
+        Return self-reported Skills values with Contributor Setup display metadata.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[OrganizationMemberSkillsOption]
+
+
+        Examples
+        --------
+        from label_studio_sdk import LabelStudio
+
+        client = LabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+        client.organizations.api_organizations_memberships_filter_options_skills_list(
+            id=1,
+        )
+        """
+        _response = self._raw_client.api_organizations_memberships_filter_options_skills_list(
+            id, search=search, request_options=request_options
         )
         return _response.data
 
@@ -531,7 +603,6 @@ class AsyncOrganizationsClient:
         id: int,
         *,
         contact_info: typing.Optional[str] = OMIT,
-        created_by: typing.Optional[int] = OMIT,
         custom_interfaces_enabled: typing.Optional[bool] = OMIT,
         custom_scripts_enabled: typing.Optional[bool] = OMIT,
         email_notification_settings: typing.Optional[typing.Any] = OMIT,
@@ -558,8 +629,6 @@ class AsyncOrganizationsClient:
         id : int
 
         contact_info : typing.Optional[str]
-
-        created_by : typing.Optional[int]
 
         custom_interfaces_enabled : typing.Optional[bool]
             Enable or disable custom interfaces for this organization
@@ -620,7 +689,6 @@ class AsyncOrganizationsClient:
         _response = await self._raw_client.update(
             id,
             contact_info=contact_info,
-            created_by=created_by,
             custom_interfaces_enabled=custom_interfaces_enabled,
             custom_scripts_enabled=custom_scripts_enabled,
             email_notification_settings=email_notification_settings,
@@ -632,6 +700,96 @@ class AsyncOrganizationsClient:
             title=title,
             token=token,
             request_options=request_options,
+        )
+        return _response.data
+
+    async def api_organizations_memberships_filter_options_membership_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[OrganizationMemberMembershipOption]:
+        """
+        Return the actor-accessible workspaces, each with its projects, plus unparented projects.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[OrganizationMemberMembershipOption]
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.organizations.api_organizations_memberships_filter_options_membership_list(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.api_organizations_memberships_filter_options_membership_list(
+            id, search=search, request_options=request_options
+        )
+        return _response.data
+
+    async def api_organizations_memberships_filter_options_skills_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[OrganizationMemberSkillsOption]:
+        """
+        Return self-reported Skills values with Contributor Setup display metadata.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[OrganizationMemberSkillsOption]
+
+
+        Examples
+        --------
+        import asyncio
+
+        from label_studio_sdk import AsyncLabelStudio
+
+        client = AsyncLabelStudio(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.organizations.api_organizations_memberships_filter_options_skills_list(
+                id=1,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.api_organizations_memberships_filter_options_skills_list(
+            id, search=search, request_options=request_options
         )
         return _response.data
 

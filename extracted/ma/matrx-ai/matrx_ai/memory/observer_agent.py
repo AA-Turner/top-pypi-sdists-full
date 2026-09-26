@@ -7,92 +7,17 @@ Mirrors: packages/memory/src/processors/observational-memory/observer-agent.ts
 from __future__ import annotations
 
 import re
-import textwrap
 from datetime import datetime
 from typing import Optional
 from zoneinfo import ZoneInfo
 
-from .constants import (
-    OBSERVER_EXTRACTION_INSTRUCTIONS,
-    OBSERVER_GUIDELINES,
-    OBSERVER_PERSONA,
-)
 from .types import Message, MessageRole, ModelConfig, ObserverResult
 
 
-# ---------------------------------------------------------------------------
-# System prompt construction
-# ---------------------------------------------------------------------------
-
-def build_observer_system_prompt(
-    multi_thread: bool = False,
-    instruction: Optional[str] = None,
-    include_thread_title: bool = False,
-) -> str:
-    """
-    Build the observer system prompt.
-    
-    Args:
-        multi_thread: If True, include instructions for batched multi-thread observation.
-        instruction: Optional extra instruction appended at the end.
-        include_thread_title: Whether the observer should suggest a thread title.
-    """
-    sections = [
-        OBSERVER_PERSONA,
-        "",
-        OBSERVER_EXTRACTION_INSTRUCTIONS,
-        "",
-        OBSERVER_GUIDELINES,
-        "",
-        build_observer_output_format(include_thread_title),
-    ]
-
-    if multi_thread:
-        sections.append(
-            "\n## Multi-Thread Mode\n"
-            "You will be given multiple conversations. Process each independently.\n"
-            "Wrap each response in <thread id=\"THREAD_ID\">...</thread> tags."
-        )
-
-    if instruction:
-        sections.append(f"\n## Additional Instructions\n{instruction}")
-
-    return "\n".join(sections)
-
-
-def build_observer_output_format(include_thread_title: bool = False) -> str:
-    """Return the XML output format specification for the Observer."""
-    title_section = ""
-    if include_thread_title:
-        title_section = """
-<thread-title>
-A short descriptive title for this conversation (5-8 words)
-</thread-title>"""
-
-    return textwrap.dedent(f"""\
-        ## Output Format
-
-        Respond ONLY with the following XML structure. Do not include any text outside these tags.
-
-        <observations>
-        Date: Month Day, Year
-        * [EMOJI] (HH:MM) [observation text]
-          * -> [supporting detail or tool call result]
-          * -> [another detail]
-        * [EMOJI] (HH:MM) [another observation]
-        </observations>
-
-        <current-task>
-        What the agent is currently focused on (1-3 sentences)
-        </current-task>
-
-        <suggested-response>
-        A brief hint for what the agent should do or say next
-        </suggested-response>{title_section}
-
-        Priority emojis: 🔴 high | 🟡 medium | 🟢 low | ✅ completed
-        Sub-bullets use "  * ->" prefix (two spaces, asterisk, right-arrow)
-    """)
+# The Observer's system prompt (persona, extraction instructions, guidelines,
+# output format) is the memory.observer mandate Holder's (2026-09-25) — seeded
+# verbatim from what used to be assembled here. Only the per-run user turn is
+# built in code.
 
 
 # ---------------------------------------------------------------------------
@@ -107,9 +32,10 @@ def build_observer_prompt(
     previous_response_hint: Optional[str] = None,
     resource_id: Optional[str] = None,
     thread_id: Optional[str] = None,
+    instruction: Optional[str] = None,
 ) -> str:
     """
-    Build the user-turn prompt for the Observer LLM.
+    Build the MATERIAL the Observer's Holder frames (its ``{{material}}``).
     
     Args:
         existing_observations: Current observation text the Observer should extend (not replace).
@@ -134,13 +60,11 @@ def build_observer_prompt(
     parts.append("## New Messages to Observe\n")
     parts.append(format_messages_for_observer(messages, timezone))
 
-    parts.append(
-        "\n## Your Task\n"
-        "Extract observations from the new messages above. "
-        "Append them to the existing observations (do not duplicate existing ones). "
-        "Update <current-task> and <suggested-response> to reflect the current state."
-    )
+    if instruction:
+        parts.append(f"\n## Additional Instructions\n{instruction}")
 
+    # The task statement ("## Your Task …") is the Holder's own user turn
+    # (memory.observer, 2026-09-25 residue pass); this is only its material.
     return "\n".join(parts)
 
 
@@ -487,34 +411,33 @@ def sanitize_observation_lines(observations: str, max_line_length: int = 10_000)
 
 async def run_observer(
     model_config: ModelConfig,
-    system_prompt: str,
     user_prompt: str,
     llm_call_fn,
 ) -> ObserverResult:
     """
-    Run the Observer LLM and parse its output.
-    
+    Run the Observer through its mandate and parse its output.
+
     Args:
-        model_config: Model, temperature, max_tokens settings.
-        system_prompt: Built via build_observer_system_prompt().
-        user_prompt: Built via build_observer_prompt().
-        llm_call_fn: Async callable(model, messages, temperature, max_tokens) → str.
-            You must provide this — it wraps your preferred LLM SDK.
-            
+        model_config: The mandate that holds the call (+ an explicit model override).
+        user_prompt: The material, built via build_observer_prompt(). The
+            Holder's authored user turn frames it and states the task.
+        llm_call_fn: Async callable(mandate_key=, messages=, model=, variables=) → str.
+            The host resolves the mandate's Holder (instructions, the authored
+            user turn, model, sampling); ``messages`` follow the Holder's turns.
+            A turn carrying ``holder_text`` instead of ``content`` is sent as the
+            Holder's own text for that variable (``HeldCall.authored_text``).
+
     Returns:
         ObserverResult (raises ValueError if output couldn't be parsed after 2 attempts).
     """
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
+    messages: list[dict[str, str]] = []
 
     for attempt in range(2):
         raw_output = await llm_call_fn(
-            model=model_config.model,
+            mandate_key=model_config.mandate_key,
             messages=messages,
-            temperature=model_config.temperature,
-            max_tokens=model_config.max_tokens,
+            model=model_config.model,
+            variables={"material": user_prompt},
         )
 
         result = parse_observer_output(raw_output)
@@ -522,14 +445,11 @@ async def run_observer(
             return result
 
         if attempt == 0:
-            # Retry with a nudge
+            # Retry once. The nudge sentence is the Holder's (memory.observer
+            # variable ``retry_nudge``, 2026-09-25 residue pass): the host sends
+            # the Holder's text for a turn that names it, so a mandate edit
+            # changes the retry too.
             messages.append({"role": "assistant", "content": raw_output})
-            messages.append({
-                "role": "user",
-                "content": (
-                    "Your response was missing the required <observations> block or contained "
-                    "degenerate repetition. Please try again with just the XML output."
-                ),
-            })
+            messages.append({"role": "user", "holder_text": "retry_nudge"})
 
     raise ValueError("Observer LLM failed to produce valid output after 2 attempts.")

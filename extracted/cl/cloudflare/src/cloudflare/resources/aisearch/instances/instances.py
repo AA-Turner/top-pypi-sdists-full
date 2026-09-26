@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Type, Iterable, Optional, cast
 from typing_extensions import Literal
 
@@ -71,6 +72,7 @@ class InstancesResource(SyncAPIResource):
         """
         return InstancesResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def create(
         self,
         *,
@@ -112,8 +114,15 @@ class InstancesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceCreateResponse:
-        """
-        Create a new AI Search instance with the given configuration.
+        """Create a new AI Search instance with the given configuration.
+
+        If type is omitted
+        or null, a non-blank HTTP(S) source infers web-crawler and an existing R2 bucket
+        source infers r2. A missing or blank source without a type creates a managed
+        upload-only instance. Search for Agents instances require the default namespace.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -125,16 +134,21 @@ class InstancesResource(SyncAPIResource):
               (1h), 7200 (2h), 21600 (6h), 43200 (12h), 86400 (24h), 172800 (48h), 259200
               (72h), 518400 (6d).
 
-          hybrid_search_enabled: Deprecated — use index_method instead.
+          hybrid_search_enabled: Deprecated — use index_method instead. Defaults to true for new instances; set
+              false to create a vector-only instance.
 
-          index_method: Controls which storage backends are used during indexing. Defaults to
-              vector-only.
+          index_method: Controls which storage backends are used during indexing. Defaults to vector and
+              keyword indexing for new instances.
 
           rewrite_model: A Workers AI model ID or an AI Gateway model ID compatible with the OpenAI Chat
               Completions API. An empty string uses the configured or default model.
 
           sync_interval: Interval between automatic syncs, in seconds. Allowed values: 900 (15min), 1800
               (30min), 3600 (1h), 7200 (2h), 14400 (4h), 21600 (6h), 43200 (12h), 86400 (24h).
+
+          type: Source type. When omitted or null with a non-blank source, HTTP(S) URLs infer
+              web-crawler and existing R2 bucket names infer r2. A missing or blank source
+              without a type uses managed upload-only storage.
 
           extra_headers: Send extra headers
 
@@ -192,6 +206,7 @@ class InstancesResource(SyncAPIResource):
             cast_to=cast(Type[InstanceCreateResponse], ResultWrapper[InstanceCreateResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def update(
         self,
         id: str,
@@ -237,8 +252,15 @@ class InstancesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceUpdateResponse:
-        """
-        Update the configuration of an AI Search instance.
+        """Update an AI Search instance.
+
+        Submitting Search for Agents metadata requires the
+        default namespace; omitting or removing it is allowed elsewhere. Submit Search
+        for Agents metadata and restrictive or unknown public endpoint changes or custom
+        domains in separate PUT requests, even when resubmitting unchanged metadata.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           aisearch_model: A Workers AI model ID or an AI Gateway model ID compatible with the OpenAI Chat
@@ -248,8 +270,8 @@ class InstancesResource(SyncAPIResource):
               (1h), 7200 (2h), 21600 (6h), 43200 (12h), 86400 (24h), 172800 (48h), 259200
               (72h), 518400 (6d).
 
-          index_method: Controls which storage backends are used during indexing. Defaults to
-              vector-only.
+          index_method: Controls which storage backends are used during indexing. Defaults to vector and
+              keyword indexing for new instances.
 
           rewrite_model: A Workers AI model ID or an AI Gateway model ID compatible with the OpenAI Chat
               Completions API. An empty string uses the configured or default model.
@@ -318,10 +340,12 @@ class InstancesResource(SyncAPIResource):
             cast_to=cast(Type[InstanceUpdateResponse], ResultWrapper[InstanceUpdateResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
         account_id: str,
+        hostname: str | Omit = omit,
         namespace: str | Omit = omit,
         order_by: Literal["created_at"] | Omit = omit,
         order_by_direction: Literal["asc", "desc"] | Omit = omit,
@@ -338,7 +362,12 @@ class InstancesResource(SyncAPIResource):
         """
         List all AI Search instances in the account.
 
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
+
         Args:
+          hostname: Filter by exact Search for Agents hostname (case-insensitive).
+
           namespace: Filter by namespace.
 
           order_by: Field to order results by.
@@ -371,6 +400,7 @@ class InstancesResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "hostname": hostname,
                         "namespace": namespace,
                         "order_by": order_by,
                         "order_by_direction": order_by_direction,
@@ -384,6 +414,7 @@ class InstancesResource(SyncAPIResource):
             model=InstanceListResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def delete(
         self,
         id: str,
@@ -398,6 +429,9 @@ class InstancesResource(SyncAPIResource):
     ) -> InstanceDeleteResponse:
         """
         Permanently delete an AI Search instance and all its indexed data.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           extra_headers: Send extra headers
@@ -424,6 +458,7 @@ class InstancesResource(SyncAPIResource):
             cast_to=cast(Type[InstanceDeleteResponse], ResultWrapper[InstanceDeleteResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def chat_completions(
         self,
         id: str,
@@ -443,6 +478,9 @@ class InstancesResource(SyncAPIResource):
         """
         Performs a chat completion request against an AI Search instance, using indexed
         content as context for generating responses.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -481,6 +519,7 @@ class InstancesResource(SyncAPIResource):
             cast_to=InstanceChatCompletionsResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def read(
         self,
         id: str,
@@ -495,6 +534,9 @@ class InstancesResource(SyncAPIResource):
     ) -> InstanceReadResponse:
         """
         Retrieve the configuration and status of an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           extra_headers: Send extra headers
@@ -521,6 +563,7 @@ class InstancesResource(SyncAPIResource):
             cast_to=cast(Type[InstanceReadResponse], ResultWrapper[InstanceReadResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def search(
         self,
         id: str,
@@ -539,6 +582,9 @@ class InstancesResource(SyncAPIResource):
         """
         Executes a semantic search query against an AI Search instance to find relevant
         indexed content.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -584,6 +630,7 @@ class InstancesResource(SyncAPIResource):
             cast_to=cast(Type[InstanceSearchResponse], ResultWrapper[InstanceSearchResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def stats(
         self,
         id: str,
@@ -598,6 +645,9 @@ class InstancesResource(SyncAPIResource):
     ) -> InstanceStatsResponse:
         """
         Retrieve usage and indexing statistics for an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -651,6 +701,7 @@ class AsyncInstancesResource(AsyncAPIResource):
         """
         return AsyncInstancesResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def create(
         self,
         *,
@@ -692,8 +743,15 @@ class AsyncInstancesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceCreateResponse:
-        """
-        Create a new AI Search instance with the given configuration.
+        """Create a new AI Search instance with the given configuration.
+
+        If type is omitted
+        or null, a non-blank HTTP(S) source infers web-crawler and an existing R2 bucket
+        source infers r2. A missing or blank source without a type creates a managed
+        upload-only instance. Search for Agents instances require the default namespace.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -705,16 +763,21 @@ class AsyncInstancesResource(AsyncAPIResource):
               (1h), 7200 (2h), 21600 (6h), 43200 (12h), 86400 (24h), 172800 (48h), 259200
               (72h), 518400 (6d).
 
-          hybrid_search_enabled: Deprecated — use index_method instead.
+          hybrid_search_enabled: Deprecated — use index_method instead. Defaults to true for new instances; set
+              false to create a vector-only instance.
 
-          index_method: Controls which storage backends are used during indexing. Defaults to
-              vector-only.
+          index_method: Controls which storage backends are used during indexing. Defaults to vector and
+              keyword indexing for new instances.
 
           rewrite_model: A Workers AI model ID or an AI Gateway model ID compatible with the OpenAI Chat
               Completions API. An empty string uses the configured or default model.
 
           sync_interval: Interval between automatic syncs, in seconds. Allowed values: 900 (15min), 1800
               (30min), 3600 (1h), 7200 (2h), 14400 (4h), 21600 (6h), 43200 (12h), 86400 (24h).
+
+          type: Source type. When omitted or null with a non-blank source, HTTP(S) URLs infer
+              web-crawler and existing R2 bucket names infer r2. A missing or blank source
+              without a type uses managed upload-only storage.
 
           extra_headers: Send extra headers
 
@@ -772,6 +835,7 @@ class AsyncInstancesResource(AsyncAPIResource):
             cast_to=cast(Type[InstanceCreateResponse], ResultWrapper[InstanceCreateResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def update(
         self,
         id: str,
@@ -817,8 +881,15 @@ class AsyncInstancesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> InstanceUpdateResponse:
-        """
-        Update the configuration of an AI Search instance.
+        """Update an AI Search instance.
+
+        Submitting Search for Agents metadata requires the
+        default namespace; omitting or removing it is allowed elsewhere. Submit Search
+        for Agents metadata and restrictive or unknown public endpoint changes or custom
+        domains in separate PUT requests, even when resubmitting unchanged metadata.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           aisearch_model: A Workers AI model ID or an AI Gateway model ID compatible with the OpenAI Chat
@@ -828,8 +899,8 @@ class AsyncInstancesResource(AsyncAPIResource):
               (1h), 7200 (2h), 21600 (6h), 43200 (12h), 86400 (24h), 172800 (48h), 259200
               (72h), 518400 (6d).
 
-          index_method: Controls which storage backends are used during indexing. Defaults to
-              vector-only.
+          index_method: Controls which storage backends are used during indexing. Defaults to vector and
+              keyword indexing for new instances.
 
           rewrite_model: A Workers AI model ID or an AI Gateway model ID compatible with the OpenAI Chat
               Completions API. An empty string uses the configured or default model.
@@ -898,10 +969,12 @@ class AsyncInstancesResource(AsyncAPIResource):
             cast_to=cast(Type[InstanceUpdateResponse], ResultWrapper[InstanceUpdateResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
         account_id: str,
+        hostname: str | Omit = omit,
         namespace: str | Omit = omit,
         order_by: Literal["created_at"] | Omit = omit,
         order_by_direction: Literal["asc", "desc"] | Omit = omit,
@@ -918,7 +991,12 @@ class AsyncInstancesResource(AsyncAPIResource):
         """
         List all AI Search instances in the account.
 
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
+
         Args:
+          hostname: Filter by exact Search for Agents hostname (case-insensitive).
+
           namespace: Filter by namespace.
 
           order_by: Field to order results by.
@@ -951,6 +1029,7 @@ class AsyncInstancesResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform(
                     {
+                        "hostname": hostname,
                         "namespace": namespace,
                         "order_by": order_by,
                         "order_by_direction": order_by_direction,
@@ -964,6 +1043,7 @@ class AsyncInstancesResource(AsyncAPIResource):
             model=InstanceListResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def delete(
         self,
         id: str,
@@ -978,6 +1058,9 @@ class AsyncInstancesResource(AsyncAPIResource):
     ) -> InstanceDeleteResponse:
         """
         Permanently delete an AI Search instance and all its indexed data.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           extra_headers: Send extra headers
@@ -1004,6 +1087,7 @@ class AsyncInstancesResource(AsyncAPIResource):
             cast_to=cast(Type[InstanceDeleteResponse], ResultWrapper[InstanceDeleteResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def chat_completions(
         self,
         id: str,
@@ -1023,6 +1107,9 @@ class AsyncInstancesResource(AsyncAPIResource):
         """
         Performs a chat completion request against an AI Search instance, using indexed
         content as context for generating responses.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -1061,6 +1148,7 @@ class AsyncInstancesResource(AsyncAPIResource):
             cast_to=InstanceChatCompletionsResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def read(
         self,
         id: str,
@@ -1075,6 +1163,9 @@ class AsyncInstancesResource(AsyncAPIResource):
     ) -> InstanceReadResponse:
         """
         Retrieve the configuration and status of an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           extra_headers: Send extra headers
@@ -1101,6 +1192,7 @@ class AsyncInstancesResource(AsyncAPIResource):
             cast_to=cast(Type[InstanceReadResponse], ResultWrapper[InstanceReadResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def search(
         self,
         id: str,
@@ -1119,6 +1211,9 @@ class AsyncInstancesResource(AsyncAPIResource):
         """
         Executes a semantic search query against an AI Search instance to find relevant
         indexed content.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -1164,6 +1259,7 @@ class AsyncInstancesResource(AsyncAPIResource):
             cast_to=cast(Type[InstanceSearchResponse], ResultWrapper[InstanceSearchResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def stats(
         self,
         id: str,
@@ -1178,6 +1274,9 @@ class AsyncInstancesResource(AsyncAPIResource):
     ) -> InstanceStatsResponse:
         """
         Retrieve usage and indexing statistics for an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -1211,29 +1310,45 @@ class InstancesResourceWithRawResponse:
     def __init__(self, instances: InstancesResource) -> None:
         self._instances = instances
 
-        self.create = to_raw_response_wrapper(
-            instances.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = to_raw_response_wrapper(
-            instances.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_raw_response_wrapper(
-            instances.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = to_raw_response_wrapper(
-            instances.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.chat_completions = to_raw_response_wrapper(
-            instances.chat_completions,
+        self.chat_completions = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.chat_completions,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.read = to_raw_response_wrapper(
-            instances.read,
+        self.read = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.read,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.search = to_raw_response_wrapper(
-            instances.search,
+        self.search = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.search,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.stats = to_raw_response_wrapper(
-            instances.stats,
+        self.stats = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                instances.stats,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -1245,29 +1360,45 @@ class AsyncInstancesResourceWithRawResponse:
     def __init__(self, instances: AsyncInstancesResource) -> None:
         self._instances = instances
 
-        self.create = async_to_raw_response_wrapper(
-            instances.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = async_to_raw_response_wrapper(
-            instances.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_raw_response_wrapper(
-            instances.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = async_to_raw_response_wrapper(
-            instances.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.chat_completions = async_to_raw_response_wrapper(
-            instances.chat_completions,
+        self.chat_completions = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.chat_completions,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.read = async_to_raw_response_wrapper(
-            instances.read,
+        self.read = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.read,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.search = async_to_raw_response_wrapper(
-            instances.search,
+        self.search = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.search,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.stats = async_to_raw_response_wrapper(
-            instances.stats,
+        self.stats = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                instances.stats,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -1279,29 +1410,45 @@ class InstancesResourceWithStreamingResponse:
     def __init__(self, instances: InstancesResource) -> None:
         self._instances = instances
 
-        self.create = to_streamed_response_wrapper(
-            instances.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = to_streamed_response_wrapper(
-            instances.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_streamed_response_wrapper(
-            instances.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = to_streamed_response_wrapper(
-            instances.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.chat_completions = to_streamed_response_wrapper(
-            instances.chat_completions,
+        self.chat_completions = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.chat_completions,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.read = to_streamed_response_wrapper(
-            instances.read,
+        self.read = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.read,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.search = to_streamed_response_wrapper(
-            instances.search,
+        self.search = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.search,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.stats = to_streamed_response_wrapper(
-            instances.stats,
+        self.stats = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                instances.stats,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -1313,29 +1460,45 @@ class AsyncInstancesResourceWithStreamingResponse:
     def __init__(self, instances: AsyncInstancesResource) -> None:
         self._instances = instances
 
-        self.create = async_to_streamed_response_wrapper(
-            instances.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = async_to_streamed_response_wrapper(
-            instances.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_streamed_response_wrapper(
-            instances.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = async_to_streamed_response_wrapper(
-            instances.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.chat_completions = async_to_streamed_response_wrapper(
-            instances.chat_completions,
+        self.chat_completions = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.chat_completions,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.read = async_to_streamed_response_wrapper(
-            instances.read,
+        self.read = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.read,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.search = async_to_streamed_response_wrapper(
-            instances.search,
+        self.search = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.search,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.stats = async_to_streamed_response_wrapper(
-            instances.stats,
+        self.stats = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                instances.stats,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property

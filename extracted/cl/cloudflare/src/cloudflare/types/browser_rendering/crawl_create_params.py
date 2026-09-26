@@ -48,7 +48,7 @@ class Variant0(TypedDict, total=False):
     """
 
     add_script_tag: Annotated[Iterable[Variant0AddScriptTag], PropertyInfo(alias="addScriptTag")]
-    """Adds a `<script>` tag into the page with the desired URL or content."""
+    """Adds a script element into the page with the desired URL or content."""
 
     add_style_tag: Annotated[Iterable[Variant0AddStyleTag], PropertyInfo(alias="addStyleTag")]
     """

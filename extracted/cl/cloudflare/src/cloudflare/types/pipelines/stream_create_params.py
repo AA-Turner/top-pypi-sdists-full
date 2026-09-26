@@ -7,28 +7,7 @@ from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 from ..._types import SequenceNotStr
 
-__all__ = [
-    "StreamCreateParams",
-    "Format",
-    "FormatJson",
-    "FormatParquet",
-    "HTTP",
-    "HTTPCORS",
-    "Schema",
-    "SchemaField",
-    "SchemaFieldInt32",
-    "SchemaFieldInt64",
-    "SchemaFieldFloat32",
-    "SchemaFieldFloat64",
-    "SchemaFieldBool",
-    "SchemaFieldString",
-    "SchemaFieldBinary",
-    "SchemaFieldTimestamp",
-    "SchemaFieldJson",
-    "SchemaFieldStruct",
-    "SchemaFieldList",
-    "WorkerBinding",
-]
+__all__ = ["StreamCreateParams", "Format", "FormatJson", "FormatParquet", "HTTP", "HTTPCORS", "Schema", "WorkerBinding"]
 
 
 class StreamCreateParams(TypedDict, total=False):
@@ -87,143 +66,10 @@ class HTTP(TypedDict, total=False):
     """Specifies the CORS options for the HTTP endpoint."""
 
 
-class SchemaFieldInt32(TypedDict, total=False):
-    type: Required[Literal["int32"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldInt64(TypedDict, total=False):
-    type: Required[Literal["int64"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldFloat32(TypedDict, total=False):
-    type: Required[Literal["float32"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldFloat64(TypedDict, total=False):
-    type: Required[Literal["float64"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldBool(TypedDict, total=False):
-    type: Required[Literal["bool"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldString(TypedDict, total=False):
-    type: Required[Literal["string"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldBinary(TypedDict, total=False):
-    type: Required[Literal["binary"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldTimestamp(TypedDict, total=False):
-    type: Required[Literal["timestamp"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-    unit: Literal["second", "millisecond", "microsecond", "nanosecond"]
-
-
-class SchemaFieldJson(TypedDict, total=False):
-    type: Required[Literal["json"]]
-
-    metadata_key: Optional[str]
-
-    name: str
-
-    required: bool
-
-    sql_name: str
-
-
-class SchemaFieldStruct(TypedDict, total=False):
-    pass
-
-
-class SchemaFieldList(TypedDict, total=False):
-    pass
-
-
-SchemaField: TypeAlias = Union[
-    SchemaFieldInt32,
-    SchemaFieldInt64,
-    SchemaFieldFloat32,
-    SchemaFieldFloat64,
-    SchemaFieldBool,
-    SchemaFieldString,
-    SchemaFieldBinary,
-    SchemaFieldTimestamp,
-    SchemaFieldJson,
-    SchemaFieldStruct,
-    SchemaFieldList,
-]
-
-
 class Schema(TypedDict, total=False):
     """Defines the schema of the events in the data stream."""
 
-    fields: Iterable[SchemaField]
+    fields: Iterable["SourceFieldParam"]
 
     inferred: Optional[bool]
 
@@ -231,3 +77,6 @@ class Schema(TypedDict, total=False):
 class WorkerBinding(TypedDict, total=False):
     enabled: Required[bool]
     """Indicates that the worker binding is enabled."""
+
+
+from .source_field_param import SourceFieldParam

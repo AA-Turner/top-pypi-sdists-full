@@ -26,7 +26,6 @@ from typing import List, Optional
 
 import requests
 from packaging.version import InvalidVersion, Version
-from rich.console import Console
 
 from src.cli.commands.workspace import WorkspaceCommands
 from src.cli.utils.formatters import (
@@ -35,10 +34,11 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console, print_command_header
 from src.cli.utils.project_context import find_project_yml
 from src.version import get_version
 
-console = Console()
+console = make_console()
 
 # Same endpoint scripts/verify_pypi_latest.py uses.
 _PYPI_JSON_URL = "https://pypi.org/pypi/innoday/json"
@@ -136,6 +136,12 @@ class UpgradeCommands:
         installed = get_version()
         latest = _fetch_pypi_latest()
 
+        print_command_header(
+            args,
+            config,
+            "upgrade",
+            facts=[f"installed {installed}"] + ([f"PyPI {latest}"] if latest else []),
+        )
         console.print(format_info(f"Installed version: {installed}"))
         if latest is not None:
             console.print(format_info(f"PyPI latest: {latest}"))

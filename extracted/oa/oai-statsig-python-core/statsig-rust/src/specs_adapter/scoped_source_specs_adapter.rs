@@ -8,6 +8,9 @@ use crate::networking::{DEFAULT_CDN_SPECS_URL, NetworkClient, ResponseData};
 use crate::observability::ops_stats::{
     OPS_STATS, OpsStatsForInstance, with_scoped_hydration_observability,
 };
+use crate::specs_response::proto_compression::ProtoCompression;
+use crate::specs_response::proto_stream_reader::{BUFFER_SIZE, read_snapshot_cursor};
+use crate::statsig_metadata::StatsigMetadata;
 use crate::{ObservabilityClient, StatsigErr, StatsigOptions, StatsigRuntime, log_e, log_w};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -62,6 +65,13 @@ struct ScopedRefreshTelemetry {
     encoding: Option<&'static str>,
     change_reason: Option<&'static str>,
     used_fallback: bool,
+    rejection: Option<ScopedRejectionTelemetry>,
+}
+
+struct ScopedRejectionTelemetry {
+    previous: SpecsInfo,
+    listener: Arc<dyn SpecsUpdateListener>,
+    tags: HashMap<String, String>,
 }
 
 impl ScopedRefreshTelemetry {
@@ -341,6 +351,27 @@ impl ScopedSourceSpecsAdapter {
                     }
                 }
             }
+            if let Some(rejection) = telemetry.rejection {
+                let current = rejection.listener.get_current_specs_info();
+                let outcome = if result.is_ok() {
+                    "fallback_updated"
+                } else if current.lcut.is_none() || current.checksum.is_none() {
+                    "unavailable"
+                } else if current.lcut == rejection.previous.lcut
+                    && current.checksum == rejection.previous.checksum
+                {
+                    "retained"
+                } else {
+                    "changed"
+                };
+                let mut tags = rejection.tags;
+                tags.insert("outcome".to_string(), outcome.to_string());
+                observer.increment(
+                    "statsig.sdk.scoped_snapshot.rejection.outcome.count".to_string(),
+                    1.0,
+                    Some(tags),
+                );
+            }
         }
         result.map(|_| ())
     }
@@ -400,7 +431,7 @@ impl ScopedSourceSpecsAdapter {
                 }
                 let decode_started = telemetry.as_ref().map(|_| Instant::now());
                 let result = self
-                    .publish_payload(listener.as_ref(), payload, &metadata)
+                    .publish_payload(&listener, payload, &metadata, telemetry)
                     .await;
                 if let Some(telemetry) = telemetry.as_mut() {
                     ScopedRefreshTelemetry::add_duration(
@@ -434,7 +465,7 @@ impl ScopedSourceSpecsAdapter {
             );
             let fallback_decode_started = telemetry.as_ref().map(|_| Instant::now());
             let fallback_result = self
-                .publish_payload(listener.as_ref(), fallback, &metadata)
+                .publish_payload(&listener, fallback, &metadata, telemetry)
                 .await;
             if let Some(telemetry) = telemetry.as_mut() {
                 ScopedRefreshTelemetry::add_duration(
@@ -462,10 +493,64 @@ impl ScopedSourceSpecsAdapter {
 
     async fn publish_payload(
         &self,
-        listener: &dyn SpecsUpdateListener,
-        payload: ResponseData,
+        listener: &Arc<dyn SpecsUpdateListener>,
+        mut payload: ResponseData,
         metadata: &ScopedConfigMetadata,
+        telemetry: &mut Option<ScopedRefreshTelemetry>,
     ) -> Result<(), StatsigErr> {
+        if let Some(compression) = ProtoCompression::from_response(&payload) {
+            payload.rewind()?;
+            let cursor = match compression {
+                ProtoCompression::Brotli => read_snapshot_cursor(brotli::Decompressor::new(
+                    payload.get_stream_mut(),
+                    BUFFER_SIZE,
+                )),
+                ProtoCompression::Zstd => {
+                    zstd::stream::read::Decoder::new(payload.get_stream_mut())
+                        .ok()
+                        .and_then(read_snapshot_cursor)
+                }
+            };
+            payload.rewind()?;
+            // Metadata and payload publication can race. Reject a mismatched full snapshot
+            // before entity decoding/hydration; final publication checks still apply.
+            if let Some(cursor) = cursor {
+                if let Err(error) = Self::validate_specs_version(
+                    Some(cursor.lcut),
+                    Some(&cursor.checksum),
+                    metadata,
+                ) {
+                    if let (Some(observer), Some(telemetry)) =
+                        (self.observability.get(), telemetry.as_mut())
+                    {
+                        // Count once per refresh, even if its fallback also rejects. A cancelled
+                        // refresh has an activation but no completed outcome; never infer recovery.
+                        if telemetry.rejection.is_none() {
+                            let sdk = StatsigMetadata::get_metadata();
+                            let mut tags = HashMap::from([
+                                ("sdk_type".to_string(), sdk.sdk_type),
+                                ("sdk_version".to_string(), sdk.sdk_version),
+                            ]);
+                            if let Some(scope_class) = self.source.observability_scope_class() {
+                                tags.insert("scope_class".to_string(), scope_class.to_string());
+                            }
+                            // Keep the same listener without reacquiring the adapter lock.
+                            telemetry.rejection = Some(ScopedRejectionTelemetry {
+                                previous: listener.get_current_specs_info(),
+                                listener: listener.clone(),
+                                tags: tags.clone(),
+                            });
+                            observer.increment(
+                                "statsig.sdk.scoped_snapshot.rejection.count".to_string(),
+                                1.0,
+                                Some(tags),
+                            );
+                        }
+                    }
+                    return Err(error);
+                }
+            }
+        }
         let hydration = SpecsUpdateHydration::new(
             Self::capability_hydrator(),
             self.hydration_source_url.clone(),
@@ -478,7 +563,8 @@ impl ScopedSourceSpecsAdapter {
             ),
         )
         .await?;
-        Self::validate_published_specs(listener, metadata)
+        let applied = listener.get_current_specs_info();
+        Self::validate_specs_version(applied.lcut, applied.checksum.as_deref(), metadata)
     }
 
     fn capability_hydrator() -> Arc<RemoteConfigValueHydrator> {
@@ -502,17 +588,17 @@ impl ScopedSourceSpecsAdapter {
         }))
     }
 
-    fn validate_published_specs(
-        listener: &dyn SpecsUpdateListener,
+    fn validate_specs_version(
+        lcut: Option<u64>,
+        checksum: Option<&str>,
         metadata: &ScopedConfigMetadata,
     ) -> Result<(), StatsigErr> {
-        let applied = listener.get_current_specs_info();
-        if applied.checksum.as_deref() != Some(metadata.checksum.as_str()) {
+        if checksum != Some(metadata.checksum.as_str()) {
             return Err(StatsigErr::ChecksumFailure(
                 "Scoped configuration payload checksum does not match its metadata".to_string(),
             ));
         }
-        match applied.lcut {
+        match lcut {
             Some(lcut) if lcut > metadata.lcut => {
                 return Err(StatsigErr::ChecksumFailure(
                     "Scoped configuration payload LCUT is newer than its metadata".to_string(),
@@ -625,19 +711,31 @@ mod tests {
     use crate::observability::ops_stats::OPS_STATS;
     use crate::sdk_event_emitter::SdkEventEmitter;
     use crate::specs_response::spec_types::SpecsResponseFull;
+    use crate::specs_response::statsig_config_specs as pb;
     use crate::statsig_options::SnapshotEvaluationSessionInitOptions;
     use crate::{
         ObservabilityClient, OpsStatsEventObserver, SpecStore, SpecsAdapter, SpecsCursorUpdate,
         SpecsInfo, SpecsSource, SpecsUpdate, SpecsUpdateListener, StatsigErr, StatsigRuntime,
     };
     use async_trait::async_trait;
+    use futures::FutureExt;
     use parking_lot::Mutex;
+    use prost::Message;
     use sha2::{Digest, Sha256};
     use std::collections::HashMap;
+    use std::io::Write;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[derive(Clone, Copy, Default)]
+    enum FallbackBehavior {
+        #[default]
+        Normal,
+        Pending,
+        RepeatPreferred,
+    }
 
     struct CountingSource {
         lcut: u64,
@@ -646,8 +744,10 @@ mod tests {
         payload_fetches: AtomicUsize,
         fallback_fetches: AtomicUsize,
         has_fallback: bool,
+        fallback_behavior: FallbackBehavior,
         include_content_length: bool,
         content_encoding: Option<&'static str>,
+        protobuf_payload: Option<Vec<u8>>,
     }
 
     struct CursorRecordingSource {
@@ -678,6 +778,21 @@ mod tests {
                 Some("source-private-token")
             );
             self.payload_fetches.fetch_add(1, Ordering::Relaxed);
+            if let Some(payload) = &self.protobuf_payload {
+                return Ok(ResponseData::from_bytes_with_headers(
+                    payload.clone(),
+                    Some(HashMap::from([
+                        (
+                            "content-type".to_string(),
+                            "application/octet-stream".to_string(),
+                        ),
+                        (
+                            "content-encoding".to_string(),
+                            self.content_encoding.unwrap().to_string(),
+                        ),
+                    ])),
+                ));
+            }
             let payload = format!(
                 r#"{{"has_updates":true,"time":{},"checksum":"{}"}}"#,
                 self.lcut, self.checksum
@@ -699,7 +814,17 @@ mod tests {
             metadata: &ScopedConfigMetadata,
         ) -> Result<Option<ResponseData>, StatsigErr> {
             self.fallback_fetches.fetch_add(1, Ordering::Relaxed);
+            match self.fallback_behavior {
+                FallbackBehavior::Pending => std::future::pending::<()>().await,
+                FallbackBehavior::RepeatPreferred => {
+                    return self.fetch_payload(metadata).await.map(Some);
+                }
+                FallbackBehavior::Normal => {}
+            }
             Ok(self.has_fallback.then(|| {
+                if self.protobuf_payload.is_some() {
+                    return full_specs_payload(metadata.lcut, &metadata.checksum);
+                }
                 ResponseData::from_bytes(
                     format!(
                         r#"{{"has_updates":true,"time":{},"checksum":"{}"}}"#,
@@ -980,9 +1105,216 @@ mod tests {
             payload_fetches: AtomicUsize::new(0),
             fallback_fetches: AtomicUsize::new(0),
             has_fallback,
+            fallback_behavior: FallbackBehavior::Normal,
             include_content_length,
             content_encoding,
+            protobuf_payload: None,
         })
+    }
+
+    fn compressed_cursor(encoding: &str, lcut: u64, checksum: &str, complete: bool) -> Vec<u8> {
+        let top = pb::SpecsTopLevel {
+            has_updates: true,
+            time: lcut,
+            checksum: checksum.to_string(),
+            rest: br#"{"experiment_to_layer":{}}"#.to_vec(),
+            ..Default::default()
+        };
+        let envelope = pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::TopLevel as i32,
+            data: Some(top.encode_to_vec()),
+            ..Default::default()
+        };
+        let mut bytes = envelope.encode_length_delimited_to_vec();
+        // An inconsistent cursor must fail before attempting the invalid entity tail.
+        if complete {
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Done as i32,
+                ..Default::default()
+            }
+            .encode_length_delimited(&mut bytes)
+            .unwrap();
+        } else {
+            bytes.extend_from_slice(&[1, 0xff]);
+        }
+        if encoding == "statsig-br" {
+            let mut writer = brotli::CompressorWriter::new(Vec::new(), 4096, 1, 22);
+            writer.write_all(&bytes).unwrap();
+            writer.into_inner()
+        } else {
+            zstd::stream::encode_all(bytes.as_slice(), 1).unwrap()
+        }
+    }
+
+    #[tokio::test]
+    async fn inconsistent_protobuf_cursor_is_rejected_before_entity_decoding() {
+        for encoding in ["statsig-br", "statsig-zstd"] {
+            for (lcut, checksum, complete, inconsistent) in [
+                (124, "different-checksum", false, true),
+                (125, "expected-checksum", false, true),
+                (124, "expected-checksum", false, false),
+                (124, "expected-checksum", true, false),
+                (123, "expected-checksum", true, false),
+            ] {
+                let mut source = source_with(124, "expected-checksum", false, true, Some(encoding));
+                Arc::get_mut(&mut source).unwrap().protobuf_payload =
+                    Some(compressed_cursor(encoding, lcut, checksum, complete));
+                let adapter = Arc::new(ScopedSourceSpecsAdapter::new(source.clone(), "scope"));
+                let observer = Arc::new(RecordingObserver::default());
+                adapter.bind_observability_client(observer.clone());
+                let store = Arc::new(SpecStore::new(
+                    "secret-test",
+                    "scope".to_string(),
+                    StatsigRuntime::get_runtime(),
+                    Arc::new(SdkEventEmitter::default()),
+                    None,
+                ));
+                store
+                    .set_values(SpecsUpdate {
+                        data: full_specs_payload(122, "previous"),
+                        source: SpecsSource::Network,
+                        received_at: 1,
+                        source_api: None,
+                        has_updates: None,
+                    })
+                    .unwrap();
+                let previous = store.load_data();
+                adapter.initialize(store.clone());
+
+                let result = adapter.start(&StatsigRuntime::get_runtime()).await;
+
+                assert_eq!(
+                    matches!(result, Err(StatsigErr::ChecksumFailure(_))),
+                    inconsistent,
+                    "{encoding}: lcut={lcut}, checksum={checksum}"
+                );
+                assert_eq!(
+                    result.is_ok(),
+                    complete,
+                    "{encoding}: lcut={lcut}, result={result:?}"
+                );
+                assert_eq!(
+                    source.fallback_fetches.load(Ordering::Relaxed),
+                    usize::from(!complete)
+                );
+                if complete {
+                    assert_eq!(store.load_data().lcut(), 124);
+                    assert_eq!(
+                        store.get_current_specs_info().checksum.as_deref(),
+                        Some("expected-checksum")
+                    );
+                } else {
+                    assert!(Arc::ptr_eq(&previous, &store.load_data()));
+                }
+                let increments = observer.increments.lock();
+                let rejections: Vec<_> = increments
+                    .iter()
+                    .filter(|(name, _)| name.starts_with("statsig.sdk.scoped_snapshot.rejection."))
+                    .collect();
+                assert_eq!(rejections.len(), if inconsistent { 2 } else { 0 });
+                if inconsistent {
+                    assert_eq!(
+                        rejections[0].0,
+                        "statsig.sdk.scoped_snapshot.rejection.count"
+                    );
+                    assert_eq!(
+                        rejections[1].0,
+                        "statsig.sdk.scoped_snapshot.rejection.outcome.count"
+                    );
+                    assert_eq!(
+                        rejections[1]
+                            .1
+                            .as_ref()
+                            .unwrap()
+                            .get("outcome")
+                            .map(String::as_str),
+                        Some("retained")
+                    );
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn early_rejection_distinguishes_recovery_unavailability_and_cancellation() {
+        for (has_fallback, fallback_behavior, expected_outcome) in [
+            (true, FallbackBehavior::Normal, Some("fallback_updated")),
+            (false, FallbackBehavior::Normal, Some("unavailable")),
+            (
+                false,
+                FallbackBehavior::RepeatPreferred,
+                Some("unavailable"),
+            ),
+            (false, FallbackBehavior::Pending, None),
+        ] {
+            let mut source = source_with(
+                124,
+                "expected-checksum",
+                has_fallback,
+                true,
+                Some("statsig-br"),
+            );
+            let mutable = Arc::get_mut(&mut source).unwrap();
+            mutable.protobuf_payload = Some(compressed_cursor(
+                "statsig-br",
+                125,
+                "expected-checksum",
+                false,
+            ));
+            mutable.fallback_behavior = fallback_behavior;
+            mutable.scope_class = Some("target_app");
+            let observer = Arc::new(RecordingObserver::default());
+            let adapter = Arc::new(ScopedSourceSpecsAdapter::new(
+                source.clone(),
+                "private-scope",
+            ));
+            adapter.bind_observability_client(observer.clone());
+            let store = Arc::new(SpecStore::new(
+                "private-test-key",
+                "private-scope".to_string(),
+                StatsigRuntime::get_runtime(),
+                Arc::new(SdkEventEmitter::default()),
+                None,
+            ));
+            adapter.initialize(store.clone());
+
+            // All owned futures are immediately ready except the explicitly pending fallback.
+            // Poll once and drop: cancellation cannot emit a completed recovery outcome.
+            let result = adapter.sync().now_or_never();
+            let cancelled = matches!(fallback_behavior, FallbackBehavior::Pending);
+            assert_eq!(result.is_none(), cancelled);
+            if let Some(result) = result {
+                assert_eq!(result.is_ok(), has_fallback);
+            }
+            assert_eq!(source.fallback_fetches.load(Ordering::Relaxed), 1);
+            let current = store.get_current_specs_info();
+            assert_eq!(current.lcut, Some(if has_fallback { 124 } else { 0 }));
+            assert_eq!(
+                current.checksum.as_deref(),
+                has_fallback.then_some("expected-checksum")
+            );
+            let increments = observer.increments.lock();
+            let rejections: Vec<_> = increments
+                .iter()
+                .filter(|(name, _)| name.starts_with("statsig.sdk.scoped_snapshot.rejection."))
+                .collect();
+            assert_eq!(rejections.len(), if cancelled { 1 } else { 2 });
+            for (name, tags) in rejections {
+                let tags = tags.as_ref().unwrap();
+                assert_eq!(
+                    tags.get("scope_class").map(String::as_str),
+                    Some("target_app")
+                );
+                assert!(tags.contains_key("sdk_type") && tags.contains_key("sdk_version"));
+                if name.ends_with(".outcome.count") {
+                    assert_eq!(tags.get("outcome").map(String::as_str), expected_outcome);
+                    assert_eq!(tags.len(), 4);
+                } else {
+                    assert_eq!(name, "statsig.sdk.scoped_snapshot.rejection.count");
+                    assert_eq!(tags.len(), 3);
+                }
+            }
+        }
     }
 
     fn adapter_fixture(
@@ -1117,6 +1449,14 @@ mod tests {
         assert_eq!(tags.get("outcome").map(String::as_str), Some("success"));
         assert!(tags.contains_key("sdk_type"));
         assert!(tags.contains_key("sdk_version"));
+        let results = increments
+            .iter()
+            .filter(|(name, _)| name == "statsig.sdk.remote_config_hydration.result")
+            .collect::<Vec<_>>();
+        assert_eq!(results.len(), 1);
+        let tags = results[0].1.as_ref().unwrap();
+        assert_eq!(tags["outcome"], "success");
+        assert_eq!(tags["failure_reason"], "none");
 
         let distributions = observer.distributions.lock();
         assert!(distributions.iter().any(|(name, value, tags)| {
@@ -1174,6 +1514,14 @@ mod tests {
                     .and_then(|tags| tags.get("outcome"))
                     .is_some_and(|outcome| outcome == "failure")
         }));
+        let results = increments
+            .iter()
+            .filter(|(name, _)| name == "statsig.sdk.remote_config_hydration.result")
+            .collect::<Vec<_>>();
+        assert_eq!(results.len(), 1);
+        let tags = results[0].1.as_ref().unwrap();
+        assert_eq!(tags["outcome"], "failure");
+        assert_eq!(tags["failure_reason"], "untrusted_download_origin");
         let distributions = observer.distributions.lock();
         assert!(distributions.iter().any(|(name, _, tags)| {
             name == "statsig.sdk.remote_config_hydration.latency"

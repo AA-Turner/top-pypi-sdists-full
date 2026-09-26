@@ -42,6 +42,7 @@ __all__ = (
     "ClusteringFrequencyType",
     "CodeInterpreterNetworkModeType",
     "CodeInterpreterStatusType",
+    "CoinbaseCdpSecretType",
     "ConfigurationBundleStatusType",
     "ConsentPortalSourceTypeType",
     "ConsentPortalStatusType",
@@ -215,6 +216,7 @@ CodeInterpreterNetworkModeType = Literal["PUBLIC", "SANDBOX", "VPC"]
 CodeInterpreterStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
+CoinbaseCdpSecretType = Literal["API_KEY", "WALLET_SECRET"]
 ConfigurationBundleStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
@@ -561,6 +563,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -635,6 +638,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -758,6 +762,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

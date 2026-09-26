@@ -8117,6 +8117,47 @@ class _Chatty:
         return 1
 
 
+def test_a_hot_stamp_left_by_a_plain_test_does_not_blind_the_first_run_cases_deaf_case(
+        request, tmp_path_factory):
+    """T1327 #3: `run_cases` (`conftest.py`) resets `_hop_trouble_at` only
+    AFTER each case it drives. A plain test outside that loop which pokes the
+    global directly and never restores it -- no `finally` of its own, exactly
+    what `TestATransportOutageIsNotASessionEnding` does in `test_proxy.py` --
+    leaves it hot for whatever `run_cases` call comes next: the after-reset
+    only clears it once THAT case has already run under the polluted value.
+    """
+    import cswap_pin.proxy as pp
+
+    # SIMULATES THE POLLUTION, wall clock (matches `_note_hop_trouble`, not
+    # `time.monotonic`): a plain test just stamped it and left.
+    with pp._hop_trouble_lock:
+        pp._hop_trouble_at = time.time()
+
+    lines = []
+    real_log = pp._log_lifecycle
+    pp._log_lifecycle = lines.append
+
+    class _Holder:
+        def case_first(self):
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_HOT/worker/messages")
+            srv._connected_bridges = {"cse_HOT"}
+            srv._report_deaf_bridges()
+            assert pp.DEAF_REPORT_MARK in lines[-1], lines[-1]
+
+    try:
+        run_cases(_Holder(), request, tmp_path_factory)
+    finally:
+        pp._log_lifecycle = real_log
+        with pp._hop_trouble_lock:
+            pp._hop_trouble_at = 0.0
+
+
 class TestDrainReportsWhatItCut:
     """The drain line must say what was still open, not always zero.
 
@@ -11571,6 +11612,267 @@ class TestDrainReportsWhatItCut:
         finally:
             pp._log_lifecycle = real_log
 
+    def case_a_young_process_names_its_own_blind_spot_not_a_mark(
+            self, monkeypatch):
+        """Measured: a successor 4s old inherited a bridge from a
+        predecessor that had just closed every connection. The bridge's
+        first request on the NEW process is the worker POST that stamps
+        `_bridge_posts`; the stream GET that would prove it healthy is the
+        NEXT request on the same connection and had not arrived yet when
+        this sweep ran. Its upstream hop was accepting CONNECT and relaying
+        a 502 INSIDE the tunnel, so `_egress_refused_last_monotonic` was
+        never stamped either and `blind_refused` could not fire.
+
+        DEAF_REPORT_MARK stood for this bridge for the whole
+        `_BRIDGE_SWEEP_COOLDOWN_S`, and a downstream gate reads MARK as
+        FAIL. A process this young never watched the bridge through a
+        whole `_DEAF_WINDOW_S` and must say so instead of asserting a
+        verdict it has no basis for.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 1000.0)
+            srv._started_monotonic = 996.0  # 4s old
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_INHERITED/worker/messages")
+            srv._connected_bridges = {"cse_INHERITED"}
+
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_BLIND in lines[-1], (
+                "a process 4s old marked a bridge it never watched deaf, "
+                f"instead of admitting it cannot say: {lines!r}")
+            assert pp.DEAF_REPORT_MARK not in lines[-1], lines[-1]
+            assert "cse_INHERITED" in lines[-1], lines[-1]
+        finally:
+            pp._log_lifecycle = real_log
+
+    def case_CONTROL_an_old_process_still_marks_the_same_bridge(
+            self, monkeypatch):
+        """The same bridge, the same shape, on a process old enough to have
+        watched the whole window: a true verdict must not be suppressed --
+        the control that proves `young` does not swallow every MARK."""
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 1000.0)
+            srv._started_monotonic = 1000.0 - pp._DEAF_WINDOW_S - 1.0
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_OLDPROC/worker/messages")
+            srv._connected_bridges = {"cse_OLDPROC"}
+
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_MARK in lines[-1], (
+                "a process older than the window it judges suppressed a "
+                f"true MARK: {lines!r}")
+            assert pp.DEAF_REPORT_BLIND not in lines[-1], lines[-1]
+        finally:
+            pp._log_lifecycle = real_log
+
+    def case_a_bridge_born_in_a_young_process_still_marks(self, monkeypatch):
+        """T1327 #4: `young` exists for a bridge this process only INHERITED
+        and never watched hold a stream -- `cse_INHERITED` above. A bridge
+        BORN here (`_bridge_first_post` holds it) is not that case: this
+        process watched its whole life, so a deaf verdict for it is real and
+        must MARK even though the process itself is still young."""
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 1000.0)
+            srv._started_monotonic = 960.0  # 40s old: still young (<300s)
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_BORN/worker/messages")
+            # BORN HERE, not inherited: its first post predates the grace
+            # window (40s ago, past `_DEAF_STARTUP_GRACE_S` of 30s) but is
+            # still within this young process's own life.
+            srv._bridge_first_post["cse_BORN"] = 960.0
+            srv._connected_bridges = {"cse_BORN"}
+
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_MARK in lines[-1], (
+                "a bridge born in this process, never streamed, was named "
+                f"BLIND instead of a real MARK: {lines!r}")
+            assert pp.DEAF_REPORT_BLIND not in lines[-1], lines[-1]
+        finally:
+            pp._log_lifecycle = real_log
+
+    def case_a_young_blind_ages_into_a_mark_with_the_same_deaf_set(
+            self, monkeypatch):
+        """The latch, same shape as the draining- and refusal-BLIND cases
+        above: a young sweep's BLIND must not stand forever once this
+        process has aged past the window with the IDENTICAL deaf set --
+        `now == prev` alone would otherwise dedupe the MARK away for the
+        rest of this process's life."""
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+
+            monkeypatch.setattr(pp.time, "monotonic", lambda: 1000.0)
+            srv._started_monotonic = 996.0  # 4s old
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_LATCH/worker/messages")
+            srv._connected_bridges = {"cse_LATCH"}
+
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_BLIND in lines[-1], (
+                f"the young sweep was not BLIND: {lines!r}")
+
+            # PAST THE WINDOW this process is judging (996 + 300), the SAME
+            # post still inside ITS OWN window (1000 + 300): the MARK must
+            # return, not stay dedupe-silenced by the young-BLIND above.
+            past_window = 1298.0
+            monkeypatch.setattr(pp.time, "monotonic", lambda: past_window)
+            before = len(lines)
+            srv._report_deaf_bridges()
+            assert len(lines) > before, (
+                "the young-BLIND latched permanently -- no MARK ever "
+                "followed for a bridge that is genuinely still deaf")
+            assert pp.DEAF_REPORT_MARK in lines[-1], lines[-1]
+
+            # THE ORDINARY DEDUPE STILL APPLIES once the MARK itself stands.
+            before = len(lines)
+            srv._report_deaf_bridges()
+            assert len(lines) == before, (
+                "an unchanged MARK was re-logged; the young-window fix "
+                "must not defeat the dedupe generally")
+        finally:
+            pp._log_lifecycle = real_log
+
+    def case_a_relayed_5xx_blinds_an_old_process_too(self, monkeypatch):
+        """I1: `_egress_refused_last_monotonic` is stamped only for a DIAL
+        the hop itself refused. A hop that accepts CONNECT and relays the
+        pin's own upstream's 5xx INSIDE the tunnel never stamps it, so an
+        OLD process (unlike the young-process case above, this one has no
+        `_started_monotonic` at all) still MARKed a bridge whose post may
+        never have reached the server. `_note_hop_trouble` already records
+        this on the module global `_hop_trouble_at`; `_report_deaf_bridges`
+        must read it too.
+        """
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        real_hop_trouble_at = pp._hop_trouble_at
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+            # No `_started_monotonic`: an old process, same as every
+            # instance built via `__new__` before that attribute existed --
+            # the `young` latch must not be why this fires.
+
+            monkeypatch.setattr(pp.time, "time", lambda: 2000.0)
+            pp._hop_trouble_at = 2000.0 - 10.0  # the upstream's 5xx, 10s ago
+
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_RELAYED/worker/messages")
+            srv._connected_bridges = {"cse_RELAYED"}
+
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_BLIND in lines[-1], (
+                "a relayed 5xx inside the tunnel did not blind an old "
+                f"process's verdict: {lines!r}")
+            assert pp.DEAF_REPORT_MARK not in lines[-1], lines[-1]
+            assert "cse_RELAYED" in lines[-1], lines[-1]
+            assert "10s ago" in lines[-1], lines[-1]
+        finally:
+            pp._log_lifecycle = real_log
+            pp._hop_trouble_at = real_hop_trouble_at
+
+    def case_CONTROL_a_stale_hop_trouble_stamp_still_marks(self, monkeypatch):
+        """The control: a 5xx from long before the window must not blind a
+        verdict it has nothing to do with."""
+        import threading
+
+        import cswap_pin.proxy as pp
+
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        real_hop_trouble_at = pp._hop_trouble_at
+        try:
+            srv = pp.PinProxy.__new__(pp.PinProxy)
+            srv._reset_bridge_traffic()
+            srv._live_lock = threading.Lock()
+            srv._stream_conns = set()
+            srv._open_conns = set()
+
+            monkeypatch.setattr(pp.time, "time", lambda: 2000.0)
+            pp._hop_trouble_at = 2000.0 - pp._DEAF_WINDOW_S - 1.0
+
+            srv._note_bridge_traffic(
+                "/v1/code/sessions/cse_STALEHOP/worker/messages")
+            srv._connected_bridges = {"cse_STALEHOP"}
+
+            srv._report_deaf_bridges()
+            assert lines and pp.DEAF_REPORT_MARK in lines[-1], (
+                "a hop-trouble stamp older than the window suppressed a "
+                f"true MARK: {lines!r}")
+            assert pp.DEAF_REPORT_BLIND not in lines[-1], lines[-1]
+        finally:
+            pp._log_lifecycle = real_log
+            pp._hop_trouble_at = real_hop_trouble_at
+
+    def case_the_production_wiring_stamps_started_monotonic(self, certdir):
+        """m2: nothing exercised `PinProxy.__init__` itself for this stamp --
+        every deaf-report case above builds one through `__new__`, which
+        skips `__init__` entirely and would stay green even if the real
+        constructor stopped setting it."""
+        from cswap_pin.proxy import PinProxy
+
+        proxy = PinProxy(certdir=certdir, pin_token_provider=lambda: None)
+        assert isinstance(proxy._started_monotonic, float), (
+            "a PinProxy built through __init__ must carry its own start "
+            "clock")
+
     def case_an_attachment_fetch_says_whether_it_worked(self, certdir):
         """Nothing recorded whether a claude.ai attachment ever downloaded.
 
@@ -12997,7 +13299,7 @@ class TestDrainReportsWhatItCut:
         )
 
     def case_each_exit_path_drains_on_the_ceiling_that_fits_it(self, certdir):
-        """THREE DRAINS, TWO SITUATIONS — and they were collapsed into one number.
+        """FOUR DRAINS, TWO SITUATIONS — and they were collapsed into one number.
 
         Measured 2026-08-18, all three hosts, with the phase split live:
 
@@ -13021,7 +13323,12 @@ class TestDrainReportsWhatItCut:
                                      until we are gone, so every second here is
                                      a second with nothing serving the port.
                                      Cutting is the lesser evil
-                                     -> `_HELD_DRAIN_SECONDS`.
+                                     -> `_HELD_DRAIN_SECONDS`. TWO call sites
+                                     share it: no holder pid to ask at all,
+                                     and a holder that survived the ask but
+                                     whose successor never published within
+                                     the wait -- both leave the supervisor to
+                                     start the next one the slow way.
 
         AND `_DRAIN_SECONDS` COULD NOT SIMPLY BE RAISED, which is why this is a
         third constant rather than a bigger one: it is also the supervisor's
@@ -13056,12 +13363,12 @@ class TestDrainReportsWhatItCut:
             "broken, and a broken scan passes every assertion below it")
         assert sorted(named) == [
             "_HANDOVER_DRAIN_SECONDS", "_HANDOVER_DRAIN_SECONDS",
-            "_HELD_DRAIN_SECONDS",
+            "_HELD_DRAIN_SECONDS", "_HELD_DRAIN_SECONDS",
         ], (
             "the exit paths no longer drain on the ceilings that fit them. Two "
             "hand over to a successor that is already serving (free to wait) "
-            "and one exits so a holder can start the successor (every second "
-            "is an unserved port). Got: " + ", ".join(sorted(named))
+            "and two exit so a holder can start the successor the slow way "
+            "(every second is an unserved port). Got: " + ", ".join(sorted(named))
         )
 
         # AND THE NUMBERS THEMSELVES, or the names above are decoration.
@@ -15057,15 +15364,17 @@ class TestAMisroutedSwapCannotKillASession:
 
     def case_a_missing_authorization_header_is_not_falsely_retried_fresh(
             self, certdir, monkeypatch):
-        """T1182: a pinned request that arrives with NO `Authorization`
-        header sets `swapped=True` anyway (nothing there to substitute)
-        and, on refusal, `refused_auth=""`. `provider(refused="")` never
-        equals `f"Bearer {token}"`, so the untouched cached token used to
-        read as "fresh" and log a false `retried-fresh` while the request
-        went out a THIRD time. `refetch` must treat an empty
-        `refused_bearer` as nothing to compare against, the guard the
-        absolute-form path already applies before ever calling in
-        (`unswapped` is armed only when an Authorization header exists)."""
+        """T1193: a pinned request that arrives with NO `Authorization`
+        header has nothing to substitute, so it must never be armed for a
+        take-back in the first place -- the same guard the absolute-form
+        path already applies before ever calling in (`unswapped` is armed
+        only when an Authorization header exists). `swapped` used to be
+        set unconditionally once a token was minted, so a request with no
+        Authorization header was sent, refused, and RE-SENT byte-identical
+        by the take-back -- twice on the wire for one arrival, and a
+        `swap refused ... fell-back` line logged for a request that was
+        never actually swapped (rc-gate row 13 counts that line as an
+        artifact FAIL)."""
         import cswap_pin.proxy as pp
         from cswap_pin.proxy import PinProxy
 
@@ -15095,29 +15404,122 @@ class TestAMisroutedSwapCannotKillASession:
             # `auths_seen` on a timing that races this request. Every
             # other case in this class uses this route for the same
             # reason.
-            # A genuine 401 IS the right answer here: the fallback resends
-            # the SAME headers the client arrived with (no Authorization),
-            # so there is nothing better to offer it either. What this
-            # case is about is the COUNT: exactly one swapped attempt and
-            # one unswapped fallback, never a false "fresh" retry in
-            # between.
+            # A genuine 401 IS the right answer here: there is nothing to
+            # swap, so the upstream's own refusal is the only honest
+            # answer -- and it must be reached with exactly ONE request,
+            # never a take-back re-sending the same bytes.
             status = _request_through_proxy(
                 proxy.port, certdir / "ca.pem", "/api/frame/deploy/direct",
             )
             assert status == 401, f"expected the upstream's own refusal: {status}"
-            assert len(upstream.auths_seen) == 2, (
-                "a request with no Authorization header must be sent "
-                f"exactly twice, not retried a third time on a false "
-                f"match: {upstream.auths_seen}"
+            assert len(upstream.auths_seen) == 1, (
+                "a request with no Authorization header was never actually "
+                f"swapped, so it must reach the upstream exactly once, not "
+                f"be re-sent by a take-back: {upstream.auths_seen}"
             )
             swap_lines = [ln for ln in lines if ln.startswith("swap refused")]
-            assert not any("retried-fresh" in ln for ln in swap_lines), (
-                f"there was nothing to swap, so no genuinely fresh token "
-                f"exists to retry with: {lines}"
+            assert not swap_lines, (
+                f"nothing was swapped, so there is nothing to take back and "
+                f"no 'swap refused' line to log: {lines}"
+            )
+            assert getattr(proxy, "_warned_unpinnable", False) is False, (
+                "a resolved token with no Authorization header to rewrite "
+                "fell into the fail-open branch and warned UNPINNED, though "
+                "the pin itself resolved fine"
             )
         finally:
             proxy.stop()
             upstream.stop()
+            pp._log_lifecycle = real_log
+
+    def case_a_swap_refused_line_is_keyed_on_three_segments_under_api_oauth(
+            self, certdir):
+        """T1193: `/api/oauth/files/<id>/content` (an rc-gate row 13
+        artifact route) used to share its two-segment family
+        (`/api/oauth`) with `/api/oauth/validate` and `/api/oauth/profile`
+        -- a files fall-back inside a validate fall-back's own cooldown
+        folded into the validate line's "; N more", and the gate could
+        read PASS off a suppressed line naming a different route than the
+        one it was counting. Three requests, one cooldown: files (its own
+        family), validate (its own family, absolute-form with a `?query`),
+        then validate again with a DIFFERENT query -- same family, so it
+        must fold rather than print its own line, which is only true if
+        the query is stripped BEFORE the family is computed, not carried
+        into it (the absolute-form `rel.split("?", 1)[0]` this exercises).
+        Red against all three reverts if any is undone: outcome-alone
+        (files and validate would share one line), two segments (both
+        collapse to `/api/oauth`, same result), or a dropped query strip
+        (the second validate would print its own line instead of
+        folding)."""
+        import cswap_pin.proxy as pp
+        from cswap_pin.proxy import PinProxy, write_upstream_hint
+
+        def _reject_pin_token(req_bytes):
+            head = req_bytes.split(b"\r\n\r\n", 1)[0]
+            auth = None
+            for line in head.split(b"\r\n"):
+                if line.lower().startswith(b"authorization:"):
+                    auth = line.split(b":", 1)[1].strip()
+            if auth == b"Bearer PINTOKEN":
+                return (b"HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n"
+                        b"Connection: close\r\n\r\n")
+            return b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"
+
+        chain = _RecordingChain(_reject_pin_token)
+        lines = []
+        real_log = pp._log_lifecycle
+        pp._log_lifecycle = lines.append
+        proxy = None
+        try:
+            write_upstream_hint(certdir, f"http://127.0.0.1:{chain.port}")
+            proxy = PinProxy(certdir=certdir,
+                             pin_token_provider=lambda: "PINTOKEN",
+                             rediscover_chain=True)
+            proxy.start()
+
+            def _send(path):
+                c = socket.create_connection(
+                    ("127.0.0.1", proxy.port), timeout=10)
+                try:
+                    c.sendall(
+                        f"POST https://api.anthropic.com{path} HTTP/1.1\r\n"
+                        f"Host: api.anthropic.com\r\n"
+                        f"Authorization: Bearer disk-token\r\n"
+                        f"Content-Length: 0\r\n\r\n".encode("latin1"))
+                    c.settimeout(10)
+                    got = b""
+                    while b"\r\n\r\n" not in got:
+                        d = c.recv(4096)
+                        if not d:
+                            break
+                        got += d
+                    return got
+                finally:
+                    c.close()
+
+            resp_files = _send("/api/oauth/files/id1/content?sig=abc")
+            resp_validate = _send("/api/oauth/validate")
+            resp_validate2 = _send("/api/oauth/validate?x=2")
+            for name, got in (("files", resp_files),
+                              ("validate", resp_validate),
+                              ("validate2", resp_validate2)):
+                assert got.startswith(b"HTTP/1.1 200"), f"{name}: {got[:60]!r}"
+
+            swap_lines = [ln for ln in lines if ln.startswith("swap refused")]
+            assert swap_lines == [
+                "swap refused (401) on POST /api/oauth/files/id1/content: "
+                "fell-back",
+                "swap refused (401) on POST /api/oauth/validate: fell-back",
+            ], (
+                f"a files fall-back must not share a line with a validate "
+                f"fall-back, and a second validate fall-back (even with a "
+                f"different query) must fold into the first instead of "
+                f"printing its own line: {lines}"
+            )
+        finally:
+            if proxy:
+                proxy.stop()
+            chain.stop()
             pp._log_lifecycle = real_log
 
     def case_the_refetch_takes_every_shape_the_real_provider_can_answer(
@@ -15202,7 +15604,8 @@ class TestAMisroutedSwapCannotKillASession:
                  reject_bearer="stale-token", reject_status=401,
                  status_ok=lambda s: s == 200,
                  expect_auths=["Bearer stale-token", "Bearer disk-token"],
-                 expect_reads=2, expect_can_pin_cached=True),
+                 expect_reads=2, expect_can_pin_cached=True,
+                 expect_blind_reason=""),
             dict(name="d: a foreign re-read is not spliced in",
                  token_for_read=lambda n: "pin-token" if n == 1 else "foreign-token",
                  reject_bearer="pin-token", reject_status=401,
@@ -15258,6 +15661,14 @@ class TestAMisroutedSwapCannotKillASession:
                     assert (provider.can_pin_cached()
                            is row["expect_can_pin_cached"]), (
                         f"{row['name']}: can_pin_cached mismatch")
+                if row.get("expect_blind_reason") is not None:
+                    # AN EMPTY RE-READ MUST NOT BLIND `provider` when a
+                    # live credential is already cached -- `can_pin_cached`
+                    # alone does not prove that: it is set from the cache,
+                    # never from `blind_reason`, so a docstring's claim
+                    # about blinding needs its own assertion.
+                    assert provider.blind_reason == row["expect_blind_reason"], (
+                        f"{row['name']}: blind_reason={provider.blind_reason!r}")
             finally:
                 proxy.stop()
                 upstream.stop()

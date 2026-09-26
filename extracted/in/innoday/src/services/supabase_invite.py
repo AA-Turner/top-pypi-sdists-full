@@ -84,6 +84,40 @@ def fetch_confirmed_identities() -> "tuple[Optional[list], Optional[str]]":
         return None, str(exc)
 
 
+def fetch_identity_confirmation(supabase_user_id: str) -> Optional[IdPConfirmation]:
+    """What Supabase itself records about one identity -- server-side, via the
+    admin API -- or None if it can't be read.
+
+    For decisions that must not trust the token: a JWT's ``user_metadata`` is
+    writable by its own holder (``auth.updateUser({data: ...})``), so
+    ``email_verified`` there proves nothing (PF-465). ``auth.users`` is set only
+    by GoTrue.
+    """
+    if not supabase_admin_configured():
+        return None
+    import httpx
+
+    base = os.environ["SUPABASE_URL"].rstrip("/")
+    key = os.environ["SUPABASE_SERVICE_KEY"]
+    try:
+        resp = httpx.get(
+            f"{base}/auth/v1/admin/users/{quote(supabase_user_id)}",
+            headers={"apikey": key, "Authorization": f"Bearer {key}"},
+            timeout=5.0,
+        )
+    except httpx.HTTPError:
+        return None
+    if resp.status_code != 200:
+        return None
+    body = resp.json() or {}
+    body = body.get("user", body)  # some GoTrue versions wrap the user
+    return IdPConfirmation(
+        supabase_user_id=str(body.get("id") or supabase_user_id),
+        email=body.get("email"),
+        email_confirmed_at=body.get("email_confirmed_at"),
+    )
+
+
 def supabase_admin_configured() -> bool:
     return bool(os.getenv("SUPABASE_URL") and os.getenv("SUPABASE_SERVICE_KEY"))
 

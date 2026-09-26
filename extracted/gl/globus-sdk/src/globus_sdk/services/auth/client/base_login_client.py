@@ -7,7 +7,6 @@ import uuid
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 from globus_sdk import client, exc
-from globus_sdk._internal.remarshal import commajoin
 from globus_sdk._missing import MISSING, MissingType
 from globus_sdk.authorizers import GlobusAuthorizer, NullAuthorizer
 from globus_sdk.response import GlobusHTTPResponse
@@ -195,9 +194,9 @@ class AuthLoginClient(client.BaseClient):
                 "AuthClient to resolve"
             )
         query_params = {
-            "session_required_identities": commajoin(session_required_identities),
-            "session_required_single_domain": commajoin(session_required_single_domain),
-            "session_required_policies": commajoin(session_required_policies),
+            "session_required_identities": session_required_identities,
+            "session_required_single_domain": session_required_single_domain,
+            "session_required_policies": session_required_policies,
             "session_required_mfa": session_required_mfa,
             "session_message": session_message,
             "prompt": prompt,

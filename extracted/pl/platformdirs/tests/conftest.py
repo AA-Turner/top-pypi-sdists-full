@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Final, cast
 
 import pytest
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from _pytest.fixtures import SubRequest
+    from pytest_mock import MockerFixture
 
 PROPS = (
     "user_data_dir",
@@ -52,3 +55,37 @@ def func_path(request: SubRequest) -> str:
 @pytest.fixture
 def props() -> tuple[str, ...]:
     return PROPS
+
+
+_XDG_ENV_VARS: Final[tuple[str, ...]] = (
+    "XDG_DATA_HOME",
+    "XDG_DATA_DIRS",
+    "XDG_CONFIG_HOME",
+    "XDG_CONFIG_DIRS",
+    "XDG_CACHE_HOME",
+    "XDG_STATE_HOME",
+    "XDG_RUNTIME_DIR",
+    "XDG_DOCUMENTS_DIR",
+    "XDG_DOWNLOAD_DIR",
+    "XDG_PICTURES_DIR",
+    "XDG_VIDEOS_DIR",
+    "XDG_MUSIC_DIR",
+    "XDG_DESKTOP_DIR",
+    "XDG_PROJECTS_DIR",
+    "XDG_PUBLICSHARE_DIR",
+    "XDG_TEMPLATES_DIR",
+)
+
+
+@pytest.fixture
+def _clear_xdg_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for var in _XDG_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture
+def runtime_temp_dir(tmp_path: Path, mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> Path:
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    mocker.patch("os.access", return_value=False)
+    mocker.patch("tempfile.tempdir", str(tmp_path))
+    return tmp_path

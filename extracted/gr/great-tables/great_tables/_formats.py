@@ -43,7 +43,7 @@ from ._tbl_data import (
     is_series,
     to_list,
 )
-from ._text import _md_html, _md_latex, escape_pattern_str_latex
+from ._text import _html_escape, _latex_escape, _md_html, _md_latex, escape_pattern_str_latex
 from ._utils import _str_detect, _str_replace, is_valid_http_schema
 from ._utils_nanoplots import _generate_nanoplot
 
@@ -2533,6 +2533,1342 @@ def fmt_roman_context(
         x_formatted = pattern.replace("{x}", x_formatted)
 
     return x_formatted
+
+
+def fmt_fraction(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    accuracy: str | int = "low",
+    simplify: bool = True,
+    layout: str = "inline",
+    use_seps: bool = True,
+    pattern: str = "{x}",
+    sep_mark: str = ",",
+    locale: str | None = None,
+) -> GTSelf:
+    """
+    Format values as mixed fractions.
+
+    With numeric values in a **gt** table, we can perform mixed-fraction-based formatting. There are
+    several options for setting the accuracy of the fractions. Furthermore, there is an option for
+    choosing a layout (i.e., typesetting style) for the mixed-fraction output.
+
+    The `accuracy=` parameter controls the type of fractions generated. It can be one of the
+    keywords `"low"`, `"med"`, or `"high"` (to generate fractions with denominators of up to 1, 2,
+    or 3 digits, respectively) or an integer value greater than zero to obtain fractions with a
+    fixed denominator (`2` yields halves, `3` is for thirds, `4` is quarters, etc.). If choosing to
+    provide a numeric value for `accuracy=`, the option to simplify the fraction (where possible)
+    can be taken with `simplify=True` (the default for this is `True`).
+
+    For HTML output, the `"inline"` layout (the default) places the numerals of the fraction on the
+    baseline and uses a standard slash character. The `"diagonal"` layout will generate fractions
+    that are typeset with raised and lowered numerals and a virgule (i.e., a fraction slash).
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    accuracy
+        The accuracy of the fraction. Use `"low"` for denominators up to 1 digit (e.g., halves,
+        thirds, quarters, etc.), `"med"` for up to 2-digit denominators, and `"high"` for up to
+        3-digit denominators. Alternatively, supply a positive integer to fix the denominator to
+        that value (e.g., `accuracy=8` gives eighths). The default is `"low"`.
+    simplify
+        When `accuracy=` is an integer, should the fraction be simplified via GCD reduction? For
+        while `simplify=False` yields `"2/4"`. Has no effect when `accuracy=` is a keyword example,
+        with `accuracy=4` and a value of `0.5`, `simplify=True` yields a `"1/2"` string
+        representation. The default is `True`.
+    layout
+        The layout of the fraction. `"inline"` renders the fraction on the baseline with a standard
+        slash (e.g., `3/4`). `"diagonal"` renders a diagonal fraction with a raised numerator,
+        lowered denominator, and a fraction slash character (HTML only and falls back to inline in
+        other contexts). The default is `"inline"`.
+    use_seps
+        Whether to use digit grouping separators in the whole-number part. The default is `True`.
+    pattern
+        A formatting pattern that allows for decoration of the formatted value. The formatted value
+        is represented by the `{x}` (which can be used multiple times, if needed) and all other
+        characters will be interpreted as string literals.
+    sep_mark
+        The mark to use as a thousands separator. The default is `","` and can be overridden by a
+        locale setting.
+    locale
+        An optional locale ID that can be used for applying a locale-specific thousands separator.
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Examples
+    --------
+    Let's format the `num` column of the `exibble` dataset as fractions with the default `"low"`
+    accuracy.
+
+    ```{python}
+    from great_tables import GT
+    from great_tables.data import exibble
+
+    (
+        GT(exibble[["num", "char"]])
+        .fmt_fraction(columns="num")
+    )
+    ```
+
+    We can increase the accuracy to `"med"` or `"high"` for more precise fractions. We can also use
+    a fixed denominator (here, tenths) to get uniform fractions. With `simplify=False`, the
+    denominator stays fixed even when the fraction could be reduced, and `layout="diagonal"` gives
+    us a typeset diagonal-fraction style.
+
+    ```{python}
+    import polars as pl
+
+    df = pl.DataFrame({
+        "item": ["Icate", "Octyl", "Sepal", "Unkel"],
+        "frac_sales": [0.3, 0.1, 0.8, 0.5],
+        "frac_revenue": [0.2, 0.4, 0.7, 0.9],
+    })
+
+    (
+        GT(df, rowname_col="item")
+        .fmt_fraction(
+            columns=["frac_sales", "frac_revenue"],
+            accuracy=10,
+            simplify=False,
+            layout="diagonal",
+        )
+    )
+    ```
+
+    The `pizzaplace` dataset has a full year of sales data. We can summarize the sell count and
+    revenue by pizza size within each type, then express those as fractions. Using
+    `layout="diagonal"` with `accuracy=10` and `simplify=False` gives uniform tenths in a typeset
+    style, and `text_transform()` replaces any zero-fraction values with *nil*.
+
+    ```{python}
+    import polars as pl
+    import polars.selectors as cs
+    from great_tables import md, loc, data
+
+    grouped = (
+        data.pl.pizzaplace
+        .group_by("type", "size")
+        .agg(
+            pl.col("id").count().alias("sold"),
+            pl.col("price").sum().alias("income"),
+        )
+        .with_columns(
+            (pl.col("sold") / pl.col("sold").sum().over("type")).alias("f_sold"),
+            (pl.col("income") / pl.col("income").sum().over("type")).alias("f_income"),
+        )
+        .sort(["type", "income"], descending=[False, True])
+    )
+
+    (
+        GT(grouped, rowname_col="size", groupname_col="type")
+        .tab_header(
+            title="Pizzas Sold in 2015",
+            subtitle="Fraction of Sell Count and Revenue by Size per Type",
+        )
+        .fmt_integer(columns="sold")
+        .fmt_currency(columns="income")
+        .fmt_fraction(
+            columns=cs.starts_with("f_"),
+            accuracy=10,
+            simplify=False,
+            layout="diagonal",
+        )
+        .sub_missing(missing_text="")
+        .tab_spanner(label="Sold", columns=cs.contains("sold"))
+        .tab_spanner(label="Revenue", columns=cs.contains("income"))
+        .text_transform(
+            locations=loc.body(),
+            fn=lambda x: "<em>nil</em>" if x == "0" else x,
+        )
+        .cols_label(
+            sold="Amount",
+            income="Amount",
+            f_sold=md("_f_"),
+            f_income=md("_f_"),
+        )
+        .cols_align(align="center", columns=cs.starts_with("f"))
+        .tab_options(
+            table_width="400px",
+            row_group_as_column=True,
+        )
+    )
+    ```
+    """
+    if isinstance(accuracy, str) and accuracy not in ("low", "med", "high"):
+        raise ValueError(
+            f"accuracy must be 'low', 'med', 'high', or a positive integer, got {accuracy!r}"
+        )
+    if isinstance(accuracy, int) and accuracy < 1:
+        raise ValueError(f"accuracy must be a positive integer when numeric, got {accuracy}")
+    if layout not in ("inline", "diagonal"):
+        raise ValueError(f"layout must be 'inline' or 'diagonal', got {layout!r}")
+
+    locale = _resolve_locale(self, locale=locale)
+    sep_mark = _get_locale_sep_mark(default=sep_mark, use_seps=use_seps, locale=locale)
+
+    pf_format = partial(
+        fmt_fraction_context,
+        data=self,
+        accuracy=accuracy,
+        simplify=simplify,
+        layout=layout,
+        use_seps=use_seps,
+        sep_mark=sep_mark,
+        pattern=pattern,
+    )
+
+    return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
+
+
+def _gcd(a: int, b: int) -> int:
+    while b:
+        a, b = b, a % b
+    return a
+
+
+def _format_whole_number(value: int, use_seps: bool, sep_mark: str) -> str:
+    s = str(value)
+    if not use_seps or not sep_mark:
+        return s
+    result = ""
+    count = 0
+    for digit in reversed(s):
+        if count and count % 3 == 0:
+            result = sep_mark + result
+        result = digit + result
+        count += 1
+    return result
+
+
+def _make_diagonal_fraction_html(numerator: str, denominator: str) -> str:
+    return (
+        f'<span style="font-size:0.6em;line-height:0.6em;vertical-align:0.45em;">{numerator}</span>'
+        f'<span style="font-size:0.7em;line-height:0.7em;vertical-align:0.15em;">&#x2044;</span>'
+        f'<span style="font-size:0.6em;line-height:0.6em;vertical-align:-0.05em;">{denominator}</span>'
+    )
+
+
+def fmt_fraction_context(
+    x: float,
+    data: GTData,
+    accuracy: str | int,
+    simplify: bool,
+    layout: str,
+    use_seps: bool,
+    sep_mark: str,
+    pattern: str,
+    context: str,
+) -> str:
+    from ._fractions_data import _lookup_fraction
+
+    if is_na(data._tbl_data, x):
+        return x
+
+    if not math.isfinite(x):
+        return str(x)
+
+    is_negative = x < 0
+    x_abs = abs(x)
+
+    big_x = int(math.trunc(x_abs))
+    small_x = x_abs - big_x
+
+    # Round fractional part to 3 decimal places (Round-Half-Up for consistency with gt R)
+    small_x = _round_rhu(small_x * 1000, 0) / 1000
+
+    if isinstance(accuracy, str):
+        fraction_str = _lookup_fraction(small_x, accuracy)
+    else:
+        numerator = int(_round_rhu(small_x * accuracy, 0))
+        if numerator == 0:
+            fraction_str = "0"
+        elif numerator == accuracy:
+            fraction_str = "1"
+        else:
+            if simplify:
+                g = _gcd(numerator, accuracy)
+                numerator //= g
+                denominator = accuracy // g
+            else:
+                denominator = accuracy
+            fraction_str = f"{numerator}/{denominator}"
+
+    # Handle sentinel "1" (fractional part rounds up to next integer)
+    if fraction_str == "1":
+        big_x += 1
+        fraction_str = ""
+    elif fraction_str == "0":
+        fraction_str = ""
+
+    # Format the whole-number part
+    big_x_str = _format_whole_number(big_x, use_seps, sep_mark) if big_x != 0 else ""
+
+    # Build the diagonal fraction HTML if needed
+    if fraction_str and layout == "diagonal" and context == "html" and "/" in fraction_str:
+        num_str, den_str = fraction_str.split("/")
+        fraction_str = _make_diagonal_fraction_html(num_str, den_str)
+
+    # Combine whole number and fraction
+    if big_x_str and fraction_str:
+        if layout == "diagonal" and context == "html":
+            x_formatted = big_x_str + " " + fraction_str
+        else:
+            x_formatted = big_x_str + " " + fraction_str
+    elif big_x_str:
+        x_formatted = big_x_str
+    elif fraction_str:
+        x_formatted = fraction_str
+    else:
+        x_formatted = "0"
+
+    if is_negative and x_formatted != "0":
+        minus_mark = _context_minus_mark(context=context)
+        x_formatted = minus_mark + x_formatted
+
+    if pattern != "{x}":
+        if context == "latex":
+            pattern = escape_pattern_str_latex(pattern_str=pattern)
+        x_formatted = pattern.replace("{x}", x_formatted)
+
+    return x_formatted
+
+
+def fmt_chem(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+) -> GTSelf:
+    """
+    Format chemical formulas.
+
+    With `fmt_chem()` you can format chemical formulas and reactions in the table body. Often the
+    input text will be in a common form representing single compounds (like `"C2H4O"` for
+    acetaldehyde) but chemical reactions can also be used (e.g., `"2 CH3OH -> CH3OCH3 + H2O"`).
+    So long as the text within the targeted cells conforms to the specialized chemistry notation,
+    the appropriate conversions will occur. Details on chemistry notation can be found in the
+    section entitled *How to use chemistry notation*.
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    How to use chemistry notation
+    -----------------------------
+    The chemistry notation involves a shorthand for writing chemical formulas and reactions. It
+    should feel familiar in its basic usage and the more advanced typesetting tries to limit the
+    amount of syntax needed. Here are examples of the supported features:
+
+    - `"CH3O2"` and `"(NH4)2S"` will render with subscripted numerals
+
+    - Charges can be expressed with terminating `"+"` or `"-"`, as in `"H+"` and `"[AgCl2]-"`;
+      numbered charges use: `"CrO4^2-"`, `"Fe^n+"`, `"Y^99+"`, or `"Y^{99+}"`
+
+    - Stoichiometric values can prepend formulas: `"2H2O2"`, `"2 H2O2"`, `"0.5 H2O"`,
+      `"1/2 H2O"`, `"(1/2) H2O"`
+
+    - Certain standalone lowercase letters are automatically italicized: `"NO_x"` and
+      `"x Na(NH4)HPO4"` will have italic *x* characters; you can always italicize with `"*"`
+      (as in `"*n* H2O"`)
+
+    - Chemical isotopes can be rendered as: `"^{227}_{90}Th"` or `"^227_90Th"`; nuclides are
+      similar: `"^{0}_{-1}n^{-}"`, `"^0_-1n-"`
+
+    - Chemical reactions can use `"+"` signs and a variety of reaction arrows:
+      `"->"`, `"<-"`, `"<->"`, `"<-->"`, `"<=>"`, `"<=>>"`, `"<<=>"`
+
+    - Center dots (for addition compounds) use a single `"."` or `"*"` surrounded by spaces:
+      `"KCr(SO4)2 . 12 H2O"` or `"KCr(SO4)2 * 12 H2O"`
+
+    - Single and double bonds between adjacent characters use `"-"` or `"="`:
+      `"C6H5-CHO"`, `"CH3CH=CH2"`
+
+    - Greek letters can be inserted using colon notation: `":delta: ^13C"`
+
+    Examples
+    --------
+    Let's use the `reactions` dataset and create a table of gas-phase reaction rate constants for
+    selected terminal alkenes. The `cmpd_formula` column contains chemical formulas and `fmt_chem()`
+    will render them with properly subscripted numerals. Notice that the column labels for O₃ and
+    NO₃ use the `{{%...%}}` chemistry notation within `cols_label()`.
+
+    ```{python}
+    import polars as pl
+    import polars.selectors as cs
+    from great_tables import GT, data
+
+    reactions_mini = (
+        data.pl.reactions
+        .filter(
+            (pl.col("cmpd_type") == "terminal monoalkene")
+            & pl.col("cmpd_name").str.starts_with("1-")
+        )
+        .select("cmpd_name", "cmpd_formula", cs.ends_with("k298"))
+    )
+
+    (
+        GT(reactions_mini)
+        .tab_header(title="Gas-Phase Reactions of Selected Terminal Alkenes")
+        .tab_spanner(
+            label="Reaction Rate Constant at 298 K",
+            columns=cs.ends_with("k298"),
+        )
+        .fmt_chem(columns="cmpd_formula")
+        .fmt_scientific(columns=cs.ends_with("k298"))
+        .sub_missing()
+        .cols_label(
+            cmpd_name="Alkene",
+            cmpd_formula="Formula",
+            OH_k298="OH",
+            O3_k298="{{%O3%}}",
+            NO3_k298="{{%NO3%}}",
+            Cl_k298="Cl",
+        )
+        .opt_align_table_header(align="left")
+    )
+    ```
+
+    The `photolysis` dataset contains photolysis pathways where both the `cmpd_formula` and
+    `products` columns hold chemistry notation. We can format both columns with `fmt_chem()` and use
+    `cols_merge()` to combine the compound name with its formatted formula.
+
+    ```{python}
+    photolysis_mini = (
+        data.pl.photolysis
+        .filter(pl.col("cmpd_name").is_in([
+            "hydrogen peroxide", "nitrous acid",
+            "nitric acid", "acetaldehyde",
+            "methyl peroxide", "methyl nitrate",
+            "ethyl nitrate", "isopropyl nitrate",
+        ]))
+        .select(pl.exclude("l", "m", "n", "quantum_yield", "type"))
+    )
+
+    (
+        GT(photolysis_mini)
+        .tab_header(title="Photolysis Pathways of Selected VOCs")
+        .fmt_chem(columns=["cmpd_formula", "products"])
+        .cols_merge(
+            columns=["cmpd_name", "cmpd_formula"],
+            pattern="{0}, {1}",
+        )
+        .cols_label(cmpd_name="Compound", products="Products")
+        .cols_hide(columns=["wavelength_nm", "sigma_298_cm2"])
+        .opt_align_table_header(align="left")
+    )
+    ```
+
+    The `nuclides` dataset contains isotope data with nuclide notation (e.g., `"^{12}_{6}C"`) that
+    `fmt_chem()` renders with properly overstruck mass and atomic numbers. Here we show isotopes of
+    hydrogen and carbon.
+
+    ```{python}
+    from great_tables import md
+
+    nuclides_mini = (
+        data.pl.nuclides
+        .filter(pl.col("element").is_in(["H", "C"]))
+        .with_columns(pl.col("nuclide").str.replace(r"[0-9]+$", ""))
+        .select("nuclide", "atomic_mass", "half_life", "decay_1", "is_stable")
+    )
+
+    stable = (
+        nuclides_mini.with_row_index()
+        .filter(pl.col("is_stable") == "TRUE")["index"].to_list()
+    )
+    unstable = (
+        nuclides_mini.with_row_index()
+        .filter(pl.col("is_stable") == "FALSE")["index"].to_list()
+    )
+
+    (
+        GT(nuclides_mini, rowname_col="nuclide")
+        .tab_header(title="Isotopes of Hydrogen and Carbon")
+        .tab_stubhead(label="Isotope")
+        .fmt_chem(columns="nuclide")
+        .fmt_scientific(columns="half_life")
+        .fmt_number(columns="atomic_mass", decimals=4, scale_by=1 / 1e6)
+        .sub_missing(
+            columns="half_life", rows=stable, missing_text=md("**STABLE**")
+        )
+        .sub_missing(columns="half_life", rows=unstable)
+        .sub_missing(columns="decay_1")
+        .cols_hide(columns="is_stable")
+        .cols_align(align="center", columns="decay_1")
+        .cols_label(decay_1="Decay Mode")
+        .opt_align_table_header(align="left")
+        .opt_vertical_padding(scale=0.5)
+    )
+    ```
+    """
+
+    def fmt_chem_fn(x: str):
+        if is_na(self._tbl_data, x):
+            return x
+
+        return _chem_to_html(x)
+
+    return fmt(self, fns=fmt_chem_fn, columns=columns, rows=rows)
+
+
+_REACTION_ARROWS = [
+    ("<-->", "&#8596;"),
+    ("<=>>", "&#8640;"),
+    ("<<=>", "&#8637;"),
+    ("<=>", "&#8652;"),
+    ("<->", "&#8596;"),
+    ("->", "&#8594;"),
+    ("<-", "&#8592;"),
+]
+
+_SUB = '<sub style="line-height:0;">'
+_SUP = '<span style="white-space:nowrap;"><sup style="line-height:0;">'
+_THIN_SP = "&#8201;"
+
+
+def _chem_to_html(formula: str) -> str:
+    from great_tables._helpers import (
+        _md_html,
+        _units_html_sub_super,
+        _units_symbol_replacements,
+    )
+
+    for arrow_text, arrow_char in _REACTION_ARROWS:
+        formula = formula.replace(arrow_text, f" \x00ARROW{arrow_char}\x00 ")
+
+    tokens = formula.split()
+    parts: list[str] = []
+    pending_coeff: str | None = None
+
+    for token in tokens:
+        if token.startswith("\x00ARROW") and token.endswith("\x00"):
+            if pending_coeff is not None:
+                parts.append(pending_coeff)
+                pending_coeff = None
+            arrow = token[6:-1]
+            parts.append(f" {arrow} ")
+            continue
+
+        if token == "+" and parts:
+            if pending_coeff is not None:
+                parts.append(pending_coeff)
+                pending_coeff = None
+            parts.append(" + ")
+            continue
+
+        if token in (".", "*"):
+            if pending_coeff is not None:
+                parts.append(pending_coeff)
+                pending_coeff = None
+            parts.append(" &middot; ")
+            continue
+
+        if pending_coeff is not None:
+            part = _chem_token_to_html(
+                token, _md_html, _units_html_sub_super, _units_symbol_replacements
+            )
+            parts.append(pending_coeff + _THIN_SP + part)
+            pending_coeff = None
+            continue
+
+        if re.match(r"^[0-9]+(?:\.[0-9]+)?$|^[0-9]+/[0-9]+$|^\([0-9]+/[0-9]+\)$", token):
+            pending_coeff = token
+            continue
+
+        if token in ("x", "n"):
+            pending_coeff = f"<em>{token}</em>"
+            continue
+
+        star_m = re.match(r"^\*([a-zA-Z])\*$", token)
+        if star_m:
+            pending_coeff = f"<em>{star_m.group(1)}</em>"
+            continue
+
+        part = _chem_token_to_html(
+            token, _md_html, _units_html_sub_super, _units_symbol_replacements
+        )
+        parts.append(part)
+
+    if pending_coeff is not None:
+        parts.append(pending_coeff)
+
+    return "".join(parts)
+
+
+def _chem_token_to_html(
+    token: str,
+    md_html: Callable[[str], str],
+    html_sub_super: Callable[[str, str], str],
+    symbol_replacements: Callable[[str], str],
+) -> str:
+    isotope_m = re.match(
+        r"^\^(?:\{([0-9+-]+)\}|([0-9+-]+))(?:_(?:\{([0-9+-]+)\}|([0-9+-]+)))?(.+)$",
+        token,
+    )
+    if isotope_m:
+        mass = isotope_m.group(1) or isotope_m.group(2)
+        atomic = isotope_m.group(3) or isotope_m.group(4) or ""
+        rest = isotope_m.group(5)
+        if not atomic:
+            atomic = "&nbsp;"
+        prefix = html_sub_super(content_sub=atomic, content_sup=mass)
+        return prefix + _chem_token_to_html(rest, md_html, html_sub_super, symbol_replacements)
+
+    colon_m = re.match(r"^(:[a-zA-Z]+:)(.*)$", token)
+    if colon_m:
+        sym = symbol_replacements(colon_m.group(1))
+        rest = colon_m.group(2)
+        if rest:
+            return sym + _chem_token_to_html(rest, md_html, html_sub_super, symbol_replacements)
+        return sym
+
+    stoich_m = re.match(r"^([0-9]+(?:\.[0-9]+)?|[0-9]+/[0-9]+|\([0-9]+/[0-9]+\))([A-Z].*)$", token)
+    if stoich_m:
+        coeff = stoich_m.group(1)
+        rest = stoich_m.group(2)
+        return coeff + _THIN_SP + _chem_simple_formula_html(rest)
+
+    bond_m = re.match(r"^([^-=]+)([-=])([^-=]+)$", token)
+    if bond_m and re.search(r"[A-Z]", bond_m.group(1)) and re.search(r"[A-Z]", bond_m.group(3)):
+        left = _chem_simple_formula_html(bond_m.group(1))
+        bond = bond_m.group(2)
+        right = _chem_simple_formula_html(bond_m.group(3))
+        return f"{left}{bond}{right}"
+
+    italic_m = re.match(r"^\*([a-zA-Z])\*(.*)$", token)
+    if italic_m:
+        letter = italic_m.group(1)
+        rest = italic_m.group(2)
+        result = f"<em>{letter}</em>"
+        if rest:
+            if rest.startswith("-") or rest.startswith("="):
+                result += rest[0]
+                rest = rest[1:]
+            if rest:
+                result += _chem_simple_formula_html(rest)
+        return result
+
+    if token == "x" or token == "n":
+        return f"<em>{token}</em>"
+
+    return _chem_simple_formula_html(token)
+
+
+def _chem_simple_formula_html(token: str) -> str:
+    charge_m = re.match(r"^(.*?)(?:\^(?:\{([^}]+)\}|([0-9]*[+-]|n[+-]?)))$", token)
+    charge = None
+    if charge_m:
+        token = charge_m.group(1)
+        charge = charge_m.group(2) or charge_m.group(3)
+
+    if not charge:
+        single_charge_m = re.match(r"^(.*[A-Za-z\])])([+-])$", token)
+        if single_charge_m:
+            token = single_charge_m.group(1)
+            charge = single_charge_m.group(2)
+
+    italic_sub_m = re.match(r"^(.+)_([a-z])$", token)
+    if italic_sub_m:
+        base = _chem_subscript_numbers(italic_sub_m.group(1))
+        sub_letter = italic_sub_m.group(2)
+        result = (
+            base
+            + '<span style="white-space:nowrap;"><sub style="line-height:0;">'
+            + f"<em>{sub_letter}</em></sub></span>"
+        )
+    else:
+        result = _chem_subscript_numbers(token)
+
+    if charge is not None:
+        charge_html = charge.replace("-", "&minus;")
+        if re.match(r"^[a-z]", charge):
+            charge_html = f"<em>{charge_html[0]}</em>{charge_html[1:]}"
+        result += f"{_SUP}{charge_html}</sup></span>"
+
+    return result
+
+
+def _chem_subscript_numbers(text: str) -> str:
+    result = re.sub(
+        r"(?<=[A-Za-z)\]])(\d+)",
+        lambda m: f"{_SUB}{m.group(1)}</sub></span>",
+        text,
+    )
+    return result.replace(
+        _SUB,
+        '<span style="white-space:nowrap;"><sub style="line-height:0;">',
+    )
+
+
+_INDEX_LETTERS = list("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+
+def fmt_index(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    case: str = "upper",
+    index_algo: str = "repeat",
+    pattern: str = "{x}",
+    locale: str | None = None,
+) -> GTSelf:
+    """
+    Format values as index characters.
+
+    With numeric values in a **gt** table, we can transform those to index values, usually based
+    on letters. These characters can be derived from a specified locale and they are intended for
+    ordering (often leaving out characters with diacritical marks). For example, the value `1` would
+    map to `"A"`, `2` to `"B"`, and so on. When the value exceeds the number of characters in the
+    index set, the algorithm set by `index_algo` determines how to proceed: with `"repeat"`,
+    characters are repeated (e.g., 27 becomes `"AA"`, 28 becomes `"BB"`); with `"excel"`,
+    Excel-style column naming is used (e.g., 27 becomes `"AA"`, 28 becomes `"AB"`).
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    case
+        The case of the resulting index characters. Use `"upper"` (the default) for uppercase
+        letters or `"lower"` for lowercase.
+    index_algo
+        The algorithm to use when values exceed the index character set size. `"repeat"` (the
+        default) repeats characters (1→A, ..., 27→AA, 28→BB). `"excel"` uses Excel-style column
+        naming (1→A, ..., 27→AA, 28→AB).
+    pattern
+        A formatting pattern that allows for decoration of the formatted value. The formatted value
+        is represented by `{x}` and all other characters are interpreted as string literals.
+    locale
+        An optional locale ID. Currently reserved for future use; index characters default to the
+        English A–Z set regardless of locale.
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Examples
+    --------
+    Let's use the `towny` dataset to create a table of the five smallest census subdivisions by
+    population. The ranking column is formatted as index characters (A through E) and merged with
+    the subdivision name.
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT, md, data
+
+    towny_mini = (
+        data.pl.towny
+        .select("name", "census_div", "population_2021")
+        .group_by("census_div")
+        .agg(pl.col("population_2021").sum().alias("population"))
+        .sort("population")
+        .head(5)
+        .with_row_index("ranking", offset=1)
+        .select("ranking", "census_div", "population")
+    )
+
+    (
+        GT(towny_mini)
+        .fmt_integer(columns="population")
+        .fmt_index(columns="ranking", pattern="{x}.")
+        .cols_merge(columns=["ranking", "census_div"])
+        .cols_align(align="left", columns="ranking")
+        .cols_label(
+            ranking=md("Census<br>Subdivision"),
+            population=md("Population<br>in 2021"),
+        )
+        .tab_header(title=md("The Smallest<br>Census Subdivisions"))
+        .tab_options(table_width="325px")
+    )
+    ```
+
+    Using `index_algo="excel"` produces Excel-style column naming when values exceed 26. Here we
+    show both algorithms side by side.
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT
+
+    df = pl.DataFrame({
+        "value": [1, 5, 13, 26, 27, 28, 52, 53, 100],
+    })
+
+    (
+        GT(
+            df.with_columns(
+                repeat=pl.col("value"),
+                excel=pl.col("value"),
+            )
+        )
+        .fmt_index(columns="repeat", index_algo="repeat")
+        .fmt_index(columns="excel", index_algo="excel")
+        .cols_label(value="Value", repeat="Repeat", excel="Excel")
+    )
+    ```
+    """
+    if case not in ("upper", "lower"):
+        raise ValueError(f"case must be 'upper' or 'lower', got {case!r}")
+    if index_algo not in ("repeat", "excel"):
+        raise ValueError(f"index_algo must be 'repeat' or 'excel', got {index_algo!r}")
+
+    locale = _resolve_locale(self, locale=locale)
+
+    pf_format = partial(
+        fmt_index_context,
+        data=self,
+        case=case,
+        index_algo=index_algo,
+        pattern=pattern,
+    )
+
+    return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
+
+
+def _index_repeat(x: int, idx_set: list[str]) -> str:
+    if x <= 0:
+        return ""
+    n = len(idx_set)
+    reps = (x - 1) // n + 1
+    char = idx_set[(x - 1) % n]
+    return char * reps
+
+
+def _index_excel(x: int, idx_set: list[str]) -> str:
+    if x <= 0:
+        return ""
+    n = len(idx_set)
+    result: list[str] = []
+    while x > 0:
+        remainder = (x - 1) % n
+        result.append(idx_set[remainder])
+        x = (x - 1) // n
+    return "".join(reversed(result))
+
+
+def fmt_index_context(
+    x: float,
+    data: GTSelf,
+    case: str,
+    index_algo: str,
+    pattern: str,
+    context: str,
+) -> str:
+    if is_na(data._tbl_data, x):
+        return x
+
+    if math.isinf(x):
+        return str(x)
+
+    x_int = int(abs(_round_rhu(x, 0)))
+
+    idx_set = _INDEX_LETTERS
+
+    if index_algo == "excel":
+        x_formatted = _index_excel(x_int, idx_set)
+    else:
+        x_formatted = _index_repeat(x_int, idx_set)
+
+    if case == "lower":
+        x_formatted = x_formatted.lower()
+
+    if x_formatted and pattern != "{x}":
+        x_formatted = pattern.replace("{x}", x_formatted)
+
+    return x_formatted
+
+
+# ==============================================================================
+# fmt_url / fmt_email helpers
+# ==============================================================================
+
+_URL_DEFAULT_COLOR = "#008B8B"
+_URL_DEFAULT_BUTTON_FILL = "#4682B4"
+
+
+def _is_light_color(hex_color: str) -> bool:
+    from ._data_color.base import _hex_to_rgb, _relative_luminance
+
+    rgb = _hex_to_rgb(hex_color=hex_color)
+    lum = _relative_luminance(rgb=rgb)
+    return lum > 0.85
+
+
+def _normalize_color(color: str) -> str:
+    from ._data_color.base import _html_color
+
+    return _html_color(colors=[color])[0]
+
+
+def _build_link_html(
+    href: str,
+    label: str,
+    color: str,
+    show_underline: bool,
+    as_button: bool,
+    button_fill: str | None,
+    button_width: str | None,
+    button_outline: str | None,
+    target: str | None,
+    extra_attrs: str = "",
+) -> str:
+    styles: list[str] = [f"color:{color}"]
+
+    if show_underline:
+        styles.append("text-decoration:underline;text-underline-position:under")
+    else:
+        styles.append("text-decoration:none")
+
+    styles.append("display:inline-block")
+
+    if as_button:
+        fill = button_fill or _URL_DEFAULT_BUTTON_FILL
+        styles.append(f"background-color:{fill}")
+        styles.append("padding:8px 12px")
+        styles.append("border-radius:4px")
+
+        if button_width is not None:
+            styles.append(f"width:{button_width}")
+            styles.append("text-align:center")
+
+        if button_outline is not None:
+            styles.append(f"outline:{button_outline}")
+        elif _is_light_color(fill):
+            styles.append("outline:2px solid #DFDFDF")
+        else:
+            styles.append("outline-style:none")
+
+    style_str = ";".join(styles)
+
+    target_attr = f' target="{target}"' if target else ""
+
+    return (
+        f'<span style="white-space:pre;">'
+        f'<a href="{href}"{target_attr}{extra_attrs} style="{style_str}">'
+        f"{label}</a></span>"
+    )
+
+
+def fmt_url(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    label: str | Callable[[str], str] | None = None,
+    as_button: bool = False,
+    color: str = "auto",
+    show_underline: str | bool = "auto",
+    button_fill: str = "auto",
+    button_width: str | None = None,
+    button_outline: str | None = None,
+    target: str | None = "_blank",
+) -> GTSelf:
+    """
+    Format values as URL links.
+
+    With `fmt_url()`, input URL strings in the table body are transformed into HTML anchor elements
+    (`<a>` tags). The URLs can be displayed as-is, with a static label, or with a label generated by
+    a function. The links can also be styled as buttons with customizable colors and dimensions.
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    label
+        An optional label to use for the link. If a string is provided, it will be used as the
+        visible text for all links. If a callable is provided, it will be called with the URL string
+        and should return the display label.
+    as_button
+        Should the link be styled as a button? By default this is `False`.
+    color
+        The color of the link text. The default `"auto"` uses `"#008B8B"` (dark cyan) for regular
+        links and `"#FFFFFF"` (white) for buttons. Any CSS color name or hex value can be used.
+    show_underline
+        Should the link be underlined? The default `"auto"` uses `True` for regular links and
+        `False` for buttons. Set explicitly to `True` or `False` to override.
+    button_fill
+        The background color for button-style links. The default `"auto"` uses `"#4682B4"` (steel
+        blue). Only used when `as_button=True`.
+    button_width
+        The width of the button. Should be a CSS width string (e.g., `"150px"`). By default buttons
+        size to their content.
+    button_outline
+        The CSS outline for the button (e.g., `"2px solid #ccc"`). By default, a light gray outline
+        is automatically added when the button fill color is very light, and hidden otherwise.
+    target
+        The `target` attribute for the anchor element. Defaults to `"_blank"` to open links in a new
+        tab. Set to `None` to open in the same tab.
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Examples
+    --------
+    Using a subset of the `towny` dataset, let's format the `website` column as URL links.
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT, md, data
+
+    towny_top = (
+        data.pl.towny
+        .filter(pl.col("csd_type") == "city")
+        .select("name", "website", "population_2021")
+        .sort("population_2021", descending=True)
+        .head(10)
+    )
+
+    (
+        GT(towny_top)
+        .tab_header(
+            title=md("The 10 Largest Municipalities in `towny`"),
+            subtitle="Population values taken from the 2021 census.",
+        )
+        .fmt_integer(columns="population_2021")
+        .fmt_url(columns="website")
+        .cols_label(
+            name="Name",
+            website="Site",
+            population_2021="Population",
+        )
+    )
+    ```
+
+    We can use a static label and disable underlines for a cleaner look, merging the URL column into
+    the name column.
+
+    ```{python}
+    (
+        GT(towny_top)
+        .tab_header(
+            title=md("The 10 Largest Municipalities in `towny`"),
+            subtitle="Population values taken from the 2021 census.",
+        )
+        .fmt_integer(columns="population_2021")
+        .fmt_url(columns="website", label="site", show_underline=False)
+        .cols_merge(columns=["name", "website"], pattern="{0} ({1})")
+        .cols_label(name="Name", population_2021="Population")
+    )
+    ```
+
+    Button-styled links can be created with `as_button=True`.
+
+    ```{python}
+    (
+        GT(towny_top)
+        .fmt_integer(columns="population_2021")
+        .fmt_url(
+            columns="website",
+            label=lambda x: x.replace("https://", "").replace("www.", ""),
+            as_button=True,
+            button_fill="steelblue",
+            button_width="150px",
+        )
+        .cols_label(
+            name="Name",
+            website="Website",
+            population_2021="Population",
+        )
+    )
+    ```
+    """
+
+    # Resolve color settings
+    if color == "auto":
+        if as_button:
+            resolved_color = "#FFFFFF"
+        else:
+            resolved_color = _URL_DEFAULT_COLOR
+    else:
+        resolved_color = _normalize_color(color)
+
+    if show_underline == "auto":
+        resolved_underline = not as_button
+    else:
+        resolved_underline = bool(show_underline)
+
+    resolved_fill: str | None = None
+    if as_button:
+        if button_fill == "auto":
+            resolved_fill = _URL_DEFAULT_BUTTON_FILL
+        else:
+            resolved_fill = _normalize_color(button_fill)
+
+            if color == "auto":
+                from ._data_color.base import _ideal_fgnd_color
+
+                resolved_color = _ideal_fgnd_color(bgnd_color=resolved_fill)
+
+    def fmt_url_fn(x: str):
+        if is_na(self._tbl_data, x):
+            return x
+
+        url = str(x).strip()
+
+        # Handle Markdown-style links: [label](url)
+        md_match = re.match(r"^\[(.+?)\]\((.+?)\)$", url)
+        if md_match:
+            display = md_match.group(1)
+            href = md_match.group(2)
+        else:
+            href = url
+            if label is None:
+                display = url
+            elif callable(label):
+                display = label(url)
+            else:
+                display = label
+
+        return _build_link_html(
+            href=href,
+            label=display,
+            color=resolved_color,
+            show_underline=resolved_underline,
+            as_button=as_button,
+            button_fill=resolved_fill,
+            button_width=button_width,
+            button_outline=button_outline,
+            target=target,
+        )
+
+    return fmt(self, fns=fmt_url_fn, columns=columns, rows=rows)
+
+
+def fmt_email(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    display_name: str | Callable[[str], str] | None = None,
+    as_button: bool = False,
+    color: str = "auto",
+    show_underline: str | bool = "auto",
+    button_fill: str = "auto",
+    button_width: str | None = None,
+    button_outline: str | None = None,
+    target: str | None = "_blank",
+) -> GTSelf:
+    """
+    Format values as email links.
+
+    The `fmt_email()` method transforms email addresses in the table body into clickable `mailto:`
+    links. Like `fmt_url()`, the links can be styled as buttons or as plain underlined text, with
+    customizable colors.
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    display_name
+        An optional display name to use instead of the raw email address. If a string is
+        provided, it will be used as the visible text for all links. If a callable is provided, it
+        will be called with the email address and should return the display text.
+    as_button
+        Should the link be styled as a button? By default this is `False`.
+    color
+        The color of the link text. The default `"auto"` uses `"#008B8B"` (dark cyan) for regular
+        links and `"#FFFFFF"` (white) for buttons. Any CSS color name or hex value can be used.
+    show_underline
+        Should the link be underlined? The default `"auto"` uses `True` for regular links and
+        `False` for buttons. Set explicitly to `True` or `False` to override.
+    button_fill
+        The background color for button-style links. The default `"auto"` uses `"#4682B4"` (steel
+        blue). Only used when `as_button=True`.
+    button_width
+        The width of the button. Should be a CSS width string (e.g., `"150px"`). By default buttons
+        size to their content.
+    button_outline
+        The CSS outline for the button (e.g., `"2px solid #ccc"`). By default, a light gray outline
+        is automatically added when the button fill color is very light, and hidden otherwise.
+    target
+        The `target` attribute for the anchor element. Defaults to `"_blank"` to open links in a new
+        tab. Set to `None` to open in the same tab.
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Examples
+    --------
+    Using a subset of the `peeps` dataset filtered to contacts in Australia, let's format the
+    `email_addr` column as email links.
+
+    ```{python}
+    import polars as pl
+    from great_tables import GT, md, data
+
+    peeps_aus = (
+        data.pl.peeps
+        .filter(pl.col("country") == "AUS")
+        .select(
+            "name_given", "name_family", "address", "city",
+            "state_prov", "postcode", "country", "email_addr",
+        )
+    )
+
+    (
+        GT(peeps_aus, rowname_col="name_family")
+        .tab_header(title="Our Contacts in Australia")
+        .fmt_email(columns="email_addr")
+        .cols_label(
+            name_given="First Name",
+            address="Address",
+            city="City",
+            state_prov="State",
+            postcode="Postcode",
+            country="Country",
+            email_addr="Email",
+        )
+    )
+    ```
+
+    We can use `display_name=` with a callable to show just the local part of the email address
+    before the `@` sign.
+
+    ```{python}
+    (
+        GT(peeps_aus, rowname_col="name_family")
+        .tab_header(title="Our Contacts in Australia")
+        .fmt_email(
+            columns="email_addr",
+            display_name=lambda x: x.split("@")[0],
+            color="gray25",
+        )
+        .cols_label(
+            name_given="First Name",
+            address="Address",
+            city="City",
+            state_prov="State",
+            postcode="Postcode",
+            country="Country",
+            email_addr="Email",
+        )
+    )
+    ```
+
+    Button-styled email links are also supported.
+
+    ```{python}
+    (
+        GT(peeps_aus.head(5), rowname_col="name_family")
+        .tab_header(title="Contact Us")
+        .fmt_email(
+            columns="email_addr",
+            display_name="Send Email",
+            as_button=True,
+            button_fill="#228B22",
+        )
+        .cols_label(
+            name_given="First Name",
+            address="Address",
+            city="City",
+            state_prov="State",
+            postcode="Postcode",
+            country="Country",
+            email_addr="Email",
+        )
+    )
+    ```
+    """
+
+    # Resolve color settings (same logic as fmt_url)
+    if color == "auto":
+        if as_button:
+            resolved_color = "#FFFFFF"
+        else:
+            resolved_color = _URL_DEFAULT_COLOR
+    else:
+        resolved_color = _normalize_color(color)
+
+    if show_underline == "auto":
+        resolved_underline = not as_button
+    else:
+        resolved_underline = bool(show_underline)
+
+    resolved_fill: str | None = None
+    if as_button:
+        if button_fill == "auto":
+            resolved_fill = _URL_DEFAULT_BUTTON_FILL
+        else:
+            resolved_fill = _normalize_color(button_fill)
+
+            if color == "auto":
+                from ._data_color.base import _ideal_fgnd_color
+
+                resolved_color = _ideal_fgnd_color(bgnd_color=resolved_fill)
+
+    def fmt_email_fn(x: str):
+        if is_na(self._tbl_data, x):
+            return x
+
+        email = str(x).strip()
+
+        if display_name is None:
+            display = email
+        elif callable(display_name):
+            display = display_name(email)
+        else:
+            display = display_name
+
+        extra_attrs = ""
+        if target == "_blank":
+            extra_attrs = ' rel="noopener noreferrer"'
+
+        return _build_link_html(
+            href=f"mailto:{email}",
+            label=display,
+            color=resolved_color,
+            show_underline=resolved_underline,
+            as_button=as_button,
+            button_fill=resolved_fill,
+            button_width=button_width,
+            button_outline=button_outline,
+            target=target,
+            extra_attrs=extra_attrs,
+        )
+
+    return fmt(self, fns=fmt_email_fn, columns=columns, rows=rows)
 
 
 def fmt_bytes(
@@ -5220,12 +6556,24 @@ def _validate_locale(locale: str | None = None) -> None:
 
     # Replace any underscores with hyphens
     supplied_locale = _str_replace(locale, "_", "-")
+    supplied_locale = _match_locale_case(supplied_locale, locales_list + default_locales_list)
 
     # Stop if the `locale` provided isn't a valid one
     if supplied_locale not in locales_list and supplied_locale not in default_locales_list:
         raise ValueError(
             f"The normalized locale name `{supplied_locale}` is not in the list of locales."
         )
+
+
+def _match_locale_case(supplied_locale: str, known_locales: list[str]) -> str:
+    """Return the known spelling of a locale, since BCP 47 tags are case insensitive."""
+    lowered = supplied_locale.lower()
+
+    for known_locale in known_locales:
+        if known_locale.lower() == lowered:
+            return known_locale
+
+    return supplied_locale
 
 
 def _normalize_locale(locale: str | None = None) -> str | None:
@@ -5252,6 +6600,11 @@ def _normalize_locale(locale: str | None = None) -> str | None:
     # Resolve any default locales into their base names (e.g., 'en-US' -> 'en')
     # TODO: remove pandas
     default_locales = _get_default_locales_data()
+
+    supplied_locale = _match_locale_case(
+        supplied_locale,
+        _get_locales_list() + [entry["default_locale"] for entry in default_locales],
+    )
 
     matches = [
         entry["base_locale"]
@@ -5561,7 +6914,7 @@ def _validate_case(case: str) -> None:
 
 def _get_date_formats_dict() -> dict[str, str]:
     date_formats = {
-        "iso": "y-MM-dd",
+        "iso": "yyyy-MM-dd",
         "wday_month_day_year": "EEEE, MMMM d, y",
         "wd_m_day_year": "EEE, MMM d, y",
         "wday_day_month_year": "EEEE d MMMM y",
@@ -6988,6 +8341,124 @@ def _process_time_stream(data_vals: str) -> list[float]:
     time_stream_vals = [float(val) for val in time_stream]
 
     return time_stream_vals
+
+
+def fmt_passthrough(
+    self: GTSelf,
+    columns: SelectExpr = None,
+    rows: int | list[int] | None = None,
+    escape: bool = True,
+    pattern: str = "{x}",
+) -> GTSelf:
+    """
+    Format values by passing them through, optionally escaping and decorating.
+
+    The `fmt_passthrough()` method allows you to mark cells as formatted without transforming
+    them. This is useful in two situations:
+
+    - **Escaping**: When `escape=True` (the default), special characters in cell values are escaped
+      for the output context (HTML or LaTeX). This protects against cross-site scripting (XSS) while
+      giving you explicit control over which cells are escaped.
+    - **Decoration**: The `pattern=` argument lets you wrap values in a text pattern (e.g.,
+      `pattern="[{x}]"`) without changing the underlying value.
+
+    Since `fmt_passthrough()` marks cells as formatted, they are no longer subject to the automatic
+    escaping that applies to unformatted cells. Setting `escape=False` is the way to include raw
+    HTML or LaTeX in cell values without using the `html()` helper.
+
+    Parameters
+    ----------
+    columns
+        The columns to target. Can either be a single column name or a series of column names
+        provided in a list.
+    rows
+        In conjunction with `columns=`, we can specify which of their rows should undergo
+        formatting. The default is all rows, resulting in all rows in targeted columns being
+        formatted. Alternatively, we can supply a list of row indices.
+    escape
+        Should the cell values be escaped for the output context? When `True` (the default),
+        HTML special characters like `<`, `>`, and `&` are escaped in HTML output, and LaTeX special
+        characters are escaped in LaTeX output. Set to `False` to pass values through without
+        escaping, which is useful when cell values already contain trusted HTML or LaTeX markup.
+    pattern
+        A formatting pattern that allows for decoration of the formatted value. The formatted value
+        is represented by `{x}` (which can be used multiple times, if needed) and all other
+        characters will be interpreted as string literals.
+
+    Returns
+    -------
+    GT
+        The GT object is returned. This is the same object that the method is called on so that we
+        can facilitate method chaining.
+
+    Examples
+    --------
+    Using `fmt_passthrough()` with `escape=True` (the default) to safely render user-supplied data:
+
+    ```{python}
+    from great_tables import GT
+    import pandas as pd
+
+    df = pd.DataFrame({"input": ["<b>bold</b>", "x & y", "normal text"]})
+
+    GT(df).fmt_passthrough(columns="input")
+    ```
+
+    Using `pattern=` to decorate values without otherwise changing them:
+
+    ```{python}
+    from great_tables import GT
+    import pandas as pd
+
+    df = pd.DataFrame({"code": ["ABC", "DEF", "GHI"]})
+
+    GT(df).fmt_passthrough(columns="code", pattern="[{x}]")
+    ```
+
+    Using `escape=False` to pass through trusted HTML:
+
+    ```{python}
+    from great_tables import GT
+    import pandas as pd
+
+    df = pd.DataFrame({"content": ["<b>bold</b>", "<em>italic</em>"]})
+
+    GT(df).fmt_passthrough(columns="content", escape=False)
+    ```
+    """
+
+    pf_format = partial(
+        fmt_passthrough_context,
+        escape=escape,
+        pattern=pattern,
+    )
+
+    return fmt_by_context(self, pf_format=pf_format, columns=columns, rows=rows)
+
+
+def fmt_passthrough_context(
+    x: Any,
+    escape: bool,
+    pattern: str,
+    context: str,
+) -> str:
+    if x is None:
+        return x
+
+    x_formatted = str(x)
+
+    if escape:
+        if context == "html":
+            x_formatted = _html_escape(x_formatted)
+        elif context == "latex":
+            x_formatted = _latex_escape(x_formatted)
+
+    if pattern != "{x}":
+        if context == "latex":
+            pattern = escape_pattern_str_latex(pattern_str=pattern)
+        x_formatted = pattern.replace("{x}", x_formatted)
+
+    return x_formatted
 
 
 def fmt_by_context(

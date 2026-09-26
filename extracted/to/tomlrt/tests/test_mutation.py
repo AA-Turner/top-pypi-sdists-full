@@ -1446,9 +1446,6 @@ def test_array_extend_iadd() -> None:
 
 
 def test_array_extend_multiline_lays_one_item_per_line() -> None:
-    # extend snapshots the layout style once and reuses it, so a multi-line
-    # array still gets each appended item on its own line (matching repeated
-    # append) rather than collapsing onto a single row.
     doc = tomlrt.loads(
         td("""
         xs = [
@@ -1457,6 +1454,18 @@ def test_array_extend_multiline_lays_one_item_per_line() -> None:
         """),
     )
     doc["xs"].extend([2, 3])
+    assert tomlrt.dumps(doc) == td("""
+        xs = [
+            1,
+            2,
+            3,
+        ]
+        """)
+
+
+def test_array_extend_empty_multiline_uses_consistent_indentation() -> None:
+    doc = tomlrt.loads("xs = [\n]\n")
+    doc.array("xs").extend([1, 2, 3])
     assert tomlrt.dumps(doc) == td("""
         xs = [
             1,
@@ -2559,6 +2568,28 @@ def test_aot_delitem_slice_removes_range() -> None:
         x = 1
         """)
     assert _reparses(out) == {"pkg": [{"name": "a", "dep": {"x": 1}}]}
+
+
+def test_aot_bulk_removal_preserves_held_entry_header_spacing() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [[items]]
+
+        # removed
+        [[items]]
+
+        # survivor
+        [[items]]
+        """)
+    )
+    items = doc.aot("items")
+    held = items[1]
+    del items[:2]
+    assert held.header_leading_block == (None, "removed")
+    assert tomlrt.dumps(doc) == td("""
+        # survivor
+        [[items]]
+        """)
 
 
 def test_aot_delitem_slice_with_step() -> None:
@@ -4870,6 +4901,32 @@ def test_array_imul_preserves_multiline_no_trailing_comma() -> None:
     assert out == "xs = [\n  1,\n  2,\n  3,\n  1,\n  2,\n  3\n]\n"
 
 
+def test_array_imul_resamples_separator_after_rehoming_closing_comments() -> None:
+    doc = tomlrt.loads(
+        td("""
+        xs = [
+          1
+          # before
+          ,
+          # after
+        ]
+        """)
+    )
+    xs = doc.array("xs")
+    xs *= 3
+    assert tomlrt.dumps(doc) == td("""
+        xs = [
+          1
+          # before
+          ,
+          # after
+          1
+          ,
+          1,
+        ]
+        """)
+
+
 def test_array_imul_inline_table_copies_render_mutations() -> None:
     doc = tomlrt.loads("xs = [{a = 1}]\n")
     arr = doc.array("xs")
@@ -6537,6 +6594,21 @@ def test_promote_inline_installs_dotted_entries_into_empty_section() -> None:
         b.d = 2
         """)
     assert _reparses(out)["s"] == {"z": 3, "a": {"b": {"c": 1, "d": 2}}}
+
+
+def test_delete_deep_dotted_subtree_keeps_held_leaf_usable() -> None:
+    path = ("root", *("child",) * 1500)
+    source = td(f"""
+        {".".join(path)}.value = 1
+        keep = 2
+        """)
+    doc = tomlrt.loads(source)
+    assert tomlrt.dumps(doc) == source
+    leaf = doc.table(path)
+    del doc["root"]
+    leaf["value"] = 3
+    assert leaf["value"] == 3
+    assert tomlrt.dumps(doc) == "keep = 2\n"
 
 
 def test_clear_doc_with_sections_drops_all_and_keeps_doc_empty() -> None:

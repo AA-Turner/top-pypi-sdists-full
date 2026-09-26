@@ -14,6 +14,12 @@ from ...conf import (
     SHAREPOINT_TENANT_ID,
     SHAREPOINT_TENANT_NAME
 )
+from ...utils.msgraph_patch import apply_msgraph_patches
+
+# Graph clients go through msgraph-core: restore its middleware pipeline under
+# kiota-http >= 1.14 (UrlReplace/Retry/Redirect are skipped otherwise) and
+# sanitise the HostOs telemetry header.
+apply_msgraph_patches()
 
 logging.getLogger(name='azure.identity.aio').setLevel(logging.WARNING)
 logging.getLogger(name='azure.core').setLevel(logging.WARNING)

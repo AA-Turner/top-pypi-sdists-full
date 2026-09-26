@@ -107,7 +107,7 @@ class AddressesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[Address]:
         """
-        Lists existing destination addresses.
+        Lists destination addresses configured for Email Routing in an account.
 
         Args:
           account_id: Identifier.
@@ -388,7 +388,7 @@ class AsyncAddressesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Address, AsyncV4PagePaginationArray[Address]]:
         """
-        Lists existing destination addresses.
+        Lists destination addresses configured for Email Routing in an account.
 
         Args:
           account_id: Identifier.

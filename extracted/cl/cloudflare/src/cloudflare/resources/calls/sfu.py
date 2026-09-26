@@ -61,15 +61,15 @@ class SFUResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUCreateResponse]:
-        """Creates a new Cloudflare calls app.
+        """Creates a Realtime SFU app.
 
-        An app is an unique enviroment where each
-        Session can access all Tracks within the app.
+        An app is an isolated namespace in which sessions
+        can access the app's tracks.
 
         Args:
           account_id: The account identifier tag.
 
-          name: A short description of Calls app, not shown to end users.
+          name: A short description of a Realtime SFU app, not shown to end users.
 
           extra_headers: Send extra headers
 
@@ -108,14 +108,14 @@ class SFUResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUUpdateResponse]:
         """
-        Edit details for a single app.
+        Updates details for a single Realtime SFU app.
 
         Args:
           account_id: The account identifier tag.
 
           app_id: A Cloudflare-generated unique identifier for a item.
 
-          name: A short description of Calls app, not shown to end users.
+          name: A short description of a Realtime SFU app, not shown to end users.
 
           extra_headers: Send extra headers
 
@@ -191,7 +191,7 @@ class SFUResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUDeleteResponse]:
         """
-        Deletes an app from Cloudflare Calls
+        Deletes a Realtime SFU app.
 
         Args:
           account_id: The account identifier tag.
@@ -235,7 +235,7 @@ class SFUResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUGetResponse]:
         """
-        Fetches details for a single Calls app.
+        Fetches details for a single Realtime SFU app.
 
         Args:
           account_id: The account identifier tag.
@@ -299,15 +299,15 @@ class AsyncSFUResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUCreateResponse]:
-        """Creates a new Cloudflare calls app.
+        """Creates a Realtime SFU app.
 
-        An app is an unique enviroment where each
-        Session can access all Tracks within the app.
+        An app is an isolated namespace in which sessions
+        can access the app's tracks.
 
         Args:
           account_id: The account identifier tag.
 
-          name: A short description of Calls app, not shown to end users.
+          name: A short description of a Realtime SFU app, not shown to end users.
 
           extra_headers: Send extra headers
 
@@ -346,14 +346,14 @@ class AsyncSFUResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUUpdateResponse]:
         """
-        Edit details for a single app.
+        Updates details for a single Realtime SFU app.
 
         Args:
           account_id: The account identifier tag.
 
           app_id: A Cloudflare-generated unique identifier for a item.
 
-          name: A short description of Calls app, not shown to end users.
+          name: A short description of a Realtime SFU app, not shown to end users.
 
           extra_headers: Send extra headers
 
@@ -429,7 +429,7 @@ class AsyncSFUResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUDeleteResponse]:
         """
-        Deletes an app from Cloudflare Calls
+        Deletes a Realtime SFU app.
 
         Args:
           account_id: The account identifier tag.
@@ -473,7 +473,7 @@ class AsyncSFUResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SFUGetResponse]:
         """
-        Fetches details for a single Calls app.
+        Fetches details for a single Realtime SFU app.
 
         Args:
           account_id: The account identifier tag.

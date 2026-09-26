@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Dict, Optional
 from typing_extensions import Required, TypedDict
 
 __all__ = ["TargetCreateParams", "IP", "IPIPV4", "IPIPV6"]
@@ -21,6 +22,12 @@ class TargetCreateParams(TypedDict, total=False):
 
     ip: Required[IP]
     """The IPv4/IPv6 address that identifies where to reach a target"""
+
+    tags: Optional[Dict[str, str]]
+    """Optional tags to associate with the target.
+
+    Keys and values are user-defined strings.
+    """
 
 
 class IPIPV4(TypedDict, total=False):

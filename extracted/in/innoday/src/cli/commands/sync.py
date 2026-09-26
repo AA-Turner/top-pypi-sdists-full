@@ -16,7 +16,6 @@ from enum import Enum
 from typing import Optional
 
 import httpx
-from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
@@ -31,9 +30,15 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import (
+    make_console,
+    print_command_header,
+    print_done,
+    print_step,
+)
 from src.utils.time_windows import parse_iso_utc, parse_window
 
-console = Console()
+console = make_console()
 
 
 class SyncScope(str, Enum):
@@ -288,6 +293,9 @@ class SyncCommands:
     @staticmethod
     async def _handle_status(args, client, config) -> int:
         """`innoday sync --status` -- reports, and starts nothing."""
+        print_command_header(
+            args, config, "sync --status", facts=["nothing is started"]
+        )
         resolved = SyncCommands._resolve_target(config)
         if resolved is None:
             return 1
@@ -340,6 +348,20 @@ class SyncCommands:
             return 1
         org_id, project_id = resolved
 
+        scope_label = getattr(args, "scope", DEFAULT_SCOPE)
+        print_command_header(
+            args,
+            config,
+            "sync"
+            if scope_label == SyncScope.ALL.value
+            else f"sync --scope {scope_label}",
+            facts=(
+                ["board tickets", "repositories", "releases"]
+                if scope_label == SyncScope.ALL.value
+                else [str(scope_label)]
+            ),
+        )
+
         # **Ask first, every time.** The board stage refuses a concurrent run
         # server-side, but only once it has been attempted -- so two people, or
         # two agent sessions, discover each other by colliding. Asking up front
@@ -378,6 +400,7 @@ class SyncCommands:
             return scope in (SyncScope.ALL.value, stage.value)
 
         exit_code = 0
+        stages_run = 0
 
         # **The stages are ordered because they are not independent.** Stage 3
         # reports over the tickets stage 1 imports, and stage 1's endpoint only
@@ -391,7 +414,8 @@ class SyncCommands:
 
         # --- 1. Board tickets ---
         if wanted(SyncScope.BOARD):
-            console.print("[bold cyan]1. Board tickets[/bold cyan]")
+            stages_run += 1
+            print_step(1, "Board tickets")
             board_result = await SyncCommands._sync_board(
                 client,
                 org_id,
@@ -417,16 +441,26 @@ class SyncCommands:
 
         # --- 2. Repositories ---
         if wanted(SyncScope.REPOS):
-            console.print("\n[bold cyan]2. Repositories[/bold cyan]")
+            stages_run += 1
+            console.print()
+            print_step(2, "Repositories")
             repo_result = await SyncCommands._sync_repos(client, org_id, project_id)
             if repo_result == 1:
                 exit_code = 1
 
         # --- 3. Releases (report current state -- no external source to sync from) ---
         if wanted(SyncScope.RELEASES):
-            console.print("\n[bold cyan]3. Releases[/bold cyan]")
+            stages_run += 1
+            console.print()
+            print_step(3, "Releases")
             await SyncCommands._report_releases(client, org_id, project_id)
 
+        print_done(
+            [
+                f"{stages_run} stage(s)",
+                "a stage failed — see above" if exit_code else "",
+            ]
+        )
         return exit_code
 
     @staticmethod
@@ -611,7 +645,7 @@ class SyncCommands:
             )
             return
 
-        table = Table(show_header=True, header_style="bold cyan")
+        table = Table(show_header=True, header_style="muted")
         table.add_column("Version", style="bold")
         table.add_column("Status")
         table.add_column("Released")
@@ -670,7 +704,7 @@ class SyncCommands:
             ticket = data["ticket"]
             verb = "Created" if data["was_created"] else "Updated"
 
-            console.print(format_success(f"✅ {verb} ticket {args.key}"))
+            console.print(format_success(f"{verb} ticket {args.key}"))
             console.print(f"  Summary: {ticket['summary']}")
             console.print(f"  Status: {ticket['status']}")
             if ticket.get("url"):

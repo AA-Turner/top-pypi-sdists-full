@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: weave
-Version: 0.53.10
+Version: 0.53.11
 Summary: A toolkit for building composable interactive data driven applications.
 Project-URL: Company, https://wandb.com
 Project-URL: Documentation, https://docs.wandb.ai
@@ -235,7 +235,7 @@ Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: gql[httpx]>=3.0.0
 Requires-Dist: jsonschema>=4.23.0
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.28.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.45,>=1.28.0
 Requires-Dist: opentelemetry-sdk>=1.28.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: polyfile-weave>=0.5.9
@@ -373,7 +373,6 @@ Description-Content-Type: text/markdown
 [![Download Stats](https://img.shields.io/pypi/dm/weave)](https://pypistats.org/packages/weave)
 [![Github Checks](https://img.shields.io/github/check-runs/wandb/weave/master
 )](https://github.com/wandb/weave)
-[![codecov](https://codecov.io/gh/wandb/weave/graph/badge.svg?token=YOUR_TOKEN)](https://codecov.io/gh/wandb/weave)
 
 Weave is a toolkit for developing Generative AI applications, built by [Weights & Biases](https://wandb.ai/).
 

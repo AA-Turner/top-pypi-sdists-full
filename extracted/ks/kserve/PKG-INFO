@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kserve
-Version: 0.20.0
+Version: 0.21.0
 Summary: KServe Python SDK
 Author-email: The KServe Authors <dsun20@bloomberg.net>, The KServe Authors <ellisbigelow@google.com>, The KServe Authors <hejinchi@cn.ibm.com>
 License: Apache-2.0
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Scientific/Engineering
@@ -19,11 +20,12 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.13,>=3.10
+Requires-Python: <3.14,>=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.30.6
+Requires-Dist: watchfiles<2.0.0,>=1.0.4
 Requires-Dist: fastapi<1.0.0,>=0.115.3
-Requires-Dist: starlette>=1.0.1
+Requires-Dist: starlette>=1.3.1
 Requires-Dist: cloudevents<2.0.0,>=1.6.2
 Requires-Dist: six<2.0.0,>=1.16.0
 Requires-Dist: kubernetes>=23.3.0
@@ -45,12 +47,13 @@ Requires-Dist: pyyaml<7.0.0,>=6.0.0
 Requires-Dist: urllib3>=2.7.0
 Requires-Dist: aiohttp>=3.13.4
 Requires-Dist: h11>=0.16.0
-Requires-Dist: cryptography>=46.0.7
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: python-multipart>=0.0.27
 Requires-Dist: pyjwt>=2.13.0
-Requires-Dist: pyasn1>=0.6.3
+Requires-Dist: pyasn1>=0.6.4
+Requires-Dist: pillow>=12.3.0
 Provides-Extra: storage
-Requires-Dist: kserve-storage==0.20.0; extra == "storage"
+Requires-Dist: kserve-storage==0.21.0; extra == "storage"
 Provides-Extra: logging
 Requires-Dist: asgi-logger<1.0.0,>=0.1.0; extra == "logging"
 Provides-Extra: ray

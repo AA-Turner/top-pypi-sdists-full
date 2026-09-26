@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import typing as t
-
 import requests
 
 from .base import GlobusError
@@ -18,9 +16,16 @@ class NetworkError(GlobusError):
     to explain potentially confusing or inconsistent exceptions passed to us
     """
 
-    def __init__(self, msg: str, exc: Exception, *args: t.Any, **kwargs: t.Any) -> None:
+    def __init__(self, msg: str, exc: Exception) -> None:
         super().__init__(msg)
+        self.message = msg
         self.underlying_exception = exc
+
+    def __str__(self) -> str:
+        return self.message
+
+    def __reduce__(self) -> tuple[type, tuple[str, Exception]]:
+        return (NetworkError, (self.message, self.underlying_exception))
 
 
 class GlobusTimeoutError(NetworkError):

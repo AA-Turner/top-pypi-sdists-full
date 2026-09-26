@@ -31,8 +31,8 @@ class Registration(BaseModel):
     expires_at: Optional[datetime] = None
     """When the domain registration expires.
 
-    Ready registrations include this value; only `registration_pending` may return
-    null.
+    Ready registrations include this value; only `registration_pending` and
+    `transfer_pending` may return null.
     """
 
     locked: bool
@@ -41,11 +41,20 @@ class Registration(BaseModel):
     privacy_mode: Literal["off", "redaction"]
     """Current WHOIS privacy mode for the registration."""
 
-    status: Literal["active", "registration_pending", "expired", "suspended", "redemption_period", "pending_delete"]
+    status: Literal[
+        "active",
+        "registration_pending",
+        "transfer_pending",
+        "expired",
+        "suspended",
+        "redemption_period",
+        "pending_delete",
+    ]
     """Current registration status.
 
     - `active`: The domain operates with an active registration.
     - `registration_pending`: Registration remains in progress.
+    - `transfer_pending`: Domain transfer is in progress.
     - `expired`: The domain registration expired.
     - `suspended`: The registry suspended the domain.
     - `redemption_period`: The domain entered the redemption grace period.

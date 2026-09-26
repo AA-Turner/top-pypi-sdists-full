@@ -153,24 +153,23 @@ pub struct MoyoDataset {
     // ------------------------------------------------------------------------
     /// Standardized cell.
     ///
-    /// The input cell is related to the standardized cell by
-    /// `(std_linear, std_origin_shift)` and `std_rotation_matrix`:
+    /// The selected coordinate system, before lattice and position refinement, is
     ///
-    ///   Lattice (column-vector convention):
-    ///     std_cell.lattice.basis = std_rotation_matrix * cell.lattice.basis * std_linear
+    /// ```text
+    /// A_selected = cell.lattice.basis * std_linear
+    /// x_selected = std_linear^-1 * (x_input - std_origin_shift)
+    /// ```
     ///
-    ///   Fractional positions:
-    ///     x_std = std_linear^-1 * (x_input - std_origin_shift)
-    ///
-    /// `std_rotation_matrix` is a rigid rotation (orthogonal matrix) applied
-    /// only to the Cartesian lattice basis. It does not affect fractional
-    /// coordinates.
+    /// Both the lattice and positions are then refined to the detected symmetry.
+    /// See the [returned-cell specification](https://spglib.github.io/moyo/standardization/#returned-cell-specification)
+    /// for refinement and Cartesian orientation.
     pub std_cell: Cell,
-    /// Linear part of transformation from the input cell to the standardized cell.
+    /// Linear part of the transformation from the input cell to [`Self::std_cell`].
     pub std_linear: Matrix3<f64>,
-    /// Origin shift of transformation from the input cell to the standardized cell.
+    /// Origin shift of the transformation from the input cell to [`Self::std_cell`].
     pub std_origin_shift: OriginShift,
-    /// Rigid rotation (orthogonal matrix) applied to the lattice basis.
+    /// Proper Cartesian rotation applied after lattice refinement.
+    /// Identity when `rotate_basis` is false; it does not encode the lattice stretch.
     pub std_rotation_matrix: Matrix3<f64>,
     /// Pearson symbol for standardized cell.
     pub pearson_symbol: String,
@@ -179,17 +178,12 @@ pub struct MoyoDataset {
     // ------------------------------------------------------------------------
     /// Primitive standardized cell.
     ///
-    /// Same transformation convention as the standardized cell above:
-    ///
-    ///   Lattice:
-    ///     prim_std_cell.lattice.basis = std_rotation_matrix * cell.lattice.basis * prim_std_linear
-    ///
-    ///   Fractional positions:
-    ///     x_prim_std = prim_std_linear^-1 * (x_input - prim_std_origin_shift)
+    /// Uses `prim_std_linear` and `prim_std_origin_shift` with the same
+    /// pre-refinement coordinate convention as [`Self::std_cell`].
     pub prim_std_cell: Cell,
-    /// Linear part of transformation from the input cell to the primitive standardized cell.
+    /// Linear part of the transformation from the input cell to [`Self::prim_std_cell`].
     pub prim_std_linear: Matrix3<f64>,
-    /// Origin shift of transformation from the input cell to the primitive standardized cell.
+    /// Origin shift of the transformation from the input cell to [`Self::prim_std_cell`].
     pub prim_std_origin_shift: OriginShift,
     /// Mapping sites in the input cell to those in the primitive standardized cell.
     /// The `i`th atom in the input cell is mapped to the `mapping_to_std_prim[i]`th atom in the primitive standardized cell.
@@ -207,7 +201,8 @@ impl MoyoDataset {
     /// Create a new [`MoyoDataset`] from the input cell, `cell`.
     /// `symprec` controls the tolerance for searching symmetry operations in the unit of `cell.lattice.basis`.
     /// `setting` determines the preference for the "standardized" setting of a detected space-group type.
-    /// `rotate_basis` specifies whether to rotate the basis vectors of the input cell to those of the standardized cell.
+    /// `rotate_basis` selects the canonical Cartesian orientation of the refined lattice.
+    /// Lattice and positions are refined for either value.
     /// Operations with non-integer rotations in the input-cell basis are omitted,
     /// with one warning emitted through [`log`] if any are omitted.
     /// If the search fails, [`MoyoError`] is returned.
@@ -225,7 +220,8 @@ impl MoyoDataset {
             symmetry_search.operations.len() - operations.len() / prim_cell.translations.len();
         if omitted > 0 {
             log::warn!(
-                "Omitted {omitted} primitive-cell symmetry operations with non-integer rotation matrices in the input-cell basis; returning only operations compatible with the input-cell lattice"
+                "Omitted {omitted} primitive-cell symmetry operations with non-integer rotation matrices in the input-cell basis; returning only operations compatible with the input-cell lattice. \
+                The returned orbits use primitive-cell symmetry and may differ from spglib's equivalent_atoms based on input-cell symmetry."
             );
         }
 
@@ -831,41 +827,29 @@ pub struct MoyoMagneticDataset<M: MagneticMoment> {
     // ------------------------------------------------------------------------
     /// Standardized magnetic cell.
     ///
-    /// The input magnetic cell is related to the standardized magnetic cell by
-    /// `(std_linear, std_origin_shift)` and `std_rotation_matrix`:
-    ///
-    ///   Lattice (column-vector convention):
-    ///     std_mag_cell.cell.lattice.basis = std_rotation_matrix * mag_cell.cell.lattice.basis * std_linear
-    ///
-    ///   Fractional positions:
-    ///     x_std = std_linear^-1 * (x_input - std_origin_shift)
-    ///
-    /// `std_rotation_matrix` is a rigid rotation (orthogonal matrix) applied
-    /// only to the Cartesian lattice basis. It does not affect fractional
-    /// coordinates.
+    /// Uses the same pre-refinement coordinate convention as [`MoyoDataset::std_cell`].
+    /// Magnetic moments are rotated by `std_rotation_matrix`, then averaged under
+    /// the magnetic group using the refined lattice. Lattice stretch is not applied
+    /// to magnetic moments.
     pub std_mag_cell: MagneticCell<M>,
-    /// Linear part of transformation from the input magnetic cell to the standardized one.
+    /// Linear part of the transformation from the input magnetic cell to [`Self::std_mag_cell`].
     pub std_linear: Matrix3<f64>,
-    /// Origin shift of transformation from the input magnetic cell to the standardized one.
+    /// Origin shift of the transformation from the input magnetic cell to [`Self::std_mag_cell`].
     pub std_origin_shift: OriginShift,
-    /// Rigid rotation (orthogonal matrix) applied to the lattice basis.
+    /// Proper Cartesian rotation applied to the refined lattice and magnetic moments.
+    /// Identity when `rotate_basis` is false; it does not encode the lattice stretch.
     pub std_rotation_matrix: Matrix3<f64>,
     // ------------------------------------------------------------------------
     // Primitive standardized magnetic cell
     // ------------------------------------------------------------------------
     /// Primitive standardized magnetic cell.
     ///
-    /// Same transformation convention as the standardized magnetic cell above:
-    ///
-    ///   Lattice:
-    ///     prim_std_mag_cell.cell.lattice.basis = std_rotation_matrix * mag_cell.cell.lattice.basis * prim_std_linear
-    ///
-    ///   Fractional positions:
-    ///     x_prim_std = prim_std_linear^-1 * (x_input - prim_std_origin_shift)
+    /// Uses `prim_std_linear` and `prim_std_origin_shift` with the same
+    /// pre-refinement coordinate convention as [`Self::std_mag_cell`].
     pub prim_std_mag_cell: MagneticCell<M>,
-    /// Linear part of transformation from the input magnetic cell to the primitive standardized magnetic cell.
+    /// Linear part of the transformation from the input magnetic cell to [`Self::prim_std_mag_cell`].
     pub prim_std_linear: Matrix3<f64>,
-    /// Origin shift of transformation from the input magnetic cell to the primitive standardized magnetic cell.
+    /// Origin shift of the transformation from the input magnetic cell to [`Self::prim_std_mag_cell`].
     pub prim_std_origin_shift: OriginShift,
     /// Mapping sites in the input magnetic cell to those in the primitive standardized magnetic cell.
     /// The `i`th atom in the input magnetic cell is mapped to the `mapping_to_std_prim[i]`th atom in the primitive standardized magnetic cell.
@@ -886,7 +870,8 @@ impl<M: MagneticMoment> MoyoMagneticDataset<M> {
     /// `symprec` controls the tolerance for searching symmetry operations in the unit of `magnetic_cell.cell.lattice.basis`.
     /// `mag_symprec` controls the tolerance for searching magnetic symmetry operations in the unit of `magnetic_cell.magnetic_moments`.
     /// `action` specifies how a magnetic symmetry operation acts on magnetic moments.
-    /// `rotate_basis` specifies whether to rotate the basis vectors of the input cell to those of the standardized cell.
+    /// `rotate_basis` selects the canonical Cartesian orientation of the refined lattice.
+    /// Lattice, positions, and magnetic moments are refined for either value.
     /// Operations with non-integer rotations in the input-cell basis are omitted,
     /// with one warning emitted through [`log`] if any are omitted.
     /// If the search fails, [`MoyoError`] is returned.

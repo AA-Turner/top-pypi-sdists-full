@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import logging
 import typing as t
-import urllib.parse
 
 from globus_sdk._internal.utils import slash_join
-from globus_sdk._missing import filter_missing
 from globus_sdk.scopes import Scope, ScopeParser
 
 from ..response import OAuthAuthorizationCodeResponse
@@ -75,7 +73,7 @@ class GlobusAuthorizationCodeFlowManager(GlobusOAuthFlowManager):
 
     def get_authorize_url(self, query_params: dict[str, t.Any] | None = None) -> str:
         """
-        Start a Authorization Code flow by getting the authorization URL to
+        Start an Authorization Code flow by getting the authorization URL to
         which users should be sent.
 
         :param query_params: Additional parameters to include in the authorize URL.
@@ -86,24 +84,22 @@ class GlobusAuthorizationCodeFlowManager(GlobusOAuthFlowManager):
         either to your provided ``redirect_uri`` or to the default location,
         with the ``auth_code`` embedded in a query parameter.
         """
-        authorize_base_url = slash_join(
-            self.auth_client.base_url, "/v2/oauth2/authorize"
-        )
-        log.debug(f"Building authorization URI. Base URL: {authorize_base_url}")
-        log.debug(f"query_params={query_params}")
 
-        params = {
+        base_url = slash_join(self.auth_client.base_url, "/v2/oauth2/authorize")
+        base_query_params = {
             "client_id": self.client_id,
             "redirect_uri": self.redirect_uri,
             "scope": self.requested_scopes,
             "state": self.state,
             "response_type": "code",
             "access_type": (self.refresh_tokens and "offline") or "online",
-            **(query_params or {}),
         }
-        params = filter_missing(params)
-        encoded_params = urllib.parse.urlencode(params)
-        return f"{authorize_base_url}?{encoded_params}"
+
+        return super()._get_authorize_url(
+            base_url=base_url,
+            base_query_params=base_query_params,
+            query_params=query_params,
+        )
 
     def exchange_code_for_tokens(
         self, auth_code: str

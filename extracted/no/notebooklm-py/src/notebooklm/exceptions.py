@@ -25,6 +25,7 @@ from ._logging import _truncate_response_preview, scrub_secrets
 
 if TYPE_CHECKING:
     from ._types.artifacts import GenerationStatus
+    from .outcomes import BatchOutcome, CommitState, OperationMetadata
 
 ArtifactStalledPhase = Literal["pending", "in_progress"]
 _PREVIEW_LIMIT = _logging._PREVIEW_LIMIT
@@ -37,6 +38,7 @@ __all__ = [
     # Cross-domain umbrellas
     "NotFoundError",
     "WaitTimeoutError",
+    "OperationTimeoutError",
     # Validation/Config
     "ValidationError",
     "ConfigurationError",
@@ -121,6 +123,66 @@ class NotebookLMError(Exception):
         except NotebookLMError as e:
             handle_error(e)
     """
+
+    @property
+    def operation_metadata(self) -> OperationMetadata | None:
+        """Immutable commit evidence attached by the operation owner, if any."""
+
+        return getattr(self, "_operation_metadata", None)
+
+    @property
+    def commit_state(self) -> CommitState | None:
+        """Compatibility projection of :attr:`operation_metadata`."""
+
+        metadata = self.operation_metadata
+        return None if metadata is None else metadata.commit_state
+
+    @property
+    def batch_outcome(self) -> BatchOutcome | None:
+        """Ordered partial batch settlement, when this error ended a batch."""
+
+        metadata = self.operation_metadata
+        return None if metadata is None else metadata.batch_outcome
+
+    @property
+    def unconfirmed(self) -> bool:
+        """Whether recovery requires inspection instead of blind replay."""
+
+        from .outcomes import CommitState, RecoveryAction
+
+        metadata = self.operation_metadata
+        return metadata is not None and (
+            metadata.commit_state is CommitState.UNKNOWN
+            or metadata.recovery_action is RecoveryAction.INSPECT_AND_RECONCILE
+        )
+
+    @property
+    def source_id(self) -> str | None:
+        metadata = self.operation_metadata
+        return None if metadata is None else metadata.source_id
+
+    @source_id.setter
+    def source_id(self, value: str | None) -> None:
+        from dataclasses import replace
+
+        from .outcomes import OperationMetadata
+
+        metadata = self.operation_metadata or OperationMetadata()
+        self._operation_metadata = replace(metadata, source_id=value)
+
+    @property
+    def stage(self) -> str | None:
+        metadata = self.operation_metadata
+        return None if metadata is None else metadata.stage
+
+    @stage.setter
+    def stage(self, value: str | None) -> None:
+        from dataclasses import replace
+
+        from .outcomes import OperationMetadata
+
+        metadata = self.operation_metadata or OperationMetadata()
+        self._operation_metadata = replace(metadata, stage=value)
 
 
 # =============================================================================
@@ -207,6 +269,22 @@ class WaitTimeoutError(NotebookLMError, TimeoutError):
     """
 
 
+class OperationTimeoutError(WaitTimeoutError):
+    """An opt-in whole-operation deadline expired.
+
+    Unlike feature-owned polling and RPC timeout subclasses, this error covers
+    the complete admitted workflow: queueing, auth, retry sleeps, transport,
+    reconciliation, polling, and required settlement. Mutation evidence remains
+    available through :attr:`NotebookLMError.operation_metadata`.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({str(self)!r})"
+
+
 # =============================================================================
 # Validation/Configuration
 # =============================================================================
@@ -265,7 +343,7 @@ class HeadlessReauthError(NotebookLMError):
     """Base for layer-3 headless re-auth (silent browser re-mint) failures.
 
     Raised by the headless arm of the browser-capture core and the
-    :mod:`notebooklm._auth.headless_reauth` decision layer. Distinct from
+    :mod:`notebooklm._browser.headless_reauth` decision layer. Distinct from
     :class:`AuthError` (an RPC-protocol auth failure) because L3 is a *recovery*
     step that drives a real browser, not a decoded batchexecute error.
     """
@@ -1154,7 +1232,8 @@ class ArtifactDownloadError(ArtifactError):
         details: Additional error details.
         cause: The underlying exception.
         status_code: HTTP status code from the failed response, when the
-            failure was an HTTP-level error (e.g. 401, 403, 500). ``None`` for
+            failure was an HTTP-level error (e.g. 404 or 500). Authentication
+            failures (401 or 403) raise :class:`AuthError` instead. ``None`` for
             transport-level failures (timeouts, DNS, connection resets) where
             no response was received.
     """

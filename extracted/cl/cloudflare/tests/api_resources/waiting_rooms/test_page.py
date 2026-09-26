@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 
@@ -23,7 +23,7 @@ class TestPage:
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             custom_html="{{#waitTimeKnown}} {{waitTime}} mins {{/waitTimeKnown}} {{^waitTimeKnown}} Queue all enabled {{/waitTimeKnown}}",
         )
-        assert_matches_type(PagePreviewResponse, page, path=["response"])
+        assert_matches_type(Optional[PagePreviewResponse], page, path=["response"])
 
     @parametrize
     def test_raw_response_preview(self, client: Cloudflare) -> None:
@@ -35,7 +35,7 @@ class TestPage:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         page = response.parse()
-        assert_matches_type(PagePreviewResponse, page, path=["response"])
+        assert_matches_type(Optional[PagePreviewResponse], page, path=["response"])
 
     @parametrize
     def test_streaming_response_preview(self, client: Cloudflare) -> None:
@@ -47,7 +47,7 @@ class TestPage:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             page = response.parse()
-            assert_matches_type(PagePreviewResponse, page, path=["response"])
+            assert_matches_type(Optional[PagePreviewResponse], page, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -71,7 +71,7 @@ class TestAsyncPage:
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             custom_html="{{#waitTimeKnown}} {{waitTime}} mins {{/waitTimeKnown}} {{^waitTimeKnown}} Queue all enabled {{/waitTimeKnown}}",
         )
-        assert_matches_type(PagePreviewResponse, page, path=["response"])
+        assert_matches_type(Optional[PagePreviewResponse], page, path=["response"])
 
     @parametrize
     async def test_raw_response_preview(self, async_client: AsyncCloudflare) -> None:
@@ -83,7 +83,7 @@ class TestAsyncPage:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         page = await response.parse()
-        assert_matches_type(PagePreviewResponse, page, path=["response"])
+        assert_matches_type(Optional[PagePreviewResponse], page, path=["response"])
 
     @parametrize
     async def test_streaming_response_preview(self, async_client: AsyncCloudflare) -> None:
@@ -95,7 +95,7 @@ class TestAsyncPage:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             page = await response.parse()
-            assert_matches_type(PagePreviewResponse, page, path=["response"])
+            assert_matches_type(Optional[PagePreviewResponse], page, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

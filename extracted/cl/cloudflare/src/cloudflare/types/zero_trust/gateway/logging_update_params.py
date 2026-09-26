@@ -15,6 +15,7 @@ __all__ = [
 
 class LoggingUpdateParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     redact_pii: bool
     """

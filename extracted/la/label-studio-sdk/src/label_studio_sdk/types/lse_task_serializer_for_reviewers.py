@@ -117,12 +117,26 @@ class LseTaskSerializerForReviewers(UncheckedBaseModel):
 
     review_time: typing.Optional[int] = None
     reviewed: typing.Optional[bool] = None
+    reviewed_at: typing.Optional[dt.datetime] = None
     reviewers: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
     reviewers_count: typing.Optional[int] = None
     reviews_accepted: typing.Optional[int] = None
     reviews_rejected: typing.Optional[int] = None
     state: typing.Optional[str] = None
     storage_filename: typing.Optional[str] = None
+    submission: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    """
+    The contributor's own submitted file, for the collection grid.
+    
+    Read from the annotation (the submission's source of truth); the task
+    itself is untouched input.
+    
+    Scoped to the requester, exactly as ``get_annotations`` scopes the
+    annotation list: a contributor sees the file they submitted and never
+    another contributor's media. The column is only offered to annotators,
+    so this is also the only case that renders.
+    """
+
     total_annotations: typing.Optional[int] = None
     total_predictions: typing.Optional[int] = None
     unresolved_comment_count: typing.Optional[int] = pydantic.Field(default=None)

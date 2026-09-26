@@ -2,13 +2,18 @@ mod utils;
 
 use crate::utils::mock_observability_client::MockObservabilityClient;
 use crate::utils::mock_specs_adapter::MockSpecsAdapter;
+use async_trait::async_trait;
 use more_asserts::assert_gt;
 use serial_test::serial;
+use statsig_rust::log_event_payload::LogEventRequest;
 use statsig_rust::networking::NetworkError;
 use statsig_rust::output_logger::LogLevel;
+use statsig_rust::{EventLoggingAdapter, StatsigRuntime};
 use statsig_rust::{ObservabilityClient, Statsig, StatsigErr, StatsigOptions, StatsigUser};
 use std::sync::{Arc, atomic::Ordering};
+use std::sync::{Mutex, atomic::AtomicBool};
 use std::time::Duration;
+use tokio::sync::Notify;
 use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 
 async fn setup(
@@ -413,4 +418,190 @@ fn log_some_events(statsig: &Statsig, count: usize) {
     for _ in 0..count {
         statsig.log_event(&user, "test_event", None, None);
     }
+}
+
+// Block only the first export after it has taken ownership of a batch. Later
+// shutdown exports can succeed independently, exposing an empty-queue race.
+struct BlockingLoggingAdapter {
+    inner: MockEventLoggingAdapter,
+    first: AtomicBool,
+    entered: Notify,
+    release: Notify,
+    finished: Notify,
+    first_flush_type: Mutex<Option<String>>,
+    fail_first: bool,
+}
+
+struct ExportFinished<'a>(&'a Notify);
+
+impl Drop for ExportFinished<'_> {
+    fn drop(&mut self) {
+        self.0.notify_one();
+    }
+}
+
+#[async_trait]
+impl EventLoggingAdapter for BlockingLoggingAdapter {
+    async fn start(&self, _: &Arc<StatsigRuntime>) -> Result<(), StatsigErr> {
+        Ok(())
+    }
+
+    async fn log_events(&self, request: LogEventRequest) -> Result<bool, StatsigErr> {
+        if self.first.swap(false, Ordering::SeqCst) {
+            let _finished = ExportFinished(&self.finished);
+            *self.first_flush_type.lock().unwrap() = request
+                .payload
+                .statsig_metadata
+                .get("flushType")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            self.entered.notify_one();
+            self.release.notified().await;
+            if self.fail_first {
+                return Err(StatsigErr::CustomError("retry held batch".into()));
+            }
+        }
+        self.inner.log_events(request).await
+    }
+
+    async fn shutdown(&self) -> Result<(), StatsigErr> {
+        Ok(())
+    }
+
+    fn should_schedule_background_flush(&self) -> bool {
+        true
+    }
+}
+
+async fn setup_blocked_export(
+    scheduled: bool,
+    fail_first: bool,
+) -> (Statsig, Arc<BlockingLoggingAdapter>) {
+    // Keep limit flushing deterministic; the scheduled case uses a partial batch.
+    std::env::set_var(
+        "STATSIG_TEST_OVERRIDE_TICK_INTERVAL_MS",
+        if scheduled { "1" } else { "60000" },
+    );
+    std::env::set_var("STATSIG_TEST_OVERRIDE_MIN_FLUSH_INTERVAL_MS", "1");
+    std::env::set_var(
+        "STATSIG_TEST_OVERRIDE_MAX_FLUSH_INTERVAL_MS",
+        if scheduled { "1" } else { "60000" },
+    );
+    let adapter = Arc::new(BlockingLoggingAdapter {
+        inner: MockEventLoggingAdapter::new(),
+        first: AtomicBool::new(true),
+        entered: Notify::new(),
+        release: Notify::new(),
+        finished: Notify::new(),
+        first_flush_type: Mutex::new(None),
+        fail_first,
+    });
+    let options = StatsigOptions {
+        specs_adapter: Some(Arc::new(MockSpecsAdapter::with_data(
+            "tests/data/eval_proj_dcs.json",
+        ))),
+        event_logging_adapter: Some(adapter.clone()),
+        event_logging_max_queue_size: Some(if scheduled { 2000 } else { 10 }),
+        disable_country_lookup: Some(true),
+        ..StatsigOptions::new()
+    };
+    let statsig = Statsig::new(
+        &format!("secret-{}", uuid::Uuid::new_v4()),
+        Some(Arc::new(options)),
+    );
+    statsig.initialize().await.unwrap();
+    log_some_events(&statsig, 10);
+    tokio::time::timeout(Duration::from_secs(5), adapter.entered.notified())
+        .await
+        .unwrap();
+    assert_eq!(
+        adapter.first_flush_type.lock().unwrap().as_deref(),
+        Some(if scheduled {
+            "scheduled:max_time"
+        } else {
+            "limit"
+        })
+    );
+    (statsig, adapter)
+}
+
+async fn assert_shutdown_waits_for_export(scheduled: bool, fail_first: bool) {
+    let (statsig, adapter) = setup_blocked_export(scheduled, fail_first).await;
+    let shutdown = statsig.shutdown_with_timeout(Duration::from_secs(5));
+    tokio::pin!(shutdown);
+    // Poll shutdown while the only export is held. No sleep is a flush barrier.
+    assert!(
+        futures::poll!(&mut shutdown).is_pending(),
+        "shutdown completed with an export still in flight"
+    );
+    assert_eq!(
+        adapter
+            .inner
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        0
+    );
+    adapter.release.notify_one();
+    shutdown.await.unwrap();
+    assert_eq!(
+        adapter
+            .inner
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        10
+    );
+    if fail_first {
+        let payloads = adapter.inner.logged_payloads.lock().unwrap();
+        assert!(payloads.iter().any(
+            |p| p.statsig_metadata.get("flushType").and_then(|v| v.as_str()) == Some("shutdown")
+        ));
+    }
+    teardown(None).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shutdown_waits_for_in_flight_limit_export() {
+    assert_shutdown_waits_for_export(false, false).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shutdown_waits_for_in_flight_scheduled_export() {
+    assert_shutdown_waits_for_export(true, false).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shutdown_retries_failed_in_flight_export() {
+    assert_shutdown_waits_for_export(false, true).await;
+}
+
+#[tokio::test]
+#[serial]
+async fn test_shutdown_times_out_and_cancels_in_flight_export() {
+    let (statsig, adapter) = setup_blocked_export(false, false).await;
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        statsig.shutdown_with_timeout(Duration::from_millis(20)),
+    )
+    .await
+    .unwrap();
+    assert!(
+        matches!(result, Err(StatsigErr::ShutdownFailure(_))),
+        "held export must prevent successful shutdown: {result:?}"
+    );
+    // Runtime ownership must survive the deadline wait so cancellation really
+    // drops the blocked request rather than detaching it.
+    tokio::time::timeout(Duration::from_secs(5), adapter.finished.notified())
+        .await
+        .unwrap();
+    assert_eq!(
+        adapter
+            .inner
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        0
+    );
+    teardown(None).await;
 }

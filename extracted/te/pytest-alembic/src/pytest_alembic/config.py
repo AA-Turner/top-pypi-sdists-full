@@ -1,5 +1,13 @@
+"""The configuration surface: what a user hands to :func:`alembic_config`.
+
+Everything a test needs to know about *how* to run alembic funnels through
+:class:`Config`, which accepts either raw pytest-alembic options or a fully
+pre-built ``alembic.config.Config``, and normalises both into the single object
+the runner consumes.
+"""
+
 from dataclasses import dataclass, field
-from typing import Any, cast, Dict, List, Optional, TYPE_CHECKING, Union
+from typing import Any, cast, TextIO, TYPE_CHECKING
 
 import alembic.config
 
@@ -54,19 +62,20 @@ class Config:
        the use of this feature instead.
     """
 
-    config_options: Dict[str, Any] = field(default_factory=dict)
-    alembic_config: Optional[alembic.config.Config] = None
+    config_options: dict[str, Any] = field(default_factory=dict)
+    alembic_config: alembic.config.Config | None = None
 
-    before_revision_data: Optional[Union[Dict, "RevisionSpec"]] = None
-    at_revision_data: Optional[Union[Dict, "RevisionSpec"]] = None
+    before_revision_data: "dict | RevisionSpec | None" = None
+    at_revision_data: "dict | RevisionSpec | None" = None
 
-    minimum_downgrade_revision: Optional[str] = None
-    skip_revisions: Optional[List[str]] = None
+    minimum_downgrade_revision: str | None = None
+    skip_revisions: list[str] | None = None
 
     @classmethod
     def from_raw_config(
-        cls, raw_config: Union[Dict[str, Any], alembic.config.Config, "Config", None] = None
-    ):
+        cls,
+        raw_config: "dict[str, Any] | alembic.config.Config | Config | None" = None,
+    ) -> "Config":
         """Adapt between pre-produced alembic config and raw config options.
 
         Allows one to specify raw pytest-alembic config options through raw dictionary,
@@ -104,7 +113,27 @@ class Config:
             skip_revisions=skip_revisions,
         )
 
-    def make_alembic_config(self, stdout):
+    def make_alembic_config(self, stdout: TextIO) -> alembic.config.Config:
+        """Build the ``alembic.config.Config`` these options describe.
+
+        A pre-built config supplied as ``alembic_config`` is reused as-is, with only its
+        ``stdout`` redirected; otherwise one is constructed from the ini file named by
+        ``file``/``config_file_name`` (default ``alembic.ini``). On alembic versions that
+        understand ``pyproject.toml``, that file is passed too, so config declared there
+        is picked up.
+
+        Either way, the options this plugin cares about — ``sqlalchemy.url``,
+        ``script_location``, ``target_metadata``, ``process_revision_directives`` and
+        ``include_schemas`` — are then layered on top, so ``config_options`` wins over
+        whatever the file said.
+
+        Args:
+            stdout: The buffer alembic command output is redirected into, so tests can
+                assert on it rather than have it printed.
+
+        Returns:
+            The configured ``alembic.config.Config``.
+        """
         ini_file = (
             self.config_options.get("file")
             or self.config_options.get("config_file_name")
@@ -150,12 +179,22 @@ class Config:
     @staticmethod
     def _get_option(alembic_config: alembic.config.Config, key: str, *, default: str) -> str:
         if _supports_toml():
-            get_alembic_option = getattr(alembic_config, "get_alembic_option")  # noqa: B009
+            get_alembic_option = alembic_config.get_alembic_option
             return get_alembic_option(key, default)
         return alembic_config.get_main_option(key, default)
 
 
-def duplicate_alembic_config(config: alembic.config.Config):
+def duplicate_alembic_config(config: alembic.config.Config) -> alembic.config.Config:
+    """Copy an alembic config, so it can be reconfigured without affecting the original.
+
+    Some tests need to run alembic a second time under different options — the
+    ``downgrade_leaves_no_trace`` test, for instance, drives a second migration context
+    over the same history. Mutating the live config in place would leak those options
+    into the rest of the test, so it gets its own copy instead.
+
+    Note that ``attributes`` is deliberately shared rather than copied: it carries the
+    caller's ``target_metadata``, which is meant to be the same object in both configs.
+    """
     return alembic.config.Config(
         config.config_file_name,
         ini_section=config.config_ini_section,

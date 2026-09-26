@@ -37,6 +37,7 @@ from notebooklm._web.chat import WebChatAPI
 from notebooklm._web.transport.request_types import AuthSnapshot
 from notebooklm.auth import AuthTokens
 from notebooklm.exceptions import ChatError
+from tests._fixtures.fake_core import make_fake_core
 from tests._helpers.client_factory import build_client_shell_for_tests
 from tests.unit.conftest import install_post_as_stream
 
@@ -72,6 +73,9 @@ def _extract_query_param(url: str, key: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.filterwarnings(
+    "ignore:Non-default legacy NotebookLMClient.*tuning arguments are deprecated:DeprecationWarning"
+)
 class TestChatTimeoutRouting:
     def test_client_uses_chat_specific_timeout_by_default(self):
         auth = AuthTokens(cookies={"SID": "x"}, csrf_token="csrf", session_id="sid")
@@ -114,17 +118,23 @@ class TestChatTimeoutRouting:
     @pytest.mark.asyncio
     async def test_ask_passes_chat_read_timeout_response_cap_and_disables_timeout_retry(self):
         """``ask`` uses the chat-specific read window without retrying timed-out streams."""
-        transport = SimpleNamespace(
-            perform_authed_post=AsyncMock(
-                return_value=httpx.Response(
-                    200,
-                    request=httpx.Request("POST", "https://example.test/chat"),
-                    content=_make_answer_response_body(),
-                )
+
+        async def successful_post(*args: Any, **kwargs: Any) -> httpx.Response:
+            del args
+            from notebooklm._idempotency import bound_operation_journal_entries
+
+            for entry in bound_operation_journal_entries():
+                entry.mark_dispatched()
+            return httpx.Response(
+                200,
+                request=httpx.Request("POST", "https://example.test/chat"),
+                content=_make_answer_response_body(),
             )
-        )
+
+        transport = SimpleNamespace(perform_authed_post=AsyncMock(side_effect=successful_post))
         chat = WebChatAPI(
             rpc=SimpleNamespace(rpc_call=AsyncMock(return_value=[[]])),
+            supervisor=make_fake_core(),
             transport=transport,
             reqid=SimpleNamespace(next_reqid=AsyncMock(return_value=100000)),
             loop_guard=SimpleNamespace(assert_bound_loop=lambda: None),
@@ -347,8 +357,8 @@ class TestChatRefreshRetry:
     body."""
 
     @pytest.mark.asyncio
-    async def test_post_refresh_retry_uses_fresh_csrf_in_body(self, monkeypatch):
-        """401 → refresh callback rotates CSRF → retry body contains new token."""
+    async def test_post_send_auth_refreshes_without_reposting_turn(self, monkeypatch):
+        """401 refreshes credentials for later calls but never re-POSTs the turn."""
         auth = AuthTokens(
             cookies={"SID": "x"},
             csrf_token="OLD_CSRF",
@@ -408,9 +418,9 @@ class TestChatRefreshRetry:
                     content=_make_answer_response_body(),
                 )
 
-            assert core._collaborators.kernel.http_client is not None
+            assert core._web_runtime.kernel.http_client is not None
             install_post_as_stream(
-                monkeypatch, core._collaborators.kernel.get_http_client(), fake_post
+                monkeypatch, core._web_runtime.kernel.get_http_client(), fake_post
             )
 
             # Wave 8 of session-decoupling (ADR-0014 Rule 2 Corollary):
@@ -422,25 +432,23 @@ class TestChatRefreshRetry:
             # (``Session.session_transport`` / ``Session.collaborators``);
             # read the private slots directly instead.
             api = WebChatAPI(
-                rpc=core._rpc_executor,
-                transport=core._composed.transport,
-                reqid=core._collaborators.reqid,
-                loop_guard=core._collaborators.lifecycle,
+                rpc=core._web_runtime.executor,
+                supervisor=core._collaborators.call_supervisor,
+                transport=core._web_runtime.composed.transport,
+                reqid=core._web_runtime.reqid,
+                loop_guard=core._lifecycle,
                 notebooks=SimpleNamespace(get_source_ids=AsyncMock(return_value=[])),
             )
-            result = await api.ask("nb_x", "Q?", source_ids=["s1"])
+            with pytest.raises(ChatError) as raised:
+                await api.ask("nb_x", "Q?", source_ids=["s1"])
 
-            assert call_count["n"] == 2
-            assert "Refactor answer is long enough." in result.answer
+            assert call_count["n"] == 1
+            assert getattr(raised.value, "unconfirmed", False) is True
+            assert auth.csrf_token == "NEW_CSRF"
 
             # First attempt body carries OLD_CSRF (pre-refresh snapshot).
             assert "at=OLD_CSRF" in observed_bodies[0]
             assert "at=NEW_CSRF" not in observed_bodies[0]
-            # Second attempt body carries NEW_CSRF (post-refresh snapshot)
-            # — this is the snapshot-per-attempt contract surfacing
-            # through chat_aware_authed_post.
-            assert "at=NEW_CSRF" in observed_bodies[1]
-            assert "at=OLD_CSRF" not in observed_bodies[1]
         finally:
             await core.close()
 
@@ -539,6 +547,7 @@ class TestChatNewConversationLocks:
         loop_guard.assert_bound_loop = MagicMock()
         return WebChatAPI(
             rpc=MagicMock(),
+            supervisor=make_fake_core(),
             transport=MagicMock(),
             reqid=MagicMock(),
             loop_guard=loop_guard,
@@ -583,6 +592,10 @@ class TestChatNewConversationLocks:
                 return [[[None, None, 1, "Existing question?"]]]
 
         async def fake_perform_authed_post(*args: Any, **kwargs: Any) -> httpx.Response:
+            from notebooklm._idempotency import bound_operation_journal_entries
+
+            for entry in bound_operation_journal_entries():
+                entry.mark_dispatched()
             return httpx.Response(
                 200,
                 request=httpx.Request("POST", "https://notebooklm.google.com/_/LabsTailwindUi"),
@@ -591,6 +604,7 @@ class TestChatNewConversationLocks:
 
         chat = HptbtcFailureChatAPI(
             rpc=SimpleNamespace(),
+            supervisor=make_fake_core(),
             transport=SimpleNamespace(
                 perform_authed_post=AsyncMock(side_effect=fake_perform_authed_post)
             ),
@@ -632,6 +646,7 @@ class TestBuildChatRequestFactory:
 
         return WebChatAPI(
             rpc=MagicMock(),
+            supervisor=make_fake_core(),
             transport=MagicMock(),
             reqid=MagicMock(),
             loop_guard=MagicMock(),

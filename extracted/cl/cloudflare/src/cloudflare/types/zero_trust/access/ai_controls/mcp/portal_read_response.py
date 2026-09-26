@@ -142,6 +142,11 @@ class Server(BaseModel):
     created_by: Optional[str] = None
 
     default_disabled: Optional[bool] = None
+    """Hide this server's tools and prompts by default.
+
+    To expose specific capabilities, set enabled: true for them in updated_tools or
+    updated_prompts.
+    """
 
     description: Optional[str] = None
     """Optional description of the MCP server."""

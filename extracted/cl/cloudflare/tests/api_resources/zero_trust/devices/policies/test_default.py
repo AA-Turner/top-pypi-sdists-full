@@ -52,6 +52,7 @@ class TestDefault:
                 "enabled": True,
                 "masque_endpoints": ["198.51.100.1:443"],
                 "wireguard_endpoints": ["198.51.100.1:2408"],
+                "autoswitch": True,
             },
             include=[
                 {
@@ -70,6 +71,7 @@ class TestDefault:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            uninstall_protection=False,
             virtual_networks={
                 "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
                 "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
@@ -187,6 +189,7 @@ class TestAsyncDefault:
                 "enabled": True,
                 "masque_endpoints": ["198.51.100.1:443"],
                 "wireguard_endpoints": ["198.51.100.1:2408"],
+                "autoswitch": True,
             },
             include=[
                 {
@@ -205,6 +208,7 @@ class TestAsyncDefault:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            uninstall_protection=False,
             virtual_networks={
                 "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
                 "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",

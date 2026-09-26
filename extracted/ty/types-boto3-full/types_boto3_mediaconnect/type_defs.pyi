@@ -373,9 +373,12 @@ __all__ = (
     "RouterOutputConfigurationUnionTypeDef",
     "RouterOutputFilterTypeDef",
     "RouterOutputMessageTypeDef",
+    "RouterOutputProtocolConfigurationOutputTypeDef",
     "RouterOutputProtocolConfigurationTypeDef",
     "RouterOutputStreamDetailsTypeDef",
     "RouterOutputTypeDef",
+    "RtmpPushRouterOutputConfigurationOutputTypeDef",
+    "RtmpPushRouterOutputConfigurationTypeDef",
     "RtpRouterInputConfigurationTypeDef",
     "RtpRouterOutputConfigurationTypeDef",
     "SecretsManagerEncryptionKeyConfigurationTypeDef",
@@ -393,6 +396,7 @@ __all__ = (
     "SrtListenerRouterOutputConfigurationTypeDef",
     "StandardRouterInputConfigurationTypeDef",
     "StandardRouterInputStreamDetailsTypeDef",
+    "StandardRouterOutputConfigurationOutputTypeDef",
     "StandardRouterOutputConfigurationTypeDef",
     "StandardRouterOutputStreamDetailsTypeDef",
     "StartFlowRequestTypeDef",
@@ -412,6 +416,10 @@ __all__ = (
     "TakeRouterInputRequestTypeDef",
     "TakeRouterInputResponseTypeDef",
     "ThumbnailDetailsTypeDef",
+    "TlsEncryptionConfigurationOutputTypeDef",
+    "TlsEncryptionConfigurationTypeDef",
+    "TlsEncryptionOutputTypeDef",
+    "TlsEncryptionTypeDef",
     "TransportMediaInfoTypeDef",
     "TransportStreamProgramTypeDef",
     "TransportStreamTypeDef",
@@ -975,6 +983,12 @@ class TagResourceRequestTypeDef(TypedDict):
 class TakeRouterInputRequestTypeDef(TypedDict):
     RouterOutputArn: str
     RouterInputArn: NotRequired[str]
+
+class TlsEncryptionConfigurationOutputTypeDef(TypedDict):
+    Public: NotRequired[dict[str, Any]]
+
+class TlsEncryptionConfigurationTypeDef(TypedDict):
+    Public: NotRequired[Mapping[str, Any]]
 
 class UntagGlobalResourceRequestTypeDef(TypedDict):
     ResourceArn: str
@@ -1613,6 +1627,14 @@ class RouterOutputStreamDetailsTypeDef(TypedDict):
     MediaConnectFlow: NotRequired[dict[str, Any]]
     MediaLiveInput: NotRequired[dict[str, Any]]
 
+class TlsEncryptionOutputTypeDef(TypedDict):
+    EncryptionConfiguration: TlsEncryptionConfigurationOutputTypeDef
+    EncryptionType: NotRequired[Literal["PUBLIC"]]
+
+class TlsEncryptionTypeDef(TypedDict):
+    EncryptionConfiguration: TlsEncryptionConfigurationTypeDef
+    EncryptionType: NotRequired[Literal["PUBLIC"]]
+
 class UpdateBridgeOutputRequestTypeDef(TypedDict):
     BridgeArn: str
     OutputName: str
@@ -1937,6 +1959,20 @@ class GetRouterInputThumbnailResponseTypeDef(TypedDict):
     ThumbnailDetails: RouterInputThumbnailDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RtmpPushRouterOutputConfigurationOutputTypeDef(TypedDict):
+    DestinationAddress: str
+    DestinationPort: int
+    ApplicationName: str
+    StreamName: str
+    TlsEncryption: NotRequired[TlsEncryptionOutputTypeDef]
+
+class RtmpPushRouterOutputConfigurationTypeDef(TypedDict):
+    DestinationAddress: str
+    DestinationPort: int
+    ApplicationName: str
+    StreamName: str
+    TlsEncryption: NotRequired[TlsEncryptionTypeDef]
+
 class AddBridgeSourcesRequestTypeDef(TypedDict):
     BridgeArn: str
     Sources: Sequence[AddBridgeSourceRequestTypeDef]
@@ -2067,12 +2103,6 @@ class RouterInputProtocolConfigurationTypeDef(TypedDict):
     SrtCaller: NotRequired[SrtCallerRouterInputConfigurationTypeDef]
     Rtp: NotRequired[RtpRouterInputConfigurationTypeDef]
 
-class RouterOutputProtocolConfigurationTypeDef(TypedDict):
-    Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
-    SrtListener: NotRequired[SrtListenerRouterOutputConfigurationTypeDef]
-    SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
-    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
-
 class AddFlowMediaStreamsRequestTypeDef(TypedDict):
     FlowArn: str
     MediaStreams: Sequence[AddMediaStreamRequestTypeDef]
@@ -2128,6 +2158,20 @@ RouterNetworkInterfaceTypeDef = TypedDict(
 RouterNetworkInterfaceConfigurationUnionTypeDef = Union[
     RouterNetworkInterfaceConfigurationTypeDef, RouterNetworkInterfaceConfigurationOutputTypeDef
 ]
+
+class RouterOutputProtocolConfigurationOutputTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterOutputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterOutputConfigurationOutputTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
+
+class RouterOutputProtocolConfigurationTypeDef(TypedDict):
+    Rist: NotRequired[RistRouterOutputConfigurationTypeDef]
+    SrtListener: NotRequired[SrtListenerRouterOutputConfigurationTypeDef]
+    RtmpPush: NotRequired[RtmpPushRouterOutputConfigurationTypeDef]
+    SrtCaller: NotRequired[SrtCallerRouterOutputConfigurationTypeDef]
+    Rtp: NotRequired[RtpRouterOutputConfigurationTypeDef]
 
 class CreateBridgeResponseTypeDef(TypedDict):
     Bridge: BridgeTypeDef
@@ -2215,14 +2259,6 @@ StandardRouterInputConfigurationTypeDef = TypedDict(
         "Protocol": NotRequired[RouterInputProtocolType],
     },
 )
-StandardRouterOutputConfigurationTypeDef = TypedDict(
-    "StandardRouterOutputConfigurationTypeDef",
-    {
-        "NetworkInterfaceArn": str,
-        "ProtocolConfiguration": RouterOutputProtocolConfigurationTypeDef,
-        "Protocol": NotRequired[RouterOutputProtocolType],
-    },
-)
 
 class DescribeFlowSourceMetadataResponseTypeDef(TypedDict):
     FlowArn: str
@@ -2276,6 +2312,23 @@ class UpdateRouterNetworkInterfaceRequestTypeDef(TypedDict):
     Arn: str
     Name: NotRequired[str]
     Configuration: NotRequired[RouterNetworkInterfaceConfigurationUnionTypeDef]
+
+StandardRouterOutputConfigurationOutputTypeDef = TypedDict(
+    "StandardRouterOutputConfigurationOutputTypeDef",
+    {
+        "NetworkInterfaceArn": str,
+        "ProtocolConfiguration": RouterOutputProtocolConfigurationOutputTypeDef,
+        "Protocol": NotRequired[RouterOutputProtocolType],
+    },
+)
+StandardRouterOutputConfigurationTypeDef = TypedDict(
+    "StandardRouterOutputConfigurationTypeDef",
+    {
+        "NetworkInterfaceArn": str,
+        "ProtocolConfiguration": RouterOutputProtocolConfigurationTypeDef,
+        "Protocol": NotRequired[RouterOutputProtocolType],
+    },
+)
 
 class CreateFlowResponseTypeDef(TypedDict):
     Flow: FlowTypeDef
@@ -2424,8 +2477,13 @@ class RouterInputConfigurationTypeDef(TypedDict):
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterInputConfigurationTypeDef]
     Merge: NotRequired[MergeRouterInputConfigurationTypeDef]
 
+class RouterInputSourceMetadataDetailsTypeDef(TypedDict):
+    SourceMetadataMessages: list[RouterInputMessageTypeDef]
+    Timestamp: datetime
+    RouterInputMetadata: NotRequired[RouterInputMetadataTypeDef]
+
 class RouterOutputConfigurationOutputTypeDef(TypedDict):
-    Standard: NotRequired[StandardRouterOutputConfigurationTypeDef]
+    Standard: NotRequired[StandardRouterOutputConfigurationOutputTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterOutputConfigurationOutputTypeDef]
     MediaLiveInput: NotRequired[MediaLiveInputRouterOutputConfigurationOutputTypeDef]
 
@@ -2433,11 +2491,6 @@ class RouterOutputConfigurationTypeDef(TypedDict):
     Standard: NotRequired[StandardRouterOutputConfigurationTypeDef]
     MediaConnectFlow: NotRequired[MediaConnectFlowRouterOutputConfigurationTypeDef]
     MediaLiveInput: NotRequired[MediaLiveInputRouterOutputConfigurationTypeDef]
-
-class RouterInputSourceMetadataDetailsTypeDef(TypedDict):
-    SourceMetadataMessages: list[RouterInputMessageTypeDef]
-    Timestamp: datetime
-    RouterInputMetadata: NotRequired[RouterInputMetadataTypeDef]
 
 class AddFlowOutputsRequestTypeDef(TypedDict):
     FlowArn: str
@@ -2498,6 +2551,13 @@ RouterInputTypeDef = TypedDict(
 RouterInputConfigurationUnionTypeDef = Union[
     RouterInputConfigurationTypeDef, RouterInputConfigurationOutputTypeDef
 ]
+
+class GetRouterInputSourceMetadataResponseTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    SourceMetadataDetails: RouterInputSourceMetadataDetailsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 RouterOutputTypeDef = TypedDict(
     "RouterOutputTypeDef",
     {
@@ -2530,12 +2590,6 @@ RouterOutputTypeDef = TypedDict(
 RouterOutputConfigurationUnionTypeDef = Union[
     RouterOutputConfigurationTypeDef, RouterOutputConfigurationOutputTypeDef
 ]
-
-class GetRouterInputSourceMetadataResponseTypeDef(TypedDict):
-    Arn: str
-    Name: str
-    SourceMetadataDetails: RouterInputSourceMetadataDetailsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetRouterInputResponseTypeDef(TypedDict):
     RouterInputs: list[RouterInputTypeDef]

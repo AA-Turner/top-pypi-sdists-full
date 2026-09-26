@@ -43,9 +43,11 @@ from .literals import (
     ResourceWarningStatusType,
     Route53HealthCheckStatusType,
     RoutingControlStateChangeType,
+    ServiceQuotaWarningStatusType,
     StepStatusType,
     UpdatePlanExecutionActionType,
     UpdatePlanExecutionStepActionType,
+    WaitELBTargetGroupHealthyType,
     WorkflowTargetActionType,
 )
 
@@ -147,6 +149,9 @@ __all__ = (
     "ListRoute53HealthChecksRequestPaginateTypeDef",
     "ListRoute53HealthChecksRequestTypeDef",
     "ListRoute53HealthChecksResponseTypeDef",
+    "ListServiceQuotaWarningsRequestPaginateTypeDef",
+    "ListServiceQuotaWarningsRequestTypeDef",
+    "ListServiceQuotaWarningsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "MinimalWorkflowTypeDef",
@@ -186,6 +191,7 @@ __all__ = (
     "Route53ResourceRecordSetTypeDef",
     "S3ReportOutputConfigurationTypeDef",
     "S3ReportOutputTypeDef",
+    "ServiceQuotaWarningSummaryTypeDef",
     "ServiceTypeDef",
     "StartPlanExecutionRequestTypeDef",
     "StartPlanExecutionResponseTypeDef",
@@ -530,6 +536,27 @@ class ListRoute53HealthChecksRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
+class ListServiceQuotaWarningsRequestTypeDef(TypedDict):
+    planArns: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class ServiceQuotaWarningSummaryTypeDef(TypedDict):
+    accountId: str
+    quotaRegion: str
+    status: ServiceQuotaWarningStatusType
+    planArn: str
+    serviceCode: NotRequired[str]
+    quotaCode: NotRequired[str]
+    quotaName: NotRequired[str]
+    requestId: NotRequired[str]
+    caseId: NotRequired[str]
+    warningMessage: NotRequired[str]
+    lastCheckedAt: NotRequired[datetime]
+    warningCreatedAt: NotRequired[datetime]
+
+
 class ListTagsForResourceRequestTypeDef(TypedDict):
     arn: str
 
@@ -716,6 +743,7 @@ class Ec2AsgCapacityIncreaseConfigurationOutputTypeDef(TypedDict):
     ungraceful: NotRequired[Ec2UngracefulTypeDef]
     targetPercent: NotRequired[int]
     capacityMonitoringApproach: NotRequired[Ec2AsgCapacityMonitoringApproachType]
+    waitELBTargetGroupHealthy: NotRequired[WaitELBTargetGroupHealthyType]
 
 
 class Ec2AsgCapacityIncreaseConfigurationTypeDef(TypedDict):
@@ -724,6 +752,7 @@ class Ec2AsgCapacityIncreaseConfigurationTypeDef(TypedDict):
     ungraceful: NotRequired[Ec2UngracefulTypeDef]
     targetPercent: NotRequired[int]
     capacityMonitoringApproach: NotRequired[Ec2AsgCapacityMonitoringApproachType]
+    waitELBTargetGroupHealthy: NotRequired[WaitELBTargetGroupHealthyType]
 
 
 class EcsCapacityIncreaseConfigurationOutputTypeDef(TypedDict):
@@ -732,6 +761,7 @@ class EcsCapacityIncreaseConfigurationOutputTypeDef(TypedDict):
     ungraceful: NotRequired[EcsUngracefulTypeDef]
     targetPercent: NotRequired[int]
     capacityMonitoringApproach: NotRequired[EcsCapacityMonitoringApproachType]
+    waitELBTargetGroupHealthy: NotRequired[WaitELBTargetGroupHealthyType]
 
 
 class EcsCapacityIncreaseConfigurationTypeDef(TypedDict):
@@ -740,6 +770,7 @@ class EcsCapacityIncreaseConfigurationTypeDef(TypedDict):
     ungraceful: NotRequired[EcsUngracefulTypeDef]
     targetPercent: NotRequired[int]
     capacityMonitoringApproach: NotRequired[EcsCapacityMonitoringApproachType]
+    waitELBTargetGroupHealthy: NotRequired[WaitELBTargetGroupHealthyType]
 
 
 class EksResourceScalingConfigurationOutputTypeDef(TypedDict):
@@ -816,6 +847,11 @@ class ListRoute53HealthChecksRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListServiceQuotaWarningsRequestPaginateTypeDef(TypedDict):
+    planArns: NotRequired[Sequence[str]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class GetPlanEvaluationStatusRequestWaitTypeDef(TypedDict):
     planArn: str
     maxResults: NotRequired[int]
@@ -873,6 +909,12 @@ class ListRoute53HealthChecksInRegionResponseTypeDef(TypedDict):
 
 class ListRoute53HealthChecksResponseTypeDef(TypedDict):
     healthChecks: list[Route53HealthCheckTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListServiceQuotaWarningsResponseTypeDef(TypedDict):
+    serviceQuotaWarningSummaries: list[ServiceQuotaWarningSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1160,6 +1202,7 @@ class PlanTypeDef(TypedDict):
     associatedAlarms: NotRequired[dict[str, AssociatedAlarmTypeDef]]
     triggers: NotRequired[list[TriggerOutputTypeDef]]
     reportConfiguration: NotRequired[ReportConfigurationOutputTypeDef]
+    serviceQuotaChecksEnabled: NotRequired[bool]
     primaryRegion: NotRequired[str]
     version: NotRequired[str]
     updatedAt: NotRequired[datetime]
@@ -1178,6 +1221,7 @@ class PlanPaginatorTypeDef(TypedDict):
     associatedAlarms: NotRequired[dict[str, AssociatedAlarmTypeDef]]
     triggers: NotRequired[list[TriggerOutputTypeDef]]
     reportConfiguration: NotRequired[ReportConfigurationOutputTypeDef]
+    serviceQuotaChecksEnabled: NotRequired[bool]
     primaryRegion: NotRequired[str]
     version: NotRequired[str]
     updatedAt: NotRequired[datetime]
@@ -1276,6 +1320,7 @@ class CreatePlanRequestTypeDef(TypedDict):
     associatedAlarms: NotRequired[Mapping[str, AssociatedAlarmTypeDef]]
     triggers: NotRequired[Sequence[TriggerUnionTypeDef]]
     reportConfiguration: NotRequired[ReportConfigurationUnionTypeDef]
+    serviceQuotaChecksEnabled: NotRequired[bool]
     primaryRegion: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -1289,3 +1334,4 @@ class UpdatePlanRequestTypeDef(TypedDict):
     associatedAlarms: NotRequired[Mapping[str, AssociatedAlarmTypeDef]]
     triggers: NotRequired[Sequence[TriggerUnionTypeDef]]
     reportConfiguration: NotRequired[ReportConfigurationUnionTypeDef]
+    serviceQuotaChecksEnabled: NotRequired[bool]

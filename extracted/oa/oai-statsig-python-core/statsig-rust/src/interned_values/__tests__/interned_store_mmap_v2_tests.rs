@@ -606,6 +606,180 @@ rusty_fork_test! {
     }
 
     #[test]
+    fn v2_array_string_operators_preserve_unicode_defaults_and_negation() {
+        use ConditionOperator::*;
+        let string_ops = [
+            Any,
+            NoneOf,
+            AnyCaseSensitive,
+            NoneCaseSensitive,
+            StrStartsWithAny,
+            StrEndsWithAny,
+            StrContainsAny,
+            StrContainsNone,
+        ];
+        let string_cases = [
+            (
+                json!(["CAFÉ"]),
+                json!("café"),
+                [true, false, false, true, true, true, true, false],
+            ),
+            (
+                json!(["İ"]),
+                json!("i\u{307}"),
+                [true, false, false, true, true, true, true, false],
+            ),
+            (
+                json!(["ΟΣ"]),
+                json!("ος"),
+                [true, false, false, true, true, true, true, false],
+            ),
+            (
+                json!(["MiXeD", "mixed"]),
+                json!("MiXeD"),
+                [true, false, false, true, true, true, true, false],
+            ),
+            (
+                json!(["x\u{0}Y"]),
+                json!("X\u{0}y"),
+                [true, false, false, true, true, true, true, false],
+            ),
+            (
+                json!(["Straße"]),
+                json!("STRASSE"),
+                [false, true, false, true, false, false, false, true],
+            ),
+            (
+                json!(["END"]),
+                json!("prefix-end"),
+                [false, true, false, true, false, true, true, false],
+            ),
+            (
+                json!(["START"]),
+                json!("start-mid"),
+                [false, true, false, true, true, false, true, false],
+            ),
+            (
+                json!([""]),
+                json!(null),
+                [false, true, true, false, true, true, true, false],
+            ),
+            (
+                json!([""]),
+                json!("something"),
+                [false, true, false, true, true, true, true, false],
+            ),
+            (
+                json!([]),
+                json!(""),
+                [false, true, false, true, false, false, false, true],
+            ),
+            (
+                json!([null, true, 1]),
+                json!("null"),
+                [true, false, true, false, true, true, true, false],
+            ),
+        ];
+        let array_ops = [
+            ArrayContainsAll,
+            ArrayContainsAny,
+            ArrayContainsNone,
+            NotArrayContainsAll,
+        ];
+        let array_cases = [
+            (
+                json!(["CAFÉ", "世界"]),
+                json!(["CAFÉ", "世界", "extra"]),
+                [true, true, false, false],
+            ),
+            (
+                json!(["CAFÉ", "世界"]),
+                json!(["café", "世界"]),
+                [false, true, false, true],
+            ),
+            (json!(["CAFÉ"]), json!(["café"]), [false, false, true, true]),
+            (json!([""]), json!([null]), [true, true, false, false]),
+            (
+                json!(["x\u{0}Y"]),
+                json!(["x\u{0}Y"]),
+                [true, true, false, false],
+            ),
+            (json!([]), json!([]), [true, false, true, false]),
+            (json!(["a"]), json!([]), [false, false, true, true]),
+        ];
+        let conditions: serde_json::Map<_, _> = string_cases
+            .iter()
+            .map(|case| &case.0)
+            .chain(array_cases.iter().map(|case| &case.0))
+            .enumerate()
+            .map(|(index, target)| {
+                (index.to_string(), json!({
+                    "type": "user_field",
+                    "targetValue": target,
+                    "operator": "any",
+                    "field": "email",
+                    "additionalValues": {},
+                    "idType": "userID"
+                }))
+            })
+            .collect();
+        let payload = serde_json::to_vec(&json!({
+            "condition_map": conditions,
+            "feature_gates": {},
+            "dynamic_configs": {},
+            "layer_configs": {},
+            "experiment_to_layer": {},
+            "has_updates": true,
+            "time": 1
+        }))
+        .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("array-string-operators.mmap");
+        write_mmap_v2_for_test(&payload, &path).unwrap();
+        preload_mmap_v2_for_test(&path).unwrap();
+
+        for (target, input, expected) in string_cases {
+            let mapped = EvaluatorValue::from_json_value(target.clone());
+            assert!(matches!(mapped.inner, EvaluatorValueInner::Mmap(_)));
+            let owned = MemoizedEvaluatorValue::from(target.clone());
+            let input = dyn_value!(input);
+            for view in [mapped.as_value_ref(), (&owned).into()] {
+                for (op, expected) in string_ops.into_iter().zip(expected) {
+                    assert_eq!(
+                        compare_strings_in_array((&input).into(), view, op),
+                        expected,
+                        "target={target:?}, input={input:?}, op={op:?}"
+                    );
+                }
+                for lowercase in [false, true] {
+                    let mut calls = 0;
+                    let found = view.any_array_string(lowercase, |_| {
+                        calls += 1;
+                        true
+                    });
+                    assert_eq!(calls, usize::from(view.array_len().unwrap() > 0));
+                    assert_eq!(found, calls > 0);
+                }
+            }
+        }
+        for (target, input, expected) in array_cases {
+            let mapped = EvaluatorValue::from_json_value(target.clone());
+            assert!(matches!(mapped.inner, EvaluatorValueInner::Mmap(_)));
+            let owned = MemoizedEvaluatorValue::from(target.clone());
+            let input = dyn_value!(input);
+            for view in [mapped.as_value_ref(), (&owned).into()] {
+                for (op, expected) in array_ops.into_iter().zip(expected) {
+                    assert_eq!(
+                        compare_arrays((&input).into(), view, op),
+                        expected,
+                        "target={target:?}, input={input:?}, op={op:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
     fn v2_loader_rejects_wrong_format_version() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("interned-store-v2-wrong-version.mmap");
@@ -1617,6 +1791,9 @@ struct EvaluationSnapshot {
     group_name: Option<String>,
     config_delegate: Option<String>,
     json_value: Option<HashMap<String, serde_json::Value>>,
+    secondary_exposures: serde_json::Value,
+    sampling_rate: Option<u64>,
+    has_seen_analytical_gates: Option<bool>,
 }
 
 fn evaluate(
@@ -1652,6 +1829,9 @@ fn evaluate(
             .config_delegate
             .map(|value| value.to_string()),
         json_value: context.result.json_value.and_then(|value| value.get_json()),
+        secondary_exposures: serde_json::to_value(&context.result.secondary_exposures).unwrap(),
+        sampling_rate: context.result.sampling_rate,
+        has_seen_analytical_gates: context.result.has_seen_analytical_gates,
     }
 }
 

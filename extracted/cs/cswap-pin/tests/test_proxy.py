@@ -4110,6 +4110,25 @@ class TestRepinIsLive:
         assert pin_proxy.daemon_fingerprint() == pin_proxy.daemon_fingerprint()
 
 
+def _assert_degraded_acceptor_relays(port):
+    """Prove the degraded acceptor is actually ACCEPTING AND RELAYING,
+    not merely listening (T1193). A bare `create_connection` succeeds
+    against any bound listener straight out of the kernel's own
+    backlog, whether or not anything behind it ever calls `accept()`
+    -- exactly the gap that let a re-degrade case pass against a
+    socket nothing was serving. A plain GET gets `_relay_one`'s own
+    405 with no network involved, which only a live acceptor thread
+    can produce."""
+    with socket.create_connection(("127.0.0.1", port), timeout=10) as s:
+        s.settimeout(10)
+        s.sendall(b"GET / HTTP/1.1\r\n\r\n")
+        reply = s.recv(64)
+    assert b"405" in reply, (
+        f"port {port} did not answer 405 to a plain GET -- nothing is "
+        f"actually accepting on the degraded socket: {reply!r}"
+    )
+
+
 class TestASuccessorThatCannotStart:
     """The port stays BOUND and stops ANSWERING, which is the worst shape.
 
@@ -4137,29 +4156,25 @@ class TestASuccessorThatCannotStart:
     def case_a_degraded_holder_answers_on_the_held_port(self, tmp_path):
         """The capability itself: a holder with no daemon still serves.
 
-        No `start()`, no spawn, no supervisor — this is the state the machine
-        was in for four minutes, reproduced directly.
+        No spawn — this is the state the machine was in for four minutes,
+        reproduced directly. `degrade_now()` itself only flags
+        `self._degraded` (T1193: ONE THREAD) — the actual serving is
+        `_supervise`'s own degraded branch, started here the same way
+        `start()` always starts it, never a thread `degrade_now()` spins
+        up on its own. `_assert_degraded_acceptor_relays`'s local GET ->
+        405 probe, not a CONNECT to a real upstream: this case has no
+        network dependency to prove the acceptor is live.
         """
-        import socket
-
         from cswap_pin.proxy import PortHolder, ensure_ca
 
         ensure_ca(tmp_path, "api.anthropic.com")
         holder = PortHolder(tmp_path, "1", "a@b.c")
         try:
             holder.degrade_now()
-            s = socket.create_connection(("127.0.0.1", holder.port), timeout=5)
-            try:
-                s.settimeout(5)
-                s.sendall(b"CONNECT api.anthropic.com:443 HTTP/1.1\r\n"
-                          b"Host: api.anthropic.com:443\r\n\r\n")
-                assert s.recv(64), (
-                    "bound with nobody accepting — the hang that took the "
-                    "machine out, which is worse than a refusal because it "
-                    "fails slowly and everywhere at once"
-                )
-            finally:
-                s.close()
+            holder._thread = threading.Thread(
+                target=holder._supervise, daemon=True)
+            holder._thread.start()
+            _assert_degraded_acceptor_relays(holder.port)
         finally:
             holder.stop()
 
@@ -4175,8 +4190,10 @@ class TestASuccessorThatCannotStart:
         holder = PortHolder(tmp_path, "1", "a@b.c")
         seen = {"degraded": False}
         monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
-        monkeypatch.setattr(PortHolder, "degrade_now",
-                            lambda self: seen.__setitem__("degraded", True))
+        def _degrade(self):
+            self._degraded = True
+            seen["degraded"] = True
+        monkeypatch.setattr(PortHolder, "degrade_now", _degrade)
 
         class _DeadProc:
             def wait(self):
@@ -4353,6 +4370,1337 @@ class TestSuperviseCleanExitGuards:
             )
         finally:
             holder.stop()
+
+
+class TestASpawnFailureIsNotFatal:
+    """T1274: `_spawn`'s own `Popen` can raise `OSError` (fork EAGAIN/EMFILE,
+    or the interpreter itself unrunnable) or `ValueError` (a closed fd, see
+    `_on_replace_request`) -- and neither `_supervise`'s respawns nor
+    `_standby_revive`'s promotion (`holder.start()`) caught it. MEASURED
+    (T1284's deployer, sandbox 2026-09-25): with a throwaway venv's
+    interpreter made unrunnable, `_supervise`'s own respawn after a
+    redeploy ask (exit 75) raised uncaught in `Thread-1 (_supervise)` --
+    the thread died, the holder process exited with no `stop()` -- and
+    the standby's takeover (`standby_main` -> `_standby_revive` ->
+    `holder.start()` -> `_spawn`) hit the identical unwrapped call and its
+    exception killed the standby too. Net: every process that could serve
+    the port was gone.
+    """
+
+    def test_all(self, request, tmp_path_factory):
+        run_cases(self, request, tmp_path_factory)
+
+    class _BlockingProc:
+        """A `Popen` double whose `wait()` blocks until told to exit, so
+        `_supervise`'s own blocking `proc.wait()` cannot return early and
+        race the assertions below -- the thread must still be parked in it,
+        not merely not-yet-scheduled."""
+
+        def __init__(self):
+            self._ev = threading.Event()
+            self.returncode = None
+
+        def exit(self, code):
+            self.returncode = code
+            self._ev.set()
+
+        def wait(self, timeout=None):
+            self._ev.wait(timeout)
+            return self.returncode
+
+        def poll(self):
+            return self.returncode
+
+        def terminate(self):
+            self.exit(0)
+
+    def case_supervise_retries_a_raising_respawn_and_stays_alive(
+            self, tmp_path, monkeypatch):
+        """The cold start succeeds; the daemon it started then crashes
+        (non-zero exit), and the RESPAWN `_supervise` makes for it is the
+        one that raises `OSError` a few times before succeeding -- the
+        ordinary-crash respawn site. `case_the_code_75_redeploy_respawn_
+        survives_a_raising_spawn` below is the one that models the measured
+        incident (a redeploy ask, exit 75)."""
+        holder, procs, spawn_calls = self._respawn_after_exit_survives_a_raising_spawn(
+            tmp_path, monkeypatch, 1, raises=3)
+        try:
+            self._assert_the_respawn_survived(
+                holder, procs, spawn_calls, "ordinary crash")
+        finally:
+            holder.stop()
+
+    def case_promotion_survives_a_raising_spawn_and_keeps_the_socket(
+            self, tmp_path, monkeypatch):
+        """The standby's takeover promotes in place with exactly this
+        construction -- `PortHolder(certdir, account_num, email, sock=srv)`
+        then `.start()`, see `_standby_revive`. A raising `Popen` there used
+        to escape `start()` uncaught: nothing but this call was left to put
+        a holder back on the socket, so the exception killed the STANDBY
+        PROCESS itself, taking its own copy of the descriptor down with it.
+        """
+        from cswap_pin.proxy import PortHolder
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir()
+
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+
+        monkeypatch.setattr(PortHolder, "_spawn_standby", lambda self: None)
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+
+        spawn_calls = []
+        RAISES = 2
+
+        def _flaky_spawn(self):
+            spawn_calls.append(1)
+            if len(spawn_calls) <= RAISES:
+                raise OSError("fork: Resource temporarily unavailable")
+            self._proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            self.daemon_pid = 4242
+
+        monkeypatch.setattr(PortHolder, "_spawn", _flaky_spawn)
+
+        holder = PortHolder(certdir, "1", "a@b.c", sock=srv)
+        try:
+            holder.start()  # this IS `_standby_revive`'s own promotion call
+            assert len(spawn_calls) > RAISES, (
+                f"only {len(spawn_calls)} spawn attempt(s) — the promotion's "
+                f"raising spawn was not retried"
+            )
+            assert holder._thread.is_alive(), (
+                "the promoted holder's supervisor thread died on the "
+                "raising spawn instead of retrying past it"
+            )
+            # `start()` RETURNING NORMALLY IS THE DISCRIMINATOR. A killed
+            # standby process would have taken this same test process down
+            # with it -- there is nothing else to check in-process; a raw
+            # connect to `srv` would succeed even if `start()` never got a
+            # real daemon running, since nothing here ever closes it.
+        finally:
+            holder.stop()
+
+    def case_a_raising_standby_spawn_does_not_kill_the_promotion(
+            self, tmp_path, monkeypatch):
+        """T1294: `_spawn_standby()`'s own `Popen` was unwrapped in
+        `start()` -- an `OSError` (fork EAGAIN/EMFILE) or `ValueError` (a
+        closed fd) right after a promotion's own spawn used to escape
+        uncaught and kill the very process that had JUST won the
+        promotion, taking the daemon it had started down with it. Wrapped
+        the same way `_on_replace_request` wraps its own one-shot spawn:
+        no retry ladder -- a missing standby is a warning (`_reap_standby`
+        already covers it), not a reason to fight the same failure
+        twice."""
+        from cswap_pin.proxy import PortHolder
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir()
+
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+
+        def _spawn_ok(self):
+            self._proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            self.daemon_pid = 4242
+
+        def _raising_standby(self):
+            raise OSError("fork: Resource temporarily unavailable")
+
+        monkeypatch.setattr(PortHolder, "_spawn", _spawn_ok)
+        monkeypatch.setattr(PortHolder, "_spawn_standby", _raising_standby)
+
+        holder = PortHolder(tmp_path, "1", "a@b.c", sock=srv)
+        try:
+            result = holder.start()
+            assert result is True, (
+                f"a raising standby spawn must not stop the promotion "
+                f"from reporting success: start() -> {result!r}"
+            )
+            assert holder._thread is not None and holder._thread.is_alive(), (
+                "the supervisor thread never started -- a raising standby "
+                "spawn killed the promotion instead of being logged and "
+                "skipped"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_permanently_raising_respawn_reaches_degrade_now(
+            self, tmp_path, monkeypatch):
+        """The cold start succeeds; the daemon then crashes, and every
+        RESPAWN `_supervise` makes for it raises `OSError` forever -- a
+        spawn that can never succeed is a failure on the SAME ladder a
+        crash-looping daemon climbs, so it must reach `degrade_now()` too
+        (model: `case_the_ladder_degrades_instead_of_retrying_forever`),
+        not retry past `_HOLD_DEGRADE_AT` forever on a private count."""
+        from cswap_pin.proxy import _HOLD_DEGRADE_AT, PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "_spawn_standby", lambda self: None)
+        monkeypatch.setattr(PortHolder, "_reap_standby", lambda self: None)
+        seen = {"degraded": False}
+        def _degrade(self):
+            self._degraded = True
+            seen["degraded"] = True
+        monkeypatch.setattr(PortHolder, "degrade_now", _degrade)
+
+        spawn_calls = []
+
+        def _flaky_spawn(self):
+            spawn_calls.append(1)
+            if len(spawn_calls) == 1:
+                self._proc = TestASpawnFailureIsNotFatal._BlockingProc()
+                self.daemon_pid = 1000
+                return
+            raise OSError("fork: Resource temporarily unavailable")
+
+        monkeypatch.setattr(PortHolder, "_spawn", _flaky_spawn)
+
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+        try:
+            holder.start()
+            assert len(spawn_calls) == 1, "premise: cold start did not spawn cleanly"
+            holder._proc.exit(1)  # the daemon crashes; every respawn after this raises
+
+            deadline = time.time() + 5
+            while not seen["degraded"] and time.time() < deadline:
+                time.sleep(0.02)
+            assert seen["degraded"], (
+                f"{_HOLD_DEGRADE_AT} failed respawns (all raising `Popen`) "
+                f"and the holder is still retrying into a port nobody "
+                f"answers"
+            )
+        finally:
+            holder.stop()
+
+    def case_the_capping_attempt_does_not_say_retrying(
+            self, tmp_path, monkeypatch):
+        """`_spawn_retrying`'s own log line said "retrying" on EVERY failed
+        attempt, including the one that hits `_HOLD_DEGRADE_AT` and gives
+        up instead -- the one moment the word is false."""
+        from cswap_pin.proxy import _HOLD_DEGRADE_AT, PortHolder, ensure_ca
+        from cswap_pin import proxy as pin_proxy
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "degrade_now", lambda self: None)
+        lines = []
+        monkeypatch.setattr(pin_proxy, "_log_lifecycle", lines.append)
+
+        def _always_raise(self):
+            raise OSError("fork: Resource temporarily unavailable")
+
+        monkeypatch.setattr(PortHolder, "_spawn", _always_raise)
+
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+        try:
+            assert holder._spawn_retrying() is False
+            spawn_lines = [l for l in lines if "could not spawn a successor" in l]
+            assert len(spawn_lines) == _HOLD_DEGRADE_AT, (
+                f"{len(spawn_lines)} logged attempt(s), expected exactly "
+                f"the ladder's cap ({_HOLD_DEGRADE_AT})"
+            )
+            assert "retrying" not in spawn_lines[-1], (
+                f"the attempt that hit the cap still said retrying: "
+                f"{spawn_lines[-1]!r}"
+            )
+            for line in spawn_lines[:-1]:
+                assert "retrying" in line, (
+                    f"a non-capping attempt should still say retrying: "
+                    f"{line!r}"
+                )
+        finally:
+            holder.stop()
+
+    def case_failures_reset_after_a_daemon_has_served_for_a_while(
+            self, tmp_path, monkeypatch):
+        """T1294: `self._failures` was reset only on a clean exit or a
+        redeploy ask -- never after an ORDINARY crash respawned
+        successfully -- so it counted crashes over the HOLDER's whole
+        life, not the CONSECUTIVE ones `_HOLD_DEGRADE_AT`'s own docstring
+        describes. A daemon that served for hours between two unrelated
+        crashes was already most of the way to a degrade neither crash,
+        alone, deserved. Two drives, same total crash count (more than
+        `_HOLD_DEGRADE_AT`): every daemon served past
+        `_HOLD_FAILURE_RESET_AFTER_S` before its own crash (must never
+        degrade -- each one resets), then a tight burst where none of
+        them did (must still degrade). The "served past" state is set
+        directly on `_proc_spawned_at` rather than by really sleeping,
+        so this case costs milliseconds either way."""
+        from cswap_pin.proxy import _HOLD_DEGRADE_AT, PortHolder, ensure_ca
+        from cswap_pin import proxy as pin_proxy
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "_spawn_standby", lambda self: None)
+        monkeypatch.setattr(PortHolder, "_reap_standby", lambda self: None)
+
+        procs = []
+        served_long = {"on": False}
+
+        def _spawn_ok(self):
+            proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            procs.append(proc)
+            self._proc = proc
+            self.daemon_pid = 1000 + len(procs)
+            self._proc_spawned_at = (
+                time.monotonic() - pin_proxy._HOLD_FAILURE_RESET_AFTER_S - 1
+                if served_long["on"] else time.monotonic())
+
+        monkeypatch.setattr(PortHolder, "_spawn", _spawn_ok)
+
+        degraded = {"on": False}
+        def _degrade(self):
+            self._degraded = True
+            degraded["on"] = True
+        monkeypatch.setattr(PortHolder, "degrade_now", _degrade)
+
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+        try:
+            holder.start()
+            assert len(procs) == 1, "premise: the cold start did not spawn cleanly"
+
+            served_long["on"] = True
+            for _ in range(_HOLD_DEGRADE_AT + 3):
+                if degraded["on"]:
+                    break
+                n_before = len(procs)
+                procs[-1].exit(1)
+                deadline = time.time() + 5
+                while (len(procs) <= n_before and not degraded["on"]
+                       and time.time() < deadline):
+                    time.sleep(0.01)
+            assert not degraded["on"], (
+                f"{holder._failures} failures accumulated even though "
+                f"every daemon served past _HOLD_FAILURE_RESET_AFTER_S "
+                f"before crashing -- each one should have reset the count"
+            )
+
+            served_long["on"] = False
+            for _ in range(_HOLD_DEGRADE_AT + 3):
+                if degraded["on"]:
+                    break
+                n_before = len(procs)
+                procs[-1].exit(1)
+                deadline = time.time() + 5
+                while (len(procs) <= n_before and not degraded["on"]
+                       and time.time() < deadline):
+                    time.sleep(0.01)
+            assert degraded["on"], (
+                "a tight burst of crashes, none served long enough to "
+                "reset, must still degrade"
+            )
+        finally:
+            holder.stop()
+
+    def _respawn_after_exit_survives_a_raising_spawn(
+            self, tmp_path, monkeypatch, exit_code, *, raises=2, pinned=False):
+        """Shared drive for all three `_supervise` respawn sites: the cold
+        start succeeds, the daemon then exits with `exit_code`, and the
+        RESPAWN that site makes raises `raises` times before succeeding.
+        Returns (holder, procs, spawn_calls)."""
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "_spawn_standby", lambda self: None)
+        monkeypatch.setattr(PortHolder, "_reap_standby", lambda self: None)
+        if pinned:
+            monkeypatch.setattr(pin_proxy, "load_pin",
+                                lambda root: ("a@b.c", "org-1"))
+            monkeypatch.setattr(pin_proxy, "_standby_port_still_wanted",
+                                lambda certdir, port: True)
+
+        procs = []
+        spawn_calls = []
+
+        def _flaky_spawn(self):
+            spawn_calls.append(1)
+            # THE COLD START (the first call) always succeeds -- this drive
+            # is about the RESPAWN after an exit, not the first spawn.
+            if 1 < len(spawn_calls) <= 1 + raises:
+                raise OSError("fork: Resource temporarily unavailable")
+            proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            procs.append(proc)
+            self._proc = proc
+            self.daemon_pid = 1000 + len(spawn_calls)
+
+        monkeypatch.setattr(PortHolder, "_spawn", _flaky_spawn)
+
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+        holder.start()
+        assert len(procs) == 1, "premise: the cold start did not spawn cleanly"
+        procs[0].exit(exit_code)
+        return holder, procs, spawn_calls
+
+    def _assert_the_respawn_survived(self, holder, procs, spawn_calls, label):
+        """Poll on `procs`, not `spawn_calls` -- `_flaky_spawn` appends to
+        the latter before the former, so polling on it can wake this thread
+        in the gap between a successful call's two appends."""
+        deadline = time.time() + 5
+        while len(procs) < 2 and time.time() < deadline:
+            time.sleep(0.02)
+        assert len(procs) == 2, (
+            f"did not end up with a live successor after {label}: "
+            f"{len(procs)} real spawn(s) landed"
+        )
+        assert len(spawn_calls) > 1, (
+            f"only {len(spawn_calls)} spawn attempt(s) — the {label} "
+            f"respawn's raising spawn was not retried"
+        )
+        assert holder._thread.is_alive(), (
+            f"the supervisor THREAD died on the {label} respawn's raising "
+            f"Popen instead of retrying past it"
+        )
+
+    def case_the_code_75_redeploy_respawn_survives_a_raising_spawn(
+            self, tmp_path, monkeypatch):
+        """A redeploy ask (exit 75) respawns at once, skipping the backoff
+        -- and that respawn's own `Popen` can raise too, which is the
+        measured incident. Reverting this call site (`_supervise`'s
+        `code == _RESTART_ME_CODE` branch) back to a bare `self._spawn()`
+        must turn this red."""
+        from cswap_pin.proxy import _RESTART_ME_CODE
+
+        holder, procs, spawn_calls = self._respawn_after_exit_survives_a_raising_spawn(
+            tmp_path, monkeypatch, _RESTART_ME_CODE)
+        try:
+            self._assert_the_respawn_survived(
+                holder, procs, spawn_calls, "redeploy ask")
+        finally:
+            holder.stop()
+
+    def case_the_clean_exit_still_pinned_respawn_survives_a_raising_spawn(
+            self, tmp_path, monkeypatch):
+        """A clean exit (code 0) while still pinned respawns on the held
+        port -- and that respawn's own `Popen` can raise too. Reverting
+        this call site (`_supervise`'s `code == 0`, still-pinned branch)
+        back to a bare `self._spawn()` must turn this red."""
+        holder, procs, spawn_calls = self._respawn_after_exit_survives_a_raising_spawn(
+            tmp_path, monkeypatch, 0, pinned=True)
+        try:
+            self._assert_the_respawn_survived(
+                holder, procs, spawn_calls, "still-pinned clean exit")
+        finally:
+            holder.stop()
+
+    def case_cold_start_with_an_always_raising_spawn_raises(
+            self, tmp_path, monkeypatch):
+        """A cold start's FIRST spawn is the ONLY thing covering the port --
+        nothing else exists yet. `start()` calls bare `_spawn()` there,
+        exactly as the base did: a failure raises immediately, on the FIRST
+        attempt, with no retry ladder in between, so `holder_main`'s `except
+        OSError` can end the process and free the launcher, which is
+        already waiting on a state file that will never appear. A ladder
+        here would cost up to `_HOLD_DEGRADE_AT` backoffs -- COMPUTED, not
+        measured: 0.5+1+2+4+5+5+5 = 22.5s, longer than the launcher's own
+        `_SPAWN_WAIT_S`, during which `unwire_if_dead` keeps wiring live
+        sessions to a port about to be refused anyway.
+        """
+        from cswap_pin.proxy import PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        spawn_calls = []
+
+        def _always_raise(self):
+            spawn_calls.append(1)
+            raise OSError("fork: Resource temporarily unavailable")
+
+        monkeypatch.setattr(PortHolder, "_spawn", _always_raise)
+
+        holder = PortHolder(tmp_path, "1", "a@b.c")
+        try:
+            with pytest.raises(OSError):
+                holder.start()
+            assert len(spawn_calls) == 1, (
+                f"{len(spawn_calls)} spawn attempt(s) before raising — a "
+                f"cold start must fail on the first attempt, not retry"
+            )
+        finally:
+            holder.stop()
+
+    def case_promotion_with_an_always_raising_spawn_reports_failure(
+            self, tmp_path, monkeypatch):
+        """The standby's own promotion is the LAST thing covering the port
+        -- raising out of `start()` here would kill this process mid-call
+        rather than through its own control flow, so a permanently failing
+        spawn climbs the retry ladder and reports failure instead of
+        raising. This case is about that report alone -- `start()` ->
+        False, no supervisor thread -- so `degrade_now()` is stubbed the
+        same way `case_the_capping_attempt_does_not_say_retrying` stubs
+        it: the real one flags `self._degraded`, and `start()` reads that
+        flag to decide whether to start `self._thread` straight into
+        `_supervise`'s own degraded, RETRYING branch (T1193/T1294) before
+        handing the False back -- which is exactly what keeps THAT process
+        serving, covered by `case_a_degraded_promotion_retries_and_
+        recovers_once_pinned` and its re-degrade sibling below, not by
+        this one. Stubbed away here, the flag never gets set, so `start()`
+        must leave `self._thread` untouched rather than starting one with
+        nothing degraded to run. Driven off-thread and joined with a
+        timeout so a regression to an uncapped retry hangs this case
+        instead of the whole suite."""
+        from cswap_pin.proxy import PortHolder
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir()
+
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "degrade_now", lambda self: None)
+
+        def _always_raise(self):
+            raise OSError("fork: Resource temporarily unavailable")
+
+        monkeypatch.setattr(PortHolder, "_spawn", _always_raise)
+
+        holder = PortHolder(certdir, "1", "a@b.c", sock=srv)
+        outcome = {}
+
+        def _run():
+            try:
+                outcome["result"] = holder.start()
+            except BaseException as exc:  # noqa: BLE001 — captured for the assertion
+                outcome["exc"] = exc
+
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        t.join(timeout=5)
+        try:
+            assert not t.is_alive(), (
+                "the promotion's start() is still retrying instead of "
+                "capping out -- an unbounded retry leaves nothing "
+                "accepting on the port for as long as it spins"
+            )
+            assert "exc" not in outcome, (
+                f"start() raised out of the promotion instead of reporting "
+                f"failure, which would kill the standby process mid-call "
+                f"-- the last thing covering this port: "
+                f"{outcome.get('exc')!r}"
+            )
+            assert outcome.get("result") is False, (
+                "a permanently failing promotion spawn must report failure "
+                "(start() -> False) so _standby_revive skips joining a "
+                "supervisor thread that was never started, rather than "
+                "looking like a holder that came up fine"
+            )
+            assert holder._thread is None, (
+                "a supervisor thread started over a promotion that never "
+                "got a daemon running -- there is nothing for it to "
+                "supervise, and _standby_revive would wrongly join on it"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_degraded_holder_stays_up_through_holder_mains_own_join(
+            self, tmp_path, monkeypatch):
+        """T1294: `holder_main`'s own tail is `run_service()` then, only if
+        a supervisor thread exists, `holder._thread.join()` -- and once
+        that join returns, `holder_main` returns right behind it and the
+        PROCESS exits, taking every daemon thread with it, including
+        `degrade_now()`'s own `_accept_degraded` acceptor and the socket
+        it serves. `_supervise` used to return right after `degrade_now()`
+        started that acceptor, so the join returned almost at once and the
+        process exited behind it.
+
+        FORKED, not run in-process: an in-process check could never see
+        this defect. THIS test's own daemon threads survive regardless of
+        whether `_supervise`'s thread has returned -- only a real process
+        boundary shows a thread dying with its process. The child never
+        returns to pytest; it always ends in `os._exit`, matching
+        `holder_main`'s own shape (spawn, degrade, join, exit).
+
+        SIGNALLED, NOT SLEPT ON, and the reply is REQUIRED, not merely
+        "the connect did not raise" (T1193): a bare `create_connection`
+        succeeds against any bound listener via the kernel's own backlog,
+        whether or not anything is behind it to accept and answer, so the
+        old check passed even against a holder that had degraded, then
+        had its process exit behind the acceptor -- exactly the bug this
+        case exists to catch. The child writes the port, THEN blocks on
+        its own poll of `holder._degraded` and writes a second marker only
+        once THAT is true, so the parent's probe is never raced against a
+        cascade still in flight; a plain GET and `_relay_one`'s own local
+        405 (`_assert_degraded_acceptor_relays`, no network, timeout=10)
+        is what actually proves something is accepting AND relaying, not
+        just listening -- a CONNECT here would need a real dial to
+        api.anthropic.com and turn this into a network-dependent case."""
+        import contextlib
+        import signal
+
+        from cswap_pin.proxy import PortHolder, _join_for_signals, ensure_ca, run_service
+
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "_spawn_standby", lambda self: None)
+        monkeypatch.setattr(PortHolder, "_reap_standby", lambda self: None)
+
+        calls = []
+
+        def _flaky_spawn(self):
+            calls.append(1)
+            if len(calls) == 1:
+                # THE COLD START SUCCEEDS -- this case is about the
+                # RESPAWNS after it, not the first spawn.
+                self._proc = TestASpawnFailureIsNotFatal._BlockingProc()
+                self.daemon_pid = 1000
+                return
+            raise OSError("fork: Resource temporarily unavailable")
+
+        monkeypatch.setattr(PortHolder, "_spawn", _flaky_spawn)
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+
+        r_fd, w_fd = os.pipe()
+        pid = os.fork()
+        if pid == 0:
+            os.close(r_fd)
+            try:
+                holder = run_service(tmp_path, "1", "a@b.c")
+                os.write(w_fd, str(holder.port).encode().ljust(32))
+                # A SINGLE CRASH, cascading through the WHOLE ladder: the
+                # daemon exits non-zero, `_supervise` respawns, every
+                # respawn past the first raises (see `_flaky_spawn`), and
+                # with `_backoff` patched to 0.0 the ladder reaches
+                # `_HOLD_DEGRADE_AT` in milliseconds, not seconds.
+                holder._proc.exit(1)
+                deadline = time.time() + 10
+                while not getattr(holder, "_degraded", False) and time.time() < deadline:
+                    time.sleep(0.01)
+                os.write(w_fd, b"D" if getattr(holder, "_degraded", False) else b"N")
+                os.close(w_fd)
+                # THE SAME CALL `holder_main` NOW MAKES, not a bare
+                # untimed `.join()` -- see `_join_for_signals`.
+                if holder._thread is not None:
+                    _join_for_signals(holder._thread)
+            finally:
+                os._exit(0)  # holder_main's own tail: the process just ends
+
+        os.close(w_fd)
+        try:
+            port = int(os.read(r_fd, 32).decode())
+            marker = os.read(r_fd, 1)
+            os.close(r_fd)
+            assert marker == b"D", (
+                "the crash cascade never reached degrade_now() -- this "
+                "case measures nothing about the join that follows it"
+            )
+
+            _assert_degraded_acceptor_relays(port)
+        finally:
+            with contextlib.suppress(ProcessLookupError):
+                os.kill(pid, signal.SIGKILL)
+            with contextlib.suppress(ChildProcessError):
+                os.waitpid(pid, 0)
+
+    def _drive_degrade_and_retry(self, tmp_path, monkeypatch, *,
+                                  promotion, recovers):
+        """Shared drive for T1193's degrade-then-retry cases: reach
+        `degrade_now()` for real (a crash-loop to `_HOLD_DEGRADE_AT` for a
+        cold start, or a permanently-raising `_spawn` for a promotion —
+        same two drives `TestASpawnFailureIsNotFatal` already uses),
+        shorten the retry timer, then either let the NEXT `_spawn` succeed
+        (`recovers=True`) or keep it raising (`recovers=False`). Returns
+        (holder, procs, spawn_calls, n_before), where `n_before` is
+        `len(procs)` captured before the gate below opens; the caller
+        owns `holder.stop()`.
+
+        `_spawn` DECIDES BY `self._degraded`, NEVER BY A FLAG THIS METHOD
+        FLIPS FROM OUTSIDE. A flag set only after THIS thread observes
+        `_degraded` races the (patched to 0.05s) retry timer on the
+        HOLDER's own thread: under load, the retry can fire before this
+        thread gets scheduled again, so the flag is still in its
+        pre-degrade state and the "still fails" cases recover by
+        accident. `self._degraded` is set by the holder itself and read
+        back on the SAME thread that is about to call `_spawn` (the
+        holder's own, whether that is the merged supervisor thread or a
+        promotion's `start()` call) — no cross-thread race to lose.
+
+        A `recovers=True` post-cap attempt still lands only once
+        `observed` is set below, never on the retry timer alone: that
+        timer can fire and succeed within ~50ms of the cap, well inside
+        a 20ms poll's own scheduling jitter on a loaded runner, closing
+        the degraded window before anything outside this thread ever
+        saw it. An attempt before `observed` is set just re-degrades
+        (harmless — it already was), so the window cannot close unseen.
+        """
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "_spawn_standby", lambda self: None)
+        monkeypatch.setattr(PortHolder, "_reap_standby", lambda self: None)
+        monkeypatch.setattr(pin_proxy, "_HOLD_DEGRADE_RETRY_S", 0.05)
+
+        procs = []
+        spawn_calls = []
+        observed = threading.Event()
+
+        def _spawn(self):
+            spawn_calls.append(1)
+            degraded = getattr(self, "_degraded", False)
+            # PRE-CAP: a promotion climbs `_spawn_retrying`'s OWN ladder by
+            # raising every attempt -- that is the only way it ever reaches
+            # the cap. A cold start instead climbs via real crashes (the
+            # drive loop below), so it must succeed here.
+            # POST-CAP (`_degraded` already True): a single retry attempt,
+            # decided by `recovers` fresh on every call -- and, for
+            # `recovers=True`, only once `observed` is set (see the
+            # docstring above).
+            if (not degraded and promotion) or (degraded and not recovers):
+                raise OSError("fork: Resource temporarily unavailable")
+            if degraded and recovers and not observed.is_set():
+                raise OSError("fork: Resource temporarily unavailable")
+            proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            procs.append(proc)
+            self._proc = proc
+            self.daemon_pid = 1000 + len(spawn_calls)
+
+        monkeypatch.setattr(PortHolder, "_spawn", _spawn)
+
+        if promotion:
+            certdir = tmp_path / "pin-proxy"
+            certdir.mkdir()
+            srv = socket.socket()
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            srv.bind(("127.0.0.1", 0))
+            srv.listen(8)
+            # THE PROMOTION'S OWN SPAWN IS THE FAILURE HERE, climbing
+            # `_spawn_retrying`'s ladder to the cap (`case_promotion_with_
+            # an_always_raising_spawn_reports_failure` drives the SAME
+            # shape, with `degrade_now()` stubbed; this one lets it run).
+            holder = PortHolder(certdir, "1", "a@b.c", sock=srv)
+            threading.Thread(target=holder.start, daemon=True).start()
+        else:
+            holder = PortHolder(tmp_path, "1", "a@b.c")
+            holder.start()
+
+        # PREMISE FAILURES STOP THE HOLDER TOO: a `raise` out of this
+        # `try` runs before the caller's own `try/finally` ever starts
+        # (the helper has not returned yet), so an un-stopped holder here
+        # leaves its supervisor thread and bound socket alive for the
+        # rest of the in-process test session.
+        try:
+            if not promotion:
+                assert len(procs) == 1, (
+                    "premise: the cold start did not spawn cleanly"
+                )
+
+            deadline = time.time() + 10
+            while not getattr(holder, "_degraded", False) and time.time() < deadline:
+                if not promotion:
+                    procs[-1].exit(1)
+                    n_before = len(procs)
+                    inner_deadline = time.time() + 1
+                    while (len(procs) <= n_before
+                           and not getattr(holder, "_degraded", False)
+                           and time.time() < inner_deadline):
+                        time.sleep(0.01)
+                else:
+                    time.sleep(0.02)
+            assert getattr(holder, "_degraded", False), (
+                "premise: the drive never reached degrade_now()"
+            )
+        except Exception:
+            holder.stop()
+            raise
+
+        # CAPTURED BEFORE THE GATE OPENS: once `observed` is set, a
+        # `recovers=True` retry may land within the (patched-short) retry
+        # window, on the holder's own thread -- if the caller reads
+        # `len(procs)` only after this returns, that landing can race
+        # ahead of the read and get counted into the "before" baseline.
+        n_before = len(procs)
+        observed.set()
+
+        return holder, procs, spawn_calls, n_before
+
+    def case_a_ladder_cap_degrade_retries_and_recovers_once_pinned(
+            self, tmp_path, monkeypatch):
+        """T1193: degrading is no longer permanent. Reaching
+        `_HOLD_DEGRADE_AT` through the immediate-cap check inside an
+        ordinary crash loop (`_supervise_locked`'s tail, not `_spawn_
+        retrying`'s own ladder) must leave the SAME supervisor thread
+        BLOCKED in `_supervise`'s own degraded branch rather than ended --
+        proving `_supervise`'s own retrying acceptor is the only thing
+        left holding the process up -- and, once the fault clears and the
+        (patched-short) retry timer fires, a fresh daemon must land and
+        `_degraded` must clear."""
+        holder, procs, spawn_calls, n_before = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=False, recovers=True)
+        try:
+            assert holder._thread.is_alive(), (
+                "the supervisor thread ended instead of blocking in its "
+                "own degraded branch -- the process would exit behind "
+                "the still-serving degraded acceptor"
+            )
+            deadline = time.time() + 5
+            while getattr(holder, "_degraded") and time.time() < deadline:
+                time.sleep(0.02)
+            assert not holder._degraded, (
+                "the retry never un-degraded once the fault cleared"
+            )
+            assert len(procs) > n_before, (
+                "no fresh daemon was actually spawned by the retry"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_ladder_cap_degrade_re_degrades_if_the_retry_still_fails(
+            self, tmp_path, monkeypatch):
+        """A retry that fails outright must resume serving degraded
+        rather than leave nothing accepting -- ONE attempt, not a second
+        ladder (`_supervise`'s own degraded branch resets `self._failures`
+        one short of the cap before each retry, so a fresh failure
+        re-degrades at once). Waits for TWO retry attempts, not one: a
+        loop that quietly ends after the first failed attempt would still
+        pass a test that only checked for one."""
+        holder, procs, spawn_calls, _ = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=False, recovers=False)
+        try:
+            n_calls_before = len(spawn_calls)
+            deadline = time.time() + 5
+            while len(spawn_calls) < n_calls_before + 2 and time.time() < deadline:
+                time.sleep(0.02)
+            assert len(spawn_calls) >= n_calls_before + 2, (
+                f"only {len(spawn_calls) - n_calls_before} retry attempt(s) "
+                f"-- the degraded loop must keep retrying every "
+                f"_HOLD_DEGRADE_RETRY_S, not stop after the first failure"
+            )
+            deadline = time.time() + 2
+            while not holder._degraded and time.time() < deadline:
+                time.sleep(0.02)
+            assert holder._degraded, (
+                "a retry that failed outright left the holder un-degraded "
+                "with nothing accepting"
+            )
+            # STILL SERVING: the accept loop resumed and is actually
+            # relaying, not merely listening (a bare `create_connection`
+            # would succeed even with nothing behind it).
+            _assert_degraded_acceptor_relays(holder.port)
+        finally:
+            holder.stop()
+
+    def case_stop_joins_the_degraded_thread_before_closing_the_socket(
+            self, tmp_path, monkeypatch):
+        """T1193: while degraded, the SAME supervisor thread (ONE THREAD,
+        not a thread of its own) keeps actively calling
+        `poller.poll()`/`self._srv.accept()` on this same socket -- so
+        `stop()` closing it from the caller's thread while that call is
+        still in flight is a use-after-close race on the shared fd, not
+        merely the documented "close does not wake a blocked accept()"
+        gap. MEASURED: leaving it un-joined here produced garbled
+        `inspect.getsource()` reads in UNRELATED, LATER tests once enough
+        of these threads were still alive at once -- a stray fd, reused by
+        something else entirely, read as if it were still this socket.
+        `stop()` must not return with this thread still alive."""
+        holder, procs, spawn_calls, _ = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=False, recovers=False)
+        thread = holder._thread
+        holder.stop()
+        assert not thread.is_alive(), (
+            "stop() returned with the degraded acceptor thread still "
+            "running its own accept()/poll() on the socket stop() just "
+            "closed"
+        )
+
+    def case_stop_from_the_supervisor_thread_itself_does_not_deadlock(
+            self, tmp_path, monkeypatch):
+        """T1193: once a degraded retry lands, it keeps supervising on the
+        SAME thread (ONE THREAD) -- so a clean, unpinned exit reached from
+        THERE calls `self.stop()` from inside `self._thread` itself.
+        `Thread.join()` on the CURRENT thread raises `RuntimeError` rather
+        than returning; unguarded, that used to escape `_supervise_locked`'s
+        `code == 0` release path uncaught, skip `self._srv.close()`, and
+        leave the port bound with a traceback printed instead of a clean
+        release."""
+        holder, procs, spawn_calls, _ = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=False, recovers=True)
+        try:
+            deadline = time.time() + 5
+            while holder._degraded and time.time() < deadline:
+                time.sleep(0.02)
+            assert not holder._degraded, "premise: the retry never landed"
+
+            thread = holder._thread
+            procs[-1].exit(0)  # clean exit; not pinned by default here
+            deadline = time.time() + 5
+            while thread.is_alive() and time.time() < deadline:
+                time.sleep(0.02)
+            assert not thread.is_alive(), (
+                "the supervisor thread never ended after its own "
+                "clean-exit stop() call -- a RuntimeError from joining "
+                "itself would leave it parked instead"
+            )
+            assert holder._stop, "stop() never ran on the clean unpinned exit"
+            with pytest.raises(OSError):
+                holder._srv.getsockname()  # closed sockets raise on this
+        finally:
+            holder.stop()
+
+    def case_a_degraded_promotion_retries_and_recovers_once_pinned(
+            self, tmp_path, monkeypatch):
+        """The SAME retry, driven from the capped-promotion site
+        (`start()`'s own degraded-branch startup, T1294/T1193) instead of
+        an ordinary crash loop: `start()` there starts `self._thread`
+        straight into `_supervise`'s degraded branch and returns without
+        blocking, so THAT thread's retry loop is the only thing keeping
+        the process up, and recovery must still land a real daemon."""
+        holder, procs, spawn_calls, n_before = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=True, recovers=True)
+        try:
+            deadline = time.time() + 5
+            while getattr(holder, "_degraded") and time.time() < deadline:
+                time.sleep(0.02)
+            assert not holder._degraded, (
+                "the promotion's retry never un-degraded once the fault "
+                "cleared"
+            )
+            assert len(procs) > n_before, (
+                "no fresh daemon was actually spawned by the promotion's "
+                "retry"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_degraded_promotion_re_degrades_if_the_retry_still_fails(
+            self, tmp_path, monkeypatch):
+        """Same as the `_supervise`-side re-degrade case, driven from the
+        capped-promotion site instead. Waits for TWO retry attempts, not
+        one, and proves the acceptor RELAYS, not merely listens -- same
+        reasoning as the ordinary-crash-loop sibling above."""
+        holder, procs, spawn_calls, _ = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=True, recovers=False)
+        try:
+            n_calls_before = len(spawn_calls)
+            deadline = time.time() + 5
+            while len(spawn_calls) < n_calls_before + 2 and time.time() < deadline:
+                time.sleep(0.02)
+            assert len(spawn_calls) >= n_calls_before + 2, (
+                f"only {len(spawn_calls) - n_calls_before} retry attempt(s) "
+                f"-- the promotion's degraded loop must keep retrying every "
+                f"_HOLD_DEGRADE_RETRY_S, not stop after the first failure"
+            )
+            deadline = time.time() + 2
+            while not holder._degraded and time.time() < deadline:
+                time.sleep(0.02)
+            assert holder._degraded, (
+                "a promotion retry that failed outright left the holder "
+                "un-degraded with nothing accepting"
+            )
+            _assert_degraded_acceptor_relays(holder.port)
+        finally:
+            holder.stop()
+
+    def case_a_capped_promotion_that_recovers_places_a_standby(
+            self, tmp_path, monkeypatch):
+        """T1193: `start()`'s own post-spawn `_spawn_standby()` call never
+        runs for a capped promotion -- it returns False before reaching
+        that line (`case_promotion_with_an_always_raising_spawn_reports_
+        failure` covers exactly that report). Once the DEGRADED RETRY
+        lands instead, nothing else ever asked for a standby before
+        T1193, so a promotion that recovered this way ran with none,
+        permanently. `_supervise`'s degraded branch must place one
+        itself, wrapped the same way `start()`'s own call is."""
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import PortHolder, ensure_ca
+
+        ensure_ca(tmp_path, "api.anthropic.com")
+        monkeypatch.setattr(PortHolder, "_backoff", staticmethod(lambda n: 0.0))
+        monkeypatch.setattr(PortHolder, "_reap_standby", lambda self: None)
+        monkeypatch.setattr(pin_proxy, "_HOLD_DEGRADE_RETRY_S", 0.05)
+
+        standby_calls = []
+        monkeypatch.setattr(PortHolder, "_spawn_standby",
+                            lambda self: standby_calls.append(1))
+
+        procs = []
+        spawn_calls = []
+        # GATED ON `observed`, same reasoning as `_drive_degrade_and_retry`:
+        # the post-cap retry can land within ~50ms of the cap, inside a
+        # 20ms poll's own scheduling jitter on a loaded runner -- an
+        # attempt before the test has observed `_degraded` just
+        # re-degrades instead of closing the window unseen.
+        observed = threading.Event()
+
+        def _spawn(self):
+            spawn_calls.append(1)
+            if not getattr(self, "_degraded", False) or not observed.is_set():
+                # PRE-CAP: raise every attempt, the only way this reaches
+                # the cap at all -- same drive as `_drive_degrade_and_retry`.
+                raise OSError("fork: Resource temporarily unavailable")
+            proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            procs.append(proc)
+            self._proc = proc
+            self.daemon_pid = 1000 + len(spawn_calls)
+
+        monkeypatch.setattr(PortHolder, "_spawn", _spawn)
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir()
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+
+        holder = PortHolder(certdir, "1", "a@b.c", sock=srv)
+        threading.Thread(target=holder.start, daemon=True).start()
+        try:
+            deadline = time.time() + 10
+            while not getattr(holder, "_degraded", False) and time.time() < deadline:
+                time.sleep(0.02)
+            assert holder._degraded, "premise: the promotion never capped"
+            observed.set()
+
+            deadline = time.time() + 5
+            while not standby_calls and time.time() < deadline:
+                time.sleep(0.02)
+            assert standby_calls, (
+                "a capped promotion that recovered via the degraded "
+                "retry never placed a standby"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_stop_race_during_a_landed_retry_terminates_the_new_daemon(
+            self, tmp_path, monkeypatch):
+        """T1193: if `stop()` runs while a degraded retry is inside its
+        own `_spawn()`, `stop()`'s terminate pass can already have read
+        `self._proc` as the OLD (already-dead) daemon and missed the NEW
+        one the retry is about to land -- left holding the listening fd
+        with nobody left to supervise it. `_supervise`'s degraded branch
+        must re-check `self._stop` right after its own spawn lands and
+        terminate that daemon itself.
+
+        DRIVEN DIRECTLY: `_spawn` flips `self._stop` the instant the
+        second daemon lands, which is the exact race window `stop()`'s
+        own read of `self._proc` could have missed -- a real two-thread
+        race would need to win a timing window this narrow to prove
+        anything reliably."""
+        from cswap_pin import proxy as pin_proxy
+        from cswap_pin.proxy import PortHolder
+
+        monkeypatch.setattr(pin_proxy, "_HOLD_DEGRADE_RETRY_S", 0.05)
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir()
+
+        srv = socket.socket()
+        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+
+        procs = []
+
+        def _spawn(self):
+            proc = TestASpawnFailureIsNotFatal._BlockingProc()
+            procs.append(proc)
+            self._proc = proc
+            self.daemon_pid = 1000 + len(procs)
+            if len(procs) == 1:
+                # THE RACE: stop() runs concurrently and (in the real
+                # bug) already read the OLD self._proc before this one
+                # landed.
+                self._stop = True
+
+        monkeypatch.setattr(PortHolder, "_spawn", _spawn)
+
+        holder = PortHolder(certdir, "1", "a@b.c", sock=srv)
+        holder.degrade_now()
+        holder._thread = threading.Thread(target=holder._supervise, daemon=True)
+        holder._thread.start()
+        try:
+            deadline = time.time() + 5
+            while not procs and time.time() < deadline:
+                time.sleep(0.02)
+            assert procs, "premise: the degraded retry never landed a daemon"
+
+            deadline = time.time() + 5
+            while procs[0].returncode is None and time.time() < deadline:
+                time.sleep(0.02)
+            assert procs[0].returncode is not None, (
+                "the landed retry's own daemon was never terminated after "
+                "stop() raced it -- it lives on holding the listening fd"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_landed_retry_that_crashes_at_once_still_re_degrades(
+            self, tmp_path, monkeypatch):
+        """T1193: `_supervise`'s degraded branch presets `self._failures =
+        _HOLD_DEGRADE_AT - 1` right before its own retry lands ("ONE
+        ATTEMPT PER WAKE, NOT A FRESH LADDER") so a daemon that crashes
+        AT ONCE, right behind a `Popen` that itself succeeded, re-degrades
+        on the very next lap instead of climbing a fresh ladder of
+        `_HOLD_DEGRADE_AT` crashes first -- a `Popen` landing and the
+        daemon it started staying up are two different things, and only
+        the first is what a bare spawn success proves. Driven three
+        times in a row, on the SAME supervisor thread throughout (T1193:
+        ONE THREAD, ONE LOOP): reverting the preset back to
+        `self._failures = 0` turns this red (checked directly: revert,
+        run, restore)."""
+        from cswap_pin.proxy import PortHolder
+
+        supervise_threads = set()
+        real_supervise = PortHolder._supervise
+
+        def _tracking_supervise(self):
+            supervise_threads.add(threading.get_ident())
+            return real_supervise(self)
+
+        monkeypatch.setattr(PortHolder, "_supervise", _tracking_supervise)
+
+        holder, procs, spawn_calls, _ = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=False, recovers=False)
+        try:
+            # A FRESH `_spawn`, gated the same way `_drive_degrade_and_
+            # retry`'s own `observed` is: a retry lands only once this
+            # thread has released the gate, so the immediate crash below
+            # can never be missed behind an un-gated auto-recovery.
+            observed = threading.Event()
+
+            def _spawn(self):
+                if getattr(self, "_degraded", False) and not observed.is_set():
+                    raise OSError("fork: Resource temporarily unavailable")
+                proc = TestASpawnFailureIsNotFatal._BlockingProc()
+                procs.append(proc)
+                self._proc = proc
+                self.daemon_pid = 1000 + len(procs)
+
+            monkeypatch.setattr(PortHolder, "_spawn", _spawn)
+
+            for i in range(3):
+                n_before = len(procs)
+                observed.set()
+                deadline = time.time() + 5
+                while len(procs) <= n_before and time.time() < deadline:
+                    time.sleep(0.01)
+                assert len(procs) > n_before, (
+                    f"retry #{i + 1} of the failed-after-start cycle "
+                    f"never landed a successor"
+                )
+                # RE-ARM THE GATE before the crash, so the automatic
+                # recovery cannot land -- and clear _degraded -- before
+                # this thread gets to observe the re-degrade the crash
+                # below is about to cause.
+                observed.clear()
+                procs[-1].exit(1)
+                deadline = time.time() + 5
+                while not holder._degraded and time.time() < deadline:
+                    time.sleep(0.01)
+                assert holder._degraded, (
+                    f"crash #{i + 1} right after landing did not "
+                    f"re-degrade within one lap -- self._failures must "
+                    f"survive the landing at _HOLD_DEGRADE_AT - 1 rather "
+                    f"than reset to 0"
+                )
+
+            assert len(supervise_threads) == 1, (
+                f"{len(supervise_threads)} distinct supervisor thread(s) "
+                f"ran _supervise across the re-degrade cycles -- T1193 "
+                f"is ONE THREAD, never one per re-degrade"
+            )
+        finally:
+            holder.stop()
+
+    def case_the_clean_exit_still_pinned_cap_also_blocks_on_the_retry(
+            self, tmp_path, monkeypatch):
+        """T1193's own coverage gap: `_supervise`'s clean-exit-still-pinned
+        respawn (`code == 0`, pin still set) climbs `_spawn_retrying`'s
+        OWN ladder to the cap the same as an ordinary crash does, but
+        NOTHING before this case ever drove it there -- calling
+        `degrade_now()` here without also looping back into the SAME
+        thread's degraded branch would leave every existing case green.
+        The supervisor thread staying alive (blocked in that branch, not
+        ended) is what only this case, not `degrade_now()` alone, can
+        prove."""
+        from cswap_pin.proxy import _HOLD_DEGRADE_AT
+
+        holder, procs, spawn_calls = (
+            self._respawn_after_exit_survives_a_raising_spawn(
+                tmp_path, monkeypatch, 0, raises=_HOLD_DEGRADE_AT, pinned=True))
+        try:
+            deadline = time.time() + 5
+            while not getattr(holder, "_degraded", False) and time.time() < deadline:
+                time.sleep(0.02)
+            assert holder._degraded, (
+                "premise: the ladder never capped inside the clean-exit "
+                "still-pinned respawn"
+            )
+            assert holder._thread.is_alive(), (
+                "the supervisor thread ended instead of blocking in its "
+                "own degraded branch at the clean-exit still-pinned site"
+            )
+        finally:
+            holder.stop()
+
+    def case_the_redeploy_respawn_cap_also_blocks_on_the_retry(
+            self, tmp_path, monkeypatch):
+        """Same coverage gap, at the `code == _RESTART_ME_CODE` respawn
+        site."""
+        from cswap_pin.proxy import _HOLD_DEGRADE_AT, _RESTART_ME_CODE
+
+        holder, procs, spawn_calls = (
+            self._respawn_after_exit_survives_a_raising_spawn(
+                tmp_path, monkeypatch, _RESTART_ME_CODE,
+                raises=_HOLD_DEGRADE_AT))
+        try:
+            deadline = time.time() + 5
+            while not getattr(holder, "_degraded", False) and time.time() < deadline:
+                time.sleep(0.02)
+            assert holder._degraded, (
+                "premise: the ladder never capped inside the redeploy "
+                "(exit 75) respawn"
+            )
+            assert holder._thread.is_alive(), (
+                "the supervisor thread ended instead of blocking in its "
+                "own degraded branch at the redeploy respawn site"
+            )
+        finally:
+            holder.stop()
+
+    def case_a_replace_request_to_a_degraded_holder_neither_deadlocks_nor_races(
+            self, tmp_path, monkeypatch):
+        """T1193: a SIGUSR1 "replace me" arriving at a degraded holder
+        must never deadlock (`_supervise`'s own `with self._replace_lock:`
+        must never wrap the now-indefinite degraded-branch wait) and
+        must never spawn a daemon beside the still-accepting degraded
+        acceptor (the two-acceptors-on-one-socket bug `test_meta.py:388`
+        bans) -- it can only decline. Driven directly (`_on_replace_
+        request` is the SIGUSR1 handler body, called here without a
+        signal so the case is not racing tgkill), on a REAL degraded
+        holder reached via the SAME crash-loop drive the recovery cases
+        above use (a COLD START's own `_spawn()` failure raises straight
+        out of `start()`, per its own contract, and never reaches
+        `degrade_now()` at all -- there is nothing to install a replace
+        handler over there), from a separate thread so a deadlock hangs
+        this case instead of the whole suite."""
+        from cswap_pin import proxy as pin_proxy
+
+        holder, procs, spawn_calls, _ = self._drive_degrade_and_retry(
+            tmp_path, monkeypatch, promotion=False, recovers=False)
+        try:
+            # DECLINED, NOT MERELY "no new spawn count" -- the background
+            # retry (patched to 0.05s by the shared drive) keeps calling
+            # `_spawn` on its own regardless of this request, so a bare
+            # counter comparison would pass or fail on THAT timing, not on
+            # what `_on_replace_request` itself did. The log line it emits
+            # only on the decline path is unambiguous either way.
+            lines = []
+            monkeypatch.setattr(pin_proxy, "_log_lifecycle", lines.append)
+
+            replier = threading.Thread(
+                target=holder._on_replace_request, args=(0, None), daemon=True)
+            replier.start()
+            replier.join(timeout=3)
+            assert not replier.is_alive(), (
+                "_on_replace_request deadlocked against a degraded "
+                "holder's own indefinite degraded-branch wait"
+            )
+            assert any("replace request" in l and "ignored" in l for l in lines), (
+                f"no decline line from a replace request against a "
+                f"degraded holder -- it either spawned a daemon beside "
+                f"the still-accepting degraded acceptor, or said nothing: "
+                f"{lines}"
+            )
+        finally:
+            holder.stop()
+
+    def case_join_for_signals_is_a_timed_loop_not_a_bare_join(self, tmp_path):
+        """T1193: `holder_main` and `_standby_revive` both used to park
+        their MAIN thread in a bare, untimed `Thread.join()` over the
+        supervisor (or, now, the degraded-retry) thread -- and that
+        thread can now run for the REST OF THE PROCESS'S LIFE once a
+        degrade retries forever instead of ending it. CPython runs a
+        signal callback on the MAIN thread only, and only when that
+        thread next returns to bytecode -- a main thread blocked in an
+        untimed `Thread.join()` never does, so a SIGTERM the kernel
+        delivers to a DIFFERENT thread is dropped for as long as the join
+        never returns (measured on the ANALOGOUS `daemon_main` bug,
+        `case_a_term_is_never_dropped_by_a_parked_main_thread` above).
+        `_join_for_signals` fixes it with a bounded, repeated join, same
+        0.5s `daemon_main`'s own `done.wait(0.5)` uses.
+
+        DRIVEN ON THE STRUCTURE, not with a real signal: a real `tgkill`
+        across `os.fork()` measures the KERNEL and CPython's C-level
+        signal plumbing together, and in this sandbox that combination
+        did not reliably wake even the ALREADY-timed `done.wait(0.5)`
+        loop the daemon side uses -- a sandbox artifact, not a property
+        of this code, and not this case's to chase (never test a
+        refusal, or a fix, with a real signal where the harness itself
+        is the unknown). A fake thread that records each `join(timeout=)`
+        call is what actually discriminates: it fails the moment either
+        `_join_for_signals` reaches an untimed line, or degrades to a
+        single call instead of a loop."""
+        from cswap_pin.proxy import _join_for_signals
+
+        class _FakeThread:
+            """`is_alive()` answers YES for `still_alive_for` calls, then
+            NO -- so returning at all requires the LOOP to have actually
+            re-checked it, not just made one `join()` call and trusted
+            it."""
+
+            def __init__(self, still_alive_for):
+                self.still_alive_for = still_alive_for
+                self.join_calls = []
+                self._checks = 0
+
+            def is_alive(self):
+                self._checks += 1
+                return self._checks <= self.still_alive_for
+
+            def join(self, timeout=None):
+                self.join_calls.append(timeout)
+
+        fake = _FakeThread(still_alive_for=3)
+        _join_for_signals(fake)
+
+        assert fake.join_calls, "_join_for_signals never called join() at all"
+        assert len(fake.join_calls) >= 3, (
+            f"only {len(fake.join_calls)} join() call(s) -- a single call "
+            f"is the untimed-join shape this case exists to catch"
+        )
+        assert all(t is not None and t <= 1.0 for t in fake.join_calls), (
+            f"an untimed (None) or long join() call would drop a SIGTERM "
+            f"delivered to a different thread: {fake.join_calls}"
+        )
+
+    def case_holder_main_and_standby_revive_call_join_for_signals(self):
+        """`case_join_for_signals_is_a_timed_loop_not_a_bare_join` covers
+        only the helper itself -- reverting either CALL SITE
+        (`holder_main` or `_standby_revive`) back to a bare
+        `holder._thread.join()` stays green there, since the helper was
+        never exercised. ASSERTED ON THE PARSE TREE (test_meta.py style):
+        both functions start real threads and install real signal
+        handlers, so reconstructing them end to end is a harness that can
+        be wrong in its own right."""
+        import ast
+        import inspect
+        import textwrap
+
+        from cswap_pin import proxy as pin_proxy
+
+        for fn in (pin_proxy.holder_main, pin_proxy._standby_revive):
+            tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+            calls = [
+                n for n in ast.walk(tree)
+                if isinstance(n, ast.Call)
+                and getattr(n.func, "id", None) == "_join_for_signals"
+            ]
+            assert calls, (
+                f"{fn.__name__} no longer calls _join_for_signals(...) -- "
+                f"a bare holder._thread.join() there drops a SIGTERM the "
+                f"kernel delivers to a different thread while this one is "
+                f"parked in an untimed join"
+            )
 
 
 class TestHolderCrashIsSurvivable:
@@ -8982,10 +10330,22 @@ class TestRefcount:
         cfg.write_text(_json.dumps({"env": {"CSWAP_PIN_PORT": "59999"}}))  # not us
         monkeypatch.setattr(paths, "get_global_config_path", lambda: cfg)
         monkeypatch.setattr("cswap_pin.proxy._CLAIM_RECHECK_INTERVAL", 0.05)
+        # A MUTABLE CLAIM, not a fixed `lambda: 1` — see the 00:41:13Z case's
+        # own comment on this. The thread below is daemon=True and loops on
+        # its own past this assertion once claimed; with no claim left to
+        # drop it would keep ticking `_is_claimed` past THIS test's own
+        # monkeypatches (`paths.get_global_config_path` above), reading real
+        # host state — `~/.claude.json`, `/proc/net/tcp` — from a thread
+        # nothing is watching after `monkeypatch.undo()` restores them.
+        # Flipping this to 0 after the assertions lets the same loop tear
+        # itself down so the thread can be joined before the test returns.
         # A live Remote Control tunnel is the claim carrying this — the same
         # channel-only shape as the 00:41:13Z case, so `live_clients` alone
         # cannot be what keeps `_is_claimed` from ending the claim here.
-        monkeypatch.setattr(pin_proxy._PUMP, "live_pairs", lambda *a, **k: 1)
+        claim = {"channel": 1}
+        monkeypatch.setattr(
+            pin_proxy._PUMP, "live_pairs", lambda *a, **k: claim["channel"]
+        )
 
         republished = []
 
@@ -8996,26 +10356,37 @@ class TestRefcount:
         holder = os.open(fifo, os.O_RDWR)  # a wrapper-launched session attaches
         reached = _watch_blocking_phase(monkeypatch)  # as above
         fired = threading.Event()
-        threading.Thread(
+        thread = threading.Thread(
             target=watch_refcount,
             args=(fifo, fired.set),
             kwargs={"live_clients": lambda: 0, "republish": _republish},
             daemon=True,
-        ).start()
-        assert reached.wait(timeout=5.0), "watcher never reached the blocking read"
-        os.close(holder)  # the last FIFO holder leaves, with the record missing
-        assert not fired.wait(timeout=0.3), (
-            "watch_refcount tore the daemon down on the EOF re-check even "
-            "though a channel was still live"
         )
-        assert republished == [1], (
-            "the EOF-recheck door never called republish — only the "
-            "first-holder-timeout door (00:41:13Z case) is covered"
-        )
-        assert pin_proxy.read_daemon_state(certdir) == {
-            "port": 40404, "pid": os.getpid(),
-            "fingerprint": daemon_fingerprint(),
-        }, "republish ran but did not actually restore the record"
+        thread.start()
+        try:
+            assert reached.wait(timeout=5.0), (
+                "watcher never reached the blocking read"
+            )
+            os.close(holder)  # the last FIFO holder leaves, with the record missing
+            assert not fired.wait(timeout=0.3), (
+                "watch_refcount tore the daemon down on the EOF re-check even "
+                "though a channel was still live"
+            )
+            assert republished == [1], (
+                "the EOF-recheck door never called republish — only the "
+                "first-holder-timeout door (00:41:13Z case) is covered"
+            )
+            assert pin_proxy.read_daemon_state(certdir) == {
+                "port": 40404, "pid": os.getpid(),
+                "fingerprint": daemon_fingerprint(),
+            }, "republish ran but did not actually restore the record"
+        finally:
+            # STOP THE THREAD before the test returns — see `claim` above.
+            claim["channel"] = 0
+            assert fired.wait(timeout=3.0), (
+                "watch_refcount thread never stopped during test cleanup"
+            )
+            thread.join(timeout=3.0)
 
 
 # The badge is rendered by `claude_swap.tui.autoview`, and the version that
@@ -9262,6 +10633,45 @@ class TestKillDaemon:
         log = pin_proxy.daemon_log_path(certdir).read_text()
         assert "misses" not in log and "worker_alive_age" not in log, (
             f"an absent evidence kwarg was printed as text anyway: {log!r}")
+
+    def case_logs_the_killers_parent_too(self, monkeypatch, tmp_path):
+        """`by_pid` names the killer; nothing names the killer's OWN
+        parent, so a log naming only `by_pid=<this test runner's own pid>`
+        gives a reader no way to tell one caller's process tree from
+        another's without a second, out-of-band lookup. Named `by_parent`,
+        never `ppid` -- the sibling case's control still guards the
+        substring `ppid=` from reappearing."""
+        import os
+        import time
+
+        from cswap_pin import proxy as pin_proxy
+
+        certdir = tmp_path / "pin-proxy"
+        certdir.mkdir()
+        monkeypatch.setattr(pin_proxy.os, "kill", lambda pid, sig: None)
+        monkeypatch.setattr(pin_proxy, "_pid_alive", lambda pid: False)
+        monkeypatch.setattr(time, "sleep", lambda s: None)
+
+        pin_proxy._kill_daemon(4323, certdir)
+
+        log = pin_proxy.daemon_log_path(certdir).read_text()
+        assert f"by_parent={os.getppid()}" in log, (
+            f"the killer's own parent is not in the log as `by_parent`: "
+            f"{log!r}")
+
+    def case_a_dead_pid_delivers_no_signal(self, monkeypatch):
+        """The pid was already gone -- `os.kill` raises ESRCH on the very
+        first TERM. No signal was delivered, so the caller (`heal`'s
+        `recycled`) must read False, not merely not-raise."""
+        from cswap_pin import proxy as pin_proxy
+
+        def _fake_kill(pid, sig):
+            raise OSError("No such process")
+        monkeypatch.setattr(pin_proxy.os, "kill", _fake_kill)
+
+        assert pin_proxy._kill_daemon(4324) is False, (
+            "a TERM that hit ESRCH on an already-dead pid was reported as "
+            "a signal delivered")
 
 
 class TestDaemonSignalTeardown:
@@ -9540,6 +10950,37 @@ class TestThePortIsConfigurable:
         assert pin_proxy.configured_port(certdir) == 43333
 
 
+class _Ticks:
+    """A `done` that ends the loop after N ticks, instead of a bare
+    `threading.Event()` that is never set.
+
+    Every held-replace case below drives `_watch_own_code` directly on
+    the test thread and expects it to exit (`os._exit`, stubbed to raise
+    `SystemExit`) on its FIRST pass through the held branch. A never-set
+    Event is harmless while that holds, but a regression that falls
+    through to `continue` instead of exiting would spin the `while`
+    loop forever with nothing to end it -- this bounds that to a few
+    ticks so the regression fails the assertions below instead of
+    hanging the suite. Shared with the control cases in
+    `TestABlindDaemonRepairsItself`, which act on nothing by design and
+    need the same bound to make "nothing happened" assertable rather
+    than a hang.
+    """
+
+    def __init__(self, n=3):
+        self.left = n
+
+    def wait(self, _timeout=None):
+        self.left -= 1
+        return self.left <= 0
+
+    def is_set(self):
+        return self.left <= 0
+
+    def set(self):
+        self.left = 0
+
+
 class TestDaemonPortStability:
     """A live session's HTTPS_PROXY is fixed at exec time. If a recycled
     daemon comes back on a NEW port, every already-running session keeps
@@ -9549,8 +10990,38 @@ class TestDaemonPortStability:
     recorded in proxy.json whenever it is free.
     """
 
+    _Ticks = _Ticks
+
     def test_all(self, request, tmp_path_factory):
         run_cases(self, request, tmp_path_factory)
+
+    @staticmethod
+    def _probe_no_refusal_window(addr, other_pid_seen, deadline_s=5,
+                                 connect_timeout_s=3):
+        """Poll `addr` until `other_pid_seen()` is truthy or `deadline_s`
+        elapses, with NO SLEEP between tries — a structural window here is
+        narrow, and a probe that pauses is looking away for most of what
+        it is meant to catch. Returns how many attempts were refused.
+
+        A CONNECT TIMEOUT COUNTS THE SAME AS A REFUSAL (T1294): MEASURED
+        on a macOS CI run, attempt 1 raised `TimeoutError` rather than
+        `ConnectionRefusedError` — a slow runner's own hiccup, since
+        T1274 did not change the respawn timing before or after. Bare
+        `except ConnectionRefusedError` let that escape uncaught and
+        failed the case with the wrong exception instead of a clean
+        assertion. `connect_timeout_s` is also raised past the daemon
+        case's old 2s so a slow runner is less likely to hit it at all.
+        """
+        refused = 0
+        deadline = time.monotonic() + deadline_s
+        while time.monotonic() < deadline:
+            try:
+                socket.create_connection(addr, timeout=connect_timeout_s).close()
+            except (ConnectionRefusedError, TimeoutError):
+                refused += 1
+            if other_pid_seen():
+                break
+        return refused
 
     def _accept_conn_readable(self) -> bool:
         """Whether THIS platform can read SO_ACCEPTCONN off a live socket.
@@ -10972,10 +12443,11 @@ print("OK", port)
         `_spawn_daemon`, so a FRESH holder's own `_retire_stale_standbys`
         -- which SIGHUPs every OTHER standby it finds on this port,
         including this reviving one -- landed on the default disposition
-        (terminate) instead of the SIG_IGN `standby_main` arms while idle,
-        killing the reviving standby in the middle of the very wait meant
-        to give it a successor. SIGHUP must stay untouched unless and until
-        this call falls through to the old in-place promotion."""
+        (terminate) instead of the `_release` handler `standby_main` arms
+        for SIGHUP while idle, killing the reviving standby in the middle
+        of the very wait meant to give it a successor. SIGHUP must stay
+        untouched unless and until this call falls through to the old
+        in-place promotion."""
         import json as _json
         import signal
 
@@ -11006,7 +12478,13 @@ print("OK", port)
             sig: signal.getsignal(sig)
             for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
         }
-        signal.signal(signal.SIGHUP, signal.SIG_IGN)  # standby_main's idle disposition
+        # A DISTINGUISHABLE SENTINEL, not literally what `standby_main` arms
+        # (that is `_release`, a closure local to that function and not
+        # importable here) -- what this case tests is only that
+        # `_standby_revive` leaves whatever was armed alone, so any
+        # disposition other than SIG_DFL proves the same thing `_release`
+        # would.
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
         try:
             pin_proxy._standby_revive(certdir, _Srv(), "1", "born@with.it")
             assert seen_during_spawn == [signal.SIG_IGN], (
@@ -11995,6 +13473,54 @@ print("OK", port)
 
             _reap_pin_processes(tmp_path)
 
+    def case_recycle_recognises_a_promoted_standby_as_the_holder(
+        self, tmp_path, monkeypatch
+    ):
+        """`_recycle_daemon`'s own gate asked only `_holder_owns`, which
+        matches `--hold-port` argv alone. A standby PROMOTED IN PLACE
+        (`_standby_revive`) never re-execs -- its argv still reads
+        `--standby ...` -- so `_holder_owns` answered False for it and
+        `ensure_proxy` spawned a SECOND holder for a port the promoted
+        standby's own exit-75 respawn was about to refill: the double bind
+        `_recycle_daemon`'s own docstring measures. `_wedged_parent_holder`
+        already proves the STRONGER claim -- this pid's OWN parent is a
+        holder OR a promoted standby for THIS certdir -- the same reason
+        `heal`'s own wedge branch stopped `and`-ing `_holder_owns` in.
+        """
+        from cswap_pin import proxy
+
+        stale_pid = 60001
+        killed = []
+        monkeypatch.setattr(
+            proxy, "_kill_daemon", lambda pid, cd=None, **k: killed.append(pid))
+
+        # THE ROW UNDER TEST: no `--hold-port` holder, but the pid's own
+        # parent is a promoted `--standby`.
+        monkeypatch.setattr(proxy, "_holder_owns", lambda cd: False)
+        monkeypatch.setattr(
+            proxy, "_wedged_parent_holder",
+            lambda pid, cd: 424242 if pid == stale_pid else None)
+        assert proxy._recycle_daemon(tmp_path, stale_pid) is True, (
+            "a promoted standby holding the port was not recognised as the "
+            "holder -- ensure_proxy starts a second one over it"
+        )
+        assert killed == [stale_pid]
+
+        # CONTROL: an ordinary --hold-port holder, `_holder_owns` alone,
+        # must still read True.
+        killed.clear()
+        monkeypatch.setattr(proxy, "_holder_owns", lambda cd: True)
+        monkeypatch.setattr(proxy, "_wedged_parent_holder", lambda pid, cd: None)
+        assert proxy._recycle_daemon(tmp_path, stale_pid) is True
+
+        # CONTROL: a plain parent, neither a holder nor a promoted standby,
+        # must still read False -- guessing True would skip a recycle that
+        # was asked for.
+        killed.clear()
+        monkeypatch.setattr(proxy, "_holder_owns", lambda cd: False)
+        monkeypatch.setattr(proxy, "_wedged_parent_holder", lambda pid, cd: None)
+        assert proxy._recycle_daemon(tmp_path, stale_pid) is False
+
     def case_an_idle_teardown_under_a_holder_still_unwires(self, tmp_path):
         """A holder's bare socket is not "somebody else is serving".
 
@@ -12155,21 +13681,63 @@ print("OK", port)
             # own local repro missed it 8 runs out of 8. A probe that pauses
             # 20 ms between attempts is looking away for most of the window it
             # is meant to catch.
-            refused = 0
-            deadline = time.monotonic() + 5
-            while time.monotonic() < deadline:
-                try:
-                    socket.create_connection(("127.0.0.1", port), timeout=2).close()
-                except ConnectionRefusedError:
-                    refused += 1
-                if holder.daemon_pid not in (None, first):
-                    break
+            refused = self._probe_no_refusal_window(
+                ("127.0.0.1", port),
+                lambda: holder.daemon_pid not in (None, first))
             assert refused == 0, f"{refused} connections refused while the daemon was dead"
             assert holder.daemon_pid not in (None, first), (
                 "the holder did not restart the daemon it supervises"
             )
         finally:
             holder.stop()
+
+    def case_a_connect_timeout_does_not_escape_the_no_refusal_probe(
+            self, tmp_path):
+        """T1294: MEASURED on a macOS CI run (36189117014, attempt 1) --
+        the SIGKILL case's own polling loop raised a bare `TimeoutError`
+        instead of `ConnectionRefusedError`, once, on a slow runner (T1274
+        did not change the respawn timing before or after, so the daemon
+        side is not what moved). The loop caught only
+        `ConnectionRefusedError` and had no sleep, so that escaped
+        uncaught. Reproduced here the same way T1272 did, deterministic
+        and without a real daemon or SIGKILL: fill a real listener's
+        backlog by completing handshakes and never accepting them, so the
+        NEXT connect times out rather than being refused."""
+        lsn = socket.socket()
+        lsn.bind(("127.0.0.1", 0))
+        lsn.listen(0)
+        addr = lsn.getsockname()
+
+        clients = []
+        try:
+            for _ in range(200):
+                c = socket.socket()
+                c.settimeout(0.3)
+                try:
+                    c.connect(addr)
+                    clients.append(c)
+                except OSError:
+                    c.close()
+                    break
+            else:
+                raise AssertionError(
+                    "never filled the backlog — the queue kept accepting"
+                )
+
+            # A SATURATED BACKLOG FOR THE WHOLE PROBE: `other_pid_seen`
+            # never fires, so this runs to its own short deadline and
+            # every attempt inside it must hit the timeout this case
+            # exists to reproduce.
+            refused = TestDaemonPortStability._probe_no_refusal_window(
+                addr, lambda: False, deadline_s=0.6, connect_timeout_s=0.2)
+            assert refused >= 1, (
+                "premise: the saturated backlog never actually produced "
+                "a connect timeout for the probe to survive"
+            )
+        finally:
+            for c in clients:
+                c.close()
+            lsn.close()
 
     def case_a_term_is_never_dropped_by_a_parked_main_thread(self, tmp_path):
         """One SIGTERM must be enough, whichever thread the kernel picks.
@@ -12211,13 +13779,13 @@ print("OK", port)
 
         from cswap_pin.proxy import PortHolder, ensure_ca, read_daemon_state
 
-        # AN EARLY RETURN, NEVER `pytest.skip` -- `run_cases` invokes every
-        # `case_*` by hand and its `except Exception` does not catch
-        # `Skipped` (it is a `BaseException`), so a skip here ESCAPES the
-        # loop and ends every case sorted after this one for the whole
-        # class, silently, on whatever host lacks tgkill (every macOS CI
-        # runner). A plain return makes this case inapplicable there
-        # without taking its siblings down with it.
+        # AN EARLY RETURN, NOT `pytest.skip` -- `run_cases` now catches
+        # `Skipped` (a `BaseException`, so `except Exception` alone still
+        # would not) and records it per case instead of ending the loop, so
+        # a skip here would no longer take its siblings down either. Kept as
+        # a plain return anyway: it reads PASSED on whatever host lacks
+        # tgkill (every macOS CI runner), instead of the SKIPPED a
+        # `pytest.skip` there would report.
         if sys.platform != "linux":
             return
 
@@ -12275,27 +13843,30 @@ print("OK", port)
     def case_the_non_linux_early_exit_never_raises_skipped(
             self, tmp_path, monkeypatch):
         """`pytest.skip` inside a `case_*` raises `Skipped`, a
-        `BaseException` -- `run_cases`'s own `except Exception` does not
-        catch it (`Skipped` is not one), so it ESCAPES the loop and ends
-        every case sorted after this one for the whole class, silently, on
-        whatever host takes the non-Linux branch above (every macOS CI
-        runner). Called directly here, platform forced non-Linux, so the
-        assertion is about this method's OWN control flow -- an early
-        `return` -- not about which host happens to run the suite."""
+        `BaseException` -- `run_cases` now catches it and records it per
+        case instead of letting it escape, so this no longer costs the whole
+        class its later cases either. Still called and caught directly here,
+        platform forced non-Linux: the assertion is about this method's OWN
+        control flow -- an early `return`, never a skip -- and that direct
+        call-and-catch is what makes a `pytest.skip` regression here read
+        FAILED via run_cases instead of SKIPPED, not about which host
+        happens to run the suite."""
         import sys
 
         monkeypatch.setattr(sys, "platform", "darwin")
         # Must return cleanly. A `pytest.skip` here would raise `Skipped`
-        # right through this call -- caught here, or it escapes uncaught
-        # same as it would from `run_cases` itself, and this case reports
-        # SKIPPED instead of the FAILED a regression must produce.
+        # right through this call, caught below. Since #49 `run_cases`
+        # itself no longer lets a `Skipped` escape -- it records it per case
+        # and moves on -- so without this direct call and catch, a
+        # regression that turned this branch's `return` into a
+        # `pytest.skip` would just have that case read SKIPPED, not FAILED.
         try:
             self.case_a_term_is_never_dropped_by_a_parked_main_thread(tmp_path)
         except BaseException as exc:
             raise AssertionError(
                 f"the non-Linux branch raised {type(exc).__name__} instead "
                 f"of returning cleanly -- a pytest.skip regression here "
-                f"escapes run_cases entirely: {exc}"
+                f"would read SKIPPED instead of FAILED via run_cases: {exc}"
             ) from exc
 
     def case_a_connection_is_counted_before_its_thread_runs(self, tmp_path):
@@ -12618,8 +14189,6 @@ print("OK", port)
         # the fix — the fix is that the code-change path takes the exit branch
         # instead of the hand-over branch. Drive it with a stub server and a
         # fingerprint that never matches, and assert it never spawns.
-        import threading
-
         spawned = []
         exited = []
 
@@ -12634,13 +14203,28 @@ print("OK", port)
         real_exit = os._exit
         real_kill = os.kill
         signalled = []
+
         # STUB THE SIGNAL. `_HELD_BY_ENV` below is set to this process's REAL
         # parent so `held_by_a_holder()` is true — which means the code under
         # test would send SIGUSR1 to the actual pytest process. It did: the
         # xdist workers died with "cannot send (already closed?)", because
         # USR1's default disposition is terminate. In production that pid is a
         # holder that installed a handler; in a test it is whoever ran pytest.
-        os.kill = lambda pid, sig: signalled.append((pid, sig))
+        #
+        # THE SUCCESSOR'S OWN PUBLISH is written HERE, as a side effect of the
+        # ask itself, rather than before this function is ever called: the
+        # wait now matches identity against whatever `proxy.json` named the
+        # INSTANT BEFORE the ask (see `_await_successor_state`), so a record
+        # already sitting there before the ask would be read as pre-existing,
+        # not as the successor this ask produces. Publishing it exactly when
+        # the ask lands is what still makes the very first poll find it, so
+        # this case keeps measuring the exit, not the wait.
+        def _kill_and_publish(pid, sig):
+            signalled.append((pid, sig))
+            pin_proxy.write_daemon_state(
+                tmp_path, 36301, os.getpid() + 1, pin_proxy.daemon_fingerprint())
+
+        os.kill = _kill_and_publish
         pin_proxy._spawn_daemon = lambda *a, **k: spawned.append(a) or 1234
         os._exit = lambda code: exited.append(code) or (_ for _ in ()).throw(
             SystemExit(code)
@@ -12652,7 +14236,7 @@ print("OK", port)
         os.environ[pin_proxy._HOLDER_REPLACE_ENV] = "1"
         try:
             pin_proxy._watch_own_code(
-                _Srv(), "1", "a@b.c", tmp_path, threading.Event(),
+                _Srv(), "1", "a@b.c", tmp_path, self._Ticks(),
                 lambda *a: None, interval=0.01,
                 _own_fingerprint="never-matches",
             )
@@ -12681,6 +14265,198 @@ print("OK", port)
         assert exited == [0], (
             f"a daemon that asked for a replacement exited {exited} — 75 tells "
             f"the holder to spawn AGAIN, on top of the successor it just made"
+        )
+
+    def case_a_held_daemon_with_no_successor_takes_the_exit_75_fallback(
+        self, tmp_path, monkeypatch
+    ):
+        """(a): a wait that never finds a successor takes the SAME fallback a
+        holder-less ask already takes, not a retry.
+
+        Pass 2 kept the daemon serving on a timed-out wait and rechecked on a
+        later tick -- a second recovery path duplicating what the exit-75
+        fallback (a few lines up in the source, for "no holder pid at all")
+        already does: release, drain `_HELD_DRAIN_SECONDS`, then
+        `os._exit(_RESTART_ME_CODE)`, and let the supervisor respawn.
+        `_supervise` already handles that exit correctly whether or not the
+        replace handler ever ran, so a second, home-grown recovery bought
+        nothing the fallback did not already have.
+
+        Reproduced by never publishing a successor record at all: the ask
+        lands, the holder survives it, and `_SPAWN_WAIT_S` elapses with
+        nothing on disk.
+        """
+        from cswap_pin import proxy as pin_proxy
+
+        released = []
+
+        class _Srv:
+            def release_listener(self, hand_down=False):
+                released.append(hand_down)
+                return 7 if hand_down else None
+
+            def await_inflight(self, budget):
+                pass
+
+        exited = []
+        monkeypatch.setattr(
+            os, "_exit",
+            lambda code: exited.append(code) or (_ for _ in ()).throw(
+                SystemExit(code)))
+        # STUBBED, not real: `_HELD_BY_ENV` below names the real pytest
+        # parent, and an unstubbed `os.kill` sends SIGUSR1 to it.
+        signalled = []
+        monkeypatch.setattr(
+            os, "kill", lambda pid, sig: signalled.append((pid, sig)))
+        monkeypatch.setattr(pin_proxy, "_ASK_SETTLE_SECONDS", 0)
+        # SHORT, so a case that is RIGHT to give up does not cost this
+        # suite ten seconds -- the budget itself is covered separately.
+        monkeypatch.setattr(pin_proxy, "_SPAWN_WAIT_S", 0.1)
+        monkeypatch.setenv(pin_proxy._HELD_BY_ENV, str(os.getppid()))
+        monkeypatch.setenv(pin_proxy._HOLDER_REPLACE_ENV, "1")
+
+        try:
+            pin_proxy._watch_own_code(
+                _Srv(), "1", "a@b.c", tmp_path, self._Ticks(),
+                lambda *a: None, interval=0.05,
+                _own_fingerprint="never-matches",
+            )
+        except SystemExit:
+            pass
+
+        assert pin_proxy.read_daemon_state(tmp_path) is None, (
+            "premise: this case never publishes a successor record"
+        )
+        assert exited == [pin_proxy._RESTART_ME_CODE], (
+            f"a wait that found no successor exited {exited} -- the holder "
+            f"surviving the ask proves only that IT is alive, nothing about "
+            f"a successor, and the fallback is exit "
+            f"{pin_proxy._RESTART_ME_CODE}, the same one a holder-less ask "
+            f"already takes"
+        )
+        assert released == [False], (
+            f"released {released} -- the fallback releases the plain way "
+            f"(`release_listener()`, no hand-down) exactly once, at the "
+            f"point it gives up, never before"
+        )
+        # `_pid_alive`'s own liveness probe is ALSO `os.kill(pid, 0)`, so this
+        # filters to the REPLACE signal specifically -- counting every call
+        # would count that probe as a second ask.
+        asks = [s for s in signalled if s[1] == pin_proxy._REPLACE_ME_SIGNAL]
+        assert len(asks) == 1, (
+            f"asked the holder {len(asks)} time(s): {signalled} -- the ask "
+            f"happens once per process, because every path out of the held "
+            f"branch exits"
+        )
+
+    def case_a_held_daemon_waits_for_its_successors_own_publish(
+        self, tmp_path, monkeypatch
+    ):
+        """(b): a successor that publishes LATE is still waited for, not
+        raced past the instant the holder answers alive."""
+        import threading
+        import time as _time
+
+        from cswap_pin import proxy as pin_proxy
+
+        class _Srv:
+            def release_listener(self, hand_down=False):
+                return 7 if hand_down else None
+
+            def await_inflight(self, budget):
+                pass
+
+        exited = []
+        monkeypatch.setattr(
+            os, "_exit",
+            lambda code: exited.append(code) or (_ for _ in ()).throw(
+                SystemExit(code)))
+        monkeypatch.setattr(os, "kill", lambda pid, sig: None)
+        monkeypatch.setattr(pin_proxy, "_ASK_SETTLE_SECONDS", 0)
+        monkeypatch.setattr(pin_proxy, "_SPAWN_WAIT_S", 2.0)
+        monkeypatch.setenv(pin_proxy._HELD_BY_ENV, str(os.getppid()))
+        monkeypatch.setenv(pin_proxy._HOLDER_REPLACE_ENV, "1")
+
+        delay = 0.3
+        fp = pin_proxy.daemon_fingerprint()
+
+        def _publish_late():
+            _time.sleep(delay)
+            pin_proxy.write_daemon_state(tmp_path, 36301, os.getpid() + 1, fp)
+
+        # BEFORE `Thread.start()`, so `elapsed >= delay` holds by construction
+        # rather than by however long the thread takes to schedule.
+        started = _time.monotonic()
+        threading.Thread(target=_publish_late, daemon=True).start()
+        try:
+            pin_proxy._watch_own_code(
+                _Srv(), "1", "a@b.c", tmp_path, self._Ticks(),
+                lambda *a: None, interval=0.01,
+                _own_fingerprint="never-matches",
+            )
+        except SystemExit:
+            pass
+        elapsed = _time.monotonic() - started
+
+        assert exited == [0], (
+            f"a successor that published late was not waited for: {exited}"
+        )
+        assert elapsed >= delay, (
+            f"exited after {elapsed:.2f}s, before the successor's publish at "
+            f"{delay}s -- the ask alone was treated as enough"
+        )
+
+    def case_a_pre_existing_record_is_not_mistaken_for_the_successor(
+        self, tmp_path, monkeypatch
+    ):
+        """(d): `pre_ask_pid` excludes whatever `proxy.json` already named.
+
+        A record already sitting on disk before the ask -- a foreign
+        daemon's own publish, or simply this daemon's LAST successor from a
+        previous recycle -- must never be read as the successor THIS ask is
+        about to produce. Reproduced by writing one before the ask and never
+        publishing anything new: with the exclusion working, the wait times
+        out and takes the exit-75 fallback; broken, it would read the
+        foreign pid as a successor and exit 0 with nobody actually serving
+        behind the released port.
+        """
+        from cswap_pin import proxy as pin_proxy
+
+        class _Srv:
+            def release_listener(self, hand_down=False):
+                return 7 if hand_down else None
+
+            def await_inflight(self, budget):
+                pass
+
+        foreign_pid = os.getpid() + 999
+        pin_proxy.write_daemon_state(
+            tmp_path, 36301, foreign_pid, "some-other-fingerprint")
+
+        exited = []
+        monkeypatch.setattr(
+            os, "_exit",
+            lambda code: exited.append(code) or (_ for _ in ()).throw(
+                SystemExit(code)))
+        # NEVER PUBLISHES: the only record on disk stays the foreign one.
+        monkeypatch.setattr(os, "kill", lambda pid, sig: None)
+        monkeypatch.setattr(pin_proxy, "_ASK_SETTLE_SECONDS", 0)
+        monkeypatch.setattr(pin_proxy, "_SPAWN_WAIT_S", 0.1)
+        monkeypatch.setenv(pin_proxy._HELD_BY_ENV, str(os.getppid()))
+        monkeypatch.setenv(pin_proxy._HOLDER_REPLACE_ENV, "1")
+
+        try:
+            pin_proxy._watch_own_code(
+                _Srv(), "1", "a@b.c", tmp_path, self._Ticks(),
+                lambda *a: None, interval=0.05,
+                _own_fingerprint="never-matches",
+            )
+        except SystemExit:
+            pass
+
+        assert exited == [pin_proxy._RESTART_ME_CODE], (
+            f"a foreign pid already in proxy.json before the ask was read "
+            f"as the successor: {exited}"
         )
 
     def case_a_held_daemon_cannot_hand_the_socket_down_at_all(self, tmp_path):
@@ -12751,7 +14527,7 @@ print("OK", port)
             held.stop(drain=0)
 
     def case_a_held_daemon_asks_the_holder_to_replace_it_while_still_serving(
-        self, tmp_path
+        self, tmp_path, monkeypatch
     ):
         """The gap closes here, and only here.
 
@@ -12790,6 +14566,7 @@ print("OK", port)
         main thread spawned successfully and the predecessor stayed alive.
         """
         import signal
+        import threading
 
         from cswap_pin import proxy as pin_proxy
 
@@ -12803,12 +14580,14 @@ print("OK", port)
 
         class _Holder(pin_proxy.PortHolder):
             def __init__(self):            # no socket, no child: only the protocol
-                self._replacing = False
+                self._stop = False
+                self._proc = "predecessor"
+                self._replace_lock = threading.RLock()
                 self._spawn_calls = spawned
 
             def _spawn(self):
                 spawned.append("spawn")
-                self._replacing = True
+                self._proc = "successor"
 
         # CALL THE HANDLER, DO NOT RAISE THE SIGNAL. Sending SIGUSR1 to this
         # process killed the xdist worker outright: `_install_replace_handler`
@@ -12821,50 +14600,90 @@ print("OK", port)
         # here: with `_supervise` blocked in `Popen.wait()` on a worker thread,
         # a main-thread SIGUSR1 handler spawned successfully and the
         # predecessor stayed alive. What THIS case owns is the protocol —
-        # handler spawns, then records that the next exit 0 is a handover.
+        # handler spawns, and that reassigns `self._proc`.
         h = _Holder()
         h._on_replace_request(signal.SIGUSR1, None)
         assert spawned == ["spawn"], (
             "SIGUSR1 to the holder did not start a successor, so the daemon "
             "still has to exit before one can exist"
         )
-        assert h._replacing is True, (
-            "the holder spawned a successor without recording that the next "
-            "exit 0 is a HANDOVER — it will read it as 'release the port' and "
-            "close the socket out from under the successor"
+        assert h._proc == "successor", (
+            "the holder spawned a successor without reassigning `self._proc` "
+            "to it — `_supervise` reads that identity change to tell a "
+            "HANDOVER exit from a RELEASE, and will read this one as "
+            "'release the port' and close the socket out from under the "
+            "successor"
         )
 
-        # AND THE ORDER IS PART OF THE CONTRACT, not a stylistic preference.
-        # Written as a comment first and NOT guarded — mutation-checked by
-        # swapping the two lines, and every case still passed. A claim about
-        # ordering that nothing can falsify is the kind the next refactor
-        # deletes, so it gets its own failing input: a spawn that raises must
-        # leave the flag alone, because `_supervise` reads it to decide whether
-        # an exit 0 is a handover or a release.
+        # A SPAWN THAT RAISES MUST LEAVE `self._proc` ALONE, because
+        # `_supervise` reads its identity to decide whether an exit 0 is a
+        # handover or a release, and a failed spawn is neither. THROUGH
+        # PRODUCTION `_spawn`, not a stub that skips its body: `_spawn`
+        # assigns `self._proc` only as `Popen`'s LAST line, so a stub that
+        # raises before ever reaching that line proves nothing about the
+        # ordering — it would pass identically if `_spawn` assigned `self._proc`
+        # FIRST and started the child after.
+        import subprocess
+
+        class _FailingSrv:
+            def fileno(self):
+                return 0
+
         class _FailingHolder(pin_proxy.PortHolder):
             def __init__(self):
-                self._replacing = False
+                self._stop = False
+                self._proc = "predecessor"
+                self._replace_lock = threading.RLock()
+                self._srv = _FailingSrv()
+                self._certdir = tmp_path
+                self._account = "1"
+                self._email = "a@b.c"
+                self._replace_channel = False
 
-            def _spawn(self):
-                raise OSError("no successor today")
-
+        monkeypatch.setattr(
+            subprocess, "Popen",
+            lambda *a, **k: (_ for _ in ()).throw(OSError("no successor today")))
         f = _FailingHolder()
-        try:
-            f._on_replace_request(signal.SIGUSR1, None)
-        except OSError:
-            pass
-        assert f._replacing is False, (
-            "a spawn that failed still marked the handover done; the next "
-            "exit 0 would then be read as 'successor is serving' when nothing "
-            "is, and the supervisor skips the respawn that would have saved it"
+        lifecycle_lines = []
+        monkeypatch.setattr(pin_proxy, "_log_lifecycle", lifecycle_lines.append)
+        # MUST NOT RAISE. An OSError here used to escape this SIGNAL HANDLER
+        # into the holder's main thread at `self._thread.join()`, ending the
+        # holder process with no `stop()` — the predecessor then exits 75 to
+        # a dead holder and only the standby can recover the port.
+        f._on_replace_request(signal.SIGUSR1, None)
+        assert any("no successor today" in line for line in lifecycle_lines), (
+            "a spawn that failed during a replace request left no trace — a "
+            "dead holder would give no clue why it never respawned"
         )
+        assert f._proc == "predecessor", (
+            "a spawn that failed still reassigned `self._proc` — the next "
+            "exit 0 would then be read as 'successor is serving' when "
+            "nothing is, and the supervisor skips the respawn that would "
+            "have saved it"
+        )
+        # THE LOCK MUST ALSO BE RELEASED, checked from ANOTHER thread: an RLock
+        # reacquired by the SAME thread that holds it always succeeds, so this
+        # has no discriminating power unless something else tries it.
+        released = threading.Event()
+
+        def _try_from_elsewhere():
+            if f._replace_lock.acquire(timeout=1):
+                f._replace_lock.release()
+                released.set()
+
+        t = threading.Thread(target=_try_from_elsewhere)
+        t.start()
+        t.join(timeout=2)
+        assert released.is_set(), (
+            "the replace lock was still held after a failed spawn — the next "
+            "ask on this holder would block forever")
 
         # THE LOAD-BEARING HALF, and it was unguarded until a mutation said so.
         # Deleting the supervisor's handover branch entirely left all 115 cases
         # green — so the one line that stops the holder closing its socket out
         # from under a live successor had no test at all. An exit 0 means
         # "released, do not restart" everywhere else in this class; only
-        # `_replacing` separates it from "I handed over and left".
+        # `self._proc is not proc` separates it from "I handed over and left".
         closed = []
 
         class _Sock:
@@ -12874,15 +14693,17 @@ print("OK", port)
         class _Proc:
             def __init__(self, code):
                 self._code = code
+                self.pid = 4242
 
             def wait(self):
                 return self._code
 
         class _Handover(pin_proxy.PortHolder):
-            def __init__(self, replacing):
+            def __init__(self, handed_over):
                 self._stop = False
-                self._replacing = replacing
+                self._replace_lock = threading.RLock()
                 self._proc = _Proc(0)
+                self._handed_over = handed_over
                 self._srv = _Sock()
                 self.port = 36301
                 self.daemon_pid = 4242
@@ -12903,18 +14724,26 @@ print("OK", port)
         # the case passed with the branch deleted. Caught by re-applying the
         # mutation and running SERIALLY: the parallel run had crashed a worker
         # for an unrelated reason, which reads exactly like a caught mutation.
+        #
+        # THE SWAP, not a flag. A real successor's own `_spawn()` reassigns
+        # `self._proc` as its last line — done here, on round 1, from INSIDE
+        # the predecessor's own `wait()`, the one place `_supervise` has to
+        # catch it.
         def _twice(holder):
             holder._rounds += 1
+            if holder._handed_over and holder._rounds == 1:
+                holder._proc = _Proc(0)
+                holder._proc.wait = lambda: _twice(holder)
             if holder._rounds > 1:
                 holder._stop = True
             return 0
 
-        h_over = _Handover(replacing=True)
+        h_over = _Handover(handed_over=True)
         h_over._proc.wait = lambda: _twice(h_over)
         h_over._supervise()
         assert h_over._rounds >= 2, (
             "premise: the loop must have gone round at least once WITH the "
-            "handover flag set, or this case tests nothing"
+            "successor already assigned, or this case tests nothing"
         )
         assert closed == [], (
             "the holder closed its listening socket on a HANDOVER exit — the "
@@ -12925,7 +14754,7 @@ print("OK", port)
         # CONTROL: the same exit 0 WITHOUT a handover must still release, or
         # the assertion above would pass on a holder that never closes at all.
         closed.clear()
-        h_rel = _Handover(replacing=False)
+        h_rel = _Handover(handed_over=False)
         h_rel._proc.wait = lambda: 0
         h_rel._supervise()
         assert closed == ["closed"], (
@@ -12933,84 +14762,212 @@ print("OK", port)
             "leave the address held forever"
         )
 
-    def case_a_handover_wins_the_race_even_when_the_flag_is_not_set_yet(
+    def case_a_replace_in_flight_survives_the_supervisors_exit0_decision(
         self, tmp_path
     ):
-        """`_replacing` alone is TIMING, not proof. `_on_replace_request` runs
-        `self._spawn()` — which reassigns `self._proc` to the successor as
-        its very last line — and only THEN sets `self._replacing = True`. The
-        predecessor's own exit is asked for by a signal sent across process
-        boundaries (`os.kill`, then a 0.25s settle and a possibly-instant
-        drain), so nothing orders it after the SECOND of those two lines —
-        only after the first. A `self._proc.wait()` that returns between them
-        must still be read as a handover, or `_supervise` closes the
-        successor's socket out from under it (`self.stop()`) on exactly the
-        exit the flag was supposed to catch.
+        """RULE 0: a replace still being ASSIGNED must never be read as a
+        plain release.
 
-        Reproduced here without threads or signals: `self._proc` is swapped
-        to the successor from INSIDE the predecessor's own `wait()` — the
-        one place production genuinely cannot promise `_replacing` is set
-        yet — and `_replacing` is never set True at all.
+        `_on_replace_request` reassigns `self._proc` to the successor as the
+        LAST line of `_spawn()` — an "unbounded" `Popen` that can still be
+        running when the predecessor's own exit (asked for separately, across
+        a process boundary: the daemon's OWN self-replace path, ~11584-11685,
+        asks the holder, confirms it survived, and only then exits 0 -- once
+        a successor's OWN record has published, whether or not `Popen` has
+        returned yet; a wait that times out with no record exits 75 via the
+        same fallback a holder-less ask already takes, rather than retrying
+        on a later tick, see `_await_successor_state` — a held daemon TERM'd
+        instead exits 75 too, see `_install_signal_teardown`
+        ~7688-7692) is observed by `_supervise`. Without a lock shared
+        between the two, `_supervise` reads a `self._proc` that has not
+        moved yet, treats the exit as an ordinary release, and calls
+        `stop()` — which reads `self._proc` a SECOND time, by when `_spawn`
+        may have finished, and terminates the SUCCESSOR it just assigned.
+
+        Reproduced deterministically with real threads and TWO checkpoints.
+        `_on_replace_request` is started FIRST and confirmed blocked inside
+        `_spawn` (an Event standing in for the slow `Popen`) before the
+        supervisor thread is even created, so the reassignment cannot have
+        happened yet no matter how the OS schedules things. The supervisor
+        is then started and its OWN `proc.wait()` call — the first thing
+        `_supervise` does, on either the fixed or the unfixed code — sets a
+        second checkpoint the instant it is entered; only once THAT fires
+        does the test release the spawn, so the identity check (or the
+        shared-lock acquire, on the fixed code) is forced to run BEFORE the
+        reassignment lands. `_reap_standby()` — the first call after the
+        identity check falls through on the unfixed code — then blocks on
+        the spawn's completion, forcing the OPPOSITE ordering for `stop()`'s
+        own, later read of `self._proc`: by the time it runs, the
+        reassignment has already landed, so an unfixed `stop()` terminates
+        the successor rather than a no-op on an already-exited predecessor.
+        The fixed code never reaches `_reap_standby()` at all here, because
+        the shared lock makes it wait for the in-flight replace before
+        deciding anything.
         """
-        from cswap_pin import proxy as pin_proxy
+        import threading
 
-        closed = []
-
-        class _Sock:
-            def close(self):
-                closed.append("closed")
+        from cswap_pin.proxy import PortHolder
 
         class _Proc:
-            def __init__(self, code):
-                self._code = code
+            def __init__(self):
+                self.terminated = False
+                self.returncode = None
+                self.pid = 4243
 
-            def wait(self):
-                return self._code
+            def wait(self, timeout=None):
+                return 0
 
-        class _RacyHolder(pin_proxy.PortHolder):
+            def terminate(self):
+                self.terminated = True
+
+        predecessor = _Proc()
+        successor = _Proc()
+        spawn_started = threading.Event()
+        supervise_woke = threading.Event()
+        release_spawn = threading.Event()
+        spawn_done = threading.Event()
+
+        class _Holder(PortHolder):
             def __init__(self):
                 self._stop = False
-                self._replacing = False  # never set True — see docstring
-                self._srv = _Sock()
+                self._proc = predecessor
+                self._standby = None
+                self._srv = type("_Srv", (), {"close": lambda self: None})()
+                self._replace_lock = threading.RLock()
                 self.port = 36301
                 self.daemon_pid = 4242
-                self._rounds = 0
-                self.successor = _Proc(0)
-                predecessor = _Proc(0)
-
-                def _predecessor_wait():
-                    # THE RACE: `self._proc` is reassigned before this
-                    # returns, exactly as `_spawn()`'s last line does — but
-                    # `self._replacing` is not set, exactly as the gap
-                    # before `_on_replace_request`'s own next line allows.
-                    self._proc = self.successor
-                    return 0
-
-                predecessor.wait = _predecessor_wait
-                self._proc = predecessor
 
             def _reap_standby(self):
-                pass
+                # THE PROOF POINT: reached only once `_supervise` has
+                # already decided (wrongly, on the unfixed code) that this
+                # exit is NOT a handover. Blocking here until the replace's
+                # `_spawn()` has actually finished forces the reassignment
+                # to land before `stop()`'s own, later read of `self._proc`
+                # — the fixed code never calls this at all for an in-flight
+                # replace, because it never gets past the shared lock.
+                assert spawn_done.wait(timeout=5), "the replace never finished"
 
-        # A round-2 wait, reached only if the branch under test correctly
-        # `continue`s on round 1 instead of falling through to `stop()`.
-        def _successor_wait():
-            h._rounds += 1
+            def _spawn(self):
+                spawn_started.set()
+                assert release_spawn.wait(timeout=5), (
+                    "test never released the spawn"
+                )
+                self._proc = successor
+                spawn_done.set()
+
+        h = _Holder()
+
+        def _predecessor_wait(timeout=None):
+            # THE SECOND CHECKPOINT. `_supervise` calls this the moment it
+            # wakes from `proc.wait()` on ITS OWN predecessor — the very
+            # first line of its per-iteration body, before either the
+            # identity check (unfixed) or the shared-lock acquire (fixed).
+            # Setting it here, rather than waiting on `spawn_started`
+            # directly, keeps this thread running (still holding the GIL)
+            # right up to whichever of those two the code under test takes,
+            # instead of racing the main thread to get there first.
+            supervise_woke.set()
+            return 0
+        predecessor.wait = _predecessor_wait
+
+        successor_wait_calls = []
+
+        def _successor_wait(timeout=None):
+            # ONLY THE SUPERVISOR'S OWN `proc.wait()` — called with no
+            # timeout — counts as round 2. `stop()` also calls
+            # `proc.wait(timeout=_DRAIN_SECONDS + 2)` on whatever
+            # `self._proc` names, so on a regression that wrongly takes the
+            # release branch (and therefore also terminates the successor,
+            # caught separately by the `terminated` assertion below) that
+            # call would land here too and fill this list for the wrong
+            # reason.
+            if timeout is None:
+                successor_wait_calls.append(1)
             h._stop = True
             return 0
+        successor.wait = _successor_wait
 
-        h = _RacyHolder()
-        h.successor.wait = _successor_wait
-        h._supervise()
-        assert closed == [], (
-            "the holder closed its listening socket on a HANDOVER exit "
-            "whose `_replacing` flag lost the race — `self._proc` had "
-            "already been swapped to the successor and `_supervise` never "
-            "looked"
+        t_replace = threading.Thread(
+            target=lambda: h._on_replace_request(None, None)
         )
-        assert h._rounds == 1, (
-            "corollary: with the fix, round 2 (the successor's own wait()) "
-            "must be reached too"
+        t_replace.start()
+        assert spawn_started.wait(timeout=5), "the replace never reached _spawn"
+
+        t_supervise = threading.Thread(target=h._supervise)
+        t_supervise.start()
+        assert supervise_woke.wait(timeout=5), (
+            "the supervisor never reached its own wait() on the predecessor"
+        )
+        release_spawn.set()
+        assert spawn_done.wait(timeout=5), "the replace never finished"
+
+        t_replace.join(timeout=5)
+        t_supervise.join(timeout=5)
+        assert not t_replace.is_alive() and not t_supervise.is_alive(), (
+            "the supervisor or the replace handler never finished"
+        )
+        assert successor.terminated is False, (
+            "the supervisor's exit-0 decision terminated the SUCCESSOR "
+            "`_spawn` had just assigned"
+        )
+        # `h._stop is True` ALSO HOLDS ON THE RELEASE PATH -- `stop()` sets it
+        # first (before closing `self._srv`), so that assertion alone cannot
+        # tell "round 2 ran" from "round 1 was wrongly read as a release and
+        # called `stop()`". Recording the call inside `_successor_wait`
+        # itself is what actually proves round 2 -- the successor's own
+        # `wait()` -- ran.
+        assert successor_wait_calls, (
+            "the successor's own wait() never ran -- round 1 was not "
+            "correctly read as a handover"
+        )
+
+    def case_a_late_replace_request_after_stop_is_a_no_op(
+        self, tmp_path, monkeypatch
+    ):
+        """A handler that fires after `stop()` has nothing to spawn onto.
+
+        `stop()` sets `self._stop` and then closes `self._srv`. A daemon's
+        own self-replace now waits for a successor's publish before it exits
+        (the case above and its siblings), but a handler racing that wait can
+        still land after `stop()` has run — and production `_spawn()` reads
+        `self._srv.fileno()` (harmless on an already-closed socket: -1) and
+        then hands that to `Popen(pass_fds=(-1,))`, which raises ValueError
+        on the MAIN thread, straight into `self._thread.join()`.
+        """
+        import signal
+        import socket
+        import subprocess
+        import threading
+
+        from cswap_pin import proxy as pin_proxy
+
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        srv.close()  # what `stop()` has already done by the time a LATE ask lands
+
+        popen_calls = []
+        monkeypatch.setattr(
+            subprocess, "Popen",
+            lambda *a, **k: popen_calls.append((a, k)) or type(
+                "_P", (), {"pid": 999})())
+
+        class _Holder(pin_proxy.PortHolder):
+            def __init__(self):
+                self._stop = True          # stop() already ran
+                self._replace_lock = threading.RLock()
+                self._srv = srv
+                self._certdir = tmp_path
+                self._account = "1"
+                self._email = "a@b.c"
+                self._replace_channel = False
+
+        h = _Holder()
+        h._on_replace_request(signal.SIGUSR1, None)  # must not raise
+
+        assert popen_calls == [], (
+            "a replace request after stop() still tried to spawn a successor "
+            "onto a socket that is already gone"
         )
 
     def case_a_held_exit_does_not_drain_before_letting_the_holder_respawn(
@@ -13045,8 +15002,6 @@ print("OK", port)
 
         The budget here must be short enough that the gap is not felt.
         """
-        import threading
-
         from cswap_pin import proxy as pin_proxy
 
         budgets = []
@@ -13073,10 +15028,23 @@ print("OK", port)
         # `_HELD_BY_ENV` is this process's real parent, so an unstubbed
         # `os.kill` signals whoever ran pytest — measured, it killed the xdist
         # workers, because SIGUSR1 terminates by default.
-        os.kill = lambda pid, sig: None
+        #
+        # THE SUCCESSOR'S OWN PUBLISH is a side effect of the ask itself
+        # (not written before this function is ever called): the wait
+        # matches identity against whatever was on disk the INSTANT BEFORE
+        # the ask, so a record already sitting there would read as
+        # pre-existing rather than as this ask's own successor. Publishing
+        # it exactly when the ask lands is what still resolves the daemon's
+        # wait on the first poll — this case is about the DRAIN BUDGET, not
+        # the wait.
+        def _kill_and_publish(pid, sig):
+            pin_proxy.write_daemon_state(
+                tmp_path, 36301, os.getpid() + 1, pin_proxy.daemon_fingerprint())
+
+        os.kill = _kill_and_publish
         try:
             pin_proxy._watch_own_code(
-                _Srv(), "1", "a@b.c", tmp_path, threading.Event(),
+                _Srv(), "1", "a@b.c", tmp_path, self._Ticks(),
                 lambda *a: None, interval=0.01,
                 _own_fingerprint="never-matches",
             )
@@ -17650,13 +19618,15 @@ class TestArmingReportsWhoItCutsOff:
         try:
             n_idle = pin_proxy.clients_that_arming_would_cut_off(port)
             if n_idle is None:
-                # AN EARLY RETURN, NEVER `pytest.skip` -- `run_cases` invokes
-                # every `case_*` by hand and its `except Exception` does not
-                # catch `Skipped` (it is a `BaseException`), so a skip here
-                # ESCAPES the loop and ends every case sorted after this one
-                # for the whole class, silently, on a host with no
-                # /proc/net/tcp (both Macs). See
-                # `case_the_unmeasurable_branch_never_raises_skipped` below.
+                # AN EARLY RETURN, NOT `pytest.skip` -- `run_cases` now
+                # catches `Skipped` (a `BaseException`, so `except Exception`
+                # alone still would not) and records it per case instead of
+                # ending the loop, so a skip here would no longer take its
+                # siblings down either. Kept as a plain return anyway: it
+                # reads PASSED on a host with no /proc/net/tcp (both Macs),
+                # instead of the SKIPPED a `pytest.skip` there would report.
+                # See `case_the_unmeasurable_branch_never_raises_skipped`
+                # below.
                 return
             assert n_idle == 0, "counted a client before anyone connected"
             c = socket.create_connection(("127.0.0.1", port), timeout=5)
@@ -17675,12 +19645,13 @@ class TestArmingReportsWhoItCutsOff:
     def case_the_unmeasurable_branch_never_raises_skipped(
             self, tmp_path, monkeypatch):
         """`pytest.skip` inside a `case_*` raises `Skipped`, a
-        `BaseException` -- `run_cases`'s own `except Exception` does not
-        catch it, so it ESCAPES the loop and ends every case sorted after
-        this one for the whole class, silently, on a host with no
-        /proc/net/tcp (both Macs). Forces that branch and asserts the sibling
-        case returns cleanly, not about which host happens to run the
-        suite."""
+        `BaseException` -- `run_cases` now catches it and records it per
+        case instead of letting it escape, so this no longer costs the whole
+        class its later cases either. Still called and caught directly here:
+        forcing that branch and asserting the sibling case returns cleanly
+        is what makes a `pytest.skip` regression here read FAILED via
+        run_cases instead of SKIPPED, not about which host happens to run
+        the suite."""
         from cswap_pin import proxy as pin_proxy
 
         monkeypatch.setattr(
@@ -17692,8 +19663,8 @@ class TestArmingReportsWhoItCutsOff:
             raise AssertionError(
                 f"the unmeasurable-platform branch raised "
                 f"{type(exc).__name__} instead of returning cleanly -- a "
-                f"pytest.skip regression here escapes run_cases entirely: "
-                f"{exc}"
+                f"pytest.skip regression here would read SKIPPED instead of "
+                f"FAILED via run_cases: {exc}"
             ) from exc
 
 
@@ -17734,13 +19705,15 @@ class TestClearingThePinDoesNotStrandLiveSessions:
         monkeypatch.setattr(pin_proxy, "_wired_port", lambda: None)
         try:
             if pin_proxy.clients_that_arming_would_cut_off(port) is None:
-                # AN EARLY RETURN, NEVER `pytest.skip` -- `run_cases` invokes
-                # every `case_*` by hand and its `except Exception` does not
-                # catch `Skipped` (it is a `BaseException`), so a skip here
-                # ESCAPES the loop and ends every case sorted after this one
-                # for the whole class, silently, on a host with no
-                # /proc/net/tcp (both Macs). See
-                # `case_the_unmeasurable_branch_never_raises_skipped` below.
+                # AN EARLY RETURN, NOT `pytest.skip` -- `run_cases` now
+                # catches `Skipped` (a `BaseException`, so `except Exception`
+                # alone still would not) and records it per case instead of
+                # ending the loop, so a skip here would no longer take its
+                # siblings down either. Kept as a plain return anyway: it
+                # reads PASSED on a host with no /proc/net/tcp (both Macs),
+                # instead of the SKIPPED a `pytest.skip` there would report.
+                # See `case_the_unmeasurable_branch_never_raises_skipped`
+                # below.
                 return
             assert pin_proxy._is_claimed(certdir) is False, (
                 "an idle unwired daemon should still time out"
@@ -17799,12 +19772,13 @@ class TestClearingThePinDoesNotStrandLiveSessions:
     def case_the_unmeasurable_branch_never_raises_skipped(
             self, tmp_path, monkeypatch):
         """`pytest.skip` inside a `case_*` raises `Skipped`, a
-        `BaseException` -- `run_cases`'s own `except Exception` does not
-        catch it, so it ESCAPES the loop and ends every case sorted after
-        this one for the whole class, silently, on a host with no
-        /proc/net/tcp (both Macs). Forces that branch and asserts the sibling
-        case returns cleanly, not about which host happens to run the
-        suite."""
+        `BaseException` -- `run_cases` now catches it and records it per
+        case instead of letting it escape, so this no longer costs the whole
+        class its later cases either. Still called and caught directly here:
+        forcing that branch and asserting the sibling case returns cleanly
+        is what makes a `pytest.skip` regression here read FAILED via
+        run_cases instead of SKIPPED, not about which host happens to run
+        the suite."""
         from cswap_pin import proxy as pin_proxy
 
         monkeypatch.setattr(
@@ -17816,8 +19790,8 @@ class TestClearingThePinDoesNotStrandLiveSessions:
             raise AssertionError(
                 f"the unmeasurable-platform branch raised "
                 f"{type(exc).__name__} instead of returning cleanly -- a "
-                f"pytest.skip regression here escapes run_cases entirely: "
-                f"{exc}"
+                f"pytest.skip regression here would read SKIPPED instead of "
+                f"FAILED via run_cases: {exc}"
             ) from exc
 
     def case_a_missing_record_with_an_open_channel_is_republished(
@@ -18763,8 +20737,19 @@ class TestAWedgeIsNotTrustedForever:
             {"pid": os.getpid(), "port": port, "fingerprint": fp}))
         (certdir / "ca.pem").write_bytes(b"x")
         # FRESH, but attributed to a DIFFERENT pid than the one being killed.
-        (certdir / proxy._ALIVE_FILE).write_text(
-            json.dumps({f"cse_x@{os.getpid() + 1}": time.time()}))
+        # BOTH SHAPES, the same as `_note_worker_status` actually writes: a
+        # bare key beside the per-pid one, in the same call. `_worker_alive_age`
+        # only ever matches the `@<pid>` suffix, so the bare key changes
+        # nothing THIS case asserts TODAY -- but it is the FRESH stamp that a
+        # regression back to a bare `shared.get(sid)` read (the older shape
+        # `_note_worker_status` still writes for a not-yet-upgraded reader)
+        # would wrongly spare: that read would see this timestamp, decide the
+        # daemon is alive, and pass where it should kill. This case is what
+        # would catch that regression.
+        (certdir / proxy._ALIVE_FILE).write_text(json.dumps({
+            "cse_x": time.time(),
+            f"cse_x@{os.getpid() + 1}": time.time(),
+        }))
         (tmp_path / "settings.json").write_text(json.dumps(
             {"remoteControl": {"pinnedEmail": "c@e.com"}}))
         (tmp_path / "sequence.json").write_text(json.dumps(
@@ -19005,14 +20990,15 @@ class TestAWedgeIsNotTrustedForever:
             "successor -- exactly the double-bind `_recycle_daemon` exists "
             "to avoid")
 
-    def case_a_wedge_replaced_through_the_holder_reports_healed(
-            self, tmp_path, monkeypatch):
-        """Same successor-first protocol as the case above, but on the WEDGE
-        path -- a MATCHING fingerprint, not a stale one -- which is where
-        `heal` used to return False ("Nothing to heal") after successfully
-        replacing the wedged daemon through its holder. It must return True:
-        this call killed the wedge and confirmed the holder's successor,
-        which IS the repair, not a bystander's."""
+    def _wedge_replaced_through_the_holder(
+            self, tmp_path, monkeypatch, *, term_raises_esrch):
+        """Shared setup for a wedge on a MATCHING fingerprint, replaced
+        through its holder: the holder always confirms the successor
+        (`_wedged_daemon_can_be_asked` stubbed True), and
+        ``term_raises_esrch`` picks the `(stale_pid, 15)` arm of `_fake_kill`
+        -- a delivered TERM or one that hits ESRCH because the predecessor
+        was already gone. Returns `heal`'s own result; the caller keeps its
+        own docstring and final assertion."""
         import signal
 
         from cswap_pin import proxy
@@ -19054,6 +21040,11 @@ class TestAWedgeIsNotTrustedForever:
                 proxy.write_daemon_state(certdir, 4100, new_pid, fp)
                 return
             if pid == stale_pid and sig == 15:
+                if term_raises_esrch:
+                    # ESRCH: the predecessor was already gone by the time
+                    # this call got around to its own TERM -- the holder's
+                    # successor (just confirmed above) beat it there.
+                    raise OSError("No such process")
                 return
             raise AssertionError(f"unexpected os.kill({pid}, {sig})")
         monkeypatch.setattr(proxy.os, "kill", _fake_kill)
@@ -19069,9 +21060,40 @@ class TestAWedgeIsNotTrustedForever:
         assert not spawn_calls, (
             "heal spawned a second daemon instead of trusting the holder's "
             "successor")
+        return result
+
+    def case_a_wedge_replaced_through_the_holder_reports_healed(
+            self, tmp_path, monkeypatch):
+        """Same successor-first protocol as the case above, but on the WEDGE
+        path -- a MATCHING fingerprint, not a stale one -- which is where
+        `heal` used to return False ("Nothing to heal") after successfully
+        replacing the wedged daemon through its holder. It must return True:
+        this call killed the wedge and confirmed the holder's successor,
+        which IS the repair, not a bystander's."""
+        result = self._wedge_replaced_through_the_holder(
+            tmp_path, monkeypatch, term_raises_esrch=False)
         assert result is True, (
             "heal replaced the wedge through its holder but reported "
             "'Nothing to heal'")
+
+    def case_a_confirmed_successor_survives_a_term_that_hits_esrch(
+            self, tmp_path, monkeypatch):
+        """The sibling above proves the ordinary path (`_kill_daemon`'s own
+        TERM succeeds) already reports True. This is the race the predecessor
+        can still lose: the holder's successor is CONFIRMED via
+        `_await_successor_state` (the SIGUSR1 branch below publishes it), but
+        the wedged predecessor had ALREADY exited by the time `heal` got
+        around to its own TERM -- ESRCH, no signal delivered, `_kill_daemon`
+        returns False on its own reasoning. `recycled` must still read True:
+        this call is the one that asked the holder and watched the successor
+        appear, and reporting 'Nothing to heal' for a repair just confirmed
+        sends someone chasing a repair that already happened."""
+        result = self._wedge_replaced_through_the_holder(
+            tmp_path, monkeypatch, term_raises_esrch=True)
+        assert result is True, (
+            "a confirmed successor was reported as 'Nothing to heal' "
+            "because the TERM to the already-gone predecessor hit ESRCH"
+        )
 
     def case_a_term_that_hits_esrch_does_not_report_healed(
             self, tmp_path, monkeypatch):
@@ -19266,14 +21288,18 @@ class TestAWedgeIsNotTrustedForever:
             )
             # T1168 (C), simulated: /proc unavailable (macOS) must not
             # regress this same row -- `ps eww` reads the real environment
-            # either way.
-            self._no_proc(monkeypatch)
-            assert pin_proxy._wedged_daemon_can_be_asked(
-                claiming.pid, holder_pid) is True, (
-                "with /proc unavailable, the ps fallback did not trust a "
-                "daemon whose own environment claims this exact holder"
-            )
-            monkeypatch.undo()
+            # either way. SCOPED TO A `monkeypatch.context()`, not the
+            # shared fixture's own `undo()` -- calling `undo()` mid-case
+            # reverts EVERY patch this case has made so far, not just the
+            # `_no_proc` ones, and silently keeps doing that for whatever a
+            # later edit adds before this line.
+            with monkeypatch.context() as no_proc_mp:
+                self._no_proc(no_proc_mp)
+                assert pin_proxy._wedged_daemon_can_be_asked(
+                    claiming.pid, holder_pid) is True, (
+                    "with /proc unavailable, the ps fallback did not trust a "
+                    "daemon whose own environment claims this exact holder"
+                )
             assert pin_proxy._wedged_daemon_can_be_asked(
                 silent.pid, holder_pid) is False, (
                 "a daemon with NEITHER marker was signalled — SIGUSR1's "
@@ -19392,6 +21418,42 @@ class TestAWedgeIsNotTrustedForever:
         assert proxy._wedged_env_via_ps(wedged_pid, real_holder) is True, (
             "the CONTROL: the real holder itself was not trusted")
 
+    def case_the_env_token_is_the_last_one_on_the_line_not_the_first(
+            self, monkeypatch):
+        """`ps eww` appends a process's own ENVIRONMENT after its ARGV on
+        the same line -- env follows argv -- and argv is not evidence this
+        guard should trust: a token that merely LOOKS like the marker can
+        appear inside the command line itself, before the real environment
+        assignment that follows it. `re.search` returns the FIRST match on
+        the line, which is that argv token, not the real trailing value.
+        The token has to be the LAST match, the same as
+        `runtime_health.py`'s own reader of this shape."""
+        import subprocess
+
+        from cswap_pin import proxy
+
+        wedged_pid, real_holder = 501, 901
+        decoy_holder = 1  # what an earlier ARGV token names, not the real env
+
+        def _fake_run(argv, **k):
+            class _R:
+                stdout = (
+                    f"/usr/bin/python3 -m claude_swap.pin_proxy 1 a@b.c "
+                    f"CSWAP_PIN_HELD_BY={decoy_holder} /tmp/certdir "
+                    f"CSWAP_PIN_HELD_BY={real_holder} "
+                    f"CSWAP_PIN_HOLDER_TAKES_REPLACE=1\n")
+            return _R()
+
+        monkeypatch.setattr(subprocess, "run", _fake_run)
+        assert proxy._wedged_env_via_ps(wedged_pid, real_holder) is True, (
+            "the real holder, the LAST CSWAP_PIN_HELD_BY token on the "
+            "line, was not trusted -- the first (argv) token won instead"
+        )
+        assert proxy._wedged_env_via_ps(wedged_pid, decoy_holder) is False, (
+            "CONTROL: an earlier argv token naming a decoy pid was trusted "
+            "over the real trailing environment value"
+        )
+
     def case_a_standby_promoted_in_place_still_qualifies_as_the_holder(
             self, tmp_path):
         """`_standby_revive` promotes a standby to holder IN PLACE -- same
@@ -19452,6 +21514,8 @@ class TestAWedgeIsNotTrustedForever:
 
         from cswap_pin import proxy
 
+        has_proc = os.path.isdir("/proc")
+
         root, _cfg = self._root_for_heal(tmp_path, monkeypatch)
         certdir = root / "pin-proxy"
         fp = proxy.daemon_fingerprint()
@@ -19487,10 +21551,16 @@ class TestAWedgeIsNotTrustedForever:
             assert proxy._holder_owns(certdir) is False, (
                 "the promoted standby's argv unexpectedly matched "
                 "_holder_owns -- this case is vacuous without that mismatch")
-            deadline = time.monotonic() + 5
-            while (time.monotonic() < deadline
-                   and not os.path.exists(f"/proc/{stale_pid}/environ")):
-                time.sleep(0.02)
+            # /proc/<pid>/environ exists as soon as exec lands; poll rather
+            # than assume the first read wins that race. Nothing to wait FOR
+            # without /proc -- the same guard the sibling case above uses,
+            # or this spins the full 5s ceiling on every run on a host with
+            # no /proc at all.
+            if has_proc:
+                deadline = time.monotonic() + 5
+                while (time.monotonic() < deadline
+                       and not os.path.exists(f"/proc/{stale_pid}/environ")):
+                    time.sleep(0.02)
 
             proxy.write_daemon_state(certdir, 4200, stale_pid, fp)  # WEDGE
 
@@ -24986,12 +27056,13 @@ class TestAHolderDoesNotOutliveItsLauncher:
 
         from cswap_pin.proxy import ensure_ca
 
-        # AN EARLY RETURN, NEVER `pytest.skip` -- `run_cases` invokes every
-        # `case_*` by hand and its `except Exception` does not catch
-        # `Skipped` (it is a `BaseException`), so a skip here ESCAPES the
-        # loop and ends every case sorted after this one for the whole
-        # class, silently, on every macOS CI runner. See
-        # `case_the_non_linux_early_exit_never_raises_skipped` below.
+        # AN EARLY RETURN, NOT `pytest.skip` -- `run_cases` now catches
+        # `Skipped` (a `BaseException`, so `except Exception` alone still
+        # would not) and records it per case instead of ending the loop, so
+        # a skip here would no longer take its siblings down either. Kept as
+        # a plain return anyway: it reads PASSED on every macOS CI runner,
+        # instead of the SKIPPED a `pytest.skip` there would report.
+        # See `case_the_non_linux_early_exit_never_raises_skipped` below.
         if sys.platform != "linux":
             return
 
@@ -25073,13 +27144,14 @@ class TestAHolderDoesNotOutliveItsLauncher:
     def case_the_non_linux_early_exit_never_raises_skipped(
             self, tmp_path, monkeypatch):
         """`pytest.skip` inside a `case_*` raises `Skipped`, a
-        `BaseException` -- `run_cases`'s own `except Exception` does not
-        catch it (`Skipped` is not one), so it ESCAPES the loop and ends
-        every case sorted after this one for the whole class, silently, on
-        every macOS CI runner. Called directly here, platform forced
-        non-Linux, so the assertion is about this method's OWN control flow
-        -- an early `return` -- not about which host happens to run the
-        suite."""
+        `BaseException` -- `run_cases` now catches it and records it per
+        case instead of letting it escape, so this no longer costs the whole
+        class its later cases either. Still called and caught directly here,
+        platform forced non-Linux: the assertion is about this method's OWN
+        control flow -- an early `return`, never a skip -- and that direct
+        call-and-catch is what makes a `pytest.skip` regression here read
+        FAILED via run_cases instead of SKIPPED, not about which host
+        happens to run the suite."""
         import sys
 
         monkeypatch.setattr(sys, "platform", "darwin")
@@ -25089,7 +27161,7 @@ class TestAHolderDoesNotOutliveItsLauncher:
             raise AssertionError(
                 f"the non-Linux branch raised {type(exc).__name__} instead "
                 f"of returning cleanly -- a pytest.skip regression here "
-                f"escapes run_cases entirely: {exc}"
+                f"would read SKIPPED instead of FAILED via run_cases: {exc}"
             ) from exc
 
 
@@ -27207,6 +29279,20 @@ class TestAHandoverIsNotAFailure:
         (cd / pin_proxy._STATE_FILE).write_text(json.dumps(rec))
         return cd
 
+    class _TimeCensus:
+        """Records a `sleep` made through `pin_proxy.time`, and only
+        that -- every other attribute delegates to the real module, so
+        code that reads `time.monotonic()` elsewhere keeps working."""
+
+        def __init__(self):
+            self.sleeps = []
+
+        def sleep(self, seconds):
+            self.sleeps.append(seconds)
+
+        def __getattr__(self, name):
+            return getattr(time, name)
+
     def test_the_successor_is_waited_for_not_spawned_over(self, tmp_path,
                                                           monkeypatch):
         """The successor publishes while we wait; nothing is spawned."""
@@ -27222,6 +29308,14 @@ class TestAHandoverIsNotAFailure:
             # the handover settles on the third look
             return 41000 if seen["reads"] >= 3 else None
 
+        # A POSITIVE CONTROL for the sibling test's `census.sleeps == []`:
+        # this case DOES reach the `time.sleep(0.1)` in ensure_proxy's
+        # handover wait, so the same `pin_proxy.time` census must record it
+        # -- otherwise an empty census over there would be equally true of a
+        # census that never worked at all.
+        census = self._TimeCensus()
+        monkeypatch.setattr(pin_proxy, "time", census)
+
         monkeypatch.setattr(pin_proxy, "_read_alive_port", fake_read)
         monkeypatch.setattr(pin_proxy, "_spawn_daemon",
                             lambda *_a: spawned.append("spawn") or None)
@@ -27230,39 +29324,92 @@ class TestAHandoverIsNotAFailure:
             "a handover in flight was reported as nothing serving -- the "
             "caller prints 'no proxy is running' over a pin that is fine")
         assert spawned == [], "spawned over a successor that was already coming"
+        assert census.sleeps, (
+            "the sleep census recorded nothing while a handover was waited "
+            "for -- either the wait loop stopped sleeping through "
+            "`pin_proxy.time`, or the census mechanism itself is broken, "
+            "which would make the sibling test's empty census meaningless"
+        )
 
     def test_a_record_with_no_handover_does_not_wait(self, tmp_path, monkeypatch):
         """THE CONTROL. Without it the test above passes on any wait at all,
         and an unconditional one would put `_SPAWN_WAIT_S` on every launch
-        that legitimately needs a spawn."""
+        that legitimately needs a spawn.
+
+        A `_read_alive_port` CALL COUNT ALONE IS NOT ENOUGH: a wait loop
+        built on `read_daemon_state` or `_await_successor_state` instead of
+        `time.sleep` would still pass it. So this also censuses every sleep
+        `ensure_proxy` itself makes, through a stand-in on `pin_proxy.time`
+        -- never on the global `time` module, which is what makes the
+        census SPECIFIC. A macOS runner reaches a real Keychain-probe
+        subprocess before `_spawn_daemon` (see `_keychain_denied_here`), and
+        its post-EOF `wait()` spins through CPython's own reap backoff --
+        ticks on `subprocess`'s OWN `time` import, invisible to a stand-in
+        that only replaces `pin_proxy.time`. A census built on the global
+        `time.sleep` instead would count that backoff too, and that flake is
+        the reason the call-count version above was written in the first
+        place.
+        """
         from cswap_pin import proxy as pin_proxy
 
         self._record(tmp_path, 41000, os.getpid(), "FP", handover=False)
 
         spawned = []
-        monkeypatch.setattr(pin_proxy, "_read_alive_port",
-                            lambda cd, fingerprint=None: None)
+        read_alive_calls = []
+
+        def _fake_read_alive_port(cd, fingerprint=None):
+            read_alive_calls.append(1)
+            return None
+
+        census = self._TimeCensus()
+        monkeypatch.setattr(pin_proxy, "time", census)
+
+        # THE DISCRIMINATING CONTROL: a sleep from OUTSIDE proxy.py, made
+        # through the global `time` module this test file imported (never
+        # `pin_proxy.time`), must not show up in the census -- proving it is
+        # scoped to proxy.py's own wait loops and cannot be tripped by the
+        # macOS reap-backoff flake the docstring above describes. Its own
+        # marker is asserted below -- a probe that never ran would make
+        # `census.sleeps == []` prove nothing about scoping either.
+        keychain_probe_ran = []
+
+        def _keychain_probe_that_sleeps():
+            keychain_probe_ran.append(1)
+            time.sleep(0.001)
+            return False
+
+        monkeypatch.setattr(pin_proxy, "_read_alive_port", _fake_read_alive_port)
         monkeypatch.setattr(pin_proxy, "_pin_daemon_pids", lambda _cd: set())
         monkeypatch.setattr(pin_proxy, "_spawn_daemon",
                             lambda *_a: spawned.append("spawn") or 41000)
-        slept = []
-        me = threading.get_ident()
-        monkeypatch.setattr(
-            pin_proxy.time, "sleep",
-            lambda s: slept.append(s) if threading.get_ident() == me else None)
-        self._drive(pin_proxy, monkeypatch, tmp_path)
+        self._drive(pin_proxy, monkeypatch, tmp_path,
+                   keychain_denied=_keychain_probe_that_sleeps)
         assert spawned == ["spawn"], "did not spawn when nothing was coming"
-        assert slept == [], (
-            f"waited {len(slept)} tick(s) with no handover in the record -- "
-            f"that is _SPAWN_WAIT_S added to every launch that needs a spawn")
+        assert len(read_alive_calls) == 2, (
+            f"read the alive port {len(read_alive_calls)} time(s) -- the fast "
+            f"path and the re-check under the lock account for exactly 2; a "
+            f"wait loop with no handover in the record adds one per tick, "
+            f"which is _SPAWN_WAIT_S added to every launch that needs a spawn"
+        )
+        assert census.sleeps == [], (
+            f"proxy.py itself slept {census.sleeps} on a record with no "
+            f"handover -- a wait loop ran when nothing was coming"
+        )
+        assert keychain_probe_ran, (
+            "the discriminating control never ran -- `census.sleeps == []` "
+            "then proves nothing about scoping, only that this probe was "
+            "skipped"
+        )
 
     # -- harness -----------------------------------------------------------
 
-    def _drive(self, pin_proxy, monkeypatch, tmp_path):
+    def _drive(self, pin_proxy, monkeypatch, tmp_path, keychain_denied=None):
         """Call ensure_proxy with everything around the decision stubbed out.
 
         Only the reuse/wait/spawn decision is under test; the CA, the chain
-        probe and the wiring are other tests' subjects.
+        probe and the wiring are other tests' subjects. ``keychain_denied``
+        lets a caller drive `_keychain_denied_here` itself, rather than the
+        default stand-in that only ever returns False.
         """
         class _SW:
             backup_dir = tmp_path
@@ -27282,6 +29429,8 @@ class TestAHandoverIsNotAFailure:
         monkeypatch.setattr(pin_proxy, "publish_ca", lambda _p: None)
         monkeypatch.setattr(pin_proxy, "wire_global_config", lambda *_a: None)
         monkeypatch.setattr(pin_proxy, "unwire_if_dead", lambda _cd: None)
+        monkeypatch.setattr(pin_proxy, "_keychain_denied_here",
+                            keychain_denied or (lambda: False))
         got = pin_proxy.ensure_proxy(_SW())
         return got if got is None else got[0]
 
@@ -27312,29 +29461,7 @@ class TestABlindDaemonRepairsItself:
         def learn_next_hop(self):
             pass
 
-    class _Ticks:
-        """A `done` that ends the loop after N ticks.
-
-        The existing watchdog harnesses pass a never-set Event and rely on the
-        branch under test calling `os._exit`. That works only for cases that
-        DO act -- the control cases here act by design on nothing, so with a
-        never-set Event the loop spins for ever and the test hangs instead of
-        failing. Ending the loop is what lets "nothing happened" be an
-        assertable outcome.
-        """
-
-        def __init__(self, n=3):
-            self.left = n
-
-        def wait(self, _timeout=None):
-            self.left -= 1
-            return self.left <= 0
-
-        def is_set(self):
-            return self.left <= 0
-
-        def set(self):
-            self.left = 0
+    _Ticks = _Ticks
 
     def _drive_with(self, monkeypatch, tmp_path, srv):
         """`_drive` for a server the caller already holds, so a test can read
@@ -27363,9 +29490,23 @@ class TestABlindDaemonRepairsItself:
         from cswap_pin import proxy as pin_proxy
 
         signalled, exited = [], []
+
         # SIGUSR1's default disposition terminates, and `_HELD_BY_ENV` below
         # names the real pytest parent -- unstubbed this kills the worker.
-        monkeypatch.setattr(os, "kill", lambda pid, sig: signalled.append((pid, sig)))
+        #
+        # THE SUCCESSOR'S OWN PUBLISH, for the one case here (a blind mint)
+        # whose ask succeeds, is a side effect of the ask itself: the daemon
+        # now waits for it before exiting (RULE 0), matching identity against
+        # whatever was on disk the INSTANT BEFORE the ask -- writing it any
+        # earlier would make it read as pre-existing rather than as this
+        # ask's own successor. Publishing it here still resolves that wait at
+        # once rather than spending its budget.
+        def _kill_and_publish(pid, sig):
+            signalled.append((pid, sig))
+            pin_proxy.write_daemon_state(
+                tmp_path, 36301, os.getpid() + 1, pin_proxy.daemon_fingerprint())
+
+        monkeypatch.setattr(os, "kill", _kill_and_publish)
         monkeypatch.setattr(os, "_exit",
                             lambda code: exited.append(code) or (_ for _ in ()).throw(
                                 SystemExit(code)))
@@ -27395,6 +29536,66 @@ class TestABlindDaemonRepairsItself:
         assert exited == [0], (
             "the successor is already on the socket, so this one must exit 0 "
             "-- 75 would make the holder spawn a SECOND daemon")
+
+    def test_a_blind_daemon_waits_for_a_successor_that_publishes_late(
+            self, monkeypatch, tmp_path):
+        """(c): the held-replace wait is the SAME code for every trigger.
+
+        The case above publishes the successor's record synchronously, as a
+        side effect of the `os.kill` stub itself, so it cannot tell "waited
+        for the publish" from "raced past it". This delays the publish past
+        the ask instead, the way
+        `TestDaemonPortStability.case_a_held_daemon_waits_for_its_successors_own_publish`
+        does for the code-changed trigger, and asserts the blind-mint
+        trigger is waited for identically -- nothing gates the outcome on
+        why the daemon decided to replace itself.
+        """
+        import threading
+        import time as _time
+
+        from cswap_pin import proxy as pin_proxy
+
+        monkeypatch.setattr(os, "kill", lambda pid, sig: None)
+        monkeypatch.setattr(pin_proxy, "_ASK_SETTLE_SECONDS", 0)
+        monkeypatch.setattr(pin_proxy, "_SPAWN_WAIT_S", 2.0)
+        monkeypatch.setenv(pin_proxy._HELD_BY_ENV, str(os.getppid()))
+        monkeypatch.setenv(pin_proxy._HOLDER_REPLACE_ENV, "1")
+        monkeypatch.delenv(pin_proxy._SELF_HEAL_ENV, raising=False)
+
+        delay = 0.3
+        fp = pin_proxy.daemon_fingerprint()
+
+        def _publish_late():
+            _time.sleep(delay)
+            pin_proxy.write_daemon_state(tmp_path, 36301, os.getpid() + 1, fp)
+
+        exited = []
+        monkeypatch.setattr(
+            os, "_exit",
+            lambda code: exited.append(code) or (_ for _ in ()).throw(
+                SystemExit(code)))
+
+        started = _time.monotonic()
+        threading.Thread(target=_publish_late, daemon=True).start()
+        try:
+            pin_proxy._watch_own_code(
+                self._Srv(lambda: None), "1", "a@b.c", tmp_path,
+                self._Ticks(), lambda *a: None, interval=0.01,
+                # CURRENT, so the blind mint is the only reason to act.
+                _own_fingerprint=fp,
+            )
+        except SystemExit:
+            pass
+        elapsed = _time.monotonic() - started
+
+        assert exited == [0], (
+            f"a blind-mint replace did not wait for its successor's "
+            f"publish: {exited}"
+        )
+        assert elapsed >= delay, (
+            f"exited after {elapsed:.2f}s, before the late publish at "
+            f"{delay}s -- the ask alone was treated as enough"
+        )
 
     def test_a_daemon_that_can_mint_is_left_alone(self, monkeypatch, tmp_path):
         """THE CONTROL. Without it the test above passes on any recycle at all,

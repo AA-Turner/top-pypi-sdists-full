@@ -762,8 +762,6 @@ class EventsEventWorkersUnionMember0(BaseModel):
         "unknown",
     ] = FieldInfo(alias="eventType")
 
-    request_id: str = FieldInfo(alias="requestId")
-
     script_name: str = FieldInfo(alias="scriptName")
 
     durable_object_id: Optional[str] = FieldInfo(alias="durableObjectId", default=None)
@@ -777,6 +775,8 @@ class EventsEventWorkersUnionMember0(BaseModel):
     outcome: Optional[str] = None
 
     preview: Optional[EventsEventWorkersUnionMember0Preview] = None
+
+    request_id: Optional[str] = FieldInfo(alias="requestId", default=None)
 
     script_version: Optional[EventsEventWorkersUnionMember0ScriptVersion] = FieldInfo(
         alias="scriptVersion", default=None
@@ -833,8 +833,6 @@ class EventsEventWorkersUnionMember1(BaseModel):
 
     outcome: str
 
-    request_id: str = FieldInfo(alias="requestId")
-
     script_name: str = FieldInfo(alias="scriptName")
 
     wall_time_ms: float = FieldInfo(alias="wallTimeMs")
@@ -854,6 +852,8 @@ class EventsEventWorkersUnionMember1(BaseModel):
     execution_model: Optional[Literal["durableObject", "stateless"]] = FieldInfo(alias="executionModel", default=None)
 
     preview: Optional[EventsEventWorkersUnionMember1Preview] = None
+
+    request_id: Optional[str] = FieldInfo(alias="requestId", default=None)
 
     script_version: Optional[EventsEventWorkersUnionMember1ScriptVersion] = FieldInfo(
         alias="scriptVersion", default=None
@@ -1108,8 +1108,6 @@ class InvocationWorkersUnionMember0(BaseModel):
         "unknown",
     ] = FieldInfo(alias="eventType")
 
-    request_id: str = FieldInfo(alias="requestId")
-
     script_name: str = FieldInfo(alias="scriptName")
 
     durable_object_id: Optional[str] = FieldInfo(alias="durableObjectId", default=None)
@@ -1123,6 +1121,8 @@ class InvocationWorkersUnionMember0(BaseModel):
     outcome: Optional[str] = None
 
     preview: Optional[InvocationWorkersUnionMember0Preview] = None
+
+    request_id: Optional[str] = FieldInfo(alias="requestId", default=None)
 
     script_version: Optional[InvocationWorkersUnionMember0ScriptVersion] = FieldInfo(
         alias="scriptVersion", default=None
@@ -1179,8 +1179,6 @@ class InvocationWorkersUnionMember1(BaseModel):
 
     outcome: str
 
-    request_id: str = FieldInfo(alias="requestId")
-
     script_name: str = FieldInfo(alias="scriptName")
 
     wall_time_ms: float = FieldInfo(alias="wallTimeMs")
@@ -1200,6 +1198,8 @@ class InvocationWorkersUnionMember1(BaseModel):
     execution_model: Optional[Literal["durableObject", "stateless"]] = FieldInfo(alias="executionModel", default=None)
 
     preview: Optional[InvocationWorkersUnionMember1Preview] = None
+
+    request_id: Optional[str] = FieldInfo(alias="requestId", default=None)
 
     script_version: Optional[InvocationWorkersUnionMember1ScriptVersion] = FieldInfo(
         alias="scriptVersion", default=None

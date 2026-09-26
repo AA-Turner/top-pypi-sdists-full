@@ -27,6 +27,8 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <tuple>
+#include <utility>
 
 SciQLopLineGraph::SciQLopLineGraph(QCustomPlot* parent, SciQLopPlotAxis* key_axis,
                                    SciQLopPlotAxis* value_axis, const QStringList& labels,
@@ -52,6 +54,7 @@ void SciQLopLineGraph::set_data(SciQLopPyBuffer x, SciQLopPyBuffer y)
     if (_color_values->size() != _x.flat_size())
     {
         _color_values.reset();
+        _color_buffer = {};
         notify_color_scale();
         return;
     }
@@ -67,19 +70,33 @@ void SciQLopLineGraph::set_visible(bool visible) noexcept
     notify_color_scale();
 }
 
-void SciQLopLineGraph::set_color_data(SciQLopPyBuffer values, ::ColorGradient gradient)
+void SciQLopLineGraph::check_color_length(const SciQLopPyBuffer& values,
+                                          std::size_t samples) const
 {
-    const bool colouring = values.is_valid() && values.flat_size() > 0;
-    const std::size_t samples = _x.is_valid() ? _x.flat_size() : 0;
-    if (colouring && values.flat_size() != samples)
+    const std::size_t count = values.is_valid() ? values.flat_size() : 0;
+    if (count > 0 && count != samples)
         throw std::invalid_argument(
             "LineGraph.set_color_data: expected one colour value per x sample ("
-            + std::to_string(samples) + "), got " + std::to_string(values.flat_size()));
+            + std::to_string(samples) + "), got " + std::to_string(count));
+}
 
+void SciQLopLineGraph::store_color_values(const SciQLopPyBuffer& values)
+{
+    const bool colouring = values.is_valid() && values.flat_size() > 0;
     _color_values = colouring ? std::make_shared<const std::vector<double>>(
                                     to_double_vector<std::vector<double>>(values))
                               : nullptr;
-    _color_gradient = QCPColorGradient(to_qcp(gradient));
+    _color_buffer = colouring ? values : SciQLopPyBuffer {};
+}
+
+void SciQLopLineGraph::apply_color_values(const SciQLopPyBuffer& values)
+{
+    store_color_values(values);
+    push_color_values();
+}
+
+void SciQLopLineGraph::push_color_values()
+{
     if (_multiGraph)
     {
         if (_color_values)
@@ -88,7 +105,53 @@ void SciQLopLineGraph::set_color_data(SciQLopPyBuffer values, ::ColorGradient gr
             _multiGraph->clearColorValues();
     }
     push_color_mapping();
-    notify_color_scale(colouring ? std::optional { gradient } : std::nullopt);
+}
+
+void SciQLopLineGraph::set_color_data(SciQLopPyBuffer values, ::ColorGradient gradient)
+{
+    check_color_length(values, _x.is_valid() ? _x.flat_size() : 0);
+    _gradient_preset = gradient;
+    _color_gradient = QCPColorGradient(to_qcp(gradient));
+    apply_color_values(values);
+    notify_color_scale(_color_values ? std::optional { gradient } : std::nullopt);
+}
+
+void SciQLopLineGraph::set_color_gradient(::ColorGradient gradient)
+{
+    _gradient_preset = gradient;
+    _color_gradient = QCPColorGradient(to_qcp(gradient));
+    push_color_mapping();
+    if (_color_values)
+        notify_color_scale(gradient);
+}
+
+void SciQLopLineGraph::set_data_and_color(const QList<SciQLopPyBuffer>& data,
+                                          const SciQLopPyBuffer& color)
+{
+    if (data.size() != 2)
+        throw std::invalid_argument("LineGraph: a coloured batch needs [x, y], got "
+                                    + std::to_string(data.size()) + " buffers");
+    check_color_length(color, data[0].is_valid() ? data[0].flat_size() : 0);
+    const bool was_coloured = _color_values != nullptr;
+    // Colours first: set_data then finds them as long as the new x and keeps them.
+    // The other way round it drops the old ones, which hides the plot's scale until
+    // the new ones show it again.
+    auto previous = std::pair { _color_values, _color_buffer };
+    store_color_values(color);
+    try
+    {
+        set_data(data[0], data[1]);
+    }
+    catch (...)
+    {
+        std::tie(_color_values, _color_buffer) = std::move(previous);
+        throw;
+    }
+    push_color_values();
+    // Only a gradient given explicitly, and only when the colouring switches on: the
+    // plot's scale keeps the last gradient asked for, so asking on every refresh would
+    // undo a gradient picked on the plot.
+    notify_color_scale(_color_values && !was_coloured ? _gradient_preset : std::nullopt);
 }
 
 std::optional<std::pair<double, double>> SciQLopLineGraph::color_range(bool log) const

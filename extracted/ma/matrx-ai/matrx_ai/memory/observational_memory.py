@@ -10,7 +10,7 @@ import logging
 from collections.abc import Callable, Coroutine
 
 from .buffering_coordinator import BufferingCoordinator
-from .constants import OBSERVATION_CONTEXT_PROMPT
+from .context_framing import resolve_context_framing
 from .observer_runner import ObserverRunner
 from .reflector_runner import ReflectorRunner
 from .storage import ObservationalMemoryStorage, get_or_create_record
@@ -36,7 +36,7 @@ class ObservationalMemory:
         config: ObservationalMemoryConfig,
         storage: ObservationalMemoryStorage,
         count_tokens_fn: Callable[[str], int],
-        llm_call_fn: Callable[[str, list[dict], float, int], Coroutine[None, None, str]],
+        llm_call_fn: Callable[..., Coroutine[None, None, str]],
     ):
         self.config = config
         self.storage = storage
@@ -163,9 +163,9 @@ class ObservationalMemory:
         if not record.active_observations:
             return messages
 
-        from .constants import OBSERVATION_CONTEXT_INSTRUCTIONS
-
-        context_prompt = f"{OBSERVATION_CONTEXT_PROMPT}\n\n<observations>\n{record.active_observations}\n</observations>\n\n{OBSERVATION_CONTEXT_INSTRUCTIONS}"
+        # The framing is the organization's knob (agents.memory), never code.
+        preamble, instructions = await resolve_context_framing(self.config.organization_id)
+        context_prompt = f"{preamble}\n\n<observations>\n{record.active_observations}\n</observations>\n\n{instructions}"
         if record.current_task:
             context_prompt = context_prompt.replace(
                 "{{currentTask}}", f"<current-task>\n{record.current_task}\n</current-task>"

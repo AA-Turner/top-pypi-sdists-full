@@ -15,3 +15,4 @@ class Action(BaseModel):
     """Type of supported action."""
 
     value: Optional[List[str]] = None
+    """List of values for the action. Currently limited to a single value."""

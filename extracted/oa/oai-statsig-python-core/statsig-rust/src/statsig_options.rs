@@ -49,12 +49,20 @@ pub struct StatsigOptions {
     pub event_logging_max_pending_batch_queue_size: Option<u32>,
     pub event_logging_max_queue_size: Option<u32>,
 
+    /// Enables built-in fallback for specs and ID-list manifests. For ID-list files, an exhausted
+    /// retryable request to an override falls back once to the manifest's original URL only on
+    /// the trusted HTTPS OpenAI CDN origin. File authentication failures (401/403) and other
+    /// non-retryable errors do not fall back. File fallback requests never follow redirects.
+    /// Unset or false keeps file downloads on the configured destination.
     pub fallback_to_statsig_api: Option<bool>,
     pub global_custom_fields: Option<HashMap<String, DynamicValue>>,
 
     pub id_lists_adapter: Option<Arc<dyn IdListsAdapter>>,
     pub id_lists_sync_interval_ms: Option<u32>,
     pub id_lists_url: Option<String>,
+    /// Preferred base URL for individual ID-list files; preserves the manifest's path and query.
+    /// Set `fallback_to_statsig_api` to true to allow retryable failures to use the original URL
+    /// when it belongs to the trusted HTTPS OpenAI CDN origin.
     pub download_id_list_file_api: Option<String>,
 
     pub init_timeout_ms: Option<u64>,
@@ -111,6 +119,17 @@ pub(crate) struct SnapshotEvaluationSessionInitOptions {
 }
 
 impl StatsigOptions {
+    /// Suppress this client's SDK diagnostic output, including console and SDK exception
+    /// reporting. Default is false. Configure before constructing any adapter with these
+    /// options. Caller logging is not intercepted, but exported SDK logging helpers invoked
+    /// inside callbacks inherit suppression; see the output-safety guide before broader adoption.
+    /// This named API also prevents adoption from silently succeeding on an older SDK.
+    #[must_use]
+    pub fn suppress_diagnostic_output(mut self, enabled: bool) -> Self {
+        crate::output_policy::OutputPolicy::configure(&mut self, enabled);
+        self
+    }
+
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -133,6 +152,13 @@ pub struct StatsigOptionsBuilder {
 }
 
 impl StatsigOptionsBuilder {
+    /// See [`StatsigOptions::suppress_diagnostic_output`].
+    #[must_use]
+    pub fn suppress_diagnostic_output(mut self, enabled: bool) -> Self {
+        self.inner = self.inner.suppress_diagnostic_output(enabled);
+        self
+    }
+
     #[must_use]
     pub fn new() -> Self {
         Self::default()
@@ -553,6 +579,7 @@ fn get_display_name<T: fmt::Debug>(s: &Option<T>) -> Option<String> {
 const TAG: &str = "StatsigOptionValidator";
 impl StatsigOptions {
     pub fn validate_and_fix(self: Arc<Self>) -> Arc<Self> {
+        let _output_scope = crate::output_policy::OutputPolicy::from_options(Some(&self)).enter();
         if std::env::var(TEST_ENV_FLAG).is_ok() {
             log_d!(
                 TAG,

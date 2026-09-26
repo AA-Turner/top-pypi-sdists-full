@@ -12680,6 +12680,34 @@ class Messages(System.Object):
             ...
 
         @staticmethod
+        def unsupported_contingency_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, contingency_type: QuantConnect.Orders.ContingencyType, supported_contingency_types: typing.List[QuantConnect.Orders.ContingencyType]) -> str:
+            """
+            Returns a string message saying the contingency type of the given order is unsupported by the given brokerage model.
+            It also mentions the supported contingency types
+            """
+            ...
+
+        @staticmethod
+        def unsupported_contingent_orders(brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> str:
+            """Returns a string message saying the given brokerage model does not support contingent orders"""
+            ...
+
+        @staticmethod
+        def unsupported_contingent_orders_quantity_update(brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> str:
+            """Returns a string message saying the given brokerage model does not support updating the quantity of contingent orders"""
+            ...
+
+        @staticmethod
+        def unsupported_contingent_orders_shape(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, reason: str) -> str:
+            """Returns a string message saying the shape of the set of contingent orders is unsupported by the given brokerage model"""
+            ...
+
+        @staticmethod
+        def unsupported_contingent_orders_update(brokerage_model: QuantConnect.Brokerages.IBrokerageModel) -> str:
+            """Returns a string message saying the given brokerage model does not support updating contingent orders"""
+            ...
+
+        @staticmethod
         def unsupported_cross_zero_by_order_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, order_type: QuantConnect.Orders.OrderType) -> str:
             """Returns a message indicating that the specified order type is not supported for orders that cross the zero holdings threshold."""
             ...

@@ -17,6 +17,7 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
+from notebooklm._idempotency import bound_operation_journal_entries
 from notebooklm._web.policy import (
     IDEMPOTENCY_REGISTRY,
     IdempotencyEntry,
@@ -152,14 +153,14 @@ def test_registry_has_no_unclassified_production_entries() -> None:
 def test_retry_disabled_entries_are_intentional_and_documented() -> None:
     """Non-retryable methods are pinned so cleanup cannot make them retryable."""
     expected = {
-        (RPCMethod.CREATE_NOTEBOOK, None): IdempotencyPolicy.PROBE_THEN_CREATE,
+        (RPCMethod.CREATE_NOTEBOOK, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.COPY_NOTEBOOK, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.ADD_SOURCE, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
-        (RPCMethod.ADD_SOURCE, "url"): IdempotencyPolicy.PROBE_THEN_CREATE,
-        (RPCMethod.ADD_SOURCE, "drive"): IdempotencyPolicy.PROBE_THEN_CREATE,
+        (RPCMethod.ADD_SOURCE, "url"): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+        (RPCMethod.ADD_SOURCE, "drive"): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.ADD_SOURCE, "text"): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
-        (RPCMethod.ADD_SOURCE_FILE, None): IdempotencyPolicy.PROBE_THEN_CREATE,
-        (RPCMethod.CREATE_ARTIFACT, None): IdempotencyPolicy.PROBE_THEN_CREATE,
+        (RPCMethod.ADD_SOURCE_FILE, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
+        (RPCMethod.CREATE_ARTIFACT, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.EXPORT_ARTIFACT, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.REVISE_SLIDE, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.RETRY_ARTIFACT, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
@@ -167,11 +168,11 @@ def test_retry_disabled_entries_are_intentional_and_documented() -> None:
         (RPCMethod.START_FAST_RESEARCH, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.START_DEEP_RESEARCH, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.IMPORT_RESEARCH, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
-        (RPCMethod.GENERATE_MIND_MAP, None): IdempotencyPolicy.PROBE_THEN_CREATE,
+        (RPCMethod.GENERATE_MIND_MAP, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.CREATE_NOTE, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.CREATE_NOTE, "plain"): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.CREATE_NOTE, "saved_from_chat"): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
-        (RPCMethod.SHARE_NOTEBOOK, None): IdempotencyPolicy.PROBE_THEN_CREATE,
+        (RPCMethod.SHARE_NOTEBOOK, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.CREATE_LABEL, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.DELETE_LABEL, None): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
         (RPCMethod.UPDATE_LABEL, "add_sources"): IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
@@ -187,11 +188,7 @@ def test_retry_disabled_entries_are_intentional_and_documented() -> None:
     actual = {
         (method, variant): entry.policy
         for method, variant, entry in IDEMPOTENCY_REGISTRY.iter_entries()
-        if entry.policy
-        in {
-            IdempotencyPolicy.PROBE_THEN_CREATE,
-            IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY,
-        }
+        if entry.policy is IdempotencyPolicy.NON_IDEMPOTENT_NO_RETRY
     }
 
     assert actual == expected
@@ -292,15 +289,14 @@ def test_non_idempotent_no_retry_entries_document_dedupe_gap() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 5-policy enum
+# 4-policy enum
 # ---------------------------------------------------------------------------
 
 
-def test_idempotency_policy_has_all_five_values() -> None:
-    """The classification axis is 5-way; nothing else."""
+def test_idempotency_policy_has_all_four_values() -> None:
+    """The classification axis is 4-way; nothing else."""
     expected = {
         "UNCLASSIFIED",
-        "PROBE_THEN_CREATE",
         "IDEMPOTENT_SET_OP",
         "AT_LEAST_ONCE_ACCEPTED",
         "NON_IDEMPOTENT_NO_RETRY",
@@ -400,22 +396,6 @@ def test_caller_disable_true_always_wins() -> None:
         registry,
         RPCMethod.LIST_NOTEBOOKS,
         caller_disable_internal_retries=True,
-        operation_variant=None,
-    )
-    assert effective is True
-
-
-def test_probe_then_create_disables_internal_retries() -> None:
-    """PROBE_THEN_CREATE methods are NOT safe to retry inside the transport —
-    the executor must surface failures so the caller's probe-then-create
-    state machine handles them."""
-    registry = IdempotencyRegistry()
-    registry.register(RPCMethod.LIST_NOTEBOOKS, IdempotencyPolicy.PROBE_THEN_CREATE)
-
-    effective = resolve_effective_disable_internal_retries(
-        registry,
-        RPCMethod.LIST_NOTEBOOKS,
-        caller_disable_internal_retries=False,
         operation_variant=None,
     )
     assert effective is True
@@ -559,10 +539,13 @@ def _build_rpc_executor() -> Any:
         rpc_method: str | None = None,
         refresh_budget: Any = None,
         retry_deadline: Any = None,
+        retry_budget: Any = None,
         read_timeout: float | None = None,
         expected_epoch: int | None = None,
         epoch_observer: Any = None,
     ) -> httpx.Response:
+        for entry in bound_operation_journal_entries():
+            entry.mark_dispatched()
         admitted_epoch = 1 if expected_epoch is None else expected_epoch
         if epoch_observer is not None:
             epoch_observer(admitted_epoch)

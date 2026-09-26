@@ -5,6 +5,7 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.auth_mode_enum import AuthModeEnum
 from ...types.azure_service_principal_import_storage import AzureServicePrincipalImportStorage
 from ...types.storage_status_enum import StorageStatusEnum
 from .raw_client import AsyncRawAzureSpiClient, RawAzureSpiClient
@@ -79,6 +80,7 @@ class AzureSpiClient:
         *,
         project: int,
         account_name: typing.Optional[str] = OMIT,
+        auth_mode: typing.Optional[AuthModeEnum] = OMIT,
         client_id: typing.Optional[str] = OMIT,
         client_secret: typing.Optional[str] = OMIT,
         container: typing.Optional[str] = OMIT,
@@ -108,7 +110,7 @@ class AzureSpiClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Create Azure import storage with Service Principal authentication.
+        Create Azure import storage with Service Principal or workload-identity authentication. Supports auth_mode=service_principal (default; requires tenant_id, client_id, and client_secret) and auth_mode=workload_identity (secretless; client_secret must be omitted, tenant_id is not required, optional client_id selects a user-assigned managed identity). GET responses never include client_secret.
 
         Parameters
         ----------
@@ -118,11 +120,17 @@ class AzureSpiClient:
         account_name : typing.Optional[str]
             Azure Blob account name
 
+        auth_mode : typing.Optional[AuthModeEnum]
+            Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+
+            * `service_principal` - Service Principal
+            * `workload_identity` - Workload identity
+
         client_id : typing.Optional[str]
-            Azure Blob Service Principal Client ID
+            For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
 
         client_secret : typing.Optional[str]
-            Azure Blob Service Principal Client Secret
+            Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
 
         container : typing.Optional[str]
             Azure blob container
@@ -161,7 +169,7 @@ class AzureSpiClient:
         synchronizable : typing.Optional[bool]
 
         tenant_id : typing.Optional[str]
-            Azure Tenant ID
+            Azure Tenant ID. Required for service_principal; not used for workload_identity.
 
         title : typing.Optional[str]
             Cloud storage title
@@ -197,6 +205,7 @@ class AzureSpiClient:
         _response = self._raw_client.create(
             project=project,
             account_name=account_name,
+            auth_mode=auth_mode,
             client_id=client_id,
             client_secret=client_secret,
             container=container,
@@ -226,6 +235,7 @@ class AzureSpiClient:
         *,
         project: int,
         account_name: typing.Optional[str] = OMIT,
+        auth_mode: typing.Optional[AuthModeEnum] = OMIT,
         client_id: typing.Optional[str] = OMIT,
         client_secret: typing.Optional[str] = OMIT,
         container: typing.Optional[str] = OMIT,
@@ -255,7 +265,7 @@ class AzureSpiClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Validate a specific Azure import storage connection that was set up with Service Principal authentication.
+        Validate a specific Azure import storage connection (Service Principal or workload-identity). Supports auth_mode=service_principal (default; requires tenant_id, client_id, and client_secret) and auth_mode=workload_identity (secretless; client_secret must be omitted, tenant_id is not required, optional client_id selects a user-assigned managed identity). GET responses never include client_secret.
 
         Parameters
         ----------
@@ -265,11 +275,17 @@ class AzureSpiClient:
         account_name : typing.Optional[str]
             Azure Blob account name
 
+        auth_mode : typing.Optional[AuthModeEnum]
+            Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+
+            * `service_principal` - Service Principal
+            * `workload_identity` - Workload identity
+
         client_id : typing.Optional[str]
-            Azure Blob Service Principal Client ID
+            For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
 
         client_secret : typing.Optional[str]
-            Azure Blob Service Principal Client Secret
+            Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
 
         container : typing.Optional[str]
             Azure blob container
@@ -308,7 +324,7 @@ class AzureSpiClient:
         synchronizable : typing.Optional[bool]
 
         tenant_id : typing.Optional[str]
-            Azure Tenant ID
+            Azure Tenant ID. Required for service_principal; not used for workload_identity.
 
         title : typing.Optional[str]
             Cloud storage title
@@ -343,6 +359,7 @@ class AzureSpiClient:
         _response = self._raw_client.validate(
             project=project,
             account_name=account_name,
+            auth_mode=auth_mode,
             client_id=client_id,
             client_secret=client_secret,
             container=container,
@@ -445,6 +462,7 @@ class AzureSpiClient:
         id: int,
         *,
         account_name: typing.Optional[str] = OMIT,
+        auth_mode: typing.Optional[AuthModeEnum] = OMIT,
         client_id: typing.Optional[str] = OMIT,
         client_secret: typing.Optional[str] = OMIT,
         container: typing.Optional[str] = OMIT,
@@ -475,7 +493,7 @@ class AzureSpiClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Update a specific Azure import storage connection that was set up with Service Principal authentication.
+        Update a specific Azure import storage connection (Service Principal or workload-identity). Supports auth_mode=service_principal (default; requires tenant_id, client_id, and client_secret) and auth_mode=workload_identity (secretless; client_secret must be omitted, tenant_id is not required, optional client_id selects a user-assigned managed identity). GET responses never include client_secret.
 
         Parameters
         ----------
@@ -484,11 +502,17 @@ class AzureSpiClient:
         account_name : typing.Optional[str]
             Azure Blob account name
 
+        auth_mode : typing.Optional[AuthModeEnum]
+            Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+
+            * `service_principal` - Service Principal
+            * `workload_identity` - Workload identity
+
         client_id : typing.Optional[str]
-            Azure Blob Service Principal Client ID
+            For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
 
         client_secret : typing.Optional[str]
-            Azure Blob Service Principal Client Secret
+            Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
 
         container : typing.Optional[str]
             Azure blob container
@@ -530,7 +554,7 @@ class AzureSpiClient:
         synchronizable : typing.Optional[bool]
 
         tenant_id : typing.Optional[str]
-            Azure Tenant ID
+            Azure Tenant ID. Required for service_principal; not used for workload_identity.
 
         title : typing.Optional[str]
             Cloud storage title
@@ -566,6 +590,7 @@ class AzureSpiClient:
         _response = self._raw_client.update(
             id,
             account_name=account_name,
+            auth_mode=auth_mode,
             client_id=client_id,
             client_secret=client_secret,
             container=container,
@@ -704,6 +729,7 @@ class AsyncAzureSpiClient:
         *,
         project: int,
         account_name: typing.Optional[str] = OMIT,
+        auth_mode: typing.Optional[AuthModeEnum] = OMIT,
         client_id: typing.Optional[str] = OMIT,
         client_secret: typing.Optional[str] = OMIT,
         container: typing.Optional[str] = OMIT,
@@ -733,7 +759,7 @@ class AsyncAzureSpiClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Create Azure import storage with Service Principal authentication.
+        Create Azure import storage with Service Principal or workload-identity authentication. Supports auth_mode=service_principal (default; requires tenant_id, client_id, and client_secret) and auth_mode=workload_identity (secretless; client_secret must be omitted, tenant_id is not required, optional client_id selects a user-assigned managed identity). GET responses never include client_secret.
 
         Parameters
         ----------
@@ -743,11 +769,17 @@ class AsyncAzureSpiClient:
         account_name : typing.Optional[str]
             Azure Blob account name
 
+        auth_mode : typing.Optional[AuthModeEnum]
+            Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+
+            * `service_principal` - Service Principal
+            * `workload_identity` - Workload identity
+
         client_id : typing.Optional[str]
-            Azure Blob Service Principal Client ID
+            For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
 
         client_secret : typing.Optional[str]
-            Azure Blob Service Principal Client Secret
+            Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
 
         container : typing.Optional[str]
             Azure blob container
@@ -786,7 +818,7 @@ class AsyncAzureSpiClient:
         synchronizable : typing.Optional[bool]
 
         tenant_id : typing.Optional[str]
-            Azure Tenant ID
+            Azure Tenant ID. Required for service_principal; not used for workload_identity.
 
         title : typing.Optional[str]
             Cloud storage title
@@ -830,6 +862,7 @@ class AsyncAzureSpiClient:
         _response = await self._raw_client.create(
             project=project,
             account_name=account_name,
+            auth_mode=auth_mode,
             client_id=client_id,
             client_secret=client_secret,
             container=container,
@@ -859,6 +892,7 @@ class AsyncAzureSpiClient:
         *,
         project: int,
         account_name: typing.Optional[str] = OMIT,
+        auth_mode: typing.Optional[AuthModeEnum] = OMIT,
         client_id: typing.Optional[str] = OMIT,
         client_secret: typing.Optional[str] = OMIT,
         container: typing.Optional[str] = OMIT,
@@ -888,7 +922,7 @@ class AsyncAzureSpiClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Validate a specific Azure import storage connection that was set up with Service Principal authentication.
+        Validate a specific Azure import storage connection (Service Principal or workload-identity). Supports auth_mode=service_principal (default; requires tenant_id, client_id, and client_secret) and auth_mode=workload_identity (secretless; client_secret must be omitted, tenant_id is not required, optional client_id selects a user-assigned managed identity). GET responses never include client_secret.
 
         Parameters
         ----------
@@ -898,11 +932,17 @@ class AsyncAzureSpiClient:
         account_name : typing.Optional[str]
             Azure Blob account name
 
+        auth_mode : typing.Optional[AuthModeEnum]
+            Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+
+            * `service_principal` - Service Principal
+            * `workload_identity` - Workload identity
+
         client_id : typing.Optional[str]
-            Azure Blob Service Principal Client ID
+            For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
 
         client_secret : typing.Optional[str]
-            Azure Blob Service Principal Client Secret
+            Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
 
         container : typing.Optional[str]
             Azure blob container
@@ -941,7 +981,7 @@ class AsyncAzureSpiClient:
         synchronizable : typing.Optional[bool]
 
         tenant_id : typing.Optional[str]
-            Azure Tenant ID
+            Azure Tenant ID. Required for service_principal; not used for workload_identity.
 
         title : typing.Optional[str]
             Cloud storage title
@@ -984,6 +1024,7 @@ class AsyncAzureSpiClient:
         _response = await self._raw_client.validate(
             project=project,
             account_name=account_name,
+            auth_mode=auth_mode,
             client_id=client_id,
             client_secret=client_secret,
             container=container,
@@ -1102,6 +1143,7 @@ class AsyncAzureSpiClient:
         id: int,
         *,
         account_name: typing.Optional[str] = OMIT,
+        auth_mode: typing.Optional[AuthModeEnum] = OMIT,
         client_id: typing.Optional[str] = OMIT,
         client_secret: typing.Optional[str] = OMIT,
         container: typing.Optional[str] = OMIT,
@@ -1132,7 +1174,7 @@ class AsyncAzureSpiClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Update a specific Azure import storage connection that was set up with Service Principal authentication.
+        Update a specific Azure import storage connection (Service Principal or workload-identity). Supports auth_mode=service_principal (default; requires tenant_id, client_id, and client_secret) and auth_mode=workload_identity (secretless; client_secret must be omitted, tenant_id is not required, optional client_id selects a user-assigned managed identity). GET responses never include client_secret.
 
         Parameters
         ----------
@@ -1141,11 +1183,17 @@ class AsyncAzureSpiClient:
         account_name : typing.Optional[str]
             Azure Blob account name
 
+        auth_mode : typing.Optional[AuthModeEnum]
+            Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+
+            * `service_principal` - Service Principal
+            * `workload_identity` - Workload identity
+
         client_id : typing.Optional[str]
-            Azure Blob Service Principal Client ID
+            For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
 
         client_secret : typing.Optional[str]
-            Azure Blob Service Principal Client Secret
+            Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
 
         container : typing.Optional[str]
             Azure blob container
@@ -1187,7 +1235,7 @@ class AsyncAzureSpiClient:
         synchronizable : typing.Optional[bool]
 
         tenant_id : typing.Optional[str]
-            Azure Tenant ID
+            Azure Tenant ID. Required for service_principal; not used for workload_identity.
 
         title : typing.Optional[str]
             Cloud storage title
@@ -1231,6 +1279,7 @@ class AsyncAzureSpiClient:
         _response = await self._raw_client.update(
             id,
             account_name=account_name,
+            auth_mode=auth_mode,
             client_id=client_id,
             client_secret=client_secret,
             container=container,

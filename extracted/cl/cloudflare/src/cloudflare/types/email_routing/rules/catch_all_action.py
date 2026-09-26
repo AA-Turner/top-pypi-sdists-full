@@ -15,3 +15,4 @@ class CatchAllAction(BaseModel):
     """Type of action for catch-all rule."""
 
     value: Optional[List[str]] = None
+    """List of values for the action. Currently limited to a single value."""

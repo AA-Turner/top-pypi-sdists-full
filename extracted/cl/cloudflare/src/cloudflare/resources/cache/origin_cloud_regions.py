@@ -25,8 +25,10 @@ from ...types.cache import (
     origin_cloud_region_bulk_update_params,
 )
 from ..._base_client import AsyncPaginator, make_request_options
-from ...types.cache.origin_cloud_region import OriginCloudRegion
+from ...types.cache.origin_cloud_region_get_response import OriginCloudRegionGetResponse
+from ...types.cache.origin_cloud_region_list_response import OriginCloudRegionListResponse
 from ...types.cache.origin_cloud_region_delete_response import OriginCloudRegionDeleteResponse
+from ...types.cache.origin_cloud_region_update_response import OriginCloudRegionUpdateResponse
 from ...types.cache.origin_cloud_region_bulk_delete_response import OriginCloudRegionBulkDeleteResponse
 from ...types.cache.origin_cloud_region_bulk_update_response import OriginCloudRegionBulkUpdateResponse
 from ...types.cache.origin_cloud_region_supported_regions_response import OriginCloudRegionSupportedRegionsResponse
@@ -68,7 +70,7 @@ class OriginCloudRegionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[OriginCloudRegion]:
+    ) -> Optional[OriginCloudRegionUpdateResponse]:
         """
         Creates a new IP-to-cloud-region mapping or replaces the existing mapping for
         the specified IP. PUT is idempotent — calling it repeatedly with the same body
@@ -121,9 +123,11 @@ class OriginCloudRegionsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[OriginCloudRegion]]._unwrapper,
+                post_parser=ResultWrapper[Optional[OriginCloudRegionUpdateResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[OriginCloudRegion]], ResultWrapper[OriginCloudRegion]),
+            cast_to=cast(
+                Type[Optional[OriginCloudRegionUpdateResponse]], ResultWrapper[OriginCloudRegionUpdateResponse]
+            ),
         )
 
     def list(
@@ -138,7 +142,7 @@ class OriginCloudRegionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncV4PagePaginationArray[OriginCloudRegion]:
+    ) -> SyncV4PagePaginationArray[OriginCloudRegionListResponse]:
         """
         Returns all IP-to-cloud-region mappings configured for the zone with pagination
         support. Each mapping tells Cloudflare which cloud vendor and region hosts the
@@ -165,7 +169,7 @@ class OriginCloudRegionsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
             path_template("/zones/{zone_id}/origin/cloud_regions", zone_id=zone_id),
-            page=SyncV4PagePaginationArray[OriginCloudRegion],
+            page=SyncV4PagePaginationArray[OriginCloudRegionListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -179,7 +183,7 @@ class OriginCloudRegionsResource(SyncAPIResource):
                     origin_cloud_region_list_params.OriginCloudRegionListParams,
                 ),
             ),
-            model=OriginCloudRegion,
+            model=OriginCloudRegionListResponse,
         )
 
     def delete(
@@ -336,7 +340,7 @@ class OriginCloudRegionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[OriginCloudRegion]:
+    ) -> Optional[OriginCloudRegionGetResponse]:
         """Returns the cloud region mapping for a single origin IP address.
 
         The IP path
@@ -365,9 +369,9 @@ class OriginCloudRegionsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[OriginCloudRegion]]._unwrapper,
+                post_parser=ResultWrapper[Optional[OriginCloudRegionGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[OriginCloudRegion]], ResultWrapper[OriginCloudRegion]),
+            cast_to=cast(Type[Optional[OriginCloudRegionGetResponse]], ResultWrapper[OriginCloudRegionGetResponse]),
         )
 
     def supported_regions(
@@ -450,7 +454,7 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[OriginCloudRegion]:
+    ) -> Optional[OriginCloudRegionUpdateResponse]:
         """
         Creates a new IP-to-cloud-region mapping or replaces the existing mapping for
         the specified IP. PUT is idempotent — calling it repeatedly with the same body
@@ -503,9 +507,11 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[OriginCloudRegion]]._unwrapper,
+                post_parser=ResultWrapper[Optional[OriginCloudRegionUpdateResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[OriginCloudRegion]], ResultWrapper[OriginCloudRegion]),
+            cast_to=cast(
+                Type[Optional[OriginCloudRegionUpdateResponse]], ResultWrapper[OriginCloudRegionUpdateResponse]
+            ),
         )
 
     def list(
@@ -520,7 +526,7 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[OriginCloudRegion, AsyncV4PagePaginationArray[OriginCloudRegion]]:
+    ) -> AsyncPaginator[OriginCloudRegionListResponse, AsyncV4PagePaginationArray[OriginCloudRegionListResponse]]:
         """
         Returns all IP-to-cloud-region mappings configured for the zone with pagination
         support. Each mapping tells Cloudflare which cloud vendor and region hosts the
@@ -547,7 +553,7 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._get_api_list(
             path_template("/zones/{zone_id}/origin/cloud_regions", zone_id=zone_id),
-            page=AsyncV4PagePaginationArray[OriginCloudRegion],
+            page=AsyncV4PagePaginationArray[OriginCloudRegionListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -561,7 +567,7 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
                     origin_cloud_region_list_params.OriginCloudRegionListParams,
                 ),
             ),
-            model=OriginCloudRegion,
+            model=OriginCloudRegionListResponse,
         )
 
     async def delete(
@@ -718,7 +724,7 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[OriginCloudRegion]:
+    ) -> Optional[OriginCloudRegionGetResponse]:
         """Returns the cloud region mapping for a single origin IP address.
 
         The IP path
@@ -747,9 +753,9 @@ class AsyncOriginCloudRegionsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[OriginCloudRegion]]._unwrapper,
+                post_parser=ResultWrapper[Optional[OriginCloudRegionGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[OriginCloudRegion]], ResultWrapper[OriginCloudRegion]),
+            cast_to=cast(Type[Optional[OriginCloudRegionGetResponse]], ResultWrapper[OriginCloudRegionGetResponse]),
         )
 
     async def supported_regions(

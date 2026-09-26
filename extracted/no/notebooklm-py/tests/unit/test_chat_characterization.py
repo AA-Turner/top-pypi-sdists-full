@@ -11,6 +11,7 @@ marker; see ``pyproject.toml`` markers list for the rationale.
 """
 
 import json
+import logging
 import re
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -19,6 +20,7 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from notebooklm import NotebookLMClient
+from notebooklm.options import ClientConfig, RetryOptions
 from notebooklm.rpc import ChatGoal, ChatResponseLength, RPCMethod
 from notebooklm.types import ChatMode, ChatSettings
 
@@ -202,13 +204,19 @@ class TestChatAPI:
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
+        caplog: pytest.LogCaptureFixture,
     ):
         """Test that CUSTOM mode without prompt raises ValidationError."""
         from notebooklm.exceptions import ValidationError
 
-        async with NotebookLMClient(auth_tokens) as client:
-            with pytest.raises(ValidationError, match="custom_prompt is required"):
-                await client.chat.configure("nb_123", goal=ChatGoal.CUSTOM)
+        with caplog.at_level(logging.DEBUG, logger="notebooklm._chat.api"):
+            async with NotebookLMClient(auth_tokens) as client:
+                with pytest.raises(ValidationError, match="custom_prompt is required"):
+                    await client.chat.configure("nb_123", goal=ChatGoal.CUSTOM)
+
+        assert "Configuring chat for notebook nb_123" in [
+            record.getMessage() for record in caplog.records
+        ]
 
     @pytest.mark.asyncio
     async def test_configure_custom_mode_with_prompt(
@@ -272,8 +280,8 @@ class TestChatAPI:
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """A never-configured notebook returns null at nb_info[7] → DEFAULT/DEFAULT."""
-        nb_info = [0, 1, 2, 3, 4, 5, 6, None]
+        """Empty default components at nb_info[7] decode as DEFAULT/DEFAULT."""
+        nb_info = [0, 1, 2, 3, 4, 5, 6, [[], []]]
         response = build_rpc_response(RPCMethod.GET_NOTEBOOK, [nb_info])
         httpx_mock.add_response(content=response.encode())
         async with NotebookLMClient(auth_tokens) as client:
@@ -688,7 +696,9 @@ class TestChatAskErrorHandling:
         )
         # ``server_error_max_retries=0`` pins the original immediate-raise
         # contract; the default retries 5xx + RequestError 3x.
-        async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
+        async with NotebookLMClient(
+            auth_tokens, config=ClientConfig(retry=RetryOptions(server_error_max_retries=0))
+        ) as client:
             with pytest.raises(NetworkError, match="timed out"):
                 await client.chat.ask(
                     "nb_123",
@@ -724,7 +734,9 @@ class TestChatAskErrorHandling:
             status_code=500,
             method="POST",
         )
-        async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
+        async with NotebookLMClient(
+            auth_tokens, config=ClientConfig(retry=RetryOptions(server_error_max_retries=0))
+        ) as client:
             with pytest.raises(ChatError, match="500"):
                 await client.chat.ask(
                     "nb_123",
@@ -753,7 +765,9 @@ class TestChatAskErrorHandling:
             httpx.ConnectError("connection refused"),
             url=re.compile(r".*GenerateFreeFormStreamed.*"),
         )
-        async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
+        async with NotebookLMClient(
+            auth_tokens, config=ClientConfig(retry=RetryOptions(server_error_max_retries=0))
+        ) as client:
             with pytest.raises(NetworkError, match="connection refused"):
                 await client.chat.ask(
                     "nb_123",
@@ -1325,7 +1339,9 @@ class TestAskServerAssignedConversationId:
             method="POST",
         )
 
-        async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
+        async with NotebookLMClient(
+            auth_tokens, config=ClientConfig(retry=RetryOptions(server_error_max_retries=0))
+        ) as client:
             with pytest.raises(ServerError, match="500"):
                 await client.chat.ask("nb_123", "Continue?", source_ids=["src_001"])
 
@@ -1350,7 +1366,9 @@ class TestAskServerAssignedConversationId:
             method="POST",
         )
 
-        async with NotebookLMClient(auth_tokens, server_error_max_retries=0) as client:
+        async with NotebookLMClient(
+            auth_tokens, config=ClientConfig(retry=RetryOptions(server_error_max_retries=0))
+        ) as client:
             with pytest.raises(ServerError, match="500"):
                 await client.chat.ask(
                     "nb_123",
@@ -1410,12 +1428,22 @@ class TestAskServerAssignedConversationId:
             is_reusable=True,
         )
         async with NotebookLMClient(auth_tokens) as client:
-            with pytest.raises(ChatError, match="hPTbtc"):
+            with pytest.raises(
+                ChatError, match="conversation id could not be resolved"
+            ) as captured:
                 await client.chat.ask(
                     "nb_123",
                     "Q?",
                     source_ids=["src_001"],
                 )
+        from notebooklm.outcomes import CommitState, RecoveryAction
+
+        assert captured.value.commit_state is CommitState.CONFIRMED
+        assert captured.value.operation_metadata is not None
+        assert (
+            captured.value.operation_metadata.recovery_action
+            is RecoveryAction.INSPECT_AND_RECONCILE
+        )
 
     @pytest.mark.asyncio
     async def test_follow_up_sends_caller_conversation_id_in_request(
@@ -1531,48 +1559,58 @@ class TestGetHistoryErrorHandling:
     """Tests for get_history error handling ."""
 
     @pytest.mark.asyncio
-    async def test_get_history_returns_empty_on_chat_error(
+    async def test_get_history_raises_on_chat_error(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test get_history returns [] when get_conversation_turns raises ChatError."""
+        """Turn-fetch ChatError from get_conversation_turns propagates (#2384)."""
         from notebooklm.exceptions import ChatError
 
         id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
         httpx_mock.add_response(content=id_response.encode())
         async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.chat,
-                "get_conversation_turns",
-                new_callable=AsyncMock,
-                side_effect=ChatError("API error"),
+            with (
+                patch.object(
+                    client.chat,
+                    "get_conversation_turns",
+                    new_callable=AsyncMock,
+                    side_effect=ChatError("API error"),
+                ),
+                pytest.raises(ChatError, match="API error"),
             ):
-                result = await client.chat.get_history("nb_123")
-        assert result == []
+                await client.chat.get_history("nb_123")
 
     @pytest.mark.asyncio
-    async def test_get_history_returns_empty_on_network_error(
+    async def test_get_history_raises_on_network_error(
         self,
         auth_tokens,
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test get_history returns [] when get_conversation_turns raises NetworkError."""
+        """Turn-fetch NetworkError from the conversation-turns RPC propagates (#2384)."""
+        import httpx
+
         from notebooklm.exceptions import NetworkError
+        from notebooklm.options import ClientConfig, RetryOptions
 
         id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
-        httpx_mock.add_response(content=id_response.encode())
-        async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.chat,
-                "get_conversation_turns",
-                new_callable=AsyncMock,
-                side_effect=NetworkError("connection error"),
-            ):
-                result = await client.chat.get_history("nb_123")
-        assert result == []
+        httpx_mock.add_response(
+            url=re.compile(r".*batchexecute.*rpcids=hPTbtc.*"),
+            content=id_response.encode(),
+            method="POST",
+        )
+        httpx_mock.add_exception(
+            httpx.ConnectError("connection error"),
+            url=re.compile(r".*batchexecute.*rpcids=khqZz.*"),
+        )
+        async with NotebookLMClient(
+            auth_tokens,
+            config=ClientConfig(retry=RetryOptions(server_error_max_retries=0)),
+        ) as client:
+            with pytest.raises(NetworkError, match="connection error"):
+                await client.chat.get_history("nb_123")
 
     @pytest.mark.asyncio
     async def test_get_history_returns_empty_when_no_conversation(
@@ -1581,7 +1619,7 @@ class TestGetHistoryErrorHandling:
         httpx_mock: HTTPXMock,
         build_rpc_response,
     ):
-        """Test get_history returns [] when get_conversation_id returns None."""
+        """No conversation is a real empty history, not a swallowed fetch failure (#2384)."""
         response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [])
         httpx_mock.add_response(content=response.encode())
         async with NotebookLMClient(auth_tokens) as client:
@@ -1605,14 +1643,16 @@ class TestGetHistoryErrorHandling:
         id_response = build_rpc_response(RPCMethod.GET_LAST_CONVERSATION_ID, [[["conv_001"]]])
         httpx_mock.add_response(content=id_response.encode())
         async with NotebookLMClient(auth_tokens) as client:
-            with patch.object(
-                client.chat,
-                "get_conversation_turns",
-                new_callable=AsyncMock,
-                return_value=["not-the-turn-list"],
+            with (
+                patch.object(
+                    client.chat,
+                    "get_conversation_turns",
+                    new_callable=AsyncMock,
+                    return_value=["not-the-turn-list"],
+                ),
+                pytest.raises(UnknownRPCMethodError),
             ):
-                with pytest.raises(UnknownRPCMethodError):
-                    await client.chat.get_history("nb_123")
+                await client.chat.get_history("nb_123")
 
     @pytest.mark.asyncio
     async def test_get_history_reverses_turns(

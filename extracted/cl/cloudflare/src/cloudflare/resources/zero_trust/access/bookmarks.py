@@ -8,7 +8,7 @@ from typing import Type, Optional, cast
 import httpx
 
 from ...._types import Body, Query, Headers, NotGiven, not_given
-from ...._utils import path_template, maybe_transform, async_maybe_transform
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -20,7 +20,6 @@ from ...._response import (
 from ...._wrappers import ResultWrapper
 from ....pagination import SyncSinglePage, AsyncSinglePage
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.zero_trust.access import bookmark_create_params, bookmark_update_params
 from ....types.zero_trust.access.bookmark import Bookmark
 from ....types.zero_trust.access.bookmark_delete_response import BookmarkDeleteResponse
 
@@ -53,7 +52,6 @@ class BookmarksResource(SyncAPIResource):
         bookmark_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -83,7 +81,6 @@ class BookmarksResource(SyncAPIResource):
             path_template(
                 "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
             ),
-            body=maybe_transform(body, bookmark_create_params.BookmarkCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -100,7 +97,6 @@ class BookmarksResource(SyncAPIResource):
         bookmark_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -130,7 +126,6 @@ class BookmarksResource(SyncAPIResource):
             path_template(
                 "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
             ),
-            body=maybe_transform(body, bookmark_update_params.BookmarkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -293,7 +288,6 @@ class AsyncBookmarksResource(AsyncAPIResource):
         bookmark_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -323,7 +317,6 @@ class AsyncBookmarksResource(AsyncAPIResource):
             path_template(
                 "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
             ),
-            body=await async_maybe_transform(body, bookmark_create_params.BookmarkCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -340,7 +333,6 @@ class AsyncBookmarksResource(AsyncAPIResource):
         bookmark_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -370,7 +362,6 @@ class AsyncBookmarksResource(AsyncAPIResource):
             path_template(
                 "/accounts/{account_id}/access/bookmarks/{bookmark_id}", account_id=account_id, bookmark_id=bookmark_id
             ),
-            body=await async_maybe_transform(body, bookmark_update_params.BookmarkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

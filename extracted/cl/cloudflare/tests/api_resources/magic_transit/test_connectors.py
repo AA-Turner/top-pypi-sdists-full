@@ -54,8 +54,6 @@ class TestConnectors:
             interrupt_window_embargo_dates=["string"],
             interrupt_window_hour_of_day=0,
             notes="notes",
-            primary=True,
-            site_id="site_id",
             timezone="timezone",
         )
         assert_matches_type(ConnectorCreateResponse, connector, path=["response"])
@@ -122,9 +120,7 @@ class TestConnectors:
             interrupt_window_embargo_dates=["string"],
             interrupt_window_hour_of_day=0,
             notes="notes",
-            primary=True,
             provision_license=True,
-            site_id="site_id",
             timezone="timezone",
         )
         assert_matches_type(ConnectorUpdateResponse, connector, path=["response"])
@@ -282,9 +278,7 @@ class TestConnectors:
             interrupt_window_embargo_dates=["string"],
             interrupt_window_hour_of_day=0,
             notes="notes",
-            primary=True,
             provision_license=True,
-            site_id="site_id",
             timezone="timezone",
         )
         assert_matches_type(ConnectorEditResponse, connector, path=["response"])
@@ -412,8 +406,6 @@ class TestAsyncConnectors:
             interrupt_window_embargo_dates=["string"],
             interrupt_window_hour_of_day=0,
             notes="notes",
-            primary=True,
-            site_id="site_id",
             timezone="timezone",
         )
         assert_matches_type(ConnectorCreateResponse, connector, path=["response"])
@@ -480,9 +472,7 @@ class TestAsyncConnectors:
             interrupt_window_embargo_dates=["string"],
             interrupt_window_hour_of_day=0,
             notes="notes",
-            primary=True,
             provision_license=True,
-            site_id="site_id",
             timezone="timezone",
         )
         assert_matches_type(ConnectorUpdateResponse, connector, path=["response"])
@@ -640,9 +630,7 @@ class TestAsyncConnectors:
             interrupt_window_embargo_dates=["string"],
             interrupt_window_hour_of_day=0,
             notes="notes",
-            primary=True,
             provision_license=True,
-            site_id="site_id",
             timezone="timezone",
         )
         assert_matches_type(ConnectorEditResponse, connector, path=["response"])

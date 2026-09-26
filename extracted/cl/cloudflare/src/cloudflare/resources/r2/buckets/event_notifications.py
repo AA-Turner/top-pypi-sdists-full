@@ -53,7 +53,7 @@ class EventNotificationsResource(SyncAPIResource):
         account_id: str,
         bucket_name: str,
         rules: Iterable[event_notification_update_params.Rule],
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -73,8 +73,6 @@ class EventNotificationsResource(SyncAPIResource):
 
           rules: Array of rules to drive notifications.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -90,7 +88,9 @@ class EventNotificationsResource(SyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._put(
@@ -116,7 +116,7 @@ class EventNotificationsResource(SyncAPIResource):
         bucket_name: str,
         *,
         account_id: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -132,8 +132,6 @@ class EventNotificationsResource(SyncAPIResource):
 
           bucket_name: Name of the bucket.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -147,7 +145,9 @@ class EventNotificationsResource(SyncAPIResource):
         if not bucket_name:
             raise ValueError(f"Expected a non-empty value for `bucket_name` but received {bucket_name!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._get(
@@ -172,7 +172,7 @@ class EventNotificationsResource(SyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -192,8 +192,6 @@ class EventNotificationsResource(SyncAPIResource):
 
           queue_id: Queue ID.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -209,7 +207,9 @@ class EventNotificationsResource(SyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._delete(
@@ -235,7 +235,7 @@ class EventNotificationsResource(SyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -253,8 +253,6 @@ class EventNotificationsResource(SyncAPIResource):
 
           queue_id: Queue ID.
 
-          jurisdiction: The bucket jurisdiction.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -270,7 +268,9 @@ class EventNotificationsResource(SyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._get(
@@ -318,7 +318,7 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         account_id: str,
         bucket_name: str,
         rules: Iterable[event_notification_update_params.Rule],
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -338,8 +338,6 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
 
           rules: Array of rules to drive notifications.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -355,7 +353,9 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return await self._put(
@@ -383,7 +383,7 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         bucket_name: str,
         *,
         account_id: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -399,8 +399,6 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
 
           bucket_name: Name of the bucket.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -414,7 +412,9 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         if not bucket_name:
             raise ValueError(f"Expected a non-empty value for `bucket_name` but received {bucket_name!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return await self._get(
@@ -439,7 +439,7 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -459,8 +459,6 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
 
           queue_id: Queue ID.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -476,7 +474,9 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return await self._delete(
@@ -502,7 +502,7 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -520,8 +520,6 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
 
           queue_id: Queue ID.
 
-          jurisdiction: The bucket jurisdiction.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -537,7 +535,9 @@ class AsyncEventNotificationsResource(AsyncAPIResource):
         if not queue_id:
             raise ValueError(f"Expected a non-empty value for `queue_id` but received {queue_id!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return await self._get(

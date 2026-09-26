@@ -8,11 +8,11 @@ use pyo3::types::PyModule;
 use pyo3::types::PyType;
 use pyo3_stub_gen::derive::*;
 
-use statsig_rust::StatsigRuntime;
 use statsig_rust::interned_values::{
     InternedStore, MmapPreloadReport as RustMmapPreloadReport, MmapReaderMemorySnapshot,
 };
 use statsig_rust::log_e;
+use statsig_rust::{StatsigErr, StatsigRuntime};
 
 const TAG: &str = stringify!(InternStorePy);
 
@@ -152,10 +152,10 @@ impl InternedStorePy {
     }
 
     #[classmethod]
-    pub fn preload_mmap(_cls: &Bound<'_, PyType>, sdk_key: &str) -> PyResult<()> {
+    pub fn preload_mmap(cls: &Bound<'_, PyType>, sdk_key: &str) -> PyResult<()> {
         if let Err(e) = InternedStore::preload_mmap(sdk_key) {
             log_e!(TAG, "Failed to load mmap data: {}", e);
-            return Err(PyRuntimeError::new_err(e.to_string()));
+            return Err(to_python_error(cls.py(), &e));
         }
 
         Ok(())
@@ -178,7 +178,7 @@ impl InternedStorePy {
     #[classmethod]
     #[pyo3(signature = (required_sdk_keys, optional_sdk_keys=None))]
     pub fn preload_mmap_multi(
-        _cls: &Bound<'_, PyType>,
+        cls: &Bound<'_, PyType>,
         required_sdk_keys: Vec<String>,
         optional_sdk_keys: Option<Vec<String>>,
     ) -> PyResult<MmapPreloadReportPy> {
@@ -196,7 +196,7 @@ impl InternedStorePy {
             Ok(report) => Ok(report.into()),
             Err(error) => {
                 log_e!(TAG, "Failed to load mmap data: {}", error);
-                Err(PyRuntimeError::new_err(error.to_string()))
+                Err(to_python_error(cls.py(), &error))
             }
         }
     }
@@ -214,4 +214,17 @@ fn call_completion_event(event: &Py<PyAny>, py: Python) {
     if let Err(e) = event.as_ref().call_method0(py, "set") {
         log_e!(TAG, "Failed to set mmap completion event: {}", e);
     }
+}
+
+fn to_python_error(py: Python, error: &StatsigErr) -> PyErr {
+    let message = error.to_string();
+    let exception = PyRuntimeError::new_err(message.clone());
+    let value = exception.value(py);
+    let result = value
+        .setattr("error_name", error.name())
+        .and_then(|_| value.setattr("error_message", message));
+    if let Err(e) = result {
+        log_e!(TAG, "Failed to set interned store error details: {}", e);
+    }
+    exception
 }

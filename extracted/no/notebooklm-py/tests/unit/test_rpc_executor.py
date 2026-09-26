@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -96,6 +97,7 @@ class _Owner:
         rpc_method: str | None = None,
         refresh_budget: Any = None,
         retry_deadline: Any = None,
+        retry_budget: Any = None,
         read_timeout: float | None = None,
         expected_epoch: int | None = None,
         epoch_observer: Callable[[int], None] | None = None,
@@ -104,19 +106,19 @@ class _Owner:
         if epoch_observer is not None:
             epoch_observer(admitted_epoch)
         url, body, headers = build_request(self.snapshot)
-        self.perform_calls.append(
-            {
-                "log_label": log_label,
-                "disable_internal_retries": disable_internal_retries,
-                "url": url,
-                "body": body,
-                "headers": headers,
-                "refresh_budget": refresh_budget,
-                "retry_deadline": retry_deadline,
-                "read_timeout": read_timeout,
-                "expected_epoch": expected_epoch,
-            }
-        )
+        call = {
+            "log_label": log_label,
+            "disable_internal_retries": disable_internal_retries,
+            "url": url,
+            "body": body,
+            "headers": headers,
+            "refresh_budget": refresh_budget,
+            "retry_deadline": retry_deadline,
+            "retry_budget": retry_budget,
+            "read_timeout": read_timeout,
+            "expected_epoch": expected_epoch,
+        }
+        self.perform_calls.append(call)
         return self.response
 
     # --- AuthRefreshCoordinator role ------------------------------------
@@ -160,7 +162,7 @@ def _executor(
 
 @pytest.mark.asyncio
 async def test_rpc_executor_attribute_is_dispatched_through(monkeypatch) -> None:
-    """``core._rpc_executor`` is the canonical RPC dispatch seam."""
+    """``core._web_runtime.executor`` is the canonical RPC dispatch seam."""
     core = build_client_shell_for_tests(_auth_tokens())
     calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
 
@@ -171,14 +173,16 @@ async def test_rpc_executor_attribute_is_dispatched_through(monkeypatch) -> None
 
     executor = FakeExecutor()
     # Stage B1 PR 2 deleted ``Session._get_rpc_executor`` (the lazy
-    # factory) — the executor now lives directly on ``core._rpc_executor``
+    # factory) — the executor now lives directly on ``core._web_runtime.executor``
     # post-composition. Override the attribute so every caller that
-    # dispatches through ``core._rpc_executor.rpc_call(...)`` sees the
+    # dispatches through ``core._web_runtime.executor.rpc_call(...)`` sees the
     # fake.
-    monkeypatch.setattr(core, "_rpc_executor", executor)
+    monkeypatch.setattr(
+        core, "_web_runtime", dataclasses.replace(core._web_runtime, executor=executor)
+    )
 
     assert (
-        await core._rpc_executor.rpc_call(
+        await core._web_runtime.executor.rpc_call(
             RPCMethod.LIST_NOTEBOOKS,
             [],
             "/",
@@ -230,11 +234,11 @@ async def test_rpc_call_wraps_execute_once_with_metrics_and_request_id(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_public_rpc_call_before_open_preserves_error_and_zero_metrics() -> None:
+async def test_public_raw_call_before_open_preserves_error_and_zero_metrics() -> None:
     client = build_client_shell_for_tests(_auth_tokens())
 
     with pytest.raises(RuntimeError) as raised:
-        await client.rpc_call(RPCMethod.LIST_NOTEBOOKS, [])
+        await client.raw.call(RPCMethod.LIST_NOTEBOOKS, [])
 
     assert str(raised.value) == "Client not initialized. Use 'async with' context."
     snapshot = client.metrics_snapshot()
@@ -267,7 +271,7 @@ async def test_constructor_injected_decode_response_drives_executor(monkeypatch)
         return {"decoded": rpc_id}
 
     core = build_client_shell_for_tests(_auth_tokens(), decode_response=fake_decode)
-    executor = core._rpc_executor
+    executor = core._web_runtime.executor
 
     async def fake_perform_authed_post(
         *,
@@ -277,6 +281,7 @@ async def test_constructor_injected_decode_response_drives_executor(monkeypatch)
         rpc_method: str | None = None,
         refresh_budget: Any = None,
         retry_deadline: Any = None,
+        retry_budget: Any = None,
         read_timeout: float | None = None,
         expected_epoch: int | None = None,
         epoch_observer: Callable[[int], None] | None = None,
@@ -289,7 +294,9 @@ async def test_constructor_injected_decode_response_drives_executor(monkeypatch)
     # ``self._transport.perform_authed_post(...)`` directly instead of
     # routing through the retired ``Session._perform_authed_post`` forward. Patch the
     # collaborator the executor actually reaches.
-    monkeypatch.setattr(core._composed.transport, "perform_authed_post", fake_perform_authed_post)
+    monkeypatch.setattr(
+        core._web_runtime.composed.transport, "perform_authed_post", fake_perform_authed_post
+    )
 
     result = await executor._execute_once(
         RPCMethod.LIST_NOTEBOOKS,
@@ -299,7 +306,7 @@ async def test_constructor_injected_decode_response_drives_executor(monkeypatch)
         False,
     )
 
-    assert core._rpc_executor is executor
+    assert core._web_runtime.executor is executor
     assert result == {"decoded": RPCMethod.LIST_NOTEBOOKS.value}
     assert decode_calls == [
         {
@@ -545,12 +552,12 @@ async def test_decode_time_auth_retry_preserves_none_result() -> None:
 async def test_decode_time_auth_retry_skipped_for_non_idempotent_method() -> None:
     """A non-idempotent create is NOT replayed on a decode-time auth error.
 
-    Regression for issue #1157: ``CREATE_NOTEBOOK`` is PROBE_THEN_CREATE, so
+    Regression for issue #1157: ``CREATE_NOTEBOOK`` is non-idempotent, so
     ``resolve_effective_disable_internal_retries`` forces the effective
     disable flag True even though the caller passed False. The server may
     have already committed the notebook before the auth-shaped ``RPCError``
     surfaced; re-POSTing would duplicate it. The original error must
-    propagate so the caller's probe-then-create wrapper can disambiguate.
+    propagate so the caller can inspect before deciding what to do next.
     """
 
     async def refresh_callback() -> object:
@@ -762,6 +769,39 @@ async def test_decode_time_auth_retry_threads_retry_deadline_to_transport() -> N
 
 
 @pytest.mark.asyncio
+async def test_decode_time_auth_retry_threads_retry_counters_to_transport() -> None:
+    """A decoded-auth recursion keeps the 429/5xx counters for the logical call."""
+    from notebooklm._runtime.retry_budget import RetryBudget
+
+    async def refresh_callback() -> object:
+        return object()
+
+    owner = _Owner(refresh_callback=refresh_callback)
+    decode_calls = 0
+
+    def decode(
+        _: str, __: str, *, allow_null: bool = False, raise_on_null_status: bool = False
+    ) -> Any:
+        nonlocal decode_calls
+        decode_calls += 1
+        if decode_calls == 1:
+            raise RPCError("authentication expired")
+        return {"ok": True}
+
+    result = await _executor(
+        owner,
+        decode_response=decode,
+        is_auth_error=lambda exc: True,
+    )._execute_once(RPCMethod.LIST_NOTEBOOKS, [], "/", False, False)
+
+    assert result == {"ok": True}
+    budgets = [call["retry_budget"] for call in owner.perform_calls]
+    assert len(budgets) == 2
+    assert all(isinstance(budget, RetryBudget) for budget in budgets)
+    assert budgets[0] is budgets[1]
+
+
+@pytest.mark.asyncio
 async def test_decode_time_auth_retry_skips_when_shared_budget_already_spent() -> None:
     """Issue #1205: a budget already consumed (e.g. by the HTTP-status layer)
     suppresses the decode-time refresh.
@@ -873,7 +913,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
         refresh_retry_delay=0.5,
         sleep=fake_sleep,
     )
-    executor = core._rpc_executor
+    executor = core._web_runtime.executor
     refresh_calls = 0
 
     async def fake_await_refresh(expected_epoch: int) -> None:
@@ -894,6 +934,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
         raise_on_null_status: bool = False,
         _refresh_budget: Any = None,
         _retry_deadline: Any = None,
+        _retry_budget: Any = None,
         _resource_epoch: int | None = None,
     ) -> dict[str, bool]:
         assert method is RPCMethod.LIST_NOTEBOOKS
@@ -914,7 +955,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
 
     # ADR-0014 Rule 5 (Wave 4): executor calls ``self._auth_refresh.await_refresh()``
     # directly. Patch the collaborator the executor actually reaches.
-    monkeypatch.setattr(core._collaborators.auth_coord, "await_refresh", fake_await_refresh)
+    monkeypatch.setattr(core._web_runtime.auth_coord, "await_refresh", fake_await_refresh)
     monkeypatch.setattr(executor, "rpc_call", fake_rpc_call)
 
     from notebooklm._web.transport.auth_refresh_retry import RefreshBudget
@@ -932,7 +973,7 @@ async def test_constructor_injected_sleep_drives_executor(monkeypatch) -> None:
         _resource_epoch=1,
     )
 
-    assert core._rpc_executor is executor
+    assert core._web_runtime.executor is executor
     assert result == {"ok": True}
     assert refresh_calls == 1
     assert sleep_calls == [0.5]

@@ -404,6 +404,12 @@ def test_avrcp_pdu_assembler():
     assert len(received_pdus) == 0
 
 
+def test_passthrough_operation_id_values():
+    assert avc.PassThroughFrame.OperationId.UP == 0x01
+    assert avc.PassThroughFrame.OperationId.DOWN == 0x02
+    assert avc.PassThroughFrame.OperationId(0x02).name == 'DOWN'
+
+
 def test_passthrough_commands():
     play_pressed = avc.PassThroughCommandFrame(
         avc.CommandFrame.CommandType.CONTROL,
@@ -419,6 +425,23 @@ def test_passthrough_commands():
     assert isinstance(parsed, avc.PassThroughCommandFrame)
     assert parsed.operation_id == avc.PassThroughCommandFrame.OperationId.PLAY
     assert bytes(parsed) == play_pressed_bytes
+
+
+def test_passthrough_command_with_operation_data():
+    vendor_unique = avc.PassThroughCommandFrame(
+        avc.CommandFrame.CommandType.CONTROL,
+        avc.CommandFrame.SubunitType.PANEL,
+        0,
+        avc.PassThroughCommandFrame.StateFlag.PRESSED,
+        avc.PassThroughCommandFrame.OperationId.VENDOR_UNIQUE,
+        bytes.fromhex("0019580000"),
+    )
+
+    vendor_unique_bytes = bytes(vendor_unique)
+    parsed = avc.Frame.from_bytes(vendor_unique_bytes)
+    assert isinstance(parsed, avc.PassThroughCommandFrame)
+    assert parsed.operation_data == bytes.fromhex("0019580000")
+    assert bytes(parsed) == vendor_unique_bytes
 
 
 # -----------------------------------------------------------------------------

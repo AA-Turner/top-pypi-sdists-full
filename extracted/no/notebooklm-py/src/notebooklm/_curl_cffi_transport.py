@@ -9,7 +9,7 @@ Scope: implements the slice of ``httpx.AsyncClient`` the authenticated surface u
 — ``.cookies``, ``.get()``, ``.post()``, ``.stream()``, ``.aclose()`` — plus
 ``.stream_upload()`` (low-level libcurl streaming upload, no full-file buffer).
 Selected at runtime via ``NOTEBOOKLM_TRANSPORT=curl_cffi`` (see
-``_runtime/init._resolve_async_client_factory`` / ``resolve_transport_factory``).
+``_web/transport/init._resolve_async_client_factory`` / ``resolve_transport_factory``).
 
 ponytail: PoC, deliberately minimal. Known gaps: httpx ``limits`` ignored
 (curl_cffi pools internally); the 4-slot
@@ -32,6 +32,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 
 from ._hop_credentials import CredentialPolicy
+from ._request_context import has_bound_policy, policy_env
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
@@ -239,6 +240,8 @@ class CurlCffiAsyncClient:
         follow_redirects: bool = True,
         limits: Any = None,  # noqa: ARG002 — accepted for httpx parity; curl_cffi pools internally
         impersonate: str | None = None,
+        session_factory: Callable[..., Any] | None = None,
+        curl_factory: Callable[[], Any] | None = None,
     ) -> None:
         from curl_cffi.requests import AsyncSession
 
@@ -253,11 +256,12 @@ class CurlCffiAsyncClient:
         # ``Any`` so it satisfies curl_cffi's ``impersonate: Literal[...]`` param
         # whether or not curl_cffi's stubs are installed — avoids a `type: ignore`
         # that mypy flags as unused in the (no-impersonate-extra) CI type-check.
-        impersonate_value: Any = impersonate or os.environ.get(
+        impersonate_value: Any = impersonate or policy_env(
             "NOTEBOOKLM_IMPERSONATE", DEFAULT_IMPERSONATE
         )
         self._impersonate = impersonate_value  # reused by the low-level streaming upload
-        self._curl: Any = AsyncSession(
+        self._curl_factory = curl_factory
+        self._curl: Any = (session_factory or AsyncSession)(
             headers=dict(headers) if headers else None,
             cookies=self.cookies.jar,
             impersonate=impersonate_value,
@@ -356,7 +360,7 @@ class CurlCffiAsyncClient:
                 hop_kwargs = dict(kwargs)
                 credentials = None
                 if credential_for is not None:
-                    credentials = credential_for(current)
+                    credentials = await credential_for(current)
                     if credentials is not None:
                         managed_header_names.update(name.lower() for name in credentials.headers)
 
@@ -586,7 +590,7 @@ class CurlCffiAsyncClient:
             try:
                 body = io.BytesIO()
                 response_headers = io.BytesIO()
-                curl = Curl()
+                curl = self._curl_factory() if self._curl_factory is not None else Curl()
                 try:
                     curl.impersonate(self._impersonate)
                     curl.setopt(CurlOpt.URL, url.encode())
@@ -715,8 +719,10 @@ def resolve_transport_factory() -> Any:
     typo (e.g. ``curlcffi``) fails loudly instead of silently using httpx while the
     operator believes impersonation is on.
     """
-    transport = os.environ.get("NOTEBOOKLM_TRANSPORT", "").strip()
+    transport = (policy_env("NOTEBOOKLM_TRANSPORT", "") or "").strip()
     if transport == "curl_cffi":
+        if has_bound_policy():
+            return make_curl_cffi_factory(policy_env("NOTEBOOKLM_IMPERSONATE"))
         return make_curl_cffi_factory()
     if transport and transport not in _KNOWN_TRANSPORTS:
         raise ValueError(

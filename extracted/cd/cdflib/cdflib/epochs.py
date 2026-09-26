@@ -170,15 +170,22 @@ class CDFepoch:
         """
         Take date components and return a numpy datetime array.
         """
-        years = np.asarray(years) - 1970
+        # Keep fill and pad dates within the datetime64[ns] range while the
+        # components are composed. These positions are replaced with NaT below.
+        years = np.where(nat_positions, 0, np.asarray(years) - 1970)
         months = np.asarray(months) - 1
         days = np.asarray(days) - 1
         types = ("<M8[Y]", "<m8[M]", "<m8[D]", "<m8[h]", "<m8[m]", "<m8[s]", "<m8[ms]", "<m8[us]", "<m8[ns]")
-        vals = (v for v in (years, months, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds) if v is not None)
+        # Zero out NaT positions so fill values (e.g. year 9999) can't overflow datetime64[ns]
+        vals = (
+            np.where(nat_positions, 0, v)
+            for v in (years, months, days, hours, minutes, seconds, milliseconds, microseconds, nanoseconds)
+            if v is not None
+        )
 
         arrays: List[npt.NDArray[np.datetime64]] = [np.array(v, dtype=t) for t, v in zip(types, vals)]
-        total_datetime = np.array(sum(arrays))
-        total_datetime = np.where(nat_positions, np.datetime64("NaT"), total_datetime)
+        total_datetime = np.array(sum(arrays[1:], arrays[0]))
+        total_datetime = np.where(nat_positions, np.datetime64("NaT", "ns"), total_datetime)
         return total_datetime
 
     @classmethod

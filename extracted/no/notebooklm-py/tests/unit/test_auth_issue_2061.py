@@ -15,7 +15,6 @@ from pytest_httpx import HTTPXMock
 from notebooklm import auth
 from notebooklm._app.auth_check import AuthCheckPlan, run_auth_check
 from notebooklm._auth import (
-    browser_capture,
     cookie_semantics,
     cookies,
     psidts_recovery,
@@ -23,6 +22,7 @@ from notebooklm._auth import (
     tokens,
 )
 from notebooklm._auth.cookie_policy import RequiredCookieValidationError
+from notebooklm._browser import browser_capture
 from notebooklm.cli.services import auth_source
 from notebooklm.cli.services.auth_source import AuthSource, has_env_auth_json
 
@@ -720,7 +720,6 @@ async def test_auth_check_test_recomputes_after_normal_recovery(
         has_home_env=False,
         auth_source_label="file",
         test_fetch=True,
-        json_output=False,
     )
 
     async def heal(_path: Path, _profile: str) -> tuple[str, str]:
@@ -754,7 +753,6 @@ async def test_auth_check_passive_continues_but_keeps_local_route_failure(
         has_home_env=False,
         auth_source_label="file",
         test_fetch=True,
-        json_output=False,
         passive=True,
     )
     passive = AsyncMock(return_value=("csrf", "session"))

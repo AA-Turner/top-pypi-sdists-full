@@ -10,10 +10,13 @@ from ...core.jsonable_encoder import encode_path_param
 from ...core.parse_error import ParsingError
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
+from ...errors.bad_request_error import BadRequestError
+from ...errors.conflict_error import ConflictError
 from ...errors.not_found_error import NotFoundError
 from ...types.data_quality_agreement_confusion_matrix import DataQualityAgreementConfusionMatrix
 from ...types.data_quality_agreement_dimensions import DataQualityAgreementDimensions
 from ...types.data_quality_agreement_distribution import DataQualityAgreementDistribution
+from ...types.filtered_label_distribution_unavailable import FilteredLabelDistributionUnavailable
 from ...types.label_distribution_counts_response import LabelDistributionCountsResponse
 from ...types.label_distribution_structure_response import LabelDistributionStructureResponse
 from ...types.user_simple import UserSimple
@@ -477,7 +480,7 @@ class RawStatsClient:
             Comma separated list of user IDs to get ground truth agreement for
 
         per_label : typing.Optional[bool]
-            Per label
+            Calculate agreement per label. Not supported for projects using dimension-based agreement (Agreement V2), which returns HTTP 400.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -726,6 +729,7 @@ class RawStatsClient:
         id: int,
         *,
         choice_keys: typing.Optional[str] = None,
+        filters: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         offset: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -737,7 +741,7 @@ class RawStatsClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Returns counts and percentages for requested label choices, from both annotations and predictions. Supports either pagination (`limit`, `offset`) or targeted fetches via explicit `choice_keys`.
+        Returns counts and percentages for requested label choices, from both annotations and predictions. Supports either pagination (`limit`, `offset`) or targeted fetches via explicit `choice_keys`. Omitting `filters` preserves the unfiltered cached-count behavior. When a non-empty `filters` plan is provided, filtered aggregation is aggregation-complete and non-paginated: the response includes all structure choice keys and `next_offset` is always null (limit/offset are ignored for filtered requests).
 
         Parameters
         ----------
@@ -746,11 +750,14 @@ class RawStatsClient:
         choice_keys : typing.Optional[str]
             Explicit choice keys to fetch, joined by "___PIPE___" (for example: "label___SEP___pos___PIPE___quality___SEP___4"). When provided, pagination params are ignored.
 
+        filters : typing.Optional[str]
+            Optional JSON-encoded string containing a curated filter plan (not an exploded object). Pass one JSON string query value (for example `json.dumps(Filters.create(...))` from `label_studio_sdk.data_manager`); do not pass a nested object or Fern will explode `filters[...]` keys. The plan uses normalized AND semantics (`conjunction` must be `"and"`), contains at most 20 items, does not permit nested `child_filters`, and treats an empty `items` list as unfiltered. Supported filter fields are `filter:tasks:id`, `filter:tasks:inner_id`, `filter:tasks:data.*`, `filter:tasks:annotators`, `filter:tasks:ground_truth`, `filter:tasks:reviews_accepted`, `filter:tasks:reviews_rejected`, `filter:tasks:reviewed`, `filter:tasks:predictions_model_versions`, `filter:tasks:annotations_updated_at`, and `filter:tasks:predictions_updated_at`. Each item requires `filter`, `operator`, `type`, and `value`. Annotator filters require one or more positive integer IDs. Model-version filters require 1-100 non-empty strings. Source updated-at filters require an inclusive, ordered, timezone-aware range object with string `min` and `max` timestamps.
+
         limit : typing.Optional[int]
-            Maximum number of choice keys to return for pagination. Ignored when `choice_keys` is provided.
+            Maximum number of choice keys to return for pagination. Ignored when `choice_keys` is provided. Also ignored for filtered requests (non-empty `filters`), which always return the full aggregation-complete choice set.
 
         offset : typing.Optional[int]
-            Zero-based offset into the structure `choice_keys` list. Used only when `choice_keys` is not provided.
+            Zero-based offset into the structure `choice_keys` list. Used only when `choice_keys` is not provided. Ignored for filtered requests (non-empty `filters`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -765,6 +772,7 @@ class RawStatsClient:
             method="GET",
             params={
                 "choice_keys": choice_keys,
+                "filters": filters,
                 "limit": limit,
                 "offset": offset,
             },
@@ -780,6 +788,28 @@ class RawStatsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        FilteredLabelDistributionUnavailable,
+                        construct_type(
+                            type_=FilteredLabelDistributionUnavailable,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1159,6 +1189,17 @@ class RawStatsClient:
                     ),
                 )
                 return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -1498,7 +1539,7 @@ class RawStatsClient:
         user_pk : int
 
         per_label : typing.Optional[bool]
-            Calculate agreement per label
+            Calculate agreement per label. Not supported for projects using dimension-based agreement (Agreement V2), which returns HTTP 400.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1969,7 +2010,7 @@ class AsyncRawStatsClient:
             Comma separated list of user IDs to get ground truth agreement for
 
         per_label : typing.Optional[bool]
-            Per label
+            Calculate agreement per label. Not supported for projects using dimension-based agreement (Agreement V2), which returns HTTP 400.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2218,6 +2259,7 @@ class AsyncRawStatsClient:
         id: int,
         *,
         choice_keys: typing.Optional[str] = None,
+        filters: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         offset: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -2229,7 +2271,7 @@ class AsyncRawStatsClient:
                     This endpoint is not available in Label Studio Community Edition. [Learn more about Label Studio Enterprise](https://humansignal.com/goenterprise)
                 </p>
             </Card>
-        Returns counts and percentages for requested label choices, from both annotations and predictions. Supports either pagination (`limit`, `offset`) or targeted fetches via explicit `choice_keys`.
+        Returns counts and percentages for requested label choices, from both annotations and predictions. Supports either pagination (`limit`, `offset`) or targeted fetches via explicit `choice_keys`. Omitting `filters` preserves the unfiltered cached-count behavior. When a non-empty `filters` plan is provided, filtered aggregation is aggregation-complete and non-paginated: the response includes all structure choice keys and `next_offset` is always null (limit/offset are ignored for filtered requests).
 
         Parameters
         ----------
@@ -2238,11 +2280,14 @@ class AsyncRawStatsClient:
         choice_keys : typing.Optional[str]
             Explicit choice keys to fetch, joined by "___PIPE___" (for example: "label___SEP___pos___PIPE___quality___SEP___4"). When provided, pagination params are ignored.
 
+        filters : typing.Optional[str]
+            Optional JSON-encoded string containing a curated filter plan (not an exploded object). Pass one JSON string query value (for example `json.dumps(Filters.create(...))` from `label_studio_sdk.data_manager`); do not pass a nested object or Fern will explode `filters[...]` keys. The plan uses normalized AND semantics (`conjunction` must be `"and"`), contains at most 20 items, does not permit nested `child_filters`, and treats an empty `items` list as unfiltered. Supported filter fields are `filter:tasks:id`, `filter:tasks:inner_id`, `filter:tasks:data.*`, `filter:tasks:annotators`, `filter:tasks:ground_truth`, `filter:tasks:reviews_accepted`, `filter:tasks:reviews_rejected`, `filter:tasks:reviewed`, `filter:tasks:predictions_model_versions`, `filter:tasks:annotations_updated_at`, and `filter:tasks:predictions_updated_at`. Each item requires `filter`, `operator`, `type`, and `value`. Annotator filters require one or more positive integer IDs. Model-version filters require 1-100 non-empty strings. Source updated-at filters require an inclusive, ordered, timezone-aware range object with string `min` and `max` timestamps.
+
         limit : typing.Optional[int]
-            Maximum number of choice keys to return for pagination. Ignored when `choice_keys` is provided.
+            Maximum number of choice keys to return for pagination. Ignored when `choice_keys` is provided. Also ignored for filtered requests (non-empty `filters`), which always return the full aggregation-complete choice set.
 
         offset : typing.Optional[int]
-            Zero-based offset into the structure `choice_keys` list. Used only when `choice_keys` is not provided.
+            Zero-based offset into the structure `choice_keys` list. Used only when `choice_keys` is not provided. Ignored for filtered requests (non-empty `filters`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2257,6 +2302,7 @@ class AsyncRawStatsClient:
             method="GET",
             params={
                 "choice_keys": choice_keys,
+                "filters": filters,
                 "limit": limit,
                 "offset": offset,
             },
@@ -2272,6 +2318,28 @@ class AsyncRawStatsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        FilteredLabelDistributionUnavailable,
+                        construct_type(
+                            type_=FilteredLabelDistributionUnavailable,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -2651,6 +2719,17 @@ class AsyncRawStatsClient:
                     ),
                 )
                 return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Any,
+                        construct_type(
+                            type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -2990,7 +3069,7 @@ class AsyncRawStatsClient:
         user_pk : int
 
         per_label : typing.Optional[bool]
-            Calculate agreement per label
+            Calculate agreement per label. Not supported for projects using dimension-based agreement (Agreement V2), which returns HTTP 400.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

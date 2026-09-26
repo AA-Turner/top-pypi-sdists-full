@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <algorithm>
+#include <limits>
 #include <mutex>
 #include <shared_mutex>
 
@@ -14,6 +15,7 @@
 #include <kiwi/Kiwi.h>
 #include <kiwi/Dataset.h>
 #include <kiwi/SwTokenizer.h>
+#include <kiwi/BpeTokenizer.h>
 #include <kiwi/SubstringExtractor.h>
 
 using namespace std;
@@ -338,6 +340,108 @@ struct HSDatasetIterObject : py::CObject<HSDatasetIterObject>
 		{
 			return py::buildPyTuple(inData, outData, lmLProbsData, outNgramNodeData, restLm, restLmCnt);
 		}
+	}
+};
+
+struct GenerativeMADatasetIterObject;
+
+struct GenerativeMADatasetObject : py::CObject<GenerativeMADatasetObject>
+{
+	GenerativeMADataset dataset{ BpeTokenizer{}, GenerativeMAOption{} };
+
+	py::UniqueCObj<GenerativeMADatasetIterObject> iter() const
+	{
+		py::UniqueCObj<GenerativeMADatasetIterObject> ret{ (GenerativeMADatasetIterObject*)PyObject_CallFunctionObjArgs((PyObject*)py::Type<GenerativeMADatasetIterObject>, this, nullptr) };
+		return ret;
+	}
+
+	void addSentence(const u16string& text)
+	{
+		dataset.addSentence(std::u16string_view{ text });
+	}
+
+	size_t getVocabSize() const
+	{
+		return dataset.vocabSize();
+	}
+
+	size_t getBatchSize() const
+	{
+		return dataset.getBatchSize();
+	}
+
+	size_t getMaxSeqLength() const
+	{
+		return dataset.getMaxSeqLength();
+	}
+
+	size_t numSents() const
+	{
+		return dataset.numSents();
+	}
+
+	size_t numTruncatedSents() const
+	{
+		return dataset.numTruncatedSents();
+	}
+
+	size_t numInsertedTypos() const
+	{
+		return dataset.numInsertedTypos();
+	}
+
+	size_t numRemovedSpaces() const
+	{
+		return dataset.numRemovedSpaces();
+	}
+
+	size_t numInsertedSpaces() const
+	{
+		return dataset.numInsertedSpaces();
+	}
+
+	Py_ssize_t len() const
+	{
+		return dataset.numEstimBatches();
+	}
+};
+
+struct GenerativeMADatasetIterObject : py::CObject<GenerativeMADatasetIterObject>
+{
+	py::UniqueCObj<GenerativeMADatasetObject> obj;
+
+	using _InitArgs = std::tuple<py::UniqueCObj<GenerativeMADatasetObject>>;
+
+	GenerativeMADatasetIterObject() = default;
+
+	GenerativeMADatasetIterObject(py::UniqueCObj<GenerativeMADatasetObject>&& dataset)
+	{
+		obj = std::move(dataset);
+		obj->dataset.reset();
+	}
+
+	py::UniqueCObj<GenerativeMADatasetIterObject> iter() const
+	{
+		Py_INCREF(this);
+		return py::UniqueCObj<GenerativeMADatasetIterObject>(const_cast<GenerativeMADatasetIterObject*>(this));
+	}
+
+	py::UniqueObj iternext()
+	{
+		const size_t batchSize = obj->dataset.getBatchSize();
+		const size_t maxSeqLength = obj->dataset.getMaxSeqLength();
+		int64_t* inputIdsPtr = nullptr;
+		py::UniqueObj inputIds = py::newEmptyArray(inputIdsPtr, batchSize, maxSeqLength);
+
+		const size_t sz = obj->dataset.next(inputIdsPtr);
+		if (!sz) throw py::ExcPropagation{};
+
+		if (sz < batchSize)
+		{
+			py::UniqueObj slice{ PySlice_New(nullptr, py::buildPyValue(sz).get(), nullptr) };
+			inputIds = py::UniqueObj{ PyObject_GetItem(inputIds.get(), slice.get()) };
+		}
+		return inputIds;
 	}
 };
 
@@ -962,6 +1066,7 @@ struct KiwiObject : py::CObject<KiwiObject>
 		size_t numWorkers, 
 		float dropout = 0, 
 		float dropoutOnHistory = 0,
+		float ssAugmentingProb = 0,
 		float nounAugmentingProb = 0,
 		float emojiAugmentingProb = 0,
 		float sbAugmentingProb = 0,
@@ -975,6 +1080,23 @@ struct KiwiObject : py::CObject<KiwiObject>
 		const std::vector<std::pair<size_t, std::vector<uint32_t>>>& contextualMapper = {},
 		PyObject* transform = nullptr,
 		size_t seed = 42) const;
+
+	py::UniqueObj makeGenerativeMADataset(const string& tokenizerPath,
+		size_t batchSize,
+		size_t maxSeqLength,
+		size_t numWorkers,
+		uint32_t bosTokenId,
+		uint32_t eosTokenId,
+		uint32_t toMorphemeTokenId,
+		uint32_t toSurfaceTokenId,
+		PyObject* posTagTokenIds,
+		PyObject* typos = nullptr,
+		float typoProb = 0,
+		float typoCostThreshold = 2.5f,
+		float typoCostScale = 1,
+		float spaceRemoveProb = 0,
+		float spaceInsertProb = 0,
+		size_t seed = 0) const;
 
 	py::UniqueObj listAllScripts() const;
 
@@ -1230,7 +1352,11 @@ inline const char* getTagStr(const POSTag tag, const u16string& form)
 	return tagToString(tag);
 }
 
-py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, const shared_ptr<Kiwi>& kiwiInst, vector<py::UniqueObj>&& userValues = {})
+py::UniqueObj resToPyList(vector<TokenResult>&& res, 
+	const KiwiObject* kiwiObj,
+	const shared_ptr<Kiwi>& kiwiInst, 
+	const py::SurrogateOffsetMap& sourceOffsets,
+	vector<py::UniqueObj>&& userValues = {})
 {
 	// set the following objects semi-immortal. (they are neither freed nor managed)
 	// it prevents crashes at Python3.12
@@ -1244,16 +1370,9 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 	{
 		py::UniqueObj rList{ PyList_New(p.first.size()) };
 		size_t jdx = 0;
-		size_t u32offset = 0;
 		const size_t resultHash = hashTokenInfo(p.first);
 		for (auto& q : p.first)
 		{
-			size_t u32chrs = 0;
-			for (auto u : q.str)
-			{
-				if ((u & 0xFC00) == 0xD800) u32chrs++;
-			}
-
 			auto tItem = py::makeNewObject<TokenObject>();
 			tItem->kiwiInst = kiwiInst;
 			tItem->_form = move(q.str);
@@ -1261,8 +1380,10 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 			tItem->_rawTag = q.tag;
 			tItem->resultHash = resultHash;
 			tItem->_tag = getTagStr(q.tag, tItem->_form);
-			tItem->_pos = q.position - u32offset;
-			tItem->_len = q.length - u32chrs;
+			const size_t chrBegin = sourceOffsets.toChrFloor(q.position);
+			const size_t chrEnd = sourceOffsets.toChrCeil((size_t)q.position + q.length);
+			tItem->_pos = (uint32_t)chrBegin;
+			tItem->_len = (uint32_t)(chrEnd - chrBegin);
 			tItem->_wordPosition = q.wordPosition;
 			tItem->_sentPosition = q.sentPosition;
 			tItem->_subSentPosition = q.subSentPosition;
@@ -1311,7 +1432,6 @@ py::UniqueObj resToPyList(vector<TokenResult>&& res, const KiwiObject* kiwiObj, 
 			}
 
 			PyList_SetItem(rList.get(), jdx++, (PyObject*)tItem.release());
-			u32offset += u32chrs;
 		}
 		PyList_SetItem(retList.get(), idx++, py::buildPyTuple(move(rList), p.second).release());
 	}
@@ -1563,7 +1683,7 @@ struct SwTokenizerObject : py::CObject<SwTokenizerObject>
 		PyObject* texts,
 		PyObject* config,
 		PyObject* vocabSize,
-		size_t iterations, size_t prefixMinCnt, size_t prefixMaxLength,
+		size_t iterations, size_t prefixMinCnt, size_t prefixMaxLength, //size_t maxMultiMorphSize,
 		bool strictReduction, bool removeRepetitive, bool preventMixedDigitTokens,
 		float chrCoverage, float reductionRatio,
 		py::UniqueCObj<KiwiObject> kiwi,
@@ -1583,6 +1703,7 @@ struct SwTokenizerObject : py::CObject<SwTokenizerObject>
 		trainCfg.reduceStrict = strictReduction;
 		trainCfg.removeRepetitive = removeRepetitive;
 		trainCfg.preventMixedDigitTokens = !!preventMixedDigitTokens;
+		//trainCfg.maxMultiMorphSize = maxMultiMorphSize;
 		
 		auto kiwiInst = kiwi->doPrepare();
 		UnigramSwTrainer trainer{ *kiwiInst, cfg, trainCfg };
@@ -1720,6 +1841,18 @@ struct SwTokenizerObject : py::CObject<SwTokenizerObject>
 	}
 };
 
+inline uint32_t toPretokenizedOffset(uint64_t offset)
+{
+	// PretokenizedSpan과 BasicToken은 uint32_t offset만 저장한다. Python int를
+	// 먼저 좁히면 2^32가 0으로 돌아가 유효한 원문 범위처럼 보일 수 있으므로
+	// 변환 전에 공통으로 상한을 검사한다.
+	if (offset > numeric_limits<uint32_t>::max())
+	{
+		throw py::ValueError{ "`pretokenized` offsets must be in the uint32_t range." };
+	}
+	return (uint32_t)offset;
+}
+
 inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpans(PyObject* obj)
 {
 	vector<PretokenizedSpan> ret;
@@ -1732,14 +1865,22 @@ inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpa
 	py::foreach<PyObject*>(obj, [&](PyObject* group)
 	{
 		py::foreachVisit<variant<
-			tuple<uint32_t, uint32_t>,
-			tuple<uint32_t, uint32_t, PyObject*>,
-			tuple<uint32_t, uint32_t, PyObject*, PyObject*>
+			tuple<uint64_t, uint64_t>,
+			tuple<uint64_t, uint64_t, PyObject*>,
+			tuple<uint64_t, uint64_t, PyObject*, PyObject*>
 		>>(group, [&](auto&& item)
 		{
 			using T = decay_t<decltype(item)>;
-			ret.emplace_back(PretokenizedSpan{ get<0>(item), get<1>(item) });
-			if constexpr (is_same_v<T, tuple<uint32_t, uint32_t, PyObject*>> || is_same_v<T, tuple<uint32_t, uint32_t, PyObject*, PyObject*>>)
+			const auto begin = toPretokenizedOffset(get<0>(item));
+			const auto end = toPretokenizedOffset(get<1>(item));
+			// 단순 품사 표기에서 end - begin을 저장하기 전에 빈/역방향
+			// span을 거절해 unsigned wraparound가 뒤 경계 검사를 우회하지 않게 한다.
+			if (begin >= end)
+			{
+				throw py::ValueError{ "A `pretokenized` span must be a non-empty range." };
+			}
+			ret.emplace_back(PretokenizedSpan{ begin, end });
+			if constexpr (is_same_v<T, tuple<uint64_t, uint64_t, PyObject*>> || is_same_v<T, tuple<uint64_t, uint64_t, PyObject*, PyObject*>>)
 			{
 				if (PyUnicode_Check(get<2>(item))) // POSTag
 				{
@@ -1749,12 +1890,12 @@ inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpa
 					auto& token = ret.back().tokenization.back();
 					token.tag = tag;
 					token.begin = 0;
-					token.end = get<1>(item) - get<0>(item);
+					token.end = end - begin;
 				}
 				else
 				{
-					tuple<u16string, u16string, size_t, size_t> singleItem;
-					if (py::toCpp<tuple<u16string, u16string, size_t, size_t>>(get<2>(item), singleItem))
+					tuple<u16string, u16string, uint64_t, uint64_t> singleItem;
+					if (py::toCpp<tuple<u16string, u16string, uint64_t, uint64_t>>(get<2>(item), singleItem))
 					{
 						auto tag = parseTag(get<1>(singleItem));
 						if (tag == POSTag::max) throw py::ValueError{ "wrong tag value: " + utf16To8(get<1>(singleItem)) };
@@ -1762,12 +1903,12 @@ inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpa
 						auto& token = ret.back().tokenization.back();
 						token.form = move(get<0>(singleItem));
 						token.tag = tag;
-						token.begin = get<2>(singleItem);
-						token.end = get<3>(singleItem);
+						token.begin = toPretokenizedOffset(get<2>(singleItem));
+						token.end = toPretokenizedOffset(get<3>(singleItem));
 					}
 					else
 					{
-						py::foreach<tuple<u16string, u16string, size_t, size_t>>(get<2>(item), [&](auto&& i)
+						py::foreach<tuple<u16string, u16string, uint64_t, uint64_t>>(get<2>(item), [&](auto&& i)
 						{
 							auto tag = parseTag(get<1>(i));
 							if (tag == POSTag::max) throw py::ValueError{ "wrong tag value: " + utf16To8(get<1>(i)) };
@@ -1775,14 +1916,14 @@ inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpa
 							auto& token = ret.back().tokenization.back();
 							token.form = move(get<0>(i));
 							token.tag = tag;
-							token.begin = get<2>(i);
-							token.end = get<3>(i);
+							token.begin = toPretokenizedOffset(get<2>(i));
+							token.end = toPretokenizedOffset(get<3>(i));
 						}, "");
 					}
 				}
 			}
 
-			if constexpr (is_same_v<T, tuple<uint32_t, uint32_t, PyObject*, PyObject*>>)
+			if constexpr (is_same_v<T, tuple<uint64_t, uint64_t, PyObject*, PyObject*>>)
 			{
 				userValues.emplace_back(py::UniqueObj{ get<3>(item) });
 				Py_INCREF(userValues.back().get());
@@ -1795,7 +1936,7 @@ inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpa
 		groupBoundaries.emplace_back(ret.size());
 	}, "`pretokenized` must be an iterable of `Tuple[int, int]`, `Tuple[int, int, str]`, `Tuple[int, int, List[Token]]`");
 
-	if (groupBoundaries.size() > 1)
+	if (groupBoundaries.size() > 1 && !ret.empty())
 	{
 		spanPtrs.reserve(ret.size());
 		size_t g = 0;
@@ -1845,15 +1986,32 @@ inline pair<vector<PretokenizedSpan>, vector<py::UniqueObj>> makePretokenizedSpa
 
 inline void updatePretokenizedSpanToU16(vector<PretokenizedSpan>& spans, const py::StringWithOffset<u16string>& so)
 {
+	const size_t sourceLength = so.offsets.chrSize;
 	for (auto& s : spans)
 	{
+		// 외부 span과 내부 Token 위치는 Python code point 단위다. UTF-16
+		// 위치표를 참조하기 전에 두 범위를 모두 검증해 잘못된 인덱스를 막는다.
+		if (s.begin >= s.end || s.end > sourceLength)
+		{
+			throw py::ValueError{ "A `pretokenized` span is outside the source text." };
+		}
+		const size_t spanBegin = s.begin;
+		const size_t spanEnd = s.end;
+		const size_t spanLength = spanEnd - spanBegin;
+		const size_t u16SpanBegin = so.offsets.toU16(spanBegin);
 		for (auto& t : s.tokenization)
 		{
-			t.begin = so.offsets[s.begin + t.begin] - so.offsets[s.begin];
-			t.end = so.offsets[s.begin + t.end] - so.offsets[s.begin];
+			// 기존 API가 허용하던 zero-length 내부 형태소는 유지하고, 역방향
+			// 위치와 outer span 밖의 위치만 거절해 호환성을 보존한다.
+			if (t.begin > t.end || t.end > spanLength)
+			{
+				throw py::ValueError{ "A token in `pretokenized` is outside its span." };
+			}
+			t.begin = so.offsets.toU16(spanBegin + t.begin) - u16SpanBegin;
+			t.end = so.offsets.toU16(spanBegin + t.end) - u16SpanBegin;
 		}
-		s.begin = so.offsets[s.begin];
-		s.end = so.offsets[s.end];
+		s.begin = u16SpanBegin;
+		s.end = so.offsets.toU16(spanEnd);
 
 		if (s.tokenization.size() == 1 && s.tokenization[0].form.empty())
 		{
@@ -1891,7 +2049,13 @@ auto makeFutureCarrier(std::future<FutureTy>&& future, CarriedTy&& carried)
 	return FutureCarrier<FutureTy, std::remove_reference_t<CarriedTy>>{ std::move(future), std::forward<CarriedTy>(carried) };
 }
 
-struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, FutureCarrier<vector<TokenResult>, vector<py::UniqueObj>>>
+struct AnalysisContext
+{
+	vector<py::UniqueObj> userValues;
+	py::SurrogateOffsetMap sourceOffsets;
+};
+
+struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, FutureCarrier<vector<TokenResult>, AnalysisContext>>
 {
 	py::UniqueCObj<KiwiObject> kiwi;
 	std::shared_ptr<Kiwi> kiwiInst;
@@ -1913,12 +2077,15 @@ struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, Fut
 		waitQueue();
 	}
 
-	py::UniqueObj buildPy(pair<vector<TokenResult>, vector<py::UniqueObj>>&& v)
+	py::UniqueObj buildPy(pair<vector<TokenResult>, AnalysisContext>&& v)
 	{
 		return py::handleExc([&]()
 		{
 			if (v.first.size() > topN) v.first.erase(v.first.begin() + topN, v.first.end());
-			return resToPyList(move(v.first), kiwi.get(), kiwiInst, move(v.second));
+			auto context = move(v.second);
+			return resToPyList(
+				move(v.first), kiwi.get(), kiwiInst, context.sourceOffsets, move(context.userValues)
+			);
 		});
 	}
 
@@ -1932,23 +2099,18 @@ struct KiwiResIter : public py::ResultIter<KiwiResIter, vector<TokenResult>, Fut
 			py::UniqueObj ptResult{ PyObject_CallFunctionObjArgs(pretokenizedCallable.get(), next.get(), nullptr) };
 			pretokenized = makePretokenizedSpans(ptResult.get());
 		}
-		py::StringWithOffset<u16string> so;
-		if (pretokenized.first.empty())
+		auto so = py::toCpp<py::StringWithOffset<u16string>>(next);
+		if (!pretokenized.first.empty())
 		{
-			so.str = py::toCpp<u16string>(next);
-		}
-		else
-		{
-			so = py::toCpp<py::StringWithOffset<u16string>>(next);
 			updatePretokenizedSpanToU16(pretokenized.first, so);
 		}
 		return makeFutureCarrier(
-			kiwiInst->asyncAnalyze(move(so.str), topN, 
+			kiwiInst->asyncAnalyze(move(so.str), topN,
 				options,
 				move(pretokenized.first),
 				config
 			),
-			move(pretokenized.second)
+			AnalysisContext{ move(pretokenized.second), move(so.offsets) }
 		);
 	}
 };
@@ -2012,7 +2174,9 @@ inline void chrOffsetsToTokenOffsets(const vector<TokenInfo>& tokens, vector<pai
 	}
 }
 
-using TokenEncodeResult = tuple<vector<TokenResult>, vector<uint32_t>, vector<pair<uint32_t, uint32_t>>>;
+// 이 경로는 원본을 UTF-8로 넘기지만 Kiwi가 돌려주는 Token 위치는 UTF-16 기준이므로,
+// 파이썬 코드포인트 단위로 되돌리기 위한 대응표를 결과와 함께 나른다.
+using TokenEncodeResult = tuple<vector<TokenResult>, vector<uint32_t>, vector<pair<uint32_t, uint32_t>>, py::SurrogateOffsetMap>;
 
 struct SwTokenizerResTEIter : public py::ResultIter<SwTokenizerResTEIter, TokenEncodeResult>
 {
@@ -2030,8 +2194,8 @@ struct SwTokenizerResTEIter : public py::ResultIter<SwTokenizerResTEIter, TokenE
 
 	py::UniqueObj buildPy(TokenEncodeResult&& v)
 	{
-		if (returnOffsets) return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get(), tokenizer->kiwiInst), get<1>(v), get<2>(v));
-		return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get(), tokenizer->kiwiInst), get<1>(v));
+		if (returnOffsets) return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get(), tokenizer->kiwiInst, get<3>(v)), get<1>(v), get<2>(v));
+		return py::buildPyTuple(resToPyList(move(get<0>(v)), tokenizer->kiwi.get(), tokenizer->kiwiInst, get<3>(v)), get<1>(v));
 	}
 
 	future<TokenEncodeResult> feedNext(py::SharedObj&& next)
@@ -2039,14 +2203,16 @@ struct SwTokenizerResTEIter : public py::ResultIter<SwTokenizerResTEIter, TokenE
 		if (!PyUnicode_Check(next)) throw py::ValueError{ "`tokenize_encode` requires an instance of `str` or an iterable of `str`." };
 		auto* pool = tokenizer->kiwiInst->getThreadPool();
 		if (!pool) throw py::RuntimeError{ "async mode is unavailable in num_workers == 0" };
-		return pool->enqueue([&](size_t, const string& text)
+		py::SurrogateOffsetMap sourceOffsets;
+		if (!py::buildSurrogateOffsetMap(next.get(), sourceOffsets)) throw py::ExcPropagation{};
+		return pool->enqueue([&](size_t, const string& text, py::SurrogateOffsetMap so)
 		{
 			vector<pair<uint32_t, uint32_t>> offsets;
 			auto res = tokenizer->kiwiInst->analyze(text, 1, Match::allWithNormalizing | Match::zCoda);
 			auto tokenIds = tokenizer->tokenizer.encode(res[0].first.data(), res[0].first.size(), returnOffsets ? &offsets : nullptr);
 			if (returnOffsets) chrOffsetsToTokenOffsets(res[0].first, offsets);
-			return make_tuple(move(res), move(tokenIds), move(offsets));
-		}, py::toCpp<string>(next));
+			return make_tuple(move(res), move(tokenIds), move(offsets), move(so));
+		}, py::toCpp<string>(next), move(sourceOffsets));
 	}
 };
 
@@ -2128,16 +2294,18 @@ py::UniqueObj SwTokenizerObject::tokenizeAndEncode(PyObject* text, bool returnOf
 	if (PyUnicode_Check(text))
 	{
 		vector<pair<uint32_t, uint32_t>> offsets;
+		py::SurrogateOffsetMap sourceOffsets;
+		if (!py::buildSurrogateOffsetMap(text, sourceOffsets)) throw py::ExcPropagation{};
 		auto res = kiwiInst->analyze(py::toCpp<string>(text), 1, Match::allWithNormalizing | Match::zCoda);
 		auto tokenIds = tokenizer.encode(res[0].first.data(), res[0].first.size(), returnOffsets ? &offsets : nullptr);
 		if (returnOffsets)
 		{
 			chrOffsetsToTokenOffsets(res[0].first, offsets);
-			return py::buildPyTuple(resToPyList(move(res), kiwi.get(), kiwiInst), tokenIds, offsets);
+			return py::buildPyTuple(resToPyList(move(res), kiwi.get(), kiwiInst, sourceOffsets), tokenIds, offsets);
 		}
 		else
 		{
-			return py::buildPyTuple(resToPyList(move(res), kiwi.get(), kiwiInst), tokenIds);
+			return py::buildPyTuple(resToPyList(move(res), kiwi.get(), kiwiInst, sourceOffsets), tokenIds);
 		}
 	}
 
@@ -2355,19 +2523,14 @@ py::UniqueObj KiwiObject::analyze(PyObject* text, size_t topN,
 			pretokenizedSpans = makePretokenizedSpans(pretokenized);
 		}
 
-		py::StringWithOffset<u16string> so;
-		if (pretokenizedSpans.first.empty())
+		auto so = py::toCpp<py::StringWithOffset<u16string>>(text);
+		if (!pretokenizedSpans.first.empty())
 		{
-			so.str = py::toCpp<u16string>(text);
-		}
-		else
-		{
-			so = py::toCpp<py::StringWithOffset<u16string>>(text);
 			updatePretokenizedSpanToU16(pretokenizedSpans.first, so);
 		}
 		auto res = kiwiInst->analyze(so.str, topN, AnalyzeOption{ matchOptions, morphs, openEnding, allowedDialects, dialectCost, ptt, typoCostThreshold }, pretokenizedSpans.first, cConfig);
 		if (res.size() > topN) res.erase(res.begin() + topN, res.end());
-		return resToPyList(move(res), this, kiwiInst, move(pretokenizedSpans.second));
+		return resToPyList(move(res), this, kiwiInst, so.offsets, move(pretokenizedSpans.second));
 	}
 	else
 	{
@@ -2814,6 +2977,7 @@ py::UniqueObj KiwiObject::makeHSDataset(PyObject* inputPathes,
 	size_t numWorkers, 
 	float dropout, 
 	float dropoutOnHistory,
+	float ssAugmentingProb,
 	float nounAugmentingProb,
 	float emojiAugmentingProb,
 	float sbAugmentingProb,
@@ -2891,6 +3055,7 @@ py::UniqueObj KiwiObject::makeHSDataset(PyObject* inputPathes,
 		HSDatasetOption {
 			dropout,
 			dropoutOnHistory,
+			ssAugmentingProb,
 			nounAugmentingProb,
 			emojiAugmentingProb,
 			sbAugmentingProb,
@@ -2921,6 +3086,56 @@ py::UniqueObj KiwiObject::makeHSDataset(PyObject* inputPathes,
 		auto ret = py::buildPyTuple(ret1, ret2);
 		return ret;
 	}
+}
+
+py::UniqueObj KiwiObject::makeGenerativeMADataset(const string& tokenizerPath,
+	size_t batchSize,
+	size_t maxSeqLength,
+	size_t numWorkers,
+	uint32_t bosTokenId,
+	uint32_t eosTokenId,
+	uint32_t toMorphemeTokenId,
+	uint32_t toSurfaceTokenId,
+	PyObject* posTagTokenIds,
+	PyObject* typos,
+	float typoProb,
+	float typoCostThreshold,
+	float typoCostScale,
+	float spaceRemoveProb,
+	float spaceInsertProb,
+	size_t seed
+) const
+{
+	std::ifstream ifs;
+	const auto tokenizer = BpeTokenizer::load(kiwi::openFile(ifs, tokenizerPath));
+
+	GenerativeMAOption option;
+	option.toMorphemeTokenId = toMorphemeTokenId;
+	option.toSurfaceTokenId = toSurfaceTokenId;
+	option.bosTokenId = bosTokenId;
+	option.eosTokenId = eosTokenId;
+	option.typoProb = typoProb;
+	option.typoCostThreshold = typoCostThreshold;
+	option.typoCostScale = typoCostScale;
+	option.spaceRemoveProb = spaceRemoveProb;
+	option.spaceInsertProb = spaceInsertProb;
+	for (auto& p : py::toCpp<unordered_map<string, uint32_t>>(posTagTokenIds))
+	{
+		option.posTagTokenIds[(uint8_t)parseTag(p.first.c_str())] = p.second;
+	}
+
+	TypoTransformer emptyTypos;
+	const TypoTransformer* tt = &emptyTypos;
+	if (typos && typos != Py_None)
+	{
+		tt = &py::checkType<TypoTransformerObject>(typos)->tt;
+	}
+
+	auto dataset = builder.makeGenerativeMADataset(tokenizer, option, batchSize, maxSeqLength, numWorkers, *tt);
+	dataset.seed(seed);
+	py::UniqueObj ret{ PyObject_CallObject((PyObject*)py::Type<GenerativeMADatasetObject>, nullptr) };
+	((GenerativeMADatasetObject*)ret.get())->dataset = move(dataset);
+	return ret;
 }
 
 py::UniqueObj KiwiObject::listAllScripts() const
@@ -3031,9 +3246,9 @@ struct ChrDatasetObject : py::CObject<ChrDatasetObject>
 	{
 	}
 
-	void addSentence(const string& text, float weight, const string& nonLabelPrefix)
+	void addSentence(const string& text, float weight, const string& nonLabelPrefix, bool reverse)
 	{
-		dataset.addSentence(text, weight, nonLabelPrefix);
+		dataset.addSentence(text, weight, nonLabelPrefix, reverse);
 	}
 
 	void seed(size_t seed)
@@ -3152,6 +3367,125 @@ struct ChrDatasetIterObject : py::CObject<ChrDatasetIterObject>
 	}
 };
 
+
+void pyTrainBpeTokenizer(
+	const string& savePath,
+	PyObject* texts,
+	size_t vocabSize,
+	size_t minPairFrequency,
+	size_t maxTokenLength,
+	bool addPrefixSpace,
+	bool pretokenizeJClass,
+	bool pretokenizeEClass,
+	bool pretokenizeVcp,
+	bool pretokenizeXsv,
+	PyObject* kiwiObj,
+	size_t jamoAlphabet,
+	size_t maxDigitLength,
+	size_t maxRepeatLength,
+	size_t maxWhitespaceRepeatLength,
+	size_t numThreads,
+	PyObject* callback
+)
+{
+	BpeTrainerConfig config;
+	config.vocabSize = vocabSize;
+	config.minPairFrequency = minPairFrequency;
+	config.maxTokenLength = maxTokenLength;
+	config.addPrefixSpace = addPrefixSpace;
+	if (jamoAlphabet > (size_t)JamoAlphabet::all)
+	{
+		throw py::ValueError{ "`jamoAlphabet` must be 0 (none), 1 (modern_only) or 2 (all)." };
+	}
+	config.useJamoAlphabet = (JamoAlphabet)jamoAlphabet;
+	config.maxDigitLength = maxDigitLength;
+	config.maxRepeatLength = maxRepeatLength;
+	config.maxWhitespaceRepeatLength = maxWhitespaceRepeatLength;
+	config.numThreads = numThreads;
+
+	PretokenizeOption pretokenizeOption = PretokenizeOption::none;
+	if (pretokenizeJClass) pretokenizeOption |= PretokenizeOption::jClass;
+	if (pretokenizeEClass) pretokenizeOption |= PretokenizeOption::eClass;
+	if (pretokenizeVcp) pretokenizeOption |= PretokenizeOption::vcp;
+	if (pretokenizeXsv) pretokenizeOption |= PretokenizeOption::xsv;
+	config.pretokenizeOption = pretokenizeOption;
+
+	KiwiObject* kiwi = nullptr;
+	shared_ptr<Kiwi> kiwiInst;
+	if (pretokenizeOption != PretokenizeOption::none)
+	{
+		if (!kiwiObj || kiwiObj == Py_None)
+		{
+			throw py::ValueError{ "`kiwi` must be provided when pretokenization is enabled." };
+		}
+		if (!PyObject_IsInstance(kiwiObj, (PyObject*)py::Type<KiwiObject>))
+		{
+			throw py::ValueError{ "`kiwi` must be an instance of `Kiwi`." };
+		}
+		kiwi = (KiwiObject*)kiwiObj;
+		kiwiInst = kiwi->doPrepare();
+	}
+
+	BpeTokenizerTrainerEventCallback cb;
+	if (callback && callback != Py_None)
+	{
+		if (!PyCallable_Check(callback))
+		{
+			throw py::ValueError{ "`callback` must be a callable." };
+		}
+
+		cb = [callback](BpeTokenizerTrainerEvent event, size_t current, size_t total)
+		{
+			const char* msg = nullptr;
+			switch (event)
+			{
+			case BpeTokenizerTrainerEvent::pretokenizeBegin: msg = "pretokenizeBegin"; break;
+			case BpeTokenizerTrainerEvent::pretokenizeProgress: msg = "pretokenizeProgress"; break;
+			case BpeTokenizerTrainerEvent::pretokenizeEnd: msg = "pretokenizeEnd"; break;
+			case BpeTokenizerTrainerEvent::mergeBegin: msg = "mergeBegin"; break;
+			case BpeTokenizerTrainerEvent::mergeProgress: msg = "mergeProgress"; break;
+			case BpeTokenizerTrainerEvent::mergeEnd: msg = "mergeEnd"; break;
+			}
+			py::UniqueObj ret{ PyObject_CallObject(callback, py::buildPyTuple(msg, current, total).get()) };
+			if (!ret)
+			{
+				throw py::ExcPropagation{};
+			}
+		};
+	}
+
+	BpeTokenizerTrainer trainer{ config, kiwiInst.get(), cb};
+
+	py::UniqueObj iter{ PyObject_GetIter(texts) };
+	if (!iter)
+	{
+		throw py::ValueError{ "`texts` must be an iterable of strings." };
+	}
+
+	trainer.addSentences([&]()
+	{
+		while (1)
+		{
+			py::UniqueObj item{ PyIter_Next(iter.get()) };
+			if (!item)
+			{
+				if (PyErr_Occurred()) throw py::ExcPropagation{};
+				else return string{};
+			}
+
+			auto ret = py::toCpp<string>(item.get());
+			if (ret.empty()) continue;
+			return ret;
+		}
+	});
+
+	BpeTokenizer tokenizer = trainer.build();
+	std::ofstream ofs;
+	kiwi::openFile(ofs, savePath);
+	tokenizer.save(ofs);
+}
+
+
 PyMODINIT_FUNC PyInit__kiwipiepy()
 {
 	py::CustomExcHandler::add<kiwi::IOException, py::OSError>();
@@ -3161,6 +3495,7 @@ PyMODINIT_FUNC PyInit__kiwipiepy()
 	py::CustomExcHandler::add<kiwi::UnknownMorphemeException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::SwTokenizerException, py::ValueError>();
 	py::CustomExcHandler::add<kiwi::Exception, py::Exception>();
+	py::CustomExcHandler::add<std::invalid_argument, py::ValueError>();
 
 	return gModule.init(
 		py::define<TypoTransformerObject>("kiwipiepy._TypoTransformer", "_TypoTransformer", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
@@ -3187,6 +3522,20 @@ PyMODINIT_FUNC PyInit__kiwipiepy()
 		.template sqLen<&HSDatasetObject::len>(),
 
 		py::define<HSDatasetIterObject>("kiwipiepy._HSDatasetIter", "_HSDatasetIter", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE),
+
+		py::define<GenerativeMADatasetObject>("kiwipiepy._GenerativeMADataset", "_GenerativeMADataset", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE)
+		.template method<&GenerativeMADatasetObject::addSentence>("add_sentence")
+		.template property<&GenerativeMADatasetObject::getVocabSize>("vocab_size")
+		.template property<&GenerativeMADatasetObject::getBatchSize>("batch_size")
+		.template property<&GenerativeMADatasetObject::getMaxSeqLength>("max_seq_length")
+		.template property<&GenerativeMADatasetObject::numSents>("num_sents")
+		.template property<&GenerativeMADatasetObject::numTruncatedSents>("num_truncated_sents")
+		.template property<&GenerativeMADatasetObject::numInsertedTypos>("num_inserted_typos")
+		.template property<&GenerativeMADatasetObject::numRemovedSpaces>("num_removed_spaces")
+		.template property<&GenerativeMADatasetObject::numInsertedSpaces>("num_inserted_spaces")
+		.template sqLen<&GenerativeMADatasetObject::len>(),
+
+		py::define<GenerativeMADatasetIterObject>("kiwipiepy._GenerativeMADatasetIter", "_GenerativeMADatasetIter", Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE),
 
 		py::define<KNLangModelNextTokensResultObject>("kiwipiepy._KNLangModelNextTokensResult", "_KNLangModelNextTokensResult")
 		.template sqLen<&KNLangModelNextTokensResultObject::len>()
@@ -3221,6 +3570,7 @@ PyMODINIT_FUNC PyInit__kiwipiepy()
 		.template method<&KiwiObject::join>("join")
 		.template method<&KiwiObject::convertHSData>("convert_hsdata")
 		.template method<&KiwiObject::makeHSDataset>("make_hsdataset")
+		.template method<&KiwiObject::makeGenerativeMADataset>("make_generative_ma_dataset")
 		.template method<&KiwiObject::listAllScripts>("list_all_scripts")
 		.template method<&KiwiObject::mostSimilarMorphemes>("most_similar_morphemes")
 		.template method<&KiwiObject::mostSimilarContexts>("most_similar_contexts")
@@ -3270,6 +3620,7 @@ PyMODINIT_FUNC PyInit__kiwipiepy()
 		.template method<&SwTokenizerObject::tokenizeAndEncode>("tokenize_encode")
 		.template method<&SwTokenizerObject::decode>("decode")
 		.template staticMethod<&SwTokenizerObject::train>("_train")
+		.template staticMethod<&pyTrainBpeTokenizer>("_train_bpe_tokenizer")
 		.template method<&SwTokenizerObject::save>("save")
 		.template property<&SwTokenizerObject::config>("_config")
 		.template property<&SwTokenizerObject::vocab>("_vocab")

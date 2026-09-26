@@ -109,6 +109,12 @@ class DefaultEditParams(TypedDict, total=False):
     tunnel_protocol: str
     """Determines which tunnel protocol to use."""
 
+    uninstall_protection: bool
+    """Determines whether uninstalling the WARP client requires an override code.
+
+    (Windows only).
+    """
+
     virtual_networks: Optional[VirtualNetworks]
     """Virtual network access settings for the device."""
 
@@ -143,6 +149,12 @@ class GlobalAcceleration(TypedDict, total=False):
     """IP:port entries for the WireGuard tunnel endpoints.
 
     Either wireguard_endpoints or masque_endpoints must be provided.
+    """
+
+    autoswitch: bool
+    """Automatically switch Global Acceleration regions based on device location.
+
+    Defaults to false when not provided.
     """
 
 

@@ -76,13 +76,21 @@ if TYPE_CHECKING:  # a type-only reference: no import at run time, no cycle
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from matrx_ai.code_call_mandate_keys import COMPARATIVE_JUDGE_MANDATE, RUBRIC_JUDGE_MANDATE
 from matrx_ai.evaluators.ai_judge import JudgeError, _format_output
-from matrx_ai.graph_nodes._strict_json import StrictJsonError, llm_messages_to_pydantic
+from matrx_ai.graph_nodes._strict_json import StrictJsonError
+from matrx_ai.mandates import MandateResolutionUnavailable, hold_code_call, run_held_pydantic
 from matrx_ai.providers.keys import resolve_api_key
 
 logger = logging.getLogger("matrx_ai.evaluators.judge")
 
-DEFAULT_JUDGE_MODEL = "claude-opus-4-5-20250929"
+#: THE HOLDERS OF THE FUNNEL LANE (2026-09-25). A contract that names no
+#: ``mandate`` of its own used to run a model and a system prompt chosen here
+#: (``claude-opus-4-5-20250929`` — a retired snapshot that died with
+#: "unknown model"). It now runs on one of these two mandates' Holders, whose
+#: agents carry this module's former prompt bodies verbatim. Declared in aidream
+#: (``services/mandates/code_call_mandates.py``).
+# COMPARATIVE_JUDGE_MANDATE / RUBRIC_JUDGE_MANDATE (imported above).
 
 #: The default comparative vocabulary. A contract may narrow or rename it, but
 #: the values are always an enumeration — never a scale.
@@ -133,7 +141,7 @@ class JudgeInputs(BaseModel):
 
     History: until 2026-08-22 the harness fused all of this into ONE
     ``payload_json`` blob variable (the census row in
-    ``aidream/docs/mandates/INPUT_CHANNEL_VIOLATIONS.md`` § Patterns #4). A
+    ``aidream//Users/armanisadeghi/code/common-docs/systems/intelligence/mandates/STATE.md`` § Patterns #4). A
     judge agent that rides the harness declares exactly these names in its
     ``variable_definitions`` and renders them as named sections in its user
     message; a host ``NamedAgent`` sets ``Inputs = JudgeInputs`` (or a subclass
@@ -190,9 +198,12 @@ class JudgeContract(BaseModel):
 
     # ── How it runs. A Mandate wins over the funnel when both are set.
     mandate: str | None = None
-    model: str = DEFAULT_JUDGE_MODEL
+    #: A run-scope override. ``None`` (the default) runs the model the funnel
+    #: lane's mandate Holder names.
+    model: str | None = None
     web_access: bool = False
-    max_tokens: int = 4096
+    #: Empty uses the judge Holder's output ceiling; a contract that sets it wins.
+    max_tokens: int | None = None
     consumer: str = Field(default="unknown", description="Which feature invoked it.")
 
     @model_validator(mode="after")
@@ -300,39 +311,6 @@ def _verdict_model(contract: JudgeContract) -> type[JudgeAssessment]:
 
     _Contracted.__name__ = "JudgeAssessment"
     return _Contracted
-
-
-def _system_prompt(contract: JudgeContract) -> str:
-    if contract.mode == "comparative":
-        body = (
-            "You are an impartial specialist judge. You are given a SUBJECT and a "
-            "REFERENCE, and you decide how the subject compares to the reference.\n\n"
-            "Rules:\n"
-            "1. You are RANKING, not scoring. Never invent a numeric grade.\n"
-            "2. Judge the subject only against the reference in front of you.\n"
-            "3. Cite specific evidence — quotes or concrete observations — for your verdict.\n"
-            "4. `confidence` is your certainty in the verdict, never the subject's quality.\n"
-            "5. When the two are genuinely indistinguishable in the ways that matter, "
-            "say so rather than manufacturing a difference.\n"
-        )
-    else:
-        body = (
-            "You are an impartial specialist judge. You assess ONE artifact against a "
-            "NAMED RUBRIC and return a single enumerated verdict.\n\n"
-            "Rules:\n"
-            "1. Judge against the rubric as written — not against your own preferences.\n"
-            "2. Cite specific evidence from the artifact (or its absence).\n"
-            "3. Prefer the stricter verdict at low confidence over the lenient one "
-            "with reservations.\n"
-            "4. `confidence` is your certainty in the verdict, never the artifact's quality.\n"
-        )
-    allowed = ", ".join(repr(v) for v in contract.verdict_values)
-    web = (
-        " You may use web_search to check facts the question depends on; use it sparingly."
-        if contract.web_access
-        else ""
-    )
-    return f"{body}\nThe only permitted verdict values are: {allowed}.{web}"
 
 
 def _user_message(
@@ -503,27 +481,20 @@ class Judge:
         context: dict[str, Any] | None,
     ) -> tuple[JudgeAssessment, dict[str, Any]]:
         contract = self.contract
-        api_key = self._api_key or resolve_api_key("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise JudgeError(
-                f"judge {contract.key!r}: ANTHROPIC_API_KEY not set and no api_key passed."
-            )
+        mandate_key = (
+            COMPARATIVE_JUDGE_MANDATE if contract.mode == "comparative" else RUBRIC_JUDGE_MANDATE
+        )
         try:
-            verdict = await llm_messages_to_pydantic(
-                model=contract.model,
-                system=_system_prompt(contract),
-                messages=[
-                    {
-                        "role": "user",
-                        "content": _user_message(contract, subject, reference, context),
-                    }
-                ],
-                output_cls=_verdict_model(contract),
-                max_tokens=contract.max_tokens,
-                internal_web_search=contract.web_access,
-                api_keys={"ANTHROPIC_API_KEY": api_key},
-                system_run=True,
-                store=True,
+            held = await hold_code_call(
+                mandate_key,
+                consumer=f"matrx_ai.evaluators.Judge:{contract.key}",
+                # The web-search sentence is the Holder's (its ``web_clause``
+                # default). A contract without web access blanks it; one with
+                # web access offers nothing, so the Holder's own text applies.
+                variables={
+                    "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
+                    **({} if contract.web_access else {"web_clause": ""}),
+                },
                 metadata={
                     "source_app": "matrx-ai",
                     "source_feature": "judge",
@@ -531,9 +502,26 @@ class Judge:
                     "judge_version": contract.version,
                 },
             )
+        except MandateResolutionUnavailable as exc:
+            raise JudgeError(f"judge {contract.key!r}: {exc}") from exc
+        model = held.pick_model(contract.model)
+        api_key = self._api_key or resolve_api_key("ANTHROPIC_API_KEY")
+        try:
+            verdict = await run_held_pydantic(
+                held,
+                user=_user_message(contract, subject, reference, context),
+                output_cls=_verdict_model(contract),
+                model=contract.model,
+                max_tokens=contract.max_tokens,
+                unset_max_tokens=4096,
+                internal_web_search=contract.web_access,
+                api_keys={"ANTHROPIC_API_KEY": api_key} if api_key else None,
+                system_run=True,
+                store=True,
+            )
         except (StrictJsonError, RuntimeError) as exc:
             raise JudgeError(f"judge {contract.key!r} failed through the funnel: {exc}") from exc
-        return verdict, {"runner": "funnel", "model": contract.model}
+        return verdict, {"runner": "funnel", "model": model, "mandate": mandate_key}
 
     async def _run_mandated(
         self,

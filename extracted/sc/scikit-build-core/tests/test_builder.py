@@ -19,6 +19,7 @@ from scikit_build_core.builder.builder import (
     _warn_macos_arch_mismatch,
     archs_to_tags,
     get_archs,
+    get_cmake_args_from_settings,
 )
 from scikit_build_core.builder.macos import get_macosx_deployment_target
 from scikit_build_core.builder.sysconfig import (
@@ -398,6 +399,14 @@ def test_builder_macos_arch_extra(monkeypatch):
         (r"-DA='1 1' -DB=\'2\'", ["-DA=1 1", "-DB='2'"]),
         (r'-DA="1 1" -DB=\"2\"', ["-DA=1 1", '-DB="2"']),
         ('"-DA=1 1" -DB=2', ["-DA=1 1", "-DB=2"]),
+        ("-D A=1 -DB=2", ["-D", "A=1", "-DB=2"]),
+        ("-DCMAKE_BUILD_TYPE=Release -DA=1", ["-DA=1"]),
+        ("-D CMAKE_BUILD_TYPE=Release -DA=1", ["-DA=1"]),
+        ("-DCMAKE_BUILD_TYPE:STRING=Debug -DA=1", ["-DA=1"]),
+        ("-D CMAKE_INSTALL_PREFIX=/usr -DA=1", ["-DA=1"]),
+        ("-DCMAKE_INSTALL_PREFIX:PATH=/opt -DA=1", ["-DA=1"]),
+        ("-DFOO=CMAKE_BUILD_TYPE -DA=1", ["-DFOO=CMAKE_BUILD_TYPE", "-DA=1"]),
+        ("-DCMAKE_BUILD_TYPE_FOO=1 -DA=1", ["-DCMAKE_BUILD_TYPE_FOO=1", "-DA=1"]),
     ],
 )
 def test_builder_get_cmake_args(monkeypatch, cmake_args, answer):
@@ -408,6 +417,28 @@ def test_builder_get_cmake_args(monkeypatch, cmake_args, answer):
         config=tmpcfg,
     )
     assert tmpbuilder.get_cmake_args() == answer
+
+
+def test_builder_unsupported_cmake_args_warns_once(monkeypatch, capsys):
+    """
+    The args are computed several times per build (wheel tag, configure, build),
+    but the user must see the warning only once. See #1541.
+    """
+    monkeypatch.setenv("CMAKE_ARGS", "-DCMAKE_BUILD_TYPE=Release -DA=1")
+    tmpcfg = typing.cast("CMaker", SimpleNamespace(env=os.environ.copy()))
+    tmpbuilder = Builder(
+        settings=ScikitBuildSettings(wheel=WheelSettings()),
+        config=tmpcfg,
+    )
+
+    assert tmpbuilder.get_cmake_args() == ["-DA=1"]
+    assert tmpbuilder.get_cmake_args() == ["-DA=1"]
+    assert get_cmake_args_from_settings(tmpbuilder.settings, os.environ) == ["-DA=1"]
+
+    # Counted in fragments; FORCE_COLOR inserts ANSI codes between them.
+    err = capsys.readouterr().err
+    assert err.count("Unsupported CMAKE_ARGS ignored:") == 1
+    assert err.count("-DCMAKE_BUILD_TYPE=Release") == 1
 
 
 def test_builder_exports_source_date_epoch(monkeypatch):
@@ -476,12 +507,13 @@ def configure_builder_with_limited_api(
     *,
     limited_api: bool | None,
     py_api: str = "",
+    cmake_version: str = "3.30",
 ) -> str:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
 
     config = CMaker(
-        CMake(Version("3.30"), Path("cmake")),
+        CMake(Version(cmake_version), Path("cmake")),
         source_dir=source_dir,
         build_dir=tmp_path / "build",
         build_type="Release",
@@ -499,6 +531,74 @@ def configure_builder_with_limited_api(
 
     builder.configure(defines={}, limited_api=limited_api)
     return config.init_cache_file.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("limited_api", [False, True], ids=["classic", "abi3"])
+def test_builder_windows_library_hint_sabi(tmp_path, monkeypatch, limited_api):
+    # CMake 4.4's FindPython ingests a Python_LIBRARY hint even when
+    # Development.Module is not requested, which breaks SABI-only
+    # find_package(Python COMPONENTS Interpreter Development.SABIModule)
+    # on Windows. The hint must be dropped in SABI mode.
+    get_config_var = sysconfig.get_config_var
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        lambda x: None if x == "Py_GIL_DISABLED" else get_config_var(x),
+    )
+    patch_cpython_runtime(monkeypatch)
+    monkeypatch.setattr(sysconfig, "get_platform", lambda *_: "win-amd64")
+
+    import scikit_build_core.builder.builder as builder_mod
+
+    def fake_library(_env, *, abi3=False, abi3t=False):
+        return Path("libs/python3.lib" if abi3 or abi3t else "libs/python313.lib")
+
+    monkeypatch.setattr(builder_mod, "get_python_library", fake_library)
+
+    cache = configure_builder_with_limited_api(
+        tmp_path, monkeypatch, limited_api=limited_api
+    )
+
+    assert ("set(Python_LIBRARY " in cache) == (not limited_api)
+    assert ("set(Python_SABI_LIBRARY " in cache) == limited_api
+
+
+def test_builder_no_python_hints_skips_lookups(tmp_path, monkeypatch):
+    # The hints are the only consumer; get_numpy_include_dir imports NumPy, so
+    # neither lookup may run when the hints are off.
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+
+    config = CMaker(
+        CMake(Version("3.30"), Path("cmake")),
+        source_dir=source_dir,
+        build_dir=tmp_path / "build",
+        build_type="Release",
+    )
+    monkeypatch.setattr(config, "configure", unittest.mock.Mock())
+
+    import scikit_build_core.builder.builder as builder_mod
+
+    def boom(*_args: object, **_kwargs: object) -> None:
+        msg = "python hints are disabled"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(builder_mod, "get_numpy_include_dir", boom)
+    monkeypatch.setattr(builder_mod, "get_python_library", boom)
+    monkeypatch.setattr(builder_mod, "get_python_include_dir", boom)
+    monkeypatch.setattr(Builder, "_get_entry_point_search_path", lambda *_: {})
+
+    builder = Builder(
+        settings=ScikitBuildSettings(
+            cmake=CMakeSettings(python_hints=False),
+            search=SearchSettings(site_packages=False),
+        ),
+        config=config,
+    )
+    builder.configure(defines={})
+
+    cache = config.init_cache_file.read_text(encoding="utf-8")
+    assert "Python_EXECUTABLE" not in cache
 
 
 def patch_cpython_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -585,6 +685,24 @@ def test_builder_limited_api_auto_free_threaded(tmp_path, monkeypatch):
     assert "set(Py_TARGET_ABI3T [===[1]===] CACHE STRING" in cache
 
 
+def test_builder_py_api_gil_disabled_zero(tmp_path, monkeypatch):
+    """``Py_GIL_DISABLED = 0`` is a GIL build, so classic abi3 stays available."""
+    get_config_var = sysconfig.get_config_var
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        lambda x: "0" if x == "Py_GIL_DISABLED" else get_config_var(x),
+    )
+    patch_cpython_runtime(monkeypatch)
+
+    cache = configure_builder_with_limited_api(
+        tmp_path, monkeypatch, limited_api=None, py_api="cp39"
+    )
+
+    assert "Development.SABIModule" in cache
+    assert "Py_TARGET_ABI3T" not in cache
+
+
 @pytest.mark.parametrize(
     ("gil", "soabi", "is_ft"),
     [("t", "abi3t", True), (None, "abi3", False)],
@@ -612,10 +730,41 @@ def test_builder_combined_abi3_abi3t(tmp_path, monkeypatch, gil, soabi, is_ft):
     assert ("Py_TARGET_ABI3T" in cache) == is_ft
 
 
+@pytest.mark.parametrize(
+    ("gil", "cmake_version", "expected"),
+    [
+        pytest.param("t", "3.30", True, id="ft_cmake330"),
+        pytest.param("t", "3.29", False, id="ft_cmake329"),
+        pytest.param(None, "3.30", False, id="gil_cmake330"),
+    ],
+)
+def test_builder_free_threaded_find_abi(
+    tmp_path, monkeypatch, gil, cmake_version, expected
+):
+    # Interpreter-less find_package(Python COMPONENTS Development.Module) only
+    # matches the free-threaded ABI if Python_FIND_ABI requests it (#1531).
+    get_config_var = sysconfig.get_config_var
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        lambda x: gil if x == "Py_GIL_DISABLED" else get_config_var(x),
+    )
+    patch_cpython_runtime(monkeypatch)
+
+    cache = configure_builder_with_limited_api(
+        tmp_path, monkeypatch, limited_api=None, cmake_version=cmake_version
+    )
+
+    for prefix in ("Python", "Python3"):
+        line = f"set({prefix}_FIND_ABI [===[ANY;ANY;ANY;ON]===] CACHE STRING"
+        assert (line in cache) == expected
+
+
 def configure_builder_with_version(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     version: Version,
+    raw_version: str | None = None,
 ) -> str:
     source_dir = tmp_path / "src"
     source_dir.mkdir()
@@ -634,7 +783,9 @@ def configure_builder_with_version(
     )
     monkeypatch.setattr(Builder, "_get_entry_point_search_path", lambda *_: {})
 
-    builder.configure(defines={}, name="example", version=version)
+    builder.configure(
+        defines={}, name="example", version=version, raw_version=raw_version
+    )
     return config.init_cache_file.read_text(encoding="utf-8")
 
 
@@ -655,6 +806,14 @@ def test_builder_project_version_cmake(tmp_path, monkeypatch, version, full, cap
     cache = configure_builder_with_version(tmp_path, monkeypatch, Version(version))
     assert f"set(SKBUILD_PROJECT_VERSION [===[{capped}]===] CACHE STRING" in cache
     assert f"set(SKBUILD_PROJECT_VERSION_FULL [===[{full}]===] CACHE STRING" in cache
+
+
+def test_builder_project_version_cmake_raw(tmp_path, monkeypatch):
+    cache = configure_builder_with_version(
+        tmp_path, monkeypatch, Version("2024.01.05"), raw_version="2024.01.05"
+    )
+    assert "set(SKBUILD_PROJECT_VERSION [===[2024.1.5]===] CACHE STRING" in cache
+    assert "set(SKBUILD_PROJECT_VERSION_FULL [===[2024.01.05]===] CACHE STRING" in cache
 
 
 @pytest.mark.parametrize(
@@ -755,7 +914,7 @@ def test_wheel_tag_with_abi_darwin(monkeypatch):
     monkeypatch.setattr(platform, "mac_ver", lambda: ("10.9.2", "", ""))
 
     tags = WheelTag.compute_best(["x86_64"], py_api="cp39")
-    if sys.version_info < (3, 9) or sys.implementation.name != "cpython":
+    if sys.implementation.name != "cpython":
         assert "macosx_10_10_x86_64" in str(tags)
         assert "abi3" not in str(tags)
         assert "cp39" not in str(tags)
@@ -904,6 +1063,47 @@ def test_wheel_tag_with_abi3t_ignored_on_classic(monkeypatch):
     default_tags = WheelTag.compute_best(["x86_64"])
     tags = WheelTag.compute_best(["x86_64"], py_api="cp315t")
     assert tags == default_tags
+
+
+def test_wheel_tag_gil_disabled_zero(monkeypatch):
+    """``Py_GIL_DISABLED = 0`` is a GIL build; ``bool("0")`` would say otherwise."""
+    get_config_var = sysconfig.get_config_var
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        lambda x: "0" if x == "Py_GIL_DISABLED" else get_config_var(x),
+    )
+    monkeypatch.setattr(sys, "platform", "darwin")
+    patch_cpython_runtime(monkeypatch)
+    monkeypatch.setenv("MACOSX_DEPLOYMENT_TARGET", "10.10")
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("10.9.2", "", ""))
+
+    tags = WheelTag.compute_best(["x86_64"], py_api="cp39")
+    assert str(tags) == "cp39-abi3-macosx_10_10_x86_64"
+
+
+def test_wheel_tag_env_argument(monkeypatch):
+    """The tag reads the passed env, not ``os.environ``."""
+    get_config_var = sysconfig.get_config_var
+    monkeypatch.setattr(
+        sysconfig,
+        "get_config_var",
+        lambda x: None if x == "Py_GIL_DISABLED" else get_config_var(x),
+    )
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.delenv("MACOSX_DEPLOYMENT_TARGET", raising=False)
+    monkeypatch.delenv("_PYTHON_HOST_PLATFORM", raising=False)
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("10.9.2", "", ""))
+
+    tags = WheelTag.compute_best(
+        ["x86_64"], py_api="py3", env={"MACOSX_DEPLOYMENT_TARGET": "10.12"}
+    )
+    assert str(tags) == "py3-none-macosx_10_12_x86_64"
+
+    tags = WheelTag.compute_best(
+        ["x86_64"], py_api="py3", env={"_PYTHON_HOST_PLATFORM": "macosx-11.0-arm64"}
+    )
+    assert str(tags) == "py3-none-macosx_11_0_arm64"
 
 
 def test_wheel_tag_host_platform_override(monkeypatch):

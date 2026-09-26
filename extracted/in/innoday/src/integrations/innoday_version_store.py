@@ -13,7 +13,7 @@ The store talks to the InnoDay **HTTP API** via the same ``InnoDayAPIClient``
 the CLI's ``innoday releases create/list`` commands already use, rather than a
 direct SQLModel ``Session``. Reasons:
 
-* The proxy commands (``innoday release`` / ``innoday hotfix``) run
+* The proxy commands (``innoday blastoff`` / ``innoday hotfix``) run
   **client-side**, from a developer's workspace, resolving org/project from
   ``.innoday/project.yml`` -- exactly like ``innoday releases create``. There
   is no DB session available client-side, and there is no ``ReleaseService``

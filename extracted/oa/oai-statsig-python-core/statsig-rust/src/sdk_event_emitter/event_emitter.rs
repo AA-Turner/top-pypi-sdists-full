@@ -66,15 +66,24 @@ impl SubscriptionID {
 
 #[derive(Default)]
 pub struct SdkEventEmitter {
+    output_policy: crate::output_policy::OutputPolicy,
     listeners: OnceLock<DashMap<u8, Vec<Listener>>>,
     internal_listeners: OnceLock<DashMap<u8, Vec<InternalListener>>>,
 }
 
 impl SdkEventEmitter {
+    pub(crate) fn with_output_policy(output_policy: crate::output_policy::OutputPolicy) -> Self {
+        Self {
+            output_policy,
+            ..Self::default()
+        }
+    }
+
     pub fn subscribe<F>(&self, event: &str, callback: F) -> SubscriptionID
     where
         F: Fn(SdkEvent) + Send + Sync + 'static,
     {
+        let _output_scope = self.output_policy.enter();
         let code = SdkEventCode::from_name(event).as_raw();
         if code == 0 {
             log_e!(TAG, "Invalid event name: {}", event);
@@ -99,6 +108,7 @@ impl SdkEventEmitter {
     where
         F: Fn(SdkEvent) -> bool + Send + Sync + 'static,
     {
+        let _output_scope = self.output_policy.enter();
         let code = SdkEventCode::from_name(event).as_raw();
         if code == 0 {
             log_e!(TAG, "Invalid internal event name: {}", event);

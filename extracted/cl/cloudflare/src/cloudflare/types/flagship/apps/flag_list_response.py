@@ -281,6 +281,9 @@ class FlagListResponse(BaseModel):
     An empty array means the flag always serves `default_variation`.
     """
 
+    type: Literal["boolean", "string", "number", "json"]
+    """Server-inferred value type shared by all of the flag's variations."""
+
     variations: Dict[str, Union[Optional[str], float, bool, Dict[str, object], List[object]]]
     """Map of variation name to value.
 
@@ -289,13 +292,6 @@ class FlagListResponse(BaseModel):
     """
 
     description: Optional[str] = None
-
-    type: Optional[Literal["boolean", "string", "number", "json"]] = None
-    """Value type of the flag's variations.
-
-    The API infers this from the variation values on write, so you can omit it in
-    requests.
-    """
 
     updated_at: Optional[str] = None
 

@@ -172,6 +172,18 @@ def _compare(actual: str, expected: str, operator: str) -> bool:
             return float(actual) <= float(expected)
         except (ValueError, TypeError):
             return False
+    elif operator == "matches":
+        try:
+            import re
+            return re.search(expected, actual) is not None
+        except re.error:
+            return False
+    elif operator == "not_matches":
+        try:
+            import re
+            return re.search(expected, actual) is None
+        except re.error:
+            return False
     elif operator == "has_key":
         parsed = _try_parse_collection(actual)
         if isinstance(parsed, dict):

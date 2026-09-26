@@ -71,7 +71,7 @@ class OutputOptionsParam(TypedDict, total=False):
     """
 
     sample_rate: Optional[float]
-    """Floating number to specify sampling rate.
+    """Specifies the sampling rate as a floating number greater than 0 and at most 1.
 
     Sampling is applied on top of filtering, and regardless of the current
     `sample_interval` of the data.

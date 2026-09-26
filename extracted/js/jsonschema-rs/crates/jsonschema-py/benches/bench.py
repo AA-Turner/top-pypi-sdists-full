@@ -4,6 +4,7 @@ from pathlib import Path
 
 import fastjsonschema
 import jsonschema
+import jsonschema_bench_pyo3
 import pytest
 
 import jsonschema_rs
@@ -71,17 +72,35 @@ else:
     variants = ["jsonschema", "fastjsonschema"]
 
 
+SCHEMAS = (
+    "openapi.json",
+    "swagger.json",
+    "geojson.json",
+    "citm_catalog_schema.json",
+    "fast_schema.json",
+    "fhir.schema.json",
+    "recursive_schema.json",
+)
+
+# Only benchmarks marked `codegen(name)` have a compile-time validator in `jsonschema_bench_pyo3`.
+CODEGEN_VARIANTS = ["jsonschema-rs-codegen-is-valid", "jsonschema-rs-codegen-validate"]
+
 DEFAULT_BENCHMARK_CONFIG = {"iterations": 10, "rounds": 10, "warmup_rounds": 10}
 
 
-@pytest.fixture(params=variants)
-def variant(request):
-    return request.param
+def pytest_generate_tests(metafunc):
+    if "variant" in metafunc.fixturenames:
+        codegen = CODEGEN_VARIANTS if metafunc.definition.get_closest_marker("codegen") else []
+        metafunc.parametrize("variant", variants + codegen)
 
 
 @pytest.fixture
 def args(request, variant):
     schema, instance = request.node.get_closest_marker("data").args
+    if variant in CODEGEN_VARIANTS:
+        name = request.node.get_closest_marker("codegen").args[0]
+        suffix = "is_valid" if variant == "jsonschema-rs-codegen-is-valid" else "validate"
+        return getattr(jsonschema_bench_pyo3, f"{name}_{suffix}"), instance
     if variant == "jsonschema-rs-is-valid":
         return jsonschema_rs.validator_for(schema).is_valid, instance
     if variant == "jsonschema-rs-validate":
@@ -94,18 +113,7 @@ def args(request, variant):
 
 if jsonschema_rs is not None:
 
-    @pytest.mark.parametrize(
-        "name",
-        (
-            "openapi.json",
-            "swagger.json",
-            "geojson.json",
-            "citm_catalog_schema.json",
-            "fast_schema.json",
-            "fhir.schema.json",
-            "recursive_schema.json",
-        ),
-    )
+    @pytest.mark.parametrize("name", SCHEMAS)
     @pytest.mark.parametrize(
         "func",
         (
@@ -122,6 +130,16 @@ if jsonschema_rs is not None:
             benchmark.group = f"{name}: {benchmark.group}"
         schema = load_from_benches(name, loader=load_json_str)
         benchmark(func, schema)
+
+    @pytest.mark.parametrize("name", SCHEMAS)
+    @pytest.mark.parametrize(
+        "func", (jsonschema_rs.meta.is_valid, jsonschema_rs.meta.validate), ids=["is-valid", "validate"]
+    )
+    @pytest.mark.benchmark(group="meta-schema")
+    def test_meta_schema(benchmark, func, name):
+        if hasattr(benchmark, "group"):
+            benchmark.group = f"{name}: {benchmark.group}"
+        benchmark(func, load_from_benches(name))
 
 
 # Small schemas
@@ -140,12 +158,14 @@ def test_minimum(benchmark, args):
 
 
 @pytest.mark.data(FAST_SCHEMA, FAST_INSTANCE_VALID)
+@pytest.mark.codegen("fast")
 @pytest.mark.benchmark(group="fast-valid")
 def test_fast_valid(benchmark, args):
     benchmark(*args)
 
 
 @pytest.mark.data(FAST_SCHEMA, FAST_INSTANCE_INVALID)
+@pytest.mark.codegen("fast")
 @pytest.mark.benchmark(group="fast-invalid")
 def test_fast_invalid(benchmark, args):
     def func():
@@ -159,36 +179,42 @@ def test_fast_invalid(benchmark, args):
 
 
 @pytest.mark.data(OPENAPI, ZUORA)
+@pytest.mark.codegen("openapi")
 @pytest.mark.benchmark(group="openapi")
 def test_openapi(benchmark, args):
     benchmark(*args)
 
 
 @pytest.mark.data(SWAGGER, KUBERNETES)
+@pytest.mark.codegen("swagger")
 @pytest.mark.benchmark(group="swagger")
 def test_swagger(benchmark, args):
     benchmark(*args)
 
 
 @pytest.mark.data(GEOJSON, CANADA)
+@pytest.mark.codegen("geojson")
 @pytest.mark.benchmark(group="canada")
 def test_canada(benchmark, args):
     benchmark(*args)
 
 
 @pytest.mark.data(CITM_CATALOG_SCHEMA, CITM_CATALOG)
+@pytest.mark.codegen("citm")
 @pytest.mark.benchmark(group="citm_catalog")
 def test_citm_catalog(benchmark, args):
     benchmark(*args)
 
 
 @pytest.mark.data(FHIR_SCHEMA, FHIR_INSTANCE)
+@pytest.mark.codegen("fhir")
 @pytest.mark.benchmark(group="fhir")
 def test_fhir(benchmark, args):
     benchmark(*args)
 
 
 @pytest.mark.data(RECURSIVE_SCHEMA, RECURSIVE_INSTANCE)
+@pytest.mark.codegen("recursive")
 @pytest.mark.benchmark(group="recursive")
 def test_recursive(benchmark, args):
     benchmark(*args)

@@ -278,10 +278,8 @@ async fn test_custom_event() {
 
 #[cfg(feature = "pyo3_event_zstd")]
 #[tokio::test]
-async fn test_event_compression_zstd_flag_preserves_custom_event_logging_adapter() {
-    let experimental_flags = Some(HashSet::from(["event_compression_zstd".to_string()]));
-    let (statsig, logging_adapter) =
-        setup_with_sdk_configs_and_flags(DCS_EVAL_PROJ, None, experimental_flags).await;
+async fn test_permanent_event_features_preserve_custom_event_logging_adapter() {
+    let (statsig, logging_adapter) = setup(DCS_EVAL_PROJ).await;
 
     let user = StatsigUser::with_user_id("a_user".to_string());
     statsig.log_event(&user, "first_event", Some("one".to_string()), None);

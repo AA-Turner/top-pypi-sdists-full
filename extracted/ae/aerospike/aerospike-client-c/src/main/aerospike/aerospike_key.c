@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2025 Aerospike, Inc.
+ * Copyright 2008-2026 Aerospike, Inc.
  *
  * Portions may be licensed to Aerospike, Inc. under one or more contributor
  * license agreements.
@@ -427,6 +427,8 @@ as_policy_read_merge(aerospike* as, const as_policy_read* src, as_policy_read* m
 			cfg->base.max_retries : src->base.max_retries;
 		mrg->base.sleep_between_retries = as_field_is_set(bitmap, AS_READ_SLEEP_BETWEEN_RETRIES)?
 			cfg->base.sleep_between_retries : src->base.sleep_between_retries;
+		mrg->base.error_detail_verbosity = as_field_is_set(bitmap, AS_READ_ERROR_DETAIL)?
+			cfg->base.error_detail_verbosity : src->base.error_detail_verbosity;
 		mrg->replica = as_field_is_set(bitmap, AS_READ_REPLICA)?
 			cfg->replica : src->replica;
 		mrg->read_mode_ap = as_field_is_set(bitmap, AS_READ_READ_MODE_AP)?
@@ -849,6 +851,7 @@ aerospike_key_exists_async(
 
 typedef struct as_put_s {
 	const as_policy_write* policy;
+	as_policy_key pkey;
 	const as_key* key;
 	as_record* rec;
 	as_queue* buffers;
@@ -860,15 +863,16 @@ typedef struct as_put_s {
 
 static as_status
 as_put_init(
-	as_put* put, const as_policy_write* policy, const as_key* key, as_record* rec,
+	as_put* put, const as_policy_write* policy, as_policy_key pkey, const as_key* key, as_record* rec,
 	as_queue* buffers, as_error* err
 	)
 {
 	put->policy = policy;
+	put->pkey = pkey;
 	put->key = key;
 	put->rec = rec;
 	put->buffers = buffers;
-	put->size = as_command_key_size(&policy->base, policy->key, key, true, &put->tdata);
+	put->size = as_command_key_size(&policy->base, pkey, key, true, &put->tdata);
 	put->filter_size = as_command_filter_size(&policy->base, &put->tdata.n_fields);
 	put->size += put->filter_size;
 	put->n_bins = rec->bins.size;
@@ -897,7 +901,7 @@ as_put_write(void* udata, uint8_t* buf)
 		policy->exists, policy->gen, rec->gen, ttl, put->tdata.n_fields, put->n_bins,
 		policy->durable_delete, policy->on_locking_only, 0, AS_MSG_INFO2_WRITE, 0);
 
-	p = as_command_write_key(p, &policy->base, policy->key, put->key, &put->tdata);
+	p = as_command_write_key(p, &policy->base, put->pkey, put->key, &put->tdata);
 	p = as_command_write_filter(&policy->base, put->filter_size, p);
 
 	as_bin* bins = rec->bins.entries;
@@ -912,16 +916,22 @@ as_put_write(void* udata, uint8_t* buf)
 }
 
 const as_policy_write*
-as_policy_write_merge(aerospike* as, const as_policy_write* src, as_policy_write* mrg)
+as_policy_write_merge(
+	aerospike* as, const as_policy_write* src, as_policy_write* mrg, as_policy_key* pkey
+	)
 {
+	as_config* config = aerospike_load_config(as);
+	as_policy_write* cfg = &config->policies.write;
+
 	if (!src) {
-		as_config* config = aerospike_load_config(as);
-		return &config->policies.write;
+		*pkey = cfg->key;
+		return cfg;
 	}
-	else if (as->config_bitmap) {
+
+	*pkey = as_policy_key_resolve(cfg->key, src->key);
+
+	if (as->config_bitmap) {
 		uint8_t* bitmap = as->config_bitmap;
-		as_config* config = aerospike_load_config(as);
-		as_policy_write* cfg = &config->policies.write;
 
 		mrg->base.connect_timeout = as_field_is_set(bitmap, AS_WRITE_CONNECT_TIMEOUT)?
 			cfg->base.connect_timeout : src->base.connect_timeout;
@@ -935,12 +945,13 @@ as_policy_write_merge(aerospike* as, const as_policy_write* src, as_policy_write
 			cfg->base.max_retries : src->base.max_retries;
 		mrg->base.sleep_between_retries = as_field_is_set(bitmap, AS_WRITE_SLEEP_BETWEEN_RETRIES)?
 			cfg->base.sleep_between_retries : src->base.sleep_between_retries;
+		mrg->base.error_detail_verbosity = as_field_is_set(bitmap, AS_WRITE_ERROR_DETAIL)?
+			cfg->base.error_detail_verbosity : src->base.error_detail_verbosity;
 		mrg->replica = as_field_is_set(bitmap, AS_WRITE_REPLICA)?
 			cfg->replica : src->replica;
 		mrg->durable_delete = as_field_is_set(bitmap, AS_WRITE_DURABLE_DELETE)?
 			cfg->durable_delete : src->durable_delete;
-		mrg->key = as_field_is_set(bitmap, AS_WRITE_SEND_KEY)?
-			cfg->key : src->key;
+		mrg->key = *pkey;
 
 		mrg->base.filter_exp = src->base.filter_exp;
 		mrg->base.txn = src->base.txn;
@@ -953,9 +964,7 @@ as_policy_write_merge(aerospike* as, const as_policy_write* src, as_policy_write
 		mrg->on_locking_only = src->on_locking_only;
 		return mrg;
 	}
-	else {
-		return src;
-	}
+	return src;
 }
 
 as_status
@@ -964,7 +973,8 @@ aerospike_key_put(
 	)
 {
 	as_policy_write merged;
-	policy = as_policy_write_merge(as, policy, &merged);
+	as_policy_key pkey;
+	policy = as_policy_write_merge(as, policy, &merged, &pkey);
 
 	as_partition_info pi;
 	as_status status = as_command_prepare_write(as, err, &policy->base, key, &pi);
@@ -977,7 +987,7 @@ aerospike_key_put(
 	as_queue_inita(&buffers, sizeof(as_buffer), rec->bins.size);
 
 	as_put put;
-	status = as_put_init(&put, policy, key, rec, &buffers, err);
+	status = as_put_init(&put, policy, pkey, key, rec, &buffers, err);
 
 	if (status != AEROSPIKE_OK) {
 		as_buffers_destroy(&buffers);
@@ -1007,7 +1017,8 @@ aerospike_key_put_async_ex(
 	)
 {
 	as_policy_write merged;
-	policy = as_policy_write_merge(as, policy, &merged);
+	as_policy_key pkey;
+	policy = as_policy_write_merge(as, policy, &merged, &pkey);
 
 	as_partition_info pi;
 	as_status status = as_command_prepare(as->cluster, err, &policy->base, key, &pi);
@@ -1020,7 +1031,7 @@ aerospike_key_put_async_ex(
 	as_queue_inita(&buffers, sizeof(as_buffer), rec->bins.size);
 
 	as_put put;
-	status = as_put_init(&put, policy, key, rec, &buffers, err);
+	status = as_put_init(&put, policy, pkey, key, rec, &buffers, err);
 
 	if (status != AEROSPIKE_OK) {
 		as_buffers_destroy(&buffers);
@@ -1084,16 +1095,22 @@ aerospike_key_put_async(
 //---------------------------------
 
 static const as_policy_remove*
-as_policy_remove_merge(aerospike* as, const as_policy_remove* src, as_policy_remove* mrg)
+as_policy_remove_merge(
+	aerospike* as, const as_policy_remove* src, as_policy_remove* mrg, as_policy_key* pkey
+	)
 {
+	as_config* config = aerospike_load_config(as);
+	as_policy_remove* cfg = &config->policies.remove;
+
 	if (!src) {
-		as_config* config = aerospike_load_config(as);
-		return &config->policies.remove;
+		*pkey = cfg->key;
+		return cfg;
 	}
-	else if (as->config_bitmap) {
+	
+	*pkey = as_policy_key_resolve(cfg->key, src->key);
+
+	if (as->config_bitmap) {
 		uint8_t* bitmap = as->config_bitmap;
-		as_config* config = aerospike_load_config(as);
-		as_policy_remove* cfg = &config->policies.remove;
 
 		mrg->base.connect_timeout = as_field_is_set(bitmap, AS_WRITE_CONNECT_TIMEOUT)?
 			cfg->base.connect_timeout : src->base.connect_timeout;
@@ -1107,8 +1124,9 @@ as_policy_remove_merge(aerospike* as, const as_policy_remove* src, as_policy_rem
 			cfg->base.max_retries : src->base.max_retries;
 		mrg->base.sleep_between_retries = as_field_is_set(bitmap, AS_WRITE_SLEEP_BETWEEN_RETRIES)?
 			cfg->base.sleep_between_retries : src->base.sleep_between_retries;
-		mrg->key = as_field_is_set(bitmap, AS_WRITE_SEND_KEY)?
-			cfg->key : src->key;
+		mrg->base.error_detail_verbosity = as_field_is_set(bitmap, AS_WRITE_ERROR_DETAIL)?
+			cfg->base.error_detail_verbosity : src->base.error_detail_verbosity;
+		mrg->key = *pkey;
 		mrg->replica = as_field_is_set(bitmap, AS_WRITE_REPLICA)?
 			cfg->replica : src->replica;
 		mrg->durable_delete = as_field_is_set(bitmap, AS_WRITE_DURABLE_DELETE)?
@@ -1122,9 +1140,7 @@ as_policy_remove_merge(aerospike* as, const as_policy_remove* src, as_policy_rem
 		mrg->generation = src->generation;
 		return mrg;
 	}
-	else {
-		return src;
-	}
+	return src;
 }
 
 as_status
@@ -1133,7 +1149,8 @@ aerospike_key_remove(
 	)
 {
 	as_policy_remove merged;
-	policy = as_policy_remove_merge(as, policy, &merged);
+	as_policy_key pkey;
+	policy = as_policy_remove_merge(as, policy, &merged, &pkey);
 
 	as_partition_info pi;
 	as_status status = as_command_prepare_write(as, err, &policy->base, key, &pi);
@@ -1143,7 +1160,7 @@ aerospike_key_remove(
 	}
 
 	as_command_txn_data tdata;
-	size_t size = as_command_key_size(&policy->base, policy->key, key, true, &tdata);
+	size_t size = as_command_key_size(&policy->base, pkey, key, true, &tdata);
 	uint32_t filter_size = as_command_filter_size(&policy->base, &tdata.n_fields);
 	size += filter_size;
 
@@ -1152,7 +1169,7 @@ aerospike_key_remove(
 		AS_POLICY_EXISTS_IGNORE, policy->gen, policy->generation, 0, tdata.n_fields, 0,
 		policy->durable_delete, false, 0, AS_MSG_INFO2_WRITE | AS_MSG_INFO2_DELETE, 0);
 
-	p = as_command_write_key(p, &policy->base, policy->key, key, &tdata);
+	p = as_command_write_key(p, &policy->base, pkey, key, &tdata);
 	p = as_command_write_filter(&policy->base, filter_size, p);
 	size = as_command_write_end(buf, p);
 
@@ -1176,7 +1193,8 @@ aerospike_key_remove_async_ex(
 	)
 {
 	as_policy_remove merged;
-	policy = as_policy_remove_merge(as, policy, &merged);
+	as_policy_key pkey;
+	policy = as_policy_remove_merge(as, policy, &merged, &pkey);
 
 	as_partition_info pi;
 	as_status status = as_command_prepare(as->cluster, err, &policy->base, key, &pi);
@@ -1186,7 +1204,7 @@ aerospike_key_remove_async_ex(
 	}
 
 	as_command_txn_data tdata;
-	size_t size = as_command_key_size(&policy->base, policy->key, key, true, &tdata);
+	size_t size = as_command_key_size(&policy->base, pkey, key, true, &tdata);
 	uint32_t filter_size = as_command_filter_size(&policy->base, &tdata.n_fields);
 	size += filter_size;
 
@@ -1198,7 +1216,7 @@ aerospike_key_remove_async_ex(
 		AS_POLICY_EXISTS_IGNORE, policy->gen, policy->generation, 0, tdata.n_fields, 0,
 		policy->durable_delete, false, 0, AS_MSG_INFO2_WRITE | AS_MSG_INFO2_DELETE, 0);
 
-	p = as_command_write_key(p, &policy->base, policy->key, key, &tdata);
+	p = as_command_write_key(p, &policy->base, pkey, key, &tdata);
 	p = as_command_write_filter(&policy->base, filter_size, p);
 	cmd->write_len = (uint32_t)as_command_write_end(cmd->buf, p);
 
@@ -1225,6 +1243,7 @@ aerospike_key_remove_async(
 
 typedef struct as_operate_s {
 	const as_policy_operate* policy;
+	as_policy_key pkey;
 	const as_key* key;
 	const as_operations* ops;
 	as_queue* buffers;
@@ -1238,26 +1257,33 @@ typedef struct as_operate_s {
 } as_operate;
 
 const as_policy_operate*
-as_policy_operate_merge(aerospike* as, bool is_write, const as_policy_operate* src, as_policy_operate* mrg)
+as_policy_operate_merge(
+	aerospike* as, bool is_write, const as_policy_operate* src, as_policy_operate* mrg,
+	as_policy_key* pkey
+	)
 {
+	as_config* config = aerospike_load_config(as);
+	as_policy_operate* cfg = &config->policies.operate;
+
 	if (!src) {
-		as_config* config = aerospike_load_config(as);
+		*pkey = cfg->key;
 
 		if (is_write) {
 			// Write operations should not retry by default.
-			return &config->policies.operate;
+			return cfg;
 		}
 		else {
 			// Read operations should retry by default.
-			as_policy_operate_copy(&config->policies.operate, mrg);
+			as_policy_operate_copy(cfg, mrg);
 			mrg->base.max_retries = 2;
 			return mrg;
 		}
 	}
-	else if (as->config_bitmap) {
+
+	*pkey = as_policy_key_resolve(cfg->key, src->key);
+
+	if (as->config_bitmap) {
 		uint8_t* bitmap = as->config_bitmap;
-		as_config* config = aerospike_load_config(as);
-		as_policy_operate* cfg = &config->policies.operate;
 
 		mrg->base.connect_timeout = as_field_is_set(bitmap, AS_WRITE_CONNECT_TIMEOUT)?
 			cfg->base.connect_timeout : src->base.connect_timeout;
@@ -1271,8 +1297,9 @@ as_policy_operate_merge(aerospike* as, bool is_write, const as_policy_operate* s
 			cfg->base.max_retries : src->base.max_retries;
 		mrg->base.sleep_between_retries = as_field_is_set(bitmap, AS_WRITE_SLEEP_BETWEEN_RETRIES)?
 			cfg->base.sleep_between_retries : src->base.sleep_between_retries;
-		mrg->key = as_field_is_set(bitmap, AS_WRITE_SEND_KEY)?
-			cfg->key : src->key;
+		mrg->base.error_detail_verbosity = as_field_is_set(bitmap, AS_WRITE_ERROR_DETAIL)?
+			cfg->base.error_detail_verbosity : src->base.error_detail_verbosity;
+		mrg->key = *pkey;
 		mrg->replica = as_field_is_set(bitmap, AS_WRITE_REPLICA)?
 			cfg->replica : src->replica;
 		mrg->read_mode_ap = as_field_is_set(bitmap, AS_READ_READ_MODE_AP)?
@@ -1296,9 +1323,7 @@ as_policy_operate_merge(aerospike* as, bool is_write, const as_policy_operate* s
 		mrg->respond_all_ops = src->respond_all_ops;
 		return mrg;
 	}
-	else {
-		return src;
-	}
+	return src;
 }
 
 static as_status
@@ -1327,6 +1352,8 @@ as_operate_init(
 			case AS_OPERATOR_EXP_READ:
 			case AS_OPERATOR_BIT_READ:
 			case AS_OPERATOR_HLL_READ:
+			case AS_OPERATOR_STRING_READ:
+			case AS_OPERATOR_TO_STRING:
 				// Map operations require respond_all_ops to be true.
 				respond_all_ops = true;
 				// Fall through to read.
@@ -1343,7 +1370,8 @@ as_operate_init(
 			case AS_OPERATOR_EXP_MODIFY:
 			case AS_OPERATOR_BIT_MODIFY:
 			case AS_OPERATOR_HLL_MODIFY:
-				// Map operations require respond_all_ops to be true.
+			case AS_OPERATOR_STRING_MODIFY:
+				// Complex modify operations require respond_all_ops to be true.
 				respond_all_ops = true;
 				// Fall through to write.
 			default:
@@ -1359,7 +1387,7 @@ as_operate_init(
 	}
 
 	bool is_write = (oper->write_attr & AS_MSG_INFO2_WRITE)? true : false;
-	policy = oper->policy = as_policy_operate_merge(as, is_write, policy, policy_local);
+	policy = oper->policy = as_policy_operate_merge(as, is_write, policy, policy_local, &oper->pkey);
 
 	// When GET_ALL is specified, RESPOND_ALL_OPS must be disabled.
 	if ((respond_all_ops || policy->respond_all_ops) && !(oper->read_attr & AS_MSG_INFO1_GET_ALL)) {
@@ -1377,7 +1405,7 @@ as_operate_size(as_operate* oper)
 {
 	const as_policy_operate* policy = oper->policy;
 
-	oper->size += as_command_key_size(&policy->base, policy->key, oper->key,
+	oper->size += as_command_key_size(&policy->base, oper->pkey, oper->key,
 		oper->write_attr & AS_MSG_INFO2_WRITE, &oper->tdata);
 	oper->filter_size = as_command_filter_size(&policy->base, &oper->tdata.n_fields);
 	oper->size += oper->filter_size;
@@ -1406,7 +1434,7 @@ as_operate_write(void* udata, uint8_t* buf)
 		oper->n_operations, policy->durable_delete, policy->on_locking_only, oper->read_attr,
 		oper->write_attr, oper->info_attr);
 
-	p = as_command_write_key(p, &policy->base, policy->key, oper->key, &oper->tdata);
+	p = as_command_write_key(p, &policy->base, oper->pkey, oper->key, &oper->tdata);
 	p = as_command_write_filter(&policy->base, oper->filter_size, p);
 
 	uint16_t n_operations = oper->n_operations;
@@ -1613,16 +1641,20 @@ aerospike_key_operate_async(
 //---------------------------------
 
 static const as_policy_apply*
-as_policy_apply_merge(aerospike* as, const as_policy_apply* src, as_policy_apply* mrg)
+as_policy_apply_merge(aerospike* as, const as_policy_apply* src, as_policy_apply* mrg, as_policy_key* pkey)
 {
+	as_config* config = aerospike_load_config(as);
+	as_policy_apply* cfg = &config->policies.apply;
+
 	if (!src) {
-		as_config* config = aerospike_load_config(as);
-		return &config->policies.apply;
+		*pkey = cfg->key;
+		return cfg;
 	}
-	else if (as->config_bitmap) {
+
+	*pkey = as_policy_key_resolve(cfg->key, src->key);
+	
+	if (as->config_bitmap) {
 		uint8_t* bitmap = as->config_bitmap;
-		as_config* config = aerospike_load_config(as);
-		as_policy_apply* cfg = &config->policies.apply;
 
 		mrg->base.connect_timeout = as_field_is_set(bitmap, AS_WRITE_CONNECT_TIMEOUT)?
 			cfg->base.connect_timeout : src->base.connect_timeout;
@@ -1636,8 +1668,9 @@ as_policy_apply_merge(aerospike* as, const as_policy_apply* src, as_policy_apply
 			cfg->base.max_retries : src->base.max_retries;
 		mrg->base.sleep_between_retries = as_field_is_set(bitmap, AS_WRITE_SLEEP_BETWEEN_RETRIES)?
 			cfg->base.sleep_between_retries : src->base.sleep_between_retries;
-		mrg->key = as_field_is_set(bitmap, AS_WRITE_SEND_KEY)?
-			cfg->key : src->key;
+		mrg->base.error_detail_verbosity = as_field_is_set(bitmap, AS_WRITE_ERROR_DETAIL)?
+			cfg->base.error_detail_verbosity : src->base.error_detail_verbosity;
+		mrg->key = *pkey;
 		mrg->replica = as_field_is_set(bitmap, AS_WRITE_REPLICA)?
 			cfg->replica : src->replica;
 		mrg->durable_delete = as_field_is_set(bitmap, AS_WRITE_DURABLE_DELETE)?
@@ -1651,13 +1684,12 @@ as_policy_apply_merge(aerospike* as, const as_policy_apply* src, as_policy_apply
 		mrg->on_locking_only = src->on_locking_only;
 		return mrg;
 	}
-	else {
-		return src;
-	}
+	return src;
 }
 
 typedef struct as_apply_s {
 	const as_policy_apply* policy;
+	as_policy_key pkey;
 	const as_key* key;
 	const char* module;
 	const char* function;
@@ -1670,17 +1702,18 @@ typedef struct as_apply_s {
 
 static size_t
 as_apply_init(
-	as_apply* ap, const as_policy_apply* policy, const as_key* key, const char* module,
-	const char* function, as_list* arglist
+	as_apply* ap, const as_policy_apply* policy, as_policy_key pkey, const as_key* key,
+	const char* module, const char* function, as_list* arglist
 	)
 {
 	ap->policy = policy;
+	ap->pkey = pkey;
 	ap->key = key;
 	ap->module = module;
 	ap->function = function;
 	ap->read_attr = 0;
 
-	size_t size = as_command_key_size(&policy->base, policy->key, key, true, &ap->tdata);
+	size_t size = as_command_key_size(&policy->base, pkey, key, true, &ap->tdata);
 
 	ap->filter_size = as_command_filter_size(&policy->base, &ap->tdata.n_fields);
 	size += ap->filter_size;
@@ -1708,7 +1741,7 @@ as_apply_write(void* udata, uint8_t* buf)
 		AS_POLICY_GEN_IGNORE, 0, policy->ttl, ap->tdata.n_fields, 0, policy->durable_delete,
 		policy->on_locking_only, ap->read_attr, AS_MSG_INFO2_WRITE, 0);
 
-	p = as_command_write_key(p, &policy->base, policy->key, ap->key, &ap->tdata);
+	p = as_command_write_key(p, &policy->base, ap->pkey, ap->key, &ap->tdata);
 	p = as_command_write_filter(&policy->base, ap->filter_size, p);
 	p = as_command_write_field_string(p, AS_FIELD_UDF_PACKAGE_NAME, ap->module);
 	p = as_command_write_field_string(p, AS_FIELD_UDF_FUNCTION, ap->function);
@@ -1723,7 +1756,8 @@ aerospike_key_apply(
 	)
 {
 	as_policy_apply merged;
-	policy = as_policy_apply_merge(as, policy, &merged);
+	as_policy_key pkey;
+	policy = as_policy_apply_merge(as, policy, &merged, &pkey);
 
 	as_partition_info pi;
 	as_status status = as_command_prepare_write(as, err, &policy->base, key, &pi);
@@ -1733,7 +1767,7 @@ aerospike_key_apply(
 	}
 
 	as_apply ap;
-	size_t size = as_apply_init(&ap, policy, key, module, function, arglist);
+	size_t size = as_apply_init(&ap, policy, pkey, key, module, function, arglist);
 
 	as_command cmd;
 	as_command_init_write(&cmd, as->cluster, &policy->base, policy->replica, key, size, &pi,
@@ -1757,8 +1791,9 @@ aerospike_key_apply_async(
 	)
 {
 	as_policy_apply merged;
-	policy = as_policy_apply_merge(as, policy, &merged);
-	
+	as_policy_key pkey;
+	policy = as_policy_apply_merge(as, policy, &merged, &pkey);
+
 	as_partition_info pi;
 	as_status status = as_command_prepare(as->cluster, err, &policy->base, key, &pi);
 
@@ -1767,7 +1802,7 @@ aerospike_key_apply_async(
 	}
 	
 	as_apply ap;
-	size_t size = as_apply_init(&ap, policy, key, module, function, arglist);
+	size_t size = as_apply_init(&ap, policy, pkey, key, module, function, arglist);
 
 	if (! (policy->base.compress && size > AS_COMPRESS_THRESHOLD)) {
 		// Send uncompressed command.
@@ -1822,7 +1857,7 @@ as_txn_monitor_parse_header(as_error* err, as_command* cmd, as_node* node, uint8
 		return AEROSPIKE_OK;
 	}
 
-	return as_error_set_message(err, msg->result_code, as_error_string(msg->result_code));
+	return as_command_parse_error(err, node, msg, buf + sizeof(as_msg));
 }
 
 as_status
@@ -1838,6 +1873,7 @@ as_txn_monitor_mark_roll_forward(
 	policy.base.timeout_delay = base_policy->timeout_delay;
 	policy.base.max_retries = base_policy->max_retries;
 	policy.base.sleep_between_retries = base_policy->sleep_between_retries;
+	policy.base.error_detail_verbosity = base_policy->error_detail_verbosity;
 
 	as_record rec;
 	as_record_inita(&rec, 1);
@@ -1855,7 +1891,7 @@ as_txn_monitor_mark_roll_forward(
 	as_queue_inita(&buffers, sizeof(as_buffer), rec.bins.size);
 
 	as_put put;
-	status = as_put_init(&put, &policy, key, &rec, &buffers, err);
+	status = as_put_init(&put, &policy, AS_POLICY_KEY_DIGEST, key, &rec, &buffers, err);
 
 	if (status != AEROSPIKE_OK) {
 		as_buffers_destroy(&buffers);
@@ -1888,7 +1924,7 @@ as_txn_monitor_parse_header_async(as_event_command* cmd)
 	}
 	else {
 		as_error err;
-		as_error_set_message(&err, msg->result_code, as_error_string(msg->result_code));
+		as_command_parse_error(&err, cmd->node, msg, p);
 		as_event_response_error(cmd, &err);
 	}
 	return true;
@@ -1908,6 +1944,7 @@ as_txn_monitor_mark_roll_forward_async(
 	policy.base.timeout_delay = base_policy->timeout_delay;
 	policy.base.max_retries = base_policy->max_retries;
 	policy.base.sleep_between_retries = base_policy->sleep_between_retries;
+	policy.base.error_detail_verbosity = base_policy->error_detail_verbosity;
 
 	as_record rec;
 	as_record_inita(&rec, 1);
@@ -1925,7 +1962,7 @@ as_txn_monitor_mark_roll_forward_async(
 	as_queue_inita(&buffers, sizeof(as_buffer), rec.bins.size);
 
 	as_put put;
-	status = as_put_init(&put, &policy, key, &rec, &buffers, err);
+	status = as_put_init(&put, &policy, AS_POLICY_KEY_DIGEST, key, &rec, &buffers, err);
 
 	if (status != AEROSPIKE_OK) {
 		as_buffers_destroy(&buffers);
@@ -2076,7 +2113,7 @@ parse_result_code(as_error* err, as_command* cmd, as_node* node, uint8_t* buf, s
 	}
 
 	if (msg->result_code) {
-		return as_error_set_message(err, msg->result_code, as_error_string(msg->result_code));
+		return as_command_parse_error(err, node, msg, buf + sizeof(as_msg));
 	}
 	return AEROSPIKE_OK;
 }
@@ -2105,7 +2142,8 @@ as_txn_verify_single(
 	buf[9] = AS_MSG_INFO1_READ | AS_MSG_INFO1_GET_NOBINDATA;
 	buf[10] = 0;
 	buf[11] = AS_MSG_INFO3_SC_READ_TYPE;
-	buf[12] = AS_MSG_INFO4_TXN_VERIFY_READ;
+	buf[12] = AS_MSG_INFO4_TXN_VERIFY_READ |
+		as_command_info4_error_detail(policy->base.error_detail_verbosity);
 	buf[13] = 0;
 	*(uint32_t*)&buf[14] = 0;
 	*(int*)&buf[18] = 0;
@@ -2143,7 +2181,7 @@ txn_verify_parse(as_event_command* cmd)
 	}
 	else {
 		as_error err;
-		as_error_set_message(&err, msg->result_code, as_error_string(msg->result_code));
+		as_command_parse_error(&err, cmd->node, msg, p);
 		as_event_response_error(cmd, &err);
 	}
 	return true;
@@ -2182,7 +2220,8 @@ as_txn_verify_single_async(
 	buf[9] = AS_MSG_INFO1_READ | AS_MSG_INFO1_GET_NOBINDATA;
 	buf[10] = 0;
 	buf[11] = AS_MSG_INFO3_SC_READ_TYPE;
-	buf[12] = AS_MSG_INFO4_TXN_VERIFY_READ;
+	buf[12] = AS_MSG_INFO4_TXN_VERIFY_READ |
+		as_command_info4_error_detail(policy->base.error_detail_verbosity);
 	buf[13] = 0;
 	*(uint32_t*)&buf[14] = 0;
 	*(int*)&buf[18] = 0;
@@ -2238,7 +2277,7 @@ as_txn_roll_single(
 	buf[9] = 0;
 	buf[10] = AS_MSG_INFO2_WRITE | AS_MSG_INFO2_DURABLE_DELETE;
 	buf[11] = 0;
-	buf[12] = roll_attr;
+	buf[12] = roll_attr | as_command_info4_error_detail(policy->base.error_detail_verbosity);
 	buf[13] = 0;
 	*(uint32_t*)&buf[14] = 0;
 	*(int*)&buf[18] = 0;
@@ -2284,7 +2323,7 @@ txn_roll_parse(as_event_command* cmd)
 	}
 	else {
 		as_error err;
-		as_error_set_message(&err, msg->result_code, as_error_string(msg->result_code));
+		as_command_parse_error(&err, cmd->node, msg, p);
 		as_event_response_error(cmd, &err);
 	}
 	return true;
@@ -2328,7 +2367,7 @@ as_txn_roll_single_async(
 	buf[9] = 0;
 	buf[10] = AS_MSG_INFO2_WRITE | AS_MSG_INFO2_DURABLE_DELETE;
 	buf[11] = 0;
-	buf[12] = roll_attr;
+	buf[12] = roll_attr | as_command_info4_error_detail(policy->base.error_detail_verbosity);
 	buf[13] = 0;
 	*(uint32_t*)&buf[14] = 0;
 	*(int*)&buf[18] = 0;

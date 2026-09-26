@@ -38,6 +38,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/deepseek-v4-flash-vision-exp": {
         "name": "DeepSeek V4 Flash Vision Exp",
@@ -61,6 +63,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/deepseek-v4-pro": {
         "name": "DeepSeek V4 Pro",
@@ -84,6 +88,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "none",
             "low",
@@ -116,6 +122,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/deepseek-v4p1-flash": {
         "name": "DeepSeek V4.1 Flash",
@@ -138,9 +146,35 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
+    },
+    "accounts/fireworks/models/ember-1": {
+        "name": "Ember-1",
+        "release_date": "2026-09-22",
+        "last_updated": "2026-09-22",
+        "open_weights": False,
+        "max_input_tokens": 1048576,
+        "max_output_tokens": 131072,
+        "text_inputs": True,
+        "image_inputs": True,
+        "audio_inputs": False,
+        "video_inputs": False,
+        "text_outputs": True,
+        "image_outputs": False,
+        "audio_outputs": False,
+        "video_outputs": False,
+        "reasoning_output": True,
+        "tool_calling": True,
+        "attachment": True,
+        "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/glm-5p1": {
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "none",
             "high",
@@ -168,6 +202,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "none",
             "high",
@@ -196,6 +232,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/glm-5p3-flash": {
         "name": "GLM 5.3 Flash",
@@ -218,6 +256,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/gpt-oss-120b": {
         "name": "GPT OSS 120B",
@@ -239,6 +279,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/inkling": {
         "name": "Inkling",
@@ -260,6 +302,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/kimi-k2p6": {
         "name": "Kimi K2.6",
@@ -282,6 +326,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "low",
             "medium",
@@ -309,6 +355,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "low",
             "medium",
@@ -336,6 +384,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": False,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/minimax-m2p7": {
         "name": "MiniMax-M2.7",
@@ -358,6 +408,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/minimax-m3": {
         "name": "MiniMax-M3",
@@ -379,6 +431,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/muse-glimmer-30b": {
         "name": "Muse Glimmer 30B",
@@ -402,6 +456,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/nemotron-3-ultra-nvfp4": {
         "name": "Nemotron 3 Ultra 550B A55B",
@@ -423,6 +479,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b": {
         "name": "Nemotron 3.5 Lightning 30B A3B",
@@ -445,6 +503,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/qwen3p7-plus": {
         "name": "Qwen 3.7 Plus",
@@ -466,6 +526,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/qwen3p8-2p4t-a95b": {
         "name": "Qwen3.8 2.4T A95B",
@@ -488,6 +550,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/models/qwen3p8-max": {
         "name": "Qwen3.8 Max",
@@ -509,6 +573,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/deepseek-flash-latest": {
         "name": "DeepSeek Flash Latest",
@@ -531,6 +597,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/deepseek-pro-latest": {
         "name": "DeepSeek Pro Latest",
@@ -553,9 +621,13 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/glm-5p1-fast": {
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "none",
             "high",
@@ -582,6 +654,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "none",
             "high",
@@ -610,6 +684,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/glm-fast-latest": {
         "name": "GLM 5.3 Fast (Latest)",
@@ -632,6 +708,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/glm-flash-latest": {
         "name": "GLM Flash Latest (GLM 5.3 Flash)",
@@ -654,6 +732,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/glm-latest": {
         "name": "GLM Latest",
@@ -676,6 +756,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/kimi-fast-latest": {
         "name": "Kimi Fast Latest",
@@ -698,9 +780,13 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": False,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/kimi-k2p6-fast": {
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "low",
             "medium",
@@ -709,6 +795,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
     },
     "accounts/fireworks/routers/kimi-k2p6-turbo": {
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "low",
             "medium",
@@ -717,6 +805,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
     },
     "accounts/fireworks/routers/kimi-k2p7-code-fast": {
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
         "reasoning_effort_levels": [
             "low",
             "medium",
@@ -744,6 +834,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": False,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/kimi-latest": {
         "name": "Kimi Latest",
@@ -766,6 +858,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": False,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/minimax-latest": {
         "name": "MiniMax Latest",
@@ -787,6 +881,8 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": False,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
     "accounts/fireworks/routers/qwen-max-latest": {
         "name": "Qwen Max Latest (Qwen3.8 Max)",
@@ -808,5 +904,7 @@ _PROFILES: dict[str, dict[str, Any]] = {
         "attachment": True,
         "temperature": True,
         "tool_call_streaming": True,
+        "pdf_inputs": False,
+        "pdf_tool_message": False,
     },
 }

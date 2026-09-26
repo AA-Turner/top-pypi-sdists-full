@@ -1,5 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+from __future__ import annotations
+
 from typing import List, Union, Optional
 from datetime import datetime
 from typing_extensions import Literal, Annotated, TypeAlias
@@ -18,18 +20,6 @@ __all__ = [
     "FormatJson",
     "FormatParquet",
     "Schema",
-    "SchemaField",
-    "SchemaFieldInt32",
-    "SchemaFieldInt64",
-    "SchemaFieldFloat32",
-    "SchemaFieldFloat64",
-    "SchemaFieldBool",
-    "SchemaFieldString",
-    "SchemaFieldBinary",
-    "SchemaFieldTimestamp",
-    "SchemaFieldJson",
-    "SchemaFieldStruct",
-    "SchemaFieldList",
 ]
 
 
@@ -76,146 +66,10 @@ class FormatParquet(BaseModel):
 Format: TypeAlias = Annotated[Union[FormatJson, FormatParquet], PropertyInfo(discriminator="type")]
 
 
-class SchemaFieldInt32(BaseModel):
-    type: Literal["int32"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldInt64(BaseModel):
-    type: Literal["int64"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldFloat32(BaseModel):
-    type: Literal["float32"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldFloat64(BaseModel):
-    type: Literal["float64"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldBool(BaseModel):
-    type: Literal["bool"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldString(BaseModel):
-    type: Literal["string"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldBinary(BaseModel):
-    type: Literal["binary"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldTimestamp(BaseModel):
-    type: Literal["timestamp"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-    unit: Optional[Literal["second", "millisecond", "microsecond", "nanosecond"]] = None
-
-
-class SchemaFieldJson(BaseModel):
-    type: Literal["json"]
-
-    metadata_key: Optional[str] = None
-
-    name: Optional[str] = None
-
-    required: Optional[bool] = None
-
-    sql_name: Optional[str] = None
-
-
-class SchemaFieldStruct:
-    pass
-
-
-class SchemaFieldList:
-    pass
-
-
-SchemaField: TypeAlias = Annotated[
-    Union[
-        SchemaFieldInt32,
-        SchemaFieldInt64,
-        SchemaFieldFloat32,
-        SchemaFieldFloat64,
-        SchemaFieldBool,
-        SchemaFieldString,
-        SchemaFieldBinary,
-        SchemaFieldTimestamp,
-        SchemaFieldJson,
-        SchemaFieldStruct,
-        SchemaFieldList,
-    ],
-    PropertyInfo(discriminator="type"),
-]
-
-
 class Schema(BaseModel):
     """Defines the schema of the events in the data stream."""
 
-    fields: Optional[List[SchemaField]] = None
+    fields: Optional[List["SourceField"]] = None
 
     inferred: Optional[bool] = None
 
@@ -246,3 +100,6 @@ class StreamUpdateResponse(BaseModel):
 
     schema_: Optional[Schema] = FieldInfo(alias="schema", default=None)
     """Defines the schema of the events in the data stream."""
+
+
+from .source_field import SourceField

@@ -57,7 +57,7 @@ class ObjectsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPaginationAfter[DurableObject]:
         """
-        Returns the Durable Objects in a given namespace.
+        Returns the Durable Objects in a given Durable Object namespace.
 
         Args:
           account_id: Identifier.
@@ -140,7 +140,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DurableObject, AsyncCursorPaginationAfter[DurableObject]]:
         """
-        Returns the Durable Objects in a given namespace.
+        Returns the Durable Objects in a given Durable Object namespace.
 
         Args:
           account_id: Identifier.

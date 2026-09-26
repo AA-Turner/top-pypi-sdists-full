@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Optional
 from typing_extensions import Literal
 
 import httpx
@@ -53,17 +54,19 @@ class MoveResource(SyncAPIResource):
         destination: Literal[
             "Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"
         ],
-        expected_disposition: Literal[
-            "MALICIOUS",
-            "MALICIOUS-BEC",
-            "SUSPICIOUS",
-            "SPOOF",
-            "SPAM",
-            "BULK",
-            "ENCRYPTED",
-            "EXTERNAL",
-            "UNKNOWN",
-            "NONE",
+        expected_disposition: Optional[
+            Literal[
+                "MALICIOUS",
+                "MALICIOUS-BEC",
+                "SUSPICIOUS",
+                "SPOOF",
+                "SPAM",
+                "BULK",
+                "ENCRYPTED",
+                "EXTERNAL",
+                "UNKNOWN",
+                "NONE",
+            ]
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -82,6 +85,8 @@ class MoveResource(SyncAPIResource):
           account_id: Identifier.
 
           investigate_id: Unique identifier for a message retrieved from investigation.
+
+          expected_disposition: Nonfunctional field. End of life: December 1, 2026.
 
           extra_headers: Send extra headers
 
@@ -123,17 +128,19 @@ class MoveResource(SyncAPIResource):
         destination: Literal[
             "Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"
         ],
-        expected_disposition: Literal[
-            "MALICIOUS",
-            "MALICIOUS-BEC",
-            "SUSPICIOUS",
-            "SPOOF",
-            "SPAM",
-            "BULK",
-            "ENCRYPTED",
-            "EXTERNAL",
-            "UNKNOWN",
-            "NONE",
+        expected_disposition: Optional[
+            Literal[
+                "MALICIOUS",
+                "MALICIOUS-BEC",
+                "SUSPICIOUS",
+                "SPOOF",
+                "SPAM",
+                "BULK",
+                "ENCRYPTED",
+                "EXTERNAL",
+                "UNKNOWN",
+                "NONE",
+            ]
         ]
         | Omit = omit,
         ids: SequenceNotStr[str] | Omit = omit,
@@ -152,6 +159,8 @@ class MoveResource(SyncAPIResource):
 
         Args:
           account_id: Identifier.
+
+          expected_disposition: Nonfunctional field. End of life: December 1, 2026.
 
           ids: List of message IDs to move.
 
@@ -215,17 +224,19 @@ class AsyncMoveResource(AsyncAPIResource):
         destination: Literal[
             "Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"
         ],
-        expected_disposition: Literal[
-            "MALICIOUS",
-            "MALICIOUS-BEC",
-            "SUSPICIOUS",
-            "SPOOF",
-            "SPAM",
-            "BULK",
-            "ENCRYPTED",
-            "EXTERNAL",
-            "UNKNOWN",
-            "NONE",
+        expected_disposition: Optional[
+            Literal[
+                "MALICIOUS",
+                "MALICIOUS-BEC",
+                "SUSPICIOUS",
+                "SPOOF",
+                "SPAM",
+                "BULK",
+                "ENCRYPTED",
+                "EXTERNAL",
+                "UNKNOWN",
+                "NONE",
+            ]
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -244,6 +255,8 @@ class AsyncMoveResource(AsyncAPIResource):
           account_id: Identifier.
 
           investigate_id: Unique identifier for a message retrieved from investigation.
+
+          expected_disposition: Nonfunctional field. End of life: December 1, 2026.
 
           extra_headers: Send extra headers
 
@@ -285,17 +298,19 @@ class AsyncMoveResource(AsyncAPIResource):
         destination: Literal[
             "Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"
         ],
-        expected_disposition: Literal[
-            "MALICIOUS",
-            "MALICIOUS-BEC",
-            "SUSPICIOUS",
-            "SPOOF",
-            "SPAM",
-            "BULK",
-            "ENCRYPTED",
-            "EXTERNAL",
-            "UNKNOWN",
-            "NONE",
+        expected_disposition: Optional[
+            Literal[
+                "MALICIOUS",
+                "MALICIOUS-BEC",
+                "SUSPICIOUS",
+                "SPOOF",
+                "SPAM",
+                "BULK",
+                "ENCRYPTED",
+                "EXTERNAL",
+                "UNKNOWN",
+                "NONE",
+            ]
         ]
         | Omit = omit,
         ids: SequenceNotStr[str] | Omit = omit,
@@ -314,6 +329,8 @@ class AsyncMoveResource(AsyncAPIResource):
 
         Args:
           account_id: Identifier.
+
+          expected_disposition: Nonfunctional field. End of life: December 1, 2026.
 
           ids: List of message IDs to move.
 

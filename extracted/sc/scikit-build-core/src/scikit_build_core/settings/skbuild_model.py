@@ -1,19 +1,13 @@
-__lazy_modules__ = {
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
-    "packaging",
-    "packaging.specifiers",
-    "packaging.version",
-    "pathlib",
-}
+__lazy_modules__ = {f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing"}
 
 import dataclasses
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, TypedDict, Union
+from typing import Annotated, Any, Literal, Optional, TypedDict, Union
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
-from .._compat.typing import Annotated, Self
+from .._compat.typing import Self
 
 __all__ = [
     "BackportSettings",
@@ -35,11 +29,11 @@ __all__ = [
 ]
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return __all__
 
 
-def normalize_build_types(build_type: Union[str, List[str]]) -> List[str]:
+def normalize_build_types(build_type: Union[str, list[str]]) -> list[str]:
     """
     Normalize ``cmake.build-type`` into a non-empty list of build types.
 
@@ -66,9 +60,9 @@ class CMakeSettingsDefine(str):
 
     __slots__ = ()
 
-    json_schema = Union[str, bool, List[str]]
+    json_schema = Union[str, bool, list[str]]
 
-    def __new__(cls, raw: Union[str, bool, List[str]]) -> Self:
+    def __new__(cls, raw: Union[str, bool, list[str]]) -> Self:
         def escape_semicolons(item: str) -> str:
             return item.replace(";", r"\;")
 
@@ -95,7 +89,7 @@ class EnvValue:
 
     __slots__ = ("default", "env", "force")
 
-    def __init__(self, raw: Union[str, Dict[str, Any]]) -> None:
+    def __init__(self, raw: Union[str, dict[str, Any]]) -> None:
         self.env: Optional[str] = None
         self.default: Optional[str] = None
         self.force: bool = False
@@ -131,7 +125,7 @@ class EnvValue:
         self.default = default
         self.force = force
 
-    def resolve(self, env: Dict[str, str]) -> Optional[str]:
+    def resolve(self, env: dict[str, str]) -> Optional[str]:
         """
         Resolve to the final string value (or ``None`` if unset) against ``env``.
 
@@ -189,7 +183,7 @@ class CMakeSettings:
        :confval:`ninja.version`
     """
 
-    args: List[str] = dataclasses.field(default_factory=list)
+    args: list[str] = dataclasses.field(default_factory=list)
     """
     A list of args to pass to CMake when configuring the project.
 
@@ -199,7 +193,7 @@ class CMakeSettings:
        :confval:`cmake.define`
     """
 
-    define: Annotated[Dict[str, CMakeSettingsDefine], "EnvVar"] = dataclasses.field(
+    define: Annotated[dict[str, CMakeSettingsDefine], "EnvVar"] = dataclasses.field(
         default_factory=dict
     )
     """
@@ -213,7 +207,7 @@ class CMakeSettings:
     DEPRECATED in 0.10, use build.verbose instead.
     """
 
-    build_type: Union[str, List[str]] = "Release"
+    build_type: Union[str, list[str]] = "Release"
     """
     The build type to use when building the project.
 
@@ -242,7 +236,7 @@ class CMakeSettings:
     Currently only affects the native builder (not the setuptools plugin).
     """
 
-    targets: Optional[List[str]] = dataclasses.field(
+    targets: Optional[list[str]] = dataclasses.field(
         default=None, metadata=SettingsFieldMetadata(deprecated=True)
     )
     """
@@ -256,6 +250,16 @@ class CMakeSettings:
     The CMAKE_TOOLCHAIN_FILE / --toolchain used for cross-compilation.
 
     This cannot be set in the static ``[tool.scikit-build]`` table; use it in an override, config-settings, or an environment variable.
+    """
+
+    fresh: bool = False
+    """
+    Discard any cached CMake configuration and configure from scratch, like ``cmake --fresh``.
+
+    Only affects a persistent :confval:`build-dir`. Most useful as a
+    config-setting, an environment variable, or in an override.
+
+    .. versionadded:: 1.1
     """
 
     python_hints: bool = True
@@ -321,7 +325,7 @@ class LoggingSettings:
 
 @dataclasses.dataclass
 class SDistSettings:
-    include: List[str] = dataclasses.field(default_factory=list)
+    include: list[str] = dataclasses.field(default_factory=list)
     """
     Files to include in the SDist even if they are skipped by default. Supports gitignore syntax.
 
@@ -331,7 +335,7 @@ class SDistSettings:
        :confval:`sdist.exclude`
     """
 
-    exclude: List[str] = dataclasses.field(default_factory=list)
+    exclude: list[str] = dataclasses.field(default_factory=list)
     """
     Files to exclude from the SDist even if they are included by default. Supports gitignore syntax.
 
@@ -379,7 +383,7 @@ class SDistSettings:
     If set to True, CMake will be run before building the SDist.
     """
 
-    force_include: Dict[str, str] = dataclasses.field(default_factory=dict)
+    force_include: dict[str, str] = dataclasses.field(default_factory=dict)
     """
     Force-include files into the SDist.
 
@@ -399,11 +403,11 @@ class SDistSettings:
     .. versionadded:: 1.0
     """
 
-    resolve_symlinks: Optional[Literal["all", "external", "none", "classic"]] = (
-        dataclasses.field(
-            default=None,
-            metadata=SettingsFieldMetadata(display_default='"all"'),
-        )
+    resolve_symlinks: Optional[
+        Literal["all", "external", "none", "classic", "error"]
+    ] = dataclasses.field(
+        default=None,
+        metadata=SettingsFieldMetadata(display_default='"all"'),
     )
     """
     Which symlinks to resolve in the SDist, storing the target's contents instead.
@@ -417,6 +421,9 @@ class SDistSettings:
     * "none": Store every symlink as-is, including directory symlinks.
     * "classic": Store file symlinks as-is, but follow directory symlinks,
       copying their contents (scikit-build-core 0.x behavior).
+    * "error": Fail the build if any included file or directory is a symlink,
+      and list each one with its target. This includes force-include sources
+      and the files under them. Exclude a link to allow the build.
 
     A symlink that can't be resolved (dangling, or a directory symlink loop)
     is stored as a symlink in every mode, with a warning if it was supposed to
@@ -427,12 +434,14 @@ class SDistSettings:
     compatibility.
 
     .. versionadded:: 1.0
+    .. versionchanged:: 1.1
+       Added "error".
     """
 
 
 @dataclasses.dataclass
 class WheelSettings:
-    packages: Optional[Union[List[str], Dict[str, str]]] = dataclasses.field(
+    packages: Optional[Union[list[str], dict[str, str]]] = dataclasses.field(
         default=None,
         metadata=SettingsFieldMetadata(
             display_default='["src/<package>", "python/<package>", "<package>"]'
@@ -460,7 +469,7 @@ class WheelSettings:
 
     The default (empty string) will use the default Python version.
 
-    You can also set this to "cp38" to enable the CPython 3.8+ Stable
+    You can also set this to "cp39" to enable the CPython 3.9+ Stable
     ABI / Limited API (only on CPython and if the version is sufficient,
     otherwise this has no effect). For free-threaded Python, you can use
     "cp315t" to enable the free-threaded stable ABI (only on CPython
@@ -513,7 +522,7 @@ class WheelSettings:
        ``${SKBUILD_<TREE>_DIR}`` form and is one level higher than the platlib root.
     """
 
-    license_files: Optional[List[str]] = None
+    license_files: Optional[list[str]] = None
     """
     A list of license files to include in the wheel. Supports glob patterns.
 
@@ -536,7 +545,7 @@ class WheelSettings:
     and the purelib otherwise.
     """
 
-    exclude: List[str] = dataclasses.field(default_factory=list)
+    exclude: list[str] = dataclasses.field(default_factory=list)
     """
     A set of patterns to exclude from the wheel.
 
@@ -550,7 +559,7 @@ class WheelSettings:
     The build tag to use for the wheel. If empty, no build tag is used.
     """
 
-    tags: Optional[List[str]] = dataclasses.field(
+    tags: Optional[list[str]] = dataclasses.field(
         default=None,
         metadata=SettingsFieldMetadata(override_only=True),
     )
@@ -565,7 +574,7 @@ class WheelSettings:
     environment variable.
     """
 
-    force_include: Dict[str, str] = dataclasses.field(default_factory=dict)
+    force_include: dict[str, str] = dataclasses.field(default_factory=dict)
     """
     Force-include files into the wheel.
 
@@ -644,24 +653,31 @@ class EditableSettings:
     Turn on verbose output for the editable mode rebuilds.
     """
 
-    rebuild: bool = False
+    rebuild: Optional[bool] = dataclasses.field(
+        default=None, metadata=SettingsFieldMetadata(display_default="false")
+    )
     """
     Rebuild the project when the package is imported.
 
     :confval:`build-dir` must be set, except in ``inplace`` mode (where the source
-    directory is the build directory).
+    directory is the build directory). Defaults to true if
+    :confval:`editable.rebuild-dir` is set.
+
+    .. versionchanged:: 1.1
+       An explicit false is honored when :confval:`editable.rebuild-dir` is set.
     """
 
     rebuild_dir: str = ""
     """
-    Install rebuildable editables into this tree (a newer alternative to ``editable.rebuild``).
+    Install editables into this persistent tree instead of the wheel.
 
-    Setting this turns on rebuild-on-import by itself; the :confval:`editable.rebuild`
-    flag is ignored when it is set. The compiled artifacts are installed here at
-    first build and re-installed in place on every import-triggered rebuild, and
-    the redirect references them by absolute path. Must be an absolute (or
-    source-relative) path that is stable between build and run time, and supports
-    the same template substitutions as :confval:`build-dir`. This relocates only
+    The compiled artifacts are installed here at first build and re-installed
+    in place on every rebuild, and the redirect references them by absolute
+    path. Setting this turns on rebuild-on-import unless :confval:`editable.rebuild`
+    is explicitly false; then use ``module.__loader__.rebuild()`` to refresh the
+    tree. Must be an absolute (or source-relative) path that is stable between
+    build and run time, and supports the same template substitutions as
+    :confval:`build-dir`. This relocates only
     the install tree; :confval:`build-dir` is still required and still hosts the
     CMake build that the rebuild re-runs.
 
@@ -675,24 +691,28 @@ class EditableSettings:
     """
 
     @property
-    def rebuild_enabled(self) -> bool:
+    def rebuild_on_import(self) -> bool:
         """
-        True when rebuild-on-import is active.
+        True when the finder rebuilds on first import.
+        """
+        return bool(self.rebuild_dir) if self.rebuild is None else self.rebuild
 
-        Setting ``rebuild-dir`` turns this on by itself, so the ``rebuild`` flag
-        is ignored when it is set.
+    @property
+    def persistent_install(self) -> bool:
         """
-        return self.rebuild or bool(self.rebuild_dir)
+        True when CMake installs into a persistent tree outside the wheel.
+        """
+        return bool(self.rebuild) or bool(self.rebuild_dir)
 
 
 @dataclasses.dataclass
 class BuildSettings:
-    tool_args: List[str] = dataclasses.field(default_factory=list)
+    tool_args: list[str] = dataclasses.field(default_factory=list)
     """
     Extra args to pass directly to the builder in the build step.
     """
 
-    targets: List[str] = dataclasses.field(default_factory=list)
+    targets: list[str] = dataclasses.field(default_factory=list)
     """
     The build targets to use when building the project.
 
@@ -706,7 +726,7 @@ class BuildSettings:
     Equivalent to ``CMAKE_VERBOSE_MAKEFILE``.
     """
 
-    requires: List[str] = dataclasses.field(default_factory=list)
+    requires: list[str] = dataclasses.field(default_factory=list)
     """
     Additional ``build-system.requires``.
 
@@ -716,14 +736,14 @@ class BuildSettings:
 
 @dataclasses.dataclass
 class InstallSettings:
-    components: List[str] = dataclasses.field(default_factory=list)
+    components: list[str] = dataclasses.field(default_factory=list)
     """
     The components to install.
 
     If not specified or an empty list, all default components are installed.
     """
 
-    targets: List[str] = dataclasses.field(default_factory=list)
+    targets: list[str] = dataclasses.field(default_factory=list)
     """
     Build targets to run during the install step via ``cmake --build --target``.
 
@@ -822,16 +842,16 @@ class ScikitBuildSettings:
     editable: EditableSettings = dataclasses.field(default_factory=EditableSettings)
     build: BuildSettings = dataclasses.field(default_factory=BuildSettings)
     install: InstallSettings = dataclasses.field(default_factory=InstallSettings)
-    generate: List[GenerateSettings] = dataclasses.field(default_factory=list)
+    generate: list[GenerateSettings] = dataclasses.field(default_factory=list)
     messages: MessagesSettings = dataclasses.field(default_factory=MessagesSettings)
     search: SearchSettings = dataclasses.field(default_factory=SearchSettings)
 
-    metadata: Dict[str, Dict[str, Any]] = dataclasses.field(default_factory=dict)
+    metadata: dict[str, dict[str, Any]] = dataclasses.field(default_factory=dict)
     """
     List dynamic metadata fields and hook locations in this table.
     """
 
-    env: Annotated[Dict[str, EnvValue], "EnvTable"] = dataclasses.field(
+    env: Annotated[dict[str, EnvValue], "EnvTable"] = dataclasses.field(
         default_factory=dict
     )
     """
@@ -861,7 +881,7 @@ class ScikitBuildSettings:
     Enable early previews of features not finalized yet.
     """
 
-    variant: List[str] = dataclasses.field(
+    variant: list[str] = dataclasses.field(
         default_factory=list,
         metadata=SettingsFieldMetadata(override_only=True),
     )
@@ -873,7 +893,7 @@ class ScikitBuildSettings:
     .. versionadded:: 1.0
     """
 
-    variant_name: List[str] = dataclasses.field(
+    variant_name: list[str] = dataclasses.field(
         default_factory=list,
         metadata=SettingsFieldMetadata(override_only=True),
     )

@@ -580,9 +580,10 @@ async def kind_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # and never auto-detect platform intent for anyone.
         return err(
             "forbidden",
-            "platform_kind=true is admin-only: it mints the kind (and every row "
+            "platform_kind=true is an admin action: it mints the kind (and every row "
             "the composed create writes) into the Matrx System organization with "
-            "visibility='public'. Your account is not a platform admin.",
+            "visibility='public', so it works only for a platform admin from the "
+            "admin app or the admin MCP, never from a normal chat.",
             "Retry without platform_kind to create a normal kind in your own "
             "organization.",
         )
@@ -1458,19 +1459,29 @@ async def kind_activate(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         # else, refused on the one boolean that ships the work. If activation
         # ever refuses a caller this tool just cleared, that divergence is the
         # bug — never work around it by widening the tool.
-        from matrx_orm import call_function
+        from contextlib import nullcontext
 
+        from matrx_orm import admin_lane, call_function
+
+        # THE ADMIN LANE (2026-09-25): the gate's super-admin arm answers only in
+        # the lane, which opens only for a run started from an admin surface.
+        lane = (
+            admin_lane(database=KindDefinition._database)
+            if ctx_is_admin(ctx)
+            else nullcontext()
+        )
         try:
-            raw = await call_function(
-                KindDefinition._database,
-                "content_ir",
-                "set_kind_activation",
-                str(kd.id),
-                active,
-                note,
-                ctx_user_id(ctx),
-                mode="scalar",
-            )
+            async with lane:
+                raw = await call_function(
+                    KindDefinition._database,
+                    "content_ir",
+                    "set_kind_activation",
+                    str(kd.id),
+                    active,
+                    note,
+                    ctx_user_id(ctx),
+                    mode="scalar",
+                )
         except Exception as gate_err:
             # The gate raises with the missing-asset reasons inlined; surface
             # them to the agent verbatim so it knows exactly what to build.

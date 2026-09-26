@@ -62,7 +62,7 @@ class SettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
-        Patch script-level settings when using
+        Patch Worker script-level settings when using
         [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions).
         Including but not limited to Logpush and Tail Consumers.
 
@@ -129,7 +129,7 @@ class SettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
-        Get script-level settings when using
+        Get Worker script-level settings when using
         [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions).
         Includes Logpush and Tail Consumers.
 
@@ -204,7 +204,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
-        Patch script-level settings when using
+        Patch Worker script-level settings when using
         [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions).
         Including but not limited to Logpush and Tail Consumers.
 
@@ -271,7 +271,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSetting:
         """
-        Get script-level settings when using
+        Get Worker script-level settings when using
         [Worker Versions](https://developers.cloudflare.com/api/operations/worker-versions-list-versions).
         Includes Logpush and Tail Consumers.
 

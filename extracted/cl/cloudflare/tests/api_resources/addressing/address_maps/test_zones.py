@@ -23,7 +23,6 @@ class TestZones:
             address_map_id="055817b111884e0227e1be16a0be6ee0",
             zone_id="8ac8489932db6327334c9b6d58544cfe",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
         )
         assert_matches_type(ZoneUpdateResponse, zone, path=["response"])
 
@@ -33,7 +32,6 @@ class TestZones:
             address_map_id="055817b111884e0227e1be16a0be6ee0",
             zone_id="8ac8489932db6327334c9b6d58544cfe",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
         )
 
         assert response.is_closed is True
@@ -47,7 +45,6 @@ class TestZones:
             address_map_id="055817b111884e0227e1be16a0be6ee0",
             zone_id="8ac8489932db6327334c9b6d58544cfe",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -64,7 +61,6 @@ class TestZones:
                 address_map_id="055817b111884e0227e1be16a0be6ee0",
                 zone_id="",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
-                body={},
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
@@ -72,7 +68,6 @@ class TestZones:
                 address_map_id="055817b111884e0227e1be16a0be6ee0",
                 zone_id="8ac8489932db6327334c9b6d58544cfe",
                 account_id="",
-                body={},
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `address_map_id` but received ''"):
@@ -80,7 +75,6 @@ class TestZones:
                 address_map_id="",
                 zone_id="8ac8489932db6327334c9b6d58544cfe",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
-                body={},
             )
 
     @parametrize
@@ -155,7 +149,6 @@ class TestAsyncZones:
             address_map_id="055817b111884e0227e1be16a0be6ee0",
             zone_id="8ac8489932db6327334c9b6d58544cfe",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
         )
         assert_matches_type(ZoneUpdateResponse, zone, path=["response"])
 
@@ -165,7 +158,6 @@ class TestAsyncZones:
             address_map_id="055817b111884e0227e1be16a0be6ee0",
             zone_id="8ac8489932db6327334c9b6d58544cfe",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
         )
 
         assert response.is_closed is True
@@ -179,7 +171,6 @@ class TestAsyncZones:
             address_map_id="055817b111884e0227e1be16a0be6ee0",
             zone_id="8ac8489932db6327334c9b6d58544cfe",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -196,7 +187,6 @@ class TestAsyncZones:
                 address_map_id="055817b111884e0227e1be16a0be6ee0",
                 zone_id="",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
-                body={},
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
@@ -204,7 +194,6 @@ class TestAsyncZones:
                 address_map_id="055817b111884e0227e1be16a0be6ee0",
                 zone_id="8ac8489932db6327334c9b6d58544cfe",
                 account_id="",
-                body={},
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `address_map_id` but received ''"):
@@ -212,7 +201,6 @@ class TestAsyncZones:
                 address_map_id="",
                 zone_id="8ac8489932db6327334c9b6d58544cfe",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
-                body={},
             )
 
     @parametrize

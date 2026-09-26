@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 import traceback
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from matrx_utils import vcprint
@@ -40,6 +41,44 @@ SUMMARIZE_MAX_INPUT_CHARS = 100_000
 #: Knob (Arman, 2026-09-09: "opinions become knobs"): below this size the raw
 #: page is returned instead of paying for a summary that is often larger.
 SUMMARIZE_MIN_INPUT_CHARS = 4_000
+#: The knob address — ``platform.feature_knob`` seeded by aidream
+#: ``db/migrations/ai_096`` with the value above, overridable per ORGANIZATION.
+#: The constant is only the standalone (no-host) posture.
+SUMMARIZE_MIN_INPUT_CHARS_KNOB = ("agents.web_read", "summarize_min_input_chars")
+
+#: ``async (organization_id) -> int``.
+SummarizeMinInputCharsResolver = Callable[[str | None], Awaitable[int]]
+
+_SUMMARIZE_MIN_RESOLVER: SummarizeMinInputCharsResolver | None = None
+
+
+def set_summarize_min_input_chars_resolver(
+    resolver: SummarizeMinInputCharsResolver | None,
+) -> None:
+    """Install the host's per-organization knob reader (``None`` = standalone)."""
+    global _SUMMARIZE_MIN_RESOLVER
+    _SUMMARIZE_MIN_RESOLVER = resolver
+
+
+async def summarize_min_input_chars(organization_id: str | None) -> int:
+    """Below this many page chars ``web_read`` returns the page raw instead of
+    summarizing it — this organization's value. A resolver failure (e.g. the
+    host's ``KnobNotRegisteredError``) is announced in red; the page read never
+    fails over it."""
+    resolver = _SUMMARIZE_MIN_RESOLVER
+    if resolver is None:
+        return SUMMARIZE_MIN_INPUT_CHARS
+    try:
+        return int(await resolver(organization_id))
+    except Exception as exc:  # noqa: BLE001 — one failure shape, said out loud
+        vcprint(
+            f"[web_read] {SUMMARIZE_MIN_INPUT_CHARS_KNOB[0]}/{SUMMARIZE_MIN_INPUT_CHARS_KNOB[1]} "
+            f"could not be resolved for organization {organization_id!r} "
+            f"({type(exc).__name__}: {exc}); using {SUMMARIZE_MIN_INPUT_CHARS:,}. Fix the "
+            "knob row or the host resolver.",
+            color="red",
+        )
+        return SUMMARIZE_MIN_INPUT_CHARS
 
 
 def _cap_research_section(text: str, *, limit: int, label: str) -> tuple[str, bool]:
@@ -180,6 +219,52 @@ async def web_search(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         )
 
 
+async def land_agent_read(result: Any, ctx: ToolContext, page: dict[str, Any]) -> dict[str, Any]:
+    """Land one page an agent read as a Source and stamp the tool's page dict (SOURCE-CONVERGENCE §4.5).
+
+    In-process, through ``matrx_scraper``'s injected landing hook (aidream wires ``land_source``):
+    ``origin_client='agent'``, unkept (so intelligence follows the kind's policy — ``on_signal``
+    defers it until someone keeps it), visibility ``personal`` — the run's person owns it and a
+    colleague reaches it only through a conveying association. The page dict gains
+    ``processed_document_id`` (``None`` when it did not land) and ``notices`` saying why.
+    A host with no landing hook at all is announced on the result and in the log — the read still
+    answers, the gap never goes quiet.
+    """
+    if not (isinstance(result, dict) and result.get("status") == "success" and result.get("page")):
+        return page
+    try:
+        from matrx_scraper.source_landing import (
+            SourceLandingNotConfigured,
+            land_page_result,
+            stamp_page,
+        )
+    except ImportError:  # pragma: no cover — matrx_scraper is how this tool reads at all
+        return page
+    try:
+        outcome = await land_page_result(
+            result["page"],
+            organization_id=str(ctx.organization_id or "") or None,
+            user_id=str(ctx.user_id or "") or None,
+            origin_client="agent",
+            keep=False,
+            visibility="personal",
+        )
+    except SourceLandingNotConfigured as exc:
+        vcprint(f"[web_read] {exc}", color="red")
+        outcome = {
+            "processed_document_id": None,
+            "source_id": None,
+            "notices": [
+                {
+                    "code": "landing_not_configured",
+                    "message": "This page was read but not saved as a Source: this server has no landing door wired.",
+                    "remedy": "wire_matrx_scraper_source_landing_at_startup",
+                }
+            ],
+        }
+    return stamp_page(page, outcome)
+
+
 async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Read/scrape web pages with standard offset/chars paging."""
     started_at = time.time()
@@ -223,21 +308,30 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 )
                 continue
             pages.append(
-                window_page_content(
-                    text,
-                    url=url,
-                    offset=offset,
-                    chars=chars,
-                    per_url_budget=url_budget,
+                await land_agent_read(
+                    result,
+                    ctx,
+                    window_page_content(
+                        text,
+                        url=url,
+                        offset=offset,
+                        chars=chars,
+                        per_url_budget=url_budget,
+                    ),
                 )
             )
 
         total_full_chars = sum(len(t) for _, t, _ in full_texts)
+        summarize_floor = (
+            await summarize_min_input_chars(ctx.organization_id)
+            if parsed.summarize and parsed.instructions and full_texts
+            else SUMMARIZE_MIN_INPUT_CHARS
+        )
         if (
             parsed.summarize
             and parsed.instructions
             and full_texts
-            and total_full_chars < SUMMARIZE_MIN_INPUT_CHARS
+            and total_full_chars < summarize_floor
         ):
             # Knob: a page this small is cheaper to read raw than to pay an
             # LLM call for — and measured summaries of dense content came back
@@ -245,7 +339,7 @@ async def web_read(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             for p in pages:
                 p["summarize_skipped"] = (
                     f"Page is {total_full_chars:,} chars (under "
-                    f"{SUMMARIZE_MIN_INPUT_CHARS:,}); returned raw instead of summarizing."
+                    f"{summarize_floor:,}); returned raw instead of summarizing."
                 )
         elif parsed.summarize and parsed.instructions and full_texts:
             await stream.step("summarize", "Summarizing page content...")
@@ -742,12 +836,16 @@ async def _web_batch_read(args: dict[str, Any], ctx: ToolContext, started_at: fl
                         success=False,
                         error=text or "Sorry could not access this page.",
                     )
-                return window_page_content(
-                    text,
-                    url=url,
-                    offset=offset,
-                    chars=chars,
-                    per_url_budget=url_budget,
+                return await land_agent_read(
+                    result,
+                    ctx,
+                    window_page_content(
+                        text,
+                        url=url,
+                        offset=offset,
+                        chars=chars,
+                        per_url_budget=url_budget,
+                    ),
                 )
             except Exception as e:
                 return window_page_content(

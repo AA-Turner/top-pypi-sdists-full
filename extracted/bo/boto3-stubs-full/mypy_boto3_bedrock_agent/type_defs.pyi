@@ -81,6 +81,9 @@ from .literals import (
     SharePointAuthTypeType,
     SortOrderType,
     TypeType,
+    VpcConfigurationStatusType,
+    VpcProtocolType,
+    VpcResolutionModeType,
     WebScopeTypeType,
 )
 
@@ -159,6 +162,8 @@ __all__ = (
     "CreatePromptResponseTypeDef",
     "CreatePromptVersionRequestTypeDef",
     "CreatePromptVersionResponseTypeDef",
+    "CreateVpcConfigurationRequestTypeDef",
+    "CreateVpcConfigurationResponseTypeDef",
     "CuratedQueryTypeDef",
     "CustomContentTypeDef",
     "CustomDocumentIdentifierTypeDef",
@@ -197,6 +202,8 @@ __all__ = (
     "DeletePromptResponseTypeDef",
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteResourcePolicyResponseTypeDef",
+    "DeleteVpcConfigurationRequestTypeDef",
+    "DeleteVpcConfigurationResponseTypeDef",
     "DeletionProtectionConfigurationTypeDef",
     "DisassociateAgentCollaboratorRequestTypeDef",
     "DisassociateAgentKnowledgeBaseRequestTypeDef",
@@ -267,6 +274,8 @@ __all__ = (
     "GetPromptResponseTypeDef",
     "GetResourcePolicyRequestTypeDef",
     "GetResourcePolicyResponseTypeDef",
+    "GetVpcConfigurationRequestTypeDef",
+    "GetVpcConfigurationResponseTypeDef",
     "GuardrailConfigurationTypeDef",
     "HierarchicalChunkingConfigurationOutputTypeDef",
     "HierarchicalChunkingConfigurationTypeDef",
@@ -345,6 +354,9 @@ __all__ = (
     "ListPromptsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListVpcConfigurationsRequestPaginateTypeDef",
+    "ListVpcConfigurationsRequestTypeDef",
+    "ListVpcConfigurationsResponseTypeDef",
     "LoopControllerFlowNodeConfigurationTypeDef",
     "LoopFlowNodeConfigurationOutputTypeDef",
     "LoopFlowNodeConfigurationTypeDef",
@@ -574,6 +586,8 @@ __all__ = (
     "VideoConfigurationTypeDef",
     "VideoExtractionConfigurationTypeDef",
     "VideoSegmentationConfigurationTypeDef",
+    "VpcConfigurationSummaryTypeDef",
+    "VpcConfigurationTypeDef",
     "WebCrawlerConfigurationOutputTypeDef",
     "WebCrawlerConfigurationTypeDef",
     "WebCrawlerLimitsTypeDef",
@@ -716,6 +730,20 @@ class CreatePromptVersionRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
+class CreateVpcConfigurationRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    vpcId: str
+    subnetIds: Sequence[str]
+    resourceTarget: str
+    port: int
+    protocol: VpcProtocolType
+    resolutionMode: VpcResolutionModeType
+    clientToken: NotRequired[str]
+    hostHeader: NotRequired[str]
+    tlsServerName: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+
 class CuratedQueryTypeDef(TypedDict):
     naturalLanguage: str
     sql: str
@@ -813,6 +841,10 @@ class DeletePromptRequestTypeDef(TypedDict):
 class DeleteResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
     expectedRevisionId: NotRequired[str]
+
+class DeleteVpcConfigurationRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    vpcConfigurationId: str
 
 class DeletionProtectionConfigurationTypeDef(TypedDict):
     deletionProtectionStatus: EnabledOrDisabledStateType
@@ -1104,6 +1136,27 @@ class GetPromptRequestTypeDef(TypedDict):
 class GetResourcePolicyRequestTypeDef(TypedDict):
     resourceArn: str
 
+class GetVpcConfigurationRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    vpcConfigurationId: str
+
+class VpcConfigurationTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
+    vpcId: str
+    subnetIds: list[str]
+    resourceTarget: str
+    port: int
+    protocol: VpcProtocolType
+    resolutionMode: VpcResolutionModeType
+    createdAt: datetime
+    updatedAt: datetime
+    statusMessage: NotRequired[str]
+    hostHeader: NotRequired[str]
+    tlsServerName: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
+
 class HierarchicalChunkingLevelConfigurationTypeDef(TypedDict):
     maxTokens: int
 
@@ -1252,6 +1305,27 @@ PromptSummaryTypeDef = TypedDict(
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+class ListVpcConfigurationsRequestTypeDef(TypedDict):
+    knowledgeBaseId: str
+    statusFilter: NotRequired[VpcConfigurationStatusType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class VpcConfigurationSummaryTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
+    vpcId: str
+    resourceTarget: str
+    port: int
+    protocol: VpcProtocolType
+    resolutionMode: VpcResolutionModeType
+    createdAt: datetime
+    statusMessage: NotRequired[str]
+    hostHeader: NotRequired[str]
+    tlsServerName: NotRequired[str]
+    name: NotRequired[str]
+    description: NotRequired[str]
 
 class VideoExtractionConfigurationTypeDef(TypedDict):
     videoExtractionStatus: EnabledOrDisabledStateType
@@ -1568,6 +1642,11 @@ class AssociateAgentKnowledgeBaseResponseTypeDef(TypedDict):
     agentKnowledgeBase: AgentKnowledgeBaseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateVpcConfigurationResponseTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteAgentAliasResponseTypeDef(TypedDict):
     agentId: str
     agentAliasId: str
@@ -1632,6 +1711,11 @@ DeletePromptResponseTypeDef = TypedDict(
 class DeleteResourcePolicyResponseTypeDef(TypedDict):
     resourceArn: str
     revisionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteVpcConfigurationResponseTypeDef(TypedDict):
+    vpcConfigurationId: str
+    status: VpcConfigurationStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetAgentKnowledgeBaseResponseTypeDef(TypedDict):
@@ -1927,6 +2011,10 @@ class FunctionTypeDef(TypedDict):
     parameters: NotRequired[Mapping[str, ParameterDetailTypeDef]]
     requireConfirmation: NotRequired[RequireConfirmationType]
 
+class GetVpcConfigurationResponseTypeDef(TypedDict):
+    vpcConfiguration: VpcConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class HierarchicalChunkingConfigurationOutputTypeDef(TypedDict):
     levelConfigurations: list[HierarchicalChunkingLevelConfigurationTypeDef]
     overlapTokens: int
@@ -2049,8 +2137,18 @@ class ListPromptsRequestPaginateTypeDef(TypedDict):
     promptIdentifier: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListVpcConfigurationsRequestPaginateTypeDef(TypedDict):
+    knowledgeBaseId: str
+    statusFilter: NotRequired[VpcConfigurationStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListPromptsResponseTypeDef(TypedDict):
     promptSummaries: list[PromptSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListVpcConfigurationsResponseTypeDef(TypedDict):
+    items: list[VpcConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

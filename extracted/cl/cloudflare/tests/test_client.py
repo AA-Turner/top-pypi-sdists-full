@@ -462,41 +462,6 @@ class TestCloudflare:
         request2 = client2._build_request(FinalRequestOptions(method="get", url="/foo", headers={"X-Auth-Key": Omit()}))
         assert request2.headers.get("X-Auth-Key") is None
 
-    def test_api_version_env_var(self) -> None:
-        with update_env(**{"CLOUDFLARE_API_VERSION": "2099-01-01.envtest"}):
-            client = Cloudflare(base_url=base_url, api_key=api_key, api_email=api_email, _strict_response_validation=True)
-        request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("API-Version") == "2099-01-01.envtest"
-
-    def test_api_version_explicit_overrides_env_var(self) -> None:
-        with update_env(**{"CLOUDFLARE_API_VERSION": "2099-01-01.envtest"}):
-            client = Cloudflare(
-                base_url=base_url,
-                api_key=api_key,
-                api_email=api_email,
-                api_version="2027-02-01.air",
-                _strict_response_validation=True,
-            )
-        request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("API-Version") == "2027-02-01.air"
-
-    def test_api_version_omitted_when_empty(self) -> None:
-        with update_env(**{"CLOUDFLARE_API_VERSION": Omit()}):
-            client = Cloudflare(base_url=base_url, api_key=api_key, api_email=api_email, _strict_response_validation=True)
-        request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("API-Version") is None
-
-    def test_api_version_rejects_invalid_format(self) -> None:
-        invalid = ["not-a-version", "2027-02-01", "2027-02-01.", "2027-02-01.1bad", "20270201.air", "v2027-02-01.air"]
-        for v in invalid:
-            with pytest.raises(ValueError, match="Invalid api_version format"):
-                Cloudflare(base_url=base_url, api_key=api_key, api_email=api_email, api_version=v)
-
-    def test_api_version_accepts_valid_formats(self) -> None:
-        valid = ["2027-02-01.air", "2024-09-01.beta", "2099-12-31.long-train-name"]
-        for v in valid:
-            Cloudflare(base_url=base_url, api_key=api_key, api_email=api_email, api_version=v)
-
     def test_default_query_option(self) -> None:
         client = Cloudflare(
             base_url=base_url,
@@ -667,96 +632,6 @@ class TestCloudflare:
             b"Content-Type: application/octet-stream",
             b"",
             b"hello world",
-            b"--6b7ba517decee4a450543ea6ae821c82--",
-            b"",
-        ]
-
-    def test_multipart_json_syntax_no_files(self, client: Cloudflare) -> None:
-        request = client._build_request(
-            FinalRequestOptions.construct(
-                method="post",
-                url="/foo",
-                headers={"Content-Type": "multipart/form-data; boundary=6b7ba517decee4a450543ea6ae821c82"},
-                json_data={"name": "test", "nested": {"key": "value", "bool": True, "none": None, "int": 8}},
-                multipart_syntax="json",
-            )
-        )
-
-        assert request.read().split(b"\r\n") == [
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="name"',
-            b"Content-Type: text/plain",
-            b"",
-            b"test",
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="nested"',
-            b"Content-Type: application/json",
-            b"",
-            b'{"key": "value", "bool": true, "none": null, "int": 8}',
-            b"--6b7ba517decee4a450543ea6ae821c82--",
-            b"",
-        ]
-
-    def test_multipart_json_syntax_with_mapping_files(self, client: Cloudflare) -> None:
-        request = client._build_request(
-            FinalRequestOptions.construct(
-                method="post",
-                url="/foo",
-                headers={"Content-Type": "multipart/form-data; boundary=6b7ba517decee4a450543ea6ae821c82"},
-                json_data=({"name": "test", "nested": {"key": "value"}}),
-                files={"file1": ("file1.txt", b"content1")},
-                multipart_syntax="json",
-            )
-        )
-
-        assert request.read().split(b"\r\n") == [
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="file1"; filename="file1.txt"',
-            b"Content-Type: text/plain",
-            b"",
-            b"content1",
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="name"',
-            b"Content-Type: text/plain",
-            b"",
-            b"test",
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="nested"',
-            b"Content-Type: application/json",
-            b"",
-            b'{"key": "value"}',
-            b"--6b7ba517decee4a450543ea6ae821c82--",
-            b"",
-        ]
-
-    def test_multipart_json_syntax_with_sequence_files(self, client: Cloudflare) -> None:
-        request = client._build_request(
-            FinalRequestOptions.construct(
-                method="post",
-                url="/foo",
-                headers={"Content-Type": "multipart/form-data; boundary=6b7ba517decee4a450543ea6ae821c82"},
-                json_data={"name": "test", "nested": {"key": "value"}},
-                files=[("file1", ("file1.txt", b"content1"))],
-                multipart_syntax="json",
-            )
-        )
-
-        assert request.read().split(b"\r\n") == [
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="file1"; filename="file1.txt"',
-            b"Content-Type: text/plain",
-            b"",
-            b"content1",
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="name"',
-            b"Content-Type: text/plain",
-            b"",
-            b"test",
-            b"--6b7ba517decee4a450543ea6ae821c82",
-            b'Content-Disposition: form-data; name="nested"',
-            b"Content-Type: application/json",
-            b"",
-            b'{"key": "value"}',
             b"--6b7ba517decee4a450543ea6ae821c82--",
             b"",
         ]
@@ -1601,41 +1476,6 @@ class TestAsyncCloudflare:
         assert request2.headers.get("X-Auth-Email") is None
         request2 = client2._build_request(FinalRequestOptions(method="get", url="/foo", headers={"X-Auth-Key": Omit()}))
         assert request2.headers.get("X-Auth-Key") is None
-
-    def test_api_version_env_var(self) -> None:
-        with update_env(**{"CLOUDFLARE_API_VERSION": "2099-01-01.envtest"}):
-            client = AsyncCloudflare(base_url=base_url, api_key=api_key, api_email=api_email, _strict_response_validation=True)
-        request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("API-Version") == "2099-01-01.envtest"
-
-    def test_api_version_explicit_overrides_env_var(self) -> None:
-        with update_env(**{"CLOUDFLARE_API_VERSION": "2099-01-01.envtest"}):
-            client = AsyncCloudflare(
-                base_url=base_url,
-                api_key=api_key,
-                api_email=api_email,
-                api_version="2027-02-01.air",
-                _strict_response_validation=True,
-            )
-        request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("API-Version") == "2027-02-01.air"
-
-    def test_api_version_omitted_when_empty(self) -> None:
-        with update_env(**{"CLOUDFLARE_API_VERSION": Omit()}):
-            client = AsyncCloudflare(base_url=base_url, api_key=api_key, api_email=api_email, _strict_response_validation=True)
-        request = client._build_request(FinalRequestOptions(method="get", url="/foo"))
-        assert request.headers.get("API-Version") is None
-
-    def test_api_version_rejects_invalid_format(self) -> None:
-        invalid = ["not-a-version", "2027-02-01", "2027-02-01.", "2027-02-01.1bad", "20270201.air", "v2027-02-01.air"]
-        for v in invalid:
-            with pytest.raises(ValueError, match="Invalid api_version format"):
-                AsyncCloudflare(base_url=base_url, api_key=api_key, api_email=api_email, api_version=v)
-
-    def test_api_version_accepts_valid_formats(self) -> None:
-        valid = ["2027-02-01.air", "2024-09-01.beta", "2099-12-31.long-train-name"]
-        for v in valid:
-            AsyncCloudflare(base_url=base_url, api_key=api_key, api_email=api_email, api_version=v)
 
     async def test_default_query_option(self) -> None:
         client = AsyncCloudflare(

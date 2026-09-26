@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.importlib",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._reproducible",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.program_search",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
-    f"{__spec__.parent}.generator",
-    f"{__spec__.parent}.sysconfig",
+    "importlib",
+    "importlib.resources",
+    "packaging",
+    "packaging.version",
     "platform",
     "re",
     "shlex",
     "sysconfig",
     "typing",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.importlib",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._reproducible",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.program_search",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
+    f"{__spec__.parent}.cmake_args",
+    f"{__spec__.parent}.generator",
+    f"{__spec__.parent}.sysconfig",
 }
 
 import dataclasses
@@ -23,15 +28,19 @@ import re
 import shlex
 import sys
 import sysconfig
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from packaging.version import Version
+
 from .. import __version__
-from .._compat.importlib import metadata, resources
-from .._logging import logger
+from .._compat.importlib import metadata
+from .._logging import logger, rich_warning
 from .._reproducible import get_reproducible_epoch
 from ..program_search import _macos_binary_is_x86
 from ..resources import find_python
+from .cmake_args import iter_cmake_defines
 from .generator import set_environment_for_gen
 from .sysconfig import (
     get_numpy_include_dir,
@@ -39,13 +48,12 @@ from .sysconfig import (
     get_python_include_dir,
     get_python_library,
     get_soabi,
+    is_free_threaded,
 )
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Generator, Iterable, Mapping, Sequence
-
-    from packaging.version import Version
+    from collections.abc import Iterable, Mapping, Sequence
 
     from ..cmake import CMaker
     from ..settings.skbuild_model import ScikitBuildSettings
@@ -84,26 +92,9 @@ def get_archs(env: Mapping[str, str], cmake_args: Sequence[str] = ()) -> list[st
     """
 
     if sys.platform.startswith("darwin"):
-        # Handles both the joined -DVAR=value and two-token -D VAR=value
-        # forms; a plain substring test would false-positive on any arg
-        # merely containing "CMAKE_SYSTEM_PROCESSOR" (e.g. -DFOO=CMAKE_SYSTEM_PROCESSOR).
-        expecting_value = False
-        for cmake_arg in cmake_args:
-            if expecting_value:
-                match = re.fullmatch(
-                    r"CMAKE_SYSTEM_PROCESSOR(?::[^=]*)?=(.*)", cmake_arg.strip()
-                )
-                if match:
-                    return [match.group(1)]
-                expecting_value = False
-            elif cmake_arg == "-D":
-                expecting_value = True
-            else:
-                match = re.fullmatch(
-                    r"-D\s*CMAKE_SYSTEM_PROCESSOR(?::[^=]*)?=(.*)", cmake_arg
-                )
-                if match:
-                    return [match.group(1)]
+        for define in iter_cmake_defines(cmake_args):
+            if define.name == "CMAKE_SYSTEM_PROCESSOR":
+                return [define.value]
         return re.findall(r"-arch (\S+)", env.get("ARCHFLAGS", ""))
     if sys.platform.startswith("win") and get_platform(env) == "win-arm64":
         return ["win_arm64"]
@@ -146,18 +137,20 @@ def _warn_macos_arch_mismatch(cmake_path: Path, *, explicit_arch: bool) -> None:
         )
 
 
-def _filter_env_cmake_args(env_cmake_args: list[str]) -> Generator[str, None, None]:
-    """
-    Filter out CMake arguments that are not supported from CMAKE_ARGS.
-    """
+_UNSUPPORTED_ENV_DEFINES = frozenset({"CMAKE_BUILD_TYPE", "CMAKE_INSTALL_PREFIX"})
 
-    unsupported_args = ("-DCMAKE_BUILD_TYPE", "-DCMAKE_INSTALL_PREFIX")
 
-    for arg in env_cmake_args:
-        if arg.startswith(unsupported_args):
-            logger.warning("Unsupported CMAKE_ARGS ignored: {}", arg)
-        else:
-            yield arg
+def _filter_env_cmake_args(env_cmake_args: list[str]) -> list[str]:
+    """
+    Filter out CMake defines that are not supported from CMAKE_ARGS.
+    """
+    drop: set[int] = set()
+    for define in iter_cmake_defines(env_cmake_args):
+        if define.name in _UNSUPPORTED_ENV_DEFINES:
+            ignored = env_cmake_args[define.start : define.stop]
+            rich_warning("Unsupported CMAKE_ARGS ignored:", " ".join(ignored))
+            drop.update(range(define.start, define.stop))
+    return [arg for i, arg in enumerate(env_cmake_args) if i not in drop]
 
 
 def get_cmake_args_from_settings(
@@ -248,7 +241,7 @@ class Builder:
                 "Loading search paths {} from entry-points: {}", entry_point, len(eps)
             )
             for ep in eps:
-                ep_value = _sanitize_path(resources.files(ep.load()))
+                ep_value = _sanitize_path(files(ep.load()))
                 logger.debug("{}: {} -> {}", ep.name, ep.value, ep_value)
                 if ep_value:
                     search_paths[ep.name] = ep_value
@@ -261,6 +254,7 @@ class Builder:
         cache_entries: Mapping[str, str | Path] | None = None,
         name: str | None = None,
         version: Version | None = None,
+        raw_version: str | None = None,
         limited_api: bool | None = None,
         configure_args: Iterable[str] = (),
     ) -> None:
@@ -329,10 +323,11 @@ class Builder:
             cache_config["SKBUILD_PROJECT_VERSION"] = ".".join(
                 str(v) for v in version.release[:4]
             )
-            cache_config["SKBUILD_PROJECT_VERSION_FULL"] = str(version)
+            # The string as written keeps leading zeros (calver like 2024.01.05)
+            cache_config["SKBUILD_PROJECT_VERSION_FULL"] = raw_version or str(version)
 
         py_api = self.settings.wheel.py_api
-        gil_disabled = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+        gil_disabled = is_free_threaded()
 
         sabi = _SabiMode.NONE
         sabi_minor: int | None = None
@@ -389,27 +384,28 @@ class Builder:
                     sabi = _SabiMode.ABI3
                     sabi_minor = target_minor_version
 
-        python_library = get_python_library(self.config.env, abi3=False)
-        python_sabi_library = None
-        if sabi == _SabiMode.ABI3T:
-            python_sabi_library = get_python_library(self.config.env, abi3t=True)
-        elif sabi == _SabiMode.ABI3:
-            python_sabi_library = get_python_library(self.config.env, abi3=True)
-        python_include_dir = get_python_include_dir()
-        numpy_include_dir = get_numpy_include_dir()
-
         # Warning for CPython 3.13.4 Windows bug
         if (
             sys.implementation.name == "cpython"
             and sys.version_info[:3] == (3, 13, 4)
             and sys.platform.startswith("win32")
-            and not sysconfig.get_config_var("Py_GIL_DISABLED")
+            and not gil_disabled
         ):  # pragma: nocover
             logger.warning(
                 "Python 3.13.4 on Windows is broken for building, 3.13.5 was rushed out to fix it. Use an older, newer, or free-threaded version instead."
             )
 
         if self.settings.cmake.python_hints:
+            # Only computed when the hints are used; get_numpy_include_dir imports NumPy.
+            python_library = get_python_library(self.config.env, abi3=False)
+            python_sabi_library = None
+            if sabi == _SabiMode.ABI3T:
+                python_sabi_library = get_python_library(self.config.env, abi3t=True)
+            elif sabi == _SabiMode.ABI3:
+                python_sabi_library = get_python_library(self.config.env, abi3=True)
+            python_include_dir = get_python_include_dir()
+            numpy_include_dir = get_numpy_include_dir()
+
             # Classic Find Python
             cache_config["PYTHON_EXECUTABLE"] = Path(sys.executable)
             cache_config["PYTHON_INCLUDE_DIR"] = python_include_dir
@@ -422,11 +418,23 @@ class Builder:
                 cache_config[f"{prefix}_ROOT_DIR"] = Path(sys.base_exec_prefix)
                 cache_config[f"{prefix}_INCLUDE_DIR"] = python_include_dir
                 cache_config[f"{prefix}_FIND_REGISTRY"] = "NEVER"
+                # Interpreter-less FindPython rejects the free-threaded "t" ABI
+                # unless the 4-tuple (3.30+) FIND_ABI requests it.
+                if gil_disabled and self.config.cmake.version >= Version("3.30"):
+                    cache_config[f"{prefix}_FIND_ABI"] = "ANY;ANY;ANY;ON"
                 # On Windows the library is constructed and existence-checked,
                 # so this is reliable. On POSIX a library hint can break
                 # FindPython (which resolves it fine on its own), so this
-                # stays Windows-only.
-                if python_library and sysconfig.get_platform().startswith("win"):
+                # stays Windows-only. In SABI mode the hint is skipped: CMake
+                # 4.4's FindPython ingests it even when Development.Module is
+                # not requested, disabling the SABI-only version fallback and
+                # rejecting python3.lib (Interpreter + Development.SABIModule
+                # then both report not found).
+                if (
+                    python_library
+                    and sabi == _SabiMode.NONE
+                    and sysconfig.get_platform().startswith("win")
+                ):
                     cache_config[f"{prefix}_LIBRARY"] = python_library
                 if python_sabi_library and sysconfig.get_platform().startswith("win"):
                     cache_config[f"{prefix}_SABI_LIBRARY"] = python_sabi_library
@@ -468,8 +476,8 @@ class Builder:
                 explicit_arch = (
                     "CMAKE_OSX_ARCHITECTURES" in self.settings.cmake.define
                     or any(
-                        "CMAKE_OSX_ARCHITECTURES" in arg
-                        for arg in self.get_cmake_args()
+                        define.name == "CMAKE_OSX_ARCHITECTURES"
+                        for define in iter_cmake_defines(self.get_cmake_args())
                     )
                 )
                 _warn_macos_arch_mismatch(

@@ -127,6 +127,16 @@ pub enum HttpMethod {
 pub trait NetworkProvider: Sync + Send {
     async fn send(&self, method: &HttpMethod, args: &RequestArgs) -> Response;
 
+    /// Sends a request without following redirects. Providers that cannot enforce this
+    /// must return an error without sending; delegating to `send` could leak credentials.
+    async fn send_without_redirects(&self, _method: &HttpMethod, _args: &RequestArgs) -> Response {
+        Response {
+            status_code: None,
+            data: None,
+            error: Some("NetworkProvider does not support requests without redirects".to_string()),
+        }
+    }
+
     async fn send_with_response_limit(
         &self,
         _method: &HttpMethod,
@@ -411,6 +421,24 @@ mod tests {
                 error: None,
             }
         }
+    }
+
+    #[tokio::test]
+    async fn default_requests_without_redirects_fail_closed_without_sending() {
+        let provider = SendOnlyProvider {
+            send_calls: AtomicUsize::new(0),
+        };
+        let response = provider
+            .send_without_redirects(&HttpMethod::GET, &RequestArgs::new())
+            .await;
+
+        assert_eq!(provider.send_calls.load(Ordering::SeqCst), 0);
+        assert!(response.status_code.is_none());
+        assert!(response.data.is_none());
+        assert_eq!(
+            response.error.as_deref(),
+            Some("NetworkProvider does not support requests without redirects")
+        );
     }
 
     #[tokio::test]

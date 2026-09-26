@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING
 from tomlrt import _array, _container
 from tomlrt._kind import _Kind
 from tomlrt._list_ops import delete_runs, index_runs
-from tomlrt._scalar import SCALAR_TYPES, is_scalar
+from tomlrt._scalar import SCALAR_TYPES
 from tomlrt._slots import (
     AoTEntry,
     KVSlot,
@@ -60,7 +60,7 @@ from tomlrt._values import (
 from tomlrt._view import _View, is_inline_value
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Sequence
+    from collections.abc import Iterable, Iterator, Sequence
 
     from tomlrt._array import AoT, Array
     from tomlrt._container import Container, Document, Table, TomlInput
@@ -1058,11 +1058,13 @@ def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> No
         mat_primary = c._index[key][0]  # noqa: SLF001
 
     owned = set(c._index.get(key, ()))  # noqa: SLF001
-    views: list[_View] = []
     if _container._is_section(val) or isinstance(val, _array.AoT):  # noqa: SLF001
         owned.update(owned_slots(val))
-        _walk_view_tree((val,), views.append)
+        views = list(_walk_views((val,)))
+    else:
+        views = []
     slots = sorted(owned, key=operator.attrgetter("_order"))
+    del owned  # The removal step builds its own membership set.
 
     # Synthesise the now-empty section's physical presence while the
     # descendant's primary slot is still linked, so the replacement takes
@@ -1077,31 +1079,7 @@ def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> No
         else:
             _materialise_empty_section_header(c, mat_primary, doc)
 
-    # Scrub via back-pointers, *skipping* subtree containers: those move
-    # to a fresh Document and keep their internal caches.
-    skip_ids = frozenset(
-        id(view)
-        for view in views
-        if not view._inline and isinstance(view, _container.Container)  # noqa: SLF001
-    )
-    _scrub_owned_slots_via_backptrs(slots, skip_container_ids=skip_ids)
-
-    min_owned_depth = len(c._path)  # noqa: SLF001
-    for s in slots:
-        d = len(s.host_path) if isinstance(s, KVSlot) else 0
-        if d < min_owned_depth:
-            min_owned_depth = d
-    _invalidate_body_tail_chain(c, owned, min_depth=min_owned_depth, departing=True)
-
-    # Unlink in *reverse* doc-stream order (see remove_aot_entry for the
-    # same idiom): unlinking a doc-stream-first owned slot promotes its
-    # successor to the new doc head, stripping that successor's leading
-    # blank line. If that successor is itself about to be unlinked too,
-    # the strip is wasted and the *actually* surviving new head never
-    # gets stripped. Working back-to-front lands any head-promotion
-    # strip on the true surviving successor.
-    for slot in reversed(slots):
-        unlink_slot(slot, doc)
+    _detach_departing_slots(c, slots, views)
 
     if views:
         assert isinstance(val, (_container.Container, _array.AoT))
@@ -1117,6 +1095,36 @@ def delete_key(c: Container, key: str, *, materialise_empty: bool = False) -> No
         reset_displaced_views(val)
 
     dict.__delitem__(c, key)
+
+
+def _detach_departing_slots(
+    start: Container, slots: list[Slot], views: list[_View]
+) -> None:
+    """Remove doc-ordered slots, keeping retained views' internal refs.
+
+    ``views`` includes every retained descendant, including inline values.
+    """
+    doc = start._attached_doc  # noqa: SLF001
+    owned = set(slots)
+    assert len(owned) == len(slots), "departing slots must be distinct"
+    skip_ids = frozenset(
+        id(view)
+        for view in views
+        if not view._inline and isinstance(view, _container.Container)  # noqa: SLF001
+    )
+    _scrub_owned_slots_via_backptrs(slots, skip_container_ids=skip_ids)
+    min_depth = len(start._path)  # noqa: SLF001
+    for slot in slots:
+        if not min_depth:
+            break
+        depth = len(slot.host_path) if isinstance(slot, KVSlot) else 0
+        if depth < min_depth:
+            min_depth = depth
+    _invalidate_body_tail_chain(start, owned, min_depth=min_depth, departing=True)
+    # Unlinking the document head strips leading blanks from its successor.
+    # Work backwards so only a surviving slot can be promoted and changed.
+    for slot in reversed(slots):
+        unlink_slot(slot, doc)
 
 
 def _transplant_to_orphan(
@@ -1150,49 +1158,37 @@ def _transplant_to_orphan(
     _root_orphan_subtree(orphan, val, slots)
 
 
-def _walk_view_tree(vals: Iterable[_View], visit: Callable[[_View], None]) -> None:
-    """Visit every view node in the given subtrees.
+def _walk_views(vals: Iterable[_View]) -> Iterator[_View]:
+    """Yield subtree views in preorder without recursive calls.
 
-    Each caller supplies the per-node action. Descent is delegated to
-    `_View._view_children`, so this needs no knowledge of, or deferred
-    import of, the concrete view classes. Scalars are inert.
+    Resume each parent's child iterator after its child's whole subtree.
+    Scalars are skipped, and the pending stack grows only with depth.
     """
-
-    def walk(node: _View) -> None:
-        visit(node)
-        for child in node._view_children():  # noqa: SLF001
-            if isinstance(child, _View):
-                walk(child)
-
-    for val in vals:
-        walk(val)
-
-
-def _reset_view(node: _View) -> None:
-    node._reset_displaced()  # noqa: SLF001
-
-
-def _detach_materialised_inline(root: Container | Array) -> None:
-    """Free one CST-owning root while preserving its internal bindings."""
-    root._host = None  # noqa: SLF001
-    _walk_view_tree((root,), _reset_view)
-
-
-def _detach_inline_factory(root: Container) -> None:
-    """Detach a CST-less navigator and free each child CST component."""
-    root._host = None  # noqa: SLF001
-    root._reset_displaced()  # noqa: SLF001
-    for child in root.values():
-        if is_inline_value(child):
-            _detach_displaced_inline(child)
+    pending: list[Iterator[object]] = [iter(vals)]
+    while pending:
+        for node in pending[-1]:
+            if isinstance(node, _View):
+                yield node
+                pending.append(iter(node._view_children()))  # noqa: SLF001
+                break
+        else:
+            pending.pop()
 
 
 def _detach_displaced_inline(root: Container | Array) -> None:
-    """Detach ``root`` at the natural boundary of its owned CST."""
-    if isinstance(root, _array.Array) or root._value is not None:  # noqa: SLF001
-        _detach_materialised_inline(root)
-    else:
-        _detach_inline_factory(root)
+    """Free CST components, keeping the bindings inside each component intact."""
+    pending: list[Container | Array] = [root]
+    while pending:
+        current = pending.pop()
+        current._host = None  # noqa: SLF001
+        if isinstance(current, _array.Array) or current._value is not None:  # noqa: SLF001
+            for node in _walk_views((current,)):
+                node._reset_displaced()  # noqa: SLF001
+        else:
+            current._reset_displaced()  # noqa: SLF001
+            pending.extend(
+                child for child in current.values() if is_inline_value(child)
+            )
 
 
 def reset_displaced_views(*vals: object) -> None:
@@ -1642,7 +1638,7 @@ def _maybe_demote_synthetic_empty_header(parent: Container) -> None:
     header = parent._header  # noqa: SLF001
     if header is None:
         return
-    if not header.synthetic or header.kind != "table":
+    if not header.synthetic or header.entry is not None:
         return
     # A placeholder that ends the document keeps its header: demotion
     # hands its leading trivia to the successor, and with none there is
@@ -2018,33 +2014,6 @@ def _gather_headered_subtree_slots(
     return head, src_slots
 
 
-def _hoist_own_slots_first(slots: list[Slot], root_path: tuple[str, ...]) -> list[Slot]:
-    """Stable-partition ``slots`` so ``root_path``'s own slots precede nested ones.
-
-    A plain table's own header and direct/dotted keys may legally be
-    interleaved with a forward-declared nested descendant's block (see
-    :func:`owned_slots`) — a table can always be reopened. An
-    array-of-tables entry can never be reopened this way (a later plain
-    ``[..]`` for an already-``[[..]]``-opened path is invalid TOML), so
-    preparing an AoT entry must gather all of the root's own slots to
-    the front, ahead of any nested descendant's content, unlike a
-    plain-section install which keeps true doc-stream order.
-    """
-
-    def is_own(s: Slot) -> bool:
-        return (
-            s.host_path == root_path
-            if isinstance(s, KVSlot)
-            else isinstance(s, StructuralHeaderSlot) and s.key_path == root_path
-        )
-
-    own = [s for s in slots if is_own(s)]
-    if own == slots[: len(own)]:
-        return slots
-    nested = [s for s in slots if not is_own(s)]
-    return own + nested
-
-
 def _hoist_root_level_kvs(run: list[Slot], doc: Document) -> list[Slot]:
     """Move the document root's own keys ahead of any header in ``run``.
 
@@ -2053,17 +2022,11 @@ def _hoist_root_level_kvs(run: list[Slot], doc: Document) -> list[Slot]:
     leaves one after one. The seam that opens was never a boundary in
     the source, so it takes the document's section spacing.
     """
-
-    def is_root_level(s: Slot) -> bool:
-        return isinstance(s, KVSlot) and not s.host_path
-
-    own = [s for s in run if is_root_level(s)]
-    if own == run[: len(own)]:
+    body, blocks = split_subtree_slots(run, 1)
+    if body == run[: len(body)]:
         return run
-    hoisted = own + [s for s in run if not is_root_level(s)]
-    seam = hoisted[len(own)]
-    _retarget_separator(seam, _build_section_leading(doc))
-    return hoisted
+    _retarget_separator(blocks[0], _build_section_leading(doc))
+    return body + blocks
 
 
 def _promoted_header_comments(head: StructuralHeaderSlot, nl: str) -> str:
@@ -2368,8 +2331,15 @@ def adopt_private_entry(
     _append_entry_run(
         aot, header, slots, preserve_source_separator=preserve_source_separator
     )
-    ordered = _hoist_own_slots_first(slots, path)
-    if ordered is not slots:
+    # Rebasing has placed every KV at this entry's path or below it.
+    body, blocks = split_subtree_slots(
+        (slot for slot in slots if slot is not header), len(path) + 1
+    )
+    ordered = [header, *body, *blocks]
+    del body, blocks  # Release scratch lists before refiling the ordered run.
+    if ordered == slots:
+        ordered = slots
+    else:
         predecessor, successor = slots[0]._prev, slots[-1]._next  # noqa: SLF001
         with _refile_region_refs(doc, predecessor, successor):
             _link_run_between(predecessor, ordered, successor, doc)
@@ -2418,8 +2388,8 @@ def _rehome_view_tree(
     parallel. Views owned by ``stale_owner`` transfer to the destination
     entry; nested AoT entries retain their own owners.
     """
-
-    def visit(node: _View) -> None:
+    root._host = dest_host  # noqa: SLF001
+    for node in _walk_views((root,)):
         # Narrows for the assignments below; `_View` has no other subclass.
         assert isinstance(node, (_container.Container, _array.AoT, _array.Array))
         node._layout_root = doc  # noqa: SLF001
@@ -2430,9 +2400,6 @@ def _rehome_view_tree(
                 and node._owner_aot_entry is stale_owner  # noqa: SLF001
             ):
                 node._owner_aot_entry = new_owner  # noqa: SLF001
-
-    root._host = dest_host  # noqa: SLF001
-    _walk_view_tree((root,), visit)
 
 
 def _detach_from_source_doc(value: Container | AoT, slots: list[Slot]) -> None:
@@ -2682,7 +2649,7 @@ def _clone_entry_slots(
     src_prefix: tuple[str, ...],
     target_prefix: tuple[str, ...],
     dst_newline: str | None,
-    head: Slot | None = None,
+    head: StructuralHeaderSlot | None = None,
     host_path: tuple[str, ...] | None = None,
 ) -> tuple[list[Slot], StructuralHeaderSlot | None]:
     r"""Deep-clone an entry's slot list with path/owner rebasing.
@@ -2718,17 +2685,6 @@ def _clone_entry_slots(
     if host_path is None:
         host_path = target_prefix
     nested_entry_map: dict[AoTEntry, AoTEntry] = {}
-    if head is not None and new_entry is not None:
-        assert isinstance(head, StructuralHeaderSlot)
-        if head.entry is not None:
-            nested_entry_map[head.entry] = new_entry
-    for s in src_slots:
-        if s is head or not isinstance(s, StructuralHeaderSlot) or s.entry is None:
-            continue
-        # Each AoT entry is introduced by exactly one ``[[path]]`` header.
-        assert s.entry not in nested_entry_map
-        nested_entry_map[s.entry] = AoTEntry()
-
     cloned: list[Slot] = []
     cloned_head: StructuralHeaderSlot | None = None
     memo: dict[int, object] = {}
@@ -2738,24 +2694,28 @@ def _clone_entry_slots(
             _rebase_implicit_slot_in_place(
                 c, src_prefix, target_prefix, host_path, dst_newline
             )
-        src_owner = s.owner_aot_entry
-        mapped = nested_entry_map.get(src_owner) if src_owner else None
-        owner_for_slot = mapped if mapped is not None else body_owner
-        c.owner_aot_entry = owner_for_slot
         if isinstance(c, StructuralHeaderSlot):
             assert isinstance(s, StructuralHeaderSlot)
             if s is head:
                 # head's kind always comes from new_entry, not from
                 # source-entry lookup (which is None for a plain table).
                 c.entry = new_entry
+                cloned_head = c
             elif s.entry is not None:
-                c.entry = nested_entry_map.get(s.entry)
+                c.entry = AoTEntry()
             if c.entry is not None:
+                if s.entry is not None:
+                    assert s.entry not in nested_entry_map
+                    nested_entry_map[s.entry] = c.entry
                 c.entry.bind_header(c)
+        # An AoT header introduces its own owner before any of its body slots.
+        src_owner = s.owner_aot_entry
+        c.owner_aot_entry = (
+            nested_entry_map.get(src_owner, body_owner)
+            if src_owner is not None
+            else body_owner
+        )
         cloned.append(c)
-        if s is head:
-            assert isinstance(c, StructuralHeaderSlot)
-            cloned_head = c
 
     return cloned, cloned_head
 
@@ -2815,10 +2775,10 @@ def attach_section_at(
     """Synthesise ``[parent_path.sub_path]`` (multi-component) at end-of-doc.
 
     Intermediate components in ``sub_path[:-1]`` become implicit tables;
-    the deepest component gets the explicit header. ``source`` (always an
-    unattached `Table`) is rehomed in place.
+    the deepest component gets the explicit header. ``source`` is a validated,
+    unattached `Table`, rehomed in place.
     """
-    from tomlrt._container import _is_synth_inline  # noqa: PLC0415
+    from tomlrt._container import _is_inline_input  # noqa: PLC0415
 
     sub = tuple(sub_path)
     assert sub, "attach_section_at requires a non-empty sub_path"
@@ -2878,7 +2838,7 @@ def attach_section_at(
     scalars: list[tuple[str, TomlInput]] = []
     structurals: list[tuple[str, TomlInput]] = []
     for k, v in pending:
-        if is_scalar(v) or _is_synth_inline(v):
+        if _is_inline_input(v):
             scalars.append((k, v))
         else:
             structurals.append((k, v))
@@ -3046,45 +3006,19 @@ def remove_aot_entries(aot: AoT, indices: Iterable[int]) -> list[Table]:
     # Collect each entry's whole subtree in doc-stream order and capture
     # the entry table itself for return. Distinct entries own
     # disjoint subtrees, so concatenating is already a union.
-    owned_per_entry: list[list[Slot]] = []
     popped_entries: list[Table] = []
     union_owned_ordered: list[Slot] = []  # in doc-stream order
 
     for i in idx_list:
         entry_table = aot[i]
-        owned_ordered = owned_slots(entry_table)
-        union_owned_ordered.extend(owned_ordered)
-        owned_per_entry.append(owned_ordered)
+        union_owned_ordered.extend(owned_slots(entry_table))
         popped_entries.append(entry_table)
-    union_owned: set[Slot] = set(union_owned_ordered)
-    assert len(union_owned) == len(union_owned_ordered)
 
     # The entries themselves keep their internal caches: they are moving
     # to a document of their own, not being taken apart.
-    views: list[_View] = []
-    _walk_view_tree(popped_entries, views.append)
+    views = list(_walk_views(popped_entries))
 
-    _scrub_owned_slots_via_backptrs(
-        union_owned_ordered,
-        skip_container_ids=frozenset(
-            id(view)
-            for view in views
-            if not view._inline and isinstance(view, _container.Container)  # noqa: SLF001
-        ),
-    )
-
-    # Body-tail invalidation on the parent chain, walking all the way to
-    # the doc root: the popped slots' min bottom-depth is 0 (every popped
-    # AoT entry includes a header), and a binding ref to an AoT entry
-    # header lives at every prefix container.
-    _invalidate_body_tail_chain(parent, union_owned, departing=True)
-
-    for owned in owned_per_entry:
-        # Unlink in reverse order so the entry's leftmost slot (the
-        # ``[[a]]`` header) goes last — see remove_aot_entry's
-        # original comment for the trivia-promotion hazard.
-        for slot in reversed(owned):
-            unlink_slot(slot, doc)
+    _detach_departing_slots(parent, union_owned_ordered, views)
 
     delete_runs(aot, index_runs(idx_list))
 
@@ -3304,10 +3238,11 @@ def clone_aot_entry_layout(
         dst_newline=nl,
         head=head,
     )
-    body = [
-        slot for slot in _hoist_own_slots_first(cloned, path) if slot is not cloned_head
-    ]
-    return cloned_head, body
+    # Rebasing has placed every KV at this entry's path or below it.
+    body, blocks = split_subtree_slots(
+        (slot for slot in cloned if slot is not cloned_head), len(path) + 1
+    )
+    return cloned_head, body + blocks
 
 
 def _prepare_entry(
@@ -3745,7 +3680,7 @@ def reorder_container(c: Container, new_key_order: list[str]) -> None:
     # Keep headers that demotion would preserve, so their body KVs cannot
     # move ahead of all headers and rebind to the document root.
     if header is not None and (
-        header.kind != "table"
+        header.entry is not None
         or not header.synthetic
         or isinstance(header._next, KVSlot)  # noqa: SLF001
     ):

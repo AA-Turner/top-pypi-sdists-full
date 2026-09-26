@@ -2,7 +2,7 @@
 
 THE BLIND SPOT THIS CLOSES (2026-09-11)
 ---------------------------------------
-The ruling was never missing. ``/systems/mandates/ROLLOUT.md`` lines 45-50 rule
+The ruling was never missing. ``/systems/intelligence/mandates/ROLLOUT.md`` lines 45-50 rule
 that code reaching ``llm_to_text``, ``llm_to_pydantic``, ``UnifiedAIClient`` or
 ``execute_ai_request`` without first resolving a Mandate is a BYPASS under the
 Universal Law, and worklist row **A10** (ROLLOUT.md:197-210) has named these
@@ -20,7 +20,7 @@ Measured that morning: every AI step node in ``matrx_ai.graph_nodes`` (extract,
 llm, chat, image, video, the agent loop, the strict-JSON funnel) reached the
 provider with a bare model id and no Holder of any kind — one of them with
 ``"gpt-4o-mini"`` hard-coded in code as its default, which is itself a PINS LAW
-violation (``/systems/mandates/RUNTIME.md`` § THE PINS LAW: code never
+violation (``/systems/intelligence/mandates/RUNTIME.md`` § THE PINS LAW: code never
 references a model). Nothing anywhere said so.
 
 WHAT A CARRIER IS
@@ -31,7 +31,7 @@ writes — this module invented none of them:
 
 1. ``execute_ai_request(..., mandate_key="...")`` — the explicit parameter,
    added 2026-09-11. The funnel had NO mandate parameter at all before that
-   (audit census, ``docs/handoffs/mandate-guard-gap-2026-09-11.md``): 14 of 17
+   (audit census, ``/Users/armanisadeghi/code/common-docs/systems/intelligence/mandates/REGISTER.md``): 14 of 17
    call sites reached the model with no mandate identity of any kind.
 2. ``metadata["mandate_key"]`` passed to :func:`execute_ai_request`, and
    ``ctx.metadata["mandate_key"]`` — what
@@ -48,7 +48,7 @@ Anything else is a **mandate bypass**: intelligence running with no Holder.
 
 WHAT HAPPENS THEN — AND WHY IT IS NEVER A RAISE
 -----------------------------------------------
-`D20 </systems/mandates/DECISIONS.md>`_ (Arman, 2026-09-09): intelligence
+`D20 </systems/intelligence/mandates/DECISIONS.md>`_ (Arman, 2026-09-09): intelligence
 outside a Mandate "is not okay… we absolutely will not create new ones. But for
 now, we'll live with the ones we've got until we have time to fix them." A
 bypass is therefore a DEFECT ROW, never a refusal — turning today's inventory
@@ -69,7 +69,7 @@ strictness knob: D20 and D23 together leave exactly one behavior, so a knob here
 would be an invented opinion (`the ten laws` § 6 — knobs are for behavioral
 choices organizations get to make, and this is not one).
 
-`D21 </systems/mandates/DECISIONS.md>`_ is why the row is written even for a
+`D21 </systems/intelligence/mandates/DECISIONS.md>`_ is why the row is written even for a
 path nobody can reach today: unreachable is a red flag, never a filter.
 
 ONE ROW PER CODE PATH PER PROCESS. The signature is (caller site, model). A

@@ -14,17 +14,17 @@ name = "statsig_python_core"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-parking_lot = "0.12.1"
-pyo3 = { version = "0.28", features = ["abi3-py310"] }
-pyo3-stub-gen = "0.20"
-serde_json = { version = "1.0.125", features = ["float_roundtrip"] }
+parking_lot = "0.12.5"
+pyo3 = { version = "0.29.2", features = ["abi3-py310"] }
+pyo3-stub-gen = "0.23.0"
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 statsig-rust = { package = "oai-statsig-rust", path = "../statsig-rust", features = [
     "with_grpc",
     "ffi-support",
     "ordered_user_data_maps",
     "pyo3_event_zstd",
 ] }
-async-trait = "0.1.81"
-serde = { version = "1.0.204", features = ["derive"] }
+async-trait = "0.1.92"
+serde = { version = "1.0.229", features = ["derive"] }
 lazy_static = "1.5.0"
-rkyv = "0.8"
+rkyv = "0.8.18"

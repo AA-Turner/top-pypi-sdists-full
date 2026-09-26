@@ -70,10 +70,10 @@ class FlagUpdateParams(TypedDict, total=False):
     description: Optional[str]
 
     type: Literal["boolean", "string", "number", "json"]
-    """Value type of the flag's variations.
+    """Deprecated compatibility field.
 
-    The API infers this from the variation values on write, so you can omit it in
-    requests.
+    Omit it; the API ignores this value and infers the type from the flag's
+    variations.
     """
 
 

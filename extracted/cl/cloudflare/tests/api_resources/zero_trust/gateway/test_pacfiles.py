@@ -9,7 +9,7 @@ import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
-from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
+from cloudflare.pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from cloudflare.types.zero_trust.gateway import (
     PacfileGetResponse,
     PacfileListResponse,
@@ -148,7 +148,16 @@ class TestPacfiles:
         pacfile = client.zero_trust.gateway.pacfiles.list(
             account_id="699d98642c564d2e855e9661899b7252",
         )
-        assert_matches_type(SyncSinglePage[PacfileListResponse], pacfile, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Cloudflare) -> None:
+        pacfile = client.zero_trust.gateway.pacfiles.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            page=1,
+            per_page=1,
+        )
+        assert_matches_type(SyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
@@ -159,7 +168,7 @@ class TestPacfiles:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         pacfile = response.parse()
-        assert_matches_type(SyncSinglePage[PacfileListResponse], pacfile, path=["response"])
+        assert_matches_type(SyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
 
     @parametrize
     def test_streaming_response_list(self, client: Cloudflare) -> None:
@@ -170,7 +179,7 @@ class TestPacfiles:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             pacfile = response.parse()
-            assert_matches_type(SyncSinglePage[PacfileListResponse], pacfile, path=["response"])
+            assert_matches_type(SyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -408,7 +417,16 @@ class TestAsyncPacfiles:
         pacfile = await async_client.zero_trust.gateway.pacfiles.list(
             account_id="699d98642c564d2e855e9661899b7252",
         )
-        assert_matches_type(AsyncSinglePage[PacfileListResponse], pacfile, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        pacfile = await async_client.zero_trust.gateway.pacfiles.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            page=1,
+            per_page=1,
+        )
+        assert_matches_type(AsyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -419,7 +437,7 @@ class TestAsyncPacfiles:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         pacfile = await response.parse()
-        assert_matches_type(AsyncSinglePage[PacfileListResponse], pacfile, path=["response"])
+        assert_matches_type(AsyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -430,7 +448,7 @@ class TestAsyncPacfiles:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             pacfile = await response.parse()
-            assert_matches_type(AsyncSinglePage[PacfileListResponse], pacfile, path=["response"])
+            assert_matches_type(AsyncV4PagePaginationArray[PacfileListResponse], pacfile, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

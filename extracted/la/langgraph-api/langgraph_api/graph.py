@@ -645,6 +645,8 @@ async def collect_graphs_from_env(register: bool = False) -> None:
 
         for spec in js_specs:
             graph = RemotePregel(graph_id=spec.id)
+            if register and USE_RUNTIME_CONTEXT_API:
+                await graph.prefetch_context_jsonschema()
             if register:
                 await register_graph(
                     spec.id, graph, spec.config, description=spec.description
@@ -695,13 +697,14 @@ def patch_packages_distributions() -> None:
     (once per google.cloud.* sub-package).  With ddtrace's import hooks each
     call takes ~13 s in production, totalling ~170 s.
 
-    The installed-package set never changes during a process lifetime, so a
-    single cached result is safe and reduces 13 scans to 1.
+    Supported deployments fix their dependencies before startup and do not mutate
+    them at runtime, so one scan per process is enough. Late imports change
+    sys.modules rather than the installed distributions and do not invalidate it.
 
-    Controlled by LSD_CACHE_PACKAGES_DISTRIBUTIONS (default "false").
-    Set to "true" to enable.
+    Each call returns its own dict, matching what the function being replaced does,
+    so a caller mutating the result cannot poison later callers.
     """
-    if os.environ.get("LSD_CACHE_PACKAGES_DISTRIBUTIONS", "false").lower() != "true":
+    if not lg_api_config.LSD_CACHE_PACKAGES_DISTRIBUTIONS:
         return
 
     import importlib.metadata  # noqa: PLC0415
@@ -712,13 +715,13 @@ def patch_packages_distributions() -> None:
     logger.info("Caching importlib.metadata.packages_distributions()")
 
     original = importlib.metadata.packages_distributions
-    cache: dict | None = None
+    cache: dict[str, list[str]] | None = None
 
-    def _cached():
+    def _cached() -> dict[str, list[str]]:
         nonlocal cache
         if cache is None:
             cache = original()
-        return cache
+        return {name: list(distributions) for name, distributions in cache.items()}
 
     _cached._cached = True
     importlib.metadata.packages_distributions = _cached

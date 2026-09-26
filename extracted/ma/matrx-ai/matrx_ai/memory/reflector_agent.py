@@ -7,84 +7,37 @@ Mirrors: packages/memory/src/processors/observational-memory/reflector-agent.ts
 from __future__ import annotations
 
 import re
-import textwrap
 from typing import Optional
 
-from .constants import (
-    COMPRESSION_GUIDANCE,
-    OBSERVER_EXTRACTION_INSTRUCTIONS,
-    REFLECTOR_PERSONA,
-    REFLECTOR_RULES,
-)
+from .constants import COMPRESSION_LEVELS
 from .types import ModelConfig, ReflectorResult
 
 
-# ---------------------------------------------------------------------------
-# System prompt construction
-# ---------------------------------------------------------------------------
-
-def build_reflector_system_prompt(instruction: Optional[str] = None) -> str:
-    """
-    Build the reflector system prompt.
-    
-    The Reflector is given the same extraction instructions as the Observer
-    so it understands exactly how observations were created and how to preserve
-    the intent of each entry while condensing them.
-    """
-    sections = [
-        REFLECTOR_PERSONA,
-        "",
-        "## Observation Format Reference",
-        "(You created observations following these rules — use them to guide compression)",
-        "",
-        OBSERVER_EXTRACTION_INSTRUCTIONS,
-        "",
-        REFLECTOR_RULES,
-        "",
-        _REFLECTOR_OUTPUT_FORMAT,
-    ]
-
-    if instruction:
-        sections.append(f"\n## Additional Instructions\n{instruction}")
-
-    return "\n".join(sections)
-
-
-_REFLECTOR_OUTPUT_FORMAT = textwrap.dedent("""\
-    ## Output Format
-
-    Respond ONLY with the refined observations block. Same format as input.
-    Do not include any explanation, preamble, or text outside the observations.
-
-    <observations>
-    Date: Month Day, Year
-    * 🔴 (HH:MM) [compressed observation]
-      * -> [essential supporting detail only]
-    </observations>
-
-    <current-task>
-    Updated current task (if different from source)
-    </current-task>
-
-    <suggested-response>
-    Updated response hint (if different from source)
-    </suggested-response>
-""")
+# The Reflector's system prompt (persona, observation format reference, rules,
+# output format) is the memory.reflector mandate Holder's (2026-09-25) — seeded
+# verbatim from what used to be assembled here.
 
 
 # ---------------------------------------------------------------------------
 # Task prompt construction
 # ---------------------------------------------------------------------------
 
-def build_reflector_prompt(
+def build_reflector_variables(
     observations: str,
     current_task: Optional[str] = None,
     manual_prompt: Optional[str] = None,
     compression_level: int = 0,
-) -> str:
+) -> dict[str, str]:
     """
-    Build the user-turn prompt for the Reflector LLM.
-    
+    Build what the Reflector's Holder receives (memory.reflector).
+
+    The instruction text — the compression guidance for each level and the
+    "## Your Task" statement — is the Holder's own user turn (2026-09-25
+    residue pass). This offers only the material, the config's own extra
+    instruction, and which level's guidance applies: every OTHER level's
+    ``compression_guidance_level_N`` is sent empty, so only the run's level
+    keeps the Holder's text (level 0 = none).
+
     Args:
         observations: The full current observation text to compress.
         current_task: Current task context from the OM record.
@@ -99,21 +52,16 @@ def build_reflector_prompt(
     parts.append("## Observations to Compress\n")
     parts.append(observations)
 
-    guidance = COMPRESSION_GUIDANCE.get(compression_level, "")
-    if guidance:
-        parts.append(f"\n## Compression Guidance\n{guidance}")
-
-    if manual_prompt:
-        parts.append(f"\n## Additional Instructions\n{manual_prompt}")
-
-    parts.append(
-        "\n## Your Task\n"
-        "Compress and reorganize the observations above while preserving all important "
-        "information. Output ONLY the refined <observations> block (and optionally "
-        "updated <current-task> and <suggested-response>)."
+    variables: dict[str, str] = {
+        f"compression_guidance_level_{level}": ""
+        for level in COMPRESSION_LEVELS
+        if level != compression_level
+    }
+    variables["additional_instructions"] = (
+        f"\n\n## Additional Instructions\n{manual_prompt}" if manual_prompt else ""
     )
-
-    return "\n".join(parts)
+    variables["material"] = "\n".join(parts)
+    return variables
 
 
 # ---------------------------------------------------------------------------
@@ -211,33 +159,24 @@ async def run_reflector(
         current_task: Current task for context.
         target_threshold: Token target for the output (observationTokens threshold).
         count_tokens_fn: Callable(str) -> int.
-        llm_call_fn: Async callable(model, messages, temperature, max_tokens) → str.
+        llm_call_fn: Async callable(mandate_key=, messages=, model=, variables=) → str.
         instruction: Optional additional instruction from config.
         max_compression_levels: How many compression levels to try (0 through N).
     
     Returns:
         ReflectorResult (raises ValueError if all levels failed).
     """
-    system_prompt = build_reflector_system_prompt(instruction)
-
     for level in range(max_compression_levels + 1):
-        user_prompt = build_reflector_prompt(
-            observations=observations,
-            current_task=current_task,
-            manual_prompt=instruction,
-            compression_level=level,
-        )
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-
         raw_output = await llm_call_fn(
+            mandate_key=model_config.mandate_key,
+            messages=[],
             model=model_config.model,
-            messages=messages,
-            temperature=model_config.temperature,
-            max_tokens=model_config.max_tokens,
+            variables=build_reflector_variables(
+                observations=observations,
+                current_task=current_task,
+                manual_prompt=instruction,
+                compression_level=level,
+            ),
         )
 
         result = parse_reflector_output(raw_output)

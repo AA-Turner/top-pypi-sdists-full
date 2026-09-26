@@ -9,6 +9,7 @@ __all__ = ["AuditSSHSettingUpdateParams"]
 
 class AuditSSHSettingUpdateParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     public_key: Required[str]
     """Provide the Base64-encoded HPKE public key that encrypts SSH session logs.

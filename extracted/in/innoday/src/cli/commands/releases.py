@@ -9,11 +9,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
+from src.cli.commands.release_proxy import ReleaseProxyCommands
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import (
     describe_error,
@@ -22,6 +22,7 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console, print_command_header
 from src.cli.utils.project_context import load_project_context
 from src.cli.utils.release_view import (
     header_lines,
@@ -31,7 +32,7 @@ from src.cli.utils.release_view import (
 )
 from src.domain.release import ReleaseVerdict
 
-console = Console()
+console = make_console()
 
 
 class ReleasesCommands:
@@ -91,6 +92,24 @@ class ReleasesCommands:
             metavar="PROJECT_ID",
             help="Filter to releases for this project only",
         )
+
+        # releases blastoff -- the one verb in this group that changes GitHub
+        # rather than the record. It is the same command as `innoday blastoff`,
+        # with the same option surface, registered here because "the releases
+        # API, and the thing that cuts one" is where people look for it. The
+        # old top-level `release` alias sat one letter from `releases` and is
+        # gone.
+        blastoff_parser = subparsers.add_parser(
+            "blastoff",
+            help="Deploy: tag repos on GitHub and record the release",
+            description=(
+                "The same command as `innoday blastoff`. Show what a release "
+                "would contain, and stop there. Pass --release to be asked "
+                "before tagging, --release --yes to tag without being asked, "
+                "--hotfix to patch the last released version instead."
+            ),
+        )
+        ReleaseProxyCommands.setup_parser(blastoff_parser)
 
         # releases summarize
         summarize_parser = subparsers.add_parser(
@@ -338,7 +357,9 @@ class ReleasesCommands:
         """Execute releases command."""
         command = getattr(args, "releases_command", None)
 
-        if command == "list":
+        if command == "blastoff":
+            return await ReleaseProxyCommands.execute_release(args, config)
+        elif command == "list":
             return await ReleasesCommands._handle_list(args, config)
         elif command == "summarize":
             return await ReleasesCommands._handle_summarize(args, config)
@@ -358,7 +379,8 @@ class ReleasesCommands:
             console.print(format_error("No releases command specified"))
             console.print(
                 format_info(
-                    "Available: list, summarize, content, create, update — "
+                    "Available: list, summarize, content, create, update, "
+                    "blastoff — "
                     "use 'innoday releases --help' for details"
                 )
             )
@@ -432,6 +454,7 @@ class ReleasesCommands:
     @staticmethod
     async def _handle_list(args: argparse.Namespace, config: CLIConfig) -> int:
         """Handle releases list command."""
+        print_command_header(args, config, "releases list")
         try:
             api_client = InnoDayAPIClient(config)
             org_id = await ReleasesCommands._resolve_org_id_async(
@@ -651,6 +674,12 @@ class ReleasesCommands:
 
         items = payload.get("items") or []
         project_label = ReleasesCommands._project_label(args, config)
+        print_command_header(
+            args,
+            config,
+            "releases summarize",
+            action=f"Reading what shipped in {payload.get('version') or 'this release'}",
+        )
         for line in header_lines(payload, str(project_label)):
             console.print(line)
 

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import typing_extensions
-from typing import Type, cast
 
 import httpx
 
-from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -17,12 +16,8 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ..._wrappers import ResultWrapper
-from ...pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
-from ..._base_client import AsyncPaginator, make_request_options
+from ..._base_client import make_request_options
 from ...types.rate_limits import rate_limit_edit_params, rate_limit_list_params, rate_limit_create_params
-from ...types.rate_limits.rate_limit import RateLimit
-from ...types.rate_limits.rate_limit_delete_response import RateLimitDeleteResponse
 
 __all__ = ["RateLimitsResource", "AsyncRateLimitsResource"]
 
@@ -64,7 +59,7 @@ class RateLimitsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimit:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -95,6 +90,7 @@ class RateLimitsResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
             path_template("/zones/{zone_id}/rate_limits", zone_id=zone_id),
             body=maybe_transform(
@@ -107,13 +103,9 @@ class RateLimitsResource(SyncAPIResource):
                 rate_limit_create_params.RateLimitCreateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimit]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimit], ResultWrapper[RateLimit]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -131,7 +123,7 @@ class RateLimitsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncV4PagePaginationArray[RateLimit]:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -155,9 +147,9 @@ class RateLimitsResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get_api_list(
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
+        return self._get(
             path_template("/zones/{zone_id}/rate_limits", zone_id=zone_id),
-            page=SyncV4PagePaginationArray[RateLimit],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -171,7 +163,7 @@ class RateLimitsResource(SyncAPIResource):
                     rate_limit_list_params.RateLimitListParams,
                 ),
             ),
-            model=RateLimit,
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -188,7 +180,7 @@ class RateLimitsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimitDeleteResponse:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -211,16 +203,13 @@ class RateLimitsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not rate_limit_id:
             raise ValueError(f"Expected a non-empty value for `rate_limit_id` but received {rate_limit_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
             path_template("/zones/{zone_id}/rate_limits/{rate_limit_id}", zone_id=zone_id, rate_limit_id=rate_limit_id),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimitDeleteResponse]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimitDeleteResponse], ResultWrapper[RateLimitDeleteResponse]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -241,7 +230,7 @@ class RateLimitsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimit:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -276,6 +265,7 @@ class RateLimitsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not rate_limit_id:
             raise ValueError(f"Expected a non-empty value for `rate_limit_id` but received {rate_limit_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._put(
             path_template("/zones/{zone_id}/rate_limits/{rate_limit_id}", zone_id=zone_id, rate_limit_id=rate_limit_id),
             body=maybe_transform(
@@ -288,13 +278,9 @@ class RateLimitsResource(SyncAPIResource):
                 rate_limit_edit_params.RateLimitEditParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimit]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimit], ResultWrapper[RateLimit]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -311,7 +297,7 @@ class RateLimitsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimit:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -334,16 +320,13 @@ class RateLimitsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not rate_limit_id:
             raise ValueError(f"Expected a non-empty value for `rate_limit_id` but received {rate_limit_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._get(
             path_template("/zones/{zone_id}/rate_limits/{rate_limit_id}", zone_id=zone_id, rate_limit_id=rate_limit_id),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimit]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimit], ResultWrapper[RateLimit]),
+            cast_to=NoneType,
         )
 
 
@@ -384,7 +367,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimit:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -415,6 +398,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
             path_template("/zones/{zone_id}/rate_limits", zone_id=zone_id),
             body=await async_maybe_transform(
@@ -427,19 +411,15 @@ class AsyncRateLimitsResource(AsyncAPIResource):
                 rate_limit_create_params.RateLimitCreateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimit]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimit], ResultWrapper[RateLimit]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
         "Rate limiting API is deprecated in favour of using the Ruleset Engine. See https://developers.cloudflare.com/fundamentals/api/reference/deprecations/#rate-limiting-api-previous-version for full details."
     )
-    def list(
+    async def list(
         self,
         *,
         zone_id: str,
@@ -451,7 +431,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[RateLimit, AsyncV4PagePaginationArray[RateLimit]]:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -475,15 +455,15 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get_api_list(
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
+        return await self._get(
             path_template("/zones/{zone_id}/rate_limits", zone_id=zone_id),
-            page=AsyncV4PagePaginationArray[RateLimit],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform(
+                query=await async_maybe_transform(
                     {
                         "page": page,
                         "per_page": per_page,
@@ -491,7 +471,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
                     rate_limit_list_params.RateLimitListParams,
                 ),
             ),
-            model=RateLimit,
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -508,7 +488,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimitDeleteResponse:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -531,16 +511,13 @@ class AsyncRateLimitsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not rate_limit_id:
             raise ValueError(f"Expected a non-empty value for `rate_limit_id` but received {rate_limit_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
             path_template("/zones/{zone_id}/rate_limits/{rate_limit_id}", zone_id=zone_id, rate_limit_id=rate_limit_id),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimitDeleteResponse]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimitDeleteResponse], ResultWrapper[RateLimitDeleteResponse]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -561,7 +538,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimit:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -596,6 +573,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not rate_limit_id:
             raise ValueError(f"Expected a non-empty value for `rate_limit_id` but received {rate_limit_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._put(
             path_template("/zones/{zone_id}/rate_limits/{rate_limit_id}", zone_id=zone_id, rate_limit_id=rate_limit_id),
             body=await async_maybe_transform(
@@ -608,13 +586,9 @@ class AsyncRateLimitsResource(AsyncAPIResource):
                 rate_limit_edit_params.RateLimitEditParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimit]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimit], ResultWrapper[RateLimit]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated(
@@ -631,7 +605,7 @@ class AsyncRateLimitsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> RateLimit:
+    ) -> None:
         """**Deprecated**: This endpoint returns 410 Gone.
 
         Please use the Rulesets API
@@ -654,16 +628,13 @@ class AsyncRateLimitsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not rate_limit_id:
             raise ValueError(f"Expected a non-empty value for `rate_limit_id` but received {rate_limit_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._get(
             path_template("/zones/{zone_id}/rate_limits/{rate_limit_id}", zone_id=zone_id, rate_limit_id=rate_limit_id),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[RateLimit]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[RateLimit], ResultWrapper[RateLimit]),
+            cast_to=NoneType,
         )
 
 

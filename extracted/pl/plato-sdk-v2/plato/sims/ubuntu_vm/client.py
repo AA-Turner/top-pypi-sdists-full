@@ -670,9 +670,17 @@ class Client:
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
-    def bash(self, body: BashRequest) -> ToolResult:
-        """Execute a shell command."""
-        return self._request_with_retries(lambda: _bash_sync(self._client, body=body))
+    def bash(self, body: BashRequest, *, idempotent: bool = True) -> ToolResult:
+        """Execute a shell command.
+
+        ``idempotent=False`` is for commands with side effects: after an HTTP
+        error response or a mid-request transport failure the command may
+        already have run in the guest, so only connect-phase errors (request
+        never sent) are retried, as for input-injecting ``/computer`` actions.
+        The default keeps full retries, which read-only probes rely on while a
+        guest is still booting.
+        """
+        return self._request_with_retries(lambda: _bash_sync(self._client, body=body), idempotent=idempotent)
 
     def _try_bash(self, command: str) -> ToolResult | None:
         """Run *command* over /bash, returning ``None`` on any transport error.
@@ -1513,9 +1521,9 @@ class AsyncClient:
         gateway = _gateway_from_base_url(self._base_url)
         return f"https://{job_id}--{LIVEVIEW_PORT}.{gateway}?resize=scale&autoconnect=true"
 
-    async def bash(self, body: BashRequest) -> ToolResult:
-        """Execute a shell command."""
-        return await self._request_with_retries(lambda: _bash_async(self._client, body=body))
+    async def bash(self, body: BashRequest, *, idempotent: bool = True) -> ToolResult:
+        """Execute a shell command. See :meth:`Client.bash` for ``idempotent``."""
+        return await self._request_with_retries(lambda: _bash_async(self._client, body=body), idempotent=idempotent)
 
     async def _try_bash(self, command: str) -> ToolResult | None:
         """Async version of :meth:`Client._try_bash` — ``None`` on transport error."""

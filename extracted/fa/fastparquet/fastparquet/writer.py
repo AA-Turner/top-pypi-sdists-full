@@ -27,7 +27,7 @@ from decimal import Decimal
 MARKER = b'PAR1'
 ROW_GROUP_SIZE = 50_000_000
 NaT = np.timedelta64(None).tobytes()  # require numpy version >= 1.7
-nat = np.datetime64('NaT').view('int64')
+nat = np.int64(-9223372036854775808)  # np.datetime64('NaT').view('int64')
 
 typemap = {  # primitive type, converted type, bit width
     'boolean': (parquet_thrift.Type.BOOLEAN, None, 1),
@@ -218,6 +218,9 @@ def find_type(data, fixed_text=None, object_encoding=None, times='int64',
         type, converted_type, width = (parquet_thrift.Type.BYTE_ARRAY,
                                        parquet_thrift.ConvertedType.UTF8,
                                        None)
+        if fixed_text:
+            width = fixed_text
+            type = parquet_thrift.Type.FIXED_LEN_BYTE_ARRAY
     else:
         raise ValueError("Don't know how to convert data type: %s" % dtype)
     se = parquet_thrift.SchemaElement(
@@ -241,7 +244,7 @@ def convert(data, se):
         elif type == parquet_thrift.Type.BOOLEAN:
             # TODO: with our own bitpack writer, no need to copy for
             #  the padding
-            padded = np.pad(data.values, (0, 8 - (len(data) % 8)),
+            padded = np.pad(data.values, (0, (8 - len(data) % 8) % 8),
                                 'constant', constant_values=(0, 0))
             out = np.packbits(padded.reshape(-1, 8)[:, ::-1].ravel())
         elif dtype.name in typemap:
@@ -263,7 +266,7 @@ def convert(data, se):
                 elif type == parquet_thrift.Type.BOOLEAN:
                     # TODO: with our own bitpack writer, no need to copy for
                     #  the padding
-                    padded = np.pad(data.values, (0, 8 - (len(data) % 8)),
+                    padded = np.pad(data.values, (0, (8 - len(data) % 8) % 8),
                                         'constant', constant_values=(0, 0))
                     out = np.packbits(padded.reshape(-1, 8)[:, ::-1].ravel())
                 else:
@@ -304,8 +307,12 @@ def convert(data, se):
         if data.dtype == "m8[ns]":
             out = np.empty(len(data), 'int64')
             time_shift(data.values.view('int64'), out)
+        elif data.dtype == "m8[ms]":
+            # convert ms -> us (multiply by 1000), preserving NaT
+            raw = data.values.view('int64')
+            out = np.where(raw == nat, nat, raw * 1000).astype('int64')
         else:
-            # assuming ms or us
+            # us: store as-is
             out = data.values
     elif type == parquet_thrift.Type.INT96 and dtype.kind == 'M':
         ns_per_day = (24 * 3600 * 1000000000)
@@ -401,8 +408,14 @@ def encode_dict(data, _):
     o.write_byte(width)
     bit_packed_count = (len(data) + 7) // 8
     cencoding.encode_unsigned_varint(bit_packed_count << 1 | 1, o)  # write run header
-    # TODO: `bytes`, `tobytes` makes copy, and adding bytes also makes copy
-    return bytes(o.so_far()) + data.values.tobytes()
+
+    # When the last group is partial (i.e.
+    # len(data) % 8 != 0), the remaining slots must be zero-padded so that
+    # the total byte count matches what the header declares.
+    # https://github.com/dask/fastparquet/issues/979
+    raw = data.values.tobytes()
+    padding = bit_packed_count * 8 * data.values.dtype.itemsize - len(raw)
+    return b"".join((o.so_far(), raw, b'\x00' * padding))
 
 
 encode = {
@@ -921,7 +934,7 @@ def make_metadata(data, has_nulls=True, ignore_columns=None, fixed_text=None,
                                  is_index=is_index)
         col_has_nulls = has_nulls
         if has_nulls is None:
-            se.repetition_type = data[column].dtype == "O"
+            se.repetition_type = data[column].dtype == "O" or "str" in str(data[column].dtype)
         elif has_nulls is not True and has_nulls is not False:
             col_has_nulls = column in has_nulls
         if col_has_nulls:

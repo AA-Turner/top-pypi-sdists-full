@@ -6,7 +6,9 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .collection_mode_enum import CollectionModeEnum
 from .control_tag_weight import ControlTagWeight
+from .lse_project_create_dm_column_defaults import LseProjectCreateDmColumnDefaults
 from .project_sampling_enum import ProjectSamplingEnum
 from .skip_queue_enum import SkipQueueEnum
 from .user_simple import UserSimple
@@ -21,6 +23,14 @@ class LseProjectCreate(UncheckedBaseModel):
     annotator_evaluation_enabled: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Enable annotator evaluation for the project
+    """
+
+    collection_mode: typing.Optional[CollectionModeEnum] = pydantic.Field(default=None)
+    """
+    Data Collection project mode (assigned or open). Set only at creation; immutable afterwards. Requires use_custom_interface.
+    
+    * `assigned` - Assigned
+    * `open` - Open
     """
 
     color: typing.Optional[str] = None
@@ -51,6 +61,11 @@ class LseProjectCreate(UncheckedBaseModel):
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Description (Public)
+    """
+
+    dm_column_defaults: typing.Optional[LseProjectCreateDmColumnDefaults] = pydantic.Field(default=None)
+    """
+    Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
     """
 
     enable_empty_annotation: typing.Optional[bool] = pydantic.Field(default=None)

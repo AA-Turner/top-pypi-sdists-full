@@ -39,6 +39,7 @@ class TestSeverity:
             product_neq=["access", "dns"],
             severity=["low", "moderate"],
             severity_neq=["low", "moderate"],
+            source=["cloudflare"],
             subject=["example.com"],
             subject_neq=["example.com"],
         )
@@ -111,6 +112,7 @@ class TestAsyncSeverity:
             product_neq=["access", "dns"],
             severity=["low", "moderate"],
             severity_neq=["low", "moderate"],
+            source=["cloudflare"],
             subject=["example.com"],
             subject_neq=["example.com"],
         )

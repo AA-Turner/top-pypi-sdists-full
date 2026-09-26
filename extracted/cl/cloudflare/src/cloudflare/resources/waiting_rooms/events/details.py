@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -55,7 +55,7 @@ class DetailsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> DetailGetResponse:
+    ) -> Optional[DetailGetResponse]:
         """Previews an event's configuration as if it was active.
 
         Inherited fields from the
@@ -90,9 +90,9 @@ class DetailsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[DetailGetResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[DetailGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[DetailGetResponse], ResultWrapper[DetailGetResponse]),
+            cast_to=cast(Type[Optional[DetailGetResponse]], ResultWrapper[DetailGetResponse]),
         )
 
 
@@ -128,7 +128,7 @@ class AsyncDetailsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> DetailGetResponse:
+    ) -> Optional[DetailGetResponse]:
         """Previews an event's configuration as if it was active.
 
         Inherited fields from the
@@ -163,9 +163,9 @@ class AsyncDetailsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[DetailGetResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[DetailGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[DetailGetResponse], ResultWrapper[DetailGetResponse]),
+            cast_to=cast(Type[Optional[DetailGetResponse]], ResultWrapper[DetailGetResponse]),
         )
 
 

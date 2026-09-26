@@ -37,7 +37,7 @@ from typing import Literal, cast
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .._runtime.config import DEFAULT_SERVER_KEEPALIVE_INTERVAL
+from .._adapter_support import DEFAULT_SERVER_KEEPALIVE_INTERVAL
 from ..client import NotebookLMClient
 from ..exceptions import AuthError, NotebookLMError
 from ..paths import get_active_profile, resolve_profile, set_active_profile
@@ -273,20 +273,15 @@ def _default_factory(
 ) -> AbstractAsyncContextManager[NotebookLMClient]:
     # ``from_storage`` returns a dual awaitable / async-context-manager; we use
     # only the async-context-manager protocol (the canonical, non-deprecated path).
-    if backend is None:
-        return cast(
-            "AbstractAsyncContextManager[NotebookLMClient]",
-            NotebookLMClient.from_storage(
-                profile=profile,
-                keepalive=DEFAULT_SERVER_KEEPALIVE_INTERVAL,
-            ),
-        )
+    from .._app.client_config import adapter_client_config
+
     return cast(
         "AbstractAsyncContextManager[NotebookLMClient]",
         NotebookLMClient.from_storage(
             profile=profile,
-            keepalive=DEFAULT_SERVER_KEEPALIVE_INTERVAL,
-            backend=backend,
+            config=adapter_client_config(
+                backend=backend, keepalive=DEFAULT_SERVER_KEEPALIVE_INTERVAL
+            ),
         ),
     )
 
@@ -315,6 +310,7 @@ def create_app(
     profile: str | None = None,
     backend: Literal["web", "android"] | None = None,
     client_factory: ClientFactory | None = None,
+    _download_temp_factory: Callable[[], str] | None = None,
 ) -> FastAPI:
     """Build the FastAPI application.
 
@@ -327,6 +323,8 @@ def create_app(
         client_factory: Test seam — a zero-arg callable returning an async
             context manager that yields a client. Defaults to
             ``NotebookLMClient.from_storage(profile=profile, keepalive=600.0)``.
+        _download_temp_factory: Private per-app spool allocation seam. ``None``
+            retains private directories allocated by ``tempfile.mkdtemp``.
 
     Returns:
         A configured :class:`~fastapi.FastAPI` app whose lifespan binds exactly
@@ -432,6 +430,7 @@ def create_app(
         redoc_url=None,
         openapi_url=None,
     )
+    app.state._download_temp_factory = _download_temp_factory
 
     install_exception_handlers(app)
 

@@ -12,7 +12,7 @@ use crate::StatsigErr;
 use crate::networking::ResponseData;
 
 use super::{
-    HydrationFailureReason, RemoteConfigValueHydrator, RemoteConfigValueMetadata,
+    HydrationFailureReason, HydrationResult, RemoteConfigValueHydrator, RemoteConfigValueMetadata,
     RemoteConfigValueMetadataWire, RemoteValueReference, TAG, add_raw_value_reference,
     hydrated_value, hydration_error, validate_reference_limits,
 };
@@ -21,6 +21,7 @@ pub(super) async fn hydrate_response(
     hydrator: &RemoteConfigValueHydrator,
     data: &mut ResponseData,
     source_url: &str,
+    hydration_result: &mut HydrationResult<'_>,
 ) -> Result<bool, StatsigErr> {
     if !response_may_contain_remote_metadata(data)? {
         return Ok(false);
@@ -29,7 +30,7 @@ pub(super) async fn hydrate_response(
         data.rewind()?;
         return Ok(false);
     };
-    let references = collect_json_references(&payload, source_url)?;
+    let references = collect_json_references(&payload, source_url, hydration_result)?;
     if references.is_empty() {
         data.rewind()?;
         return Ok(false);
@@ -38,7 +39,10 @@ pub(super) async fn hydrate_response(
     // Reserve the response's concurrency window before any download starts so
     // retained sibling blobs cannot deadlock against another response.
     let _response_budget = hydrator.reserve_response_bytes(total_bytes).await?;
-    let hydrated = hydrator.download_all(references).await?;
+    let hydrated = hydrator
+        .download_all(references)
+        .await
+        .inspect_err(|error| hydration_result.record_download_error(error))?;
     apply_json_hydration(&mut payload, &hydrated)?;
     let hydrated_bytes = serde_json::to_vec(&payload)
         .map_err(|error| StatsigErr::SerializationError(error.to_string()))?;
@@ -148,6 +152,7 @@ impl Serialize for RawJsonObject {
 fn collect_json_references(
     payload: &RawJsonObject,
     source_url: &str,
+    hydration_result: &mut HydrationResult<'_>,
 ) -> Result<Vec<RemoteValueReference>, StatsigErr> {
     let Some(configs) = payload.get("dynamic_configs") else {
         return Ok(Vec::new());
@@ -162,6 +167,9 @@ fn collect_json_references(
             continue;
         };
 
+        if config.contains_key("remoteConfigMetadata") {
+            hydration_result.mark_remote_metadata();
+        }
         if let Some(metadata) = raw_json_default_metadata(&config)? {
             add_raw_value_reference(
                 &mut references,
@@ -184,6 +192,7 @@ fn collect_json_references(
             let Some(metadata_value) = rule.get("remoteConfigMetadata") else {
                 continue;
             };
+            hydration_result.mark_remote_metadata();
             let metadata = parse_raw_json_metadata(metadata_value)?;
             add_raw_value_reference(
                 &mut references,

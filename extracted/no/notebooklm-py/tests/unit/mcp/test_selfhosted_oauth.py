@@ -22,12 +22,17 @@ import pytest
 pytest.importorskip("fastmcp")
 
 from fastmcp.server.auth import MultiAuth  # noqa: E402
-from mcp.server.auth.provider import AuthorizationParams  # noqa: E402
+from mcp.server.auth.provider import (  # noqa: E402
+    AuthorizationParams,
+    AuthorizeError,
+    TokenError,
+)
 from mcp.shared.auth import OAuthClientInformationFull  # noqa: E402
 from starlette.applications import Starlette  # noqa: E402
 from starlette.datastructures import Headers  # noqa: E402
 from starlette.testclient import TestClient  # noqa: E402
 
+from notebooklm import paths  # noqa: E402
 from notebooklm.mcp._auth import McpBearerAuthProvider, build_auth  # noqa: E402
 from notebooklm.mcp._oauth import (  # noqa: E402
     MAX_CLIENTS,
@@ -53,6 +58,9 @@ _PW = "a-strong-random-password-1234567890"
 
 @pytest.fixture
 def _clear_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A CLI-selected profile outranks NOTEBOOKLM_PROFILE. Isolate both sources
+    # so earlier CLI tests cannot override this module's environment fixtures.
+    monkeypatch.setattr(paths, "_active_profile", None)
     for k in (
         OAUTH_PASSWORD_ENV,
         OAUTH_BASE_URL_ENV,
@@ -854,3 +862,186 @@ def test_build_oauth_provider_wires_state_without_warning(
         provider = build_oauth_provider(cfg)
     assert isinstance(provider, SelfHostedOAuthProvider)
     assert not [r for r in caplog.records if r.levelno == logging.WARNING]
+
+
+def test_migrate_legacy_state_leaves_an_unreadable_legacy_for_the_next_startup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog
+) -> None:
+    """A transient read error must not retire the file — the tokens are still in it."""
+    legacy = tmp_path / "oauth_state.json"
+    legacy.write_text(json.dumps({"clients": {}}), encoding="utf-8")
+    new = tmp_path / "oauth" / "host.abcd.json"
+
+    def _unreadable(self: Path) -> bytes:
+        raise OSError("temporarily unreadable")
+
+    monkeypatch.setattr(Path, "read_bytes", _unreadable)
+
+    with caplog.at_level(logging.WARNING):
+        _migrate_legacy_state(new, legacy)
+
+    assert legacy.exists(), "the only copy of the tokens must survive"
+    assert not legacy.with_name("oauth_state.json.migrated").exists()
+    assert not new.exists()
+    assert "will retry" in caplog.text
+
+
+def test_migrate_legacy_state_retires_a_non_object_payload_without_writing_it(
+    tmp_path: Path, caplog
+) -> None:
+    """Valid JSON that is not an object is unusable state, not a partial migration."""
+    legacy = tmp_path / "oauth_state.json"
+    legacy.write_text(json.dumps([1, 2, 3]), encoding="utf-8")
+    new = tmp_path / "oauth" / "host.abcd.json"
+
+    with caplog.at_level(logging.WARNING):
+        _migrate_legacy_state(new, legacy)
+
+    assert not new.exists()
+    assert not legacy.exists()
+    assert legacy.with_name("oauth_state.json.migrated").exists()
+    assert "unusable" in caplog.text
+
+
+def test_migrate_legacy_state_retires_a_reappeared_legacy_beside_a_marker(
+    tmp_path: Path,
+) -> None:
+    """A restored backup must never resurrect revoked tokens."""
+    legacy = tmp_path / "oauth_state.json"
+    legacy.write_text(json.dumps({"clients": {"resurrected": {}}}), encoding="utf-8")
+    marker = legacy.with_name("oauth_state.json.migrated")
+    marker.write_text("{}", encoding="utf-8")
+    new = tmp_path / "oauth" / "host.abcd.json"
+
+    _migrate_legacy_state(new, legacy)
+
+    assert not new.exists(), "a reappeared legacy file is never imported"
+    assert not legacy.exists()
+    assert marker.exists()
+
+
+def test_migrate_legacy_state_is_a_no_op_when_the_override_points_at_the_legacy_file(
+    tmp_path: Path,
+) -> None:
+    """Retiring it would delete the very file the provider is about to load."""
+    legacy = tmp_path / "oauth_state.json"
+    legacy.write_text(json.dumps({"clients": {}}), encoding="utf-8")
+
+    _migrate_legacy_state(legacy, legacy)
+
+    assert legacy.exists()
+    assert not legacy.with_name("oauth_state.json.migrated").exists()
+
+
+def test_migrate_legacy_state_skips_when_the_legacy_cannot_be_retired(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog
+) -> None:
+    """The marker rename commits before the write; a failure there aborts cleanly."""
+    legacy = tmp_path / "oauth_state.json"
+    legacy.write_text(json.dumps({"clients": {}}), encoding="utf-8")
+    new = tmp_path / "oauth" / "host.abcd.json"
+
+    def _failing_replace(src: object, dst: object) -> None:
+        raise OSError("rename refused")
+
+    monkeypatch.setattr(os, "replace", _failing_replace)
+
+    with caplog.at_level(logging.WARNING):
+        _migrate_legacy_state(new, legacy)
+
+    assert legacy.exists()
+    assert not new.exists()
+    assert "retiring" in caplog.text
+
+
+def test_resource_binding_rejects_cross_server_authorization() -> None:
+    """Reject an authorization request naming another server’s MCP resource."""
+
+    async def run() -> None:
+        """Register a client and check the mismatched audience within one event loop."""
+        provider = _provider()
+        provider.get_routes("/mcp")
+        client = _client()
+        await provider.register_client(client)
+        params = _params().model_copy(update={"resource": "https://other.example.com/mcp"})
+        with pytest.raises(AuthorizeError) as error:
+            await provider.authorize(client, params)
+        assert error.value.error_description and "does not match" in error.value.error_description
+
+    asyncio.run(run())
+
+
+def test_resource_binding_survives_exchange_refresh_and_restart(tmp_path) -> None:
+    """Retain token audiences through issuance, rotation, and a provider restart."""
+
+    async def run() -> None:
+        """Exercise persisted resource binding through the real login and exchange flow."""
+        provider = _provider(tmp_path)
+        routes = provider.get_routes("/mcp")
+        client = _client()
+        await provider.register_client(client)
+
+        sid = (await provider.authorize(client, _params())).split("sid=")[1]
+        with TestClient(Starlette(routes=routes)) as http:
+            response = http.post(
+                "/login", data={"sid": sid, "password": _PW}, follow_redirects=False
+            )
+        code = response.headers["location"].split("code=")[1].split("&")[0]
+        authorization_code = provider.auth_codes[code]
+        expected = "https://host.example.com/mcp"
+        assert authorization_code.resource == expected
+
+        issued = await provider.exchange_authorization_code(client, authorization_code)
+        assert provider.access_tokens[issued.access_token].resource == expected
+        assert await provider.verify_token(issued.access_token) is not None
+        assert issued.refresh_token is not None
+
+        refreshed = await provider.exchange_refresh_token(
+            client, provider.refresh_tokens[issued.refresh_token], scopes=[]
+        )
+        assert provider.access_tokens[refreshed.access_token].resource == expected
+        assert refreshed.refresh_token is not None
+
+        restarted = _provider(tmp_path)
+        restarted.get_routes("/mcp")
+        assert await restarted.verify_token(refreshed.access_token) is not None
+        assert restarted._refresh_resources[refreshed.refresh_token] == expected
+
+        restarted.access_tokens[refreshed.access_token] = restarted.access_tokens[
+            refreshed.access_token
+        ].model_copy(update={"resource": "https://other.example.com/mcp"})
+        assert await restarted.verify_token(refreshed.access_token) is None
+
+    asyncio.run(run())
+
+
+def test_resource_binding_rejects_unbound_and_foreign_refresh_tokens() -> None:
+    """Require reauthorization for legacy unbound or foreign-audience refresh tokens."""
+
+    async def run() -> None:
+        """Check both invalid bindings without consuming the original refresh token."""
+        provider = _provider()
+        provider.get_routes("/mcp")
+        client = _client()
+        await provider.register_client(client)
+        sid = (await provider.authorize(client, _params())).split("sid=")[1]
+        with TestClient(Starlette(routes=provider.get_routes("/mcp"))) as http:
+            response = http.post(
+                "/login", data={"sid": sid, "password": _PW}, follow_redirects=False
+            )
+        code = response.headers["location"].split("code=")[1].split("&")[0]
+        issued = await provider.exchange_authorization_code(client, provider.auth_codes[code])
+        assert issued.refresh_token is not None
+        refresh = provider.refresh_tokens[issued.refresh_token]
+
+        provider._refresh_resources.pop(issued.refresh_token)
+        with pytest.raises(TokenError, match="reauthorization"):
+            await provider.exchange_refresh_token(client, refresh, scopes=[])
+        assert issued.refresh_token in provider.refresh_tokens
+
+        provider._refresh_resources[issued.refresh_token] = "https://other.example.com/mcp"
+        with pytest.raises(TokenError, match="reauthorization"):
+            await provider.exchange_refresh_token(client, refresh, scopes=[])
+        assert issued.refresh_token in provider.refresh_tokens
+
+    asyncio.run(run())

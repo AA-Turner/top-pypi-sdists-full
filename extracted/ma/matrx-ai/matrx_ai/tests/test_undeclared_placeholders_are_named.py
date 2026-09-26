@@ -119,3 +119,16 @@ def test_the_notice_is_appended_to_a_system_prompt_exactly_once() -> None:
 
     config.replace_variables({"customer_name": "All Green"})
     assert config.system_instruction.base_instruction.count("[matrx:not-delivered]") == 1
+
+
+def test_braces_inside_a_delivered_value_are_data_not_an_omission() -> None:
+    """A value that QUOTES a placeholder (an observed chat about Handlebars, a case
+    record) was delivered in full; only a placeholder the template carried counts."""
+    from matrx_ai.config.unified_content import TextContent
+
+    begin_turn()
+    block = TextContent(text="Observe:\n{{material}}\n{{missing}}")
+    block.replace_variables({"material": "User: my template says Hello {{first_name}}"})
+    assert undelivered() == ("missing",)
+    sentence = omission_sentence()
+    assert sentence is not None and "first_name" not in sentence

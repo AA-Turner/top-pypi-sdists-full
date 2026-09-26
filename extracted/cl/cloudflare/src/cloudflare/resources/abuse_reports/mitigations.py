@@ -153,8 +153,11 @@ class MitigationsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[MitigationReviewResponse]:
-        """
-        Request a review for mitigations on an account.
+        """Request a review for mitigations on an account.
+
+        Repeating a request for a
+        mitigation with an unresolved appeal is idempotent and returns that mitigation
+        in the in-review state.
 
         Args:
           appeals: List of mitigations to appeal.
@@ -325,8 +328,11 @@ class AsyncMitigationsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[MitigationReviewResponse, AsyncSinglePage[MitigationReviewResponse]]:
-        """
-        Request a review for mitigations on an account.
+        """Request a review for mitigations on an account.
+
+        Repeating a request for a
+        mitigation with an unresolved appeal is idempotent and returns that mitigation
+        in the in-review state.
 
         Args:
           appeals: List of mitigations to appeal.

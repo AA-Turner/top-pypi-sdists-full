@@ -1,6 +1,17 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "functools",
+    "packaging",
+    "packaging.requirements",
+    "packaging.tags",
+    "packaging.utils",
+    "pathlib",
+    "pathspec",
+    "platform",
+    "shutil",
+    "tempfile",
+    "typing",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
@@ -16,17 +27,6 @@ __lazy_modules__ = {
     f"{__spec__.parent}.common_wheel_helpers",
     f"{__spec__.parent}.generate",
     f"{__spec__.parent}.metadata",
-    "functools",
-    "packaging",
-    "packaging.requirements",
-    "packaging.tags",
-    "packaging.utils",
-    "pathlib",
-    "pathspec",
-    "platform",
-    "shutil",
-    "tempfile",
-    "typing",
 }
 
 import dataclasses
@@ -390,11 +390,11 @@ def _build_wheel_impl_impl(
         #
         # Two triggers: the classic editable.rebuild installs into a tree inside
         # build-dir; setting editable.rebuild-dir installs into a user-chosen tree
-        # (see EditableSettings.rebuild_enabled). Both still require build-dir.
+        # (see EditableSettings.persistent_install). Both still require build-dir.
         editable_rebuild = (
             editable
             and settings.editable.mode == "redirect"
-            and settings.editable.rebuild_enabled
+            and settings.editable.persistent_install
             and bool(settings.build_dir)
         )
         if editable_rebuild:
@@ -512,9 +512,9 @@ def _build_wheel_impl_impl(
             return WheelImplReturn(wheel_filename=dist_info.name, settings=settings)
 
         for gen in settings.generate:
-            contents = generate_file_contents(gen, metadata)
             if gen.location == "source":
                 continue
+            contents = generate_file_contents(gen, metadata)
             if gen.location == "build":
                 path = build_dir / gen.path
             elif gen.location == "install":
@@ -538,6 +538,7 @@ def _build_wheel_impl_impl(
                 extra_cache_entries=editable_rebuild_cache,
                 name=metadata.name,
                 version=metadata.version,
+                raw_version=metadata.raw_version,
             )
             if exit_after_config:
                 return WheelImplReturn("", settings=settings)
@@ -552,6 +553,7 @@ def _build_wheel_impl_impl(
                 state=state,
                 name=metadata.name,
                 version=metadata.version,
+                raw_version=metadata.raw_version,
                 editable=editable,
                 extra_cache_entries=editable_rebuild_cache,
             )

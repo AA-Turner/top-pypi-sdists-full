@@ -39,9 +39,9 @@ class RegistrationCreateParams(TypedDict, total=False):
 
     acknowledgements: Dict[str, object]
     """
-    User acknowledgements required by a specific extension or premium registration
-    flow. The expected keys are described by the extension registration schema
-    returned by the extension discovery endpoint.
+    Provides user acknowledgements for a specific extension or premium registration
+    flow. The extension registration schema from the extension discovery endpoint
+    identifies the required keys.
     """
 
     auto_renew: bool

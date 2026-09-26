@@ -72,7 +72,7 @@ class NamespacesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceCreateResponse]:
         """
-        Create a new Workers for Platforms namespace.
+        Create a new Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -114,7 +114,7 @@ class NamespacesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[NamespaceListResponse]:
         """
-        Fetch a list of Workers for Platforms namespaces.
+        Fetch a list of Workers for Platforms dispatch namespaces.
 
         Args:
           account_id: Identifier.
@@ -151,7 +151,7 @@ class NamespacesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Delete a Workers for Platforms namespace.
+        Delete a Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -199,7 +199,7 @@ class NamespacesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceGetResponse]:
         """
-        Get a Workers for Platforms namespace.
+        Get a Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -272,7 +272,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceCreateResponse]:
         """
-        Create a new Workers for Platforms namespace.
+        Create a new Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -314,7 +314,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[NamespaceListResponse, AsyncSinglePage[NamespaceListResponse]]:
         """
-        Fetch a list of Workers for Platforms namespaces.
+        Fetch a list of Workers for Platforms dispatch namespaces.
 
         Args:
           account_id: Identifier.
@@ -351,7 +351,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Delete a Workers for Platforms namespace.
+        Delete a Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -399,7 +399,7 @@ class AsyncNamespacesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[NamespaceGetResponse]:
         """
-        Get a Workers for Platforms namespace.
+        Get a Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.

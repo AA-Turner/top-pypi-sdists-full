@@ -1,14 +1,26 @@
-from typing import Any, Dict, Union
+"""The fixtures a user overrides, and the one their tests receive.
+
+Three fixtures make up the plugin's public surface: :func:`alembic_config` and
+:func:`alembic_engine` are the ones a user is expected to override, and
+:func:`alembic_runner` is what the tests are handed. :func:`create_alembic_fixture`
+exists for the cases where one runner per test session is not enough.
+"""
+
+from collections.abc import Callable, Iterator
+from typing import Any
 
 import alembic.config
 import pytest
 import sqlalchemy
+from sqlalchemy.engine import Connectable, Engine
 
-import pytest_alembic
 from pytest_alembic.config import Config
+from pytest_alembic.runner import MigrationContext, runner
 
 
-def create_alembic_fixture(raw_config=None):
+def create_alembic_fixture(
+    raw_config: dict[str, Any] | alembic.config.Config | Config | None = None,
+) -> Callable[..., Iterator[MigrationContext]]:
     """Create a new fixture `alembic_runner`-like fixture.
 
     In many cases, this function should not be strictly necessary. You **can**
@@ -32,25 +44,28 @@ def create_alembic_fixture(raw_config=None):
         ...     tests.test_upgrade_head(alembic)
         >>>
         >>> def test_specific_migration(alembic):
-        ...     alembic_runner.migrate_up_to('xxxxxxx')
-        ...     assert ...
+        ...     alembic.migrate_up_to('xxxxxxx')
+        ...     assert alembic.current == 'xxxxxxx'
 
         Config can also be supplied similarly to the :func:`alembic_config` fixture.
 
         >>> alembic = create_alembic_fixture({'file': 'migrations.ini'})
     """
 
-    @pytest.fixture()
-    def alembic_fixture(alembic_engine):
+    @pytest.fixture
+    def alembic_fixture(alembic_engine: Connectable) -> Iterator[MigrationContext]:
         config = Config.from_raw_config(raw_config)
-        with pytest_alembic.runner(config=config, engine=alembic_engine) as runner:
-            yield runner
+        with runner(config=config, engine=alembic_engine) as migration_context:
+            yield migration_context
 
     return alembic_fixture
 
 
-@pytest.fixture()
-def alembic_runner(alembic_config, alembic_engine):
+@pytest.fixture
+def alembic_runner(
+    alembic_config: dict[str, Any] | alembic.config.Config | Config,
+    alembic_engine: Connectable,
+) -> Iterator[MigrationContext]:
     """Produce the primary alembic migration context in which to execute alembic tests.
 
     This fixture allows authoring custom tests which are specific to your particular
@@ -59,15 +74,15 @@ def alembic_runner(alembic_config, alembic_engine):
     Examples:
         >>> def test_specific_migration(alembic_runner):
         ...     alembic_runner.migrate_up_to('xxxxxxx')
-        ...     assert ...
+        ...     assert alembic_runner.current == 'xxxxxxx'
     """
     config = Config.from_raw_config(alembic_config)
-    with pytest_alembic.runner(config=config, engine=alembic_engine) as runner:
-        yield runner
+    with runner(config=config, engine=alembic_engine) as migration_context:
+        yield migration_context
 
 
-@pytest.fixture()
-def alembic_config() -> Union[Dict[str, Any], alembic.config.Config, Config]:
+@pytest.fixture
+def alembic_config() -> dict[str, Any] | alembic.config.Config | Config:
     """Override this fixture to configure the exact alembic context setup required.
 
     The return value of this fixture can be one of a few types.
@@ -106,6 +121,9 @@ def alembic_config() -> Union[Dict[str, Any], alembic.config.Config, Config]:
       **and** construct your own :class:`alembic.config.Config`.
 
     Examples:
+        >>> import alembic.config
+        >>> import pytest
+
         >>> @pytest.fixture
         ... def alembic_config():
         ...     return {'file': 'migrations.ini'}
@@ -119,8 +137,8 @@ def alembic_config() -> Union[Dict[str, Any], alembic.config.Config, Config]:
     return {}
 
 
-@pytest.fixture()
-def alembic_engine():
+@pytest.fixture
+def alembic_engine() -> Iterator[Engine]:
     """Override this fixture to provide pytest-alembic powered tests with a database handle."""
     engine = sqlalchemy.create_engine("sqlite:///")
     try:

@@ -12,11 +12,12 @@ import asyncio
 import json
 import logging
 import re
+import unicodedata
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
 import azure.durable_functions as df
 import azure.functions as func
@@ -25,12 +26,13 @@ from agent_framework._telemetry import mark_feature_used
 from agent_framework_durabletask import (
     DEFAULT_MAX_POLL_RETRIES,
     DEFAULT_POLL_INTERVAL_SECONDS,
+    LEGACY_THREAD_ID_FIELD,
     MIMETYPE_APPLICATION_JSON,
     MIMETYPE_TEXT_PLAIN,
     REQUEST_RESPONSE_FORMAT_JSON,
     REQUEST_RESPONSE_FORMAT_TEXT,
-    THREAD_ID_FIELD,
-    THREAD_ID_HEADER,
+    SESSION_ID_FIELD,
+    SESSION_ID_HEADER,
     WAIT_FOR_RESPONSE_FIELD,
     WAIT_FOR_RESPONSE_HEADER,
     AgentResponseCallbackProtocol,
@@ -62,10 +64,31 @@ from ._orchestration import AgentOrchestrationContextType, AgentTask, AzureFunct
 from ._routes import build_workflow_respond_url, build_workflow_status_url, split_request_url
 from ._workflow import run_workflow_orchestrator
 
+_DEFAULT_WORKFLOW_WAIT_TIMEOUT_SECONDS = 10
+_MAX_WORKFLOW_WAIT_TIMEOUT_SECONDS = 200
+
+# The workflow endpoints use camelCase names throughout their query string, request body, and
+# response body. The agent endpoints use snake_case throughout, so they reuse the shared
+# ``SESSION_ID_FIELD`` / ``WAIT_FOR_RESPONSE_FIELD`` constants instead of the names below.
+_RUN_ID_QUERY_PARAMETER = "runId"
+_MAX_WORKFLOW_RUN_ID_LENGTH = 100
+_WORKFLOW_WAIT_FOR_RESPONSE_QUERY_PARAMETER = "waitForResponse"
+_WORKFLOW_WAIT_TIMEOUT_SECONDS_QUERY_PARAMETER = "timeoutSeconds"
+
 logger = logging.getLogger("agent_framework.azurefunctions")
 
 EntityHandler = Callable[[df.DurableEntityContext], None]
 HandlerT = TypeVar("HandlerT", bound=Callable[..., Any])
+
+
+class _WorkflowCompletionClient(Protocol):
+    async def wait_for_completion_or_create_check_status_response(
+        self,
+        request: func.HttpRequest,
+        instance_id: str,
+        timeout_in_milliseconds: int = 10_000,
+        retry_interval_in_milliseconds: int = 1_000,
+    ) -> func.HttpResponse: ...
 
 
 def _json_default(obj: Any) -> Any:
@@ -154,7 +177,7 @@ class AgentFunctionApp(DFAppBase):
 
     .. code-block:: python
 
-        from agent_framework.azure import AgentFunctionApp
+        from agent_framework_azurefunctions import AgentFunctionApp
         from agent_framework.openai import OpenAIChatCompletionClient
 
         # Create agents with unique names
@@ -470,7 +493,7 @@ class AgentFunctionApp(DFAppBase):
 
             outputs = yield from run_workflow_orchestrator(context, captured_workflow, initial_message, shared_state)
             # Durable Functions runtime extracts return value from StopIteration
-            return outputs  # ruff:ignore[return-in-generator]
+            return outputs  # noqa: B901
 
         # Ensure the orchestrator function is registered (prevents garbage collection)
         _ = workflow_orchestrator
@@ -493,6 +516,19 @@ class AgentFunctionApp(DFAppBase):
         ) -> func.HttpResponse:
             """HTTP endpoint to start the workflow."""
             try:
+                wait_for_response = self._get_workflow_wait_for_response(req)
+                wait_timeout_seconds = _DEFAULT_WORKFLOW_WAIT_TIMEOUT_SECONDS
+                if wait_for_response:
+                    wait_timeout_seconds = self._get_workflow_wait_timeout_seconds(req)
+            except ValueError as exc:
+                return self._build_error_response(str(exc), status_code=400)
+
+            try:
+                requested_instance_id = self._validate_workflow_run_id((req.params or {}).get(_RUN_ID_QUERY_PARAMETER))
+            except ValueError as exc:
+                return self._build_error_response(str(exc), status_code=400)
+
+            try:
                 client_input: Any = req.get_json()
             except ValueError:
                 # The orchestrator accepts plain strings as well as JSON objects, so fall
@@ -509,23 +545,28 @@ class AgentFunctionApp(DFAppBase):
             client_input = strip_subworkflow_markers(client_input)
             client_input = strip_pickle_markers(client_input)
 
-            instance_id = await client.start_new(orchestrator_name, client_input=client_input)
-
-            base_url, route_prefix = split_request_url(req.url)
-            status_url = build_workflow_status_url(base_url, workflow_name, instance_id, prefix=route_prefix)
-
-            return func.HttpResponse(
-                json.dumps({
-                    "instanceId": instance_id,
-                    "statusQueryGetUri": status_url,
-                    "respondUri": build_workflow_respond_url(
-                        base_url, workflow_name, instance_id, "{requestId}", prefix=route_prefix
-                    ),
-                    "message": "Workflow started",
-                }),
-                status_code=202,
-                mimetype="application/json",
+            instance_id = await client.start_new(
+                orchestrator_name,
+                instance_id=requested_instance_id,
+                client_input=client_input,
             )
+
+            if wait_for_response:
+                timeout_in_milliseconds = wait_timeout_seconds * 1000
+                # The SDK leaves the request parameter untyped, so use the local protocol
+                # to give pyright a complete signature for this runtime method.
+                completion_client = cast(_WorkflowCompletionClient, client)
+                completion_response = await completion_client.wait_for_completion_or_create_check_status_response(
+                    req,
+                    instance_id,
+                    timeout_in_milliseconds=timeout_in_milliseconds,
+                    retry_interval_in_milliseconds=1000,
+                )
+                if completion_response.status_code != 202:
+                    status = await client.get_status(instance_id)
+                    return self._build_workflow_terminal_response(status, instance_id)
+
+            return self._build_workflow_accepted_response(req, workflow_name, instance_id)
 
         @self.function_name(f"{orchestrator_name}-status")
         @self.route(route=f"workflow/{workflow_name}/status/{{instanceId}}", methods=["GET"])
@@ -947,22 +988,23 @@ class AgentFunctionApp(DFAppBase):
             Expected request body (RunRequest format):
             {
                 "message": "user message to agent",
-                "thread_id": "optional conversation identifier",
+                "session_id": "optional conversation identifier",
                 "role": "user|system" (optional, default: "user"),
                 "response_format": {...} (optional JSON schema for structured responses),
                 "enable_tool_calls": true|false (optional, default: true)
             }
             """
             request_response_format: str = REQUEST_RESPONSE_FORMAT_JSON
-            thread_id: str | None = None
+            session_id: str | None = None
 
             try:
                 req_body, message, request_response_format = self._parse_incoming_request(req)
-                thread_id = self._resolve_thread_id(req=req, req_body=req_body)
+                session_id = self._resolve_session_id(req=req, req_body=req_body)
                 wait_for_response = self._should_wait_for_response(req=req, req_body=req_body)
 
                 logger.debug(
-                    f"[HTTP Trigger] Message: {message}, Thread ID: {thread_id}, wait_for_response: {wait_for_response}"
+                    f"[HTTP Trigger] Message: {message}, Session ID: {session_id}, "
+                    f"wait_for_response: {wait_for_response}"
                 )
 
                 if not message:
@@ -971,20 +1013,20 @@ class AgentFunctionApp(DFAppBase):
                         payload={"error": "Message is required"},
                         status_code=400,
                         request_response_format=request_response_format,
-                        thread_id=thread_id,
+                        session_id=session_id,
                     )
 
-                session_id = self._create_session_id(agent_name, thread_id)
+                agent_session_id = self._create_session_id(agent_name, session_id)
                 correlation_id = self._generate_unique_id()
 
                 logger.debug(
-                    f"[HTTP Trigger] Calling entity to run agent using session ID: {session_id} "
+                    f"[HTTP Trigger] Calling entity to run agent using session ID: {agent_session_id} "
                     f"and correlation ID: {correlation_id}"
                 )
 
                 entity_instance_id = df.EntityId(
-                    name=session_id.entity_name,
-                    key=session_id.key,
+                    name=agent_session_id.entity_name,
+                    key=agent_session_id.key,
                 )
                 run_request = self._build_request_data(
                     req_body,
@@ -995,7 +1037,7 @@ class AgentFunctionApp(DFAppBase):
                 logger.debug("Signalling entity %s with request: %s", entity_instance_id, run_request)
                 await client.signal_entity(entity_instance_id, "run", run_request)
 
-                logger.debug(f"[HTTP Trigger] Signal sent to entity {session_id}")
+                logger.debug(f"[HTTP Trigger] Signal sent to entity {agent_session_id}")
 
                 if wait_for_response:
                     result = await self._get_response_from_entity(
@@ -1003,7 +1045,7 @@ class AgentFunctionApp(DFAppBase):
                         entity_instance_id=entity_instance_id,
                         correlation_id=correlation_id,
                         message=message,
-                        thread_id=thread_id,
+                        session_id=session_id,
                     )
 
                     logger.debug(f"[HTTP Trigger] Result status: {result.get('status', 'unknown')}")
@@ -1011,20 +1053,20 @@ class AgentFunctionApp(DFAppBase):
                         payload=result,
                         status_code=200 if result.get("status") == "success" else 500,
                         request_response_format=request_response_format,
-                        thread_id=thread_id,
+                        session_id=session_id,
                     )
 
                 logger.debug("[HTTP Trigger] wait_for_response disabled; returning correlation ID")
 
                 accepted_response = self._build_accepted_response(
-                    message=message, thread_id=thread_id, correlation_id=correlation_id
+                    message=message, session_id=session_id, correlation_id=correlation_id
                 )
 
                 return self._create_http_response(
                     payload=accepted_response,
                     status_code=202,
                     request_response_format=request_response_format,
-                    thread_id=thread_id,
+                    session_id=session_id,
                 )
 
             except IncomingRequestError as exc:
@@ -1033,7 +1075,7 @@ class AgentFunctionApp(DFAppBase):
                     payload={"error": str(exc)},
                     status_code=exc.status_code,
                     request_response_format=request_response_format,
-                    thread_id=thread_id,
+                    session_id=session_id,
                 )
             except ValueError as exc:
                 logger.error(f"[HTTP Trigger] Invalid JSON: {exc!s}")
@@ -1041,7 +1083,7 @@ class AgentFunctionApp(DFAppBase):
                     payload={"error": "Invalid JSON"},
                     status_code=400,
                     request_response_format=request_response_format,
-                    thread_id=thread_id,
+                    session_id=session_id,
                 )
             except Exception as exc:
                 logger.error(f"[HTTP Trigger] Error: {exc!s}", exc_info=True)
@@ -1049,7 +1091,7 @@ class AgentFunctionApp(DFAppBase):
                     payload={"error": str(exc)},
                     status_code=500,
                     request_response_format=request_response_format,
-                    thread_id=thread_id,
+                    session_id=session_id,
                 )
 
         _ = http_start
@@ -1108,9 +1150,9 @@ class AgentFunctionApp(DFAppBase):
                 "isArray": False,
             },
             {
-                "propertyName": "threadId",
+                "propertyName": "sessionId",
                 "propertyType": "string",
-                "description": "Optional thread identifier for conversation continuity.",
+                "description": "Optional session identifier for conversation continuity.",
                 "isRequired": False,
                 "isArray": False,
             },
@@ -1133,7 +1175,7 @@ class AgentFunctionApp(DFAppBase):
             """Handle MCP tool invocation for the agent.
 
             Args:
-                context: MCP tool invocation context containing arguments (query, threadId)
+                context: MCP tool invocation context containing arguments (query, sessionId)
                 client: Durable orchestration client for entity communication
 
             Returns:
@@ -1182,20 +1224,27 @@ class AgentFunctionApp(DFAppBase):
         if not query or not isinstance(query, str):
             raise ValueError("MCP Tool invocation is missing required 'query' argument of type string.")
 
-        # Extract optional threadId
-        thread_id = arguments.get("threadId")
+        # Extract the optional session key. "sessionId" is the only advertised tool property, but the
+        # deprecated "threadId" argument is still honored for clients that have not been updated yet.
+        # Blank or non-string values are treated as absent so a valid alias is not shadowed.
+        session_key: str | None = None
+        for argument_name in ("sessionId", "threadId"):
+            candidate = arguments.get(argument_name)
+            if isinstance(candidate, str) and candidate.strip():
+                session_key = candidate
+                break
 
         # Create or parse session ID
-        if thread_id and isinstance(thread_id, str) and thread_id.strip():
+        if session_key:
             try:
-                session_id = AgentSessionId.parse(thread_id, agent_name=agent_name)
+                session_id = AgentSessionId.parse(session_key, agent_name=agent_name)
             except ValueError as e:
                 logger.warning(
-                    "Failed to parse AgentSessionId from thread_id '%s': %s. Falling back to new session ID.",
-                    thread_id,
+                    "Failed to parse AgentSessionId from session identifier '%s': %s. Falling back to new session ID.",
+                    session_key,
                     e,
                 )
-                session_id = AgentSessionId(name=agent_name, key=thread_id)
+                session_id = AgentSessionId(name=agent_name, key=session_key)
         else:
             # Generate new session ID
             session_id = AgentSessionId.with_random_key(agent_name)
@@ -1228,7 +1277,7 @@ class AgentFunctionApp(DFAppBase):
                 entity_instance_id=entity_instance_id,
                 correlation_id=correlation_id,
                 message=query,
-                thread_id=str(session_id),
+                session_id=str(session_id),
             )
 
             # Extract and return response text
@@ -1307,7 +1356,7 @@ class AgentFunctionApp(DFAppBase):
         entity_instance_id: df.EntityId,
         correlation_id: str,
         message: str,
-        thread_id: str,
+        session_id: str,
     ) -> dict[str, Any]:
         """Poll the entity state until a response is available or timeout occurs."""
         max_retries = self.max_poll_retries
@@ -1325,7 +1374,7 @@ class AgentFunctionApp(DFAppBase):
                 entity_instance_id=entity_instance_id,
                 correlation_id=correlation_id,
                 message=message,
-                thread_id=thread_id,
+                session_id=session_id,
             )
             if result is not None:
                 break
@@ -1340,7 +1389,7 @@ class AgentFunctionApp(DFAppBase):
             f"[HTTP Trigger] Response with correlation ID {correlation_id} "
             f"not found in time (waited {max_retries * interval} seconds)"
         )
-        return await self._build_timeout_result(message=message, thread_id=thread_id, correlation_id=correlation_id)
+        return await self._build_timeout_result(message=message, session_id=session_id, correlation_id=correlation_id)
 
     async def _poll_entity_for_response(
         self,
@@ -1348,7 +1397,7 @@ class AgentFunctionApp(DFAppBase):
         entity_instance_id: df.EntityId,
         correlation_id: str,
         message: str,
-        thread_id: str,
+        session_id: str,
     ) -> dict[str, Any] | None:
         result: dict[str, Any] | None = None
         try:
@@ -1362,7 +1411,7 @@ class AgentFunctionApp(DFAppBase):
                 result = self._build_success_result(
                     response_message=agent_response.text,
                     message=message,
-                    thread_id=thread_id,
+                    session_id=session_id,
                     correlation_id=correlation_id,
                     state=state,
                 )
@@ -1378,7 +1427,7 @@ class AgentFunctionApp(DFAppBase):
         *,
         response: str | None,
         message: str,
-        thread_id: str,
+        session_id: str,
         status: str,
         correlation_id: str,
         extra_fields: dict[str, Any] | None = None,
@@ -1387,7 +1436,7 @@ class AgentFunctionApp(DFAppBase):
         payload = {
             "response": response,
             "message": message,
-            THREAD_ID_FIELD: thread_id,
+            SESSION_ID_FIELD: session_id,
             "status": status,
             "correlation_id": correlation_id,
         }
@@ -1395,24 +1444,24 @@ class AgentFunctionApp(DFAppBase):
             payload.update(extra_fields)
         return payload
 
-    async def _build_timeout_result(self, message: str, thread_id: str, correlation_id: str) -> dict[str, Any]:
+    async def _build_timeout_result(self, message: str, session_id: str, correlation_id: str) -> dict[str, Any]:
         """Create the timeout response."""
         return self._build_response_payload(
             response="Agent is still processing or timed out...",
             message=message,
-            thread_id=thread_id,
+            session_id=session_id,
             status="timeout",
             correlation_id=correlation_id,
         )
 
     def _build_success_result(
-        self, response_message: str, message: str, thread_id: str, correlation_id: str, state: DurableAgentState
+        self, response_message: str, message: str, session_id: str, correlation_id: str, state: DurableAgentState
     ) -> dict[str, Any]:
         """Build the success result returned to the HTTP caller."""
         return self._build_response_payload(
             response=response_message,
             message=message,
-            thread_id=thread_id,
+            session_id=session_id,
             status="success",
             correlation_id=correlation_id,
             extra_fields={ApiResponseFields.MESSAGE_COUNT: state.message_count},
@@ -1439,14 +1488,68 @@ class AgentFunctionApp(DFAppBase):
             created_at=datetime.now(timezone.utc),
         ).to_dict()
 
-    def _build_accepted_response(self, message: str, thread_id: str, correlation_id: str) -> dict[str, Any]:
+    def _build_accepted_response(self, message: str, session_id: str, correlation_id: str) -> dict[str, Any]:
         """Build the response returned when not waiting for completion."""
         return self._build_response_payload(
             response="Agent request accepted",
             message=message,
-            thread_id=thread_id,
+            session_id=session_id,
             status="accepted",
             correlation_id=correlation_id,
+        )
+
+    @staticmethod
+    def _build_workflow_accepted_response(
+        req: func.HttpRequest, workflow_name: str, instance_id: str
+    ) -> func.HttpResponse:
+        """Build the response returned when a workflow continues asynchronously."""
+        base_url, route_prefix = split_request_url(req.url)
+        return func.HttpResponse(
+            json.dumps({
+                "instanceId": instance_id,
+                "statusQueryGetUri": build_workflow_status_url(
+                    base_url, workflow_name, instance_id, prefix=route_prefix
+                ),
+                "respondUri": build_workflow_respond_url(
+                    base_url, workflow_name, instance_id, "{requestId}", prefix=route_prefix
+                ),
+                "message": "Workflow started",
+            }),
+            status_code=202,
+            mimetype=MIMETYPE_APPLICATION_JSON,
+        )
+
+    def _build_workflow_terminal_response(self, status: Any, instance_id: str) -> func.HttpResponse:
+        """Build a compact response for a completed or failed workflow."""
+        if status is None or status.runtime_status is None:
+            return self._build_error_response(
+                f"Workflow orchestration '{instance_id}' returned no status.",
+                status_code=500,
+            )
+
+        runtime_status = status.runtime_status
+        if runtime_status not in {
+            df.OrchestrationRuntimeStatus.Completed,
+            df.OrchestrationRuntimeStatus.Failed,
+        }:
+            return self._build_error_response(
+                f"Workflow orchestration '{instance_id}' ended with unexpected status '{runtime_status.name}'.",
+                status_code=500,
+            )
+
+        decoded_output = deserialize_workflow_output(status.output) if status.output is not None else None
+        response: dict[str, Any] = {
+            "instanceId": status.instance_id or instance_id,
+            "runtimeStatus": runtime_status.name,
+            "output": decoded_output if runtime_status == df.OrchestrationRuntimeStatus.Completed else None,
+        }
+        if runtime_status == df.OrchestrationRuntimeStatus.Failed:
+            response["error"] = decoded_output
+
+        return func.HttpResponse(
+            json.dumps(response, default=_json_default),
+            status_code=200,
+            mimetype=MIMETYPE_APPLICATION_JSON,
         )
 
     def _create_http_response(
@@ -1454,11 +1557,11 @@ class AgentFunctionApp(DFAppBase):
         payload: dict[str, Any] | str,
         status_code: int,
         request_response_format: str,
-        thread_id: str | None,
+        session_id: str | None,
     ) -> func.HttpResponse:
         """Create the HTTP response using helper serializers for clarity."""
         if request_response_format == REQUEST_RESPONSE_FORMAT_TEXT:
-            return self._build_plain_text_response(payload=payload, status_code=status_code, thread_id=thread_id)
+            return self._build_plain_text_response(payload=payload, status_code=status_code, session_id=session_id)
 
         return self._build_json_response(payload=payload, status_code=status_code)
 
@@ -1466,11 +1569,11 @@ class AgentFunctionApp(DFAppBase):
         self,
         payload: dict[str, Any] | str,
         status_code: int,
-        thread_id: str | None,
+        session_id: str | None,
     ) -> func.HttpResponse:
-        """Return a plain-text response with optional thread identifier header."""
+        """Return a plain-text response with optional session identifier header."""
         body_text = payload if isinstance(payload, str) else self._convert_payload_to_text(payload)
-        headers = {THREAD_ID_HEADER: thread_id} if thread_id is not None else None
+        headers = {SESSION_ID_HEADER: session_id} if session_id is not None else None
         return func.HttpResponse(body_text, status_code=status_code, mimetype=MIMETYPE_TEXT_PLAIN, headers=headers)
 
     def _build_json_response(self, payload: dict[str, Any] | str, status_code: int) -> func.HttpResponse:
@@ -1499,27 +1602,43 @@ class AgentFunctionApp(DFAppBase):
         """Generate a new unique identifier."""
         return uuid.uuid4().hex
 
-    def _create_session_id(self, agent_name: str, thread_id: str | None) -> AgentSessionId:
-        """Create a session identifier using the provided thread id or a random value."""
-        if thread_id:
-            return AgentSessionId(name=agent_name, key=thread_id)
+    def _create_session_id(self, agent_name: str, session_key: str | None) -> AgentSessionId:
+        """Create a session identifier using the provided session key or a random value."""
+        if session_key:
+            return AgentSessionId(name=agent_name, key=session_key)
         return AgentSessionId.with_random_key(name=agent_name)
 
-    def _resolve_thread_id(self, req: func.HttpRequest, req_body: dict[str, Any]) -> str:
-        """Retrieve the thread identifier from request body or query parameters."""
+    def _resolve_session_id(self, req: func.HttpRequest, req_body: dict[str, Any]) -> str:
+        """Retrieve the session identifier from the request body or query parameters.
+
+        Callers may use the canonical ``session_id`` name or the deprecated ``thread_id`` alias, in
+        either the request body or the query string. Blank values are treated as absent. Any two
+        non-blank values that disagree are rejected, matching the .NET implementation. A random
+        identifier is generated when no name is supplied.
+
+        Raises:
+            IncomingRequestError: If conflicting session identifiers were supplied.
+        """
         params = req.params or {}
 
-        if THREAD_ID_FIELD in req_body:
-            value = req_body.get(THREAD_ID_FIELD)
-            if value is not None:
-                return str(value)
+        candidates: dict[str, str] = {}
+        for source_name, source in (("request body", req_body), ("query string", params)):
+            for field in (SESSION_ID_FIELD, LEGACY_THREAD_ID_FIELD):
+                value = source.get(field)
+                if value is not None and str(value).strip():
+                    candidates[f"{field} in the {source_name}"] = str(value)
 
-        if THREAD_ID_FIELD in params:
-            value = params.get(THREAD_ID_FIELD)
-            if value is not None:
-                return str(value)
+        distinct = set(candidates.values())
+        if len(distinct) > 1:
+            raise IncomingRequestError(
+                "Conflicting session identifiers supplied: "
+                + ", ".join(f"{name}={value!r}" for name, value in sorted(candidates.items()))
+            )
 
-        logger.debug("[HTTP Trigger] No thread identifier provided; using random thread id")
+        if distinct:
+            return distinct.pop()
+
+        logger.debug("[HTTP Trigger] No session identifier provided; using a random session id")
         return self._generate_unique_id()
 
     def _parse_incoming_request(self, req: func.HttpRequest) -> tuple[dict[str, Any], str, str]:
@@ -1599,31 +1718,110 @@ class AgentFunctionApp(DFAppBase):
 
         return {}, message
 
-    def _should_wait_for_response(self, req: func.HttpRequest, req_body: dict[str, Any]) -> bool:
-        """Determine whether the caller requested to wait for the response."""
+    def _should_wait_for_response(
+        self,
+        req: func.HttpRequest,
+        req_body: dict[str, Any],
+        *,
+        query_parameter: str = WAIT_FOR_RESPONSE_FIELD,
+        default_value: bool = True,
+    ) -> bool:
+        """Determine whether the caller requested to wait for the response.
+
+        The ``x-ms-wait-for-response`` header takes precedence, followed by ``query_parameter``
+        (``wait_for_response`` for the snake_case agent endpoints, ``waitForResponse`` for the
+        camelCase workflow endpoints), and finally the ``wait_for_response`` request body field.
+        Values that cannot be parsed as a boolean are ignored so that the next source is consulted.
+        """
         headers: dict[str, str] = self._extract_normalized_headers(req)
         header_value: str | None = headers.get(WAIT_FOR_RESPONSE_HEADER)
 
-        if header_value is not None:
-            return self._coerce_to_bool(header_value)
+        parsed_header = self._try_coerce_to_bool(header_value)
+        if parsed_header is not None:
+            return parsed_header
 
         params = req.params or {}
-        if WAIT_FOR_RESPONSE_FIELD in params:
-            return self._coerce_to_bool(params.get(WAIT_FOR_RESPONSE_FIELD))
+        parsed_query = self._try_coerce_to_bool(params.get(query_parameter))
+        if parsed_query is not None:
+            return parsed_query
 
-        if WAIT_FOR_RESPONSE_FIELD in req_body:
-            return self._coerce_to_bool(req_body.get(WAIT_FOR_RESPONSE_FIELD))
+        parsed_body = self._try_coerce_to_bool(req_body.get(WAIT_FOR_RESPONSE_FIELD))
+        if parsed_body is not None:
+            return parsed_body
+        return default_value
 
-        return True
+    @staticmethod
+    def _get_workflow_wait_timeout_seconds(req: func.HttpRequest) -> int:
+        """Get the positive workflow wait timeout from the query string."""
+        value = (req.params or {}).get(_WORKFLOW_WAIT_TIMEOUT_SECONDS_QUERY_PARAMETER)
+        if value is None:
+            return _DEFAULT_WORKFLOW_WAIT_TIMEOUT_SECONDS
 
-    def _coerce_to_bool(self, value: Any) -> bool:
-        """Convert various representations into a boolean flag."""
+        error_message = (
+            f"'{_WORKFLOW_WAIT_TIMEOUT_SECONDS_QUERY_PARAMETER}' must be an integer between "
+            f"1 and {_MAX_WORKFLOW_WAIT_TIMEOUT_SECONDS}."
+        )
+        try:
+            seconds = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(error_message) from exc
+
+        if seconds <= 0 or seconds > _MAX_WORKFLOW_WAIT_TIMEOUT_SECONDS:
+            raise ValueError(error_message)
+
+        return seconds
+
+    def _get_workflow_wait_for_response(self, req: func.HttpRequest) -> bool:
+        """Get the workflow wait preference while rejecting an invalid query value."""
+        headers = self._extract_normalized_headers(req)
+        parsed_header = self._try_coerce_to_bool(headers.get(WAIT_FOR_RESPONSE_HEADER))
+        if parsed_header is not None:
+            return parsed_header
+
+        query_value = (req.params or {}).get(_WORKFLOW_WAIT_FOR_RESPONSE_QUERY_PARAMETER)
+        if query_value is None:
+            return False
+
+        parsed_query = self._try_coerce_to_bool(query_value)
+        if parsed_query is None:
+            raise ValueError(f"'{_WORKFLOW_WAIT_FOR_RESPONSE_QUERY_PARAMETER}' must be a boolean value.")
+
+        return parsed_query
+
+    @staticmethod
+    def _validate_workflow_run_id(run_id: str | None) -> str | None:
+        """Validate a custom workflow run ID against the Durable Task instance ID contract."""
+        if run_id is None:
+            return None
+
+        if (
+            not 1 <= len(run_id) <= _MAX_WORKFLOW_RUN_ID_LENGTH
+            or run_id.startswith("@")
+            or any(character in run_id for character in "/\\#?")
+            or any(unicodedata.category(character) == "Cc" for character in run_id)
+        ):
+            raise ValueError(
+                f"'{_RUN_ID_QUERY_PARAMETER}' must be between 1 and {_MAX_WORKFLOW_RUN_ID_LENGTH} characters, "
+                "must not start with '@', and must not contain '/', '\\', '#', '?', or control characters."
+            )
+
+        return run_id
+
+    @staticmethod
+    def _try_coerce_to_bool(value: Any) -> bool | None:
+        """Convert recognized boolean representations, or return None."""
         if isinstance(value, bool):
             return value
-        if value is None:
-            return False
         if isinstance(value, (int, float)):
             return bool(value)
         if isinstance(value, str):
-            return value.strip().lower() in {"true", "1", "yes", "y", "on"}
-        return False
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "off"}:
+                return False
+        return None
+
+    def _coerce_to_bool(self, value: Any) -> bool:
+        """Convert various representations into a boolean flag."""
+        return bool(self._try_coerce_to_bool(value))

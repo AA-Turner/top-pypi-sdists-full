@@ -1,6 +1,6 @@
 [project]
 name = "spec-kitty-events"
-version = "9.1.6"
+version = "10.4.0"
 description = "Event log library with Lamport clocks and systematic error tracking"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,8 +19,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Priivacy-ai/spec-kitty-events"
-Changelog = "https://github.com/Priivacy-ai/spec-kitty-events/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/spec-kitty/spec-kitty-events"
+Changelog = "https://github.com/spec-kitty/spec-kitty-events/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
@@ -28,6 +28,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "hypothesis>=6.0.0",
     "mypy>=1.0.0",
+    "pyyaml>=6.0,<7",
 ]
 conformance = [
     "jsonschema>=4.21.0,<5.0.0",
@@ -96,6 +97,10 @@ spec_kitty_events = [
     "conformance/fixtures/zeitgeist_attrs/invalid/*.json",
     "conformance/fixtures/status_diary/replay/*.jsonl",
     "conformance/fixtures/status_diary/replay/*.json",
+    "conformance/fixtures/work_observation/valid/*.json",
+    "conformance/fixtures/work_observation/invalid/*.json",
+    "conformance/fixtures/work_observation/replay/*.jsonl",
+    "conformance/fixtures/work_observation/replay/*.json",
 ]
 
 [tool.pytest.ini_options]
@@ -158,4 +163,5 @@ dev = [
     "hypothesis>=6.0.0",
     "jsonschema>=4.21.0,<5.0.0",
     "ruff>=0.16,<0.17",
+    "pyyaml>=6.0,<7",
 ]

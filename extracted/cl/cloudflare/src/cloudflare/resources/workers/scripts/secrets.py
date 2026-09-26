@@ -71,7 +71,10 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretUpdateResponse]:
         """
-        Add a secret to a script.
+        Add a secret to a Worker script by creating a new version with that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -117,7 +120,10 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretUpdateResponse]:
         """
-        Add a secret to a script.
+        Add a secret to a Worker script by creating a new version with that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -228,7 +234,7 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[SecretListResponse]:
         """
-        List secrets bound to a script.
+        List the names of secrets bound to a Worker script.
 
         Args:
           account_id: Identifier.
@@ -275,7 +281,11 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Remove a secret from a script.
+        Remove a secret from a Worker script by creating a new version without that
+        secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -333,8 +343,10 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretBulkUpdateResponse]:
         """
-        Create, update, or delete multiple secrets on a script in a single operation
-        using JSON Merge Patch (RFC 7396).
+        Create, update, or delete multiple secrets on a Worker script in a single
+        operation using JSON Merge Patch (RFC 7396). This operation creates a single
+        version with all changes included. Prefer this API instead of changing many
+        secrets individually.
 
         Usage:
 
@@ -406,7 +418,7 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretGetResponse]:
         """
-        Get a given secret binding (value omitted) on a script.
+        Get a given secret binding (value omitted) on a Worker script.
 
         Args:
           account_id: Identifier.
@@ -492,7 +504,10 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretUpdateResponse]:
         """
-        Add a secret to a script.
+        Add a secret to a Worker script by creating a new version with that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -538,7 +553,10 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretUpdateResponse]:
         """
-        Add a secret to a script.
+        Add a secret to a Worker script by creating a new version with that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -649,7 +667,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SecretListResponse, AsyncSinglePage[SecretListResponse]]:
         """
-        List secrets bound to a script.
+        List the names of secrets bound to a Worker script.
 
         Args:
           account_id: Identifier.
@@ -696,7 +714,11 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Remove a secret from a script.
+        Remove a secret from a Worker script by creating a new version without that
+        secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -756,8 +778,10 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretBulkUpdateResponse]:
         """
-        Create, update, or delete multiple secrets on a script in a single operation
-        using JSON Merge Patch (RFC 7396).
+        Create, update, or delete multiple secrets on a Worker script in a single
+        operation using JSON Merge Patch (RFC 7396). This operation creates a single
+        version with all changes included. Prefer this API instead of changing many
+        secrets individually.
 
         Usage:
 
@@ -829,7 +853,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SecretGetResponse]:
         """
-        Get a given secret binding (value omitted) on a script.
+        Get a given secret binding (value omitted) on a Worker script.
 
         Args:
           account_id: Identifier.

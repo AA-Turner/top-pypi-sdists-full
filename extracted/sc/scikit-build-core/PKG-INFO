@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: scikit_build_core
-Version: 1.0.3
+Version: 1.1.0
 Summary: Build backend for CMake based projects
 Project-URL: Changelog, https://scikit-build-core.readthedocs.io/en/latest/changelog.html
 Project-URL: Discussions, https://github.com/orgs/scikit-build/discussions
@@ -17,7 +17,6 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -29,9 +28,8 @@ Classifier: Programming Language :: Python :: Free Threading :: 4 - Resilient
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Requires-Dist: exceptiongroup>=1.0; python_version < '3.11'
-Requires-Dist: importlib-resources>=1.3; python_version < '3.9'
 Requires-Dist: packaging>=23.2
 Requires-Dist: pathspec>=0.12.0
 Requires-Dist: tomli>=1.2.2; python_version < '3.11'
@@ -39,14 +37,14 @@ Requires-Dist: typing-extensions>=4; python_version < '3.11'
 Provides-Extra: hatchling
 Requires-Dist: hatchling>=1.24; extra == 'hatchling'
 Provides-Extra: setuptools
-Requires-Dist: setuptools>=43; (python_version < '3.9') and extra == 'setuptools'
 Requires-Dist: setuptools>=45; (python_version == '3.9') and extra == 'setuptools'
 Requires-Dist: setuptools>=49; (python_version >= '3.10' and python_version < '3.12') and extra == 'setuptools'
 Requires-Dist: setuptools>=66.1; (python_version >= '3.12') and extra == 'setuptools'
 Provides-Extra: wheel-free-setuptools
-Requires-Dist: setuptools>=70.1; (python_version >= '3.8') and extra == 'wheel-free-setuptools'
+Requires-Dist: setuptools>=70.1; extra == 'wheel-free-setuptools'
 Provides-Extra: wheels
-Requires-Dist: cmake; extra == 'wheels'
+Requires-Dist: cmake!=4.4.0; (sys_platform == 'win32') and extra == 'wheels'
+Requires-Dist: cmake; (sys_platform != 'win32') and extra == 'wheels'
 Requires-Dist: ninja; (sys_platform != 'win32') and extra == 'wheels'
 Description-Content-Type: text/markdown
 
@@ -127,7 +125,7 @@ features over classic Scikit-build:
 Current requirements:
 
 - The minimum supported CMake is 3.15
-- The minimum supported Python is 3.8 (3.7+ for 0.10.x and older)
+- The minimum supported Python is 3.9 (3.8+ for 1.0.x and older)
 
 The recommended interface is the native pyproject builder. Other backends are
 also available:
@@ -168,7 +166,7 @@ the minimum to get started.
 An example `CMakeLists.txt`:
 
 ```cmake
-cmake_minimum_required(VERSION 3.15...4.3)
+cmake_minimum_required(VERSION 3.15...4.4)
 project(scikit_build_simplest LANGUAGES C)
 
 find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
@@ -245,6 +243,7 @@ print()
 | `cmake.define` | `{}` | A table of defines to pass to CMake when configuring the project. Additive. |
 | `cmake.build-type` | `"Release"` | The build type to use when building the project. |
 | `cmake.source-dir` | `"."` | The source directory to use when building the project. |
+| `cmake.fresh` | `false` | Discard any cached CMake configuration and configure from scratch, like ``cmake --fresh``. |
 | `cmake.python-hints` | `true` | Do not pass the current environment's python hints such as ``Python_EXECUTABLE``. |
 
 ### `ninja`
@@ -270,7 +269,7 @@ print()
 | `sdist.reproducible` | `true` | Try to build a reproducible distribution. |
 | `sdist.cmake` | `false` | If set to True, CMake will be run before building the SDist. |
 | `sdist.force-include` | `{}` | Force-include files into the SDist. |
-| `sdist.resolve-symlinks` | `"all"` | Which symlinks to resolve in the SDist, storing the target's contents instead. (choices: `all`, `external`, `none`, `classic`) |
+| `sdist.resolve-symlinks` | `"all"` | Which symlinks to resolve in the SDist, storing the target's contents instead. (choices: `all`, `external`, `none`, `classic`, `error`) |
 
 ### `wheel`
 
@@ -301,7 +300,7 @@ print()
 | `editable.mode` | `"redirect"` | Select the editable mode to use. (choices: `redirect`, `inplace`) |
 | `editable.verbose` | `true` | Turn on verbose output for the editable mode rebuilds. |
 | `editable.rebuild` | `false` | Rebuild the project when the package is imported. |
-| `editable.rebuild-dir` | `""` | Install rebuildable editables into this tree (a newer alternative to ``editable.rebuild``). |
+| `editable.rebuild-dir` | `""` | Install editables into this persistent tree instead of the wheel. |
 
 ### `build`
 

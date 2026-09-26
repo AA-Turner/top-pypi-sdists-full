@@ -22,6 +22,7 @@ class AccountEditParams(TypedDict, total=False):
     """
 
     zone_defaults: ZoneDefaults
+    """Default settings for new zones created in this account."""
 
 
 class ZoneDefaultsInternalDNS(TypedDict, total=False):
@@ -83,6 +84,8 @@ class ZoneDefaultsSOA(TypedDict, total=False):
 
 
 class ZoneDefaults(TypedDict, total=False):
+    """Default settings for new zones created in this account."""
+
     flatten_all_cnames: bool
     """Whether to flatten all CNAME records in the zone.
 

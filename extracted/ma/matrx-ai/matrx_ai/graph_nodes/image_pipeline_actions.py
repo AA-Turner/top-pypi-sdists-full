@@ -32,16 +32,26 @@ from matrx_graph.types.result import NodeResult, success
 from matrx_graph.types.usl import field_extras
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
+# THE HOLDERS OF THESE THREE STEP TYPES. Each step used to hard-code its model
+# and system prompt here; both now live on the mandate's Holder agent (declared
+# in aidream ``services/mandates/code_call_mandates.py``, seeded verbatim from
+# the prompts that were here). A node config ``model`` the workflow AUTHOR set
+# still wins (run scope); left empty, the Holder's model runs.
+from matrx_ai.code_call_mandate_keys import (  # noqa: E402
+    IMAGE_CONCEPT_MANDATE,
+    IMAGE_PROMPT_WRITE_MANDATE,
+    IMAGE_QC_JUDGE_MANDATE,
+)
 from matrx_ai.graph_nodes._strict_json import (
     StrictJsonError,
-    llm_messages_to_pydantic,
-    llm_to_pydantic,
     node_panel_hooks,
 )
+from matrx_ai.mandates import hold_code_call, run_held_pydantic
 
-DEFAULT_CONCEPT_MODEL = "claude-sonnet-4-6"
-DEFAULT_PROMPT_MODEL = "claude-haiku-4-5-20251001"
-DEFAULT_QC_MODEL = "claude-sonnet-4-6"
+_MODEL_FIELD_DESCRIPTION = (
+    "Leave empty to run the model this step's mandate Holder names; set it only to "
+    "override that for this workflow."
+)
 
 
 class ImagePipelineError(StrictJsonError):
@@ -95,7 +105,7 @@ class ConceptGenerateInput(BaseModel):
         default=None,
         description="Optional global style hint applied to every concept.",
     )
-    model: str = Field(default=DEFAULT_CONCEPT_MODEL)
+    model: str | None = Field(default=None, description=_MODEL_FIELD_DESCRIPTION)
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -128,18 +138,7 @@ async def image_concept_generate(
         else ""
     )
 
-    system_instruction = (
-        "You select strong visual concepts for illustrating a topic. "
-        # The enforced schema (with the leading __kind discriminator) is
-        # appended by llm_to_pydantic itself — a second, __kind-less copy here
-        # would contradict the wire schema the model is bound to.
-        "Rules:\n"
-        "1. Choose visually distinct concepts — do not pick three near-identical ideas.\n"
-        "2. Each concept should be illustratable in a single image.\n"
-        "3. Prefer concrete, image-able subjects over abstractions.\n"
-        "4. Avoid copyrighted characters, real people, brand logos.\n"
-        "5. Output JSON ONLY. No prose, no preamble, no code fences."
-    )
+    held = await hold_code_call(IMAGE_CONCEPT_MANDATE, consumer="ai.image.concept_generate")
     user_message = (
         f"Topic: {inputs.topic}\n"
         f"Generate exactly {inputs.num_concepts} visual concepts.{audience_clause}{style_clause}"
@@ -149,12 +148,12 @@ async def image_concept_generate(
         # Raised errors (ImagePipelineError) are synthesized by the scheduler
         # into the same Failure shape — code = exception class name.
         return success(
-            await llm_to_pydantic(
-                model=inputs.model,
-                system=system_instruction,
+            await run_held_pydantic(
+                held,
                 user=user_message,
                 output_cls=ConceptGenerateOutput,
-                max_tokens=2048,
+                model=inputs.model,
+                unset_max_tokens=2048,
                 metadata=inputs.metadata,
                 on_delta=on_delta,
                 on_reset=on_reset,
@@ -205,7 +204,7 @@ class PromptWriteInput(BaseModel):
         ),
     )
     aspect_ratio: str = Field(default="1:1")
-    model: str = Field(default=DEFAULT_PROMPT_MODEL)
+    model: str | None = Field(default=None, description=_MODEL_FIELD_DESCRIPTION)
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
 
 
@@ -265,21 +264,7 @@ async def image_prompt_write(
         style_layers.append(preset_text)
     style_block = ", ".join(s for s in style_layers if s)
 
-    system_instruction = (
-        "You write image-generation prompts. You receive ONE concept and "
-        "produce ready-to-execute prompts.\n"
-        # The enforced schema (with the leading __kind discriminator) is
-        # appended by llm_to_pydantic itself — a second, __kind-less copy here
-        # would contradict the wire schema the model is bound to.
-        "Rules:\n"
-        "1. Each `prompt` is a single dense sentence (40-80 words), describing "
-        "subject, composition, lighting, materials, mood — in that order.\n"
-        "2. `negative_prompt` lists what to avoid; keep it short, comma-separated.\n"
-        "3. `aspect_ratio` reflects the user's request unless the concept "
-        "demands otherwise (e.g. 'isometric-diagram' → 4:3 or 16:9).\n"
-        "4. NO copyrighted characters, real people, brand logos.\n"
-        "5. Output JSON ONLY. No prose, no preamble, no code fences."
-    )
+    held = await hold_code_call(IMAGE_PROMPT_WRITE_MANDATE, consumer="ai.image.prompt_write")
     user_message = (
         f"Concept name: {inputs.concept.name}\n"
         f"Concept description: {inputs.concept.description}\n"
@@ -291,12 +276,12 @@ async def image_prompt_write(
     try:
         # Raised errors (ImagePipelineError) are synthesized by the scheduler
         # into the same Failure shape — code = exception class name.
-        written = await llm_to_pydantic(
-            model=inputs.model,
-            system=system_instruction,
+        written = await run_held_pydantic(
+            held,
             user=user_message,
             output_cls=_PromptWriteLlmOutput,
-            max_tokens=1024,
+            model=inputs.model,
+            unset_max_tokens=1024,
             metadata=inputs.metadata,
             on_delta=on_delta,
             on_reset=on_reset,
@@ -362,7 +347,7 @@ class ImageQcInput(BaseModel):
             "'no text overlay', 'photorealistic, not cartoon')."
         ),
     )
-    model: str = Field(default=DEFAULT_QC_MODEL)
+    model: str | None = Field(default=None, description=_MODEL_FIELD_DESCRIPTION)
     api_key: str | None = Field(
         default=None,
         description="Override ANTHROPIC_API_KEY for this call.",
@@ -469,18 +454,16 @@ async def image_qc_judge(
             "undermine the pipeline."
         ),
     }
+    held = await hold_code_call(IMAGE_QC_JUDGE_MANDATE, consumer="ai.image.qc_judge")
     try:
-        verdict = await llm_messages_to_pydantic(
-            model=inputs.model,
-            system=(
-                "You are an exacting visual-quality evaluator. Judge only the supplied "
-                "image against the user's rubric and report concrete evidence."
-            ),
+        verdict = await run_held_pydantic(
+            held,
             messages=[{"role": "user", "content": [image_block, text_block]}],
             output_cls=ImageQcVerdict,
-            max_tokens=1024,
+            model=inputs.model,
+            unset_max_tokens=1024,
             api_keys={"ANTHROPIC_API_KEY": api_key},
-            metadata=getattr(inputs, "metadata", None),
+            metadata=getattr(inputs, "metadata", None) or {},
             on_delta=on_delta,
             on_reset=on_reset,
             # The MODEL emits the inner verdict, and `image_qc_verdict` is its

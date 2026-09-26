@@ -96,7 +96,7 @@ def get_path(
         - ``bravais_lattice``: the Bravais lattice string (like ``cP``, ``tI``, ...)
         - ``bravais_lattice_extended``: the specific case used to define labels and
           coordinates (like ``cP1``, ``tI2``, ...)
-        - ``cont_lattice``: three real-space vectors for the crystallographic
+        - ``conv_lattice``: three real-space vectors for the crystallographic
           conventional cell (``conv_lattice[0,:]`` is the first vector)
         - ``conv_positions``: fractional coordinates of atoms in the
           crystallographic conventional cell
@@ -119,9 +119,10 @@ def get_path(
         - ``rotation_matrix``: rotation matrix in Cartesian space from the input
           cell to the standardized cell
         - ``volume_original_wrt_conv``: volume ratio of the user-provided cell
-          with respect to the the crystallographic conventional cell
+          with respect to the crystallographic conventional cell
         - ``volume_original_wrt_prim``: volume ratio of the user-provided cell
-          with respect to the the crystallographic primitive cell
+          with respect to the crystallographic primitive cell (both volume
+          ratios are negative if the user-provided cell is left-handed)
 
     :note: An :py:exc:`~seekpath.hpkot.EdgeCaseWarning` is issued for
         edge cases (e.g. if ``a==b==c`` for

@@ -175,7 +175,7 @@ class ItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ItemDeleteResponse:
         """
-        Deletes a file from a managed AI Search instance and triggers a reindex.
+        Deletes a file from a managed AI Search instance and removes its indexed data.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -772,7 +772,7 @@ class AsyncItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ItemDeleteResponse:
         """
-        Deletes a file from a managed AI Search instance and triggers a reindex.
+        Deletes a file from a managed AI Search instance and removes its indexed data.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.

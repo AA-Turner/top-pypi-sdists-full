@@ -8,7 +8,6 @@ import argparse
 import json
 from typing import Any, Dict, Optional
 
-from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
@@ -18,9 +17,9 @@ from src.cli.utils.formatters import (
     format_error,
     format_success,
 )
-from src.version import get_display_version
+from src.cli.utils.presentation import make_console, print_identity
 
-console = Console()
+console = make_console()
 
 
 class UtilityCommands:
@@ -151,7 +150,6 @@ class UtilityCommands:
         for label, key in (
             ("Version", "version"),
             ("Environment", "environment"),
-            ("Port", "port"),
         ):
             value = health.get(key)
             table.add_row(label, str(value) if value is not None else "[dim]-[/dim]")
@@ -161,11 +159,9 @@ class UtilityCommands:
 
     @staticmethod
     async def _handle_version(args: argparse.Namespace, config) -> int:
-        version = get_display_version()
-
-        console.print(f"[bold blue]InnoDay CLI[/bold blue] {version}")
+        print_identity()
         console.print()
-        console.print("[dim]Configuration:[/dim]")
+        console.print("[muted]Configuration:[/muted]")
         console.print(f"  Config file: {config.config_path}")
         console.print(f"  API URL: {config.get_api_url()}")
 
@@ -173,16 +169,16 @@ class UtilityCommands:
         if current_org:
             console.print(f"  Organization: {current_org}")
         else:
-            console.print("  Organization: [red]Not configured[/red]")
+            console.print("  Organization: [bad]Not configured[/bad]")
 
         console.print()
-        console.print("[dim]Service Status:[/dim]")
+        console.print("[muted]Service Status:[/muted]")
 
         async with InnoDayAPIClient(config) as client:
             try:
                 await client.ping_api()
-                console.print("  API: [green]✓ Online[/green]")
+                console.print("  API: [good]✓ Online[/good]")
             except APIError:
-                console.print("  API: [red]✗ Offline[/red]")
+                console.print("  API: [bad]✗ Offline[/bad]")
 
         return 0

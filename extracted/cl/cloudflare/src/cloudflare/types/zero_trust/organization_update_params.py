@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from typing import List, Iterable
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
 from ..._types import SequenceNotStr
 from .login_design_param import LoginDesignParam
 
-__all__ = ["OrganizationUpdateParams", "CustomPages", "MfaConfig", "MfaPivKeyRequirements"]
+__all__ = ["OrganizationUpdateParams", "CustomPages", "MfaConfig", "MfaPivKeyRequirements", "ServiceTokenInactivity"]
 
 
 class OrganizationUpdateParams(TypedDict, total=False):
@@ -77,6 +77,15 @@ class OrganizationUpdateParams(TypedDict, total=False):
 
     name: str
     """The name of your Zero Trust organization."""
+
+    service_token_inactivity: ServiceTokenInactivity
+    """Configures automatic enforcement for inactive service tokens.
+
+    A service token is inactive if no policy references it, and it has not
+    successfully authenticated with an Access application during the selected
+    inactivity period. This setting applies to every service token in your Zero
+    Trust account.
+    """
 
     session_duration: str
     """The amount of time that tokens issued for applications will be valid.
@@ -184,4 +193,23 @@ class MfaPivKeyRequirements(TypedDict, total=False):
 
     Valid values: `never` (no touch required), `always` (touch required for each
     use), `cached` (touch cached for 15 seconds).
+    """
+
+
+class ServiceTokenInactivity(TypedDict, total=False):
+    """Configures automatic enforcement for inactive service tokens.
+
+    A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
+    """
+
+    action: Required[Literal["disable", "delete"]]
+    """The action applied to an inactive service token."""
+
+    enabled: Required[bool]
+    """Whether automatic enforcement for inactive service tokens is enabled."""
+
+    inactivity_threshold_days: Required[int]
+    """
+    The number of days a service token must be inactive before the configured action
+    is applied.
     """

@@ -56,8 +56,6 @@ from .user_update_response import UserUpdateResponse as UserUpdateResponse
 from .group_create_response import GroupCreateResponse as GroupCreateResponse
 from .group_delete_response import GroupDeleteResponse as GroupDeleteResponse
 from .group_update_response import GroupUpdateResponse as GroupUpdateResponse
-from .bookmark_create_params import BookmarkCreateParams as BookmarkCreateParams
-from .bookmark_update_params import BookmarkUpdateParams as BookmarkUpdateParams
 from .policy_create_response import PolicyCreateResponse as PolicyCreateResponse
 from .policy_delete_response import PolicyDeleteResponse as PolicyDeleteResponse
 from .policy_update_response import PolicyUpdateResponse as PolicyUpdateResponse

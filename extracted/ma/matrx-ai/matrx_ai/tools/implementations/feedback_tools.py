@@ -56,9 +56,9 @@ _DEDUP_MAX_AGE_DAYS = 30
 _ADMIN_ERR = ToolError(
     error_type="not_allowed",
     message=(
-        "report_trace_incident / get_open_trace_incidents require an "
-        "admin user (defensive — tool_def.admin_only=true is the primary "
-        "gate)."
+        "report_trace_incident / get_open_trace_incidents are admin tools: "
+        "they work only from the admin app or the admin MCP, never from a "
+        "normal chat."
     ),
 )
 
@@ -89,7 +89,9 @@ def _assert_admin(ctx: ToolContext) -> ToolError | None:
         app_ctx = get_app_context()
     except Exception:
         return _ADMIN_ERR
-    if not getattr(app_ctx, "is_admin", False):
+    from matrx_connect import admin_surface_active
+
+    if not admin_surface_active(app_ctx):
         return _ADMIN_ERR
     return None
 

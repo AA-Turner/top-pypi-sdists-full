@@ -123,10 +123,13 @@ class Meta(BaseModel):
 
 class Summary0(BaseModel):
     p25: str
+    """A numeric string."""
 
     p50: str
+    """A numeric string."""
 
     p75: str
+    """A numeric string."""
 
 
 class IQISummaryResponse(BaseModel):

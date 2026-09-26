@@ -5,13 +5,12 @@ from typing import Any
 from pyrig.core.subprocesses import Args
 from pyrig.rig.tools.base.hooks import CheckHookTool
 from pyrig.rig.tools.base.tool import Group
-from pyrig.rig.tools.packages.manager import PackageManager
-from pyrig.rig.tools.typing.checker import TypeChecker
+from pyrig.rig.tools.formatting.end_of_file import EndOfFileFormatter
 from pyrig.rig.tools.version_control.hooks.manager import VersionControlHookManager
 
 
 class CaseConflictChecker(CheckHookTool):
-    """Type-safe wrapper for the pre-commit-hooks case conflict checker."""
+    """Type-safe wrapper for prek's pre-commit-hooks-compatible case checker."""
 
     def group(self) -> str:
         """Return `Group.CODE_QUALITY`, the badge group this tool belongs to."""
@@ -30,8 +29,8 @@ class CaseConflictChecker(CheckHookTool):
         return "check-case-conflict"
 
     def dev_dependencies(self) -> tuple[str, ...]:
-        """Return the package providing `check-case-conflict`."""
-        return ("pre-commit-hooks",)
+        """Return no package dependency; prek provides this built-in hook."""
+        return ()
 
     def check_args(self, *args: str) -> Args:
         """Construct check-case-conflict arguments.
@@ -47,31 +46,30 @@ class CaseConflictChecker(CheckHookTool):
         Returns:
             Args for `check-case-conflict`.
         """
-        return self.args(*args)
+        return Args(*args)
 
     def check_hook(self) -> dict[str, Any]:
         """Return the hook metadata for checking for case-conflicting filenames.
 
         Left without a `types` restriction so it matches every file, like
         `check-added-large-files`: a case collision can occur between any
-        two tracked paths regardless of content type. Ties its priority to
-        `TypeChecker.check_hook` so it runs alongside the rest of the
-        checks tier rather than after it.
+        two tracked paths regardless of content type. It runs after the
+        general text-fixing chain.
 
         Returns:
             Hook metadata dict for `check-case-conflict`.
         """
-        return VersionControlHookManager.I.hook(
+        return VersionControlHookManager.I.builtin_hook(
             self.check_case_conflict,
-            priority=VersionControlHookManager.I.hook_priority(
-                TypeChecker.I.check_hook(),
+            priority=VersionControlHookManager.I.deprioritize(
+                EndOfFileFormatter.I.format_hook(),
             ),
         )
 
     def check_case_conflict(self) -> Args:
-        """Return the `Args` this hook's entry runs.
+        """Return arguments for the built-in hook.
 
         Returns:
-            Args for `uv run check-case-conflict`.
+            Arguments passed to `check-case-conflict`.
         """
-        return PackageManager.I.run_args(*self.check_args())
+        return self.check_args()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import List
-from typing_extensions import Annotated, TypedDict
+from typing_extensions import Literal, Annotated, TypedDict
 
 from ...._types import SequenceNotStr
 from ...._utils import PropertyInfo
@@ -37,6 +37,8 @@ class TypeGetParams(TypedDict, total=False):
     severity: List[SeverityQueryParam]
 
     severity_neq: Annotated[List[SeverityQueryParam], PropertyInfo(alias="severity~neq")]
+
+    source: List[Literal["cloudflare", "riskrecon"]]
 
     subject: SequenceNotStr[str]
 

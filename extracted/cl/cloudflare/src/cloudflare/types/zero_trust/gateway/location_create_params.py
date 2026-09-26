@@ -12,6 +12,7 @@ __all__ = ["LocationCreateParams", "MaxTTL", "Network"]
 
 class LocationCreateParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     name: Required[str]
     """Specify the location name."""

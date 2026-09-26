@@ -10,6 +10,7 @@ d_member/org_id:
     - r:organization_name/org_id
 ws_member/org_id,ws_id:
     - r:workspace_meta/org_id,ws_id
+    - r:flow_meta/org_id,ws_id
 ws_viewer/org_id,ws_id:
     - agent_viewer/org_id,ws_id
     - connection_viewer/org_id,ws_id

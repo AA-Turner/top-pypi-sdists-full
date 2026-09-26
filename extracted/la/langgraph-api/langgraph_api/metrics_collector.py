@@ -76,7 +76,13 @@ async def _collect_queue_and_workers(reporter) -> None:
     (``not IS_QUEUE_ENTRYPOINT``) on **postgres**: inmem skips the DB round-trip,
     and the dedicated queue worker leaves it to the API process so the global value
     is not double-reported across the queue/API split.
+
+    Skipped entirely when ``DISPATCH_MODE=multi-process``: the Go queue worker's
+    stats loop owns worker gauges and queue depth.
     """
+    if config.DISPATCH_MODE == config.DispatchMode.MULTI_PROCESS:
+        return
+
     if config.N_JOBS_PER_WORKER > 0:
         workers = get_metrics()["workers"]
         reporter.record_gauge(GAUGE_WORKERS_MAX, workers["max"])

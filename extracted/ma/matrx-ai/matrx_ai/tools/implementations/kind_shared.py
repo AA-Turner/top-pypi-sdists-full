@@ -629,16 +629,16 @@ def ctx_org_id(ctx: ToolContext) -> str | None:
 
 
 def ctx_is_admin(ctx: ToolContext) -> bool:
-    """True only when the calling request's authenticated user is a platform
-    admin (``AppContext.is_admin`` — an ``admin.admins`` row resolved at JWT
-    auth, matrx-connect). Fail-closed: no context or any error reads as
-    non-admin. This gates the ``platform_kind`` mint path — never widen it to
-    org-admin or any softer signal."""
+    """True only for a platform admin acting from an ADMIN SURFACE (the admin
+    app or the admin MCP — ``matrx_connect.admin_surface_active``). An admin in
+    a normal chat is an ordinary person (THE ADMIN LANE, 2026-09-25). Fail-
+    closed: no context or any error reads as non-admin. This gates the
+    ``platform_kind`` mint path — never widen it to org-admin or any softer
+    signal."""
     try:
-        from matrx_ai.context.app_context import try_get_app_context
+        from matrx_connect import admin_surface_active
 
-        app_ctx = try_get_app_context()
-        return bool(getattr(app_ctx, "is_admin", False))
+        return admin_surface_active()
     except Exception:  # noqa: BLE001 — fail closed
         return False
 
@@ -814,22 +814,27 @@ SHAPE_AUTHORING_REFUSAL = (
 async def is_platform_shape_author(user_id: str) -> bool:
     """``public.is_platform_admin_for(user_id)`` — the by-user-id twin of the
     ``is_platform_admin()`` the table's own RLS and the
-    ``zzz_component_author_gate`` trigger call. Fail-closed."""
-    if not user_id:
+    ``zzz_component_author_gate`` trigger call. Fail-closed.
+
+    THE ADMIN LANE (2026-09-25): the database answers yes only inside the admin
+    lane, and this door opens it only for a run started from an admin surface —
+    from a normal chat the answer is no before the database is even asked."""
+    if not user_id or not ctx_is_admin(None):  # type: ignore[arg-type]
         return False
     try:
-        from matrx_orm import call_function
+        from matrx_orm import admin_lane, call_function
 
         database = get_db_model("KindDefinition")._database
-        return bool(
-            await call_function(
-                database,
-                "public",
-                "is_platform_admin_for",
-                user_id,
-                mode="scalar",
+        async with admin_lane(database=database):
+            return bool(
+                await call_function(
+                    database,
+                    "public",
+                    "is_platform_admin_for",
+                    user_id,
+                    mode="scalar",
+                )
             )
-        )
     except Exception:  # noqa: BLE001 — fail closed, never raise into the tool
         logger.warning(
             "platform-staff check failed for user %s — refusing (fail-closed)",
@@ -860,8 +865,9 @@ async def ensure_platform_shape_author(ctx: ToolContext) -> ToolResult | None:
     return err(
         "forbidden",
         SHAPE_AUTHORING_REFUSAL,
-        "Ask an AI Matrx platform admin to author or change this component, or "
-        "use the built-in shape components until custom authoring opens.",
+        "Ask an AI Matrx platform admin to author or change this component from "
+        "the admin app, or use the built-in shape components until custom "
+        "authoring opens.",
     )
 
 

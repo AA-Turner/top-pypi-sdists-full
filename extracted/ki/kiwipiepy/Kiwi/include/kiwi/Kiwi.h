@@ -2,8 +2,6 @@
  * @file Kiwi.h
  * @author bab2min (bab2min@gmail.com)
  * @brief Kiwi C++ API를 담고 있는 헤더 파일
- * @version 0.23.1
- * @date 2026-04-05
  * 
  * 
  */
@@ -41,11 +39,15 @@ namespace kiwi
 	struct KGraphNode;
 	struct WordInfo;
 	class HSDataset;
+	class GenerativeMADataset;
+	struct GenerativeMAOption;
+	class BpeTokenizer;
 
 	struct HSDatasetOption
 	{
 		double dropoutProb = 0;
 		double dropoutProbOnHistory = 0;
+		double ssAugmentingProb = 0;
 		double nounAugmentingProb = 0;
 		double emojiAugmentingProb = 0;
 		double sbAugmentingProb = 0;
@@ -217,11 +219,13 @@ namespace kiwi
 			doubleQuoteOpen,
 			doubleQuoteClose,
 			doubleQuoteNA,
+			parenthesisOpen,
+			parenthesisClose,
 			max,
 		};
 
 	private:
-		std::array<size_t, static_cast<size_t>(SpecialMorph::max)> specialMorphIds = { { 0, } };
+		std::array<uint32_t, static_cast<size_t>(SpecialMorph::max)> specialMorphIds = { { 0, } };
 
 		template<class Str, class Pretokenized, class ...Rest>
 		auto _asyncAnalyze(Str&& str, Pretokenized&& pt, const std::optional<KiwiConfig>& overrideConfig, Rest&&... args) const;
@@ -483,6 +487,66 @@ namespace kiwi
 			TokenResult* tokenizedResultOut = nullptr
 		) const;
 
+		/**
+		 * @brief 입력 텍스트의 띄어쓰기를 교정하여 반환한다.
+		 *
+		 * @param str 띄어쓰기를 교정할 텍스트
+		 * @param resetWhitespace true인 경우 이미 띄어쓰기된 부분을 붙이는 교정도 적극적으로 수행한다.
+		 * false인 경우 붙어 있는 단어를 띄어쓰는 교정 위주로 수행한다.
+		 * @return 띄어쓰기가 교정된 텍스트
+		 *
+		 * @note 이 기능은 형태소 분석에 기반하므로 형태소 중간에 공백이 삽입된 경우 결과가 부정확할 수 있다.
+		 * 이 경우 `KiwiConfig::spaceTolerance`를 조절하여 형태소 내 공백을 무시하거나,
+		 * `resetWhitespace`를 true로 설정하면 결과를 개선할 수 있다.
+		 */
+		std::u16string space(const std::u16string& str, bool resetWhitespace = false) const;
+
+		/**
+		 * @brief 입력 텍스트의 띄어쓰기를 교정하여 반환한다. (UTF-8 버전)
+		 *
+		 * @param str 띄어쓰기를 교정할 텍스트
+		 * @param resetWhitespace true인 경우 이미 띄어쓰기된 부분을 붙이는 교정도 적극적으로 수행한다.
+		 * @return 띄어쓰기가 교정된 텍스트
+		 *
+		 * @sa `kiwi::Kiwi::space`
+		 */
+		std::string space(const std::string& str, bool resetWhitespace = false) const;
+
+		/**
+		 * @brief 여러 텍스트 조각을 하나로 합치되, 문맥을 고려해 적절한 공백을 사이에 삽입한다.
+		 *
+		 * @param textChunks 합칠 텍스트 조각들의 목록. 각 조각의 앞뒤 공백은 제거된다.
+		 * @param insertNewLines 조각 사이에 공백 대신 줄바꿈을 삽입할지 여부.
+		 * 비어있는 경우 줄바꿈을 사용하지 않고 공백만을 사용한다.
+		 * 비어있지 않으면서 크기가 `textChunks.size() - 1`보다 작은 경우, 값이 모자라는 지점에서
+		 * 결합을 중단하므로 그 뒤의 조각들은 결과에 포함되지 않는다.
+		 * @param spaceInsertionsOut nullptr이 아닌 경우 조각 사이마다 공백이 삽입되었는지 여부를 기록한다.
+		 * 기록되는 원소의 개수는 결합이 중단되지 않은 경우 `textChunks.size() - 1`이다.
+		 * @return 조각들이 합쳐진 텍스트
+		 *
+		 * @note 공백 삽입 여부는 공백을 넣은 경우와 넣지 않은 경우를 각각 분석하여
+		 * 언어 모델 점수가 더 높은 쪽을 선택하는 방식으로 결정된다.
+		 */
+		std::u16string glue(const std::vector<std::u16string>& textChunks,
+			const std::vector<uint8_t>& insertNewLines = {},
+			std::vector<uint8_t>* spaceInsertionsOut = nullptr
+		) const;
+
+		/**
+		 * @brief 여러 텍스트 조각을 하나로 합치되, 문맥을 고려해 적절한 공백을 사이에 삽입한다. (UTF-8 버전)
+		 *
+		 * @param textChunks 합칠 텍스트 조각들의 목록. 각 조각의 앞뒤 공백은 제거된다.
+		 * @param insertNewLines 조각 사이에 공백 대신 줄바꿈을 삽입할지 여부.
+		 * @param spaceInsertionsOut nullptr이 아닌 경우 조각 사이마다 공백이 삽입되었는지 여부를 기록한다.
+		 * @return 조각들이 합쳐진 텍스트
+		 *
+		 * @sa `kiwi::Kiwi::glue`
+		 */
+		std::string glue(const std::vector<std::string>& textChunks,
+			const std::vector<uint8_t>& insertNewLines = {},
+			std::vector<uint8_t>* spaceInsertionsOut = nullptr
+		) const;
+
 
 		template<class LmState>
 		cmb::AutoJoiner newJoinerImpl() const;
@@ -725,7 +789,7 @@ namespace kiwi
 
 		void addAllomorphsToRule();
 
-		std::array<size_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> getSpecialMorphs() const;
+		std::array<uint32_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> getSpecialMorphs() const;
 
 	public:
 
@@ -971,6 +1035,27 @@ namespace kiwi
 			const std::vector<std::pair<size_t, std::vector<uint32_t>>>& contextualMapper = {},
 			HSDataset* splitDataset = nullptr,
 			const std::vector<std::pair<std::pair<std::string, POSTag>, std::vector<std::pair<std::string, POSTag>>>>* transform = nullptr
+		) const;
+
+		/**
+		 * @brief 생성형 형태소 분석 모델 학습용 데이터셋을 생성한다.
+		 *
+		 * @param tokenizer 문장 및 형태소열을 토큰화하는 데에 사용할 BpeTokenizer. 내부에 복사되어 보관된다.
+		 * @param option 토큰열에 삽입될 특수 토큰(<|ToMorpheme|>, <|ToSurface|>, 품사 태그)의 ID
+		 * @param batchSize 한 배치에 포함될 데이터의 개수
+		 * @param maxSeqLength 한 데이터의 최대 길이. 이를 초과하는 문장은 데이터셋에서 제외된다.
+		 * @param numWorkers 형태소 분석 및 토큰화에 사용할 스레드 개수. 0인 경우 별도의 스레드를 사용하지 않는다.
+		 * @param typos 원문에 오타를 넣을 때 쓸 오타 규칙. `option.typoProb`가 0보다 큰 경우에만 쓰이며,
+		 *              이때 비어있으면 안 된다. 예: `getDefaultTypoSet(DefaultTypoSet::basicTypoSetWithContinual)`
+		 * @return 문장이 하나도 추가되지 않은 빈 GenerativeMADataset. `addSentence`로 문장을 추가한 뒤 사용한다.
+		 */
+		GenerativeMADataset makeGenerativeMADataset(
+			const BpeTokenizer& tokenizer,
+			const GenerativeMAOption& option,
+			size_t batchSize,
+			size_t maxSeqLength,
+			size_t numWorkers = 0,
+			const TypoTransformer& typos = {}
 		) const;
 
 		BuildOption getOptions() const { return options; }

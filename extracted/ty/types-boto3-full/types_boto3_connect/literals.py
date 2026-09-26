@@ -591,6 +591,7 @@ HoursOfOperationDaysType = Literal[
 InboundMessageSourceTypeType = Literal["RAW"]
 InitiateAsType = Literal["COMPLETED", "CONNECTED_TO_USER"]
 InstanceAttributeTypeType = Literal[
+    "AUTO_MUTE_AGENT_ON_HOLD",
     "AUTO_RESOLVE_BEST_VOICES",
     "CONTACTFLOW_LOGS",
     "CONTACT_LENS",

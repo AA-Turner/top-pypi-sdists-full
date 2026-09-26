@@ -47,20 +47,21 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol
-from urllib.parse import parse_qs, urlencode, urlparse
+from urllib.parse import urlencode, urlparse
 
 import httpx
 
 from ..._artifact._download_client import _is_trusted_download_host
 from ..._artifact._redirect_guard import redirect_revalidation_hooks
 from ..._artifact.downloads import _await_writer_exit
+from ..._http_client_factory import HttpClientFactories
+from ..._runtime.helpers import map_google_http_status
+from ..._source.drive import DriveRef, parse_drive_ref
 from ..._types.sources import _HTML_FILE_EXTENSIONS, _UPLOAD_FILE_EXTENSIONS
 from ...exceptions import (
     ArtifactDownloadError,
     AuthError,
     NetworkError,
-    RateLimitError,
-    ServerError,
     ValidationError,
 )
 from ._upload_decode import _validate_upload_file_supported
@@ -99,9 +100,6 @@ _DRIVE_WRITER_QUEUE_SIZE = 8
 
 # A raw Drive file id, or the id embedded in a share URL. Drive ids are long
 # base64url-ish tokens; the 20-char floor rejects obviously-too-short junk.
-_DRIVE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{20,}$")
-_DRIVE_URL_PATH_ID_RE = re.compile(r"/(?:file/)?d/([A-Za-z0-9_-]{20,})")
-
 # Extensions NotebookLM's resumable upload accepts → download + upload route.
 # Derived from the single declaration in ``_types.sources`` (dot-stripped: this
 # router compares against ``_extension()``'s bare suffix), so the Drive route and
@@ -165,7 +163,12 @@ class AddFile(Protocol):
 StreamingClientFactory = Callable[[httpx.Cookies, httpx.Timeout], httpx.AsyncClient]
 
 
-def _default_streaming_client(cookies: httpx.Cookies, timeout: httpx.Timeout) -> httpx.AsyncClient:
+def _default_streaming_client(
+    cookies: httpx.Cookies,
+    timeout: httpx.Timeout,
+    *,
+    http_client_factories: HttpClientFactories | None = None,
+) -> httpx.AsyncClient:
     """Build the httpx streaming download client (reuses the download wiring).
 
     Mirrors the httpx branch of ``_artifact/_download_client.py::_make_download_client``
@@ -173,59 +176,15 @@ def _default_streaming_client(cookies: httpx.Cookies, timeout: httpx.Timeout) ->
     ``.google.com`` trusted-host guard) but is consumed via ``client.stream(...)``
     rather than the buffering GET, so an over-cap body is never buffered.
     """
-    return httpx.AsyncClient(
+    factory = (
+        httpx.AsyncClient if http_client_factories is None else http_client_factories.create_httpx
+    )
+    return factory(
         cookies=cookies,
         follow_redirects=True,
         timeout=timeout,
         headers={"User-Agent": _BROWSER_UA},
         event_hooks=redirect_revalidation_hooks(_is_trusted_download_host),
-    )
-
-
-@dataclass(frozen=True)
-class DriveRef:
-    """A parsed Drive reference: the file id plus an optional resource key.
-
-    Link-shared files carry a ``resourcekey`` in the share URL that the download
-    request MUST echo back, or Drive refuses the fetch (403 / permission page).
-    """
-
-    file_id: str
-    resource_key: str | None = None
-
-
-def parse_drive_ref(id_or_url: str) -> DriveRef:
-    """Parse a raw Drive file id or a Drive share URL into a :class:`DriveRef`.
-
-    Accepts a raw id, or a ``https://…`` URL (on a Google host) of the ``/d/<id>``,
-    ``/file/d/<id>/…``, or ``?id=<id>`` shapes, preserving a ``resourcekey`` query
-    param when present. A URL on a NON-Google host is rejected — an id-shaped path
-    segment under ``evil.example`` is not a Drive reference. Rejects anything that
-    does not yield a valid id.
-    """
-    candidate = (id_or_url or "").strip()
-    if not candidate:
-        raise ValidationError("A Google Drive file id or share URL is required.")
-    if _DRIVE_ID_RE.fullmatch(candidate):
-        return DriveRef(file_id=candidate)
-
-    parsed = urlparse(candidate)
-    # Only extract from a URL that is actually a Google host (reuses the download
-    # trusted-host allowlist: *.google.com / *.googleusercontent.com / …); a bare
-    # id with no scheme/host stays accepted via the fullmatch above.
-    if parsed.scheme in ("http", "https") and _is_trusted_download_host(parsed.hostname):
-        query = parse_qs(parsed.query)
-        resource_key = next((v for v in query.get("resourcekey", []) if v), None)
-        for value in query.get("id", []):
-            if _DRIVE_ID_RE.fullmatch(value):
-                return DriveRef(file_id=value, resource_key=resource_key)
-        path_match = _DRIVE_URL_PATH_ID_RE.search(parsed.path)
-        if path_match:
-            return DriveRef(file_id=path_match.group(1), resource_key=resource_key)
-
-    raise ValidationError(
-        f"Could not parse a Google Drive file id from {id_or_url!r}. Pass a raw file id "
-        "or a Drive URL like https://drive.google.com/file/d/<id>/view."
     )
 
 
@@ -376,18 +335,31 @@ class DriveFetcher:
         *,
         cookies_provider: Callable[[], httpx.Cookies],
         client_factory: StreamingClientFactory = _default_streaming_client,
+        http_client_factories: HttpClientFactories | None = None,
         max_bytes: int = _MAX_DRIVE_DOWNLOAD_BYTES,
         authuser: str | None = None,
         temp_dir: Path | None = None,
+        timeout: httpx.Timeout | None = None,
     ) -> None:
         self._cookies_provider = cookies_provider
         self._client_factory = client_factory
+        if http_client_factories is not None and client_factory is _default_streaming_client:
+            from functools import partial
+
+            self._client_factory = partial(
+                _default_streaming_client, http_client_factories=http_client_factories
+            )
         self._max_bytes = max_bytes
         # Routes a multi-login cookie jar to the SELECTED account (else authuser=0).
         self._authuser = authuser
         # Where temp downloads land; ``None`` = the system temp dir. Injectable so
         # concurrent downloads (and tests) can scope their own directory.
         self._temp_dir = temp_dir
+        self._timeout = (
+            timeout
+            if timeout is not None
+            else httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=30.0)
+        )
 
     async def __call__(self, ref: DriveRef) -> DriveDownload:
         url = _download_url(ref.file_id, authuser=self._authuser, resource_key=ref.resource_key)
@@ -407,8 +379,7 @@ class DriveFetcher:
         self, url: str, ref: DriveRef, *, allow_confirm: bool
     ) -> DriveDownload | _ConfirmRedirect:
         file_id = ref.file_id
-        timeout = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=30.0)
-        client = self._client_factory(self._cookies_provider(), timeout)
+        client = self._client_factory(self._cookies_provider(), self._timeout)
         try:
             async with client:  # noqa: SIM117 - stream() nested so the client is entered first
                 async with client.stream("GET", url) as response:
@@ -428,19 +399,21 @@ class DriveFetcher:
     ) -> DriveDownload | _ConfirmRedirect:
         file_id = ref.file_id
         status = response.status_code
-        # 401 → expired session (re-auth path). 403 is NOT decided here: Drive
-        # returns 403 + an HTML permission page, which the discriminator handles.
-        if status == 401:
-            raise AuthError("Drive authentication expired — run `notebooklm login`, then retry.")
-        if status == 429:
-            raise RateLimitError(
-                f"Drive throttled the download (HTTP 429) for {file_id}; retry after a delay."
-            )
-        if status >= 500:
-            raise ServerError(
-                f"Drive returned HTTP {status} while fetching {file_id}; retry after a delay.",
-                status_code=status,
-            )
+        status_error: httpx.HTTPStatusError | None = None
+        if status == 401 or status == 429 or status >= 500:
+            try:
+                response.raise_for_status()
+            except httpx.HTTPStatusError as error:
+                status_error = error
+        # 403 is NOT decided here: Drive returns 403 + an HTML permission page,
+        # which the discriminator handles below.
+        map_google_http_status(
+            response,
+            filename=f"fetching Drive file {file_id}",
+            chain=True,
+            mutation=False,
+            cause=status_error,
+        )
 
         content_type = response.headers.get("content-type", "")
         if "text/html" in content_type.lower():

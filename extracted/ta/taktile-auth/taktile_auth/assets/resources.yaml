@@ -94,6 +94,11 @@ flows:
   additional_actions:
     - execute
     - deploy
+flow_meta:
+  # read: can see a flow's name, slug and schemas, but not its graph or history
+  # write: unused
+  org_id: wildcard
+  ws_id: wildcard
 flow_folders:
   # write: can create and rename folders
   # delete: can delete empty folders

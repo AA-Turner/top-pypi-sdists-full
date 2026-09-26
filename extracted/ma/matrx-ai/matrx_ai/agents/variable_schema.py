@@ -110,6 +110,14 @@ def variable_definition_to_parameter(entry: dict[str, Any]) -> dict[str, Any]:
     param = _base_parameter(entry)
 
     binding = entry.get("binding")
+    if isinstance(binding, dict) and binding.get("kind") == "merge_field":
+        # Merge-field binding — the server fills this (e.g. from a custom-data Table the
+        # operator can read); a caller-supplied value still wins per the one ladder.
+        param["type"] = "string"
+        return _with_note(
+            param,
+            "(Filled by the server from its bound data; a value you provide is used only when the binding allows an override.)",
+        )
     if isinstance(binding, dict) and (
         binding.get("itemKey")
         or binding.get("item_key")

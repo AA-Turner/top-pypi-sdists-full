@@ -117,6 +117,12 @@ impl OpsStats {
     }
 
     pub fn get_for_instance(&self, sdk_key: &str) -> Arc<OpsStatsForInstance> {
+        // Never reuse or disable an ordinary client's registry entry, even for the same ID.
+        if crate::output_policy::OutputPolicy::current().is_silent() {
+            let mut instance = OpsStatsForInstance::disabled();
+            instance.output_suppressed = true;
+            return Arc::new(instance);
+        }
         if let Some(OpsStatsInstanceMode::Disabled(instance)) = self.scoped_instance_mode(sdk_key) {
             return instance;
         }
@@ -224,6 +230,7 @@ pub enum OpsStatsEvent {
 }
 
 pub struct OpsStatsForInstance {
+    output_suppressed: bool,
     sender: Option<Sender<OpsStatsEvent>>,
     shutdown_notify: Arc<Notify>,
 }
@@ -239,6 +246,7 @@ impl OpsStatsForInstance {
     pub fn new() -> Self {
         let (tx, _) = broadcast::channel(1000);
         OpsStatsForInstance {
+            output_suppressed: false,
             sender: Some(tx),
             shutdown_notify: Arc::new(Notify::new()),
         }
@@ -246,6 +254,7 @@ impl OpsStatsForInstance {
 
     pub(crate) fn disabled() -> Self {
         Self {
+            output_suppressed: false,
             sender: None,
             shutdown_notify: Arc::new(Notify::new()),
         }
@@ -265,6 +274,9 @@ impl OpsStatsForInstance {
     }
 
     pub fn log(&self, event: OpsStatsEvent) {
+        if self.output_suppressed {
+            return;
+        }
         let Some(sender) = self.sender.as_ref() else {
             Self::forward_scoped_hydration_event(event);
             return;
@@ -290,6 +302,7 @@ impl OpsStatsForInstance {
             "remote_config_hydration.count"
                 | "remote_config_hydration.latency"
                 | "remote_config_hydration.bytes"
+                | "remote_config_hydration.result"
         ) {
             return;
         }
@@ -429,6 +442,27 @@ mod tests {
 
     type RecordedHydrationMetric = (String, Option<HashMap<String, String>>);
 
+    #[test]
+    fn silent_instance_does_not_share_or_mute_ordinary_same_id_events() {
+        use crate::output_policy::OutputPolicy;
+        let registry = OpsStats::new();
+        let ordinary = registry.get_for_instance("same-id");
+        let mut receiver = ordinary.subscribe_for_test();
+        OutputPolicy::Silent.run(|| {
+            let silent = registry.get_for_instance("same-id");
+            assert!(!Arc::ptr_eq(&ordinary, &silent));
+            silent.log(hydration_count("silent"));
+            assert!(receiver.try_recv().is_err());
+            // The ordinary object retains its own behavior even inside a reentrant callback.
+            ordinary.log(hydration_count("ordinary"));
+            assert!(receiver.try_recv().is_ok());
+        });
+        assert!(Arc::ptr_eq(
+            &ordinary,
+            &registry.get_for_instance("same-id")
+        ));
+    }
+
     #[derive(Default)]
     struct RecordingHydrationObserver {
         events: Mutex<Vec<RecordedHydrationMetric>>,
@@ -513,6 +547,41 @@ mod tests {
             assert!(tags.contains_key("sdk_type"));
             assert!(tags.contains_key("sdk_version"));
         }
+    }
+
+    #[tokio::test]
+    async fn disabled_hydration_result_preserves_bounded_reason_in_its_observer_scope() {
+        let disabled = OpsStatsForInstance::disabled();
+        let observer = Arc::new(RecordingHydrationObserver::default());
+        let result_event = || {
+            ObservabilityEvent::new_event(
+                MetricType::Increment,
+                "remote_config_hydration.result".to_string(),
+                1.0,
+                Some(HashMap::from([
+                    ("outcome".to_string(), "failure".to_string()),
+                    (
+                        "failure_reason".to_string(),
+                        "checksum_mismatch".to_string(),
+                    ),
+                ])),
+            )
+        };
+        with_scoped_hydration_observability(
+            Some(Arc::clone(&observer) as Arc<dyn ObservabilityClient>),
+            async { disabled.log(result_event()) },
+        )
+        .await;
+        disabled.log(result_event());
+
+        let events = observer.events.lock();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0, "statsig.sdk.remote_config_hydration.result");
+        let tags = events[0].1.as_ref().unwrap();
+        assert_eq!(tags["outcome"], "failure");
+        assert_eq!(tags["failure_reason"], "checksum_mismatch");
+        assert!(tags.contains_key("sdk_type"));
+        assert!(tags.contains_key("sdk_version"));
     }
 
     #[test]

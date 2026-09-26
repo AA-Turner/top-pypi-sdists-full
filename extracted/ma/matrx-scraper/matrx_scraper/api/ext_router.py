@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from matrx_connect import AppContext, context_dep
@@ -50,6 +50,11 @@ class BatchScrapeRequest(BaseModel):
     urls: list[str] = Field(..., min_length=1, max_length=100)
     use_proxy: bool = True
     fast: bool = False
+    #: SOURCE-CONVERGENCE §4.1 — the batch's "Save" is a Keep: every page lands as a Source, and
+    #: these say whether the person kept them and where they are filed (``platform.associations``
+    #: targets: ``{"entity_type", "entity_id", "label"?}``). Unkept pages still land, deferred.
+    keep: bool = False
+    attach_to: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class BatchScrapeResponse(BaseModel):
@@ -64,6 +69,12 @@ class ContentSaveRequest(BaseModel):
     content: dict[str, Any]
     content_type: str = "html"
     char_count: int = 0
+    #: Who captured it (SOURCE-CONVERGENCE §4.4 / §4.2). Desktop (matrx-local) reads through the
+    #: person's own computer (`residential`); the extension's scrape tool reads in the person's own
+    #: browser (`own_browser`). Explicit, never guessed from a header.
+    origin_client: Literal["local", "extension"] = "local"
+    keep: bool = False
+    attach_to: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class RetryClaimRequest(BaseModel):
@@ -116,11 +127,29 @@ async def batch_scrape(
         # used to retry a page the site blocked.
         acting_user_id=ctx.user_id,
     )
+    # THE RESULT BOUNDARY (SOURCE-CONVERGENCE §4.1): each successful page becomes a Source before
+    # the response. Unwired raises; a page that did not land carries `notices` saying why.
+    from matrx_scraper.source_landing import land_page_result, stamp_page
+
+    payload: list[dict[str, Any]] = []
+    for r in results:
+        page = r.to_dict()
+        if r.success:
+            outcome = await land_page_result(
+                r,
+                organization_id=organization_id,
+                user_id=str(ctx.user_id or "") or None,
+                origin_client="web",
+                keep=request.keep,
+                attach_to=request.attach_to,
+            )
+            page = stamp_page(page, outcome)
+        payload.append(page)
     elapsed = round((time.monotonic() - start) * 1000, 1)
     return BatchScrapeResponse(
         status="success",
         execution_time_ms=elapsed,
-        results=[r.to_dict() for r in results],
+        results=payload,
     )
 
 
@@ -133,26 +162,70 @@ async def batch_scrape(
 async def content_save(
     request: ContentSaveRequest,
     ctx: AppContext = Depends(context_dep),
-) -> dict[str, str]:
-    if not has_ext("cache"):
-        raise HTTPException(status_code=503, detail="Cache backend not configured")
+) -> dict[str, Any]:
+    """Save a page a person's own computer or browser read — as a Source (SOURCE-CONVERGENCE §4.4).
 
-    # Saved extension/desktop content lands in `scraper.scrape_parsed_page`,
-    # which is org-scoped: the admitted organization is the one it is stored
-    # under, resolved at the boundary and passed explicitly.
-    organization_id = confirm_request_organization(ctx)
-    cache = get_ext("cache")
-    url_info = get_url_info(request.url)
-    await cache.set(
-        key=url_info.unique_page_name,
-        url=request.url,
-        domain=url_info.full_domain,
-        content=request.content,
-        content_type=request.content_type,
-        char_count=request.char_count,
-        organization_id=organization_id,
+    Desktop (matrx-local) and the extension's scrape tool push the parse they made here. It lands
+    through the landing door (the identity row in ``scraper.scrape_parsed_page`` is created there,
+    owned by the person) and the answer carries the Source id. The person is the one this request
+    was admitted for (the forwarded JWT); the organization is the admitted one. Nothing is written
+    to the page cache: the cache is the scraper's own, never a Source body (§1 rule 5).
+    """
+    from matrx_scraper.source_landing import (
+        SourceLandingFailed,
+        land_result,
+        page_landing,
     )
-    return {"status": "saved", "page_name": url_info.unique_page_name}
+
+    organization_id = confirm_request_organization(ctx)
+    user_id = str(ctx.user_id or "").strip()
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "sign_in_required",
+                "message": "Sign in to save a page; a saved page always belongs to a person.",
+                "remedy": "sign_in",
+            },
+        )
+    url_info = get_url_info(request.url)
+    parsed = {
+        "success": True,
+        "url": request.url,
+        "response_url": request.content.get("response_url") or request.content.get("final_url") or request.url,
+        "title": request.content.get("title") or request.page_name,
+        **request.content,
+    }
+    landing = page_landing(
+        parsed,
+        organization_id=organization_id,
+        user_id=user_id,
+        origin_client=request.origin_client,
+        capture_method="own_browser" if request.origin_client == "extension" else "residential",
+        keep=request.keep,
+        visibility="personal",
+        attach_to=request.attach_to,
+    )
+    if landing is None:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "nothing_captured",
+                "message": "There was no text in this page, so there is nothing to save.",
+                "remedy": "capture_the_page_again",
+            },
+        )
+    try:
+        landed = await land_result(landing)
+    except SourceLandingFailed as exc:
+        raise HTTPException(status_code=502, detail=exc.as_notice()) from None
+    return {
+        "status": "saved",
+        "page_name": url_info.unique_page_name,
+        "processed_document_id": landed["processed_document_id"],
+        "source_id": landed.get("source_id"),
+        "notices": list(landed.get("notices") or []),
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -121,6 +121,7 @@ lazy_static::lazy_static! {
 }
 
 pub struct Statsig {
+    output_policy: crate::output_policy::OutputPolicy,
     pub statsig_runtime: Arc<StatsigRuntime>,
     pub options: Arc<StatsigOptions>,
     pub event_emitter: Arc<SdkEventEmitter>,
@@ -160,6 +161,7 @@ pub struct StatsigContext {
 
 impl Drop for Statsig {
     fn drop(&mut self) {
+        let _output_scope = self.output_policy.enter();
         #[cfg(feature = "ffi-support")]
         self.delayed_exposure_store.clear();
 
@@ -181,6 +183,8 @@ impl Drop for Statsig {
 
 impl Statsig {
     pub fn new(sdk_key: &str, options: Option<Arc<StatsigOptions>>) -> Self {
+        let output_policy = crate::output_policy::OutputPolicy::from_options(options.as_deref());
+        let _output_scope = output_policy.enter();
         let options = options.map(|o| o.validate_and_fix()).unwrap_or_default();
         let statsig_runtime = StatsigRuntime::get_runtime_with_options(
             options.sdk_runtime_thread_count,
@@ -231,7 +235,7 @@ impl Statsig {
             &options.observability_client,
         );
 
-        let event_emitter = Arc::new(SdkEventEmitter::default());
+        let event_emitter = Arc::new(SdkEventEmitter::with_output_policy(output_policy));
 
         let spec_store = Arc::new(SpecStore::new(
             sdk_key,
@@ -258,6 +262,7 @@ impl Statsig {
             CONSOLE_CAPTURE_REGISTRY.get_for_instance(sdk_key, &options, &environment);
 
         Statsig {
+            output_policy,
             sdk_key: sdk_key.to_string(),
             options,
             hashing,
@@ -320,31 +325,36 @@ impl Statsig {
     /// Returns a [`InitializeDetails`] struct, which includes metadata such as
     /// the success status, initialization source, and any failure details.
     pub async fn initialize_with_details(&self) -> Result<InitializeDetails, StatsigErr> {
-        self.ops_stats.add_marker(
-            Marker::new(KeyType::Overall, ActionType::Start, None),
-            Some(ContextType::Initialize),
-        );
+        self.output_policy
+            .scope(async {
+                self.ops_stats.add_marker(
+                    Marker::new(KeyType::Overall, ActionType::Start, None),
+                    Some(ContextType::Initialize),
+                );
 
-        let init_details = if let Some(timeout_ms) = self.options.init_timeout_ms {
-            self.apply_timeout_to_init(timeout_ms).await
-        } else {
-            self.initialize_impl_with_details().await
-        };
-        self.log_init_details(&init_details);
-        if let Ok(details) = &init_details {
-            match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
-                Some(mut curr_init_details) => {
-                    *curr_init_details = details.clone();
+                let init_details = if let Some(timeout_ms) = self.options.init_timeout_ms {
+                    self.apply_timeout_to_init(timeout_ms).await
+                } else {
+                    self.initialize_impl_with_details().await
+                };
+                self.log_init_details(&init_details);
+                if let Ok(details) = &init_details {
+                    match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
+                        Some(mut curr_init_details) => {
+                            *curr_init_details = details.clone();
+                        }
+                        None => {
+                            log_e!(TAG, "Failed to lock initialize_details");
+                        }
+                    }
                 }
-                None => {
-                    log_e!(TAG, "Failed to lock initialize_details");
-                }
-            }
-        }
-        init_details
+                init_details
+            })
+            .await
     }
 
     pub fn get_initialize_details(&self) -> InitializeDetails {
+        let _output_scope = self.output_policy.enter();
         match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
             Some(details) => details.clone(),
             None => InitializeDetails::from_error(
@@ -357,6 +367,7 @@ impl Statsig {
     }
 
     pub fn is_initialized(&self) -> bool {
+        let _output_scope = self.output_policy.enter();
         match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
             Some(details) => details.init_success,
             None => false,
@@ -364,6 +375,7 @@ impl Statsig {
     }
 
     pub fn is_config_spec_ready(&self) -> bool {
+        let _output_scope = self.output_policy.enter();
         let specs_info = self.spec_store.get_current_specs_info();
         matches!(specs_info.lcut, Some(lcut) if lcut != 0)
     }
@@ -373,6 +385,7 @@ impl Statsig {
     }
 
     pub async fn shutdown_with_timeout(&self, timeout: Duration) -> Result<(), StatsigErr> {
+        self.output_policy.scope(async {
         log_d!(
             TAG,
             "Shutting down Statsig with timeout {}ms",
@@ -420,9 +433,11 @@ impl Statsig {
 
         self.statsig_runtime.shutdown();
         shutdown_result
+            }).await
     }
 
     pub fn get_context(&self) -> StatsigContext {
+        let _output_scope = self.output_policy.enter();
         StatsigContext {
             sdk_key: self.sdk_key.clone(),
             options: self.options.clone(),
@@ -513,6 +528,7 @@ impl Statsig {
 
 impl Statsig {
     pub fn get_client_init_response(&self, user: &StatsigUser) -> InitializeResponse {
+        let _output_scope = self.output_policy.enter();
         self.get_client_init_response_with_options(user, &ClientInitResponseOptions::default())
     }
 
@@ -521,6 +537,7 @@ impl Statsig {
         user: &StatsigUser,
         options: &ClientInitResponseOptions,
     ) -> InitializeResponse {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.get_client_init_response_with_options_for_internal_user(&user_internal, options)
     }
@@ -531,6 +548,7 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         options: &ClientInitResponseOptions,
     ) -> InitializeResponse {
+        let _output_scope = self.output_policy.enter();
         let data = self.spec_store.load_data();
         let plan = data.gcir_evaluation_plan(&self.hashing);
 
@@ -555,6 +573,7 @@ impl Statsig {
     }
 
     pub fn get_client_init_response_as_string(&self, user: &StatsigUser) -> String {
+        let _output_scope = self.output_policy.enter();
         serde_json::to_string(&self.get_client_init_response(user)).unwrap_or_default()
     }
 
@@ -563,6 +582,7 @@ impl Statsig {
         user: &StatsigUser,
         options: &ClientInitResponseOptions,
     ) -> String {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.get_client_init_response_with_options_as_string_for_internal_user(
             &user_internal,
@@ -576,6 +596,7 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         options: &ClientInitResponseOptions,
     ) -> String {
+        let _output_scope = self.output_policy.enter();
         let data = self.spec_store.load_data();
 
         let mut context = self.create_gcir_eval_context(user_internal, &data, options);
@@ -632,6 +653,7 @@ impl Statsig {
         value: Option<String>,
         metadata: Option<HashMap<String, String>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
 
         self.event_logger.enqueue(EnqueuePassthroughOp {
@@ -651,6 +673,7 @@ impl Statsig {
         value: Option<f64>,
         metadata: Option<HashMap<String, String>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.event_logger.enqueue(EnqueuePassthroughOp {
             event: StatsigEventInternal::new_custom_event(
@@ -669,6 +692,7 @@ impl Statsig {
         value: Option<String>,
         metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.log_event_with_typed_metadata_for_internal_user(
             &user_internal,
@@ -686,6 +710,7 @@ impl Statsig {
         value: Option<String>,
         metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.log_event_with_typed_metadata_and_timestamp_for_internal_user(
             user_internal,
             event_name,
@@ -704,6 +729,7 @@ impl Statsig {
         metadata: Option<HashMap<String, Value>>,
         timestamp_override: Option<u64>,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.event_logger.enqueue(EnqueuePassthroughOp {
             event: StatsigEventInternal::new_custom_event_with_typed_metadata_and_timestamp(
                 user_internal.to_loggable(),
@@ -722,6 +748,7 @@ impl Statsig {
         value: Option<f64>,
         metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.log_event_with_number_and_typed_metadata_for_internal_user(
             &user_internal,
@@ -739,6 +766,7 @@ impl Statsig {
         value: Option<f64>,
         metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.log_event_with_number_and_typed_metadata_and_timestamp_for_internal_user(
             user_internal,
             event_name,
@@ -757,6 +785,7 @@ impl Statsig {
         metadata: Option<HashMap<String, Value>>,
         timestamp_override: Option<u64>,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.event_logger.enqueue(EnqueuePassthroughOp {
             event: StatsigEventInternal::new_custom_event_with_typed_metadata_and_timestamp(
                 user_internal.to_loggable(),
@@ -775,6 +804,7 @@ impl Statsig {
         value: Option<String>,
         metadata: Option<HashMap<String, String>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.event_logger.enqueue(EnqueuePassthroughOp {
             event: StatsigEventInternal::new_statsig_log_line_event(
@@ -792,6 +822,7 @@ impl Statsig {
         layer_json: String,
         parameter_name: String,
     ) {
+        let _output_scope = self.output_policy.enter();
         let layer = match serde_json::from_str::<Layer>(&layer_json) {
             Ok(layer) => layer,
             Err(e) => {
@@ -808,6 +839,7 @@ impl Statsig {
     }
 
     pub fn log_layer_param_exposure_with_layer(&self, layer: Layer, parameter_name: String) {
+        let _output_scope = self.output_policy.enter();
         if layer.__disable_exposure {
             self.event_logger.increment_non_exposure_checks(&layer.name);
             return;
@@ -849,7 +881,11 @@ impl Statsig {
     }
 
     pub async fn flush_events(&self) {
-        let _ = self.event_logger.flush_all_pending_events().await;
+        self.output_policy
+            .scope(async {
+                let _ = self.event_logger.flush_all_pending_events().await;
+            })
+            .await
     }
 }
 
@@ -864,6 +900,7 @@ impl Statsig {
         fallback: Option<String>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<String> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_from_store(
             user,
             parameter_store_name,
@@ -881,6 +918,7 @@ impl Statsig {
         fallback: Option<bool>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<bool> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_from_store(
             user,
             parameter_store_name,
@@ -898,6 +936,7 @@ impl Statsig {
         fallback: Option<f64>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<f64> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_from_store(
             user,
             parameter_store_name,
@@ -915,6 +954,7 @@ impl Statsig {
         fallback: Option<i64>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<i64> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_from_store(
             user,
             parameter_store_name,
@@ -932,6 +972,7 @@ impl Statsig {
         fallback: Option<Vec<Value>>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<Vec<Value>> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_from_store(
             user,
             parameter_store_name,
@@ -949,6 +990,7 @@ impl Statsig {
         fallback: Option<HashMap<String, Value>>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<HashMap<String, Value>> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_from_store(
             user,
             parameter_store_name,
@@ -966,6 +1008,7 @@ impl Statsig {
         fallback: Option<T>,
         options: Option<ParameterStoreEvaluationOptions>,
     ) -> Option<T> {
+        let _output_scope = self.output_policy.enter();
         let store = self.get_parameter_store_with_user_and_options(
             Some(user),
             parameter_store_name,
@@ -978,6 +1021,7 @@ impl Statsig {
     }
 
     pub fn get_parameter_store(&self, parameter_store_name: &str) -> ParameterStore<'_> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_store_with_options(
             parameter_store_name,
             ParameterStoreEvaluationOptions::default(),
@@ -989,6 +1033,7 @@ impl Statsig {
         user: &StatsigUser,
         parameter_store_name: &str,
     ) -> ParameterStore<'_> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_store_with_user_and_options(
             Some(user),
             parameter_store_name,
@@ -1001,6 +1046,7 @@ impl Statsig {
         parameter_store_name: &str,
         options: ParameterStoreEvaluationOptions,
     ) -> ParameterStore<'_> {
+        let _output_scope = self.output_policy.enter();
         self.get_parameter_store_with_user_and_options(None, parameter_store_name, options)
     }
 
@@ -1113,12 +1159,14 @@ impl Statsig {
 
 impl Statsig {
     pub fn identify(&self, user: &StatsigUser) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.identify_internal_user(&user_internal);
     }
 
     #[doc(hidden)]
     pub fn identify_internal_user(&self, user_internal: &StatsigUserInternal<'_, '_>) {
+        let _output_scope = self.output_policy.enter();
         self.event_logger.enqueue(EnqueuePassthroughOp {
             event: StatsigEventInternal::new_custom_event(
                 user_internal.to_loggable(),
@@ -1138,6 +1186,7 @@ impl Statsig {
         user: &StatsigUser,
         cmab_name: &str,
     ) -> Vec<CMABRankedGroup> {
+        let _output_scope = self.output_policy.enter();
         self.event_logger.increment_non_exposure_checks(cmab_name);
 
         let data = self.spec_store.load_data();
@@ -1157,6 +1206,7 @@ impl Statsig {
         cmab_name: &str,
         group_id: String,
     ) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
 
         let mut experiment = self.get_experiment_impl(&user_internal, cmab_name, None);
@@ -1175,6 +1225,7 @@ impl Statsig {
 
 impl Statsig {
     pub fn override_gate(&self, gate_name: &str, value: bool, id: Option<&str>) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.override_gate(gate_name, value, id);
         }
@@ -1186,6 +1237,7 @@ impl Statsig {
         value: HashMap<String, serde_json::Value>,
         id: Option<&str>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.override_dynamic_config(config_name, value, id);
         }
@@ -1197,6 +1249,7 @@ impl Statsig {
         value: HashMap<String, serde_json::Value>,
         id: Option<&str>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.override_layer(layer_name, value, id);
         }
@@ -1208,6 +1261,7 @@ impl Statsig {
         value: HashMap<String, serde_json::Value>,
         id: Option<&str>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.override_parameter_store(param_name, value, id);
         }
@@ -1219,6 +1273,7 @@ impl Statsig {
         value: HashMap<String, serde_json::Value>,
         id: Option<&str>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.override_experiment(experiment_name, value, id);
         }
@@ -1230,42 +1285,49 @@ impl Statsig {
         group_name: &str,
         id: Option<&str>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.override_experiment_by_group_name(experiment_name, group_name, id);
         }
     }
 
     pub fn remove_gate_override(&self, gate_name: &str, id: Option<&str>) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_gate_override(gate_name, id);
         }
     }
 
     pub fn remove_dynamic_config_override(&self, config_name: &str, id: Option<&str>) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_dynamic_config_override(config_name, id);
         }
     }
 
     pub fn remove_experiment_override(&self, experiment_name: &str, id: Option<&str>) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_experiment_override(experiment_name, id);
         }
     }
 
     pub fn remove_layer_override(&self, layer_name: &str, id: Option<&str>) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_layer_override(layer_name, id);
         }
     }
 
     pub fn remove_parameter_store_override(&self, parameter_store_name: &str, id: Option<&str>) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_parameter_store_override(parameter_store_name, id);
         }
     }
 
     pub fn remove_all_overrides(&self) {
+        let _output_scope = self.output_policy.enter();
         if let Some(adapter) = &self.override_adapter {
             adapter.remove_all_overrides();
         }
@@ -1278,6 +1340,7 @@ impl Statsig {
     /// Returns the current hydrated config-spec snapshot without cloning it.
     #[doc(hidden)]
     pub fn specs_snapshot(&self) -> Arc<SpecsResponseFull> {
+        let _output_scope = self.output_policy.enter();
         Arc::clone(&self.spec_store.load_data().snapshot)
     }
 
@@ -1306,31 +1369,37 @@ impl Statsig {
     }
 
     pub fn get_feature_gate_list(&self) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .unperformant_keys_entity_filter("feature_gates", "feature_gate")
     }
 
     pub fn get_dynamic_config_list(&self) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .unperformant_keys_entity_filter("dynamic_configs", "dynamic_config")
     }
 
     pub fn get_experiment_list(&self) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .unperformant_keys_entity_filter("dynamic_configs", "experiment")
     }
 
     pub fn get_autotune_list(&self) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .unperformant_keys_entity_filter("dynamic_configs", "autotune")
     }
 
     pub fn get_parameter_store_list(&self) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .unperformant_keys_entity_filter("param_stores", "*")
     }
 
     pub fn get_layer_list(&self) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .unperformant_keys_entity_filter("layer_configs", "*")
     }
@@ -1339,6 +1408,7 @@ impl Statsig {
         &self,
         user: &StatsigUser,
     ) -> Option<ParsedUserAgentValue> {
+        let _output_scope = self.output_policy.enter();
         UserAgentParser::get_parsed_user_agent_value_for_user(user, &self.options)
     }
 }
@@ -1347,6 +1417,7 @@ impl Statsig {
 
 impl Statsig {
     pub fn check_gate(&self, user: &StatsigUser, gate_name: &str) -> bool {
+        let _output_scope = self.output_policy.enter();
         self.check_gate_with_options(user, gate_name, FeatureGateEvaluationOptions::default())
     }
 
@@ -1356,6 +1427,7 @@ impl Statsig {
         gate_name: &str,
         options: FeatureGateEvaluationOptions,
     ) -> bool {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.check_gate_with_options_for_internal_user(&user_internal, gate_name, options)
     }
@@ -1367,6 +1439,7 @@ impl Statsig {
         gate_name: &str,
         options: FeatureGateEvaluationOptions,
     ) -> bool {
+        let _output_scope = self.output_policy.enter();
         let disable_exposure_logging = options.disable_exposure_logging;
         let (details, evaluation) = self.get_gate_evaluation(
             user_internal,
@@ -1400,6 +1473,7 @@ impl Statsig {
     }
 
     pub fn get_feature_gate(&self, user: &StatsigUser, gate_name: &str) -> FeatureGate {
+        let _output_scope = self.output_policy.enter();
         self.get_feature_gate_with_options(user, gate_name, FeatureGateEvaluationOptions::default())
     }
 
@@ -1409,6 +1483,7 @@ impl Statsig {
         gate_name: &str,
         options: FeatureGateEvaluationOptions,
     ) -> FeatureGate {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
         let (details, evaluation) = self.get_gate_evaluation(
@@ -1437,6 +1512,7 @@ impl Statsig {
     }
 
     pub fn manually_log_gate_exposure(&self, user: &StatsigUser, gate_name: &str) {
+        let _output_scope = self.output_policy.enter();
         let interned_gate_name = InternedString::from_str_ref(gate_name);
         let user_internal = self.internalize_user(user);
         self.manually_log_gate_exposure_for_internal_user(&user_internal, &interned_gate_name);
@@ -1448,6 +1524,7 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         gate_name: &InternedString,
     ) {
+        let _output_scope = self.output_policy.enter();
         let (details, evaluation) =
             self.evaluate_spec_raw(user_internal, gate_name.as_str(), &SpecType::Gate, None);
 
@@ -1461,6 +1538,7 @@ impl Statsig {
     }
 
     pub fn get_fields_needed_for_gate(&self, gate_name: &str) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .get_fields_used_for_entity(gate_name, SpecType::Gate)
     }
@@ -1474,6 +1552,7 @@ impl Statsig {
         user: &StatsigUser,
         dynamic_config_name: &str,
     ) -> DynamicConfig {
+        let _output_scope = self.output_policy.enter();
         self.get_dynamic_config_with_options(
             user,
             dynamic_config_name,
@@ -1487,6 +1566,7 @@ impl Statsig {
         dynamic_config_name: &str,
         options: DynamicConfigEvaluationOptions,
     ) -> DynamicConfig {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
         let dynamic_config = self.get_dynamic_config_impl(
@@ -1522,6 +1602,7 @@ impl Statsig {
         user: &StatsigUser,
         dynamic_config_name: &str,
     ) {
+        let _output_scope = self.output_policy.enter();
         let interned_dynamic_config_name = InternedString::from_str_ref(dynamic_config_name);
         let user_internal = self.internalize_user(user);
         self.manually_log_dynamic_config_exposure_for_internal_user(
@@ -1536,6 +1617,7 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         dynamic_config_name: &InternedString,
     ) {
+        let _output_scope = self.output_policy.enter();
         let (details, evaluation) = self.evaluate_spec_raw(
             user_internal,
             dynamic_config_name.as_str(),
@@ -1554,6 +1636,7 @@ impl Statsig {
     }
 
     pub fn get_fields_needed_for_dynamic_config(&self, config_name: &str) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .get_fields_used_for_entity(config_name, SpecType::DynamicConfig)
     }
@@ -1563,6 +1646,7 @@ impl Statsig {
 
 impl Statsig {
     pub fn get_experiment(&self, user: &StatsigUser, experiment_name: &str) -> Experiment {
+        let _output_scope = self.output_policy.enter();
         self.get_experiment_with_options(
             user,
             experiment_name,
@@ -1576,6 +1660,7 @@ impl Statsig {
         experiment_name: &str,
         options: ExperimentEvaluationOptions,
     ) -> Experiment {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         let disable_exposure_logging = options.disable_exposure_logging;
         let mut experiment = self.get_experiment_impl(
@@ -1614,6 +1699,7 @@ impl Statsig {
     }
 
     pub fn manually_log_experiment_exposure(&self, user: &StatsigUser, experiment_name: &str) {
+        let _output_scope = self.output_policy.enter();
         let interned_experiment_name = InternedString::from_str_ref(experiment_name);
         let user_internal = self.internalize_user(user);
         self.manually_log_experiment_exposure_for_internal_user(
@@ -1628,6 +1714,7 @@ impl Statsig {
         user_internal: &StatsigUserInternal<'_, '_>,
         experiment_name: &InternedString,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.manually_log_experiment_exposure_for_internal_user_with_metadata(
             user_internal,
             experiment_name,
@@ -1642,6 +1729,7 @@ impl Statsig {
         experiment_name: &InternedString,
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let (details, evaluation) = self.evaluate_spec_raw(
             user_internal,
             experiment_name.as_str(),
@@ -1662,6 +1750,7 @@ impl Statsig {
     }
 
     pub fn get_fields_needed_for_experiment(&self, experiment_name: &str) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .get_fields_used_for_entity(experiment_name, SpecType::Experiment)
     }
@@ -1671,6 +1760,7 @@ impl Statsig {
         experiment_name: &str,
         group_name: &str,
     ) -> Experiment {
+        let _output_scope = self.output_policy.enter();
         self.get_experiment_by_group_name_impl(
             experiment_name,
             group_name,
@@ -1703,6 +1793,7 @@ impl Statsig {
         experiment_name: &str,
         group_id: &str,
     ) -> Experiment {
+        let _output_scope = self.output_policy.enter();
         self.get_experiment_by_group_id_advanced_impl(
             experiment_name,
             group_id,
@@ -1842,6 +1933,7 @@ fn experiment_group_to_raw_json(
 
 impl Statsig {
     pub fn get_layer(&self, user: &StatsigUser, layer_name: &str) -> Layer {
+        let _output_scope = self.output_policy.enter();
         self.get_layer_with_options(user, layer_name, LayerEvaluationOptions::default())
     }
 
@@ -1851,6 +1943,7 @@ impl Statsig {
         layer_name: &str,
         options: LayerEvaluationOptions,
     ) -> Layer {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.get_layer_impl(user_internal, layer_name, options)
     }
@@ -1861,6 +1954,7 @@ impl Statsig {
         layer_name: &str,
         parameter_name: String,
     ) {
+        let _output_scope = self.output_policy.enter();
         let interned_layer_name = InternedString::from_str_ref(layer_name);
         let interned_parameter_name = InternedString::from_string(parameter_name);
         let user_internal = self.internalize_user(user);
@@ -1878,6 +1972,7 @@ impl Statsig {
         layer_name: &InternedString,
         parameter_name: InternedString,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.manually_log_layer_parameter_exposure_for_internal_user_with_metadata(
             user_internal,
             layer_name,
@@ -1894,6 +1989,7 @@ impl Statsig {
         parameter_name: InternedString,
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let (details, evaluation) =
             self.evaluate_spec_raw(user_internal, layer_name.as_str(), &SpecType::Layer, None);
         let shared_control_exposures = self.build_shared_control_layer_exposures(
@@ -1952,6 +2048,7 @@ impl Statsig {
     }
 
     pub fn get_fields_needed_for_layer(&self, layer_name: &str) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         self.spec_store
             .get_fields_used_for_entity(layer_name, SpecType::Layer)
     }
@@ -1967,6 +2064,7 @@ impl Statsig {
         gate_name: &str,
         callback: impl FnOnce(&FeatureGateRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_feature_gate_with_delayed_exposure_with_options(
             user, gate_name, true, callback,
         )
@@ -1979,6 +2077,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&FeatureGateRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_feature_gate_impl(
             &user_internal,
@@ -1998,6 +2097,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&FeatureGateRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_feature_gate_impl(
             user_internal,
             gate_name,
@@ -2015,6 +2115,7 @@ impl Statsig {
         options: FeatureGateEvaluationOptions,
         callback: impl FnOnce(&FeatureGateRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_feature_gate_with_options_for_internal_user(
             &user_internal,
@@ -2032,6 +2133,7 @@ impl Statsig {
         options: FeatureGateEvaluationOptions,
         callback: impl FnOnce(&FeatureGateRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_feature_gate_impl(
             user_internal,
             gate_name,
@@ -2106,6 +2208,7 @@ impl Statsig {
         dynamic_config_name: &str,
         callback: impl FnOnce(&DynamicConfigRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_dynamic_config_with_delayed_exposure_with_options(
             user,
             dynamic_config_name,
@@ -2121,6 +2224,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&DynamicConfigRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_dynamic_config_impl(
             &user_internal,
@@ -2140,6 +2244,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&DynamicConfigRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_dynamic_config_impl(
             user_internal,
             dynamic_config_name,
@@ -2157,6 +2262,7 @@ impl Statsig {
         options: DynamicConfigEvaluationOptions,
         callback: impl FnOnce(&DynamicConfigRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_dynamic_config_with_options_for_internal_user(
             &user_internal,
@@ -2174,6 +2280,7 @@ impl Statsig {
         options: DynamicConfigEvaluationOptions,
         callback: impl FnOnce(&DynamicConfigRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_dynamic_config_impl(
             user_internal,
             dynamic_config_name,
@@ -2259,6 +2366,7 @@ impl Statsig {
         experiment_name: &str,
         group_name: &str,
     ) -> String {
+        let _output_scope = self.output_policy.enter();
         self.get_experiment_by_group_name_impl(
             experiment_name,
             group_name,
@@ -2273,6 +2381,7 @@ impl Statsig {
         experiment_name: &str,
         group_id: &str,
     ) -> String {
+        let _output_scope = self.output_policy.enter();
         self.get_experiment_by_group_id_advanced_impl(
             experiment_name,
             group_id,
@@ -2289,6 +2398,7 @@ impl Statsig {
         options: ExperimentEvaluationOptions,
         callback: impl FnOnce(&ExperimentRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_experiment_with_delayed_exposure_with_options(
             user,
             experiment_name,
@@ -2306,6 +2416,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&ExperimentRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_experiment_impl(
             &user_internal,
@@ -2329,6 +2440,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&ExperimentRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_experiment_impl(
             user_internal,
             experiment_name,
@@ -2349,6 +2461,7 @@ impl Statsig {
         options: ExperimentEvaluationOptions,
         callback: impl FnOnce(&ExperimentRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_experiment_with_options_for_internal_user(
             &user_internal,
@@ -2366,6 +2479,7 @@ impl Statsig {
         options: ExperimentEvaluationOptions,
         callback: impl FnOnce(&ExperimentRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_experiment_with_options_for_internal_user_with_metadata(
             user_internal,
             experiment_name,
@@ -2384,6 +2498,7 @@ impl Statsig {
         exposure_metadata: Option<HashMap<String, Value>>,
         callback: impl FnOnce(&ExperimentRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_experiment_impl(
             user_internal,
             experiment_name,
@@ -2492,6 +2607,7 @@ impl Statsig {
         options: LayerEvaluationOptions,
         callback: impl FnOnce(&LayerRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_layer_with_delayed_exposure_with_options(
             user, layer_name, options, true, callback,
         )
@@ -2505,6 +2621,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&LayerRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_layer_impl(
             &user_internal,
@@ -2525,6 +2642,7 @@ impl Statsig {
         include_local_override: bool,
         callback: impl FnOnce(&LayerRaw<'_>) -> T,
     ) -> (T, Option<String>) {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_layer_impl(
             user_internal,
             layer_name,
@@ -2542,6 +2660,7 @@ impl Statsig {
         options: LayerEvaluationOptions,
         callback: impl FnOnce(&LayerRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         let user_internal = self.internalize_user(user);
         self.use_raw_layer_with_options_for_internal_user(
             &user_internal,
@@ -2559,6 +2678,7 @@ impl Statsig {
         options: LayerEvaluationOptions,
         callback: impl FnOnce(&LayerRaw<'_>) -> T,
     ) -> T {
+        let _output_scope = self.output_policy.enter();
         self.use_raw_layer_impl(
             user_internal,
             layer_name,
@@ -2650,6 +2770,7 @@ impl Statsig {
         user: &StatsigUser,
         options: BulkEvaluationOptions,
     ) -> BulkEvaluationResponse {
+        let _output_scope = self.output_policy.enter();
         let mut response = BulkEvaluationResponse::default();
         let resolved = self.resolve_bulk_evaluation_options(options);
         let include_local_override = resolved.include_local_override;
@@ -2748,6 +2869,7 @@ impl Statsig {
         &self,
         options: BulkEvaluationOptions,
     ) -> ResolvedBulkEvaluationOptions {
+        let _output_scope = self.output_policy.enter();
         let feature_gates = options.feature_gate_filter.unwrap_or_else(|| {
             self.spec_store
                 .unperformant_keys_entity_filter("feature_gates", "feature_gate")
@@ -2781,24 +2903,29 @@ impl Statsig {
     }
 
     pub fn log_delayed_exposure(&self, token: &str) -> bool {
+        let _output_scope = self.output_policy.enter();
         self.delayed_exposure_store
             .log_delayed_exposure(token, &self.event_logger)
     }
 
     pub fn log_delayed_layer_parameter_exposure(&self, token: &str, parameter_name: &str) -> bool {
+        let _output_scope = self.output_policy.enter();
         self.delayed_exposure_store
             .log_delayed_layer_parameter_exposure(token, parameter_name, &self.event_logger)
     }
 
     pub fn release_delayed_exposure(&self, token: &str) -> bool {
+        let _output_scope = self.output_policy.enter();
         self.delayed_exposure_store.release(token)
     }
 
     pub fn release_delayed_exposures(&self, tokens: &[String]) -> usize {
+        let _output_scope = self.output_policy.enter();
         self.delayed_exposure_store.release_many(tokens)
     }
 
     pub fn log_layer_param_exposure_from_raw(&self, raw: String, param_name: String) {
+        let _output_scope = self.output_policy.enter();
         use crate::statsig_types_raw::PartialLayerRaw;
 
         let partial_raw = match serde_json::from_str::<PartialLayerRaw>(&raw) {
@@ -2817,6 +2944,7 @@ impl Statsig {
         partial_raw: crate::statsig_types_raw::PartialLayerRaw,
         param_name: String,
     ) {
+        let _output_scope = self.output_policy.enter();
         self.log_layer_param_exposure_from_partial_raw_with_metadata(partial_raw, param_name, None);
     }
 
@@ -2826,6 +2954,7 @@ impl Statsig {
         param_name: String,
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if partial_raw.disable_exposure {
             self.event_logger
                 .increment_non_exposure_checks(&partial_raw.name);
@@ -2882,6 +3011,7 @@ impl Statsig {
         param_name: String,
         exposure_metadata: Option<HashMap<String, Value>>,
     ) {
+        let _output_scope = self.output_policy.enter();
         if partial_raw.disable_exposure {
             self.event_logger
                 .increment_non_exposure_checks(&partial_raw.name);
@@ -3342,8 +3472,7 @@ impl Statsig {
         );
 
         let evaluation = Self::evaluate_with_details(&mut context, &data, spec_name, spec_type);
-        self.log_nested_experiment_exposures(
-            user_internal,
+        self.report_nested_experiment_evaluations(
             &data,
             &mut context,
             disable_exposure_logging.unwrap_or(false),
@@ -3382,8 +3511,7 @@ impl Statsig {
         );
 
         let evaluation = Self::evaluate_with_details(&mut context, &data, spec_name, spec_type);
-        self.log_nested_experiment_exposures(
-            user_internal,
+        self.report_nested_experiment_evaluations(
             &data,
             &mut context,
             disable_exposure_logging.unwrap_or(false),
@@ -3402,9 +3530,8 @@ impl Statsig {
         }
     }
 
-    fn log_nested_experiment_exposures(
+    fn report_nested_experiment_evaluations(
         &self,
-        user_internal: &StatsigUserInternal,
         data: &SpecStoreData,
         context: &mut EvaluatorContext,
         disable_exposure_logging: bool,
@@ -3439,16 +3566,10 @@ impl Statsig {
             };
             let experiment = make_experiment(nested.experiment_name.as_str(), evaluation, details);
 
+            // Targeting must not log an experiment exposure, even when the parent logs.
             if disable_exposure_logging {
                 self.event_logger
                     .increment_non_exposure_checks(nested.experiment_name.as_str());
-            } else {
-                self.event_logger.enqueue(EnqueueExperimentExpoOp {
-                    exposure_time: Utc::now().timestamp_millis() as u64,
-                    user: user_internal,
-                    experiment: &experiment,
-                    trigger: ExposureTrigger::Auto,
-                });
             }
 
             self.emit_experiment_evaluated(&experiment);
@@ -3847,6 +3968,9 @@ fn setup_ops_stats(
     external_observer: &Option<Weak<dyn ObservabilityClient>>,
 ) -> Arc<OpsStatsForInstance> {
     let ops_stat = OPS_STATS.get_for_instance(sdk_instance_id);
+    if crate::output_policy::OutputPolicy::current().is_silent() {
+        return ops_stat;
+    }
     ops_stat.subscribe(statsig_runtime.clone(), Arc::downgrade(error_observer));
     ops_stat.subscribe(
         statsig_runtime.clone(),

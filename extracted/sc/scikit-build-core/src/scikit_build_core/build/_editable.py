@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "pathlib",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
     f"{__spec__.parent}._pathutil",
-    "pathlib",
 }
 
 import os
@@ -123,12 +123,14 @@ def editable_redirect_files(
     if use_start is None:
         use_start = sys.version_info >= (3, 15)
     external_install = install_prefix is not None
-    modules = mapping_to_modules(mapping, libdir)
-    installed = libdir_to_installed(libdir, absolute=external_install)
-    directories, known_packages = collect_search_locations(
-        mapping, libdir, absolute=external_install
+    mapping_entries = _scan_mapping(mapping, libdir)
+    installed_entries = _scan_installed(libdir)
+    modules = _mapping_to_modules(mapping_entries)
+    installed = _libdir_to_installed(installed_entries, absolute=external_install)
+    directories, known_packages = _collect_search_locations(
+        mapping_entries, installed_entries, absolute=external_install
     )
-    rebuild = settings.editable.rebuild_enabled
+    rebuild = settings.editable.rebuild_on_import
     install_dir: str | None
     if install_prefix is not None:
         # The persistent install tree lives outside the wheel, so the shim is
@@ -248,7 +250,7 @@ def editable_inplace_files(
         known_packages=known_packages,
         search_paths=list(package_paths),
         path=os.fspath(source_dir) if source_dir else None,
-        rebuild=settings.editable.rebuild_enabled,
+        rebuild=settings.editable.rebuild_on_import,
         verbose=settings.editable.verbose,
         build_options=build_options,
         as_entrypoint=use_start,
@@ -325,6 +327,25 @@ def package_search_dirs(packages: Mapping[str, str]) -> list[str]:
     return result
 
 
+def _scan_mapping(mapping: dict[str, str], libdir: Path) -> list[tuple[Path, Path]]:
+    """
+    Pair each mapped source file (absolute, symlinks kept) with its target path
+    relative to ``libdir``. Computed once and shared by the passes below.
+    """
+    return [
+        (Path(source).absolute(), Path(target).relative_to(libdir))
+        for source, target in mapping.items()
+    ]
+
+
+def _scan_installed(libdir: Path) -> list[tuple[Path, Path]]:
+    """
+    Pair each installed file with its path relative to ``libdir``. This is the
+    only walk of the install tree; the passes below share the result.
+    """
+    return [(v, v.relative_to(libdir)) for v in scantree(libdir)]
+
+
 def mapping_to_modules(mapping: dict[str, str], libdir: Path) -> dict[str, str]:
     """
     Map importable module names to their (absolute) source files.
@@ -333,17 +354,19 @@ def mapping_to_modules(mapping: dict[str, str], libdir: Path) -> dict[str, str]:
     separately by :func:`collect_search_locations` so that ``find_spec`` never
     resolves a name to a non-importable file.
     """
+    return _mapping_to_modules(_scan_mapping(mapping, libdir))
+
+
+def _mapping_to_modules(entries: Sequence[tuple[Path, Path]]) -> dict[str, str]:
     result: dict[str, str] = {}
     selected: dict[str, Path] = {}
-    for k, v in mapping.items():
-        rel = Path(v).relative_to(libdir)
+    for source, rel in entries:
         if not is_trackable(rel) or not is_module(rel):
             continue
         module = path_to_module(rel)
         if module in result and not _prefer_module(rel, selected[module]):
             continue
-        # Make the source path absolute, but do not resolve symlinks
-        result[module] = str(Path(k).absolute())
+        result[module] = str(source)
         selected[module] = rel
     return result
 
@@ -359,10 +382,15 @@ def libdir_to_installed(libdir: Path, *, absolute: bool = False) -> dict[str, st
     ``libdir`` -- used when the install tree lives outside the wheel (a
     rebuildable editable pointing at a persistent build-dir).
     """
+    return _libdir_to_installed(_scan_installed(libdir), absolute=absolute)
+
+
+def _libdir_to_installed(
+    entries: Sequence[tuple[Path, Path]], *, absolute: bool = False
+) -> dict[str, str]:
     result: dict[str, str] = {}
     selected: dict[str, Path] = {}
-    for v in scantree(libdir):
-        pth = v.relative_to(libdir)
+    for v, pth in entries:
         if not is_trackable(pth) or not is_module(pth):
             continue
         module = path_to_module(pth)
@@ -391,16 +419,24 @@ def collect_search_locations(
     ``packages`` are the modules whose directory holds an ``__init__`` (including
     ``.pxd``/``.pyx``).
     """
+    return _collect_search_locations(
+        _scan_mapping(mapping, libdir), _scan_installed(libdir), absolute=absolute
+    )
+
+
+def _collect_search_locations(
+    mapping_entries: Sequence[tuple[Path, Path]],
+    installed_entries: Sequence[tuple[Path, Path]],
+    *,
+    absolute: bool = False,
+) -> tuple[dict[str, list[str]], list[str]]:
     # Collect (module, directory, is_init) entries. Source tree: the absolute
     # source file's parent. Install tree: the directory relative to libdir.
     entries: list[tuple[str, str, bool]] = []
-    for source, target in mapping.items():
-        rel = Path(target).relative_to(libdir)
+    for src, rel in mapping_entries:
         if is_trackable(rel):
-            src = Path(source).absolute()
             entries.append((path_to_module(rel), str(src.parent), _is_init(src.name)))
-    for v in scantree(libdir):
-        rel = v.relative_to(libdir)
+    for v, rel in installed_entries:
         if is_trackable(rel):
             directory = str(v.parent if absolute else rel.parent)
             entries.append((path_to_module(rel), directory, _is_init(rel.name)))

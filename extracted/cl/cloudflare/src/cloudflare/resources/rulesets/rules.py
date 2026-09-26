@@ -1060,8 +1060,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -1133,8 +1131,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -1208,8 +1204,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -1281,8 +1275,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -1356,8 +1348,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -1429,8 +1419,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -1504,8 +1492,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -1577,8 +1563,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -2885,8 +2869,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -2959,8 +2941,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -3035,8 +3015,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -3109,8 +3087,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -3185,8 +3161,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -3259,8 +3233,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -3335,8 +3307,6 @@ class RulesResource(SyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -3409,8 +3379,6 @@ class RulesResource(SyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -4650,8 +4618,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -4723,8 +4689,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -4798,8 +4762,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -4871,8 +4833,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -4946,8 +4906,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -5019,8 +4977,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -5094,8 +5050,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -5167,8 +5121,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -6475,8 +6427,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -6549,8 +6499,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -6625,8 +6573,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -6699,8 +6645,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -6775,8 +6719,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -6849,8 +6791,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 
@@ -6925,8 +6865,6 @@ class AsyncRulesResource(AsyncAPIResource):
 
           description: An informative description of the rule.
 
-          enabled: Whether the rule should be executed.
-
           exposed_credential_check: Configuration for exposed credential checking.
 
           expression: The expression defining which traffic will match the rule.
@@ -6999,8 +6937,6 @@ class AsyncRulesResource(AsyncAPIResource):
           action_parameters: The parameters configuring the rule's action.
 
           description: An informative description of the rule.
-
-          enabled: Whether the rule should be executed.
 
           exposed_credential_check: Configuration for exposed credential checking.
 

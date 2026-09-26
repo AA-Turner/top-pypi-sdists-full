@@ -377,12 +377,36 @@ can use the `environment` property to customize the build environment:
 * `certificate` defines the location of a PEM encoded certificate to import.
 * `computeType` defines the instance type used for the build.
 * `dockerServer` defines the docker server used for the build.
+* `hostKernel` defines the host operating system kernel used for the build. See
+  [Host kernel](#host-kernel) below.
 * `privileged` can be set to `true` to allow privileged access.
 * `environmentVariables` can be set at this level (and also at the project
   level).
 
 Finally, you can also set the build environment `fleet` property to create
 a reserved capacity project. See [Fleet](#fleet) for more information.
+
+### Host kernel
+
+CodeBuild runs your build container on a host instance. You can select which host
+operating system kernel that instance uses with the `hostKernel` property:
+
+```python
+codebuild.Project(self, "Project",
+    environment=codebuild.BuildEnvironment(
+        build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+        host_kernel=codebuild.HostKernel.LINUX_KERNEL_6
+    )
+)
+```
+
+The host kernel does not affect the build environment operating system, which is
+determined by the `buildImage`. Use `HostKernel.LINUX_KERNEL_LATEST` to always run
+on the latest supported host kernel.
+
+This setting only applies to the `LINUX_CONTAINER`, `ARM_CONTAINER`, `LINUX_EC2` and
+`ARM_EC2` environment types. Specifying it with a Windows, Lambda or Mac build image
+results in a validation error at synthesis time.
 
 ## Images
 
@@ -1693,6 +1717,7 @@ class BucketCacheOptions:
         "docker_server": "dockerServer",
         "environment_variables": "environmentVariables",
         "fleet": "fleet",
+        "host_kernel": "hostKernel",
         "privileged": "privileged",
     },
 )
@@ -1706,6 +1731,7 @@ class BuildEnvironment:
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -1715,6 +1741,7 @@ class BuildEnvironment:
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
 
         :exampleMetadata: infused
@@ -1760,6 +1787,7 @@ class BuildEnvironment:
             check_type(argname="argument docker_server", value=docker_server, expected_type=type_hints["docker_server"])
             check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
             check_type(argname="argument fleet", value=fleet, expected_type=type_hints["fleet"])
+            check_type(argname="argument host_kernel", value=host_kernel, expected_type=type_hints["host_kernel"])
             check_type(argname="argument privileged", value=privileged, expected_type=type_hints["privileged"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if build_image is not None:
@@ -1774,6 +1802,8 @@ class BuildEnvironment:
             self._values["environment_variables"] = environment_variables
         if fleet is not None:
             self._values["fleet"] = fleet
+        if host_kernel is not None:
+            self._values["host_kernel"] = host_kernel
         if privileged is not None:
             self._values["privileged"] = privileged
 
@@ -1843,6 +1873,23 @@ class BuildEnvironment:
         '''
         result = self._values.get("fleet")
         return typing.cast(typing.Optional["IFleet"], result)
+
+    @builtins.property
+    def host_kernel(self) -> typing.Optional["HostKernel"]:
+        '''The host operating system kernel used for the builds.
+
+        The host kernel does not affect the build environment operating system,
+        which is determined by the ``buildImage``.
+
+        Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2``
+        environment types. Not supported by Windows, Lambda or Mac build images.
+
+        :default: - the default host kernel chosen by CodeBuild for the build image
+
+        :see: https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ProjectEnvironment.html#CodeBuild-Type-ProjectEnvironment-hostKernel
+        '''
+        result = self._values.get("host_kernel")
+        return typing.cast(typing.Optional["HostKernel"], result)
 
     @builtins.property
     def privileged(self) -> typing.Optional[builtins.bool]:
@@ -9182,6 +9229,7 @@ class CommonProjectProps:
                         )
                     },
                     fleet=fleet,
+                    host_kernel=codebuild.HostKernel.LINUX_KERNEL_4,
                     privileged=False
                 ),
                 environment_variables={
@@ -11185,6 +11233,37 @@ class GitHubSourceCredentialsProps:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_codebuild.HostKernel")
+class HostKernel(enum.Enum):
+    '''The host operating system kernel used for builds in a CodeBuild project.
+
+    The host kernel does not affect the build environment operating system,
+    which is determined by the build image.
+
+    Only applies to the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2``
+    environment types. It is not applicable to Windows, Lambda or Mac environment types.
+
+    :see: https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ProjectEnvironment.html#CodeBuild-Type-ProjectEnvironment-hostKernel
+    :exampleMetadata: infused
+
+    Example::
+
+        codebuild.Project(self, "Project",
+            environment=codebuild.BuildEnvironment(
+                build_image=codebuild.LinuxBuildImage.STANDARD_7_0,
+                host_kernel=codebuild.HostKernel.LINUX_KERNEL_6
+            )
+        )
+    '''
+
+    LINUX_KERNEL_4 = "LINUX_KERNEL_4"
+    '''Runs on an Amazon Linux 2 host (kernel 4.x).'''
+    LINUX_KERNEL_6 = "LINUX_KERNEL_6"
+    '''Runs on an Amazon Linux 2023 host (kernel 6.x).'''
+    LINUX_KERNEL_LATEST = "LINUX_KERNEL_LATEST"
+    '''Runs on the latest supported host kernel.'''
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_codebuild.IArtifacts")
 class IArtifacts(typing_extensions.Protocol):
     '''The abstract interface of a CodeBuild build output.
@@ -11341,6 +11420,7 @@ class IBuildImage(typing_extensions.Protocol):
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -11351,6 +11431,7 @@ class IBuildImage(typing_extensions.Protocol):
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         ...
@@ -11436,6 +11517,7 @@ class _IBuildImageProxy:
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -11446,6 +11528,7 @@ class _IBuildImageProxy:
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -11455,6 +11538,7 @@ class _IBuildImageProxy:
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -13052,6 +13136,7 @@ class LinuxArmBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Validates by checking the BuildEnvironments' images are not Lambda ComputeTypes.
@@ -13062,6 +13147,7 @@ class LinuxArmBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -13071,6 +13157,7 @@ class LinuxArmBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -13192,6 +13279,7 @@ class LinuxArmLambdaBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -13202,6 +13290,7 @@ class LinuxArmLambdaBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -13211,6 +13300,7 @@ class LinuxArmLambdaBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -13551,6 +13641,7 @@ class LinuxBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -13561,6 +13652,7 @@ class LinuxBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         env = BuildEnvironment(
@@ -13570,6 +13662,7 @@ class LinuxBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -13824,6 +13917,7 @@ class LinuxLambdaBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -13834,6 +13928,7 @@ class LinuxLambdaBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -13843,6 +13938,7 @@ class LinuxLambdaBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -14309,6 +14405,7 @@ class MacBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -14319,6 +14416,7 @@ class MacBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -14328,6 +14426,7 @@ class MacBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -18036,6 +18135,7 @@ class WindowsBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -18046,6 +18146,7 @@ class WindowsBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -18055,6 +18156,7 @@ class WindowsBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -19503,6 +19605,7 @@ class LinuxGpuBuildImage(
         docker_server: typing.Optional[typing.Union["DockerServerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union["BuildEnvironmentVariable", typing.Dict[builtins.str, typing.Any]]]] = None,
         fleet: typing.Optional["IFleet"] = None,
+        host_kernel: typing.Optional["HostKernel"] = None,
         privileged: typing.Optional[builtins.bool] = None,
     ) -> typing.List[builtins.str]:
         '''Allows the image a chance to validate whether the passed configuration is correct.
@@ -19513,6 +19616,7 @@ class LinuxGpuBuildImage(
         :param docker_server: The Docker server configuration CodeBuild use to build your Docker image. Default: - Doesn't use remote docker server
         :param environment_variables: The environment variables that your builds can use.
         :param fleet: Fleet resource for a reserved capacity CodeBuild project. Fleets allow for process builds or tests to run immediately and reduces build durations, by reserving compute resources for your projects. You will be charged for the resources in the fleet, even if they are idle. Default: - No fleet will be attached to the project, which will remain on-demand.
+        :param host_kernel: The host operating system kernel used for the builds. The host kernel does not affect the build environment operating system, which is determined by the ``buildImage``. Only supported by the ``LINUX_CONTAINER``, ``ARM_CONTAINER``, ``LINUX_EC2`` and ``ARM_EC2`` environment types. Not supported by Windows, Lambda or Mac build images. Default: - the default host kernel chosen by CodeBuild for the build image
         :param privileged: Indicates how the project builds Docker images. Specify true to enable running the Docker daemon inside a Docker container. This value must be set to true only if this build project will be used to build Docker images, and the specified build environment image is not one provided by AWS CodeBuild with Docker support. Otherwise, all associated builds that attempt to interact with the Docker daemon will fail. Default: false
         '''
         build_environment = BuildEnvironment(
@@ -19522,6 +19626,7 @@ class LinuxGpuBuildImage(
             docker_server=docker_server,
             environment_variables=environment_variables,
             fleet=fleet,
+            host_kernel=host_kernel,
             privileged=privileged,
         )
 
@@ -19960,6 +20065,7 @@ __all__ = [
     "GitHubSourceCredentials",
     "GitHubSourceCredentialsProps",
     "GitHubSourceProps",
+    "HostKernel",
     "IArtifacts",
     "IBindableBuildImage",
     "IBuildImage",
@@ -20066,6 +20172,7 @@ def _typecheckingstub__ba89ab1467720a2862905a012ed6b6da7a2294a6ebfc22557f6a64dce
     docker_server: typing.Optional[typing.Union[DockerServerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     environment_variables: typing.Optional[typing.Mapping[builtins.str, typing.Union[BuildEnvironmentVariable, typing.Dict[builtins.str, typing.Any]]]] = None,
     fleet: typing.Optional[IFleet] = None,
+    host_kernel: typing.Optional[HostKernel] = None,
     privileged: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""

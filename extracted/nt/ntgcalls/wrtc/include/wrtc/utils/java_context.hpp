@@ -1,11 +1,11 @@
 //
-// Created by Laky64 on 15/09/24.
+// Created by Lauren on 15/09/24.
 //
 
 #pragma once
 
-namespace wrtc {
+namespace wrtc::utils {
 
-    void* GetJNIEnv();
+    void* get_jni_env();
 
-} // wrtc
+} // wrtc::utils

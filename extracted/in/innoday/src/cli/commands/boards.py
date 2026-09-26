@@ -11,7 +11,6 @@ import time
 from typing import Any, Dict, NamedTuple, Optional, Tuple
 
 import httpx
-from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Confirm
@@ -27,8 +26,9 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console
 
-console = Console()
+console = make_console()
 
 
 def format_sync_status(raw_status: Optional[str], *, dry_run: bool = False) -> str:
@@ -41,7 +41,7 @@ def format_sync_status(raw_status: Optional[str], *, dry_run: bool = False) -> s
 
     Matching only the uppercase form meant none of the branches ever fired: a
     failed sync printed the bare, unstyled ``Status: failed`` rather than
-    ``❌ Last sync failed``. Kept out of the handler so it can be tested against
+    ``✗ Last sync failed``. Kept out of the handler so it can be tested against
     real inputs instead of a copy of this logic.
     """
     display = raw_status or "unknown"
@@ -58,9 +58,9 @@ def format_sync_status(raw_status: Optional[str], *, dry_run: bool = False) -> s
                 "🔍 Last run was a DRY RUN — nothing was written. "
                 "The counts below are what it would have done."
             )
-        return format_success("✅ Last sync completed successfully")
+        return format_success("Last sync completed successfully")
     if status == "FAILED":
-        return format_error("❌ Last sync failed")
+        return format_error("Last sync failed")
     return f"Status: {display}"
 
 

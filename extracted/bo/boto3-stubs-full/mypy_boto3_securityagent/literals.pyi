@@ -38,6 +38,7 @@ __all__ = (
     "IpAddressTypeType",
     "JobStatusType",
     "JobTypeType",
+    "ListActorMessagesPaginatorName",
     "ListAgentSpacesPaginatorName",
     "ListApplicationsPaginatorName",
     "ListArtifactsPaginatorName",
@@ -113,6 +114,7 @@ GitLabTokenTypeType = Literal["GROUP", "PERSONAL"]
 IpAddressTypeType = Literal["DUAL_STACK", "IPV4", "IPV6"]
 JobStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "STOPPED", "STOPPING"]
 JobTypeType = Literal["FULL", "REVALIDATION"]
+ListActorMessagesPaginatorName = Literal["list_actor_messages"]
 ListAgentSpacesPaginatorName = Literal["list_agent_spaces"]
 ListApplicationsPaginatorName = Literal["list_applications"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]
@@ -644,6 +646,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_actor_messages",
     "list_agent_spaces",
     "list_applications",
     "list_artifacts",

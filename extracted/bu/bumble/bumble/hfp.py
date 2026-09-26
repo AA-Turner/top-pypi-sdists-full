@@ -602,7 +602,7 @@ class AgIndicatorState:
     def roam(cls: type[Self]) -> Self:
         """Default roam indicator state."""
         return cls(
-            indicator=AgIndicator.CALL, supported_values={0, 1}, current_status=0
+            indicator=AgIndicator.ROAM, supported_values={0, 1}, current_status=0
         )
 
     @classmethod

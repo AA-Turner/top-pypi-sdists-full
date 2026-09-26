@@ -14,18 +14,22 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import httpx
-from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import format_datetime, format_error
+from src.cli.utils.presentation import (
+    make_console,
+    print_command_header,
+    print_step,
+)
 from src.cli.utils.project_context import (
     LegacyProjectFileError,
     load_project_context,
 )
 
-console = Console()
+console = make_console()
 
 
 class StatusCommands:
@@ -45,6 +49,8 @@ class StatusCommands:
         .innoday/project.yml, resolved org/project, logged-in identity, CLI
         token presence + expiry, and API health.
         """
+        print_command_header(args, config, "status", show_workspace=True)
+
         api_url = config.get_api_url()
         user_info = config.get_user_info()
         has_token = bool(config.get_cli_token())
@@ -180,15 +186,15 @@ class StatusCommands:
         org = context_block.get("org_alias") or "—"
         project = context_block.get("project_id") or "—"
         source = context_block.get("source") or "—"
-        console.print(f"[bold]Project context:[/bold] org={org} project={project}")
-        console.print(f"[dim]  resolved from:[/dim] {source}")
+        console.print(f"  [muted]context[/muted] org={org} project={project}")
+        console.print(f"[muted]    resolved from {source}[/muted]")
         legacy = context_block.get("legacy_project_file")
         if legacy:
             # An out-of-date project.yml is an actionable error, not a soft
             # warning — surface it in red with the refresh instruction.
-            console.print(f"[red]  ✗ {legacy}[/red]")
+            console.print(f"  [bad]✗ {legacy}[/bad]")
             console.print(
-                "[red]    Run `innoday refresh` to update this workspace.[/red]"
+                "[bad]    Run `innoday refresh` to update this workspace.[/bad]"
             )
         if token is not None:
             present = "yes" if token.get("present") else "no"
@@ -274,64 +280,72 @@ class StatusCommands:
     def _display_table(result: Dict[str, Any]) -> None:
         """Render status as rich tables, sectioned API/Identity/Orgs/Projects."""
         api = result["api"]
+        console.print()
+        print_step(1, "Connection")
         console.print(
-            f"[bold]API:[/bold] [green]✓ connected[/green] "
-            f"({api['url']}, {api['latency_ms']}ms)"
+            f"  [good]✓ connected[/good] {api['url']} "
+            f"[muted]· {api['latency_ms']}ms[/muted]"
         )
 
+        console.print()
+        print_step(2, "Identity")
         identity = result["identity"]
         console.print(
-            f"[bold]Identity:[/bold] {identity['name']} <{identity['email']}> "
-            f"({identity['user_id']})"
+            f"  [good]✓[/good] {identity['name']} [muted]<{identity['email']}>[/muted]"
         )
+        console.print(f"[muted]    {identity['user_id']}[/muted]")
 
         token = result.get("token") or {}
         if token.get("present"):
             expiry = (
-                format_datetime(token["expires_at"]) if token.get("expires_at") else "—"
+                format_datetime(token["expires_at"]) if token.get("expires_at") else ""
             )
             console.print(
-                f"[bold]CLI token:[/bold] [green]present[/green] (expires: {expiry})"
+                "  [good]✓[/good] CLI token present"
+                + (f" [muted]· expires {expiry}[/muted]" if expiry else "")
             )
         else:
             console.print(
-                "[bold]CLI token:[/bold] [yellow]none[/yellow] (run 'innoday login')"
+                "  [warn]⚠[/warn] no CLI token [muted]· run 'innoday login'[/muted]"
             )
 
         context_block = result.get("project") or {}
         org = context_block.get("org_alias") or "—"
         project = context_block.get("project_id") or "—"
         source = context_block.get("source") or "—"
-        console.print(f"[bold]Project context:[/bold] org={org} project={project}")
-        console.print(f"[dim]  resolved from:[/dim] {source}")
+        console.print(f"  [muted]context[/muted] org={org} project={project}")
+        console.print(f"[muted]    resolved from {source}[/muted]")
         legacy = context_block.get("legacy_project_file")
         if legacy:
             # An out-of-date project.yml is an actionable error, not a soft
             # warning — surface it in red with the refresh instruction.
-            console.print(f"[red]  ✗ {legacy}[/red]")
+            console.print(f"  [bad]✗ {legacy}[/bad]")
             console.print(
-                "[red]    Run `innoday refresh` to update this workspace.[/red]"
+                "[bad]    Run `innoday refresh` to update this workspace.[/bad]"
             )
 
         profile = result["profile"]
         current = profile["current"]
         default = profile["default"]
         if default is None or default == current:
-            console.print(f"[bold]Profile:[/bold] {current} (default)")
+            console.print(f"  [muted]profile[/muted] {current} (default)")
         else:
             console.print(
-                f"[bold]Profile:[/bold] {current} (current, default is: {default})"
+                f"  [muted]profile[/muted] {current} "
+                f"[muted](current, default is: {default})[/muted]"
             )
 
-        orgs_table = Table(title="Orgs")
-        orgs_table.add_column("Name", style="cyan")
+        console.print()
+        print_step(3, "Work")
+        orgs_table = Table(title="Orgs", header_style="muted")
+        orgs_table.add_column("Name", style="header")
         orgs_table.add_column("Role")
         for org in result["orgs"]:
             orgs_table.add_row(org["name"], org.get("role") or "-")
         console.print(orgs_table)
 
-        projects_table = Table(title="Projects")
-        projects_table.add_column("Name", style="cyan")
+        projects_table = Table(title="Projects", header_style="muted")
+        projects_table.add_column("Name", style="header")
         projects_table.add_column("Assigned Tickets", justify="right")
         for project in result["projects"]:
             projects_table.add_row(

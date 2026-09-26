@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,7 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 from scikit_build_core.program_search import (
+    Program,
     best_program,
     get_cmake_program,
     get_cmake_programs,
@@ -16,13 +19,19 @@ from scikit_build_core.program_search import (
 )
 
 
-def test_get_cmake_programs_cmake_module(monkeypatch):
-    cmake = pytest.importorskip("cmake")
+def test_get_cmake_programs_cmake_module(monkeypatch, fp, tmp_path):
+    # Fake the PyPI cmake module so this runs without the wheel installed
+    bin_dir = tmp_path / "cmake_bin"
+    monkeypatch.setitem(
+        sys.modules, "cmake", types.SimpleNamespace(CMAKE_BIN_DIR=str(bin_dir))
+    )
     monkeypatch.setattr("shutil.which", lambda _: None)
+    fp.register(
+        [bin_dir / "cmake", "-E", "capabilities"],
+        stdout='{"version":{"string":"3.20.0"}}',
+    )
     programs = list(get_cmake_programs())
-    assert len(programs) == 1
-    assert programs[0].path.name == "cmake"
-    assert programs[0].version == Version(".".join(cmake.__version__.split(".")[:3]))
+    assert programs == [Program(bin_dir / "cmake", Version("3.20.0"))]
 
 
 def test_get_ninja_programs_cmake_module(monkeypatch):
@@ -53,14 +62,14 @@ def test_get_cmake_programs_all(monkeypatch, fp):
     )
     programs = list(get_cmake_programs(module=False))
     assert len(programs) == 2
-    assert programs[0].path.name == "cmake3"
-    assert programs[0].version == Version("3.19.0")
-    assert programs[1].path.name == "cmake"
-    assert programs[1].version == Version("3.20.0")
+    assert programs[0].path.name == "cmake"
+    assert programs[0].version == Version("3.20.0")
+    assert programs[1].path.name == "cmake3"
+    assert programs[1].version == Version("3.19.0")
 
     best1 = best_program(programs, version=None)
     assert best1
-    assert best1.path.name == "cmake3"
+    assert best1.path.name == "cmake"
 
     best2 = best_program(programs, version=SpecifierSet(">=3.20.0"))
     assert best2
@@ -110,7 +119,7 @@ def test_get_cmake_programs_malformed(monkeypatch, fp, caplog):
 
     best_none = best_program(programs, version=None)
     assert best_none
-    assert best_none.path.name == "cmake3"
+    assert best_none.path.name == "cmake"
 
     best_3_15 = best_program(programs, version=SpecifierSet(">=3.15"))
     assert best_3_15
@@ -144,3 +153,86 @@ def test_get_cmake_program_fallback_exception(monkeypatch, fp, caplog, exc):
     program = get_cmake_program(cmake_path)
     assert program.path == cmake_path
     assert program.version is None
+
+
+def test_compute_timeout_base_unchanged_on_linux(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scikit_build_core.program_search import BASE_TIMEOUT, compute_timeout
+
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr("scikit_build_core.program_search.sys.platform", "linux")
+    compute_timeout.cache_clear()
+    try:
+        assert BASE_TIMEOUT == 5
+        assert compute_timeout(Path("cmake")) == 5
+    finally:
+        compute_timeout.cache_clear()
+
+
+def test_compute_timeout_native_apple_silicon_doubles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from scikit_build_core.program_search import compute_timeout
+
+    monkeypatch.delenv("CI", raising=False)
+    monkeypatch.setattr("scikit_build_core.program_search.sys.platform", "darwin")
+    monkeypatch.setattr(
+        "scikit_build_core.program_search.platform.machine", lambda: "arm64"
+    )
+    monkeypatch.setattr(
+        "scikit_build_core.program_search._macos_binary_is_x86", lambda _path: False
+    )
+    compute_timeout.cache_clear()
+    try:
+        assert compute_timeout(Path("cmake")) == 10
+    finally:
+        compute_timeout.cache_clear()
+
+
+def test_compute_timeout_ci_quadruples_base(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scikit_build_core.program_search import compute_timeout
+
+    monkeypatch.setenv("CI", "true")
+    compute_timeout.cache_clear()
+    try:
+        assert compute_timeout(Path("cmake")) == 20
+    finally:
+        compute_timeout.cache_clear()
+
+
+def test_get_cmake_program_missing_binary(tmp_path: Path) -> None:
+    missing = tmp_path / "not-a-cmake"
+    assert get_cmake_program(missing) == Program(missing, None)
+
+
+def test_get_ninja_programs_missing_binary(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    missing = tmp_path / "not-a-ninja"
+    monkeypatch.setattr(
+        "shutil.which", lambda name: str(missing) if name == "ninja" else None
+    )
+    assert list(get_ninja_programs(module=False)) == [Program(missing, None)]
+
+
+def test_macos_binary_is_x86_hides_stderr(monkeypatch: pytest.MonkeyPatch) -> None:
+    from scikit_build_core.program_search import _macos_binary_is_x86
+
+    kwargs_seen = []
+
+    def fake_check_output(_cmd, **kwargs):
+        kwargs_seen.append(kwargs)
+        raise FileNotFoundError
+
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+    _macos_binary_is_x86.cache_clear()
+    try:
+        assert not _macos_binary_is_x86(Path("cmake"))
+    finally:
+        _macos_binary_is_x86.cache_clear()
+
+    assert len(kwargs_seen) == 2
+    for kwargs in kwargs_seen:
+        assert kwargs["stderr"] is subprocess.DEVNULL
+        assert kwargs["stdin"] is subprocess.DEVNULL

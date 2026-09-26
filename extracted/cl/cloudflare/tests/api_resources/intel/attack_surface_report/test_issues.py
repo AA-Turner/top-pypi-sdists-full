@@ -50,6 +50,7 @@ class TestIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -113,6 +114,7 @@ class TestIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -176,6 +178,7 @@ class TestIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -239,6 +242,7 @@ class TestIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -310,6 +314,7 @@ class TestAsyncIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -373,6 +378,7 @@ class TestAsyncIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -436,6 +442,7 @@ class TestAsyncIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )
@@ -499,6 +506,7 @@ class TestAsyncIssues:
                 product_neq=["access", "dns"],
                 severity=["low", "moderate"],
                 severity_neq=["low", "moderate"],
+                source=["cloudflare"],
                 subject=["example.com"],
                 subject_neq=["example.com"],
             )

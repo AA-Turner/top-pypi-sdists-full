@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from matrx_connect import AppContext, Emitter
-from matrx_files import SCRAPER, FileManager
+from matrx_files import FileManager
 from matrx_files.cloud_sync.models import SyncResult
 from matrx_files.service import FileService
 from matrx_orm import IntegrityError, call_function, rls_session, transaction
@@ -1708,6 +1708,25 @@ async def prune_screenshot_history(
     return counts
 
 
+def _artifact_rel_path(*segments: str) -> str:
+    """A crawl artifact's path under its site's folder (``sessions/<id>/...``)."""
+    return "/".join(str(seg).strip("/") for seg in segments if seg and str(seg).strip("/"))
+
+
+def _site_folder_label(root_url: str | None, site_id: str) -> str:
+    """The name a person reads for a site's crawl folder: its host, else the site id."""
+    from urllib.parse import urlsplit
+
+    host = ""
+    if root_url:
+        try:
+            host = (urlsplit(root_url if "//" in root_url else f"//{root_url}").hostname or "")
+        except ValueError:
+            host = ""
+    host = host.removeprefix("www.")
+    return host or f"Site {site_id}"
+
+
 class CanonicalBodyPersister:
     """Write immutable S3 artifacts and their canonical snapshot rows."""
 
@@ -1735,9 +1754,19 @@ class CanonicalBodyPersister:
         capture_id: str,
     ) -> SyncResult:
         payload = content.encode("utf-8") if isinstance(content, str) else content
+        # ``file_path`` is RELATIVE to the site's own folder. The artifact is carried FOR the
+        # site's organization (written as the site's creator), so it lands in that
+        # organization's own "Web crawls / <site>" folder through the one door — never in a
+        # shared ``system-files/`` tree another organization's folder may head
+        # (FILES-FOLDER-ORG, 2026-09-25).
+        *sub_folders, file_name = [seg for seg in file_path.split("/") if seg]
         upload_kwargs = {
             "intent": "force_new_copy",
-            "file_path": file_path,
+            "root": "web-crawls",
+            "source_key": self.state.site_id,
+            "source_label": _site_folder_label(self.root_url, self.state.site_id),
+            "sub_folders": sub_folders,
+            "file_name": file_name,
             "owner_id": self.state.file_owner_id,
             "organization_id": self.state.organization_id,
             "mime_type": mime_type,
@@ -1763,7 +1792,7 @@ class CanonicalBodyPersister:
             "auto_thumbnail": False,
             "auto_rekey": False,
         }
-        upload = await self.files.upload_with_intent(payload, **upload_kwargs)
+        upload = await self.files.upload_for_organization(payload, **upload_kwargs)
         result = upload.get("result")
         if not isinstance(result, SyncResult):
             raise RuntimeError(f"canonical file write returned no result for {file_path}")
@@ -1806,9 +1835,7 @@ class CanonicalBodyPersister:
         written: list[tuple[str, SyncResult]] = []
         try:
             for shot in shots:
-                file_path = SCRAPER.path(
-                    "web",
-                    self.state.site_id,
+                file_path = _artifact_rel_path(
                     "sessions",
                     self.state.session_id,
                     "initialization",
@@ -1958,9 +1985,7 @@ class CanonicalBodyPersister:
             artifact_hashes["markdown_sha256"] = markdown_sha
 
         capture_id = str(uuid4())
-        prefix = SCRAPER.path(
-            "web",
-            self.state.site_id,
+        prefix = _artifact_rel_path(
             "sessions",
             self.state.session_id,
             "pages",

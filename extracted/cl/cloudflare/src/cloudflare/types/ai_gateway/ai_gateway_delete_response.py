@@ -216,6 +216,12 @@ class AIGatewayDeleteResponse(BaseModel):
 
     authentication: Optional[bool] = None
 
+    byok_only: Optional[bool] = None
+    """
+    Requires customer-provided provider credentials and prevents fallback to Unified
+    Billing.
+    """
+
     dlp: Optional[DLP] = None
 
     guardrails: Optional[Guardrails] = None
@@ -240,7 +246,7 @@ class AIGatewayDeleteResponse(BaseModel):
     """Backoff strategy for retry delays"""
 
     retry_delay: Optional[int] = None
-    """Delay between retry attempts in milliseconds (0-5000)"""
+    """Delay between retry attempts in milliseconds (0-60000)"""
 
     retry_max_attempts: Optional[int] = None
     """Maximum number of retry attempts for failed requests (1-5)"""

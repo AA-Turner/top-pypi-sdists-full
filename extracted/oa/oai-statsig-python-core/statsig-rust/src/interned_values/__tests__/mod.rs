@@ -1,5 +1,6 @@
 mod interned_store_eval_value_tests;
 mod interned_store_mmap_fetch_tests;
 mod interned_store_mmap_v2_tests;
+mod interned_store_preload_remote_tests;
 mod interned_store_returnable_tests;
 mod interned_store_string_tests;

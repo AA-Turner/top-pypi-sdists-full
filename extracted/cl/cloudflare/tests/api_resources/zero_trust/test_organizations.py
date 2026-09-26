@@ -11,6 +11,7 @@ from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
 from cloudflare.types.zero_trust import (
     Organization,
+    OrganizationListResponse,
     OrganizationRevokeUsersResponse,
 )
 
@@ -63,6 +64,11 @@ class TestOrganizations:
                 "touch_policy": "always",
             },
             mfa_required_for_all_apps=False,
+            service_token_inactivity={
+                "action": "disable",
+                "enabled": True,
+                "inactivity_threshold_days": 30,
+            },
             session_duration="24h",
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
             user_seat_expiration_inactive_time="730h",
@@ -163,6 +169,11 @@ class TestOrganizations:
             },
             mfa_required_for_all_apps=False,
             name="Widget Corps Internal Applications",
+            service_token_inactivity={
+                "action": "disable",
+                "enabled": True,
+                "inactivity_threshold_days": 30,
+            },
             session_duration="24h",
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
             user_seat_expiration_inactive_time="730h",
@@ -216,7 +227,7 @@ class TestOrganizations:
         organization = client.zero_trust.organizations.list(
             account_id="account_id",
         )
-        assert_matches_type(Optional[Organization], organization, path=["response"])
+        assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -224,7 +235,7 @@ class TestOrganizations:
         organization = client.zero_trust.organizations.list(
             account_id="account_id",
         )
-        assert_matches_type(Optional[Organization], organization, path=["response"])
+        assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -236,7 +247,7 @@ class TestOrganizations:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         organization = response.parse()
-        assert_matches_type(Optional[Organization], organization, path=["response"])
+        assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -248,7 +259,7 @@ class TestOrganizations:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             organization = response.parse()
-            assert_matches_type(Optional[Organization], organization, path=["response"])
+            assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -379,6 +390,11 @@ class TestAsyncOrganizations:
                 "touch_policy": "always",
             },
             mfa_required_for_all_apps=False,
+            service_token_inactivity={
+                "action": "disable",
+                "enabled": True,
+                "inactivity_threshold_days": 30,
+            },
             session_duration="24h",
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
             user_seat_expiration_inactive_time="730h",
@@ -479,6 +495,11 @@ class TestAsyncOrganizations:
             },
             mfa_required_for_all_apps=False,
             name="Widget Corps Internal Applications",
+            service_token_inactivity={
+                "action": "disable",
+                "enabled": True,
+                "inactivity_threshold_days": 30,
+            },
             session_duration="24h",
             ui_read_only_toggle_reason="Temporarily turn off the UI read only lock to make a change via the UI",
             user_seat_expiration_inactive_time="730h",
@@ -532,7 +553,7 @@ class TestAsyncOrganizations:
         organization = await async_client.zero_trust.organizations.list(
             account_id="account_id",
         )
-        assert_matches_type(Optional[Organization], organization, path=["response"])
+        assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -540,7 +561,7 @@ class TestAsyncOrganizations:
         organization = await async_client.zero_trust.organizations.list(
             account_id="account_id",
         )
-        assert_matches_type(Optional[Organization], organization, path=["response"])
+        assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -552,7 +573,7 @@ class TestAsyncOrganizations:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         organization = await response.parse()
-        assert_matches_type(Optional[Organization], organization, path=["response"])
+        assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -564,7 +585,7 @@ class TestAsyncOrganizations:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             organization = await response.parse()
-            assert_matches_type(Optional[Organization], organization, path=["response"])
+            assert_matches_type(Optional[OrganizationListResponse], organization, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

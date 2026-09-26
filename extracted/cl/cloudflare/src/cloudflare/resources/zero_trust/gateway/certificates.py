@@ -19,11 +19,7 @@ from ...._response import (
 from ...._wrappers import ResultWrapper
 from ....pagination import SyncSinglePage, AsyncSinglePage
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.zero_trust.gateway import (
-    certificate_create_params,
-    certificate_activate_params,
-    certificate_deactivate_params,
-)
+from ....types.zero_trust.gateway import certificate_create_params
 from ....types.zero_trust.gateway.certificate_get_response import CertificateGetResponse
 from ....types.zero_trust.gateway.certificate_list_response import CertificateListResponse
 from ....types.zero_trust.gateway.certificate_create_response import CertificateCreateResponse
@@ -70,6 +66,8 @@ class CertificatesResource(SyncAPIResource):
         Create a new Zero Trust certificate.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           validity_period_days: Sets the certificate validity period in days (range: 1-10,950 days / ~30 years).
               Defaults to 1,825 days (5 years). **Important**: This field is only settable
               during the certificate creation. Certificates becomes immutable after creation -
@@ -115,6 +113,8 @@ class CertificatesResource(SyncAPIResource):
         List all Zero Trust certificates for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -152,6 +152,8 @@ class CertificatesResource(SyncAPIResource):
         certificate from the edge (inactive) before deleting it.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -187,7 +189,6 @@ class CertificatesResource(SyncAPIResource):
         certificate_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -199,6 +200,8 @@ class CertificatesResource(SyncAPIResource):
         Bind a single Zero Trust certificate to the edge.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -219,7 +222,6 @@ class CertificatesResource(SyncAPIResource):
                 account_id=account_id,
                 certificate_id=certificate_id,
             ),
-            body=maybe_transform(body, certificate_activate_params.CertificateActivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -235,7 +237,6 @@ class CertificatesResource(SyncAPIResource):
         certificate_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -247,6 +248,8 @@ class CertificatesResource(SyncAPIResource):
         Unbind a single Zero Trust certificate from the edge.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -267,7 +270,6 @@ class CertificatesResource(SyncAPIResource):
                 account_id=account_id,
                 certificate_id=certificate_id,
             ),
-            body=maybe_transform(body, certificate_deactivate_params.CertificateDeactivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -294,6 +296,8 @@ class CertificatesResource(SyncAPIResource):
         Get a single Zero Trust certificate.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -361,6 +365,8 @@ class AsyncCertificatesResource(AsyncAPIResource):
         Create a new Zero Trust certificate.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           validity_period_days: Sets the certificate validity period in days (range: 1-10,950 days / ~30 years).
               Defaults to 1,825 days (5 years). **Important**: This field is only settable
               during the certificate creation. Certificates becomes immutable after creation -
@@ -406,6 +412,8 @@ class AsyncCertificatesResource(AsyncAPIResource):
         List all Zero Trust certificates for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -443,6 +451,8 @@ class AsyncCertificatesResource(AsyncAPIResource):
         certificate from the edge (inactive) before deleting it.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -478,7 +488,6 @@ class AsyncCertificatesResource(AsyncAPIResource):
         certificate_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -490,6 +499,8 @@ class AsyncCertificatesResource(AsyncAPIResource):
         Bind a single Zero Trust certificate to the edge.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -510,7 +521,6 @@ class AsyncCertificatesResource(AsyncAPIResource):
                 account_id=account_id,
                 certificate_id=certificate_id,
             ),
-            body=await async_maybe_transform(body, certificate_activate_params.CertificateActivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -526,7 +536,6 @@ class AsyncCertificatesResource(AsyncAPIResource):
         certificate_id: str,
         *,
         account_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -538,6 +547,8 @@ class AsyncCertificatesResource(AsyncAPIResource):
         Unbind a single Zero Trust certificate from the edge.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers
@@ -558,7 +569,6 @@ class AsyncCertificatesResource(AsyncAPIResource):
                 account_id=account_id,
                 certificate_id=certificate_id,
             ),
-            body=await async_maybe_transform(body, certificate_deactivate_params.CertificateDeactivateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -585,6 +595,8 @@ class AsyncCertificatesResource(AsyncAPIResource):
         Get a single Zero Trust certificate.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           certificate_id: Identify the certificate with a UUID.
 
           extra_headers: Send extra headers

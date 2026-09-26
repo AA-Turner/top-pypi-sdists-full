@@ -60,6 +60,10 @@ def test_interned_store_preload(server_setup):
 
 
 def test_interned_store_mmap_preload(server_setup):
+    _run_isolated("_assert_interned_store_mmap_preload", *server_setup)
+
+
+def _run_isolated(function_name, *args):
     subprocess.run(
         [
             sys.executable,
@@ -67,11 +71,11 @@ def test_interned_store_mmap_preload(server_setup):
             (
                 "import sys; "
                 "sys.path.insert(0, '.'); "
-                "from test_interned_store_preload import "
-                "_assert_interned_store_mmap_preload; "
-                "_assert_interned_store_mmap_preload(*sys.argv[1:])"
+                "import test_interned_store_preload as tests; "
+                "getattr(tests, sys.argv[1])(*sys.argv[2:])"
             ),
-            *server_setup,
+            function_name,
+            *args,
         ],
         cwd=Path(__file__).parent,
         check=True,
@@ -129,3 +133,23 @@ def _assert_interned_store_mmap_preload(specs_url, log_event_url):
     assert config.value["foo"] == 1e21
     assert isinstance(config.value["foo"], float)
     assert log_provider.error_count == 0
+
+
+def test_interned_store_mmap_missing_required():
+    _run_isolated("_assert_mmap_missing_required")
+
+
+def _assert_mmap_missing_required():
+    sdk_key = f"missing-{uuid.uuid4()}"
+    message = "Invalid operation: No committed interned mmap V2 artifact was found"
+    for preload, argument in (
+        (InternedStore.preload_mmap, sdk_key),
+        (InternedStore.preload_mmap_multi, [sdk_key]),
+    ):
+        with pytest.raises(RuntimeError) as raised:
+            preload(argument)
+        assert type(raised.value) is RuntimeError
+        assert str(raised.value) == message
+        assert raised.value.args == (message,)
+        assert raised.value.error_name == "InvalidOperation"
+        assert raised.value.error_message == message

@@ -34,7 +34,7 @@ import aws_cdk.aws_kinesisanalytics_flink_alpha as flink
 app = core.App()
 stack = core.Stack(app, "FlinkAppTest")
 
-flink_runtimes = [flink.Runtime.FLINK_1_15, flink.Runtime.FLINK_1_18, flink.Runtime.FLINK_1_19, flink.Runtime.FLINK_1_20
+flink_runtimes = [flink.Runtime.FLINK_1_15, flink.Runtime.FLINK_1_18, flink.Runtime.FLINK_1_19, flink.Runtime.FLINK_1_20, flink.Runtime.FLINK_2_2
 ]
 
 flink_runtimes.for_each((runtime) => {
@@ -81,7 +81,7 @@ flink_app = flink.Application(self, "Application",
         }
     },
     # ...
-    runtime=flink.Runtime.FLINK_1_20,
+    runtime=flink.Runtime.FLINK_2_2,
     code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
 )
 ```
@@ -95,7 +95,7 @@ snapshotting, monitoring, and parallelism.
 
 flink_app = flink.Application(self, "Application",
     code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
-    runtime=flink.Runtime.FLINK_1_20,
+    runtime=flink.Runtime.FLINK_2_2,
     checkpointing_enabled=True,  # default is true
     checkpoint_interval=Duration.seconds(30),  # default is 1 minute
     min_pause_between_checkpoints=Duration.seconds(10),  # default is 5 seconds
@@ -117,7 +117,7 @@ Flink applications can optionally be deployed in a VPC:
 
 flink_app = flink.Application(self, "Application",
     code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
-    runtime=flink.Runtime.FLINK_1_20,
+    runtime=flink.Runtime.FLINK_2_2,
     vpc=vpc
 )
 ```
@@ -285,7 +285,7 @@ class ApplicationCode(
                 }
             },
             # ...
-            runtime=flink.Runtime.FLINK_1_20,
+            runtime=flink.Runtime.FLINK_2_2,
             code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
         )
     '''
@@ -750,7 +750,7 @@ class ApplicationProps:
                     }
                 },
                 # ...
-                runtime=flink.Runtime.FLINK_1_20,
+                runtime=flink.Runtime.FLINK_2_2,
                 code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
             )
         '''
@@ -3793,7 +3793,7 @@ class LogLevel(enum.Enum):
         
         flink_app = flink.Application(self, "Application",
             code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
-            runtime=flink.Runtime.FLINK_1_20,
+            runtime=flink.Runtime.FLINK_2_2,
             checkpointing_enabled=True,  # default is true
             checkpoint_interval=Duration.seconds(30),  # default is 1 minute
             min_pause_between_checkpoints=Duration.seconds(10),  # default is 5 seconds
@@ -3842,7 +3842,7 @@ class MetricsLevel(enum.Enum):
         
         flink_app = flink.Application(self, "Application",
             code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
-            runtime=flink.Runtime.FLINK_1_20,
+            runtime=flink.Runtime.FLINK_2_2,
             checkpointing_enabled=True,  # default is true
             checkpoint_interval=Duration.seconds(30),  # default is 1 minute
             min_pause_between_checkpoints=Duration.seconds(10),  # default is 5 seconds
@@ -3935,7 +3935,7 @@ class Runtime(
                 }
             },
             # ...
-            runtime=flink.Runtime.FLINK_1_20,
+            runtime=flink.Runtime.FLINK_2_2,
             code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
         )
     '''
@@ -4039,6 +4039,15 @@ class Runtime(
         return typing.cast("Runtime", jsii.sget(cls, "FLINK_1_8"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="FLINK_2_2")
+    def FLINK_2_2(cls) -> "Runtime":
+        '''(experimental) Flink Version 2.2.
+
+        :stability: experimental
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "FLINK_2_2"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="SQL_1_0")
     def SQL_1_0(cls) -> "Runtime":
         '''(experimental) SQL Version 1.0.
@@ -4108,7 +4117,7 @@ class Application(
                 }
             },
             # ...
-            runtime=flink.Runtime.FLINK_1_20,
+            runtime=flink.Runtime.FLINK_2_2,
             code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
         )
     '''

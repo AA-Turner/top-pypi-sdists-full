@@ -337,8 +337,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[CreateStreamProcessorRequestTypeDef]
     ) -> CreateStreamProcessorResponseTypeDef:
         """
-        Creates an Amazon Rekognition stream processor that you can use to detect and
-        recognize faces or to detect labels in a streaming video.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/create_stream_processor.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#create_stream_processor)
@@ -415,7 +415,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[DeleteStreamProcessorRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Deletes the stream processor identified by <code>Name</code>.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/delete_stream_processor.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#delete_stream_processor)
@@ -473,8 +474,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[DescribeStreamProcessorRequestTypeDef]
     ) -> DescribeStreamProcessorResponseTypeDef:
         """
-        Provides information about a stream processor created by
-        <a>CreateStreamProcessor</a>.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/describe_stream_processor.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#describe_stream_processor)
@@ -640,7 +641,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[GetMediaAnalysisJobRequestTypeDef]
     ) -> GetMediaAnalysisJobResponseTypeDef:
         """
-        Retrieves the results for a given media analysis job.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/get_media_analysis_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#get_media_analysis_job)
@@ -729,7 +731,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[ListMediaAnalysisJobsRequestTypeDef]
     ) -> ListMediaAnalysisJobsResponseTypeDef:
         """
-        Returns a list of media analysis jobs.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/list_media_analysis_jobs.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#list_media_analysis_jobs)
@@ -749,8 +752,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[ListStreamProcessorsRequestTypeDef]
     ) -> ListStreamProcessorsResponseTypeDef:
         """
-        Gets a list of stream processors that you have created with
-        <a>CreateStreamProcessor</a>.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/list_stream_processors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#list_stream_processors)
@@ -895,7 +898,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[StartMediaAnalysisJobRequestTypeDef]
     ) -> StartMediaAnalysisJobResponseTypeDef:
         """
-        Initiates a new media analysis job.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/start_media_analysis_job.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#start_media_analysis_job)
@@ -936,7 +940,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[StartStreamProcessorRequestTypeDef]
     ) -> StartStreamProcessorResponseTypeDef:
         """
-        Starts processing a stream processor.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/start_stream_processor.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#start_stream_processor)
@@ -966,8 +971,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[StopStreamProcessorRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Stops a running stream processor that was created by
-        <a>CreateStreamProcessor</a>.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/stop_stream_processor.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#stop_stream_processor)
@@ -1005,7 +1010,8 @@ class RekognitionClient(BaseClient):
         self, **kwargs: Unpack[UpdateStreamProcessorRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Allows you to update a stream processor.
+        Service availability notice: Streaming Video and Bulk Image Analysis is no
+        longer available to new customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rekognition/client/update_stream_processor.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rekognition/client/#update_stream_processor)

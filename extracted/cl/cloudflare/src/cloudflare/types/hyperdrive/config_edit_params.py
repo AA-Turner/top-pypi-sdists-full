@@ -34,7 +34,8 @@ class ConfigEditParams(TypedDict, total=False):
     name: str
     """The name of the Hyperdrive configuration.
 
-    Used to identify the configuration in the Cloudflare dashboard and API.
+    Used to identify the configuration in the Cloudflare dashboard and API. An empty
+    value leaves the name unchanged.
     """
 
     origin: Origin
@@ -94,7 +95,12 @@ class MTLS(TypedDict, total=False):
     """Define mTLS certificate ID obtained after uploading client cert."""
 
     sslmode: str
-    """Set SSL mode to 'require', 'verify-ca', or 'verify-full' to verify the CA."""
+    """PostgreSQL accepts `require`, `verify-ca`, and `verify-full`.
+
+    MySQL accepts `REQUIRED`, `VERIFY_CA`, and `VERIFY_IDENTITY`. The verify modes
+    require a CA certificate; the require modes cannot be used with a CA
+    certificate.
+    """
 
 
 class OriginHyperdriveHyperdriveDatabase(TypedDict, total=False):
@@ -116,7 +122,10 @@ class OriginHyperdriveHyperdriveDatabase(TypedDict, total=False):
 
 class OriginHyperdriveInternetOrigin(TypedDict, total=False):
     host: Required[str]
-    """Defines the host (hostname or IP) of your origin database."""
+    """Defines the publicly reachable hostname or IP of your origin database.
+
+    Private, loopback, and link-local IP addresses are not allowed.
+    """
 
     port: Required[int]
     """Defines the port of your origin database.

@@ -78,6 +78,7 @@ from .environment_edit_params import EnvironmentEditParams as EnvironmentEditPar
 from .automatic_https_rewrites import AutomaticHTTPSRewrites as AutomaticHTTPSRewrites
 from .opportunistic_encryption import OpportunisticEncryption as OpportunisticEncryption
 from .response_buffering_param import ResponseBufferingParam as ResponseBufferingParam
+from .entitlement_list_response import EntitlementListResponse as EntitlementListResponse
 from .environment_create_params import EnvironmentCreateParams as EnvironmentCreateParams
 from .environment_edit_response import EnvironmentEditResponse as EnvironmentEditResponse
 from .environment_list_response import EnvironmentListResponse as EnvironmentListResponse

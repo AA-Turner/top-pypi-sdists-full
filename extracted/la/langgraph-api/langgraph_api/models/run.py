@@ -253,9 +253,10 @@ async def create_valid_run(
                 ),
             )
 
-    # Keep config and context in sync for user provided params
+    # Mark context-provided runs so stream.py can filter their mirrored configurable values safely.
     if context:
         configurable = context.copy()
+        configurable["__context_provided__"] = True
         config["configurable"] = configurable
     else:
         context = configurable.copy()
@@ -315,14 +316,12 @@ async def create_valid_run(
         "context": context,
         "command": payload.get("command"),
     }
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        encrypted = fields_to_encrypt  # Go layer handles encryption at rest
-    else:
-        encrypted = await encrypt_request(
-            fields_to_encrypt,
-            "run",
-            ["metadata", "input", "config", "context", "command"],
-        )
+    encrypted = await encrypt_request(
+        fields_to_encrypt,
+        "run",
+        ["metadata", "input", "config", "context", "command"],
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     run_coro = Runs.put(
         conn,

@@ -15,7 +15,7 @@ from langgraph_api.schema import Cron
 from langgraph_api.serde import json_loads
 from langgraph_api.utils import next_cron_date
 from langgraph_api.utils.config import run_in_executor
-from langgraph_api.worker import set_auth_ctx_for_run
+from langgraph_api.worker_runtime import set_auth_ctx_for_run
 from langgraph_runtime.database import connect
 from langgraph_runtime.retry import retry_db
 
@@ -83,7 +83,10 @@ async def cron_scheduler():
                     set_encryption_context(enc_ctx or {})
 
                     run_payload = await decrypt_response(
-                        run_payload, "cron", ["metadata", "context", "input", "config"]
+                        run_payload,
+                        "cron",
+                        ["metadata", "context", "input", "config"],
+                        plaintext_from_core=False,
                     )
 
                     if on_run_completed == "keep":

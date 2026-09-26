@@ -47,7 +47,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from rich.console import Console
 from rich.markup import escape
 
 from src.cli.client import APIError, InnoDayAPIClient
@@ -57,6 +56,7 @@ from src.cli.utils.formatters import (
     format_error,
     format_warning,
 )
+from src.cli.utils.presentation import make_console, print_command_header
 from src.cli.utils.project_context import load_project_context
 from src.services import summary_line
 from src.services.ticket_release import CURRENT_RELEASE
@@ -66,7 +66,7 @@ from src.utils.time_windows import (
     normalize_window,
 )
 
-console = Console()
+console = make_console()
 
 
 class SummaryWindow(str, Enum):
@@ -864,6 +864,23 @@ class SummaryCommands:
             scope_label = f"release {release}"
         else:
             scope_label = f"the last {window_spec}"
+
+        # The spinner says what is happening and then erases itself. The header
+        # says the same thing and stays, which is the difference between a run
+        # you can read afterwards and one you cannot.
+        print_command_header(
+            args,
+            config,
+            "summary --release"
+            if release
+            else ("summary --scrum" if scrum else "summary"),
+            action=(
+                f"Assembling {scope_label}"
+                if release
+                else f"Assembling {'the team' + chr(39) + 's' if scrum else 'your'} "
+                f"last {window_spec}"
+            ),
+        )
 
         async with InnoDayAPIClient(config) as client:
             try:

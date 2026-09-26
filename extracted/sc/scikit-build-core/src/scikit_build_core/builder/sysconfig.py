@@ -2,12 +2,12 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "configparser",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
     "packaging",
     "packaging.tags",
     "pathlib",
     "sysconfig",
     "typing",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
 }
 
 import configparser
@@ -34,6 +34,7 @@ __all__ = [
     "get_python_library",
     "get_soabi",
     "info_print",
+    "is_free_threaded",
 ]
 
 
@@ -74,7 +75,7 @@ def _is_debug_build() -> bool:
     return _config_var_is_set("Py_DEBUG")
 
 
-def _is_free_threaded() -> bool:
+def is_free_threaded() -> bool:
     """Whether the interpreter is free-threaded (the ``t`` ABI flag)."""
     return _config_var_is_set("Py_GIL_DISABLED")
 
@@ -86,7 +87,7 @@ def _windows_lib_names(*, abi3: bool, abi3t: bool) -> list[str]:
     ``Support.cmake``). Debug builds get a ``_d`` suffix (tried first), and
     free-threaded builds get a ``t`` ABI flag.
     """
-    free_threaded = _is_free_threaded()
+    free_threaded = is_free_threaded()
     if abi3 or abi3t:
         # Stable ABI: python3.lib, or python3t.lib on free-threaded abi3t.
         t = "t" if (abi3t and free_threaded) else ""
@@ -122,7 +123,7 @@ def get_python_library(
             minor = "" if (abi3 or abi3t) else sys.version_info[1]
             # Stable-ABI abi3 has no free-threaded variant of its own; only
             # abi3t (already handled) and non-SABI builds pick up the "t" flag.
-            suffix = "t" if abi3t or (not abi3 and _is_free_threaded()) else ""
+            suffix = "t" if abi3t or (not abi3 and is_free_threaded()) else ""
             return Path(result) / f"python3{minor}{suffix}.lib"
 
     # Windows CPython has no LIBDIR/LDLIBRARY/LIBRARY config vars, so construct
@@ -144,7 +145,7 @@ def get_python_library(
     ldlibrarystr = sysconfig.get_config_var("LDLIBRARY")
     librarystr = sysconfig.get_config_var("LIBRARY")
     if abi3 or abi3t:
-        if abi3t and sysconfig.get_config_var("Py_GIL_DISABLED"):
+        if abi3t and is_free_threaded():
             replacement = f"python3{sys.version_info[1]}t"
             target = "python3t"
         else:
@@ -170,8 +171,7 @@ def get_python_library(
             return None
         if libdir_is_dir:
             if multiarch and masd:
-                if masd.startswith(os.sep):
-                    masd = masd[len(os.sep) :]
+                masd = masd.removeprefix(os.sep)
                 libdir_masd = libdir / masd
                 if libdir_masd.is_dir():
                     libdir = libdir_masd
@@ -208,32 +208,25 @@ def get_python_include_dir() -> Path:
     return Path(sysconfig.get_path("include"))
 
 
-def get_host_platform() -> str:
-    """
-    Return a string that identifies the current platform. This mimics
-    setuptools get_host_platform (without 3.8 aix compat).
-    """
-    return sysconfig.get_platform()
-
-
 def get_platform(env: Mapping[str, str] | None = None) -> str:
     """
     Return the Python platform name for a platform, respecting VSCMD_ARG_TGT_ARCH.
     """
     if env is None:
         env = os.environ
-    if sysconfig.get_platform().startswith("win"):
+    plat = sysconfig.get_platform()
+    if plat.startswith("win"):
         if "VSCMD_ARG_TGT_ARCH" in env:
             logger.debug(
                 "Selecting {} or {} due to VSCMD_ARG_TARGET_ARCH",
                 TARGET_TO_PLAT.get(env["VSCMD_ARG_TGT_ARCH"]),
-                get_host_platform(),
+                plat,
             )
-            return TARGET_TO_PLAT.get(env["VSCMD_ARG_TGT_ARCH"]) or get_host_platform()
+            return TARGET_TO_PLAT.get(env["VSCMD_ARG_TGT_ARCH"]) or plat
         if "arm64" in env.get("SETUPTOOLS_EXT_SUFFIX", "").lower():
             logger.debug("Windows ARM targeted via SETUPTOOLS_EXT_SUFFIX")
             return "win-arm64"
-    return get_host_platform()
+    return plat
 
 
 def get_cmake_platform(env: Mapping[str, str] | None) -> str:
@@ -257,13 +250,7 @@ def get_soabi(
     if setuptools_ext_suffix:
         return setuptools_ext_suffix.rsplit(".", 1)[0].lstrip(".")
 
-    if sys.version_info < (3, 8, 7):
-        # See https://github.com/python/cpython/issues/84006
-        import distutils.sysconfig  # pylint: disable=deprecated-module
-
-        ext_suffix = distutils.sysconfig.get_config_var("EXT_SUFFIX")
-    else:
-        ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
 
     assert isinstance(ext_suffix, str)
     return ext_suffix.rsplit(".", 1)[0].lstrip(".")

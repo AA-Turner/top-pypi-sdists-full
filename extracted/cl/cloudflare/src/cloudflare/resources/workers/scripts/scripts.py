@@ -274,7 +274,7 @@ class ScriptsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[ScriptListResponse]:
         """
-        Fetch a list of uploaded workers.
+        Fetch a list of uploaded Worker scripts.
 
         Args:
           account_id: Identifier.
@@ -327,9 +327,10 @@ class ScriptsResource(SyncAPIResource):
 
           script_name: Name of the script, used in URLs and route configuration.
 
-          force: If set to true, delete will not be stopped by associated service binding,
-              durable object, or other binding. Any of these associated bindings/durable
-              objects will be deleted along with the script.
+          force: If true, delete the Worker even when other Workers still reference it. Service
+              bindings in those Workers may be left broken. Durable Object namespaces
+              implemented by the deleted Worker are deleted even if other Workers reference
+              them.
 
           extra_headers: Send extra headers
 
@@ -370,10 +371,10 @@ class ScriptsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """Fetch raw script content for your worker.
+        """Fetch raw content for a Worker script.
 
-        Note this is the original script
-        content, not JSON encoded.
+        Note this is the original script content,
+        not JSON encoded.
 
         Args:
           account_id: Identifier.
@@ -420,7 +421,7 @@ class ScriptsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSearchResponse:
         """
-        Search for Workers in an account.
+        Search for Worker scripts in an account.
 
         Args:
           account_id: Identifier.
@@ -625,7 +626,7 @@ class AsyncScriptsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[ScriptListResponse, AsyncSinglePage[ScriptListResponse]]:
         """
-        Fetch a list of uploaded workers.
+        Fetch a list of uploaded Worker scripts.
 
         Args:
           account_id: Identifier.
@@ -678,9 +679,10 @@ class AsyncScriptsResource(AsyncAPIResource):
 
           script_name: Name of the script, used in URLs and route configuration.
 
-          force: If set to true, delete will not be stopped by associated service binding,
-              durable object, or other binding. Any of these associated bindings/durable
-              objects will be deleted along with the script.
+          force: If true, delete the Worker even when other Workers still reference it. Service
+              bindings in those Workers may be left broken. Durable Object namespaces
+              implemented by the deleted Worker are deleted even if other Workers reference
+              them.
 
           extra_headers: Send extra headers
 
@@ -721,10 +723,10 @@ class AsyncScriptsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
-        """Fetch raw script content for your worker.
+        """Fetch raw content for a Worker script.
 
-        Note this is the original script
-        content, not JSON encoded.
+        Note this is the original script content,
+        not JSON encoded.
 
         Args:
           account_id: Identifier.
@@ -771,7 +773,7 @@ class AsyncScriptsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptSearchResponse:
         """
-        Search for Workers in an account.
+        Search for Worker scripts in an account.
 
         Args:
           account_id: Identifier.

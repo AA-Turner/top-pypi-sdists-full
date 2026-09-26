@@ -76,9 +76,13 @@ class TestSyncStatusCasing:
         assert expected in format_sync_status(value)
 
     def test_failed_sync_is_styled_as_an_error(self):
-        """The regression that mattered: failures lost their error styling."""
-        assert "[red]" in format_sync_status("failed")
-        assert "[green]" in format_sync_status("completed")
+        """The regression that mattered: failures lost their error styling.
+
+        Styles are palette tokens now (`bad`/`good`), not hues -- the assertion
+        is still "a failure is styled as one", which is what broke.
+        """
+        assert "[bad]" in format_sync_status("failed")
+        assert "[good]" in format_sync_status("completed")
 
     def test_genuinely_unknown_status_falls_through_unchanged(self):
         assert format_sync_status("weird") == "Status: weird"
@@ -260,8 +264,8 @@ class TestStatusStyleLookups:
     def test_the_two_that_were_broken(self):
         """Explicit regression pins for the actual reported symptom."""
         formatter = self._formatter()
-        assert formatter._get_status_style("in progress") == "yellow"
-        assert formatter._get_status_style("in review") == "magenta"
+        assert formatter._get_status_style("in progress") == "warn"
+        assert formatter._get_status_style("in review") == "header"
 
     def test_unknown_status_still_falls_back(self):
         """The default must survive -- this is not a "colour everything" change."""

@@ -9,11 +9,11 @@ from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 import httpx
-from rich.console import Console
 
 from src.cli.utils import guidance
+from src.cli.utils.presentation import make_console
 
-console = Console()
+console = make_console()
 
 
 class APIError(Exception):

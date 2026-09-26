@@ -725,6 +725,222 @@ def tracker_stage(ctx: Any) -> tuple[str, int] | None:
     ...
 
 # Classes
+# From attribute_band
+class AttributeBand:
+    # Per-track running mean of a numeric attribute, banded into named buckets.
+    #
+    #     Outputs, each resolvable as ``<stage>.<name>``:
+    #
+    #     ``<band>.count``
+    #         Subjects this frame whose (smoothed, where a track id exists) value falls in
+    #         ``<band>``.
+    #     ``measured_count``
+    #         Subjects successfully banded. Sum of the per-band counts.
+    #     ``unknown_count``
+    #         Subjects carrying no usable numeric value for ``attribute`` this frame.
+    #     ``instance_count``
+    #         All subjects in this zone this frame, banded or not. The denominator.
+    #     ``mean_value``
+    #         This frame's average of the (smoothed) measured values; a health diagnostic, not a
+    #         metric.
+    #
+    #     Per-track running-mean history is ``Lifetime.PERSISTENT`` -- a track's smoothed value
+    #     must not re-ramp from empty at every window boundary -- and is pruned the same way
+    #     ``attribute_vote`` prunes its per-track vote history: against the upstream ``track``
+    #     stage's currently-active track ids, never against this stage's own per-frame subset.
+
+    def __init__(self: Any, config: Any, state: Any) -> None: ...
+
+    def process(self: Any, ctx: Any) -> Any:
+        """
+        Band this zone's subjects by the (smoothed) value of one numeric attribute.
+        """
+        ...
+
+    def reset(self: Any) -> None:
+        """
+        ``end_window()``, not ``clear()`` -- per-track running-mean history is
+                PERSISTENT and must survive the window boundary, or a track's smoothed value
+                re-ramps from empty once per interval.
+        """
+        ...
+
+    def window(self: Any, frames: Any[Any]) -> Any:
+        """
+        Republish the last frame's readings -- no separate peak variant (unlike
+                ``attribute_count``): a band count is not tracked as a high-water mark here.
+        
+                Args:
+                    frames: Unused -- the state store is authoritative, for the same reason
+                        ``attribute_count.window`` ignores it.
+        """
+        ...
+
+
+# From attribute_count
+class AttributeCount:
+    # Per-value counts of one decoded attribute, for one zone, one frame.
+    #
+    #     Outputs (:attr:`~matrice_analytics.engine.primitives.base.PrimitiveOutput.values`), each
+    #     resolvable as ``<stage>.<name>``:
+    #
+    #     ``<value>.count``
+    #         Detections of ``subject`` in this zone counted as ``<value>``. For a tracked
+    #         subject, this is a same-attribute ``attribute_vote`` stage's stabilised decision
+    #         when one ran earlier in the pipeline (see :meth:`_resolve`); otherwise the raw
+    #         intake-decoded attribute, gated by ``min_confidence``.
+    #     ``<value>.new``
+    #         Tracks resolved to ``<value>`` for the **first time ever** during this window --
+    #         a WINDOW-lifetime event count, disjoint per frame, so ``metrics[].agg_type: sum``
+    #         over it reproduces the window figure exactly. Mirrors ``unique_count``'s own
+    #         ``new``/``total`` split and its explicit philosophy: once a track's first-ever
+    #         decision for this attribute is counted, it is never counted again -- not on a
+    #         later frame with the same value, and not if the value later switches (an
+    #         ``attribute_vote`` ``switch_count``). Retroactively moving a track's ``.new``
+    #         event to a different value after a switch would un-sum an already-reported
+    #         window, which is exactly the invariant ``unique_count``'s own docstring refuses
+    #         to break for the same reason. Untracked detections (no ``track_id``) cannot be
+    #         deduplicated and never contribute here, same as ``unique_count``.
+    #     ``other_new``
+    #         The ``.new`` counterpart to ``other_count`` -- first-ever decisions whose label
+    #         is real but not in ``values``.
+    #     ``labelled_count``
+    #         How many carried *any* declared value. Sum of the per-value counts.
+    #     ``unknown_count``
+    #         Subjects carrying **no** attribute, or one below ``min_confidence``.
+    #     ``other_count``
+    #         Subjects whose label is real but not in ``values`` -- the vocabulary-drift signal.
+    #     ``instance_count``
+    #         All subjects in this zone this frame, labelled or not. The denominator.
+    #     ``max_confidence``
+    #         The highest attribute confidence this frame; a health diagnostic, not a metric.
+    #
+    #     **``unknown_count == instance_count`` is the classifier-outage signal.**  A dead
+    #     classifier chain and a frame full of unclassifiable crops look identical in per-value
+    #     counts alone, so this primitive counts absence explicitly rather than letting every
+    #     bucket read ``0``.
+    #
+    #     Not here, on purpose: temporal stabilisation (``attribute_vote``), banding a numeric
+    #     attribute (``attribute_band``), uniqueness over time (``unique_count``, which dedupes on
+    #     ``(entity, track_id)`` and is unchanged by any of this), and severity
+    #     (``incident_quantise``).
+
+    def __init__(self: Any, config: Any, state: Any) -> None: ...
+
+    def process(self: Any, ctx: Any) -> Any:
+        """
+        Count this zone's subjects by attribute value for one frame.
+        
+                No clock call, no ``require_resolution`` -- but not "reads only ``ctx.detections``"
+                any more: see :meth:`_resolve`.
+        """
+        ...
+
+    def reset(self: Any) -> None:
+        """
+        ``end_window()``, not ``clear()`` -- this stage keeps no cumulative total, and
+                reaching for the full reset is the habit that erases one somewhere else
+                (``09`` §4 rule 2, **FROZEN-4**).
+        """
+        ...
+
+    def window(self: Any, frames: Any[Any]) -> Any:
+        """
+        Collapse the window. Every count is a level, so each gets **two** names (**PY-1**).
+        
+                Args:
+                    frames: Unused -- the accumulators hold the same data already folded, and they
+                        survive a window whose retained frames were capped by
+                        ``runtime/window.py``'s ``max_frames`` truncation, which would silently
+                        lower a peak recomputed from this list.
+        """
+        ...
+
+
+# From attribute_vote
+class AttributeVote:
+    # Per-track temporal stabilisation of one decoded attribute.
+    #
+    #     Publishes the decision on :attr:`~matrice_analytics.engine.primitives.base.
+    #     PrimitiveOutput.tracks` as ``TrackState.attributes[self._attribute]`` -- the sanctioned
+    #     channel for per-track information a later stage reads -- and does not mutate
+    #     ``ctx.detections`` (frozen); a primitive that could change the frame the next stage sees
+    #     would be action at a distance.
+    #
+    #     Outputs, each resolvable as ``<stage>.<name>``:
+    #
+    #     ``stable_count``
+    #         Subjects this frame with a committed value (``min_votes`` cleared, or ``method`` is
+    #         ``modal``, which commits immediately).
+    #     ``undecided_count``
+    #         Subjects with no track id, or no history and no usable observation yet.
+    #     ``switch_count``
+    #         How many committed values **changed** this frame versus their previous commit.
+    #     ``switch_total``
+    #         Window-scope only: the running sum of ``switch_count`` across the window, cleared by
+    #         ``reset()``.
+    #     ``tracked_count``
+    #         Distinct tracks this stage published a decision for this frame.
+
+    def __init__(self: Any, config: Any, state: Any) -> None:
+        """
+        Bind a validated config and an already-scoped state store.
+        
+                Raises:
+                    ValueError: ``config.method == "ema"``. Not implemented by this rollout phase
+                        (``classification-primitives.md`` §5.3): ``ema`` needs the full ``top_k``
+                        probability vector, which :class:`~matrice_analytics.engine.primitives.base.
+                        AttributeRef` does not carry. Refusing loudly here is better than degrading
+                        to a one-hot vote that looks like an EMA and is not one.
+        """
+        ...
+
+    def process(self: Any, ctx: Any) -> Any:
+        """
+        Stabilise each tracked subject's attribute for one frame.
+        
+                Publishes the decision on ``PrimitiveOutput.tracks`` as
+                ``TrackState.attributes[self._attribute]``.
+        """
+        ...
+
+    def reset(self: Any) -> None:
+        """
+        ``end_window()``, not ``clear()`` -- per-track vote history is PERSISTENT and must
+                survive the window boundary, or a track's stabilised label re-flickers once per
+                interval (``classification-primitives.md`` §5.3).
+        """
+        ...
+
+    def window(self: Any, frames: Any[Any]) -> Any:
+        """
+        Collapse the window: the last frame's readings, plus the window's switch total.
+        
+                Args:
+                    frames: Unused -- the state store is authoritative, for the same reason
+                        ``attribute_count.window`` ignores it.
+        """
+        ...
+
+
+# From base
+class AttributeRef:
+    # One decoded second-stage attribute on one detection, e.g. ``vehicle_type: ambulance``.
+    #
+    #     A named pair rather than two parallel fields, because the two travel together and the
+    #     confidence is what a ``min_confidence`` gate reads. Written by
+    #     :func:`matrice_analytics.engine.intake.attributes.attach_attributes` (upstream of the
+    #     engine entirely -- the classifier is chained *before* the detector's output ever reaches
+    #     :meth:`Session.process_frame`, per ``vehicle_type_classification.py:1-20``) and read here
+    #     by nothing but ``attribute_count`` / ``attribute_vote`` / ``attribute_band``.
+    #
+    #     :attr:`label` is always a resolved string, never a bare class index -- an index that does
+    #     not resolve through the producer's label map is dropped rather than published, the same
+    #     choice :class:`Keypoint`'s missing confidence channel makes for the opposite reason: a
+    #     dashboard legend reading ``817`` is worse than an absent row.
+
+    ...
+
 # From base
 class Clock:
     # The engine's only source of "now".
@@ -954,9 +1170,11 @@ class PipelineDetection:
         """
         Attach pipeline fields to a wire detection.
         
-                ``mask`` and ``keypoints`` are keyword-only and default to "absent" because the wire
-                :class:`~matrice_analytics.engine.contract.schemas.Detection` cannot carry them --
-                they come from the raw producer dict, which ``runtime/session.py`` parses.
+                ``mask``, ``keypoints`` and ``attributes`` are keyword-only and default to "absent"
+                because the wire :class:`~matrice_analytics.engine.contract.schemas.Detection`
+                cannot carry them -- they come from the raw producer dict, which
+                ``runtime/session.py`` parses (``attributes`` by way of
+                ``intake/attributes.attach_attributes`` running first).
         """
         ...
 
@@ -2917,4 +3135,4 @@ class ZoneOccupancy:
         ...
 
 
-from . import base, detect, dwell, geometry, incident_quantise, keypoint_pose, line_crossing, ratio_compliance, segmentation_area, state_machine, track, unique_count, velocity_state, zone_occupancy
+from . import attribute_band, attribute_count, attribute_vote, base, detect, dwell, geometry, incident_quantise, keypoint_pose, line_crossing, ratio_compliance, segmentation_area, state_machine, track, unique_count, velocity_state, zone_occupancy

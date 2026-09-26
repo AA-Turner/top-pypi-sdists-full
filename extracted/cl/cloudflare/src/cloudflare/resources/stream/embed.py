@@ -52,9 +52,9 @@ class EmbedResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Fetches an HTML code snippet to embed a video in a web page delivered through
-        Cloudflare. On success, returns an HTML fragment for use on web pages to display
-        a video. On failure, returns a JSON response body.
+        Fetches the legacy HTML code snippet to embed a video in a web page delivered
+        through Cloudflare. On success, returns an HTML fragment for use on web pages to
+        display a video. On failure, returns a JSON response body.
 
         Args:
           account_id: The account identifier tag.
@@ -118,9 +118,9 @@ class AsyncEmbedResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Fetches an HTML code snippet to embed a video in a web page delivered through
-        Cloudflare. On success, returns an HTML fragment for use on web pages to display
-        a video. On failure, returns a JSON response body.
+        Fetches the legacy HTML code snippet to embed a video in a web page delivered
+        through Cloudflare. On success, returns an HTML fragment for use on web pages to
+        display a video. On failure, returns a JSON response body.
 
         Args:
           account_id: The account identifier tag.

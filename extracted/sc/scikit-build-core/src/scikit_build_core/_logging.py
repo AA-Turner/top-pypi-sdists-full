@@ -101,7 +101,9 @@ class ScikitBuildLogger:
         self.logger.critical(FStringMessage(msg, *args, **kwargs), stacklevel=2)
 
     def exception(self, msg: str, *args: object, **kwargs: object) -> None:
-        self.logger.exception(FStringMessage(msg, *args, **kwargs), stacklevel=2)
+        self.logger.exception(  # noqa: LOG004
+            FStringMessage(msg, *args, **kwargs), stacklevel=2
+        )
 
     def log(self, level: int, msg: str, *args: object, **kwargs: object) -> None:
         self.logger.log(level, FStringMessage(msg, *args, **kwargs), stacklevel=2)
@@ -342,7 +344,7 @@ def rich_print(
     print(*args_2, flush=True, sep=sep, end=end, file=file)  # type: ignore[call-overload]
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def rich_warning(
     *args: str,
     color: Literal[

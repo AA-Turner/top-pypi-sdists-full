@@ -1,4 +1,6 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
+#[cfg(feature = "reqwest")]
+use std::collections::HashSet;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
@@ -8,6 +10,7 @@ use dashmap::mapref::entry::Entry;
 use parking_lot::Mutex;
 #[cfg(feature = "reqwest")]
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use tokio::sync::{OnceCell, Semaphore, watch};
 use tokio::time::MissedTickBehavior;
 
@@ -25,8 +28,12 @@ const REQUEST_TIMEOUT: Duration = Duration::from_millis(200);
 const CACHE_FRESHNESS: Duration = Duration::from_secs(5 * 60);
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
 const MAX_CACHE_ENTRIES: usize = 500_000;
+// Accounted entry/digest storage, not process RSS: excludes container/allocator
+// overhead and results still held by active requests after eviction.
+const MAX_CACHE_BYTES: usize = 64 * 1024 * 1024;
 const EVICTION_SHARD_COUNT: usize = 32;
 const MAX_CACHE_ENTRIES_PER_SHARD: usize = MAX_CACHE_ENTRIES / EVICTION_SHARD_COUNT;
+const MAX_CACHE_BYTES_PER_SHARD: usize = MAX_CACHE_BYTES / EVICTION_SHARD_COUNT;
 const EXPIRATION_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
 const MAX_EXPIRATION_SWEEP_BATCH: usize = 64;
 const MAX_CONCURRENT_BACKGROUND_REFRESHES: usize = 16;
@@ -94,38 +101,82 @@ impl FetchFailure {
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct CacheKey(Arc<CacheKeyData>);
-
-#[derive(Debug, Eq, Hash, PartialEq)]
-struct CacheKeyData {
-    company_id: String,
-    mapping: Vec<(String, String)>,
-}
+struct CacheKey([u8; 32]);
 
 impl CacheKey {
     fn new(company_id: &str, mapping: &HashMap<String, String>) -> Self {
-        let mut mapping = mapping
-            .iter()
-            .map(|(name, lookup)| (name.clone(), lookup.clone()))
-            .collect::<Vec<_>>();
+        let mut mapping = mapping.iter().collect::<Vec<_>>();
         mapping.sort_unstable();
+        let mut hash = Sha256::new();
+        // Length framing preserves field boundaries, including arbitrary ID delimiters.
+        for value in std::iter::once(company_id).chain(
+            mapping
+                .into_iter()
+                .flat_map(|(name, unit)| [name.as_str(), unit.as_str()]),
+        ) {
+            hash.update((value.len() as u64).to_be_bytes());
+            hash.update(value.as_bytes());
+        }
+        Self(hash.finalize().into())
+    }
+}
 
-        Self(Arc::new(CacheKeyData {
-            company_id: company_id.to_string(),
-            mapping,
-        }))
+/// Validated wire memberships, retained only as full SHA-256 digests.
+/// A boxed, sorted slice has no spare capacity and supports allocation-free lookup.
+#[derive(Debug, Default)]
+pub(crate) struct MembershipResults(Box<[[u8; 32]]>);
+
+impl MembershipResults {
+    pub(crate) fn contains(&self, membership: &str) -> bool {
+        let digest: [u8; 32] = Sha256::digest(membership.as_bytes()).into();
+        self.0.binary_search(&digest).is_ok()
+    }
+
+    #[cfg(all(test, feature = "reqwest"))]
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl FromIterator<String> for MembershipResults {
+    fn from_iter<T: IntoIterator<Item = String>>(iter: T) -> Self {
+        let mut digests: Vec<[u8; 32]> = iter
+            .into_iter()
+            .map(|membership| Sha256::digest(membership.as_bytes()).into())
+            .collect();
+        digests.sort_unstable();
+        digests.dedup();
+        Self(digests.into_boxed_slice())
     }
 }
 
 #[derive(Clone)]
 struct CachedResults {
-    results: Arc<HashSet<String>>,
+    results: Arc<MembershipResults>,
     refreshed_at: Instant,
     generation: u64,
 }
 
+impl CachedResults {
+    fn cache_bytes(&self) -> usize {
+        // Both index records, the Arc allocation (including its two counters),
+        // and the exact boxed digest slice. No walk over memberships or raw IDs.
+        size_of::<(CacheKey, Self)>()
+            + size_of::<((Instant, u64), CacheKey)>()
+            + size_of::<MembershipResults>()
+            + 2 * size_of::<usize>()
+            + size_of_val(self.results.0.as_ref())
+    }
+}
+
+#[derive(Default)]
+struct EvictionShard {
+    order: BTreeMap<(Instant, u64), CacheKey>,
+    bytes: usize,
+}
+
 struct SharedFetch {
-    result: OnceCell<Result<Arc<HashSet<String>>, StatsigErr>>,
+    result: OnceCell<Result<Arc<MembershipResults>, StatsigErr>>,
     waiters: AtomicUsize,
 }
 
@@ -179,7 +230,7 @@ pub(crate) struct ScopedIdListMembershipService {
     in_flight: DashMap<CacheKey, Arc<SharedFetch>>,
     refreshing: DashMap<CacheKey, ()>,
     refresh_permits: Arc<Semaphore>,
-    eviction_order: [Mutex<BTreeMap<(Instant, u64), CacheKey>>; EVICTION_SHARD_COUNT],
+    eviction_shards: [Mutex<EvictionShard>; EVICTION_SHARD_COUNT],
     next_expiration_shard: AtomicUsize,
     next_generation: AtomicU64,
     runtime: Arc<StatsigRuntime>,
@@ -224,7 +275,7 @@ impl ScopedIdListMembershipService {
             in_flight: DashMap::new(),
             refreshing: DashMap::new(),
             refresh_permits: Arc::new(Semaphore::new(MAX_CONCURRENT_BACKGROUND_REFRESHES)),
-            eviction_order: std::array::from_fn(|_| Mutex::new(BTreeMap::new())),
+            eviction_shards: std::array::from_fn(|_| Mutex::new(EvictionShard::default())),
             next_expiration_shard: AtomicUsize::new(0),
             next_generation: AtomicU64::new(0),
             runtime,
@@ -240,7 +291,7 @@ impl ScopedIdListMembershipService {
         self: &Arc<Self>,
         company_id: &str,
         mapping: HashMap<String, String>,
-    ) -> Arc<HashSet<String>> {
+    ) -> Arc<MembershipResults> {
         if mapping.is_empty() {
             self.record_request_result("empty_mapping");
             return empty_results();
@@ -296,7 +347,7 @@ impl ScopedIdListMembershipService {
         key: CacheKey,
         company_id: String,
         mapping: HashMap<String, String>,
-    ) -> Result<Arc<HashSet<String>>, StatsigErr> {
+    ) -> Result<Arc<MembershipResults>, StatsigErr> {
         let shared = {
             let active = self.in_flight.entry(key.clone()).or_insert_with(|| {
                 Arc::new(SharedFetch {
@@ -386,7 +437,7 @@ impl ScopedIdListMembershipService {
         company_id: &str,
         mapping: &HashMap<String, String>,
         source: FetchSource,
-    ) -> Result<Arc<HashSet<String>>, StatsigErr> {
+    ) -> Result<Arc<MembershipResults>, StatsigErr> {
         let request = MembershipRequest {
             company_id,
             mapping,
@@ -438,7 +489,7 @@ impl ScopedIdListMembershipService {
                     .result
                     .into_iter()
                     .filter(|membership| expected.contains(membership))
-                    .collect::<HashSet<_>>(),
+                    .collect::<MembershipResults>(),
             ))
         };
 
@@ -471,7 +522,7 @@ impl ScopedIdListMembershipService {
         _company_id: &str,
         _mapping: &HashMap<String, String>,
         _source: FetchSource,
-    ) -> Result<Arc<HashSet<String>>, StatsigErr> {
+    ) -> Result<Arc<MembershipResults>, StatsigErr> {
         let _ = (&self.server_url, REQUEST_TIMEOUT);
         Err(membership_error(
             "ID-list membership requests require the reqwest feature",
@@ -524,9 +575,9 @@ impl ScopedIdListMembershipService {
         &self,
         key: CacheKey,
         expected_generation: Option<u64>,
-        results: Arc<HashSet<String>>,
+        results: Arc<MembershipResults>,
     ) {
-        let mut eviction_order = self.eviction_shard(&key).lock();
+        let mut shard = self.eviction_shard(&key).lock();
         if let Some(expected_generation) = expected_generation {
             if self.entries.get(&key).map(|entry| entry.generation) != Some(expected_generation) {
                 return;
@@ -535,34 +586,57 @@ impl ScopedIdListMembershipService {
 
         let generation = self.next_generation.fetch_add(1, Ordering::Relaxed);
         let refreshed_at = Instant::now();
-        if let Some(previous) = self.entries.insert(
-            key.clone(),
-            CachedResults {
-                results,
-                refreshed_at,
-                generation,
-            },
-        ) {
-            eviction_order.remove(&(previous.refreshed_at, previous.generation));
+        let cached = CachedResults {
+            results,
+            refreshed_at,
+            generation,
+        };
+        let bytes = cached.cache_bytes();
+        if bytes > MAX_CACHE_BYTES_PER_SHARD {
+            // The fetch still succeeds for its waiters, but cannot be retained.
+            // A successful oversized refresh must also discard the old value.
+            if let Some((_, previous)) = self.entries.remove(&key) {
+                shard
+                    .order
+                    .remove(&(previous.refreshed_at, previous.generation));
+                shard.bytes -= previous.cache_bytes();
+            }
+            return;
         }
-        eviction_order.insert((refreshed_at, generation), key);
+        if let Some(previous) = self.entries.insert(key.clone(), cached) {
+            shard
+                .order
+                .remove(&(previous.refreshed_at, previous.generation));
+            shard.bytes -= previous.cache_bytes();
+        }
+        shard.order.insert((refreshed_at, generation), key);
+        shard.bytes += bytes;
 
-        while eviction_order.len() > MAX_CACHE_ENTRIES_PER_SHARD {
-            let Some(((_, oldest_generation), oldest)) = eviction_order.pop_first() else {
+        while shard.order.len() > MAX_CACHE_ENTRIES_PER_SHARD
+            || shard.bytes > MAX_CACHE_BYTES_PER_SHARD
+        {
+            let Some(((_, oldest_generation), oldest)) = shard.order.pop_first() else {
                 break;
             };
-            self.entries
-                .remove_if(&oldest, |_, entry| entry.generation == oldest_generation);
+            if let Some((_, removed)) = self
+                .entries
+                .remove_if(&oldest, |_, entry| entry.generation == oldest_generation)
+            {
+                shard.bytes -= removed.cache_bytes();
+            }
         }
     }
 
     fn remove_if_generation(&self, key: &CacheKey, generation: u64) {
-        let mut eviction_order = self.eviction_shard(key).lock();
+        let mut shard = self.eviction_shard(key).lock();
         if let Some((_, removed)) = self
             .entries
             .remove_if(key, |_, entry| entry.generation == generation)
         {
-            eviction_order.remove(&(removed.refreshed_at, removed.generation));
+            shard
+                .order
+                .remove(&(removed.refreshed_at, removed.generation));
+            shard.bytes -= removed.cache_bytes();
         }
     }
 
@@ -577,19 +651,23 @@ impl ScopedIdListMembershipService {
             }
 
             let index = (first_shard + offset) % EVICTION_SHARD_COUNT;
-            let mut eviction_order = self.eviction_order[index].lock();
+            let mut shard = self.eviction_shards[index].lock();
             while removed < limit {
-                let Some((&(refreshed_at, _), _)) = eviction_order.first_key_value() else {
+                let Some((&(refreshed_at, _), _)) = shard.order.first_key_value() else {
                     break;
                 };
                 if now.saturating_duration_since(refreshed_at) < CACHE_TTL {
                     break;
                 }
-                let Some(((_, generation), key)) = eviction_order.pop_first() else {
+                let Some(((_, generation), key)) = shard.order.pop_first() else {
                     break;
                 };
-                self.entries
-                    .remove_if(&key, |_, entry| entry.generation == generation);
+                if let Some((_, expired)) = self
+                    .entries
+                    .remove_if(&key, |_, entry| entry.generation == generation)
+                {
+                    shard.bytes -= expired.cache_bytes();
+                }
                 removed += 1;
             }
         }
@@ -597,9 +675,9 @@ impl ScopedIdListMembershipService {
         removed
     }
 
-    fn eviction_shard(&self, key: &CacheKey) -> &Mutex<BTreeMap<(Instant, u64), CacheKey>> {
+    fn eviction_shard(&self, key: &CacheKey) -> &Mutex<EvictionShard> {
         let index = self.entries.hash_usize(key) % EVICTION_SHARD_COUNT;
-        &self.eviction_order[index]
+        &self.eviction_shards[index]
     }
 
     fn start_expiration_task(self: &Arc<Self>) -> Result<(), StatsigErr> {
@@ -661,9 +739,9 @@ fn status_code_tag(status: Option<u16>) -> String {
     status.map_or_else(|| "none".to_string(), |code| code.to_string())
 }
 
-fn empty_results() -> Arc<HashSet<String>> {
-    static EMPTY: OnceLock<Arc<HashSet<String>>> = OnceLock::new();
-    Arc::clone(EMPTY.get_or_init(|| Arc::new(HashSet::new())))
+fn empty_results() -> Arc<MembershipResults> {
+    static EMPTY: OnceLock<Arc<MembershipResults>> = OnceLock::new();
+    Arc::clone(EMPTY.get_or_init(|| Arc::new(MembershipResults::default())))
 }
 
 #[cfg(all(test, not(feature = "reqwest")))]
@@ -713,6 +791,166 @@ mod tests {
             CacheKey::new("company-a", &first),
             CacheKey::new("company-b", &first)
         );
+        assert_ne!(
+            CacheKey::new("company-a", &HashMap::from([("ab".into(), "c".into())])),
+            CacheKey::new("company-a", &HashMap::from([("a".into(), "bc".into())]))
+        );
+        assert_eq!(std::mem::size_of::<CacheKey>(), 32);
+        assert!(!format!("{:?}", CacheKey::new("company-a", &first)).contains("company-a"));
+    }
+
+    #[test]
+    fn cached_results_hold_only_full_digests_and_preserve_case() {
+        let raw = "members|Sensitive|User";
+        let results: MembershipResults = [raw.to_string(), raw.to_string()].into_iter().collect();
+        assert_eq!(results.0.len(), 1);
+        assert_eq!(
+            results.0[0].as_slice(),
+            Sha256::digest(raw.as_bytes()).as_slice()
+        );
+        assert!(results.contains(raw));
+        assert!(!results.contains("members|sensitive|user"));
+        assert!(!format!("{results:?}").contains("Sensitive"));
+    }
+
+    fn results_with_count(count: usize) -> Arc<MembershipResults> {
+        // Sorted, distinct digests without hashing megabytes of fixture strings.
+        Arc::new(MembershipResults(
+            (0..count as u64)
+                .map(|index| {
+                    let mut digest = [0; 32];
+                    digest[..8].copy_from_slice(&index.to_be_bytes());
+                    digest
+                })
+                .collect(),
+        ))
+    }
+
+    #[tokio::test]
+    async fn byte_pressure_evicts_oldest_entries_before_the_count_limit() {
+        let service = service("http://127.0.0.1:1".into());
+        let first = CacheKey::new("first", &HashMap::new());
+        let second = (0..)
+            .map(|index| CacheKey::new(&index.to_string(), &HashMap::new()))
+            .find(|key| {
+                key != &first
+                    && service.entries.hash_usize(key) % EVICTION_SHARD_COUNT
+                        == service.entries.hash_usize(&first) % EVICTION_SHARD_COUNT
+            })
+            .unwrap();
+        // Each entry fits, but both together exceed their shard's byte budget.
+        let results = results_with_count(MAX_CACHE_BYTES_PER_SHARD / 2 / 32);
+        service.insert(first.clone(), None, Arc::clone(&results));
+        service.insert(second.clone(), None, results);
+
+        assert!(!service.entries.contains_key(&first));
+        assert_eq!(service.entries.len(), 1);
+        let shard = service.eviction_shard(&second).lock();
+        assert_eq!(shard.order.len(), 1);
+        assert_eq!(
+            shard.bytes,
+            service.entries.get(&second).unwrap().cache_bytes()
+        );
+        assert!(shard.bytes <= MAX_CACHE_BYTES_PER_SHARD);
+        service.shutdown();
+    }
+
+    #[tokio::test]
+    async fn replacement_and_removal_account_bytes_only_for_the_current_generation() {
+        let service = service("http://127.0.0.1:1".into());
+        let key = CacheKey::new("company", &HashMap::new());
+        service.insert(key.clone(), None, results_with_count(3));
+        let initial = service.entries.get(&key).unwrap().clone();
+        service.insert(key.clone(), Some(initial.generation), results_with_count(1));
+        let current = service.entries.get(&key).unwrap().clone();
+        assert_eq!(initial.cache_bytes() - current.cache_bytes(), 2 * 32);
+
+        service.insert(
+            key.clone(),
+            Some(initial.generation),
+            results_with_count(10),
+        );
+        service.remove_if_generation(&key, initial.generation);
+        assert_eq!(
+            service.entries.get(&key).unwrap().generation,
+            current.generation
+        );
+        assert_eq!(
+            service.eviction_shard(&key).lock().bytes,
+            current.cache_bytes()
+        );
+
+        service.remove_if_generation(&key, current.generation);
+        assert!(service.entries.is_empty());
+        let shard = service.eviction_shard(&key).lock();
+        assert_eq!(shard.bytes, 0);
+        assert!(shard.order.is_empty());
+        service.shutdown();
+    }
+
+    #[tokio::test]
+    async fn expiration_releases_accounted_bytes() {
+        let service = service("http://127.0.0.1:1".into());
+        let key = CacheKey::new("company", &HashMap::new());
+        service.insert(key.clone(), None, results_with_count(3));
+        assert_eq!(service.evict_expired(Instant::now(), 1), 0);
+        assert_eq!(service.evict_expired(Instant::now() + CACHE_TTL, 1), 1);
+        assert!(service.entries.is_empty());
+        let shard = service.eviction_shard(&key).lock();
+        assert_eq!(shard.bytes, 0);
+        assert!(shard.order.is_empty());
+        service.shutdown();
+    }
+
+    #[tokio::test]
+    async fn oversized_results_are_not_retained_and_discard_the_replaced_value() {
+        let service = service("http://127.0.0.1:1".into());
+        let key = CacheKey::new("company", &HashMap::new());
+        let oversized = results_with_count(MAX_CACHE_BYTES_PER_SHARD / 32);
+        service.insert(key.clone(), None, Arc::clone(&oversized));
+        assert!(service.entries.is_empty());
+        assert_eq!(Arc::strong_count(&oversized), 1);
+
+        service.insert(key.clone(), None, empty_results());
+        let generation = service.entries.get(&key).unwrap().generation;
+        service.insert(key.clone(), Some(generation), Arc::clone(&oversized));
+        assert!(service.entries.is_empty());
+        assert_eq!(Arc::strong_count(&oversized), 1);
+        // A delayed refresh cannot resurrect the entry after removal.
+        service.insert(key.clone(), Some(generation), empty_results());
+        assert!(service.entries.is_empty());
+        let shard = service.eviction_shard(&key).lock();
+        assert_eq!(shard.bytes, 0);
+        assert!(shard.order.is_empty());
+        service.shutdown();
+    }
+
+    #[tokio::test]
+    async fn long_raw_ids_are_still_cached_as_fixed_size_digests() {
+        let mut server = Server::new_async().await;
+        let raw = "sensitive".repeat(4 * 1024);
+        let membership = format!("members|{raw}");
+        let request = server
+            .mock("POST", "/get_id_list_results")
+            .match_body(Matcher::Json(json!({
+                "companyID": "company",
+                "mapping": {"members": raw},
+            })))
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(json!({"result": [membership]}).to_string())
+            .expect(1)
+            .create_async()
+            .await;
+        let service = service(server.url());
+        let mapping = HashMap::from([("members".to_string(), raw)]);
+        let first = service.resolve("company", mapping.clone()).await;
+        let second = service.resolve("company", mapping).await;
+        assert!(first.contains(&membership));
+        assert!(Arc::ptr_eq(&first, &second));
+        assert_eq!(size_of_val(first.0.as_ref()), 32);
+        request.assert_async().await;
+        service.shutdown();
     }
 
     #[tokio::test]
@@ -1033,14 +1271,16 @@ mod tests {
         .expect("observable membership service should initialize");
         let mapping = HashMap::from([("employees".to_string(), "abcdefgh".to_string())]);
         let key = CacheKey::new("company-a", &mapping);
-        service.insert(key.clone(), None, Arc::new(HashSet::new()));
+        service.insert(key.clone(), None, empty_results());
 
         {
-            let mut eviction_order = service.eviction_shard(&key).lock();
+            let mut shard = service.eviction_shard(&key).lock();
             let mut entry = service.entries.get_mut(&key).unwrap();
-            eviction_order.remove(&(entry.refreshed_at, entry.generation));
+            shard.order.remove(&(entry.refreshed_at, entry.generation));
             entry.refreshed_at -= CACHE_FRESHNESS;
-            eviction_order.insert((entry.refreshed_at, entry.generation), key.clone());
+            shard
+                .order
+                .insert((entry.refreshed_at, entry.generation), key.clone());
         }
 
         let first = service.resolve("company-a", mapping.clone()).await;
@@ -1113,14 +1353,16 @@ mod tests {
         let service = service(server.url());
         let mapping = HashMap::from([("employees".to_string(), "abcdefgh".to_string())]);
         let key = CacheKey::new("company-a", &mapping);
-        service.insert(key.clone(), None, Arc::new(HashSet::new()));
+        service.insert(key.clone(), None, empty_results());
 
         {
-            let mut eviction_order = service.eviction_shard(&key).lock();
+            let mut shard = service.eviction_shard(&key).lock();
             let mut entry = service.entries.get_mut(&key).unwrap();
-            eviction_order.remove(&(entry.refreshed_at, entry.generation));
+            shard.order.remove(&(entry.refreshed_at, entry.generation));
             entry.refreshed_at -= CACHE_FRESHNESS;
-            eviction_order.insert((entry.refreshed_at, entry.generation), key.clone());
+            shard
+                .order
+                .insert((entry.refreshed_at, entry.generation), key.clone());
         }
 
         let permits = Arc::clone(&service.refresh_permits)

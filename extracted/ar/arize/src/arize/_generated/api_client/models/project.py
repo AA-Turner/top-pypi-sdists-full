@@ -19,7 +19,8 @@ import json
 
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
+from arize._generated.api_client.models.project_type import ProjectType
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +32,8 @@ class Project(BaseModel):
     name: StrictStr = Field(description="The project name")
     space_id: StrictStr = Field(description="The space ID the project belongs to")
     created_at: datetime = Field(description="When the project was created")
-    __properties: ClassVar[List[str]] = ["id", "name", "space_id", "created_at"]
+    project_type: Optional[ProjectType] = Field(default=None, description="The project type for generative LLM projects. Null for projects that have not been assigned a type. ")
+    __properties: ClassVar[List[str]] = ["id", "name", "space_id", "created_at", "project_type"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -72,6 +74,11 @@ class Project(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if project_type (nullable) is None
+        # and model_fields_set contains the field
+        if self.project_type is None and "project_type" in self.model_fields_set:
+            _dict['project_type'] = None
+
         return _dict
 
     @classmethod
@@ -88,7 +95,8 @@ class Project(BaseModel):
             "id": obj.get("id"),
             "name": obj.get("name"),
             "space_id": obj.get("space_id"),
-            "created_at": obj.get("created_at")
+            "created_at": obj.get("created_at"),
+            "project_type": obj.get("project_type")
         })
         return _obj
 

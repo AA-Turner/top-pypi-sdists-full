@@ -15,6 +15,7 @@ import QuantConnect.Orders
 import QuantConnect.Orders.Fees
 import QuantConnect.Orders.Serialization
 import QuantConnect.Securities
+import QuantConnect.Securities.Option
 import QuantConnect.Securities.Positions
 import System
 import System.Collections.Generic
@@ -92,188 +93,99 @@ class OrderSizing(System.Object):
         ...
 
 
-class OrderType(IntEnum):
-    """Type of the order: market, limit or stop"""
+class ContingencyType(IntEnum):
+    """The type of relationship linking a set of contingent orders"""
 
-    MARKET = 0
-    """Market Order Type (0)"""
+    ONE_CANCELS_OTHER = 0
+    """One Cancels Other (OCO/OCA): once a member fills the remaining members are canceled (0)"""
 
-    LIMIT = 1
-    """Limit Order Type (1)"""
+    ONE_TRIGGERS_OTHER = 1
+    """One Triggers Other (OTO): the children are held until the parent is completely filled (1)"""
 
-    STOP_MARKET = 2
-    """Stop Market Order Type - Fill at market price when break target price (2)"""
-
-    STOP_LIMIT = 3
-    """Stop limit order type - trigger fill once pass the stop price; but limit fill to limit price (3)"""
-
-    MARKET_ON_OPEN = 4
-    """Market on open type - executed on exchange open (4)"""
-
-    MARKET_ON_CLOSE = 5
-    """Market on close type - executed on exchange close (5)"""
-
-    OPTION_EXERCISE = 6
-    """Option Exercise Order Type (6)"""
-
-    LIMIT_IF_TOUCHED = 7
-    """Limit if Touched Order Type - a limit order to be placed after first reaching a trigger value (7)"""
-
-    COMBO_MARKET = 8
-    """Combo Market Order Type - (8)"""
-
-    COMBO_LIMIT = 9
-    """Combo Limit Order Type - (9)"""
-
-    COMBO_LEG_LIMIT = 10
-    """Combo Leg Limit Order Type - (10)"""
-
-    TRAILING_STOP = 11
-    """Trailing Stop Order Type - (11)"""
-
-
-class OrderStatus(IntEnum):
-    """Fill status of the order class."""
-
-    NEW = 0
-    """New order pre-submission to the order processor (0)"""
-
-    SUBMITTED = 1
-    """Order submitted to the market (1)"""
-
-    PARTIALLY_FILLED = 2
-    """Partially filled, In Market Order (2)"""
-
-    FILLED = 3
-    """Completed, Filled, In Market Order (3)"""
-
-    CANCELED = 5
-    """Order cancelled before it was filled (5)"""
-
-    NONE = 6
-    """No Order State Yet (6)"""
-
-    INVALID = 7
-    """Order invalidated before it hit the market (e.g. insufficient capital) (7)"""
-
-    CANCEL_PENDING = 8
-    """Order waiting for confirmation of cancellation (8)"""
-
-    UPDATE_SUBMITTED = 9
-    """Order update submitted to the market (9)"""
-
-
-class OrderDirection(IntEnum):
-    """Direction of the order"""
-
-    BUY = 0
-    """Buy Order (0)"""
-
-    SELL = 1
-    """Sell Order (1)"""
-
-    HOLD = 2
-    """Default Value - No Order Direction (2)"""
-
-
-class OrderSubmissionData(System.Object):
+    ONE_UPDATES_OTHER = 2
     """
-    The purpose of this class is to store time and price information
-    available at the time an order was submitted.
+    One Updates Other (OUO): a member fill reduces the quantity of the remaining members proportionally,
+    which are canceled once the member is completely filled (2)
     """
 
-    @property
-    def bid_price(self) -> float:
-        """The bid price at order submission time"""
-        ...
 
-    @property
-    def ask_price(self) -> float:
-        """The ask price at order submission time"""
-        ...
+class ContingencyRole(IntEnum):
+    """
+    The role an order plays in a ContingencyType.ONE_TRIGGERS_OTHER contingency, the only one with sides.
+    The orders of a ContingencyType.ONE_CANCELS_OTHER or ContingencyType.ONE_UPDATES_OTHER contingency
+    are all siblings, they have no role
+    """
 
-    @property
-    def last_price(self) -> float:
-        """The current price at order submission time"""
-        ...
+    PARENT = 0
+    """The parent, which triggers the children once completely filled (0)"""
 
-    def __init__(self, bid_price: float, ask_price: float, last_price: float) -> None:
-        """Initializes a new instance of the OrderSubmissionData class"""
-        ...
-
-    def clone(self) -> QuantConnect.Orders.OrderSubmissionData:
-        """Return a new instance clone of this object"""
-        ...
+    CHILD = 1
+    """A child, held until its parent fills (1)"""
 
 
-class GroupOrderManager(System.Object):
-    """Manager of a group of orders"""
+class ContingencyLink(System.Object):
+    """
+    Links an order to a contingency, that is, a relationship with other orders of the same
+    OrderContingency, and defines the role the order plays in it
+    """
 
     @property
     def id(self) -> int:
-        """The unique order group Id"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """The group order quantity"""
-        ...
-
-    @property
-    def count(self) -> int:
-        """The total order count associated with this order group"""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """The limit price associated with this order group if any"""
-        ...
-
-    @limit_price.setter
-    def limit_price(self, value: float) -> None:
-        ...
-
-    @property
-    def order_ids(self) -> System.Collections.Generic.HashSet[int]:
-        """The order Ids in this group"""
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Order Direction Property based off Quantity."""
-        ...
-
-    @property
-    def absolute_quantity(self) -> float:
-        """Get the absolute quantity for this combo order"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new empty instance"""
-        ...
-
-    @overload
-    def __init__(self, id: int, leg_count: int, quantity: float, limit_price: float = 0) -> None:
         """
-        Creates a new instance of GroupOrderManager
+        The contingency id, unique within its set of contingent orders.
+        Orders sharing a contingency id are related through it
+        """
+        ...
+
+    @property
+    def type(self) -> QuantConnect.Orders.ContingencyType:
+        """The contingency type"""
+        ...
+
+    @property
+    def role(self) -> typing.Optional[QuantConnect.Orders.ContingencyRole]:
+        """
+        The role of the order in this contingency, for a ContingencyType.ONE_TRIGGERS_OTHER contingency.
+        Null for the other types, whose orders are all siblings
+        """
+        ...
+
+    @property
+    def triggered(self) -> bool:
+        """For a ContingencyRole.CHILD, whether the parent filled and so the order was released to the market"""
+        ...
+
+    @property
+    def triggered_time(self) -> typing.Optional[datetime.datetime]:
+        """For a ContingencyRole.CHILD, the utc time at which the order was triggered, if any"""
+        ...
+
+    def __init__(self, id: int, type: QuantConnect.Orders.ContingencyType, role: typing.Optional[QuantConnect.Orders.ContingencyRole] = None, triggered: bool = False, triggered_time: typing.Optional[datetime.datetime] = None) -> None:
+        """
+        Creates a new instance
         
-        :param id: This order group unique Id
-        :param leg_count: The order leg count
-        :param quantity: The group order quantity
-        :param limit_price: The limit price associated with this order group if any
+        :param id: The contingency id, unique within its set of contingent orders
+        :param type: The contingency type
+        :param role: The role of the order in this contingency, required for ContingencyType.ONE_TRIGGERS_OTHER only
+        :param triggered: For a child, whether it was already triggered
+        :param triggered_time: For a child, the utc time at which it was triggered
         """
         ...
 
-    @overload
-    def __init__(self, leg_count: int, quantity: float, limit_price: float = 0) -> None:
+    def clone(self) -> QuantConnect.Orders.ContingencyLink:
+        """Creates a copy of this instance"""
+        ...
+
+    @staticmethod
+    def is_valid_role(type: QuantConnect.Orders.ContingencyType, role: typing.Optional[QuantConnect.Orders.ContingencyRole]) -> bool:
         """
-        Creates a new instance of GroupOrderManager
-        
-        :param leg_count: The order leg count
-        :param quantity: The group order quantity
-        :param limit_price: The limit price associated with this order group if any
+        Determines whether the role is valid for the contingency type: ContingencyType.ONE_TRIGGERS_OTHER has
+        a parent and children, while the orders of the other types are all siblings, with no role
         """
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string that represents the current object"""
         ...
 
 
@@ -375,6 +287,673 @@ class OrderRequest(System.Object, metaclass=abc.ABCMeta):
         
         :returns: A string that represents the current object.
         """
+        ...
+
+
+class OrderType(IntEnum):
+    """Type of the order: market, limit or stop"""
+
+    MARKET = 0
+    """Market Order Type (0)"""
+
+    LIMIT = 1
+    """Limit Order Type (1)"""
+
+    STOP_MARKET = 2
+    """Stop Market Order Type - Fill at market price when break target price (2)"""
+
+    STOP_LIMIT = 3
+    """Stop limit order type - trigger fill once pass the stop price; but limit fill to limit price (3)"""
+
+    MARKET_ON_OPEN = 4
+    """Market on open type - executed on exchange open (4)"""
+
+    MARKET_ON_CLOSE = 5
+    """Market on close type - executed on exchange close (5)"""
+
+    OPTION_EXERCISE = 6
+    """Option Exercise Order Type (6)"""
+
+    LIMIT_IF_TOUCHED = 7
+    """Limit if Touched Order Type - a limit order to be placed after first reaching a trigger value (7)"""
+
+    COMBO_MARKET = 8
+    """Combo Market Order Type - (8)"""
+
+    COMBO_LIMIT = 9
+    """Combo Limit Order Type - (9)"""
+
+    COMBO_LEG_LIMIT = 10
+    """Combo Leg Limit Order Type - (10)"""
+
+    TRAILING_STOP = 11
+    """Trailing Stop Order Type - (11)"""
+
+
+class OrderDirection(IntEnum):
+    """Direction of the order"""
+
+    BUY = 0
+    """Buy Order (0)"""
+
+    SELL = 1
+    """Sell Order (1)"""
+
+    HOLD = 2
+    """Default Value - No Order Direction (2)"""
+
+
+class GroupOrderManager(System.Object):
+    """Manager of a group of orders"""
+
+    @property
+    def id(self) -> int:
+        """The unique order group Id"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """The group order quantity"""
+        ...
+
+    @property
+    def count(self) -> int:
+        """The total order count associated with this order group"""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """The limit price associated with this order group if any"""
+        ...
+
+    @limit_price.setter
+    def limit_price(self, value: float) -> None:
+        ...
+
+    @property
+    def order_ids(self) -> System.Collections.Generic.HashSet[int]:
+        """The order Ids in this group"""
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Order Direction Property based off Quantity."""
+        ...
+
+    @property
+    def absolute_quantity(self) -> float:
+        """Get the absolute quantity for this combo order"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Creates a new empty instance"""
+        ...
+
+    @overload
+    def __init__(self, id: int, leg_count: int, quantity: float, limit_price: float = 0) -> None:
+        """
+        Creates a new instance of GroupOrderManager
+        
+        :param id: This order group unique Id
+        :param leg_count: The order leg count
+        :param quantity: The group order quantity
+        :param limit_price: The limit price associated with this order group if any
+        """
+        ...
+
+    @overload
+    def __init__(self, leg_count: int, quantity: float, limit_price: float = 0) -> None:
+        """
+        Creates a new instance of GroupOrderManager
+        
+        :param leg_count: The order leg count
+        :param quantity: The group order quantity
+        :param limit_price: The limit price associated with this order group if any
+        """
+        ...
+
+
+class OrderContingency(System.Object):
+    """
+    The contingency of an order: the set of contingent orders it belongs to (OCO, OTO, OUO and any composition of
+    them, like brackets) and the links defining how this order relates to the rest of the set
+    """
+
+    @property
+    def id(self) -> int:
+        """The unique id of the set of contingent orders this order belongs to"""
+        ...
+
+    @property
+    def count(self) -> int:
+        """The total order count in the set of contingent orders"""
+        ...
+
+    @property
+    def order_ids(self) -> System.Collections.Generic.HashSet[int]:
+        """The ids of the orders in the set"""
+        ...
+
+    @property
+    def symbols(self) -> System.Collections.Generic.IReadOnlySet[QuantConnect.Symbol]:
+        """
+        The different symbols of the orders in the set. Allows a brokerage model to validate a single order
+        knowing about the rest of the set. Only available at submission time
+        """
+        ...
+
+    @property
+    def directions(self) -> System.Collections.Generic.IReadOnlySet[QuantConnect.Orders.OrderDirection]:
+        """
+        The different directions of the orders in the set. Allows a brokerage model to validate a single order
+        knowing about the rest of the set. Only available at submission time
+        """
+        ...
+
+    @property
+    def order_types(self) -> System.Collections.Generic.IReadOnlySet[QuantConnect.Orders.OrderType]:
+        """
+        The different order types of the orders in the set. Allows a brokerage model to validate a single order
+        knowing about the rest of the set. Only available at submission time
+        """
+        ...
+
+    @property
+    def links(self) -> typing.Sequence[QuantConnect.Orders.ContingencyLink]:
+        """The links of this order to the rest of the set: the role it plays in each contingency"""
+        ...
+
+    @property
+    def is_waiting_for_trigger(self) -> bool:
+        """True if this is a contingent child order still open and held, waiting for its parent order to fill"""
+        ...
+
+    @overload
+    def __init__(self, id: int, count: int, links: typing.List[QuantConnect.Orders.ContingencyLink]) -> None:
+        """
+        Creates the contingency of the first order of a new set of contingent orders, the rest are created through with_links
+        
+        :param id: The unique id of the set of contingent orders
+        :param count: The total order count in the set
+        :param links: The links of this order to the rest of the set
+        """
+        ...
+
+    @overload
+    def __init__(self, count: int, links: typing.List[QuantConnect.Orders.ContingencyLink]) -> None:
+        """
+        Creates the contingency of the first order of a new set of contingent orders, the rest are created through with_links.
+        The set id is assigned once the orders are added into the algorithm
+        
+        :param count: The total order count in the set
+        :param links: The links of this order to the rest of the set
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Orders.OrderContingency:
+        """Creates a copy of this instance: the set is shared, the links are cloned"""
+        ...
+
+    @staticmethod
+    def get_units(orders: typing.List[QuantConnect.Orders.Order]) -> typing.List[typing.List[QuantConnect.Orders.Order]]:
+        """Groups the orders into units, preserving their order: each order on its own except for the legs of a combo order which go together"""
+        ...
+
+    @staticmethod
+    def relate(type: QuantConnect.Orders.ContingencyType, members: typing.List[QuantConnect.Orders.Order]) -> None:
+        """
+        Helper for brokerages to rebuild the contingencies of their open orders: relates the orders to each other as siblings,
+        One Cancels Other or One Updates Other, joining them into a single set of contingent orders
+        
+        :param type: The type of the relation
+        :param members: The orders to relate, all the legs for combo orders
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Returns a string that represents the current object"""
+        ...
+
+    @staticmethod
+    def trigger(parent: typing.List[QuantConnect.Orders.Order], children: typing.List[QuantConnect.Orders.Order]) -> None:
+        """
+        Helper for brokerages to rebuild the contingencies of their open orders: relates the parent order to the orders it triggers once
+        it completely fills (One Triggers Other), joining them into a single set of contingent orders
+        
+        :param parent: The parent order, all the legs for a combo order
+        :param children: The orders to trigger, all the legs for combo orders
+        """
+        ...
+
+    def with_links(self, links: typing.List[QuantConnect.Orders.ContingencyLink]) -> QuantConnect.Orders.OrderContingency:
+        """
+        Creates the contingency of another order of the same set of contingent orders: it shares the set with this instance,
+        with the given links of its own
+        
+        :param links: The links of the other order to the rest of the set
+        """
+        ...
+
+
+class SubmitOrderRequest(QuantConnect.Orders.OrderRequest):
+    """
+    Defines a request to submit a new order. Built through OrderFactory it is also the specification of an order which can
+    be composed with others before being submitted: an order can trigger others once it fills (triggers(SubmitOrderRequest<>)),
+    which can in turn be related to each other (OrderFactory.one_cancels_other(SubmitOrderRequest<>)), see bracket
+    """
+
+    @property
+    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
+        """Gets Orders.OrderRequestType.Submit"""
+        ...
+
+    @property
+    def security_type(self) -> QuantConnect.SecurityType:
+        """Gets the security type of the symbol"""
+        ...
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """Gets the symbol to be traded"""
+        ...
+
+    @property
+    def order_type(self) -> QuantConnect.Orders.OrderType:
+        """Gets the order type od the order"""
+        ...
+
+    @property
+    def quantity(self) -> float:
+        """Gets the quantity of the order"""
+        ...
+
+    @property
+    def limit_price(self) -> float:
+        """Gets the limit price of the order, zero if not a limit order"""
+        ...
+
+    @property
+    def stop_price(self) -> float:
+        """Gets the stop price of the order, zero if not a stop order"""
+        ...
+
+    @property
+    def trigger_price(self) -> float:
+        """Price which must first be reached before a limit order can be submitted."""
+        ...
+
+    @property
+    def trailing_amount(self) -> float:
+        """Trailing amount for a trailing stop order"""
+        ...
+
+    @property
+    def trailing_as_percentage(self) -> bool:
+        """Determines whether the trailing_amount is a percentage or an absolute currency value"""
+        ...
+
+    @property
+    def order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
+        """Gets the order properties for this request"""
+        ...
+
+    @property
+    def group_order_manager(self) -> QuantConnect.Orders.GroupOrderManager:
+        """Gets the manager for the combo order. If null, the order is not a combo order."""
+        ...
+
+    @property
+    def contingency(self) -> QuantConnect.Orders.OrderContingency:
+        """
+        Gets the contingency of this order: the set of contingent orders it belongs to and how it relates to them.
+        If null, the order is not a contingent order. Composed before being submitted through triggers(SubmitOrderRequest<>),
+        bracket, OrderFactory.one_cancels_other(SubmitOrderRequest<>) and OrderFactory.one_updates_other(SubmitOrderRequest<>)
+        """
+        ...
+
+    @property
+    def asynchronous(self) -> bool:
+        """
+        Whether this request should be asynchronous,
+        which means the ticket will be returned to the algorithm without waiting for submission
+        """
+        ...
+
+    @overload
+    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, trigger_price: float, trailing_amount: float, trailing_as_percentage: bool, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False, contingency: QuantConnect.Orders.OrderContingency = None) -> None:
+        """
+        Initializes a new instance of the SubmitOrderRequest class.
+        The OrderRequest.order_id will default to OrderResponseErrorCode.UNABLE_TO_FIND_ORDER
+        
+        :param order_type: The order type to be submitted
+        :param security_type: The symbol's security_type
+        :param symbol: The symbol to be traded
+        :param quantity: The number of units to be ordered
+        :param stop_price: The stop price for stop orders, non-stop orders this value is ignored
+        :param limit_price: The limit price for limit orders, non-limit orders this value is ignored
+        :param trigger_price: The trigger price for limit if touched orders, for non-limit if touched orders this value is ignored
+        :param trailing_amount: The trailing amount to be used to update the stop price
+        :param trailing_as_percentage: Whether the trailing_amount is a percentage or an absolute currency value
+        :param time: The time this request was created
+        :param tag: A custom tag for this request
+        :param properties: The order properties for this request
+        :param group_order_manager: The manager for this combo order
+        :param asynchronous: True if this request should be asynchronous,
+        which means the ticket will be returned to the algorithm without waiting for submission
+        :param contingency: The contingency of this order, if any: the set of contingent orders it belongs to and how it relates to them
+        """
+        ...
+
+    @overload
+    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, trigger_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
+        """
+        Initializes a new instance of the SubmitOrderRequest class.
+        The OrderRequest.order_id will default to OrderResponseErrorCode.UNABLE_TO_FIND_ORDER
+        
+        :param order_type: The order type to be submitted
+        :param security_type: The symbol's security_type
+        :param symbol: The symbol to be traded
+        :param quantity: The number of units to be ordered
+        :param stop_price: The stop price for stop orders, non-stop orders this value is ignored
+        :param limit_price: The limit price for limit orders, non-limit orders this value is ignored
+        :param trigger_price: The trigger price for limit if touched orders, for non-limit if touched orders this value is ignored
+        :param time: The time this request was created
+        :param tag: A custom tag for this request
+        :param properties: The order properties for this request
+        :param group_order_manager: The manager for this combo order
+        :param asynchronous: True if this request should be asynchronous,
+        which means the ticket will be returned to the algorithm without waiting for submission
+        """
+        ...
+
+    @overload
+    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
+        """
+        Initializes a new instance of the SubmitOrderRequest class.
+        The OrderRequest.order_id will default to OrderResponseErrorCode.UNABLE_TO_FIND_ORDER
+        
+        :param order_type: The order type to be submitted
+        :param security_type: The symbol's security_type
+        :param symbol: The symbol to be traded
+        :param quantity: The number of units to be ordered
+        :param stop_price: The stop price for stop orders, non-stop orders this value is ignored
+        :param limit_price: The limit price for limit orders, non-limit orders this value is ignored
+        :param time: The time this request was created
+        :param tag: A custom tag for this request
+        :param properties: The order properties for this request
+        :param group_order_manager: The manager for this combo order
+        :param asynchronous: True if this request should be asynchronous,
+        which means the ticket will be returned to the algorithm without waiting for submission
+        """
+        ...
+
+    def bracket(self, take_profit_price: float, stop_loss_price: float, stop_loss_limit_price: typing.Optional[float] = None, contingency_type: QuantConnect.Orders.ContingencyType = ...) -> QuantConnect.Orders.SubmitOrderRequest:
+        """
+        Brackets this order with a take profit limit order and a stop loss order, of the opposite quantity, which are held until
+        this order fills (One Triggers a One Cancels Other)
+        
+        :param take_profit_price: The limit price of the take profit order
+        :param stop_loss_price: The stop price of the stop loss order
+        :param stop_loss_limit_price: Optionally the limit price of the stop loss order, turning it into a stop limit order
+        :param contingency_type: How the take profit and stop loss relate: by default the first one to fill cancels the other.
+        Use ContingencyType.ONE_UPDATES_OTHER so that a partial fill resizes the other
+        :returns: This instance.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Returns a string that represents the current object.
+        
+        :returns: A string that represents the current object.
+        """
+        ...
+
+    @overload
+    def triggers(self, *orders: typing.Union[QuantConnect.Orders.SubmitOrderRequest, typing.Iterable[QuantConnect.Orders.SubmitOrderRequest]]) -> QuantConnect.Orders.SubmitOrderRequest:
+        """
+        Sets the orders this order will trigger once it is completely filled (One Triggers Other): they are held until then
+        and canceled if this order is canceled. The triggered orders are independent of each other, unless grouped through
+        OrderFactory.one_cancels_other(SubmitOrderRequest<>) or OrderFactory.one_updates_other(SubmitOrderRequest<>).
+        For the legs of a combo order see IAlgorithm OneTriggersOtherOrder, they are triggered together once all the legs fill
+        
+        :param orders: The orders to trigger, for a combo order all its legs
+        :returns: This instance.
+        """
+        ...
+
+    @overload
+    def triggers(self, orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> QuantConnect.Orders.SubmitOrderRequest:
+        """
+        Sets the orders this order will trigger once it is completely filled (One Triggers Other), see triggers(SubmitOrderRequest<>)
+        
+        :param orders: The orders to trigger, for a combo order all its legs
+        :returns: This instance.
+        """
+        ...
+
+
+class Leg(System.Object):
+    """Basic order leg"""
+
+    @property
+    def symbol(self) -> QuantConnect.Symbol:
+        """The legs symbol"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: QuantConnect.Symbol) -> None:
+        ...
+
+    @property
+    def quantity(self) -> int:
+        """Quantity multiplier used to specify proper scale (and direction) of the leg within the strategy"""
+        ...
+
+    @quantity.setter
+    def quantity(self, value: int) -> None:
+        ...
+
+    @property
+    def order_price(self) -> typing.Optional[float]:
+        """Order limit price of the leg in case limit order is sent to the market on strategy execution"""
+        ...
+
+    @order_price.setter
+    def order_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @staticmethod
+    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, limit_price: typing.Optional[float] = None) -> QuantConnect.Orders.Leg:
+        """
+        Creates a new instance
+        
+        :param symbol: The symbol
+        :param quantity: The quantity
+        :param limit_price: Associated limit price if any
+        """
+        ...
+
+
+class OrderFactory(System.Object):
+    """
+    Creates SubmitOrderRequest for an algorithm to be submitted later, so they can be composed into contingent orders before:
+    an order can trigger others once it fills (SubmitOrderRequest.triggers(SubmitOrderRequest<>)), which can in turn
+    cancel (one_cancels_other(SubmitOrderRequest<>)) or update (one_updates_other(SubmitOrderRequest<>)) each other,
+    see SubmitOrderRequest.bracket. The order id and the contingency set id of the requests are assigned once they are submitted
+    """
+
+    def __init__(self, algorithm: QuantConnect.Interfaces.IAlgorithm) -> None:
+        """
+        Creates a new instance for the given algorithm, which provides the time and default order properties of the requests
+        
+        :param algorithm: The algorithm instance
+        """
+        ...
+
+    def combo_leg_limit_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """Combo leg limit order requests, one per leg, each leg with its own limit price"""
+        ...
+
+    def combo_limit_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """Combo limit order requests, one per leg, with a single limit price for the combo"""
+        ...
+
+    def combo_market_order(self, legs: typing.List[QuantConnect.Orders.Leg], quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """Combo market order requests, one per leg. The legs are a single unit: composed and submitted together"""
+        ...
+
+    def exercise_option(self, option_symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Option exercise order request"""
+        ...
+
+    def limit_if_touched_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, trigger_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Limit if touched order request"""
+        ...
+
+    def limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Limit order request"""
+        ...
+
+    def market_on_close_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Market on close order request"""
+        ...
+
+    def market_on_open_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Market on open order request"""
+        ...
+
+    def market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Market order request"""
+        ...
+
+    @overload
+    def one_cancels_other(self, *orders: typing.Union[QuantConnect.Orders.SubmitOrderRequest, typing.Iterable[QuantConnect.Orders.SubmitOrderRequest]]) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """
+        Relates the orders so that once one of them fills, even partially, the rest are canceled (One Cancels Other/All)
+        
+        :param orders: The orders to relate
+        :returns: The same orders, so they can be submitted or triggered by another order.
+        """
+        ...
+
+    @overload
+    def one_cancels_other(self, orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """
+        Relates the orders so that once one of them fills, even partially, the rest are canceled (One Cancels Other/All)
+        
+        :param orders: The orders to relate, including all the legs of combo orders
+        :returns: The same orders, so they can be submitted or triggered by another order.
+        """
+        ...
+
+    @overload
+    def one_updates_other(self, *orders: typing.Union[QuantConnect.Orders.SubmitOrderRequest, typing.Iterable[QuantConnect.Orders.SubmitOrderRequest]]) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """
+        Relates the orders so that once one of them partially fills the remaining quantity of the rest is reduced proportionally,
+        and canceled once it completely fills (One Updates Other)
+        
+        :param orders: The orders to relate
+        :returns: The same orders, so they can be submitted or triggered by another order.
+        """
+        ...
+
+    @overload
+    def one_updates_other(self, orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """
+        Relates the orders so that once one of them partially fills the remaining quantity of the rest is reduced proportionally,
+        and canceled once it completely fills (One Updates Other)
+        
+        :param orders: The orders to relate, including all the legs of combo orders
+        :returns: The same orders, so they can be submitted or triggered by another order.
+        """
+        ...
+
+    def option_strategy_order(self, strategy: QuantConnect.Securities.Option.OptionStrategy, quantity: int, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.SubmitOrderRequest]:
+        """Option strategy order requests, a combo market order of the strategy legs"""
+        ...
+
+    def stop_limit_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Stop limit order request"""
+        ...
+
+    def stop_market_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Stop market order request"""
+        ...
+
+    @overload
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """
+        Trailing stop order request. The initial stop price is calculated based on the market price at the
+        time the order starts working: once submitted, or once triggered for an order triggered by another
+        """
+        ...
+
+    @overload
+    def trailing_stop_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, trailing_amount: float, trailing_as_percentage: bool, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> QuantConnect.Orders.SubmitOrderRequest:
+        """Trailing stop order request with an initial stop price"""
+        ...
+
+
+class OrderStatus(IntEnum):
+    """Fill status of the order class."""
+
+    NEW = 0
+    """New order pre-submission to the order processor (0)"""
+
+    SUBMITTED = 1
+    """Order submitted to the market (1)"""
+
+    PARTIALLY_FILLED = 2
+    """Partially filled, In Market Order (2)"""
+
+    FILLED = 3
+    """Completed, Filled, In Market Order (3)"""
+
+    CANCELED = 5
+    """Order cancelled before it was filled (5)"""
+
+    NONE = 6
+    """No Order State Yet (6)"""
+
+    INVALID = 7
+    """Order invalidated before it hit the market (e.g. insufficient capital) (7)"""
+
+    CANCEL_PENDING = 8
+    """Order waiting for confirmation of cancellation (8)"""
+
+    UPDATE_SUBMITTED = 9
+    """Order update submitted to the market (9)"""
+
+
+class OrderSubmissionData(System.Object):
+    """
+    The purpose of this class is to store time and price information
+    available at the time an order was submitted.
+    """
+
+    @property
+    def bid_price(self) -> float:
+        """The bid price at order submission time"""
+        ...
+
+    @property
+    def ask_price(self) -> float:
+        """The ask price at order submission time"""
+        ...
+
+    @property
+    def last_price(self) -> float:
+        """The current price at order submission time"""
+        ...
+
+    def __init__(self, bid_price: float, ask_price: float, last_price: float) -> None:
+        """Initializes a new instance of the OrderSubmissionData class"""
+        ...
+
+    def clone(self) -> QuantConnect.Orders.OrderSubmissionData:
+        """Return a new instance clone of this object"""
         ...
 
 
@@ -485,153 +1064,6 @@ class UpdateOrderRequest(QuantConnect.Orders.OrderRequest):
         Only tag updates are allowed on closed orders.
         
         :returns: True if the update request is allowed for a closed order.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Returns a string that represents the current object.
-        
-        :returns: A string that represents the current object.
-        """
-        ...
-
-
-class SubmitOrderRequest(QuantConnect.Orders.OrderRequest):
-    """Defines a request to submit a new order"""
-
-    @property
-    def order_request_type(self) -> QuantConnect.Orders.OrderRequestType:
-        """Gets Orders.OrderRequestType.Submit"""
-        ...
-
-    @property
-    def security_type(self) -> QuantConnect.SecurityType:
-        """Gets the security type of the symbol"""
-        ...
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """Gets the symbol to be traded"""
-        ...
-
-    @property
-    def order_type(self) -> QuantConnect.Orders.OrderType:
-        """Gets the order type od the order"""
-        ...
-
-    @property
-    def quantity(self) -> float:
-        """Gets the quantity of the order"""
-        ...
-
-    @property
-    def limit_price(self) -> float:
-        """Gets the limit price of the order, zero if not a limit order"""
-        ...
-
-    @property
-    def stop_price(self) -> float:
-        """Gets the stop price of the order, zero if not a stop order"""
-        ...
-
-    @property
-    def trigger_price(self) -> float:
-        """Price which must first be reached before a limit order can be submitted."""
-        ...
-
-    @property
-    def trailing_amount(self) -> float:
-        """Trailing amount for a trailing stop order"""
-        ...
-
-    @property
-    def trailing_as_percentage(self) -> bool:
-        """Determines whether the trailing_amount is a percentage or an absolute currency value"""
-        ...
-
-    @property
-    def order_properties(self) -> QuantConnect.Interfaces.IOrderProperties:
-        """Gets the order properties for this request"""
-        ...
-
-    @property
-    def group_order_manager(self) -> QuantConnect.Orders.GroupOrderManager:
-        """Gets the manager for the combo order. If null, the order is not a combo order."""
-        ...
-
-    @property
-    def asynchronous(self) -> bool:
-        """
-        Whether this request should be asynchronous,
-        which means the ticket will be returned to the algorithm without waiting for submission
-        """
-        ...
-
-    @overload
-    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, trigger_price: float, trailing_amount: float, trailing_as_percentage: bool, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
-        """
-        Initializes a new instance of the SubmitOrderRequest class.
-        The OrderRequest.order_id will default to OrderResponseErrorCode.UNABLE_TO_FIND_ORDER
-        
-        :param order_type: The order type to be submitted
-        :param security_type: The symbol's security_type
-        :param symbol: The symbol to be traded
-        :param quantity: The number of units to be ordered
-        :param stop_price: The stop price for stop orders, non-stop orders this value is ignored
-        :param limit_price: The limit price for limit orders, non-limit orders this value is ignored
-        :param trigger_price: The trigger price for limit if touched orders, for non-limit if touched orders this value is ignored
-        :param trailing_amount: The trailing amount to be used to update the stop price
-        :param trailing_as_percentage: Whether the trailing_amount is a percentage or an absolute currency value
-        :param time: The time this request was created
-        :param tag: A custom tag for this request
-        :param properties: The order properties for this request
-        :param group_order_manager: The manager for this combo order
-        :param asynchronous: True if this request should be asynchronous,
-        which means the ticket will be returned to the algorithm without waiting for submission
-        """
-        ...
-
-    @overload
-    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, trigger_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
-        """
-        Initializes a new instance of the SubmitOrderRequest class.
-        The OrderRequest.order_id will default to OrderResponseErrorCode.UNABLE_TO_FIND_ORDER
-        
-        :param order_type: The order type to be submitted
-        :param security_type: The symbol's security_type
-        :param symbol: The symbol to be traded
-        :param quantity: The number of units to be ordered
-        :param stop_price: The stop price for stop orders, non-stop orders this value is ignored
-        :param limit_price: The limit price for limit orders, non-limit orders this value is ignored
-        :param trigger_price: The trigger price for limit if touched orders, for non-limit if touched orders this value is ignored
-        :param time: The time this request was created
-        :param tag: A custom tag for this request
-        :param properties: The order properties for this request
-        :param group_order_manager: The manager for this combo order
-        :param asynchronous: True if this request should be asynchronous,
-        which means the ticket will be returned to the algorithm without waiting for submission
-        """
-        ...
-
-    @overload
-    def __init__(self, order_type: QuantConnect.Orders.OrderType, security_type: QuantConnect.SecurityType, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, stop_price: float, limit_price: float, time: typing.Union[datetime.datetime, datetime.date], tag: str, properties: QuantConnect.Interfaces.IOrderProperties = None, group_order_manager: QuantConnect.Orders.GroupOrderManager = None, asynchronous: bool = False) -> None:
-        """
-        Initializes a new instance of the SubmitOrderRequest class.
-        The OrderRequest.order_id will default to OrderResponseErrorCode.UNABLE_TO_FIND_ORDER
-        
-        :param order_type: The order type to be submitted
-        :param security_type: The symbol's security_type
-        :param symbol: The symbol to be traded
-        :param quantity: The number of units to be ordered
-        :param stop_price: The stop price for stop orders, non-stop orders this value is ignored
-        :param limit_price: The limit price for limit orders, non-limit orders this value is ignored
-        :param time: The time this request was created
-        :param tag: A custom tag for this request
-        :param properties: The order properties for this request
-        :param group_order_manager: The manager for this combo order
-        :param asynchronous: True if this request should be asynchronous,
-        which means the ticket will be returned to the algorithm without waiting for submission
         """
         ...
 
@@ -779,6 +1211,18 @@ class Order(System.Object, metaclass=abc.ABCMeta):
 
     @group_order_manager.setter
     def group_order_manager(self, value: QuantConnect.Orders.GroupOrderManager) -> None:
+        ...
+
+    @property
+    def contingency(self) -> QuantConnect.Orders.OrderContingency:
+        """
+        The contingency of this order, if any: the set of contingent orders it belongs to (OCO, OTO, OUO, brackets)
+        and the links defining how it relates to the rest of the orders in the set
+        """
+        ...
+
+    @contingency.setter
+    def contingency(self, value: QuantConnect.Orders.OrderContingency) -> None:
         ...
 
     @property
@@ -1428,6 +1872,126 @@ class ClearStreetOrderProperties(QuantConnect.Orders.OrderProperties):
         ...
 
 
+class ContingentOrderExtensions(System.Object):
+    """Contingent orders (OCO, OTO, OUO, brackets) extension methods for easiest manipulation"""
+
+    @staticmethod
+    def get_contingency_link(order: QuantConnect.Orders.Order, role: QuantConnect.Orders.ContingencyRole) -> QuantConnect.Orders.ContingencyLink:
+        """Gets the first ContingencyType.ONE_TRIGGERS_OTHER link of the order with the given role, null if none"""
+        ...
+
+    @staticmethod
+    def get_contingent_children(order: QuantConnect.Orders.Order, contingent_orders: typing.List[QuantConnect.Orders.Order]) -> typing.Sequence[QuantConnect.Orders.Order]:
+        """
+        Gets the children the given parent order triggers once filled
+        
+        :param order: The parent order
+        :param contingent_orders: The orders in the set
+        """
+        ...
+
+    @staticmethod
+    def get_contingent_descendants(order: QuantConnect.Orders.Order, contingent_orders: typing.Sequence[QuantConnect.Orders.Order]) -> typing.List[QuantConnect.Orders.Order]:
+        """
+        Gets all the descendants of the given order: its children, their children and so on
+        
+        :param order: The parent order
+        :param contingent_orders: The orders in the set
+        """
+        ...
+
+    @staticmethod
+    def get_contingent_parents(order: QuantConnect.Orders.Order, contingent_orders: typing.List[QuantConnect.Orders.Order]) -> typing.Sequence[QuantConnect.Orders.Order]:
+        """
+        Gets the parent orders of the given child, more than one when the parent is a combo order
+        
+        :param order: The child order
+        :param contingent_orders: The orders in the set
+        """
+        ...
+
+    @staticmethod
+    def get_contingent_siblings(order: QuantConnect.Orders.Order, contingent_orders: typing.List[QuantConnect.Orders.Order]) -> typing.Sequence[QuantConnect.Orders.Order]:
+        """
+        Gets the sibling orders of the given one, the other members of its OCO/OUO contingency.
+        The legs of the same combo order are not siblings
+        
+        :param order: The member order
+        :param contingent_orders: The orders in the set
+        """
+        ...
+
+    @staticmethod
+    def get_existing_contingent_orders(order: QuantConnect.Orders.Order, order_provider: typing.Callable[[int], QuantConnect.Orders.Order]) -> typing.List[QuantConnect.Orders.Order]:
+        """
+        Gets the orders of the set which exist in the given provider, without requiring all of them to be present
+        
+        :param order: Target order, which can be any of the orders in the set
+        :param order_provider: Order provider to use to access the existing orders
+        :returns: The existing orders of the set, including the given one, sorted by id.
+        """
+        ...
+
+    @staticmethod
+    def get_sibling_link(order: QuantConnect.Orders.Order) -> QuantConnect.Orders.ContingencyLink:
+        """
+        Gets the link of the order to its siblings, the other members of its ContingencyType.ONE_CANCELS_OTHER
+        or ContingencyType.ONE_UPDATES_OTHER contingency, null if none
+        """
+        ...
+
+    @staticmethod
+    def get_triggered_time(order: QuantConnect.Orders.Order) -> typing.Optional[datetime.datetime]:
+        """Gets the utc time at which the contingent child order was triggered, null if not a child or not triggered yet"""
+        ...
+
+    @staticmethod
+    def get_working_time(order: QuantConnect.Orders.Order) -> datetime.datetime:
+        """
+        Gets the utc time from which the order is considered to be working in the market:
+        the time it was triggered for contingent child orders, else its creation time
+        """
+        ...
+
+    @staticmethod
+    def is_contingent(order: QuantConnect.Orders.Order) -> bool:
+        """Determines whether the order is part of a set of contingent orders"""
+        ...
+
+    @staticmethod
+    def is_contingent_sibling(order: QuantConnect.Orders.Order, other: QuantConnect.Orders.Order) -> bool:
+        """
+        Determines whether both orders are members of the same ContingencyType.ONE_CANCELS_OTHER
+        or ContingencyType.ONE_UPDATES_OTHER contingency, so at most one of them is expected to completely fill
+        """
+        ...
+
+    @staticmethod
+    def is_same_group_order(order: QuantConnect.Orders.Order, other: QuantConnect.Orders.Order) -> bool:
+        """Determines whether both orders are legs of the same group (combo) order"""
+        ...
+
+    @staticmethod
+    def is_waiting_for_trigger(order: QuantConnect.Orders.Order) -> bool:
+        """
+        Determines whether the order is a contingent child still held waiting for its parent to fill,
+        that is, the order is not working in the market yet
+        """
+        ...
+
+    @staticmethod
+    def try_get_contingent_orders(order: QuantConnect.Orders.Order, order_provider: typing.Callable[[int], QuantConnect.Orders.Order], orders: typing.Optional[typing.List[QuantConnect.Orders.Order]]) -> typing.Tuple[bool, typing.List[QuantConnect.Orders.Order]]:
+        """
+        Gets all the orders in the set of contingent orders the given order belongs to
+        
+        :param order: Target order, which can be any of the orders in the set
+        :param order_provider: Order provider to use to access the existing orders
+        :param orders: List of orders in the set, sorted by id
+        :returns: False if any of the orders in the set is not yet found in the order provider. True otherwise.
+        """
+        ...
+
+
 class TradierOrderProperties(QuantConnect.Orders.OrderProperties):
     """Provides an implementation of the OrderProperties specific to Tradier order."""
 
@@ -1858,6 +2422,30 @@ class BloombergFixOrderProperties(QuantConnect.Orders.FixOrderProperties):
     def locate_reqd(self, value: str) -> None:
         ...
 
+    @property
+    def automatic_position_sides(self) -> bool:
+        """
+        Whether the plugin works the position side out from the current holdings (buy-to-open, sell-to-close, etc.)
+        instead of sending a plain buy or sell. On by default
+        """
+        ...
+
+    @automatic_position_sides.setter
+    def automatic_position_sides(self, value: bool) -> None:
+        ...
+
+    @property
+    def position_side(self) -> typing.Optional[QuantConnect.Orders.OrderPosition]:
+        """
+        Can optionally specify the position side of the order (buy-to-open, sell-to-close, etc.)
+        instead of the plugin working it out from the current holdings
+        """
+        ...
+
+    @position_side.setter
+    def position_side(self, value: typing.Optional[QuantConnect.Orders.OrderPosition]) -> None:
+        ...
+
 
 class StopLimitOrder(QuantConnect.Orders.Order):
     """Stop Market Order Type Definition"""
@@ -2212,6 +2800,24 @@ class OrderField(IntEnum):
     """Whether the trailing amount for a TrailingStopOrder is a percentage or an absolute currency value (4)"""
 
 
+class ContingentOrderCache(System.Object):
+    """
+    Provides a thread-safe service for caching the orders of a set of contingent orders (OCO, OTO, OUO, brackets) until all of them
+    have arrived, so that a brokerage can submit them together. Orders are placed one by one, see GroupOrderCacheManager
+    """
+
+    def try_get_contingent_cached_orders(self, order: QuantConnect.Orders.Order, orders: typing.Optional[typing.List[QuantConnect.Orders.Order]]) -> typing.Tuple[bool, typing.List[QuantConnect.Orders.Order]]:
+        """
+        Attempts to retrieve all the orders in the set of contingent orders from the cache
+        
+        :param order: Target order, which can be any of the orders of the set
+        :param orders: All the orders in the set sorted by id: parents come before the orders they trigger
+        :returns: True if all the orders of the set were successfully retrieved from the cache, which are removed from it.
+        Otherwise false, the target order is cached for future retrieval.
+        """
+        ...
+
+
 class OrderUpdateEvent(System.Object):
     """
     Event that fires each time an order is updated in the brokerage side.
@@ -2252,6 +2858,30 @@ class OrderUpdateEvent(System.Object):
 
     @stop_triggered_time.setter
     def stop_triggered_time(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def contingency_triggered(self) -> bool:
+        """
+        Flag indicating whether a contingent child order has been triggered, that is, its parent filled and
+        the order was released to the market. See ContingencyLink.triggered
+        """
+        ...
+
+    @contingency_triggered.setter
+    def contingency_triggered(self, value: bool) -> None:
+        ...
+
+    @property
+    def quantity(self) -> typing.Optional[float]:
+        """
+        The updated order quantity, if any. Used when the brokerage resizes an order on its side,
+        like for the members of a ContingencyType.ONE_UPDATES_OTHER contingency or the legs of a bracket order
+        """
+        ...
+
+    @quantity.setter
+    def quantity(self, value: typing.Optional[float]) -> None:
         ...
 
 
@@ -2306,48 +2936,6 @@ class OrderExtensions(System.Object):
         
         :param order_type: The order to check
         :returns: True if the order is a stop order, false otherwise.
-        """
-        ...
-
-
-class Leg(System.Object):
-    """Basic order leg"""
-
-    @property
-    def symbol(self) -> QuantConnect.Symbol:
-        """The legs symbol"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: QuantConnect.Symbol) -> None:
-        ...
-
-    @property
-    def quantity(self) -> int:
-        """Quantity multiplier used to specify proper scale (and direction) of the leg within the strategy"""
-        ...
-
-    @quantity.setter
-    def quantity(self, value: int) -> None:
-        ...
-
-    @property
-    def order_price(self) -> typing.Optional[float]:
-        """Order limit price of the leg in case limit order is sent to the market on strategy execution"""
-        ...
-
-    @order_price.setter
-    def order_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @staticmethod
-    def create(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: int, limit_price: typing.Optional[float] = None) -> QuantConnect.Orders.Leg:
-        """
-        Creates a new instance
-        
-        :param symbol: The symbol
-        :param quantity: The quantity
-        :param limit_price: Associated limit price if any
         """
         ...
 
@@ -3720,6 +4308,14 @@ class OrderTicket(System.Object):
     @property
     def tag(self) -> str:
         """Gets the order's current tag"""
+        ...
+
+    @property
+    def contingency(self) -> QuantConnect.Orders.OrderContingency:
+        """
+        Gets the current contingency of this order: the set of contingent orders it belongs to (OCO, OTO, OUO, brackets)
+        and how it relates to them. Null if it's not a contingent order
+        """
         ...
 
     @property

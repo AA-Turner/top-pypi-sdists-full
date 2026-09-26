@@ -34,7 +34,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.generate_summary_of_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGenerateSummaryOfTranscriptsResponse, session, path=["response"])
 
@@ -44,7 +44,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.generate_summary_of_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -58,7 +58,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.generate_summary_of_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -75,7 +75,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.generate_summary_of_transcripts(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -89,7 +89,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.generate_summary_of_transcripts(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -98,7 +98,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetParticipantDataFromPeerIDResponse, session, path=["response"])
 
@@ -108,7 +108,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             filters="device_info",
             include_peer_events=True,
         )
@@ -120,7 +120,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -134,7 +134,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -151,7 +151,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_participant_data_from_peer_id(
                 peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -165,7 +165,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_participant_data_from_peer_id(
                 peer_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -174,7 +174,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_chat(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionChatResponse, session, path=["response"])
 
@@ -184,7 +184,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_session_chat(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -198,7 +198,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_session_chat(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -215,7 +215,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_chat(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -229,7 +229,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_chat(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -238,7 +238,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionDetailsResponse, session, path=["response"])
 
@@ -248,7 +248,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             include_breakout_rooms=True,
         )
         assert_matches_type(SessionGetSessionDetailsResponse, session, path=["response"])
@@ -259,7 +259,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -273,7 +273,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -290,7 +290,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_details(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -304,7 +304,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_details(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -313,7 +313,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(SessionGetSessionParticipantDetailsResponse, session, path=["response"])
@@ -324,7 +324,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             include_peer_events=True,
         )
@@ -336,7 +336,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -351,7 +351,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -369,7 +369,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
                 participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -385,7 +385,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
                 participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 session_id="",
             )
 
@@ -393,7 +393,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -403,7 +403,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionParticipantsResponse, session, path=["response"])
 
@@ -413,10 +413,10 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             include_peer_events=True,
             page_no=0,
-            per_page=0,
+            per_page=1,
             search="search",
             sort_by="joinedAt",
             sort_order="ASC",
@@ -430,7 +430,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -444,7 +444,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -461,7 +461,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_participants(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -475,7 +475,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_participants(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -484,7 +484,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_summary(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionSummaryResponse, session, path=["response"])
 
@@ -494,7 +494,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_session_summary(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -508,7 +508,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_session_summary(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -525,7 +525,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_summary(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -539,7 +539,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_summary(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -548,7 +548,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionTranscriptsResponse, session, path=["response"])
 
@@ -558,7 +558,7 @@ class TestSessions:
         session = client.realtime_kit.sessions.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             format="SRT",
         )
         assert_matches_type(SessionGetSessionTranscriptsResponse, session, path=["response"])
@@ -569,7 +569,7 @@ class TestSessions:
         response = client.realtime_kit.sessions.with_raw_response.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -583,7 +583,7 @@ class TestSessions:
         with client.realtime_kit.sessions.with_streaming_response.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -600,7 +600,7 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_transcripts(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -614,14 +614,14 @@ class TestSessions:
             client.realtime_kit.sessions.with_raw_response.get_session_transcripts(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
     @parametrize
     def test_method_get_sessions(self, client: Cloudflare) -> None:
         session = client.realtime_kit.sessions.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(SessionGetSessionsResponse, session, path=["response"])
@@ -630,7 +630,7 @@ class TestSessions:
     @parametrize
     def test_method_get_sessions_with_all_params(self, client: Cloudflare) -> None:
         session = client.realtime_kit.sessions.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             associated_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -649,7 +649,7 @@ class TestSessions:
     @parametrize
     def test_raw_response_get_sessions(self, client: Cloudflare) -> None:
         response = client.realtime_kit.sessions.with_raw_response.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -662,7 +662,7 @@ class TestSessions:
     @parametrize
     def test_streaming_response_get_sessions(self, client: Cloudflare) -> None:
         with client.realtime_kit.sessions.with_streaming_response.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -678,7 +678,7 @@ class TestSessions:
     def test_path_params_get_sessions(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.sessions.with_raw_response.get_sessions(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -700,7 +700,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.generate_summary_of_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGenerateSummaryOfTranscriptsResponse, session, path=["response"])
 
@@ -710,7 +710,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.generate_summary_of_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -724,7 +724,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.generate_summary_of_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -741,7 +741,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.generate_summary_of_transcripts(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -755,7 +755,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.generate_summary_of_transcripts(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -764,7 +764,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetParticipantDataFromPeerIDResponse, session, path=["response"])
 
@@ -776,7 +776,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             filters="device_info",
             include_peer_events=True,
         )
@@ -788,7 +788,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -802,7 +802,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_participant_data_from_peer_id(
             peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -819,7 +819,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_participant_data_from_peer_id(
                 peer_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -833,7 +833,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_participant_data_from_peer_id(
                 peer_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -842,7 +842,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_chat(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionChatResponse, session, path=["response"])
 
@@ -852,7 +852,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_session_chat(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -866,7 +866,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_session_chat(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -883,7 +883,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_chat(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -897,7 +897,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_chat(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -906,7 +906,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionDetailsResponse, session, path=["response"])
 
@@ -916,7 +916,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             include_breakout_rooms=True,
         )
         assert_matches_type(SessionGetSessionDetailsResponse, session, path=["response"])
@@ -927,7 +927,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -941,7 +941,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_session_details(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -958,7 +958,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_details(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -972,7 +972,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_details(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -981,7 +981,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(SessionGetSessionParticipantDetailsResponse, session, path=["response"])
@@ -992,7 +992,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             include_peer_events=True,
         )
@@ -1004,7 +1004,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -1019,7 +1019,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_session_participant_details(
             participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -1037,7 +1037,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
                 participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1053,7 +1053,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
                 participant_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 session_id="",
             )
 
@@ -1061,7 +1061,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_participant_details(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1071,7 +1071,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionParticipantsResponse, session, path=["response"])
 
@@ -1081,10 +1081,10 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             include_peer_events=True,
             page_no=0,
-            per_page=0,
+            per_page=1,
             search="search",
             sort_by="joinedAt",
             sort_order="ASC",
@@ -1098,7 +1098,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1112,7 +1112,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_session_participants(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1129,7 +1129,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_participants(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1143,7 +1143,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_participants(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -1152,7 +1152,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_summary(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionSummaryResponse, session, path=["response"])
 
@@ -1162,7 +1162,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_session_summary(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1176,7 +1176,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_session_summary(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1193,7 +1193,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_summary(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1207,7 +1207,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_summary(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
@@ -1216,7 +1216,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(SessionGetSessionTranscriptsResponse, session, path=["response"])
 
@@ -1226,7 +1226,7 @@ class TestAsyncSessions:
         session = await async_client.realtime_kit.sessions.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             format="SRT",
         )
         assert_matches_type(SessionGetSessionTranscriptsResponse, session, path=["response"])
@@ -1237,7 +1237,7 @@ class TestAsyncSessions:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1251,7 +1251,7 @@ class TestAsyncSessions:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_session_transcripts(
             session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1268,7 +1268,7 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_transcripts(
                 session_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1282,14 +1282,14 @@ class TestAsyncSessions:
             await async_client.realtime_kit.sessions.with_raw_response.get_session_transcripts(
                 session_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="requires completed session with participant data")
     @parametrize
     async def test_method_get_sessions(self, async_client: AsyncCloudflare) -> None:
         session = await async_client.realtime_kit.sessions.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(SessionGetSessionsResponse, session, path=["response"])
@@ -1298,7 +1298,7 @@ class TestAsyncSessions:
     @parametrize
     async def test_method_get_sessions_with_all_params(self, async_client: AsyncCloudflare) -> None:
         session = await async_client.realtime_kit.sessions.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             associated_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
@@ -1317,7 +1317,7 @@ class TestAsyncSessions:
     @parametrize
     async def test_raw_response_get_sessions(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.sessions.with_raw_response.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -1330,7 +1330,7 @@ class TestAsyncSessions:
     @parametrize
     async def test_streaming_response_get_sessions(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.sessions.with_streaming_response.get_sessions(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -1346,7 +1346,7 @@ class TestAsyncSessions:
     async def test_path_params_get_sessions(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.sessions.with_raw_response.get_sessions(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 

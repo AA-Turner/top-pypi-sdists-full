@@ -3,8 +3,12 @@ import sys
 import re
 import tempfile
 import itertools
+import pickle
+import pytest
 
-from kiwipiepy import Kiwi, TypoTransformer, basic_typos, MorphemeSet, sw_tokenizer, PretokenizedToken, extract_substrings, Match
+import pytest
+
+from kiwipiepy import Kiwi, SplitForm, Sentence, TypoTransformer, basic_typos, MorphemeSet, sw_tokenizer, PretokenizedToken, extract_substrings, Match
 from kiwipiepy.utils import Stopwords
 
 curpath = os.path.dirname(os.path.abspath(__file__))
@@ -174,6 +178,114 @@ def test_pretokenized():
         print(e)
     finally:
         assert is_raised
+
+def test_pretokenized_non_bmp_offsets():
+    kiwi = Kiwi()
+    texts = ['AB', '😀A']
+
+    def pretokenized(value):
+        return [(0, len(value), [
+            PretokenizedToken('X', 'NNP', 0, 1),
+            PretokenizedToken('A', 'SL', 1, 2),
+        ])]
+
+    expected = [('X', 0, 1), ('A', 1, 2)]
+    for text in texts:
+        assert [
+            (token.form, token.start, token.end)
+            for token in kiwi.tokenize(text, pretokenized=pretokenized(text))
+        ] == expected
+
+    assert [
+        [(token.form, token.start, token.end) for token in tokens]
+        for tokens in kiwi.tokenize(iter(texts), pretokenized=pretokenized)
+    ] == [expected, expected]
+
+def test_non_bmp_offsets():
+    # UTF-16에서 두 칸을 차지하는 non-BMP 문자가 섞여 있어도 Token 위치는 파이썬 문자 기준이어야 한다.
+    kiwi = Kiwi()
+
+    assert [
+        (token.form, token.start, token.end) for token in kiwi.tokenize('😀 밥을 먹었다')
+    ] == [('😀', 0, 1), ('밥', 2, 3), ('을', 3, 4), ('먹', 5, 6), ('었', 6, 7), ('다', 7, 8)]
+
+    assert [
+        (token.form, token.start, token.end) for token in kiwi.tokenize('밥😀😀 먹었다')
+    ] == [('밥', 0, 1), ('😀', 1, 2), ('😀', 2, 3), ('먹', 4, 5), ('었', 5, 6), ('다', 6, 7)]
+
+    texts = ['오늘 밥을 먹었다', '𠀀 밥을 먹었다', '🇰🇷 밥을 먹었다']
+    for text, tokens in zip(texts, kiwi.tokenize(iter(texts))):
+        for token in tokens:
+            assert token.end <= len(text)
+            assert text[token.start:token.end] == token.form
+
+    text = '😀 안녕하세요. 반갑습니다.'
+    for sent in kiwi.split_into_sents(text):
+        assert text[sent.start:sent.end] == sent.text
+
+def test_pretokenized_ranges_reject_empty_and_overflow():
+    """native 입력도 빈 범위와 uint32 범위를 안전하게 거절한다."""
+    from _kiwipiepy import _Kiwi
+
+    kiwi = Kiwi()
+    native_args = (
+        'AB', 1, Match.ALL, False, None, False, 0, 3.0,
+        None, 2.5,
+    )
+
+    def assert_value_error(fn):
+        try:
+            fn()
+        except ValueError:
+            return
+        raise AssertionError('expected ValueError')
+
+    # 빈 group만 여럿 넘겨도 병합용 임시 배열의 첫 원소를 읽지 않아야 한다.
+    ordinary = _Kiwi.analyze(kiwi, *native_args, None, kiwi.global_config)
+    empty_groups = _Kiwi.analyze(kiwi, *native_args, [[], []], kiwi.global_config)
+    assert [
+        [token.tagged_form for token in tokens] for tokens, _ in empty_groups
+    ] == [
+        [token.tagged_form for token in tokens] for tokens, _ in ordinary
+    ]
+
+    # 공개 래퍼의 사전 검사를 우회하는 native 호출도 zero-width span으로
+    # splitter가 길이 - 1을 계산하지 않도록 ValueError로 끝나야 한다.
+    for pretokenized in [
+        [[(0, 0)]],
+        [[(1, 1)]],
+        [[(2, 1)]],
+        [[(0, 3)]],
+    ]:
+        assert_value_error(lambda pretokenized=pretokenized: _Kiwi.analyze(
+            kiwi, *native_args, pretokenized, kiwi.global_config,
+        ))
+
+    # Python int를 uint32_t로 바로 좁히면 2**32가 0이 된다. outer와 inner
+    # 위치 모두 변환 전에 거절해 잘못된 원문 범위로 분석하지 않게 한다.
+    overflow = 2 ** 32
+    for pretokenized in [
+        [[(overflow, overflow + 1)]],
+        [[(0, 2, ('A', 'SL', overflow, overflow + 1))]],
+    ]:
+        assert_value_error(lambda pretokenized=pretokenized: _Kiwi.analyze(
+            kiwi, *native_args, pretokenized, kiwi.global_config,
+        ))
+
+    for pretokenized in [[(0, 0)], [(1, 1)]]:
+        assert_value_error(lambda pretokenized=pretokenized: kiwi.tokenize(
+            'AB', pretokenized=pretokenized,
+        ))
+
+    invalid_tokens = [
+        PretokenizedToken('A', 'SL', -1, 1),
+        PretokenizedToken('A', 'SL', 1, 0),
+        PretokenizedToken('A', 'SL', 0, 3),
+    ]
+    for token in invalid_tokens:
+        assert_value_error(lambda token=token: kiwi.tokenize(
+            'AB', pretokenized=[(0, 2, token)],
+        ))
 
 def test_re_word():
     text = '{평만경(平滿景)}이 사람을 시켜 {침향(沈香)} 10냥쭝을 바쳤으므로'
@@ -423,6 +535,26 @@ def test_swtokenizer_tokenize_encode():
         assert [m.tagged_form for m in morphs] == [m.tagged_form for m in ref_morphs]
         assert token_ids.tolist() == ref_token_ids.tolist()
 
+def test_swtokenizer_tokenize_encode_non_bmp_offsets():
+    # tokenize_encode는 원본을 UTF-8로 넘기지만 Token 위치는 파이썬 문자 기준으로 돌아와야 한다.
+    tokenizer = sw_tokenizer.SwTokenizer('Kiwi/test/written.tokenizer.json', num_workers=1)
+    sents = [
+        "😀 한국어에 특화된 토크나이저입니다.",
+        "한국어😀에 특화된 토크나이저입니다.",
+    ]
+
+    def assert_offsets(morphs, sent):
+        assert all(m.end <= len(sent) for m in morphs)
+        emoji = next(m for m in morphs if m.form == '😀')
+        assert sent[emoji.start:emoji.end] == '😀'
+
+    for sent in sents:
+        morphs, token_ids = tokenizer.tokenize_encode(sent)
+        assert_offsets(morphs, sent)
+
+    for (morphs, token_ids), sent in zip(tokenizer.tokenize_encode(iter(sents)), sents):
+        assert_offsets(morphs, sent)
+
 def test_swtokenizer_offset():
     tokenizer = sw_tokenizer.SwTokenizer('Kiwi/tokenizers/kor.32k.json', num_workers=1)
     for sent in [
@@ -558,20 +690,53 @@ def test_bug_38():
 
 def test_stopwords():
     kiwi = Kiwi()
-    tokens, _ = kiwi.analyze('불용어 처리 테스트 중입니다 '
-                             '우리는 강아지를 좋아한다 쟤도 강아지를 좋아한다 '
-                             '지금은 2021년 11월이다.')[0]
+    text = '불용어 처리 테스트 중입니다. 우리는 강아지를 좋아한다.'
+    tokens = kiwi.tokenize(text)
+
+    # 기본 사전은 조사/어미/문장부호 등을 걸러냅니다.
     stopwords = Stopwords()
-    print(set(tokens) - set(stopwords.filter(tokens)))
-    filename = curpath + '/test_corpus/custom_stopwords.txt'
-    stopwords = Stopwords(filename)
+    filtered = stopwords.filter(tokens)
+    assert [t.form for t in filtered if t.tag == 'JX'] == []
+    assert [t.form for t in filtered if t.tag == 'SF'] == []
+    assert '강아지' in [t.form for t in filtered]
+
+    # 태그만 적힌 줄은 해당 품사 전체를 걸러냅니다.
+    assert 'SF' in stopwords.stoptags
+    assert (('.', 'SF') in stopwords) == True
+
+    stopwords = Stopwords(curpath + '/test_corpus/custom_stopwords.txt')
+    assert (('강아지', 'NNP') in stopwords) == False
 
     stopwords.add(('강아지', 'NNP'))
     assert (('강아지', 'NNP') in stopwords) == True
 
+    stopwords.add(('강아지', 'NNG'))
+    assert '강아지' not in [t.form for t in stopwords.filter(kiwi.tokenize('강아지'))]
+    stopwords.remove(('강아지', 'NNG'))
+
     stopwords.remove(('강아지', 'NNP'))
     assert (('강아지', 'NNP') in stopwords) == False
-    print(set(tokens) - set(stopwords.filter(tokens)))
+
+    # 여러 개를 한번에 넣고 뺄 수 있고, str은 NNP로 간주합니다.
+    stopwords.add(['고양이', ('토끼', 'NNG')])
+    assert (('고양이', 'NNP') in stopwords) == True
+    assert (('토끼', 'NNG') in stopwords) == True
+    stopwords.remove(['고양이', ('토끼', 'NNG')])
+    assert (('고양이', 'NNP') in stopwords) == False
+
+    # 잘못된 태그나 사전에 없는 항목은 오류입니다.
+    with pytest.raises(ValueError):
+        stopwords.add(('강아지', 'NOT_A_TAG'))
+    with pytest.raises(ValueError):
+        stopwords.remove(('없는단어', 'NNG'))
+
+    # 저장한 뒤 다시 읽으면 같은 내용이어야 합니다.
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = os.path.join(tmpdir, 'stopwords.txt')
+        stopwords.save(path)
+        restored = Stopwords(path)
+        assert restored.stopwords == stopwords.stopwords
+        assert restored.stoptags == stopwords.stoptags
 
 def test_tokenize():
     kiwi = Kiwi()
@@ -700,7 +865,7 @@ def test_space_issue_187():
 
 def test_space_issue_189():
     kiwi = Kiwi()
-    kiwi.add_user_word('팩', 'NNB', score=1)
+    kiwi.add_user_word('팩', 'NNB', score=4)
     assert kiwi.space('담아 1팩 무료') == '담아 1팩 무료'
     assert kiwi.space('골라 2팩 무료') == '골라 2팩 무료'
 
@@ -797,10 +962,11 @@ def test_continual_typo():
     assert tokens[0].form == '지각'
     assert tokens[1].form == '하'
 
-    tokens = kiwi.tokenize('웨 지가캤니?', typos='basic_with_continual')
+    tokens = kiwi.tokenize('웨 학교 지가캤니?', typos='basic_with_continual')
     assert tokens[0].form == '왜'
-    assert tokens[1].form == '지각'
-    assert tokens[2].form == '하'
+    assert tokens[1].form == '학교'
+    assert tokens[2].form == '지각'
+    assert tokens[3].form == '하'
 
 def test_long_dependency():
     kiwi = Kiwi(model_type='none')
@@ -1016,3 +1182,308 @@ def test_issue_216():
     tokens = kiwi.tokenize("테스트용\ufeff문자열입니다.")
     for token in tokens:
         assert token.form
+
+
+def test_split_into_forms():
+    kiwi = Kiwi()
+    cases = {
+        '했다': [SplitForm('했', 'VV+EP', 0, 1), SplitForm('다', 'EF', 1, 2)],
+        '하였다': [
+            SplitForm('하', 'VV', 0, 1),
+            SplitForm('였', 'EP', 1, 2),
+            SplitForm('다', 'EF', 2, 3),
+        ],
+        '귀여워요': [SplitForm('귀여워요', 'VA-I+EF', 0, 4)],
+        '걸어': [SplitForm('걸', 'VV-I', 0, 1), SplitForm('어', 'EF', 1, 2)],
+        '학생입니다': [
+            SplitForm('학생', 'NNG', 0, 2),
+            SplitForm('입니다', 'VCP+EF', 2, 5),
+        ],
+        '도와!': [SplitForm('도', 'VV-I', 0, 1), SplitForm('와', 'EF', 1, 2), SplitForm('!', 'SF', 2, 3)],
+        '안녕하세요': [
+            SplitForm('안녕', 'NNG', 0, 2),
+            SplitForm('하', 'XSA', 2, 3),
+            SplitForm('세요', 'EF', 3, 5),
+        ],
+    }
+    for text, expected in cases.items():
+        result = kiwi.split_into_forms(text)
+        assert result == expected
+        assert all(part.form == text[part.start:part.end] for part in result)
+
+    assert kiwi.split_into_forms('시곗바늘', saisiot=True) == [
+        SplitForm('시곗', 'NNG+Z_SIOT', 0, 2),
+        SplitForm('바늘', 'NNG', 2, 4),
+    ]
+    assert kiwi.split_into_forms('시곗바늘', saisiot=False) == [
+        SplitForm('시곗바늘', 'NNG', 0, 4),
+    ]
+    assert kiwi.split_into_forms(
+        'ABC',
+        pretokenized=[(0, 1, [PretokenizedToken('X', 'NNP', 0, 1)])],
+    ) == [SplitForm('A', 'NNP', 0, 1), SplitForm('BC', 'SL', 1, 3)]
+
+    text = ' \t😀했다  안녕\n'
+    parts = kiwi.split_into_forms(text)
+    assert parts == [
+        SplitForm('😀', 'W_EMOJI', 2, 3),
+        SplitForm('했', 'XSV+EP', 3, 4),
+        SplitForm('다', 'EF', 4, 5),
+        SplitForm('안녕', 'IC', 7, 9),
+    ]
+
+    assert kiwi.split_into_forms('\u2800') == []
+    assert kiwi.split_into_forms('A\u2800B') == [
+        SplitForm('A', 'SL', 0, 1),
+        SplitForm('B', 'SL', 2, 3),
+    ]
+
+    assert kiwi.split_into_forms(
+        'A B',
+        pretokenized=[(0, 3, 'NNP')],
+    ) == [SplitForm('A B', 'NNP', 0, 3)]
+    assert kiwi.split_into_forms('랠프 월도 에머슨') == [
+        SplitForm('랠프 월도 에머슨', 'NNP', 0, 9),
+    ]
+
+    texts = ['했다', '귀여워요', '']
+    expected = [
+        [SplitForm('했', 'VV+EP', 0, 1), SplitForm('다', 'EF', 1, 2)],
+        [SplitForm('귀여워요', 'VA-I+EF', 0, 4)],
+        [],
+    ]
+    assert list(kiwi.split_into_forms(iter(texts))) == expected
+    assert list(kiwi.split_into_forms(iter(texts), echo=True)) == list(zip(expected, texts))
+
+    pretokenized_inputs = []
+
+    def pretokenize(text):
+        pretokenized_inputs.append(text)
+        return [(0, len(text), 'NNP')]
+
+    texts = ['A B', 'CD']
+    expected = [
+        [SplitForm('A B', 'NNP', 0, 3)],
+        [SplitForm('CD', 'NNP', 0, 2)],
+    ]
+    assert list(kiwi.split_into_forms(iter(texts), pretokenized=pretokenize)) == expected
+    assert pretokenized_inputs == texts
+
+    pretokenized_inputs.clear()
+    assert list(kiwi.split_into_forms(
+        iter(texts), pretokenized=pretokenize, echo=True,
+    )) == list(zip(expected, texts))
+    assert pretokenized_inputs == texts
+
+
+def test_split_form():
+    token = SplitForm('했', 'VV+EP', 0, 1)
+
+    assert token.form == '했'
+    assert token.tag == 'VV+EP'
+    assert token.start == 0
+    assert token.end == 1
+    assert token == SplitForm('했', 'VV+EP', 0, 1)
+    assert SplitForm.__module__ == 'kiwipiepy'
+    assert pickle.loads(pickle.dumps(token)) == token
+
+    assert token.len == 1   # len은 end - start를 돌려주는 프로퍼티입니다.
+    assert token.tokens == []
+    assert repr(token) == "SplitForm(form='했', tag='VV+EP', start=0, end=1)"
+
+
+def test_split_form_tokens():
+    kiwi = Kiwi()
+    text = '했다 학생입니다'
+    parts = kiwi.split_into_forms(text)
+    tokens = kiwi.tokenize(text)
+
+    # 각 SplitForm의 tokens를 이어붙이면 원래 분석 결과와 같아야 합니다.
+    # Token은 값 비교를 지원하지 않으므로 속성으로 비교합니다.
+    def key(token):
+        return (token.form, token.tag, token.start, token.len)
+
+    assert [key(token) for part in parts for token in part.tokens] == [key(token) for token in tokens]
+    for part in parts:
+        assert part.tag == '+'.join(token.tag for token in part.tokens)
+        assert all(
+            part.start <= token.start and token.end <= part.end
+            for token in part.tokens
+        )
+
+    # tokens는 repr과 동등성 비교에서 제외됩니다.
+    assert parts[0].tokens
+    assert repr(parts[0]) == "SplitForm(form='했', tag='VV+EP', start=0, end=1)"
+    assert parts[0] == SplitForm('했', 'VV+EP', 0, 1)
+
+
+def test_split_by_spans_boundaries():
+    from types import SimpleNamespace
+    from kiwipiepy._wrap import _split_by_spans
+
+    def token(form, tag, start, end):
+        return SimpleNamespace(form=form, tag=tag, start=start, end=end)
+
+    # Token이 없는 구간은 버리되 하나의 Token span 내부 공백은 보존합니다.
+    assert _split_by_spans('A\u2800B', [
+        token('A', 'SL', 0, 1),
+        token('B', 'SL', 2, 3),
+    ]) == [SplitForm('A', 'SL', 0, 1), SplitForm('B', 'SL', 2, 3)]
+    assert _split_by_spans('A B', [token('A B', 'NNP', 0, 3)]) == [
+        SplitForm('A B', 'NNP', 0, 3),
+    ]
+    assert _split_by_spans('A B', [
+        token('B', 'TB', 2, 3),
+        token('A', 'TA', 0, 1),
+    ]) == [SplitForm('A', 'TA', 0, 1), SplitForm('B', 'TB', 2, 3)]
+
+    # 태그 순서는 위치 정렬 순서가 아니라 형태소 분석 결과 순서를 따릅니다.
+    crossed = [
+        token('B', 'EP', 1, 2),
+        token('AB', 'VV', 0, 2),
+    ]
+    assert _split_by_spans('AB', crossed) == [SplitForm('AB', 'EP+VV', 0, 2)]
+
+    # 연쇄적으로 겹치는 구간은 합치되 맞닿기만 한 구간은 따로 둡니다.
+    assert _split_by_spans('ABCDE', [
+        token('BC', 'EP', 1, 3),
+        token('AB', 'VV', 0, 2),
+        token('D', 'NNG', 3, 4),
+        token('E', 'JX', 4, 5),
+    ]) == [
+        SplitForm('ABC', 'EP+VV', 0, 3),
+        SplitForm('D', 'NNG', 3, 4),
+        SplitForm('E', 'JX', 4, 5),
+    ]
+
+    # 길이가 0인 Token은 다음 표면형에, 다음 표면형이 없으면 이전에 결합합니다.
+    assert _split_by_spans('A', [
+        token('만', 'JX', 0, 0),
+        token('A', 'NNG', 0, 1),
+    ]) == [SplitForm('A', 'JX+NNG', 0, 1)]
+    assert _split_by_spans('AB', [
+        token('A', 'NNG', 0, 1),
+        token('이', 'VCP', 1, 1),
+        token('B', 'EF', 1, 2),
+    ]) == [SplitForm('A', 'NNG', 0, 1), SplitForm('B', 'VCP+EF', 1, 2)]
+    assert _split_by_spans('A', [
+        token('A', 'NNG', 0, 1),
+        token('만', 'JX', 1, 1),
+    ]) == [SplitForm('A', 'NNG+JX', 0, 1)]
+    assert _split_by_spans('', [
+        token('이', 'VCP', 0, 0),
+    ]) == []
+
+
+def test_issue_135_kiwi_pickle():
+    kiwi = Kiwi(num_workers=1)
+    before = kiwi.tokenize('아버지가방에들어가신다')
+    kiwi2 = pickle.loads(pickle.dumps(kiwi))
+    after = kiwi2.tokenize('아버지가방에들어가신다')
+    assert repr(before) == repr(after)
+    assert kiwi2.num_workers == kiwi.num_workers
+
+
+def _issue_135_kiwi_mp_worker(pickled_kiwi):
+    kiwi = pickle.loads(pickled_kiwi)
+    return [t.form for t in kiwi.tokenize('아버지가 방에 들어가신다')]
+
+def test_issue_135_kiwi_pickle_across_multiprocessing():
+    import multiprocessing as mp
+
+    if sys.platform.startswith('win'):
+        print("[skipped this test on Windows.]", file=sys.stderr)
+        return
+
+    kiwi = Kiwi(num_workers=1)
+    expected = [t.form for t in kiwi.tokenize('아버지가 방에 들어가신다')]
+    pickled = pickle.dumps(kiwi)
+
+    ctx = mp.get_context('spawn')
+    with ctx.Pool(2) as pool:
+        results = pool.map(_issue_135_kiwi_mp_worker, [pickled] * 4)
+
+    for forms in results:
+        assert forms == expected
+
+
+def test_issue_135_kiwi_pickle_rejects_modified_dictionary():
+    def modified(fn):
+        kiwi = Kiwi(num_workers=1)
+        fn(kiwi)
+        return kiwi
+
+    cases = {
+        'add_user_word': lambda k: k.add_user_word('카피바라', 'NNP', 0.0),
+        'add_pre_analyzed_word': lambda k: k.add_pre_analyzed_word(
+            '사귀다', [('사귀', 'VV'), ('다', 'EF')], -3.0),
+        'add_rule': lambda k: k.add_rule('EF', lambda form: form + 'ㅋ', 0.0),
+        'add_re_rule': lambda k: k.add_re_rule('EF', r'요$', '용', 0.0),
+        'add_re_word': lambda k: k.add_re_word(r'\d+cm', 'NNB'),
+        'clear_re_words': lambda k: k.clear_re_words(),
+        'load_user_dictionary': lambda k: k.load_user_dictionary(
+            'test/test_corpus/user_dictionary_for_pickle_test.txt'),
+    }
+
+    for name, call in cases.items():
+        kiwi = modified(call)
+        with pytest.raises(TypeError) as e:
+            pickle.dumps(kiwi)
+        assert name in str(e.value), f'{name} should be named in the error message'
+
+    pickle.loads(pickle.dumps(Kiwi(num_workers=1)))
+
+
+def test_issue_135_kiwi_pickle_preserves_global_config():
+    kiwi = Kiwi(num_workers=1)
+    kiwi.global_config.space_tolerance = 2
+    kiwi.global_config.cutoff_threshold = 3.5
+    kiwi2 = pickle.loads(pickle.dumps(kiwi))
+    assert kiwi2.global_config.space_tolerance == 2
+    assert kiwi2.global_config.cutoff_threshold == 3.5
+
+
+def test_issue_135_sw_tokenizer_pickle():
+    kiwi = Kiwi(num_workers=1)
+    tok = sw_tokenizer.SwTokenizer('test/sample_tokenizer/tokenizer.json', kiwi=kiwi)
+    before = list(tok.encode('아버지가방에들어가신다'))
+
+    tok2 = pickle.loads(pickle.dumps(tok))
+    after = list(tok2.encode('아버지가방에들어가신다'))
+    assert before == after
+
+
+def _issue_135_mp_worker(pickled_tok):
+    tok = pickle.loads(pickled_tok)
+    return list(tok.encode('가자')), tok.kiwi.tokenize('가자')[0].form
+
+
+def test_issue_135_sw_tokenizer_pickle_across_multiprocessing():
+    import multiprocessing as mp
+
+    if sys.platform.startswith('win'):
+        print("[skipped this test on Windows.]", file=sys.stderr)
+        return
+
+    kiwi = Kiwi(num_workers=1)
+    tok = sw_tokenizer.SwTokenizer('test/sample_tokenizer/tokenizer.json', kiwi=kiwi)
+    pickled = pickle.dumps(tok)
+
+    ctx = mp.get_context('spawn')
+    with ctx.Pool(2) as pool:
+        results = pool.map(_issue_135_mp_worker, [pickled] * 4)
+
+    expected = list(tok.encode('가자'))
+    for ids, form in results:
+        assert ids == expected
+        assert form == '가'
+
+
+def test_issue_135_sw_tokenizer_pickle_follows_the_kiwi_gate():
+    kiwi = Kiwi(num_workers=1)
+    kiwi.add_user_word('카피바라', 'NNP', 0.0)
+    tok = sw_tokenizer.SwTokenizer('test/sample_tokenizer/tokenizer.json', kiwi=kiwi)
+
+    with pytest.raises(TypeError) as e:
+        pickle.dumps(tok)
+    assert 'add_user_word' in str(e.value)

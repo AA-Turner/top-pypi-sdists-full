@@ -5392,6 +5392,13 @@ def test_fstring_oversized_width_uninferable(code: str) -> None:
     assert list(node.infer()) == [util.Uninferable]
 
 
+@pytest.mark.parametrize("code", ["f'{-1:c}'", "f'{0x110000:c}'", "f'{2**64:c}'"])
+def test_fstring_char_out_of_range_uninferable(code: str) -> None:
+    """Regression test for https://github.com/pylint-dev/astroid/issues/3301."""
+    node = extract_node(code)
+    assert list(node.infer()) == [util.Uninferable]
+
+
 def test_augassign_recursion() -> None:
     """Make sure inference doesn't throw a RecursionError.
 
@@ -6193,7 +6200,8 @@ def test_subclass_of_exception(code) -> None:
     inferred = next(extract_node(code).infer())
     assert isinstance(inferred, Instance)
     args = next(inferred.igetattr("args"))
-    assert isinstance(args, nodes.Tuple)
+    assert isinstance(args, Instance)
+    assert args.qname() == "builtins.tuple"
 
 
 def test_ifexp_inference() -> None:

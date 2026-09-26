@@ -59,9 +59,9 @@ from typing import TYPE_CHECKING, cast
 
 import httpx
 
+from ...._runtime.auth_refresh_retry import RefreshBudget, refresh_and_count
 from ...._runtime.config import CORE_LOGGER_NAME
 from ...._runtime.helpers import resolve_sleep
-from ..auth_refresh_retry import RefreshBudget, refresh_and_count
 from ..errors import TransportAuthExpired
 from ..request_types import AuthSnapshot, BuildRequest
 from .context import (
@@ -69,6 +69,7 @@ from .context import (
     RPC_CONTEXT_AUTH_SNAPSHOT,
     RPC_CONTEXT_BUILD_REQUEST,
     RPC_CONTEXT_DISABLE_INTERNAL_RETRIES,
+    RPC_CONTEXT_DISABLE_READ_TIMEOUT_RETRIES,
     RPC_CONTEXT_LOG_LABEL,
     RPC_CONTEXT_REFRESH_BUDGET,
     RPC_CONTEXT_RESOURCE_EPOCH,
@@ -89,7 +90,7 @@ class AuthRefreshMiddleware:
     ``Sequence[Middleware]``.
 
     Constructor inputs (all wired by
-    :func:`notebooklm._runtime.init.wire_middleware_chain`, driven from
+    :func:`notebooklm._web.transport.init.wire_middleware_chain`, driven from
     ``NotebookLMClient.__init__``):
 
     - ``refresh_callable``: a zero-arg async callable that drives one
@@ -106,7 +107,7 @@ class AuthRefreshMiddleware:
       directly typically pass the function itself.
     - ``refresh_callback_enabled``: a zero-arg callable returning ``True``
       iff a refresh callback is wired on the coordinator. Production wires
-      ``lambda: collaborators.auth_coord.has_refresh_callback`` so a
+      ``lambda: auth_coord.has_refresh_callback`` so a
       client built without ``refresh_callback`` skips the refresh path
       entirely.
     - ``refresh_retry_delay``: zero-arg callable returning the
@@ -173,7 +174,7 @@ class AuthRefreshMiddleware:
         "one refresh max per logical call" contract.
 
         The guard reads a shared
-        :class:`notebooklm._web.transport.auth_refresh_retry.RefreshBudget` from
+        :class:`notebooklm._runtime.auth_refresh_retry.RefreshBudget` from
         ``request.context[RPC_CONTEXT_REFRESH_BUDGET]`` when present — the
         executor seeds one per logical ``rpc_call`` so this HTTP-status layer
         and the decoded-RPC layer in :class:`RpcExecutor` share ONE refresh
@@ -191,12 +192,11 @@ class AuthRefreshMiddleware:
         - ``disable_internal_retries`` is set on the context → propagate.
           The flag is the post-resolution effective bool produced by
           :func:`_web.policy.resolve_effective_disable_internal_retries`
-          before chain entry, so a non-idempotent / probe-then-create
+          before chain entry, so a retry-unsafe mutation
           method is NOT replayed after an auth error (issue #1157). A
           mid-flight 401/403 can land *after* the server committed the
           write, so re-POSTing would duplicate the resource / invite /
-          generation. Surfacing the original auth error lets the caller's
-          probe-then-create wrapper disambiguate instead.
+          generation. The original auth error is surfaced unchanged.
         - First ``next_call`` raises something non-``HTTPStatusError`` → propagate.
 
         Refresh-and-retry path:
@@ -238,7 +238,7 @@ class AuthRefreshMiddleware:
                 # ``disable_internal_retries`` is the post-resolution
                 # effective bool (see :func:`_web.policy.
                 # resolve_effective_disable_internal_retries`). When set, the
-                # write is non-idempotent / probe-then-create and may have
+                # write is retry-unsafe and may have
                 # already committed before the auth error surfaced — replaying
                 # it would duplicate the side effect (issue #1157), so we
                 # propagate the original auth error untouched.
@@ -273,6 +273,28 @@ class AuthRefreshMiddleware:
 
             async def refresh() -> None:
                 await self._refresh_callable(expected_epoch)
+
+            # Streamed chat may have committed before an auth-shaped HTTP
+            # status arrived. Refresh credentials for the caller's next
+            # operation, but do not sleep, count a retry, rebuild, or re-POST
+            # this turn.
+            if bool(request.context.get(RPC_CONTEXT_DISABLE_READ_TIMEOUT_RETRIES, False)):
+                self._logger.info("%s auth error detected, attempting token refresh", log_label)
+                try:
+                    await refresh()
+                except Exception as refresh_error:
+                    self._logger.warning("Token refresh failed: %s", refresh_error)
+                    raise TransportAuthExpired(
+                        f"auth refresh failed for {log_label}",
+                        original=original_auth_error,
+                    ) from refresh_error
+                if budget is not None:
+                    budget.consume()
+                request.context[RPC_CONTEXT_AUTH_REFRESHED] = True
+                self._logger.info(
+                    "Token refresh successful; not replaying post-transmission %s", log_label
+                )
+                raise
 
             await refresh_and_count(
                 refresh=refresh,

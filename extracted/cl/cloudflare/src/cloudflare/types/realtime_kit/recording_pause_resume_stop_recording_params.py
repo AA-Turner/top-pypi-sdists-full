@@ -12,5 +12,6 @@ class RecordingPauseResumeStopRecordingParams(TypedDict, total=False):
     """The account identifier tag."""
 
     app_id: Required[str]
+    """The app identifier tag."""
 
     action: Required[Literal["stop", "pause", "resume"]]

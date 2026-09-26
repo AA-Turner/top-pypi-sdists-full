@@ -54,7 +54,7 @@ The generator below closes both. It reads the ten patterns out of the schema rat
 listing them, so a new one cannot be added without appearing here; it probes each at its own
 boundary with values derived from the pattern and from a valid instance of it; and for each
 constraint it demands one of three outcomes - the two artifacts hold the same pattern string,
-in which case no string can split them and that is a proof rather than an observation; or a
+which establishes textual agreement only; or a
 splitting value exists and is declared; or the constraint is neither, which fails.
 """
 from __future__ import annotations
@@ -251,7 +251,7 @@ CANONICAL_SCHEMA: dict[str, Any] = json.loads(
 #: A record valid to both validators that carries every pattern-constrained field.
 #: ``BASE`` above is deliberately the minimum a producer must emit; five of the ten
 #: pattern constraints sit on optional members it omits, and an absent field cannot
-#: be mutated into a disagreement.
+#: be mutated into a disagreement. Section 3.1.4 added five more, all optional.
 FULL: dict[str, Any] = {
     **copy.deepcopy(BASE),
     "model": {"provider": "anthropic", "model_id": "claude-sonnet-4-6",
@@ -261,6 +261,20 @@ FULL: dict[str, Any] = {
     "references": [{"rel": "behavior-trace", "id": "run-1",
                     "resolver": "https://agt.example.org",
                     "digest": "sha256:" + "f" * 64, "retention": "P30D"}],
+    # Section 3.1.4: the claim, and a result of the one outcome that carries every
+    # optional digest, so each pattern under both blocks is a path the probes reach.
+    "reproducibility": {"function": "coordination/v1",
+                        "code_identity": "sha256:" + "1" * 64,
+                        "code_resolver": "https://artifacts.example.org",
+                        "input_closure": [{"id": "config/initial",
+                                           "digest": "sha256:" + "2" * 64,
+                                           "resolver": "https://artifacts.example.org"}],
+                        "transcript_digest": "sha256:" + "3" * 64},
+    "appraisal": {"status": "contraindicated", "verifier": "https://agt.example.org/verifier",
+                  "method": "re-execution",
+                  "re_execution": {"outcome": "diverged",
+                                   "observed_digest": "sha256:" + "4" * 64,
+                                   "verifier_code_identity": "sha256:" + "5" * 64}},
     "signature": "abcDEF-_123",
 }
 
@@ -571,8 +585,8 @@ def test_every_pattern_is_mirrored_or_split_or_declared() -> None:
     """Each of the ten constraints must land in one of three states, none of them silent.
 
     *Mirrored*: the model constrains the field with the same pattern string the schema
-    publishes. Then no string can split the two, and saying so is a proof rather than an
-    observation about the values that happened to be tried.
+    publishes. This checks drift in the declared rule, not engine behavior.
+    ``test_regex_surface_parity.py`` exercises execution boundaries separately.
 
     *Split*: a probe the two disagree about, which belongs in ``DECLARED_DIVERGENCES``
     with the reason it is not simply fixed.

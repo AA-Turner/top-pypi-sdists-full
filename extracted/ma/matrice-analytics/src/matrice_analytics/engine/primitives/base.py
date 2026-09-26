@@ -41,7 +41,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, ClassVar, NamedTuple, Protocol, runtime_checkable
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from matrice_analytics.engine.contract.schemas import (
     GLOBAL_ZONE,
@@ -53,6 +53,7 @@ from matrice_analytics.engine.contract.schemas import (
 from matrice_analytics.engine.state import StateStore
 
 __all__ = [
+    "AttributeRef",
     "Clock",
     "CustomPrimitive",
     "FrameClock",
@@ -220,6 +221,31 @@ class Keypoint(NamedTuple):
     confidence: float
 
 
+class AttributeRef(NamedTuple):
+    """One decoded second-stage attribute on one detection, e.g. ``vehicle_type: ambulance``.
+
+    A named pair rather than two parallel fields, because the two travel together and the
+    confidence is what a ``min_confidence`` gate reads. Written by
+    :func:`matrice_analytics.engine.intake.attributes.attach_attributes` (upstream of the
+    engine entirely -- the classifier is chained *before* the detector's output ever reaches
+    :meth:`Session.process_frame`, per ``vehicle_type_classification.py:1-20``) and read here
+    by nothing but ``attribute_count`` / ``attribute_vote`` / ``attribute_band``.
+
+    :attr:`label` is always a resolved string, never a bare class index -- an index that does
+    not resolve through the producer's label map is dropped rather than published, the same
+    choice :class:`Keypoint`'s missing confidence channel makes for the opposite reason: a
+    dashboard legend reading ``817`` is worse than an absent row.
+    """
+
+    label: str
+    """The resolved attribute value, e.g. ``"ambulance"``. Never an index, never empty."""
+
+    confidence: float
+    """0-1. ``0.0`` when the producer sent a label with no confidence -- the conservative
+    reading, so an absent confidence cannot pass a ``min_confidence`` gate (same choice
+    :class:`Keypoint`'s missing confidence channel makes)."""
+
+
 @dataclass(frozen=True, slots=True)
 class MaskRef:
     """A segmentation mask as the engine carries it -- **a reference, not pixels**.
@@ -327,6 +353,33 @@ class PipelineDetection(Detection):
     normalized and why a missing confidence channel is ``0.0``.
     """
 
+    attributes: Mapping[str, AttributeRef] = Field(default_factory=dict)
+    """Decoded second-stage attributes, keyed by attribute name (``"vehicle_type"``,
+    ``"gender"``, ``"age"``).
+
+    ``default_factory=dict`` rather than a shared ``MappingProxyType({})`` literal: Pydantic
+    v2 deep-copies a non-factory default on every construction that does not override it, and
+    a bare ``mappingproxy`` is not deepcopy-able on this interpreter (``TypeError: cannot
+    pickle 'mappingproxy' object`` -- confirmed directly, not assumed). A plain empty ``dict``
+    is what :attr:`mask` and :attr:`keypoints` effectively get too; nothing here promises the
+    mapping is frozen the way :class:`TrackState.attributes` is.
+
+    Read by ``attribute_count`` / ``attribute_vote`` / ``attribute_band`` and by nothing
+    else. Empty is the honest value for a detector-only stream, and is what makes
+    ``unknown_count`` a real signal rather than a silent zero: a classifier-chain outage
+    shows up as ``unknown_count == instance_count`` instead of as every attribute bucket
+    reading 0 forever.
+
+    The attribute is a **different axis** from :attr:`category`. A detection is a ``car``
+    whose ``vehicle_type`` is ``ambulance``; the detector's class is never overwritten
+    (legacy ``vehicle_type_classification.py:197-201`` is explicit that the coarse category
+    is untouched, and the overlay draws it).
+
+    Engine-internal, like :attr:`entity` and :attr:`zone`: :meth:`to_wire` names every wire
+    field explicitly, so this one cannot reach a payload by having been added here (see
+    ``classification-primitives.md`` P4 for the two ways it can, deliberately, later).
+    """
+
     identity: str | None = None
     """This detection's resolved identity, or ``None`` when it has none.  MLAPP-262 (E1).
 
@@ -375,12 +428,15 @@ class PipelineDetection(Detection):
         zone: str = GLOBAL_ZONE,
         mask: MaskRef | None = None,
         keypoints: Sequence[Keypoint] = (),
+        attributes: Mapping[str, AttributeRef] = MappingProxyType({}),
     ) -> "PipelineDetection":
         """Attach pipeline fields to a wire detection.
 
-        ``mask`` and ``keypoints`` are keyword-only and default to "absent" because the wire
-        :class:`~matrice_analytics.engine.contract.schemas.Detection` cannot carry them --
-        they come from the raw producer dict, which ``runtime/session.py`` parses.
+        ``mask``, ``keypoints`` and ``attributes`` are keyword-only and default to "absent"
+        because the wire :class:`~matrice_analytics.engine.contract.schemas.Detection`
+        cannot carry them -- they come from the raw producer dict, which
+        ``runtime/session.py`` parses (``attributes`` by way of
+        ``intake/attributes.attach_attributes`` running first).
         """
         return cls(
             category=detection.category,
@@ -391,6 +447,7 @@ class PipelineDetection(Detection):
             zone=zone,
             mask=mask,
             keypoints=tuple(keypoints),
+            attributes=attributes,
         )
 
     def to_wire(self) -> Detection:

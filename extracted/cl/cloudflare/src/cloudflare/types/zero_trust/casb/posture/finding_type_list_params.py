@@ -38,6 +38,12 @@ class FindingTypeListParams(TypedDict, total=False):
             "SALESFORCE",
             "SERVICENOW",
             "SLACK",
+            "ZOOM",
         ]
     ]
-    """Filter finding types by vendor. Supports multiple comma-separated values."""
+    """Filter finding types by vendor.
+
+    Supports multiple comma-separated values. Each value may be either the vendor
+    enum (GOOGLE_WORKSPACE) or the friendly name returned by the read routes (Google
+    Workspace).
+    """

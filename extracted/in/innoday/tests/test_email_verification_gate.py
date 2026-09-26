@@ -135,13 +135,16 @@ class TestExtractIdentityCapturesConfirmation:
         )
         assert got["email_confirmed_at"] == "2026-01-01T00:00:00Z"
 
-    def test_user_metadata_fallback(self):
+    def test_user_metadata_does_not_count_as_confirmation(self):
+        """The token's holder can set user_metadata on themselves, so a
+        self-declared email_verified proves nothing; the IdP's own record is
+        asked instead where it matters (PF-465)."""
         from src.services.supabase_auth import extract_identity
 
         got = extract_identity(
             {"sub": "s1", "email": "a@b.c", "user_metadata": {"email_verified": True}}
         )
-        assert got["email_confirmed_at"] is True
+        assert got["email_confirmed_at"] is None
 
     def test_absent_means_unverified(self):
         from src.services.supabase_auth import extract_identity

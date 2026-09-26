@@ -67,7 +67,7 @@ class SubscriptionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionCreateResponse]:
         """
-        Create a new event subscription for a queue
+        Creates an event subscription for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -131,7 +131,7 @@ class SubscriptionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionUpdateResponse]:
         """
-        Update an existing event subscription
+        Updates an existing Queue event subscription.
 
         Args:
           account_id: A Resource identifier.
@@ -199,7 +199,8 @@ class SubscriptionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[SubscriptionListResponse]:
         """
-        Get a paginated list of event subscriptions with optional sorting and filtering
+        Returns a paginated list of Queue event subscriptions with optional sorting and
+        filtering.
 
         Args:
           account_id: A Resource identifier.
@@ -256,7 +257,7 @@ class SubscriptionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionDeleteResponse]:
         """
-        Delete an existing event subscription
+        Deletes an existing Queue event subscription.
 
         Args:
           account_id: A Resource identifier.
@@ -304,7 +305,7 @@ class SubscriptionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionGetResponse]:
         """
-        Get details about an existing event subscription
+        Returns an existing Queue event subscription.
 
         Args:
           account_id: A Resource identifier.
@@ -377,7 +378,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionCreateResponse]:
         """
-        Create a new event subscription for a queue
+        Creates an event subscription for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -441,7 +442,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionUpdateResponse]:
         """
-        Update an existing event subscription
+        Updates an existing Queue event subscription.
 
         Args:
           account_id: A Resource identifier.
@@ -509,7 +510,8 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SubscriptionListResponse, AsyncV4PagePaginationArray[SubscriptionListResponse]]:
         """
-        Get a paginated list of event subscriptions with optional sorting and filtering
+        Returns a paginated list of Queue event subscriptions with optional sorting and
+        filtering.
 
         Args:
           account_id: A Resource identifier.
@@ -566,7 +568,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionDeleteResponse]:
         """
-        Delete an existing event subscription
+        Deletes an existing Queue event subscription.
 
         Args:
           account_id: A Resource identifier.
@@ -614,7 +616,7 @@ class AsyncSubscriptionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[SubscriptionGetResponse]:
         """
-        Get details about an existing event subscription
+        Returns an existing Queue event subscription.
 
         Args:
           account_id: A Resource identifier.

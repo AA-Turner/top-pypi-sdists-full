@@ -33,6 +33,7 @@ from ....types.zero_trust import (
 )
 from ....types.zero_trust.organization import Organization
 from ....types.zero_trust.login_design_param import LoginDesignParam
+from ....types.zero_trust.organization_list_response import OrganizationListResponse
 from ....types.zero_trust.organization_revoke_users_response import OrganizationRevokeUsersResponse
 
 __all__ = ["OrganizationsResource", "AsyncOrganizationsResource"]
@@ -78,6 +79,7 @@ class OrganizationsResource(SyncAPIResource):
         mfa_config: organization_create_params.MfaConfig | Omit = omit,
         mfa_piv_key_requirements: organization_create_params.MfaPivKeyRequirements | Omit = omit,
         mfa_required_for_all_apps: bool | Omit = omit,
+        service_token_inactivity: organization_create_params.ServiceTokenInactivity | Omit = omit,
         session_duration: str | Omit = omit,
         ui_read_only_toggle_reason: str | Omit = omit,
         user_seat_expiration_inactive_time: str | Omit = omit,
@@ -131,6 +133,11 @@ class OrganizationsResource(SyncAPIResource):
               session duration configured. Note: 'allowed_authenticators' cannot contain only
               the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if the
               organization has any non-infrastructure applications.
+
+          service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is
+              inactive if no policy references it, and it has not successfully authenticated
+              with an Access application during the selected inactivity period. This setting
+              applies to every service token in your Zero Trust account.
 
           session_duration: The amount of time that tokens issued for applications will be valid. Must be in
               the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m,
@@ -189,6 +196,7 @@ class OrganizationsResource(SyncAPIResource):
                     "mfa_config": mfa_config,
                     "mfa_piv_key_requirements": mfa_piv_key_requirements,
                     "mfa_required_for_all_apps": mfa_required_for_all_apps,
+                    "service_token_inactivity": service_token_inactivity,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
                     "user_seat_expiration_inactive_time": user_seat_expiration_inactive_time,
@@ -224,6 +232,7 @@ class OrganizationsResource(SyncAPIResource):
         mfa_piv_key_requirements: organization_update_params.MfaPivKeyRequirements | Omit = omit,
         mfa_required_for_all_apps: bool | Omit = omit,
         name: str | Omit = omit,
+        service_token_inactivity: organization_update_params.ServiceTokenInactivity | Omit = omit,
         session_duration: str | Omit = omit,
         ui_read_only_toggle_reason: str | Omit = omit,
         user_seat_expiration_inactive_time: str | Omit = omit,
@@ -277,6 +286,11 @@ class OrganizationsResource(SyncAPIResource):
               organization has any non-infrastructure applications.
 
           name: The name of your Zero Trust organization.
+
+          service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is
+              inactive if no policy references it, and it has not successfully authenticated
+              with an Access application during the selected inactivity period. This setting
+              applies to every service token in your Zero Trust account.
 
           session_duration: The amount of time that tokens issued for applications will be valid. Must be in
               the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m,
@@ -336,6 +350,7 @@ class OrganizationsResource(SyncAPIResource):
                     "mfa_piv_key_requirements": mfa_piv_key_requirements,
                     "mfa_required_for_all_apps": mfa_required_for_all_apps,
                     "name": name,
+                    "service_token_inactivity": service_token_inactivity,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
                     "user_seat_expiration_inactive_time": user_seat_expiration_inactive_time,
@@ -365,7 +380,7 @@ class OrganizationsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[Organization]:
+    ) -> Optional[OrganizationListResponse]:
         """
         Returns the configuration for your Zero Trust organization.
 
@@ -405,9 +420,9 @@ class OrganizationsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Organization]]._unwrapper,
+                post_parser=ResultWrapper[Optional[OrganizationListResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Organization]], ResultWrapper[Organization]),
+            cast_to=cast(Type[Optional[OrganizationListResponse]], ResultWrapper[OrganizationListResponse]),
         )
 
     def revoke_users(
@@ -538,6 +553,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         mfa_config: organization_create_params.MfaConfig | Omit = omit,
         mfa_piv_key_requirements: organization_create_params.MfaPivKeyRequirements | Omit = omit,
         mfa_required_for_all_apps: bool | Omit = omit,
+        service_token_inactivity: organization_create_params.ServiceTokenInactivity | Omit = omit,
         session_duration: str | Omit = omit,
         ui_read_only_toggle_reason: str | Omit = omit,
         user_seat_expiration_inactive_time: str | Omit = omit,
@@ -591,6 +607,11 @@ class AsyncOrganizationsResource(AsyncAPIResource):
               session duration configured. Note: 'allowed_authenticators' cannot contain only
               the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if the
               organization has any non-infrastructure applications.
+
+          service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is
+              inactive if no policy references it, and it has not successfully authenticated
+              with an Access application during the selected inactivity period. This setting
+              applies to every service token in your Zero Trust account.
 
           session_duration: The amount of time that tokens issued for applications will be valid. Must be in
               the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m,
@@ -649,6 +670,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
                     "mfa_config": mfa_config,
                     "mfa_piv_key_requirements": mfa_piv_key_requirements,
                     "mfa_required_for_all_apps": mfa_required_for_all_apps,
+                    "service_token_inactivity": service_token_inactivity,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
                     "user_seat_expiration_inactive_time": user_seat_expiration_inactive_time,
@@ -684,6 +706,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         mfa_piv_key_requirements: organization_update_params.MfaPivKeyRequirements | Omit = omit,
         mfa_required_for_all_apps: bool | Omit = omit,
         name: str | Omit = omit,
+        service_token_inactivity: organization_update_params.ServiceTokenInactivity | Omit = omit,
         session_duration: str | Omit = omit,
         ui_read_only_toggle_reason: str | Omit = omit,
         user_seat_expiration_inactive_time: str | Omit = omit,
@@ -737,6 +760,11 @@ class AsyncOrganizationsResource(AsyncAPIResource):
               organization has any non-infrastructure applications.
 
           name: The name of your Zero Trust organization.
+
+          service_token_inactivity: Configures automatic enforcement for inactive service tokens. A service token is
+              inactive if no policy references it, and it has not successfully authenticated
+              with an Access application during the selected inactivity period. This setting
+              applies to every service token in your Zero Trust account.
 
           session_duration: The amount of time that tokens issued for applications will be valid. Must be in
               the format `300ms` or `2h45m`. Valid time units are: ns, us (or µs), ms, s, m,
@@ -796,6 +824,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
                     "mfa_piv_key_requirements": mfa_piv_key_requirements,
                     "mfa_required_for_all_apps": mfa_required_for_all_apps,
                     "name": name,
+                    "service_token_inactivity": service_token_inactivity,
                     "session_duration": session_duration,
                     "ui_read_only_toggle_reason": ui_read_only_toggle_reason,
                     "user_seat_expiration_inactive_time": user_seat_expiration_inactive_time,
@@ -825,7 +854,7 @@ class AsyncOrganizationsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[Organization]:
+    ) -> Optional[OrganizationListResponse]:
         """
         Returns the configuration for your Zero Trust organization.
 
@@ -865,9 +894,9 @@ class AsyncOrganizationsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[Organization]]._unwrapper,
+                post_parser=ResultWrapper[Optional[OrganizationListResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[Organization]], ResultWrapper[Organization]),
+            cast_to=cast(Type[Optional[OrganizationListResponse]], ResultWrapper[OrganizationListResponse]),
         )
 
     async def revoke_users(

@@ -10,7 +10,9 @@ at import time. Fieldless leaves inherit their storage and constructors.
 
 from __future__ import annotations
 
+import bisect
 import copy
+import operator
 import re
 import sys
 from datetime import date, datetime, time, timedelta, timezone
@@ -223,22 +225,7 @@ def render_dotted(parts: tuple[str, ...], seps: tuple[str, ...]) -> str:
 # ---------------------------------------------------------------------------
 
 
-class _CommaNode:
-    """Copy comma records without generic pickle-state reconstruction."""
-
-    __slots__ = ()
-
-    _copy_fields: ClassVar[tuple[str, ...]]
-
-    def __deepcopy__(self, memo: dict[int, object]) -> Self:
-        new = object.__new__(type(self))
-        memo[id(self)] = new
-        for attr in self._copy_fields:
-            setattr(new, attr, copy.deepcopy(getattr(self, attr), memo))
-        return new
-
-
-class CommaItem(_CommaNode):
+class CommaItem:
     """One slot inside a comma-separated value.
 
     Layout: ``leading value trailing [comma post_comma_trivia]``.
@@ -249,8 +236,6 @@ class CommaItem(_CommaNode):
     """
 
     __slots__ = ("has_comma", "leading", "post_comma_trivia", "trailing", "value")
-
-    _copy_fields: ClassVar[tuple[str, ...]] = __slots__
 
     def __init__(
         self,
@@ -265,6 +250,16 @@ class CommaItem(_CommaNode):
         self.trailing = trailing
         self.has_comma = has_comma
         self.post_comma_trivia = post_comma_trivia
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        new = object.__new__(type(self))
+        memo[id(self)] = new
+        new.has_comma = copy.deepcopy(self.has_comma, memo)
+        new.leading = copy.deepcopy(self.leading, memo)
+        new.post_comma_trivia = copy.deepcopy(self.post_comma_trivia, memo)
+        new.trailing = copy.deepcopy(self.trailing, memo)
+        new.value = copy.deepcopy(self.value, memo)
+        return new
 
     def render_tail(self) -> str:
         """Everything the item renders after its value."""
@@ -286,12 +281,10 @@ class InlineTableEntry(CommaItem):
     """One ``key = value`` slot inside an inline table.
 
     The shared trivia/comma machinery lives on `CommaItem`; this leaf
-    adds only the key-prefix fields and keyed rendering.
+    adds the key prefix and an order label for locating its current position.
     """
 
-    __slots__ = ("key_parts", "key_path", "key_seps", "post_eq", "pre_eq")
-
-    _copy_fields: ClassVar[tuple[str, ...]] = CommaItem._copy_fields + __slots__  # noqa: SLF001
+    __slots__ = ("_order", "key_parts", "key_path", "key_seps", "post_eq", "pre_eq")
 
     key_parts: tuple[str, ...]
     key_seps: tuple[str, ...]
@@ -322,6 +315,18 @@ class InlineTableEntry(CommaItem):
         self.key_path = key_path
         self.pre_eq = pre_eq
         self.post_eq = post_eq
+        self._order = 0
+
+    @override
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        new = super().__deepcopy__(memo)
+        new.key_parts = copy.deepcopy(self.key_parts, memo)
+        new.key_path = copy.deepcopy(self.key_path, memo)
+        new.key_seps = copy.deepcopy(self.key_seps, memo)
+        new.post_eq = copy.deepcopy(self.post_eq, memo)
+        new.pre_eq = copy.deepcopy(self.pre_eq, memo)
+        new._order = self._order  # noqa: SLF001
+        return new
 
     @override
     def render(self) -> str:
@@ -335,7 +340,7 @@ class InlineTableEntry(CommaItem):
 _ItemT = TypeVar("_ItemT", bound=CommaItem)
 
 
-class CommaValue(_CommaNode, Generic[_ItemT]):
+class CommaValue(Generic[_ItemT]):
     """Shared backbone of `ArrayValue` and `InlineTableValue`.
 
     Canonical trivia ownership:
@@ -353,8 +358,6 @@ class CommaValue(_CommaNode, Generic[_ItemT]):
     """
 
     __slots__ = ("_ml_cache", "final_trivia", "header_trivia", "items")
-
-    _copy_fields: ClassVar[tuple[str, ...]] = __slots__
 
     # Memoised `is_multiline()` result; None means "not computed". Mutations
     # that preserve multi-line shape (append/insert/sort/reorder) leave it
@@ -379,6 +382,15 @@ class CommaValue(_CommaNode, Generic[_ItemT]):
         self.header_trivia = header_trivia
         self.final_trivia = final_trivia
         self._ml_cache = None
+
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        new = object.__new__(type(self))
+        memo[id(self)] = new
+        new._ml_cache = copy.deepcopy(self._ml_cache, memo)  # noqa: SLF001
+        new.final_trivia = copy.deepcopy(self.final_trivia, memo)
+        new.header_trivia = copy.deepcopy(self.header_trivia, memo)
+        new.items = copy.deepcopy(self.items, memo)
+        return new
 
     def render(self) -> str:
         body = "".join([it.render() for it in self.items])
@@ -442,14 +454,61 @@ class EmptyAoTValue(ArrayValue):
     __slots__ = ()
 
 
-class InlineTableValue(CommaValue[InlineTableEntry]):
-    """Inline table literal (``{ ... }``)."""
+_entry_order = operator.attrgetter("_order")
 
-    __slots__ = ()
+
+class InlineTableValue(CommaValue[InlineTableEntry]):
+    """Inline table literal with direct key bindings and ordered entries.
+
+    Order labels increase along ``items``. Deletion leaves labels intact;
+    copying, reordering and key rebasing rebuild the index and labels.
+    """
+
+    __slots__ = ("_key_index",)
 
     _open: ClassVar[str] = "{"
     _close: ClassVar[str] = "}"
     _single_line_pad: ClassVar[str] = " "
+    _key_index: dict[tuple[str, ...], InlineTableEntry]
+
+    def __init__(
+        self,
+        items: list[InlineTableEntry] | None = None,
+        header_trivia: str = "",
+        final_trivia: str = "",
+    ) -> None:
+        self.items = [] if items is None else items
+        self.header_trivia = header_trivia
+        self.final_trivia = final_trivia
+        self._ml_cache = None
+        self.reindex()
+
+    @override
+    def __deepcopy__(self, memo: dict[int, object]) -> Self:
+        new = super().__deepcopy__(memo)
+        new.reindex()
+        return new
+
+    def find_entry(self, path: tuple[str, ...]) -> tuple[int, InlineTableEntry] | None:
+        """Resolve a key and locate its entry in physical order."""
+        entry = self._key_index.get(path)
+        if entry is None:
+            return None
+        position = bisect.bisect_left(self.items, entry._order, key=_entry_order)  # noqa: SLF001
+        assert self.items[position] is entry, "inline entry index is stale"
+        return position, entry
+
+    def record_entry(self, entry: InlineTableEntry) -> None:
+        """Index an entry just appended to ``items``."""
+        entry._order = self.items[-2]._order + 1 if len(self.items) > 1 else 0  # noqa: SLF001
+        self._key_index[entry.key_path] = entry
+
+    def reindex(self) -> None:
+        """Rebuild key bindings and physical order after copying or reordering."""
+        self._key_index = {}
+        for position, entry in enumerate(self.items):
+            entry._order = position  # noqa: SLF001
+            self._key_index[entry.key_path] = entry
 
 
 Value = (

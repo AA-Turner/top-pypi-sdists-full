@@ -42,7 +42,8 @@ from ase.optimize.sciopt import OptimizerConvergenceError
 from matscipy.atomic_strain import atomic_strain
 from matscipy.elasticity import (rotate_elastic_constants,
                                  rotate_cubic_elastic_constants,
-                                 Voigt_6_to_full_3x3_stress)
+                                 Voigt_6_to_full_3x3_stress,
+                                 Voigt_6x6_to_full_3x3x3x3)
 from matscipy.surface import MillerDirection, MillerPlane
 from matscipy.neighbours import neighbour_list
 from matscipy.optimize import ode12r
@@ -74,6 +75,49 @@ def counted(f):
     return wrapped
 
 
+def hill_poisson_ratio(C):
+    """
+    Isotropic Poisson ratio of the Voigt-Reuss-Hill average of the 6x6
+    elastic constant matrix C (independent of the orientation of C).
+    """
+    C = np.asarray(C)
+    S = np.linalg.inv(C)
+    K_V = (C[0, 0] + C[1, 1] + C[2, 2] + 2 * (C[0, 1] + C[0, 2] + C[1, 2])) / 9
+    G_V = (C[0, 0] + C[1, 1] + C[2, 2] - (C[0, 1] + C[0, 2] + C[1, 2])
+           + 3 * (C[3, 3] + C[4, 4] + C[5, 5])) / 15
+    K_R = 1 / (S[0, 0] + S[1, 1] + S[2, 2] + 2 * (S[0, 1] + S[0, 2] + S[1, 2]))
+    G_R = 15 / (4 * (S[0, 0] + S[1, 1] + S[2, 2]) - 4 * (S[0, 1] + S[0, 2] + S[1, 2])
+                + 3 * (S[3, 3] + S[4, 4] + S[5, 5]))
+    K, G = (K_V + K_R) / 2, (G_V + G_R) / 2
+    return (3 * K - 2 * G) / (2 * (3 * K + G))
+
+
+def barnett_lothe_L(C, n_omega=64):
+    """
+    Barnett-Lothe tensor L for a straight dislocation along z, from the 6x6
+    elastic constants C, via the integral formalism
+
+        L = -(1/pi) int_0^pi [(mn)(nn)^-1(nm) - (mm)] domega,
+
+    with m = (cos w, sin w, 0), n = (-sin w, cos w, 0) and
+    (ab)_ik = C_ijkl a_j b_l. Unlike the Stroh eigenvector route this is well
+    conditioned for (nearly) isotropic materials, where the Stroh eigenvalues
+    are degenerate. The integrand is smooth and pi-periodic, so the uniform
+    rule converges exponentially (machine precision by n_omega ~ 64).
+    For an isotropic material L = diag(mu/(1-nu), mu/(1-nu), mu).
+    """
+    C = Voigt_6x6_to_full_3x3x3x3(C)
+    L = np.zeros((3, 3))
+    for omega in np.arange(n_omega) * np.pi / n_omega:
+        m = np.array([np.cos(omega), np.sin(omega), 0.0])
+        n = np.array([-np.sin(omega), np.cos(omega), 0.0])
+        mm = np.einsum('ijkl,j,l->ik', C, m, m)
+        mn = np.einsum('ijkl,j,l->ik', C, m, n)
+        nn = np.einsum('ijkl,j,l->ik', C, n, n)
+        L -= mn @ np.linalg.solve(nn, mn.T) - mm
+    return L / n_omega
+
+
 class RectilinearAnisotropicCrack:
     """
     Near field solution for a crack in a rectilinear anisotropic elastic medium.
@@ -82,6 +126,7 @@ class RectilinearAnisotropicCrack:
     """
 
     def __init__(self):
+        self.C = None  # 6x6 elastic constants in the crack frame (optional)
         self.a11 = None
         self.a22 = None
         self.a12 = None
@@ -341,8 +386,158 @@ class RectilinearAnisotropicCrack:
         return -2 / (self.a22 * ((self.mu1 + self.mu2) /
                      (self.mu1 * self.mu2)).imag)
 
-###
+### Critical K_I for dislocation emission from (updated) Rice theory.
 
+    def g1e(self, max_gamma):
+        """
+        Critical energy release rate for dislocation emission on a slip plane
+        that coincides with the crack plane (theta = 0) under mode II loading
+        along the slip direction, G_IIe = gamma_us (J. R. Rice, JMPS, 1992).
+
+        For emission on an inclined slip plane under mode I loading use
+        :meth:`k1e_iso` or :meth:`k1e_aniso`.
+
+        Parameters
+        ----------
+        max_gamma: float
+            Unstable stacking fault energy of the slip system.
+        """
+
+        return max_gamma
+
+    def g1e_fcc(self, surface_energy, max_gamma):
+        """
+        Critical energy release rate for dislocation emission in fcc crystals.
+        The critical energy release rate depends both on the unstable stacking
+        fault energy and surface energy according to
+        P. Andric & W. A. Curtin, JMPS, 2017.
+
+        Parameters
+        ----------
+        surface_energy: surface energy of the crack plane
+        max_gamma: the unstable stacking fault energy of the dislocation slip system.
+        """
+
+        if surface_energy > 3.45*max_gamma:
+            g1e_fcc = 0.145*surface_energy + 0.5*max_gamma
+        else:
+            g1e_fcc = max_gamma
+
+        return g1e_fcc
+
+    def k_from_g(self, G):
+        """
+        Mode I stress intensity factor corresponding to energy release rate G,
+        using the same anisotropic relation as :meth:`k1g`, so that
+        k1g(surface_energy) == k_from_g(2 * surface_energy).
+        """
+        return np.sqrt(G * self.k1gsqG())
+
+    def k1e_iso(self, max_gamma, phi, theta, nu=None):
+        """
+        K1e, Rice criterion for dislocation emission from crack tip
+        in mode I fracture. J. R. Rice, JMPS, (1992).
+
+        The critical energy release rate is Rice's isotropic result
+
+            G_Ie = 8 gamma_us (1 + (1 - nu) tan^2 phi) / ((1 + cos theta) sin^2 theta)
+
+        converted to K with :meth:`k_from_g`, so the result is in the same
+        units as :meth:`k1g` and the two can be compared directly.
+
+        Parameters
+        ----------
+        max_gamma: float
+            Maximum energy along the sliding path of the gamma line (unstable
+            stacking fault energy).
+        phi: float (units: rad.)
+            The angle between the slip direction and a vector lying on the slip plane
+            and perpendicular to the crack-front direction.
+        theta: float (units: rad.)
+            The angle between slip plane and crack plane.
+        nu: float, optional
+            Poisson ratio. Defaults to the Voigt-Reuss-Hill average of the
+            elastic constants C (exact for an isotropic material).
+
+        Returns
+        -------
+        K_ie_iso : Critical K_I for dislocation emission under mode-I loading calculated
+        using isotropic elasticity.
+        """
+        if nu is None:
+            if self.C is None:
+                raise ValueError('nu must be given when the elastic constants C are not set')
+            nu = hill_poisson_ratio(self.C)
+        G1e = 8 * max_gamma * ((1 + (1 - nu) * np.tan(phi)**2) /
+                               ((1 + np.cos(theta)) * np.sin(theta)**2))
+        return self.k_from_g(G1e)
+
+    def k1e_aniso(self, max_gamma, phi, theta):
+        """
+        K1e, Rice criterion for dislocation emission from crack tip
+        in mode I fracture according to anisotropic elasticity
+        Ref. Beltz and Rice, JMPS, (1994).
+
+        Requires the 6x6 elastic constants in the crack frame, ``self.C``
+        (set by :class:`CubicCrystalCrack`). The result is in the same units
+        as :meth:`k1g`; for an isotropic material it equals :meth:`k1e_iso`.
+
+        Parameters
+        ----------
+        max_gamma: float
+            Maximum energy along the sliding path of the gamma line (unstable
+            stacking fault energy).
+        phi: float (units: rad.)
+            The angle between the slip direction and a vector lying on the slip plane
+            and perpendicular to the crack-front direction.
+        theta: float (units: rad.)
+            The angle between slip plane and crack plane.
+
+        Returns
+        -------
+        K_ie_aniso : Critical K_I for dislocation emission under mode-I loading calculated
+        using anisotropic elasticity.
+        """
+        if self.C is None:
+            raise ValueError('k1e_aniso requires the elastic constants C in the crack frame')
+
+        # Barnett-Lothe energy tensor for a dislocation along the crack front,
+        # expressed in the slip-plane frame (rotation by theta about z)
+        L = barnett_lothe_L(self.C)
+        S = np.array([[np.cos(theta), np.sin(theta), 0.],
+                      [-np.sin(theta), np.cos(theta), 0.],
+                      [0., 0., 1.0]])
+        s0 = np.array([np.cos(phi), 0, np.sin(phi)])
+        L_t = S @ L @ S.T
+
+        coffe_elas = 2 * s0 @ L_t @ s0
+
+        # angular factor of the shear stress on the slip plane (Sih, Paris and
+        # Irwin near-tip field); for an isotropic material mu1 = mu2 = i and the
+        # general expressions are 0/0, so use the isotropic limit directly
+        if abs(self.mu1 - self.mu2) < 1e-6:
+            F12_theta = np.sin(theta / 2) * np.cos(theta / 2)**2
+        else:
+            ftheta_sigma_xx = ((self.mu2 / np.sqrt(np.cos(theta) + self.mu2 * np.sin(theta)) 
+                              - self.mu1 / np.sqrt(np.cos(theta) + self.mu1 * np.sin(theta)))  
+                              * self.mu1 * self.mu2 / (self.mu1 - self.mu2)).real
+
+            ftheta_sigma_xy = ((1/np.sqrt(np.cos(theta) + self.mu1 * np.sin(theta)) 
+                              - 1/np.sqrt(np.cos(theta) + self.mu2 * np.sin(theta))) 
+                              * self.mu1 * self.mu2/(self.mu1 - self.mu2)).real
+
+            ftheta_sigma_yy = ((self.mu1/np.sqrt(np.cos(theta) + self.mu2 * np.sin(theta)) 
+                            -self.mu2/np.sqrt(np.cos(theta)+self.mu1*np.sin(theta)))/(self.mu1-self.mu2)).real
+
+            F12_theta = ((ftheta_sigma_yy - ftheta_sigma_xx) * np.sin(theta) * np.cos(theta) 
+                      + ftheta_sigma_xy * (np.cos(theta)**2 - np.sin(theta)**2))
+
+        # mode I loading gives shear on the slip plane only along the edge
+        # direction; resolve it onto the slip direction at angle phi
+        K_ie_aniso = np.sqrt(max_gamma * coffe_elas) / (F12_theta * np.cos(phi))
+
+        return K_ie_aniso
+###
 
 def displacement_residuals(r0, crack, x, y, ref_x, ref_y, kI, kII=0, power=1):
     """
@@ -470,6 +665,9 @@ class CubicCrystalCrack:
         self.RotationMatrix = A
         self.cauchy_born = cauchy_born
 
+        # crack-frame elastic constants, needed by the dislocation emission methods
+        self.crack.C = C6
+
     def k1g(self, surface_energy):
         """
         Compute Griffith critical stress intensity in mode I fracture.
@@ -485,6 +683,22 @@ class CubicCrystalCrack:
             Stress intensity factor.
         """
         return self.crack.k1g(surface_energy)
+
+    def k1e_iso(self, max_gamma, phi, theta, nu=None):
+        """
+        Critical mode I stress intensity for dislocation emission, Rice's
+        isotropic criterion; same units as :meth:`k1g`.
+        See :meth:`RectilinearAnisotropicCrack.k1e_iso`.
+        """
+        return self.crack.k1e_iso(max_gamma, phi, theta, nu=nu)
+
+    def k1e_aniso(self, max_gamma, phi, theta):
+        """
+        Critical mode I stress intensity for dislocation emission, Beltz-Rice
+        anisotropic criterion; same units as :meth:`k1g`.
+        See :meth:`RectilinearAnisotropicCrack.k1e_aniso`.
+        """
+        return self.crack.k1e_aniso(max_gamma, phi, theta)
 
     def k1gsqG(self):
         return self.crack.k1gsqG()
@@ -564,15 +778,17 @@ class CubicCrystalCrack:
             x-coordinate of the crack tip.
         y0 : float
             y-coordinate of the crack tip.
-        k : float
-            Stress intensity factor.
+        kI : float
+            Mode I stress intensity factor.
+        kII : float
+            Mode II stress intensity factor.
 
         Returns
         -------
-        ux : array_like
-            x-displacements.
-        uy : array_like
-            y-displacements.
+        F : array_like
+            (N, 2, 2) in-plane deformation gradient (identity included) in
+            derivative-first order, [[du/dx, dv/dx], [du/dy, dv/dy]]; i.e.
+            the transpose of the component-first F_ab = dx_a/dX_b.
         """
         dx = ref_x - x0
         dy = ref_y - y0
@@ -860,14 +1076,8 @@ class SinclairCrack:
             warnings.warn('Radial distances do not increase monotonically!')
 
         self.atoms = self.cryst.copy()
-        self.update_atoms()  # apply CLE displacements for initial (alpha, k)
-
-        a0 = self.atoms.copy()
-        self.x0 = a0.get_positions()
-        self.E0 = self.calc.get_potential_energies(a0)[self.regionI_II].sum()
-        a0_II_III = a0[self.regionII | self.regionIII]
-        f0bar = self.calc.get_forces(a0_II_III)
-        self.f0bar = f0bar[a0_II_III.arrays['region'] == 2]
+        # apply CLE displacements for initial (alpha, k) and take energy reference
+        self._set_energy_reference()
 
         self.precon = None
         self.precon_count = 0
@@ -1061,7 +1271,11 @@ class SinclairCrack:
         tip_x = self.cryst.cell.diagonal()[0] / 2.0 + alpha
         tip_y = self.cryst.cell.diagonal()[1] / 2.0
         dg = self.crk.deformation_gradient(x, y, tip_x, tip_y, kI, kII)
-        return dg
+        # crk.deformation_gradient is derivative-first, [[du/dx, dv/dx], [du/dy, dv/dy]] (+ I). This is the
+        # F_func of the multilattice Cauchy-Born corrector, which takes F_ab = dx_a/dX_b: it forms the right polar
+        # decomposition F' = R U of A F A^T and rotates the shifts by R. Passing the derivative-first array
+        # would hand it R^T and the spatial stretch R U R^T instead, so return the transpose.
+        return np.swapaxes(dg, -1, -2)
 
     def set_shiftmask(self, radial_dist):
         self.shiftmask = self.r > radial_dist
@@ -1249,8 +1463,13 @@ class SinclairCrack:
             self.precon_args = []
 
         self.set_dofs(x)
-        # build a preconditioner using regions I+II of the atomic system
-        a = self.atoms[:self.N2]
+        # build a preconditioner using regions I+II of the atomic system.
+        # Select via the boolean mask (preserves array order) rather than self.atoms[:self.N2], which
+        # assumes the cluster is sorted region I, II, III. set_regions sorts radially, which only groups
+        # regions when they are radial shells; with extended_region_I or exclude_surface they are not, so
+        # [:self.N2] would not be regions I+II and the region-I sub-block below would be misaligned.
+        # The mask matches how update_atoms/get_forces index the DOFs.
+        a = self.atoms[self.regionI_II]
         a.calc = self.calc
         # a.write('atoms.xyz')
         if self.precon is None:
@@ -1562,6 +1781,28 @@ class SinclairCrack:
         # print(f'E1={E1} E2={E2} total E={E1 + E2}')
         return E1 + E2
 
+    def _set_energy_reference(self):
+        """
+        Take the reference state for get_potential_energy(): the CLE (and
+        Cauchy-Born) field at the current (alpha, kI, kII) with u = 0.
+
+        The far-field term E2 integrates region II forces from this state, so
+        it must be refreshed whenever K changes (see rescale_k). Leaves
+        self.atoms updated for the current DOFs.
+        """
+        u = self.u.copy()
+        self.u[:] = 0.0
+        self.update_atoms()
+        a0 = self.atoms.copy()
+        self.x0 = a0.get_positions()
+        self.E0 = self.calc.get_potential_energies(a0)[self.regionI_II].sum()
+        a0_II_III = a0[self.regionII | self.regionIII]
+        f0bar = self.calc.get_forces(a0_II_III)
+        self.f0bar = f0bar[a0_II_III.arrays['region'] == 2]
+        if np.any(u):
+            self.u[:] = u
+            self.update_atoms()
+
     def rescale_k(self, new_kI):
         # rescale_k, in the case of mode I fracture
         ref_x = self.cryst.positions[:, 0]
@@ -1580,6 +1821,8 @@ class SinclairCrack:
         self.u[:] = np.c_[x - u_cle[:, 0] - ref_x,
                           y - u_cle[:, 1] - ref_y,
                           z - ref_z][self.regionI, :]
+        # the far-field energy reference depends on K
+        self._set_energy_reference()
 
     def arc_length_continuation(self, x0, x1, N=10, ds=0.01, ftol=1e-2,
                                 direction=1, max_steps=10,

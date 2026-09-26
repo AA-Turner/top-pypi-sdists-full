@@ -2,14 +2,31 @@
 
 from __future__ import annotations
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import Literal, Annotated, TypedDict
+
+from ..._utils import PropertyInfo
 
 __all__ = ["SubscriptionConfigurationParam"]
 
 
 class SubscriptionConfigurationParam(TypedDict, total=False):
+    ai_bots_migration_opt_out: bool
+    """
+    Temporary migration flag tracking zones opted out of AI bots managed-rule
+    updates.
+    """
+
     ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"]
     """Enable rule to block AI Scrapers and Crawlers."""
+
+    aisearch: Annotated[Literal["disabled", "block", "only_on_ad_pages"], PropertyInfo(alias="ai_search")]
+    """Configure robots.txt policy for AI search bots."""
+
+    ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"]
+    """Configure robots.txt policy for AI model training bots."""
+
+    ai_user: Literal["disabled", "block", "only_on_ad_pages"]
+    """Configure robots.txt policy for AI assistant and agent bots."""
 
     auto_update_model: bool
     """
@@ -55,6 +72,12 @@ class SubscriptionConfigurationParam(TypedDict, total=False):
 
     If an existing robots.txt is detected, then managed robots.txt will be prepended
     to the existing robots.txt.
+    """
+
+    jsd_api_results_enabled: bool
+    """
+    Whether to use JavaScript Detection results submitted through the API for this
+    zone.
     """
 
     suppress_session_score: bool

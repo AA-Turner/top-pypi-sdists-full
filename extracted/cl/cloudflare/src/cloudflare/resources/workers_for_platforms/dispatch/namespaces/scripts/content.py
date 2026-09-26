@@ -82,7 +82,8 @@ class ContentResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
-        Put script content for a script uploaded to a Workers for Platforms namespace.
+        Replace content for a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -170,7 +171,7 @@ class ContentResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BinaryAPIResponse:
         """
-        Fetch script content from a script uploaded to a Workers for Platforms
+        Fetch content from a script uploaded to a Workers for Platforms dispatch
         namespace.
 
         Args:
@@ -247,7 +248,8 @@ class AsyncContentResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
-        Put script content for a script uploaded to a Workers for Platforms namespace.
+        Replace content for a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -335,7 +337,7 @@ class AsyncContentResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncBinaryAPIResponse:
         """
-        Fetch script content from a script uploaded to a Workers for Platforms
+        Fetch content from a script uploaded to a Workers for Platforms dispatch
         namespace.
 
         Args:

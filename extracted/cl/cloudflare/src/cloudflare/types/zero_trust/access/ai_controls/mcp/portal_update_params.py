@@ -79,7 +79,12 @@ class Server(TypedDict, total=False):
     """Unique identifier for the MCP server."""
 
     default_disabled: bool
-    """Disable this server by default for clients connecting through the portal."""
+    """Hide this server's tools and prompts by default.
+
+    To expose specific capabilities, set enabled: true for them in this server
+    entry's updated_tools or updated_prompts fields when creating or updating the
+    portal.
+    """
 
     on_behalf: bool
     """Use end-user OAuth credentials when connecting this server to the portal."""

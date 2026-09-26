@@ -79,6 +79,13 @@ class LogpushJob(BaseModel):
     of a job the error_message and last_error are set to null.
     """
 
+    filter_attack_traffic: Optional[bool] = None
+    """When true, excludes DDoS attack traffic from logs.
+
+    This option is supported for the `http_requests`, `firewall_events`, and
+    `network_analytics_logs` datasets.
+    """
+
     frequency: Optional[Literal["high", "low"]] = None
     """This field is deprecated.
 

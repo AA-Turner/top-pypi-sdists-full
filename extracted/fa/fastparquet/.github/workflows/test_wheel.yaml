@@ -9,7 +9,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, windows-2022]
+        os: [ubuntu-24.04, windows-2022]
         architecture: ["x64"]
         linux_archs: ["native"]
         numpy_version: ["numpy#latest"]
@@ -63,6 +63,7 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install "pandas<3"
+          rm ./wheelhouse/*musl*
           pip install ./wheelhouse/*.whl
 
       - name: Run Tests after installing numpy (${{matrix.numpy_version}})

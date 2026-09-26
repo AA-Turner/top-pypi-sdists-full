@@ -11,7 +11,11 @@ Design
 ------
 - Uses the canonical matrx-ai execution funnel so routing, retries, usage,
   provider-tool charges, and durable cost capture are identical to product calls.
-- Default model is the latest Claude Opus.
+- HELD BY A MANDATE (``proof_runs.judge``, 2026-09-25). The judge's model,
+  instructions and web access are the mandate Holder's — the "Proof Run Judge"
+  agent, seeded with this file's former prompt verbatim — so improving the
+  judge is an agent edit through the mandate console, never a code change.
+  An explicit ``model=`` / ``web_access=`` is a run-scope override.
 - Strict-JSON output is enforced with the funnel's provider-native structured
   output contract and validated again as :class:`JudgeVerdict`.
 - Optional web access via Anthropic's server-side ``web_search`` tool —
@@ -34,16 +38,12 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from matrx_ai.graph_nodes._strict_json import StrictJsonError, llm_messages_to_pydantic
+#: The mandate that holds every AIJudge call (declared in aidream
+#: ``services/proof_runs/judge.py``).
+from matrx_ai.code_call_mandate_keys import AI_JUDGE_MANDATE  # noqa: E402
+from matrx_ai.graph_nodes._strict_json import StrictJsonError
+from matrx_ai.mandates import MandateResolutionUnavailable, hold_code_call, run_held_pydantic
 from matrx_ai.providers.keys import resolve_api_key
-
-# The catalog resolves ROUTES, not dated snapshots: the pinned
-# "claude-opus-4-5-20250929" was retired out from under this constant and
-# every AIJudge call died with matrx_catalog_error ("unknown model") — a
-# failure that reads as "the thing under test is broken". Keep this on a
-# live route name, the same one the workflow nodes use.
-DEFAULT_MODEL = "claude-opus-4-7"
-"""Latest Claude Opus snapshot. Override for cost tuning (e.g. Sonnet)."""
 
 
 class JudgeVerdict(BaseModel):
@@ -102,11 +102,11 @@ class AIJudge:
 
     def __init__(
         self,
-        model: str = DEFAULT_MODEL,
-        web_access: bool = True,
+        model: str | None = None,
+        web_access: bool | None = None,
         api_key: str | None = None,
         max_iterations: int = 4,
-        max_tokens: int = 4096,
+        max_tokens: int | None = None,
     ) -> None:
         self.model = model
         self.web_access = web_access
@@ -129,32 +129,50 @@ class AIJudge:
         be attributed to the same user request. Raises :class:`JudgeError` for
         missing credentials/context or invalid structured output.
         """
-        api_key = self._api_key or resolve_api_key("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise JudgeError(
-                "ANTHROPIC_API_KEY not set and no api_key passed. "
-                "AIJudge cannot run without an API key."
-            )
-
         output_str = _format_output(actual_output)
-        system_prompt = _build_system_prompt(self.web_access)
-        user_message = _build_user_message(rubric, output_str, context)
+        # Web access is the caller's explicit choice when set; otherwise the
+        # Holder decides. Resolved BEFORE the Holder renders, because its
+        # instructions say whether this judgment may search.
         try:
-            return await llm_messages_to_pydantic(
-                model=self.model,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-                output_cls=JudgeVerdict,
-                max_tokens=self.max_tokens,
-                internal_web_search=self.web_access,
-                api_keys={"ANTHROPIC_API_KEY": api_key},
-                system_run=True,
-                store=True,
+            held = await hold_code_call(
+                AI_JUDGE_MANDATE,
+                consumer="matrx_ai.evaluators.AIJudge",
+                variables={
+                    "rubric": rubric,
+                    "actual_output": output_str,
+                    "context": json.dumps(context, indent=2, default=str) if context else "",
+                    **(
+                        {"web_search": "allowed" if self.web_access else "not allowed"}
+                        if self.web_access is not None
+                        else {}
+                    ),
+                },
                 metadata={
                     "source_app": "matrx-ai",
                     "source_feature": "ai_judge",
                     "judge_max_iterations_legacy": self.max_iterations,
                 },
+            )
+        except MandateResolutionUnavailable as exc:
+            raise JudgeError(f"AIJudge could not resolve its mandate: {exc}") from exc
+        web_access = (
+            self.web_access
+            if self.web_access is not None
+            else bool(getattr(held.config, "internal_web_search", False))
+        )
+        api_key = self._api_key or resolve_api_key("ANTHROPIC_API_KEY")
+        try:
+            return await run_held_pydantic(
+                held,
+                messages=held.turns,
+                output_cls=JudgeVerdict,
+                model=self.model,
+                max_tokens=self.max_tokens,
+                unset_max_tokens=4096,
+                internal_web_search=web_access,
+                api_keys={"ANTHROPIC_API_KEY": api_key} if api_key else None,
+                system_run=True,
+                store=True,
             )
         except (StrictJsonError, RuntimeError) as exc:
             raise JudgeError(f"AIJudge failed through the execution funnel: {exc}") from exc
@@ -171,36 +189,3 @@ def _format_output(actual_output: Any) -> str:
         return str(actual_output)
 
 
-def _build_system_prompt(web_access: bool) -> str:
-    web_clause = (
-        " You may use web_search to verify facts when the rubric demands "
-        "accuracy against current information; use it sparingly."
-        if web_access
-        else ""
-    )
-    return (
-        "You are an impartial test evaluator. You read a rubric and an "
-        "output, then return a strict pass/fail verdict.\n\n"
-        "Rules:\n"
-        "1. Be rigorous. False positives undermine the test suite.\n"
-        "2. Cite specific evidence from the output (or its absence) in the "
-        "evidence list.\n"
-        "3. Prefer verdict='fail' with low confidence over verdict='pass' "
-        "with reservations.\n"
-        "4. confidence reflects your certainty in the verdict, not the "
-        "output's quality.\n"
-        f"5. Always return the required structured verdict.{web_clause}"
-    )
-
-
-def _build_user_message(rubric: str, output: str, context: dict[str, Any] | None) -> str:
-    ctx_block = ""
-    if context:
-        ctx_block = f"\n\n## Context\n```json\n{json.dumps(context, indent=2, default=str)}\n```"
-    return (
-        f"## Rubric\n{rubric}\n\n"
-        f"## Actual Output\n```\n{output}\n```"
-        f"{ctx_block}\n\n"
-        "Evaluate whether the output satisfies the rubric, then call "
-        "submit_verdict with your final assessment."
-    )

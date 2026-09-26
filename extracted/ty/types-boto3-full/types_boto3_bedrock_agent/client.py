@@ -41,6 +41,7 @@ from .paginator import (
     ListKnowledgeBaseDocumentsPaginator,
     ListKnowledgeBasesPaginator,
     ListPromptsPaginator,
+    ListVpcConfigurationsPaginator,
 )
 from .type_defs import (
     AssociateAgentCollaboratorRequestTypeDef,
@@ -67,6 +68,8 @@ from .type_defs import (
     CreatePromptResponseTypeDef,
     CreatePromptVersionRequestTypeDef,
     CreatePromptVersionResponseTypeDef,
+    CreateVpcConfigurationRequestTypeDef,
+    CreateVpcConfigurationResponseTypeDef,
     DeleteAgentActionGroupRequestTypeDef,
     DeleteAgentAliasRequestTypeDef,
     DeleteAgentAliasResponseTypeDef,
@@ -90,6 +93,8 @@ from .type_defs import (
     DeletePromptResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteResourcePolicyResponseTypeDef,
+    DeleteVpcConfigurationRequestTypeDef,
+    DeleteVpcConfigurationResponseTypeDef,
     DisassociateAgentCollaboratorRequestTypeDef,
     DisassociateAgentKnowledgeBaseRequestTypeDef,
     GetAgentActionGroupRequestTypeDef,
@@ -122,6 +127,8 @@ from .type_defs import (
     GetPromptResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
+    GetVpcConfigurationRequestTypeDef,
+    GetVpcConfigurationResponseTypeDef,
     IngestKnowledgeBaseDocumentsRequestTypeDef,
     IngestKnowledgeBaseDocumentsResponseTypeDef,
     ListAgentActionGroupsRequestTypeDef,
@@ -154,6 +161,8 @@ from .type_defs import (
     ListPromptsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    ListVpcConfigurationsRequestTypeDef,
+    ListVpcConfigurationsResponseTypeDef,
     PrepareAgentRequestTypeDef,
     PrepareAgentResponseTypeDef,
     PrepareFlowRequestTypeDef,
@@ -365,6 +374,17 @@ class AgentsforBedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#create_prompt_version)
         """
 
+    def create_vpc_configuration(
+        self, **kwargs: Unpack[CreateVpcConfigurationRequestTypeDef]
+    ) -> CreateVpcConfigurationResponseTypeDef:
+        """
+        Creates a VPC configuration that lets a knowledge base connect to a resource in
+        your private VPC.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/create_vpc_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#create_vpc_configuration)
+        """
+
     def delete_agent(
         self, **kwargs: Unpack[DeleteAgentRequestTypeDef]
     ) -> DeleteAgentResponseTypeDef:
@@ -483,6 +503,16 @@ class AgentsforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_resource_policy.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#delete_resource_policy)
+        """
+
+    def delete_vpc_configuration(
+        self, **kwargs: Unpack[DeleteVpcConfigurationRequestTypeDef]
+    ) -> DeleteVpcConfigurationResponseTypeDef:
+        """
+        Deletes a VPC configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/delete_vpc_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#delete_vpc_configuration)
         """
 
     def disassociate_agent_collaborator(
@@ -652,6 +682,16 @@ class AgentsforBedrockClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_resource_policy)
         """
 
+    def get_vpc_configuration(
+        self, **kwargs: Unpack[GetVpcConfigurationRequestTypeDef]
+    ) -> GetVpcConfigurationResponseTypeDef:
+        """
+        Returns the details and current status of a single VPC configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_vpc_configuration.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_vpc_configuration)
+        """
+
     def ingest_knowledge_base_documents(
         self, **kwargs: Unpack[IngestKnowledgeBaseDocumentsRequestTypeDef]
     ) -> IngestKnowledgeBaseDocumentsResponseTypeDef:
@@ -811,6 +851,16 @@ class AgentsforBedrockClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_tags_for_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#list_tags_for_resource)
+        """
+
+    def list_vpc_configurations(
+        self, **kwargs: Unpack[ListVpcConfigurationsRequestTypeDef]
+    ) -> ListVpcConfigurationsResponseTypeDef:
+        """
+        Returns a paginated list of the VPC configurations for a knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/list_vpc_configurations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#list_vpc_configurations)
         """
 
     def prepare_agent(
@@ -1136,6 +1186,17 @@ class AgentsforBedrockClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_prompts"]
     ) -> ListPromptsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agent/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_vpc_configurations"]
+    ) -> ListVpcConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

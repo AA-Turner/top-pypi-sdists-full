@@ -40,15 +40,20 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import yaml
-from rich.console import Console
 
 from src.cli.client import InnoDayAPIClient
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import format_error, format_success, format_warning
+from src.cli.utils.presentation import (
+    make_console,
+    print_command_header,
+    print_done,
+    print_step,
+)
 from src.cli.utils.project_context import PROJECT_YML_SCHEMA_VERSION, find_project_yml
 from src.version import get_display_version
 
-console = Console()
+console = make_console()
 
 # release_configs fields owned by blastoff — preserved verbatim across a refresh
 # (only `blastoff release`/`hotfix` should ever change them). Everything else in
@@ -1052,13 +1057,9 @@ class WorkspaceCommands:
         """
         # 1. detect mode
         existing = _load_existing_yml(workspace)
-        mode = "refresh" if existing else "onboard"
-        console.print(
-            f"{'🔄 Refreshing' if mode == 'refresh' else '📦 Onboarding'} "
-            f"{resolved['org']['alias']}"
-            + (f"/{resolved['project']['alias']}" if resolved.get("project") else "")
-            + f" → {workspace}"
-        )
+        # Which org, which project and which directory are the header's job now
+        # -- printed once by the caller, in the same three lines every command
+        # opens with. What is left here is the stages.
         workspace.mkdir(parents=True, exist_ok=True)
 
         # 2. archive prior context (no-op on fresh)
@@ -1071,8 +1072,7 @@ class WorkspaceCommands:
 
         if not no_clone:
             # 3a. clone/pull resolved repos
-            if resolved_repos:
-                console.print(f"Syncing {len(resolved_repos)} repo(s) …")
+            print_step(1, "Repositories")
             for repo in resolved_repos:
                 action = _clone_or_pull(
                     repo, workspace, (resolved.get("org") or {}).get("github_org")
@@ -1157,6 +1157,8 @@ class WorkspaceCommands:
         # 4. merge the hand-written notes, then write every file from the merge.
         # Read the local tail BEFORE regenerating, or the tail is whatever this
         # run just wrote.
+        console.print()
+        print_step(2, "Context")
         claude_path = workspace / "CLAUDE.md"
         local_custom = (
             _extract_custom_content(claude_path) if claude_path.exists() else ""
@@ -1186,21 +1188,23 @@ class WorkspaceCommands:
         timeline = resolved.get("timeline") or []
         tl_path = _write_timeline_snapshot(workspace, timeline)
 
-        console.print(
-            format_success(
-                f"{'Refreshed' if mode == 'refresh' else 'Onboarded'} "
-                f"— {cloned} cloned, {pulled} pulled"
-                + (f", {errored} errored" if errored else "")
-                + (f", {hooks_installed} hook(s) installed" if hooks_installed else "")
-            )
-        )
-        console.print(f"Context: {yml_path}")
+        console.print(format_success(str(yml_path)))
         if tl_path:
             console.print(
-                f"Timeline: {tl_path} ({len(timeline)} entr"
-                f"{'y' if len(timeline) == 1 else 'ies'})"
+                format_success(
+                    f"{tl_path} ({len(timeline)} entr"
+                    f"{'y' if len(timeline) == 1 else 'ies'})"
+                )
             )
-        console.print(f"cd {workspace} to work.")
+        print_done(
+            [
+                f"{cloned} cloned",
+                f"{pulled} pulled",
+                f"{errored} errored" if errored else "",
+                f"{hooks_installed} hook(s) installed" if hooks_installed else "",
+                f"cd {workspace} to work",
+            ]
+        )
         return (0 if errored == 0 else 1), generated, merged_custom
 
     @staticmethod
@@ -1306,6 +1310,13 @@ class WorkspaceCommands:
                     "Onboarding the org's default project."
                 )
             )
+        print_command_header(
+            args,
+            config,
+            "init",
+            action=f"Onboarding {project_alias or org_alias}",
+            context=[f"{org_alias}/{project_alias}" if project_alias else org_alias],
+        )
         return await WorkspaceCommands._onboard(
             config, org_alias, project_alias, args.path, args.no_clone, args.no_hooks
         )
@@ -1313,6 +1324,14 @@ class WorkspaceCommands:
     @staticmethod
     async def execute_join(args: argparse.Namespace, config: CLIConfig) -> int:
         org_alias, project_alias = _parse_ref(args.ref)
+        print_command_header(
+            args,
+            config,
+            "join",
+            action=f"Joining {org_alias}, then onboarding "
+            f"{project_alias or 'its default project'}",
+            context=[f"{org_alias}/{project_alias}" if project_alias else org_alias],
+        )
 
         # 1. join the org (self-register / complete invite). Best-effort: a
         #    platform user or already-member gets a benign success.
@@ -1389,6 +1408,13 @@ class WorkspaceCommands:
 
         # Refresh re-onboards into the SAME workspace (project.yml's grandparent).
         workspace = str(yml.parent.parent)
+        print_command_header(
+            args,
+            config,
+            "refresh",
+            action=f"Re-onboarding {project_alias or org_alias}",
+            show_workspace=True,
+        )
         return await WorkspaceCommands._onboard(
             config,
             org_alias,

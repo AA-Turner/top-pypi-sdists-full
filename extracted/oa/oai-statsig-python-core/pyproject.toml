@@ -21,6 +21,7 @@ changelog = "https://github.com/statsig-io/statsig-server-core/releases"
 
 
 [tool.maturin]
+module-name = "statsig_python_core"
 features = ["pyo3/extension-module", "pyo3/abi3-py310"]
 include = ["statsig_python_core.pyi"]
 manifest-path = "statsig-pyo3/Cargo.toml"

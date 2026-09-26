@@ -78,13 +78,13 @@ USE_NEW_INTERRUPTS = LANGGRAPH_PY_MINOR >= (0, 6)
 async def _decrypt_response(data: dict, model: str, fields: list[str]) -> dict:
     from langgraph_api.encryption.middleware import decrypt_response  # noqa: PLC0415
 
-    return await decrypt_response(data, model, fields)  # type: ignore[arg-type]
+    return await decrypt_response(data, model, fields, plaintext_from_core=False)  # type: ignore[arg-type]
 
 
 async def _encrypt_request(data: dict, model: str, fields: list[str]) -> dict:
     from langgraph_api.encryption.middleware import encrypt_request  # noqa: PLC0415
 
-    return await encrypt_request(data, model, fields)  # type: ignore[arg-type]
+    return await encrypt_request(data, model, fields, plaintext_for_core=False)  # type: ignore[arg-type]
 
 
 def _using_custom_encryption() -> bool:

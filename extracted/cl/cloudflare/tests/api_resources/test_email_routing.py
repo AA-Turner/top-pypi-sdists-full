@@ -74,7 +74,6 @@ class TestEmailRouting:
         with pytest.warns(DeprecationWarning):
             email_routing = client.email_routing.disable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert_matches_type(Optional[Settings], email_routing, path=["response"])
@@ -84,7 +83,6 @@ class TestEmailRouting:
         with pytest.warns(DeprecationWarning):
             response = client.email_routing.with_raw_response.disable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert response.is_closed is True
@@ -97,7 +95,6 @@ class TestEmailRouting:
         with pytest.warns(DeprecationWarning):
             with client.email_routing.with_streaming_response.disable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -113,7 +110,6 @@ class TestEmailRouting:
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
                 client.email_routing.with_raw_response.disable(
                     zone_id="",
-                    body={},
                 )
 
     @parametrize
@@ -169,7 +165,6 @@ class TestEmailRouting:
         with pytest.warns(DeprecationWarning):
             email_routing = client.email_routing.enable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert_matches_type(Optional[Settings], email_routing, path=["response"])
@@ -179,7 +174,6 @@ class TestEmailRouting:
         with pytest.warns(DeprecationWarning):
             response = client.email_routing.with_raw_response.enable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert response.is_closed is True
@@ -192,7 +186,6 @@ class TestEmailRouting:
         with pytest.warns(DeprecationWarning):
             with client.email_routing.with_streaming_response.enable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -208,7 +201,6 @@ class TestEmailRouting:
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
                 client.email_routing.with_raw_response.enable(
                     zone_id="",
-                    body={},
                 )
 
     @parametrize
@@ -361,7 +353,6 @@ class TestAsyncEmailRouting:
         with pytest.warns(DeprecationWarning):
             email_routing = await async_client.email_routing.disable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert_matches_type(Optional[Settings], email_routing, path=["response"])
@@ -371,7 +362,6 @@ class TestAsyncEmailRouting:
         with pytest.warns(DeprecationWarning):
             response = await async_client.email_routing.with_raw_response.disable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert response.is_closed is True
@@ -384,7 +374,6 @@ class TestAsyncEmailRouting:
         with pytest.warns(DeprecationWarning):
             async with async_client.email_routing.with_streaming_response.disable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -400,7 +389,6 @@ class TestAsyncEmailRouting:
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
                 await async_client.email_routing.with_raw_response.disable(
                     zone_id="",
-                    body={},
                 )
 
     @parametrize
@@ -456,7 +444,6 @@ class TestAsyncEmailRouting:
         with pytest.warns(DeprecationWarning):
             email_routing = await async_client.email_routing.enable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert_matches_type(Optional[Settings], email_routing, path=["response"])
@@ -466,7 +453,6 @@ class TestAsyncEmailRouting:
         with pytest.warns(DeprecationWarning):
             response = await async_client.email_routing.with_raw_response.enable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
         assert response.is_closed is True
@@ -479,7 +465,6 @@ class TestAsyncEmailRouting:
         with pytest.warns(DeprecationWarning):
             async with async_client.email_routing.with_streaming_response.enable(
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             ) as response:
                 assert not response.is_closed
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -495,7 +480,6 @@ class TestAsyncEmailRouting:
             with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
                 await async_client.email_routing.with_raw_response.enable(
                     zone_id="",
-                    body={},
                 )
 
     @parametrize

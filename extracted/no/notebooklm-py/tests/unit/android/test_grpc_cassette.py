@@ -26,6 +26,7 @@ from tests.cassette_patterns import _CREDENTIAL_DETECTORS
 
 from notebooklm._android.auth import BearerCredential
 from notebooklm._android.phenotype import CLIENT_TYPE_HEADER, EXPERIMENT_TOKEN_HEADER
+from notebooklm._android.proto.google.internal.labs.tailwind.api.v1 import quota_pb2
 from notebooklm._android.proto.google.internal.labs.tailwind.orchestration.v1 import (
     account_pb2,
     artifacts_pb2,
@@ -49,11 +50,11 @@ from notebooklm._android.proto.notebooklm.android.wire.v1 import (
 from notebooklm._android.proto.notebooklm.internal.android.wire.v1 import (
     notebooks_pb2,
     source_content_pb2,
+    usage_pb2,
 )
 from notebooklm._android.session import ANDROID_GRPC_TARGET, AndroidSession
 from notebooklm._client_metrics import ClientMetrics
 from notebooklm._runtime.call_supervisor import CallSupervisor
-from notebooklm._transport_drain import TransportDrainTracker
 
 METHOD = (
     "/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GetProject"
@@ -70,6 +71,9 @@ ANDROID_CASSETTES = Path(__file__).resolve().parents[2] / "cassettes" / "android
 # proves the mandatory redactor is already a no-op, so nothing escapes as
 # opaque base64.
 _CASSETTE_MESSAGE_TYPES = (
+    # 0. usage via path-only GetAccount and inferred ListQuotaSummary
+    quota_pb2.ListQuotaSummaryRequest,
+    usage_pb2.WireListQuotaSummaryResponse,
     # 1. settings via unary GetOrCreateAccount
     account_pb2.GetOrCreateAccountRequest,
     account_pb2.GetOrCreateAccountResponse,
@@ -203,7 +207,7 @@ KNOWN_CASSETTE_PAYLOAD_TYPES = {
 class _LeaseBearer:
     gets: list[int]
 
-    async def activate(self, epoch: int) -> None:
+    async def activate_for_epoch(self, epoch: int) -> None:
         del epoch
 
     async def get(self, expected_epoch: int) -> BearerCredential:
@@ -307,7 +311,6 @@ def _response(project_id: str = RAW_PROJECT_ID) -> read_pb2.GetProjectResponse:
 def _supervisor() -> CallSupervisor:
     return CallSupervisor(
         metrics=ClientMetrics(),
-        drain_tracker=TransportDrainTracker(),
         max_concurrent_rpcs=None,
     )
 
@@ -625,6 +628,7 @@ async def test_server_stream_record_and_replay_pins_shape_and_frame_type(tmp_pat
         async for item in record_session.stream(
             METHOD,
             read_pb2.GetProjectRequest(project_id=RAW_PROJECT_ID),
+            replay_safe=True,
             response_type=read_pb2.GetProjectResponse,
         )
     ]
@@ -646,6 +650,7 @@ async def test_server_stream_record_and_replay_pins_shape_and_frame_type(tmp_pat
         async for item in replay_session.stream(
             METHOD,
             read_pb2.GetProjectRequest(project_id=SAFE_PROJECT_ID),
+            replay_safe=True,
             response_type=read_pb2.GetProjectResponse,
         )
     ]

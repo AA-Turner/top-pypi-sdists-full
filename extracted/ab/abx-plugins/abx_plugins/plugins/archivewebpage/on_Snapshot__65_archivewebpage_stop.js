@@ -231,6 +231,7 @@ async function main() {
   console.log("stopping archiveweb.page recording...");
 
   let browser = null;
+  let releaseExportLock = null;
   try {
     const state = readRecordingState();
     const chromeSessionDir = pickChromeSessionDir(chromeDirCandidates);
@@ -251,25 +252,44 @@ async function main() {
       );
     }
 
+    // All snapshots in a crawl use the same AWP extension worker and virtual
+    // /w/api/c/<collId>/dl route. Recordings can run concurrently, and each
+    // hook still reads its own recording.json/collId and saves its own
+    // snapshot-local archivewebpage.wacz. Only stop+export needs this shared
+    // lock: overlapping exports produced a Page.navigate result of
+    // net::ERR_FILE_NOT_FOUND with no browser download events for one WACZ.
+    // The lock is crawl-scoped so separate hook subprocesses use one gate.
+    const lockRoot = hookConfig.CRAWL_DIR
+      ? path.resolve(hookConfig.CRAWL_DIR)
+      : SNAP_DIR;
+    releaseExportLock = await chromeUtils.acquireSessionLock(
+      path.join(lockRoot, "archivewebpage", ".stop_export.lock"),
+      timeoutMs
+    );
+
     const helperPage = await openAwpHelperTab(
       browser,
       state.extensionId,
       timeoutMs
     );
+    let outputSize;
     try {
       await stopExactRecording(helperPage, state, timeoutMs);
+      // Keep AWP's popup port connected while its service worker serves the
+      // virtual WACZ download URL. Closing it first can leave Page.navigate
+      // with net::ERR_FILE_NOT_FOUND before a download begins.
+      const destPath = path.join(outputDir, OUTPUT_FILENAME);
+      outputSize = await downloadExactWacz(
+        browser,
+        state.extensionId,
+        state.collId,
+        destPath,
+        timeoutMs
+      );
     } finally {
       await helperPage.close({ runBeforeUnload: false }).catch(() => {});
     }
-
     const destPath = path.join(outputDir, OUTPUT_FILENAME);
-    const outputSize = await downloadExactWacz(
-      browser,
-      state.extensionId,
-      state.collId,
-      destPath,
-      timeoutMs
-    );
     const elapsed = Date.now() - startedAt;
     if (elapsed > budgetMs) {
       console.error(
@@ -288,13 +308,14 @@ async function main() {
     emitArchiveResultRecord("succeeded", `${PLUGIN_DIR}/${OUTPUT_FILENAME}`, {
       output_size: outputSize,
     });
-    process.exit(0);
+    process.exitCode = 0;
   } catch (error) {
     const detail = `${error.name || "Error"}: ${error.message || error}`;
     console.error(`ERROR: ${detail}`);
     emitArchiveResultRecord("failed", detail);
-    process.exit(1);
+    process.exitCode = 1;
   } finally {
+    releaseExportLock?.();
     if (browser) await browser.disconnect().catch(() => {});
   }
 }

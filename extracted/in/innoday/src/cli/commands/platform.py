@@ -3,7 +3,6 @@
 import argparse
 from typing import Optional
 
-from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import InnoDayAPIClient
@@ -14,6 +13,9 @@ from src.cli.utils.formatters import (
     format_error,
     format_success,
 )
+from src.cli.utils.presentation import (
+    make_console,
+)
 
 
 class PlatformCommands:
@@ -21,7 +23,7 @@ class PlatformCommands:
 
     def __init__(self, config: CLIConfig):
         self.config = config
-        self.console = Console()
+        self.console = make_console()
         self.keyring_service = "innoday-platform"
 
     @staticmethod
@@ -149,13 +151,20 @@ class PlatformCommands:
         """Check platform health and integrations"""
         try:
             async with InnoDayAPIClient(self.config) as client:
-                response = await client.get("/platform/health")
+                # The server returns integration detail only when asked, and
+                # only to a platform admin.
+                params = {"detailed": "true"} if args.detailed else None
+                response = await client.get("/platform/health", params=params)
 
                 if response.status_code == 200:
                     health = response.json()
 
                     # Overall status
-                    status_icon = "✅" if health["status"] == "healthy" else "⚠️"
+                    status_icon = (
+                        "[good]✓[/good]"
+                        if health["status"] == "healthy"
+                        else "[warn]⚠[/warn]"
+                    )
                     self.console.print(
                         f"\n[bold]Platform Health: {status_icon} {health['status'].upper()}[/bold]"
                     )
@@ -169,8 +178,8 @@ class PlatformCommands:
                         return 0 if health["status"] == "healthy" else 1
 
                     # Health checks table
-                    table = Table(title="Health Checks")
-                    table.add_column("Check", style="cyan")
+                    table = Table(title="Health Checks", header_style="muted")
+                    table.add_column("Check", style="header")
                     table.add_column("Status", justify="center")
 
                     for check, passed in health["checks"].items():

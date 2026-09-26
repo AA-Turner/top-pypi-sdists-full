@@ -270,7 +270,7 @@ class AnalysisItem(MatrxEntity):
 
 class BrandAsset(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
-    organization_id = ForeignKey(to_model='Files', to_column='organization_id', to_schema='files', null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
@@ -823,6 +823,7 @@ class Page(MatrxEntity):
     link_score = DecimalField()
     link_score_computed_at = DateTimeField()
     custom_fields = JSONBField(null=False, default={})
+    processed_document_id = ForeignKey(to_model='ProcessedDocuments', to_column='id', to_schema='docproc', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'target_page_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'page_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "page"
@@ -949,7 +950,7 @@ class Property(MatrxEntity):
 
 class Screenshot(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
-    organization_id = ForeignKey(to_model='Files', to_column='organization_id', to_schema='files', null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
@@ -1142,7 +1143,7 @@ class Sitemap(MatrxEntity):
 
 class Snapshot(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
-    organization_id = ForeignKey(to_model='Files', to_column='organization_id', to_schema='files', null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
     created_at = DateTimeField(null=False)
     updated_at = DateTimeField(null=False)
     created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
@@ -1169,6 +1170,7 @@ class Snapshot(MatrxEntity):
     markdown_file_id = ForeignKey(to_model='Files', to_column='id', to_schema='files', )
     seo_metrics = JSONBField()
     audit_metrics = JSONBField()
+    processed_document_id = ForeignKey(to_model='ProcessedDocuments', to_column='id', to_schema='docproc', )
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'snapshot_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "snapshot"

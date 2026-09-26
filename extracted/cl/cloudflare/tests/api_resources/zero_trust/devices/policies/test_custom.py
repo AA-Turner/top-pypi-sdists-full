@@ -23,9 +23,7 @@ class TestCustom:
     def test_method_create(self, client: Cloudflare) -> None:
         custom = client.zero_trust.devices.policies.custom.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
         )
         assert_matches_type(Optional[SettingsPolicy], custom, path=["response"])
 
@@ -34,14 +32,17 @@ class TestCustom:
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
         custom = client.zero_trust.devices.policies.custom.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
             allow_mode_switch=True,
             allow_updates=True,
             allowed_to_leave=True,
             auto_connect=0,
+            browser_extension_config={
+                "proxy_control": "unlocked",
+                "proxy_enabled": True,
+            },
             captive_portal=180,
+            default=False,
             description="Policy for test teams.",
             disable_auto_fallback=True,
             dns_search_suffixes=[
@@ -63,6 +64,7 @@ class TestCustom:
                 "enabled": True,
                 "masque_endpoints": ["198.51.100.1:443"],
                 "wireguard_endpoints": ["198.51.100.1:2408"],
+                "autoswitch": True,
             },
             include=[
                 {
@@ -72,6 +74,9 @@ class TestCustom:
             ],
             lan_allow_minutes=30,
             lan_allow_subnet_size=24,
+            match='identity.email == "test@cloudflare.com"',
+            precedence=100,
+            profile_type="warp",
             register_interface_ip_with_dns=True,
             sccm_vpn_boundary_support=False,
             service_mode_v2={
@@ -81,6 +86,7 @@ class TestCustom:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            uninstall_protection=False,
             virtual_networks={
                 "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
                 "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
@@ -93,9 +99,7 @@ class TestCustom:
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.zero_trust.devices.policies.custom.with_raw_response.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
         )
 
         assert response.is_closed is True
@@ -108,9 +112,7 @@ class TestCustom:
     def test_streaming_response_create(self, client: Cloudflare) -> None:
         with client.zero_trust.devices.policies.custom.with_streaming_response.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -126,15 +128,21 @@ class TestCustom:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.zero_trust.devices.policies.custom.with_raw_response.create(
                 account_id="",
-                match='identity.email == "test@cloudflare.com"',
                 name="Allow Developers",
-                precedence=100,
             )
 
     @parametrize
     def test_method_list(self, client: Cloudflare) -> None:
         custom = client.zero_trust.devices.policies.custom.list(
             account_id="699d98642c564d2e855e9661899b7252",
+        )
+        assert_matches_type(SyncSinglePage[SettingsPolicy], custom, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Cloudflare) -> None:
+        custom = client.zero_trust.devices.policies.custom.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            profile_type="warp",
         )
         assert_matches_type(SyncSinglePage[SettingsPolicy], custom, path=["response"])
 
@@ -236,7 +244,12 @@ class TestCustom:
             allow_updates=True,
             allowed_to_leave=True,
             auto_connect=0,
+            browser_extension_config={
+                "proxy_control": "unlocked",
+                "proxy_enabled": True,
+            },
             captive_portal=180,
+            default=False,
             description="Policy for test teams.",
             disable_auto_fallback=True,
             dns_search_suffixes=[
@@ -258,6 +271,7 @@ class TestCustom:
                 "enabled": True,
                 "masque_endpoints": ["198.51.100.1:443"],
                 "wireguard_endpoints": ["198.51.100.1:2408"],
+                "autoswitch": True,
             },
             include=[
                 {
@@ -279,6 +293,7 @@ class TestCustom:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            uninstall_protection=False,
             virtual_networks={
                 "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
                 "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
@@ -392,9 +407,7 @@ class TestAsyncCustom:
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         custom = await async_client.zero_trust.devices.policies.custom.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
         )
         assert_matches_type(Optional[SettingsPolicy], custom, path=["response"])
 
@@ -403,14 +416,17 @@ class TestAsyncCustom:
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
         custom = await async_client.zero_trust.devices.policies.custom.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
             allow_mode_switch=True,
             allow_updates=True,
             allowed_to_leave=True,
             auto_connect=0,
+            browser_extension_config={
+                "proxy_control": "unlocked",
+                "proxy_enabled": True,
+            },
             captive_portal=180,
+            default=False,
             description="Policy for test teams.",
             disable_auto_fallback=True,
             dns_search_suffixes=[
@@ -432,6 +448,7 @@ class TestAsyncCustom:
                 "enabled": True,
                 "masque_endpoints": ["198.51.100.1:443"],
                 "wireguard_endpoints": ["198.51.100.1:2408"],
+                "autoswitch": True,
             },
             include=[
                 {
@@ -441,6 +458,9 @@ class TestAsyncCustom:
             ],
             lan_allow_minutes=30,
             lan_allow_subnet_size=24,
+            match='identity.email == "test@cloudflare.com"',
+            precedence=100,
+            profile_type="warp",
             register_interface_ip_with_dns=True,
             sccm_vpn_boundary_support=False,
             service_mode_v2={
@@ -450,6 +470,7 @@ class TestAsyncCustom:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            uninstall_protection=False,
             virtual_networks={
                 "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
                 "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",
@@ -462,9 +483,7 @@ class TestAsyncCustom:
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.zero_trust.devices.policies.custom.with_raw_response.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
         )
 
         assert response.is_closed is True
@@ -477,9 +496,7 @@ class TestAsyncCustom:
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
         async with async_client.zero_trust.devices.policies.custom.with_streaming_response.create(
             account_id="699d98642c564d2e855e9661899b7252",
-            match='identity.email == "test@cloudflare.com"',
             name="Allow Developers",
-            precedence=100,
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -495,15 +512,21 @@ class TestAsyncCustom:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.zero_trust.devices.policies.custom.with_raw_response.create(
                 account_id="",
-                match='identity.email == "test@cloudflare.com"',
                 name="Allow Developers",
-                precedence=100,
             )
 
     @parametrize
     async def test_method_list(self, async_client: AsyncCloudflare) -> None:
         custom = await async_client.zero_trust.devices.policies.custom.list(
             account_id="699d98642c564d2e855e9661899b7252",
+        )
+        assert_matches_type(AsyncSinglePage[SettingsPolicy], custom, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        custom = await async_client.zero_trust.devices.policies.custom.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            profile_type="warp",
         )
         assert_matches_type(AsyncSinglePage[SettingsPolicy], custom, path=["response"])
 
@@ -605,7 +628,12 @@ class TestAsyncCustom:
             allow_updates=True,
             allowed_to_leave=True,
             auto_connect=0,
+            browser_extension_config={
+                "proxy_control": "unlocked",
+                "proxy_enabled": True,
+            },
             captive_portal=180,
+            default=False,
             description="Policy for test teams.",
             disable_auto_fallback=True,
             dns_search_suffixes=[
@@ -627,6 +655,7 @@ class TestAsyncCustom:
                 "enabled": True,
                 "masque_endpoints": ["198.51.100.1:443"],
                 "wireguard_endpoints": ["198.51.100.1:2408"],
+                "autoswitch": True,
             },
             include=[
                 {
@@ -648,6 +677,7 @@ class TestAsyncCustom:
             support_url="https://1.1.1.1/help",
             switch_locked=True,
             tunnel_protocol="wireguard",
+            uninstall_protection=False,
             virtual_networks={
                 "allowed": ["f174e90a-fafe-4643-bbbc-4a0ed4fc8415"],
                 "default": "f174e90a-fafe-4643-bbbc-4a0ed4fc8415",

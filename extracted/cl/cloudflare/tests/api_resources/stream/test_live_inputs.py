@@ -43,6 +43,7 @@ class TestLiveInputs:
                 "require_signed_urls": False,
                 "timeout_seconds": 0,
             },
+            idempotency_key="Idempotency-Key",
         )
         assert_matches_type(Optional[LiveInput], live_input, path=["response"])
 
@@ -316,6 +317,7 @@ class TestAsyncLiveInputs:
                 "require_signed_urls": False,
                 "timeout_seconds": 0,
             },
+            idempotency_key="Idempotency-Key",
         )
         assert_matches_type(Optional[LiveInput], live_input, path=["response"])
 

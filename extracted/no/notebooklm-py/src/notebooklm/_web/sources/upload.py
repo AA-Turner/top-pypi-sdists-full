@@ -7,7 +7,7 @@ import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic
 from typing import IO, TYPE_CHECKING, Any, Protocol
@@ -16,26 +16,34 @@ import httpx
 
 from ..._auth.account import authuser_query, format_authuser_value
 from ..._callbacks import maybe_await_callback
+from ..._http_client_factory import HttpClientFactories
 from ..._idempotency import (
-    _coerce_create_result,
-    _IdempotentCreateResult,
-    idempotent_create,
+    OperationJournal,
+    attach_journal_entry,
+    attach_reconciliation_report,
+    bind_operation_journal_entries,
+    call_unconfirmed_on_transport_loss,
+    mark_commit_state,
+    reconciliation_report,
 )
 from ..._idempotency import mark_unconfirmed as _unconfirmed
-from ..._loop_bound import LoopBoundPrimitive
+from ..._loop_bound import EpochFenced
+from ..._request_context import request_policy_scope
+from ..._request_policy import RequestPolicyOwner, request_scoped
 from ..._runtime.config import (
     DEFAULT_MAX_CONCURRENT_UPLOADS,
     normalize_max_concurrent_uploads,
 )
 from ..._source.polling import SourcePoller
-from ..._types.enums import SourceStatus
 from ...exceptions import (
     AuthError,
     NetworkError,
+    NotebookLMError,
     RateLimitError,
     ServerError,
     ValidationError,
 )
+from ...outcomes import CommitState
 from ...rpc import RPCError, RPCMethod, get_upload_url
 from ...types import Source, SourceAddError
 from ..contracts import (
@@ -47,6 +55,7 @@ from ..params.sources import (
     build_rename_source_params,
     build_resumable_upload_start_request,
 )
+from ..rows.source_models import decode_source
 
 # Decode/validation helpers live in ``_upload_decode``; re-exported here so the
 # historical ``notebooklm._web.sources.upload.<helper>`` import surface (and the
@@ -99,6 +108,7 @@ from .listing import SourceLister
 
 if TYPE_CHECKING:
     from ..._runtime.call_supervisor import CallSupervisor
+    from ..._sources import _UploadedSourceFinalizer
 
 
 class AuthMetadata(Protocol):
@@ -167,7 +177,7 @@ class _TransportChildOutcome:
     error: BaseException | None = None
 
 
-class SourceUploadPipeline(LoopBoundPrimitive):
+class SourceUploadPipeline(RequestPolicyOwner, EpochFenced):
     """Own file registration and resumable upload orchestration."""
 
     name = "web-upload"
@@ -180,26 +190,34 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         kernel: Kernel,
         auth: AuthMetadata,
         upload_timeout: httpx.Timeout | None = None,
+        start_timeout: httpx.Timeout | None = None,
+        finalize_timeout: httpx.Timeout | None = None,
+        drive_timeout: httpx.Timeout | None = None,
         max_concurrent_uploads: int | None = DEFAULT_MAX_CONCURRENT_UPLOADS,
         record_upload_queue_wait: QueueWaitRecorder | None = None,
         async_client_factory: AsyncClientFactory | None = None,
+        http_client_factories: HttpClientFactories | None = None,
         get_source_limit: GetSourceLimit | None = None,
         lister: SourceLister | None = None,
         poller: SourcePoller | None = None,
     ):
+        super().__init__("NotebookLMClient upload generation is retired")
         self._rpc = rpc
         self._supervisor = supervisor
         self._kernel = kernel
         self._auth = auth
-        self._upload_timeout = upload_timeout
+        self._start_timeout = start_timeout if start_timeout is not None else upload_timeout
+        self._finalize_timeout = (
+            finalize_timeout if finalize_timeout is not None else upload_timeout
+        )
+        self._drive_timeout = drive_timeout
         self._record_upload_queue_wait = record_upload_queue_wait
         self._async_client_factory = async_client_factory
+        self._http_client_factories = http_client_factories
         self._max_concurrent_uploads = normalize_max_concurrent_uploads(max_concurrent_uploads)
         self._upload_semaphore: asyncio.Semaphore | None = None
         # Bounds concurrent Drive auto-route downloads (#1884); loop-bound.
         self._download_semaphore: asyncio.Semaphore | None = None
-        self._active_epoch: int | None = None
-        self._closing = False
         self._registry_lock: asyncio.Lock | None = None
         self._transport_tasks: set[asyncio.Task[Any]] = set()
         self._transport_clients: set[httpx.AsyncClient] = set()
@@ -235,10 +253,14 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         self._lister = lister
         self._poller = poller
 
-    def _resolve_upload_timeout(self, default: httpx.Timeout) -> httpx.Timeout:
-        """Return the configured upload timeout, or ``default`` if unset."""
-        return self._upload_timeout if self._upload_timeout is not None else default
+    @staticmethod
+    def _resolve_upload_timeout(
+        configured: httpx.Timeout | None, default: httpx.Timeout
+    ) -> httpx.Timeout:
+        """Return one phase's configured timeout, or its backend default."""
+        return configured if configured is not None else default
 
+    @request_scoped
     def _client_factory(self) -> AsyncClientFactory:
         if self._async_client_factory is not None:
             return self._async_client_factory
@@ -247,7 +269,10 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         # (fingerprint/session correlation).
         from ..._curl_cffi_transport import resolve_transport_factory
 
-        return resolve_transport_factory()
+        factory = resolve_transport_factory()
+        if self._http_client_factories is not None:
+            return self._http_client_factories.select(factory)
+        return factory
 
     def _authuser_query(self) -> str:
         return authuser_query(self._auth.authuser, self._auth.account_email)
@@ -257,7 +282,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
 
     def _live_cookies(self, expected_epoch: int) -> httpx.Cookies:
         """Return cookies only from the HTTP client owning ``expected_epoch``."""
-        self._assert_transport_epoch(expected_epoch)
+        self.assert_epoch(expected_epoch)
         return self._kernel.get_http_client(expected_epoch=expected_epoch).cookies
 
     def live_cookies(self, expected_epoch: int) -> httpx.Cookies:
@@ -304,16 +329,14 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         """Bind a lazy upload generation without issuing network I/O."""
         self.set_bound_loop(loop)
         self.reset_after_open()
-        self._active_epoch = epoch
-        self._closing = False
+        self.activate(epoch)
         self._registry_lock = asyncio.Lock()
         self._transport_tasks.clear()
         self._transport_clients.clear()
 
     async def prepare_close(self) -> None:
         """Fence first, then interrupt every old-epoch upload resource."""
-        self._closing = True
-        self._active_epoch = None
+        self.fence()
         tasks, clients = await self._snapshot_transport_resources()
         error = await self._settle_transport_resources(tasks, clients)
         if error is not None:
@@ -324,8 +347,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         # ``prepare_close`` normally installed this fence.  Repeat it before
         # the first await so rollback/partial-open cleanup is independently
         # safe and cannot race a late child registration.
-        self._closing = True
-        self._active_epoch = None
+        self.fence()
         try:
             tasks, clients = await self._snapshot_transport_resources()
             error = await self._settle_transport_resources(tasks, clients)
@@ -334,8 +356,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         finally:
             self._transport_clients.clear()
             self._transport_tasks.clear()
-            self._active_epoch = None
-            self._closing = True
+            self.fence()
             self._registry_lock = None
 
     async def _snapshot_transport_resources(
@@ -410,13 +431,6 @@ class SourceUploadPipeline(LoopBoundPrimitive):
                     first_failure = exc
         return process_exit or first_failure
 
-    def _assert_transport_epoch(self, expected_epoch: int) -> None:
-        if self._closing or self._active_epoch != expected_epoch:
-            raise RuntimeError(
-                "NotebookLMClient upload generation is retired "
-                f"(expected={expected_epoch}, active={self._active_epoch!r})."
-            )
-
     def _begin_transport_operation(
         self,
         expected_epoch: int,
@@ -425,7 +439,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         task = asyncio.current_task()
         if task is None:
             raise RuntimeError("NotebookLMClient upload transport is not open.")
-        self._assert_transport_epoch(epoch)
+        self.assert_epoch(epoch)
         self._transport_tasks.add(task)
         return epoch, task
 
@@ -436,17 +450,18 @@ class SourceUploadPipeline(LoopBoundPrimitive):
     @asynccontextmanager
     async def transport_operation_scope(self, label: str) -> AsyncIterator[int]:
         """Admit and track one direct-upload workflow under one epoch."""
-        self._supervisor.assert_bound_loop()
-        async with self._supervisor.operation_scope(label) as lease:
-            epoch, task = self._begin_transport_operation(lease.epoch)
-            try:
-                yield lease.epoch
-            finally:
-                self._finish_transport_operation(epoch, task)
+        with request_policy_scope(self.request_policy):
+            self._supervisor.assert_bound_loop()
+            async with self._supervisor.operation_scope(label) as lease:
+                epoch, task = self._begin_transport_operation(lease.epoch)
+                try:
+                    yield lease.epoch
+                finally:
+                    self._finish_transport_operation(epoch, task)
 
     def _track_transport_client(self, client: httpx.AsyncClient, epoch: int) -> None:
         """Publish a new client in one checkpoint-free fencing section."""
-        self._assert_transport_epoch(epoch)
+        self.assert_epoch(epoch)
         if self._registry_lock is None:
             raise RuntimeError("NotebookLMClient upload transport is not open.")
         self._transport_clients.add(client)
@@ -468,7 +483,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         async def _tracked() -> _TransportChildOutcome:
             task = asyncio.current_task()
             try:
-                self._assert_transport_epoch(expected_epoch)
+                self.assert_epoch(expected_epoch)
                 if task is None:
                     raise RuntimeError("NotebookLMClient upload child has no owning task.")
                 if self._registry_lock is None:
@@ -544,12 +559,15 @@ class SourceUploadPipeline(LoopBoundPrimitive):
             download = await DriveFetcher(
                 cookies_provider=lambda: self.live_cookies(epoch),
                 authuser=self.authuser_value(),
+                timeout=self._drive_timeout,
+                http_client_factories=self._http_client_factories,
             )(parse_drive_ref(document_id))
             try:
                 yield download.path, download.filename, download.content_type
             finally:
                 download.path.unlink(missing_ok=True)
 
+    @request_scoped
     async def add_file(
         self,
         notebook_id: str,
@@ -561,12 +579,9 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         title: str | None = None,
         on_progress: Callable[[int, int], object] | None = None,
         upload_index: int = 0,
+        finalize_uploaded: _UploadedSourceFinalizer,
     ) -> Source:
         """Add a file while holding admission through reconciliation and rename."""
-        if title is not None:
-            title = title.strip()
-            if not title:
-                raise ValidationError("Title cannot be empty or whitespace-only")
         # Pure argument/MIME rejection stays outside admission. In particular,
         # a drained client must still report an unsupported HTML upload as an
         # input error. The filesystem-backed resolve/stat remains inside the
@@ -586,6 +601,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
                 upload_index=upload_index,
                 _mime_type=mime_type,
                 _expected_epoch=epoch,
+                finalize_uploaded=finalize_uploaded,
             )
 
     async def _add_file_admitted(
@@ -600,6 +616,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         upload_index: int = 0,
         _mime_type: str | None,
         _expected_epoch: int,
+        finalize_uploaded: _UploadedSourceFinalizer,
     ) -> Source:
         """Add a file source to a notebook using resumable upload.
 
@@ -653,7 +670,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
             handed_off = False
             try:
                 registration = await self._register_file_source_for_upload(notebook_id, filename)
-                source_id = registration.value
+                source_id = registration
                 stage: SourceAddStage = "start_session"
                 try:
                     upload_url = await self.start_resumable_upload(
@@ -680,46 +697,53 @@ class SourceUploadPipeline(LoopBoundPrimitive):
                 if not handed_off:
                     file_obj.close()
 
-        needs_title_rename = title is not None and title != filename
-        if wait:
-            source = await self.wait_until_ready(
-                notebook_id,
-                source_id,
-                timeout=wait_timeout,
+        async def _wait_until_ready(
+            target_notebook_id: str,
+            target_source_id: str,
+            timeout: float,
+        ) -> Source:
+            return await self.wait_until_ready(
+                target_notebook_id,
+                target_source_id,
+                timeout=timeout,
                 transient_error_types=transient_error_types,
             )
-        elif needs_title_rename:
-            source = await self.wait_until_registered(
-                notebook_id,
-                source_id,
-                timeout=wait_timeout,
+
+        async def _wait_until_registered(
+            target_notebook_id: str,
+            target_source_id: str,
+            timeout: float,
+        ) -> Source:
+            return await self.wait_until_registered(
+                target_notebook_id,
+                target_source_id,
+                timeout=timeout,
                 transient_error_types=transient_error_types,
             )
-        else:
-            source = Source(
-                id=source_id,
-                title=filename,
-                status=SourceStatus.PROCESSING,
-                _type_code=None,
+
+        async def _rename_uploaded(
+            target_notebook_id: str,
+            target_source_id: str,
+            requested_title: str,
+        ) -> str | None:
+            renamed = await self.rename(
+                target_notebook_id,
+                target_source_id,
+                requested_title,
             )
+            return renamed.title if renamed is not None else None
 
-        if needs_title_rename:
-            try:
-                assert title is not None
-                renamed = await self.rename(notebook_id, source_id, title)
-                # ``renamed`` is ``None`` when the rename RPC echoes nothing;
-                # fall back to the requested title (the source was just
-                # uploaded, so it exists — only the echo is absent).
-                source = replace(source, title=(renamed.title if renamed else None) or title)
-            except (RPCError, NetworkError):
-                module_logger.warning(
-                    "Source %s uploaded but rename to %r failed",
-                    source_id,
-                    title,
-                    exc_info=True,
-                )
-
-        return source
+        return await finalize_uploaded(
+            notebook_id,
+            source_id,
+            filename,
+            wait=wait,
+            wait_timeout=wait_timeout,
+            title=title,
+            wait_until_ready=_wait_until_ready,
+            wait_until_registered=_wait_until_registered,
+            rename_uploaded=_rename_uploaded,
+        )
 
     async def register_file_source(
         self,
@@ -731,31 +755,24 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         get_source_limit: GetSourceLimit | None = None,
         rpc_call: RpcCallback | None = None,
     ) -> str:
-        """Register a file source intent and return its source ID."""
-        return (
-            await self._register_file_source_result(
-                notebook_id,
-                filename,
-                list_sources=list_sources,
-                logger=logger,
-                get_source_limit=get_source_limit,
-                rpc_call=rpc_call,
-            )
-        ).value
+        """Register a file source exactly once and return its correlated source ID."""
+        return await self._register_file_source_result(
+            notebook_id,
+            filename,
+            list_sources=list_sources,
+            logger=logger,
+            get_source_limit=get_source_limit,
+            rpc_call=rpc_call,
+        )
 
-    async def _register_file_source_for_upload(
-        self, notebook_id: str, filename: str
-    ) -> _IdempotentCreateResult[str]:
-        """Normalize built-in and legacy registration seams for ``add_file``."""
+    async def _register_file_source_for_upload(self, notebook_id: str, filename: str) -> str:
+        """Normalize built-in and legacy registration seams for add_file."""
         register = self.register_file_source
-        registration: str | _IdempotentCreateResult[str]
         if getattr(register, "__func__", None) is SourceUploadPipeline.register_file_source:
-            registration = await self._register_file_source_result(notebook_id, filename)
-        else:
-            # Preserve injected and overridden legacy seams that only accept
-            # the historical (notebook_id, filename) call shape.
-            registration = await register(notebook_id, filename)
-        return _coerce_create_result(registration)
+            return await self._register_file_source_result(notebook_id, filename)
+        # Preserve injected and overridden legacy seams that only accept the
+        # historical (notebook_id, filename) call shape.
+        return await register(notebook_id, filename)
 
     async def _register_file_source_result(
         self,
@@ -766,249 +783,112 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         logger: Any | None = None,
         get_source_limit: GetSourceLimit | None = None,
         rpc_call: RpcCallback | None = None,
-    ) -> _IdempotentCreateResult[str]:
-        """Register a file source intent and retain create/probe provenance.
-
-        Filenames are not identity-bearing, so the probe matches only source IDs
-        that appeared after the pre-create baseline and rejects ambiguity.
-        """
+    ) -> str:
+        """Register once; candidate inspection after uncertainty never recovers."""
         params = build_register_file_source_params(filename, notebook_id)
-        if rpc_call is None:
-            rpc_call = self._rpc.rpc_call
-        if list_sources is None:
-            list_sources = self.list_sources
-        if logger is None:
-            logger = module_logger
-        if get_source_limit is None:
-            get_source_limit = self._get_source_limit
+        rpc_call = rpc_call or self._rpc.rpc_call
+        list_sources = list_sources or self.list_sources
+        logger = logger or module_logger
+        get_source_limit = get_source_limit or self._get_source_limit
+        journal = OperationJournal("sources.add_file")
+        journal_entry = journal.new_entry(method=RPCMethod.ADD_SOURCE_FILE.value)
 
-        # Capture baseline source IDs before the first create attempt so the
-        # probe can distinguish "this upload landed" from "a same-named source
-        # already existed." Mirrors the pattern in NotebooksAPI.create.
-        #
-        # ``None`` is the "baseline unavailable" sentinel — used when the
-        # baseline fetch failed (e.g. transient 5xx). The probe treats this
-        # as "we cannot safely distinguish new sources from pre-existing
-        # ones" and raises ``SourceAddError`` on any same-titled match,
-        # rather than risk returning a pre-existing source as if it were the
-        # just-created one. This protects against the silent
-        # data-corruption mode where a failed create + pre-existing
-        # same-name source would otherwise direct the subsequent upload
-        # stream to the wrong source.
-        baseline_ids: set[str] | None
-        baseline_source_count: int | None
-        # Retained so the ambiguity raise below can name what went wrong, the
-        # same way ``add_url`` and ``add_drive`` do: the caller reads "baseline
-        # snapshot was unavailable" long after this line ran, and without the
-        # cause nothing left in the process can explain it.
-        baseline_error: Exception | None = None
-        try:
-            baseline_sources = await list_sources(notebook_id)
-            baseline_ids = {source.id for source in baseline_sources}
-            baseline_source_count = len(baseline_sources)
-        except Exception as exc:
-            baseline_error = exc
-            # WARNING, not DEBUG (#2220 parity with ``add_url`` / ``add_drive``,
-            # #2204): the ``notebooklm`` logger defaults to WARNING, so a DEBUG
-            # record here is discarded before any handler sees it and the call
-            # silently proceeds with its idempotency probe degraded.
-            #
-            # This one still swallows, unlike the probe below, and the asymmetry
-            # is deliberate: nothing has been written yet at baseline time, so
-            # degrading is safe and failing here would break adds that would
-            # otherwise have succeeded. The probe runs *after* a create that may
-            # already have committed, so it has no such freedom.
-            logger.warning(
-                "register_file_source: baseline list() failed (%s); the idempotency probe "
-                "can no longer tell a source this call created from one that was already "
-                "there, so a transport failure will surface as an ambiguity error instead "
-                "of recovering",
-                type(exc).__name__,
-                exc_info=True,
-            )
-            baseline_ids = None
-            baseline_source_count = None
-
-        async def _probe() -> str | None:
+        async def _inspect_candidates(exc: NotebookLMError) -> None:
             try:
                 sources = await list_sources(notebook_id)
-            except (AuthError, RateLimitError, ServerError, NetworkError) as exc:
-                # Transport- and auth-level probe failures must propagate
-                # — otherwise idempotent_create would retry the
-                # register on top of a broken probe.
-                # Mark it UNCONFIRMED before it goes (#2220 review): the create
-                # may already have committed and this probe could not say, which
-                # is the same predicament as the decode branch below. Without the
-                # marker a ServerError/RateLimitError here classifies as the
-                # *retriable* SERVER/RATE_LIMITED with the hint "retry after a
-                # short delay" — and the caller retries the ADD, not the probe.
-                # The underlying type is left intact, so "re-authenticate" /
-                # "connectivity" remain readable in the message.
-                _unconfirmed(exc)
-                raise
-            except Exception as exc:
-                # Propagate, do not retry (#2220) — see the full rationale on
-                # ``SourceAddService.add_url._probe``. Sharper here than on the
-                # URL paths: a wrong answer does not merely duplicate a row, it
-                # picks the source id the *file bytes* are then streamed into,
-                # so an unconfirmed guess can direct an upload at the wrong
-                # source. This branch is also reached from ``_create`` below,
-                # where the register RPC already returned and the probe is the
-                # only way to learn the id — "no match" there is a claim this
-                # failure cannot support either.
+            except Exception:
                 logger.warning(
-                    "register_file_source: probe list() failed with a non-transport error "
-                    "(%s); the registration cannot be confirmed, so it will not be retried",
-                    type(exc).__name__,
+                    "register_file_source: candidate inspection failed; preserving "
+                    "the original registration error",
                     exc_info=True,
                 )
-                raise _unconfirmed(
-                    SourceAddError(
-                        filename,
-                        cause=exc,
-                        message=(
-                            # Action first — see the note on ``add_url``'s copy.
-                            # "may or may not have committed" rather than "did not
-                            # complete": this branch is also reached from ``_create``
-                            # below, where the register RPC returned 200 and only the
-                            # SOURCE_ID was untrustworthy.
-                            "UNRESOLVED — do not blindly retry; check the notebook "
-                            "source list first. Cannot confirm file source "
-                            f"{filename!r}: the registration may or may not have "
-                            "committed, and the idempotency probe that would settle "
-                            f"it failed too ({type(exc).__name__}). No FURTHER attempt was "
-                            "made, because retrying on an unanswered probe is how "
-                            "duplicates happen — but an earlier attempt in this call "
-                            "may also have committed."
-                        ),
-                    )
-                ) from exc
-            matches = [source for source in sources if source.title == filename]
-            if baseline_ids is not None:
-                matches = [source for source in matches if source.id not in baseline_ids]
-            elif matches:
-                # Baseline was unavailable so we cannot safely tell a new
-                # source apart from a pre-existing one with the same name.
-                # Surface this as an ambiguity rather than guessing — see
-                # the ``baseline_ids`` comment above for the failure mode
-                # this guards against.
-                raise _unconfirmed(
-                    SourceAddError(
-                        filename,
-                        cause=baseline_error,
-                        message=(
-                            f"Cannot disambiguate file source with title {filename!r}: the "
-                            f"pre-create baseline snapshot failed "
-                            f"({type(baseline_error).__name__}), so a matching title may "
-                            "either predate this upload or be the source it just "
-                            "registered. Resolve manually before retrying."
-                        ),
-                    )
-                )
-            if len(matches) == 1:
-                (match,) = matches  # exactly one (len==1 guard); unpack, not matches[0]
-                return match.id
-            if len(matches) > 1:
-                raise _unconfirmed(
-                    SourceAddError(
-                        filename,
-                        message=(
-                            f"Cannot disambiguate file source with title {filename!r}: "
-                            f"probe found {len(matches)} new sources with this title "
-                            "after a transport failure. Resolve manually before retrying."
-                        ),
-                    )
-                )
-            return None
+                return
+            matching_ids = [source.id for source in sources if source.title == filename]
+            attach_reconciliation_report(
+                exc,
+                reconciliation_report(
+                    matching_ids,
+                    [filename],
+                    reason="file registration response did not correlate a source id",
+                ),
+                operation="sources.add_file",
+            )
 
         async def _create() -> str:
             try:
-                result = await rpc_call(
-                    RPCMethod.ADD_SOURCE_FILE,
-                    params,
-                    source_path=f"/notebook/{notebook_id}",
-                    allow_null=False,
-                    disable_internal_retries=True,
-                )
+                with bind_operation_journal_entries(journal_entry):
+                    result = await rpc_call(
+                        RPCMethod.ADD_SOURCE_FILE,
+                        params,
+                        source_path=f"/notebook/{notebook_id}",
+                        allow_null=False,
+                        disable_internal_retries=True,
+                    )
             except (AuthError, RateLimitError, ServerError, NetworkError):
-                # Transport-level signals must propagate so idempotent_create
-                # can catch them and run the probe before retrying.
                 raise
             except RPCError as exc:
                 hint = ""
                 if getattr(exc, "rpc_code", None) == _INVALID_ARGUMENT_RPC_CODE:
+                    try:
+                        source_count = len(await list_sources(notebook_id))
+                    except Exception:
+                        source_count = None
                     hint = await _build_invalid_argument_source_limit_hint(
-                        source_count=baseline_source_count,
+                        source_count=source_count,
                         get_source_limit=get_source_limit,
                         logger=logger,
                     )
-                raise SourceAddError(
+                error = SourceAddError(
                     filename,
                     cause=exc,
                     message=f"Failed to register file source for {filename}: {exc}{hint}",
-                ) from exc
+                )
+                state = getattr(exc, "commit_state", None)
+                if state is not None:
+                    mark_commit_state(error, state, operation="sources.add_file")
+                if getattr(exc, "unconfirmed", False):
+                    _unconfirmed(error, operation="sources.add_file")
+                attach_journal_entry(error, journal_entry)
+                raise error from exc
 
             source_id = _extract_register_file_source_id(result, filename)
             if source_id:
-                if baseline_ids is None or source_id not in baseline_ids:
-                    return source_id
-                logger.info(
-                    "register_file_source[%s]: response SOURCE_ID matched a "
-                    "pre-existing source; probing for the newly registered source",
-                    filename,
+                journal_entry.record(
+                    CommitState.CONFIRMED,
+                    "decoded file registration",
+                    known_resource_ids=(source_id,),
                 )
+                return source_id
 
-            # The RPC returned successfully but the response shape did not
-            # contain a trustworthy SOURCE_ID. Before raising, run the
-            # source-list probe to see if the source landed server-side
-            # anyway. This converts recoverable schema drift into the same
-            # probe-recovery path that transport failures use without binding
-            # unrelated ids from the response.
-            try:
-                probed_source_id = await _probe()
-            except SourceAddError:
-                raise
-            except (AuthError, RateLimitError, ServerError, NetworkError) as exc:
-                # The create RPC already returned successfully, so do not
-                # let idempotent_create treat probe failure here as a
-                # retryable create failure and re-POST the file source.
-                raise _unconfirmed(
-                    SourceAddError(
-                        filename,
-                        cause=exc,
-                        message=(
-                            f"Cannot confirm registered file source for {filename!r}: "
-                            "the register response did not provide a trustworthy "
-                            f"SOURCE_ID and the source-list probe failed ({type(exc).__name__}). "
-                            "Check the notebook source list before retrying."
-                        ),
-                    )
-                ) from exc
-            if probed_source_id is not None:
-                logger.info(
-                    "register_file_source[%s]: response missing SOURCE_ID but "
-                    "probe found a freshly committed source",
-                    filename,
-                )
-                return probed_source_id
-
-            raise _unconfirmed(
+            error = _unconfirmed(
                 SourceAddError(
                     filename,
                     message=(
                         "Failed to get SOURCE_ID: no trustworthy SOURCE_ID found in "
-                        f"{_register_response_shape_label(result)} registration response, "
-                        "and the source-list probe found no "
-                        "unambiguous new source. Check the notebook source list before retrying."
+                        f"{_register_response_shape_label(result)} registration response. "
+                        "Check the notebook source list before retrying."
                     ),
-                )
+                ),
+                operation="sources.add_file",
             )
+            await _inspect_candidates(error)
+            raise attach_journal_entry(error, journal_entry)
 
-        return await idempotent_create(
-            _create,
-            _probe,
-            label=f"sources.register_file_source[{filename}]",
-        )
+        try:
+            return await call_unconfirmed_on_transport_loss(
+                _create,
+                method=RPCMethod.ADD_SOURCE_FILE,
+                what="the file-source registration",
+                operation="sources.add_file",
+                journal_entry=journal_entry,
+            )
+        except NotebookLMError as exc:
+            metadata = exc.operation_metadata
+            if getattr(exc, "unconfirmed", False) and (
+                metadata is None or metadata.reconciliation is None
+            ):
+                await _inspect_candidates(exc)
+            raise
 
     async def list_sources(self, notebook_id: str) -> list[Source]:
         """List notebook sources for upload idempotency and polling."""
@@ -1092,9 +972,10 @@ class SourceUploadPipeline(LoopBoundPrimitive):
             raise_on_null_status=True,
         )
         if result:
-            return Source.from_api_response(result, method_id=RPCMethod.UPDATE_SOURCE.value)
+            return decode_source(Source, result, method_id=RPCMethod.UPDATE_SOURCE.value)
         return None
 
+    @request_scoped
     async def start_resumable_upload(
         self,
         notebook_id: str,
@@ -1106,7 +987,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         expected_epoch: int,
     ) -> str:
         """Start a resumable upload session and get the upload URL."""
-        self._assert_transport_epoch(expected_epoch)
+        self.assert_epoch(expected_epoch)
         request = build_resumable_upload_start_request(
             notebook_id=notebook_id,
             filename=filename,
@@ -1119,15 +1000,18 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         )
 
         cookies = self._live_cookies(expected_epoch)
-        self._assert_transport_epoch(expected_epoch)
+        self.assert_epoch(expected_epoch)
         client = self._client_factory()(
-            timeout=self._resolve_upload_timeout(httpx.Timeout(10.0, read=60.0)),
+            timeout=self._resolve_upload_timeout(
+                self._start_timeout,
+                httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0),
+            ),
             cookies=cookies,
         )
         self._track_transport_client(client, expected_epoch)
         try:
             async with client:
-                self._assert_transport_epoch(expected_epoch)
+                self.assert_epoch(expected_epoch)
                 response = await client.post(
                     request.url,
                     headers=request.headers,
@@ -1154,6 +1038,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         finally:
             self._transport_clients.discard(client)
 
+    @request_scoped
     async def upload_file_streaming(
         self,
         upload_url: str,
@@ -1166,7 +1051,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         expected_epoch: int,
     ) -> None:
         """Stream upload file content to the resumable upload URL."""
-        self._assert_transport_epoch(expected_epoch)
+        self.assert_epoch(expected_epoch)
         if logger is None:
             logger = module_logger
         path_fallback: Path | None = file_obj if isinstance(file_obj, Path) else None
@@ -1223,15 +1108,18 @@ class SourceUploadPipeline(LoopBoundPrimitive):
                 nonlocal finalize_started
                 try:
                     cookies = self._live_cookies(expected_epoch)
-                    self._assert_transport_epoch(expected_epoch)
+                    self.assert_epoch(expected_epoch)
                     client = self._client_factory()(
-                        timeout=self._resolve_upload_timeout(httpx.Timeout(10.0, read=300.0)),
+                        timeout=self._resolve_upload_timeout(
+                            self._finalize_timeout,
+                            httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0),
+                        ),
                         cookies=cookies,
                     )
                     self._track_transport_client(client, expected_epoch)
                     try:
                         async with client:
-                            self._assert_transport_epoch(expected_epoch)
+                            self.assert_epoch(expected_epoch)
                             finalize_started = True
                             # The curl_cffi transport streams the request body from disk via
                             # low-level libcurl (no full-file buffer); httpx streams natively
@@ -1324,18 +1212,29 @@ class SourceUploadPipeline(LoopBoundPrimitive):
                         # cancel against reopened resources.
                         raise cancelled from None
                     raise
-                try:
-                    outcome = await asyncio.shield(finalize_task)
-                    if outcome.error is not None:
+                while True:
+                    try:
+                        outcome = await asyncio.shield(finalize_task)
+                    except asyncio.CancelledError:
+                        # A second caller cancellation must not abandon the
+                        # already-dispatched finalize or its body descriptor.
+                        # Forced close may instead cancel the child itself;
+                        # its completed cancellation already proves settlement.
+                        if finalize_task.done():
+                            break
+                    except Exception as exc:  # noqa: BLE001
                         logger.debug(
                             "Background finalize POST failed before cancellation propagated: %r",
-                            outcome.error,
+                            exc,
                         )
-                except Exception as exc:  # noqa: BLE001
-                    logger.debug(
-                        "Background finalize POST failed before cancellation propagated: %r",
-                        exc,
-                    )
+                        break
+                    else:
+                        if outcome.error is not None:
+                            logger.debug(
+                                "Background finalize POST failed before cancellation propagated: %r",
+                                outcome.error,
+                            )
+                        break
                 raise
         except BaseException:
             if not close_wired and path_fallback is None:
@@ -1360,7 +1259,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
         untrusted server-named host must never reach an outbound header.
         """
         try:
-            self._assert_transport_epoch(_expected_epoch)
+            self.assert_epoch(_expected_epoch)
             upload_url = _validate_resumable_upload_url(upload_url)
             origin = _upload_url_origin(upload_url)
             headers = {
@@ -1372,7 +1271,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
                 "x-goog-upload-command": "cancel",
             }
             cookies = self._live_cookies(_expected_epoch)
-            self._assert_transport_epoch(_expected_epoch)
+            self.assert_epoch(_expected_epoch)
             client = self._client_factory()(
                 timeout=httpx.Timeout(10.0, read=10.0),
                 cookies=cookies,
@@ -1380,7 +1279,7 @@ class SourceUploadPipeline(LoopBoundPrimitive):
             self._track_transport_client(client, _expected_epoch)
             try:
                 async with client:
-                    self._assert_transport_epoch(_expected_epoch)
+                    self.assert_epoch(_expected_epoch)
                     await client.post(upload_url, headers=headers)
             finally:
                 self._transport_clients.discard(client)

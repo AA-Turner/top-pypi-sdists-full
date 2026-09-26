@@ -1,6 +1,6 @@
-import gzip
 import inspect
 import json
+from types import SimpleNamespace
 import pytest
 from statsig_python_core import (
     BulkEvaluationOptions,
@@ -8,7 +8,7 @@ from statsig_python_core import (
     StatsigOptions,
     StatsigUser,
 )
-from mock_scrapi import MockScrapi
+from mock_scrapi import MockScrapi, decode_log_event_request
 from utils import get_test_data_resource
 from pytest_httpserver import HTTPServer
 
@@ -81,6 +81,31 @@ def test_public_exposure_logging_apis_do_not_accept_metadata():
     assert "exposure_metadata" not in inspect.signature(
         Statsig.manually_log_layer_parameter_exposure
     ).parameters
+
+
+@pytest.mark.parametrize("qualified_name", [None, "Caller.evaluate"])
+def test_callsite_function_name_supports_python_310(
+    statsig_setup, monkeypatch, qualified_name
+):
+    statsig, _ = statsig_setup
+    code = SimpleNamespace(co_filename="/app/caller.py", co_name="evaluate")
+    if qualified_name is not None:
+        code.co_qualname = qualified_name
+    caller = SimpleNamespace(
+        f_globals={"__name__": "app.caller"},
+        f_code=code,
+        f_lineno=42,
+        f_back=None,
+    )
+    monkeypatch.setattr(
+        inspect, "currentframe", lambda: SimpleNamespace(f_back=caller)
+    )
+
+    assert statsig._get_exposure_callsite_metadata() == {
+        "exposure_source_file": "caller.py",
+        "exposure_source_function": qualified_name or "evaluate",
+        "exposure_source_line": 42,
+    }
 
 
 def test_sdk_configs_attach_callsite_metadata_to_experiment_and_layer_exposures(
@@ -533,9 +558,7 @@ def test_statsig_metadata(statsig_setup):
     statsig.check_gate(StatsigUser("my_user"), "test_public")
     statsig.flush_events().wait()
     request = mock_scrapi.get_requests_for_endpoint("/v1/log_event")[0]
-    data = request.get_data()
-    json_str = gzip.decompress(data)
-    req_json = json.loads(json_str)
+    req_json = decode_log_event_request(request)
     statsig_metadata = req_json["statsigMetadata"]
 
     assert statsig_metadata["sdkType"] == "statsig-server-core-python"

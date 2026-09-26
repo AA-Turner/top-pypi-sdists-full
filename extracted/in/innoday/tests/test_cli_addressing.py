@@ -37,7 +37,8 @@ SUBCOMMANDS = [
     ["releases", "list"],
     ["git", "sync"],
     ["board", "register", "u", "n", "--type", "linear"],
-    ["release"],
+    ["blastoff"],
+    ["releases", "blastoff"],
     ["hotfix"],
     ["summary"],
     ["timeline"],
@@ -71,11 +72,11 @@ class TestGlobalFlagsReachEverySubcommand:
 
 
 class TestFlagsThatMeantTwoThings:
-    def test_release_takes_github_org_not_org(self):
+    def test_blastoff_takes_github_org_not_org(self):
         """`--org` is the InnoDay org globally and was the GitHub org here —
         the same string meaning two different things in one CLI."""
         ns = create_parser().parse_args(
-            ["--org", "hs", "release", "--github-org", "havilandsoftware"]
+            ["--org", "hs", "blastoff", "--github-org", "havilandsoftware"]
         )
         assert ns.organization == "hs"
         assert ns.github_org == "havilandsoftware"

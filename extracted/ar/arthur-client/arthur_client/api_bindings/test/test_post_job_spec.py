@@ -35,7 +35,7 @@ class TestPostJobSpec(unittest.TestCase):
         model = PostJobSpec()
         if include_optional:
             return PostJobSpec(
-                job_type = 'compliance_policy_check',
+                job_type = 'fetch_discovered_agents',
                 scope_model_id = '',
                 start_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
@@ -55,11 +55,16 @@ class TestPostJobSpec(unittest.TestCase):
                     vendor = '', 
                     query = '', 
                     query_language = '', 
-                    lookback_window_seconds = 56, ),
+                    lookback_window_seconds = 56, 
+                    source_fields = {
+                        'key' : ''
+                        }, ),
                 scan_id = '',
                 errored_alert_rule_ids = [
                     ''
-                    ]
+                    ],
+                discovery_source_id = '',
+                reported_since = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return PostJobSpec(
@@ -72,6 +77,7 @@ class TestPostJobSpec(unittest.TestCase):
                 check_range_end_timestamp = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 workspace_id = '',
                 data_plane_id = '',
+                discovery_source_id = '',
         )
         """
 

@@ -98,6 +98,7 @@ class JobsResource(SyncAPIResource):
         | Omit = omit,
         enabled: bool | Omit = omit,
         filter: Optional[str] | Omit = omit,
+        filter_attack_traffic: bool | Omit = omit,
         frequency: Optional[Literal["high", "low"]] | Omit = omit,
         kind: Literal["", "edge"] | Omit = omit,
         logpull_options: Optional[str] | Omit = omit,
@@ -134,6 +135,9 @@ class JobsResource(SyncAPIResource):
           filter: The filters to select the events to include and/or remove from your logs. For
               more information, refer to
               [Filters](https://developers.cloudflare.com/logs/reference/filters/).
+
+          filter_attack_traffic: When true, excludes DDoS attack traffic from logs. This option is supported for
+              the `http_requests`, `firewall_events`, and `network_analytics_logs` datasets.
 
           frequency: This field is deprecated. Please use `max_upload_*` parameters instead. . The
               frequency at which Cloudflare sends batches of logs to your destination. Setting
@@ -205,6 +209,7 @@ class JobsResource(SyncAPIResource):
                     "dataset": dataset,
                     "enabled": enabled,
                     "filter": filter,
+                    "filter_attack_traffic": filter_attack_traffic,
                     "frequency": frequency,
                     "kind": kind,
                     "logpull_options": logpull_options,
@@ -236,6 +241,7 @@ class JobsResource(SyncAPIResource):
         destination_conf: str | Omit = omit,
         enabled: bool | Omit = omit,
         filter: Optional[str] | Omit = omit,
+        filter_attack_traffic: bool | Omit = omit,
         frequency: Optional[Literal["high", "low"]] | Omit = omit,
         kind: Literal["", "edge"] | Omit = omit,
         logpull_options: Optional[str] | Omit = omit,
@@ -271,6 +277,9 @@ class JobsResource(SyncAPIResource):
           filter: The filters to select the events to include and/or remove from your logs. For
               more information, refer to
               [Filters](https://developers.cloudflare.com/logs/reference/filters/).
+
+          filter_attack_traffic: When true, excludes DDoS attack traffic from logs. This option is supported for
+              the `http_requests`, `firewall_events`, and `network_analytics_logs` datasets.
 
           frequency: This field is deprecated. Please use `max_upload_*` parameters instead. . The
               frequency at which Cloudflare sends batches of logs to your destination. Setting
@@ -342,6 +351,7 @@ class JobsResource(SyncAPIResource):
                     "destination_conf": destination_conf,
                     "enabled": enabled,
                     "filter": filter,
+                    "filter_attack_traffic": filter_attack_traffic,
                     "frequency": frequency,
                     "kind": kind,
                     "logpull_options": logpull_options,
@@ -608,6 +618,7 @@ class AsyncJobsResource(AsyncAPIResource):
         | Omit = omit,
         enabled: bool | Omit = omit,
         filter: Optional[str] | Omit = omit,
+        filter_attack_traffic: bool | Omit = omit,
         frequency: Optional[Literal["high", "low"]] | Omit = omit,
         kind: Literal["", "edge"] | Omit = omit,
         logpull_options: Optional[str] | Omit = omit,
@@ -644,6 +655,9 @@ class AsyncJobsResource(AsyncAPIResource):
           filter: The filters to select the events to include and/or remove from your logs. For
               more information, refer to
               [Filters](https://developers.cloudflare.com/logs/reference/filters/).
+
+          filter_attack_traffic: When true, excludes DDoS attack traffic from logs. This option is supported for
+              the `http_requests`, `firewall_events`, and `network_analytics_logs` datasets.
 
           frequency: This field is deprecated. Please use `max_upload_*` parameters instead. . The
               frequency at which Cloudflare sends batches of logs to your destination. Setting
@@ -715,6 +729,7 @@ class AsyncJobsResource(AsyncAPIResource):
                     "dataset": dataset,
                     "enabled": enabled,
                     "filter": filter,
+                    "filter_attack_traffic": filter_attack_traffic,
                     "frequency": frequency,
                     "kind": kind,
                     "logpull_options": logpull_options,
@@ -746,6 +761,7 @@ class AsyncJobsResource(AsyncAPIResource):
         destination_conf: str | Omit = omit,
         enabled: bool | Omit = omit,
         filter: Optional[str] | Omit = omit,
+        filter_attack_traffic: bool | Omit = omit,
         frequency: Optional[Literal["high", "low"]] | Omit = omit,
         kind: Literal["", "edge"] | Omit = omit,
         logpull_options: Optional[str] | Omit = omit,
@@ -781,6 +797,9 @@ class AsyncJobsResource(AsyncAPIResource):
           filter: The filters to select the events to include and/or remove from your logs. For
               more information, refer to
               [Filters](https://developers.cloudflare.com/logs/reference/filters/).
+
+          filter_attack_traffic: When true, excludes DDoS attack traffic from logs. This option is supported for
+              the `http_requests`, `firewall_events`, and `network_analytics_logs` datasets.
 
           frequency: This field is deprecated. Please use `max_upload_*` parameters instead. . The
               frequency at which Cloudflare sends batches of logs to your destination. Setting
@@ -852,6 +871,7 @@ class AsyncJobsResource(AsyncAPIResource):
                     "destination_conf": destination_conf,
                     "enabled": enabled,
                     "filter": filter,
+                    "filter_attack_traffic": filter_attack_traffic,
                     "frequency": frequency,
                     "kind": kind,
                     "logpull_options": logpull_options,

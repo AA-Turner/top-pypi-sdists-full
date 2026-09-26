@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import platformdirs
+from platformdirs import android
 from platformdirs.android import Android
 
 if TYPE_CHECKING:
@@ -63,15 +64,15 @@ def test_android(params: dict[str, Any], func: str) -> None:
         "user_log_dir": f"/data/data/com.example/cache{suffix}{'' if params.get('opinion', True) is False else '/log'}",
         "site_log_dir": f"/data/data/com.example/cache{suffix}{'' if params.get('opinion', True) is False else '/log'}",
         "user_documents_dir": "/storage/emulated/0/Documents",
-        "user_downloads_dir": "/storage/emulated/0/Downloads",
+        "user_downloads_dir": "/storage/emulated/0/Download",
         "user_pictures_dir": "/storage/emulated/0/Pictures",
-        "user_videos_dir": "/storage/emulated/0/DCIM/Camera",
+        "user_videos_dir": "/storage/emulated/0/Movies",
         "user_music_dir": "/storage/emulated/0/Music",
-        "user_desktop_dir": "/storage/emulated/0/Desktop",
-        "user_projects_dir": "/storage/emulated/0/Projects",
-        "user_publicshare_dir": "/storage/emulated/0/Public",
-        "user_templates_dir": "/storage/emulated/0/Templates",
-        "user_fonts_dir": "/storage/emulated/0/fonts",
+        "user_desktop_dir": "/storage/emulated/0/Documents/Desktop",
+        "user_projects_dir": "/storage/emulated/0/Documents/Projects",
+        "user_publicshare_dir": "/storage/emulated/0/Documents/Public",
+        "user_templates_dir": "/storage/emulated/0/Documents/Templates",
+        "user_fonts_dir": "/storage/emulated/0/Documents/fonts",
         "user_preference_dir": f"/data/data/com.example/shared_prefs{suffix}",
         "user_bin_dir": "/data/data/com.example/files/bin",
         "site_bin_dir": "/data/data/com.example/files/bin",
@@ -85,67 +86,28 @@ def test_android(params: dict[str, Any], func: str) -> None:
     assert result == expected
 
 
-def test_android_folder_from_jnius(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
-    from platformdirs import PlatformDirs  # ruff:ignore[import-outside-top-level]
-    from platformdirs.android import _android_folder  # ruff:ignore[import-outside-top-level]
-
-    mocker.patch.dict(sys.modules, {"android": MagicMock(side_effect=ModuleNotFoundError)})
-    monkeypatch.delitem(__import__("sys").modules, "android")
-
-    _android_folder.cache_clear()
-
-    if PlatformDirs is Android:
-        import jnius  # pragma: no cover # ruff:ignore[import-outside-top-level]
-
-        autoclass = mocker.spy(jnius, "autoclass")  # pragma: no cover
-    else:
-        parent = MagicMock(return_value=MagicMock(getAbsolutePath=MagicMock(return_value="/A")))  # pragma: no cover
-        context = MagicMock(getFilesDir=MagicMock(return_value=MagicMock(getParentFile=parent)))  # pragma: no cover
-        autoclass = MagicMock(return_value=context)  # pragma: no cover
-        mocker.patch.dict(sys.modules, {"jnius": MagicMock(autoclass=autoclass)})  # pragma: no cover
-
-    result = _android_folder()
-    assert result == "/A"
-    assert autoclass.call_count == 1
-
-    assert autoclass.call_args[0] == ("android.content.Context",)
-
-    assert _android_folder() is result
-    assert autoclass.call_count == 1
-
-
-def test_android_folder_from_p4a(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
-    from platformdirs.android import _android_folder  # ruff:ignore[import-outside-top-level]
-
-    mocker.patch.dict(sys.modules, {"jnius": MagicMock(side_effect=ModuleNotFoundError)})
-    monkeypatch.delitem(__import__("sys").modules, "jnius")
-
-    _android_folder.cache_clear()
-
-    get_absolute_path = MagicMock(return_value="/A")
-    get_parent_file = MagicMock(getAbsolutePath=get_absolute_path)
-    get_files_dir = MagicMock(getParentFile=MagicMock(return_value=get_parent_file))
-    get_application_context = MagicMock(getFilesDir=MagicMock(return_value=get_files_dir))
-    m_activity = MagicMock(getApplicationContext=MagicMock(return_value=get_application_context))
-    mocker.patch.dict(sys.modules, {"android": MagicMock(mActivity=m_activity)})
-
-    result = _android_folder()
-    assert result == "/A"
-    assert get_absolute_path.call_count == 1
-
-    assert _android_folder() is result
-    assert get_absolute_path.call_count == 1
-
-
 @pytest.mark.parametrize(
-    "path",
+    ("path", "expected"),
     [
-        "/data/user/1/a/files",
-        "/data/data/a/files",
-        "/mnt/expand/8e06fc2f-a86a-44e8-81ce-109e0eedd5ed/user/1/a/files",
+        pytest.param("/data/user/1/a/files", "/data/user/1/a", id="user"),
+        pytest.param("/data/data/a/files", "/data/data/a", id="data"),
+        pytest.param(
+            "/mnt/expand/8e06fc2f-a86a-44e8-81ce-109e0eedd5ed/user/1/a/files",
+            "/mnt/expand/8e06fc2f-a86a-44e8-81ce-109e0eedd5ed/user/1/a",
+            id="adopted",
+        ),
+        pytest.param("/data/data/filesync.app/files/app", "/data/data/filesync.app", id="data-files-prefix"),
+        pytest.param(
+            "/mnt/expand/8e06fc2f-a86a-44e8-81ce-109e0eedd5ed/user/0/filesync.app/files/app",
+            "/mnt/expand/8e06fc2f-a86a-44e8-81ce-109e0eedd5ed/user/0/filesync.app",
+            id="adopted-files-prefix",
+        ),
+        pytest.param("/data/data/a/files/app/lib/files", "/data/data/a", id="nested-files"),
     ],
 )
-def test_android_folder_from_sys_path(mocker: MockerFixture, path: str, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_android_folder_from_sys_path(
+    mocker: MockerFixture, path: str, expected: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
     mocker.patch.dict(sys.modules, {"jnius": MagicMock(side_effect=ModuleNotFoundError)})
     monkeypatch.delitem(__import__("sys").modules, "jnius")
     mocker.patch.dict(sys.modules, {"android": MagicMock(side_effect=ModuleNotFoundError)})
@@ -156,12 +118,135 @@ def test_android_folder_from_sys_path(mocker: MockerFixture, path: str, monkeypa
     _android_folder.cache_clear()
     monkeypatch.setattr(sys, "path", ["/A", "/B", path])
 
-    result = _android_folder()
-    assert result == path[: -len("/files")]
+    assert Android().user_data_path == Path(expected, "files")
+
+
+@pytest.fixture
+def _clear_android_caches() -> None:
+    for cached in vars(android).values():
+        if hasattr(cached, "cache_clear"):
+            cached.cache_clear()
+
+
+@pytest.mark.usefixtures("_clear_android_caches", "_posix_path_join")
+@pytest.mark.parametrize(
+    ("app_folder", "storage"),
+    [
+        pytest.param("/data/data/org.example.app", "/storage/emulated/0", id="owner"),
+        pytest.param("/data/user/10/org.example.app", "/storage/emulated/10", id="secondary-user"),
+        pytest.param(
+            "/mnt/expand/8e06fc2f-a86a-44e8-81ce-109e0eedd5ed/user/11/org.example.app",
+            "/storage/emulated/11",
+            id="adopted",
+        ),
+        pytest.param(None, "/storage/emulated/0", id="unknown"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("prop", "folder"),
+    [
+        pytest.param("user_documents_dir", "Documents", id="documents"),
+        pytest.param("user_downloads_dir", "Download", id="downloads"),
+        pytest.param("user_pictures_dir", "Pictures", id="pictures"),
+        pytest.param("user_videos_dir", "Movies", id="videos"),
+        pytest.param("user_music_dir", "Music", id="music"),
+        pytest.param("user_desktop_dir", "Documents/Desktop", id="desktop"),
+        pytest.param("user_projects_dir", "Documents/Projects", id="projects"),
+        pytest.param("user_publicshare_dir", "Documents/Public", id="publicshare"),
+        pytest.param("user_templates_dir", "Documents/Templates", id="templates"),
+        pytest.param("user_fonts_dir", "Documents/fonts", id="fonts"),
+    ],
+)
+def test_android_shared_storage_follows_user(
+    mocker: MockerFixture, app_folder: str | None, storage: str, prop: str, folder: str
+) -> None:
+    mocker.patch.dict(sys.modules, {"jnius": None})
+    mocker.patch("platformdirs.android._android_folder", return_value=app_folder, autospec=True)
+    assert getattr(Android(), prop) == f"{storage}/{folder}"
+
+
+@pytest.fixture
+def _posix_path_join(mocker: MockerFixture) -> None:
+    mocker.patch("platformdirs.android.os.path.join", lambda *args: "/".join(args))
+
+
+def _pyjnius(classes: dict[str, MagicMock]) -> MagicMock:
+    # pyjnius raises JavaException for an unknown class and for an instance method called on a class object
+    def autoclass(name: str) -> MagicMock:
+        if name not in classes:
+            msg = f"Class not found {name!r}"
+            raise RuntimeError(msg)
+        return classes[name]
+
+    return MagicMock(autoclass=autoclass, JavaException=RuntimeError)
+
+
+def _context(app_folder: str) -> MagicMock:
+    app_dir = MagicMock(getAbsolutePath=MagicMock(return_value=app_folder))
+    return MagicMock(getFilesDir=MagicMock(return_value=MagicMock(getParentFile=MagicMock(return_value=app_dir))))
+
+
+def _environment() -> MagicMock:
+    def public_directory(name: str) -> MagicMock:
+        return MagicMock(getAbsolutePath=MagicMock(return_value=f"/storage/emulated/10/{name}"))
+
+    return MagicMock(getExternalStoragePublicDirectory=MagicMock(side_effect=public_directory))
+
+
+@pytest.mark.usefixtures("_clear_android_caches", "_posix_path_join")
+@pytest.mark.parametrize(
+    ("activity", "service"),
+    [
+        pytest.param(_context("/data/user/10/org.example.app"), None, id="activity"),
+        pytest.param(None, _context("/data/user/10/org.example.app"), id="service"),
+    ],
+)
+def test_android_folder_from_python_for_android(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch, activity: MagicMock | None, service: MagicMock | None
+) -> None:
+    classes = {
+        "org.kivy.android.PythonActivity": MagicMock(mActivity=activity),
+        "org.kivy.android.PythonService": MagicMock(mService=service),
+    }
+    mocker.patch.dict(sys.modules, {"jnius": _pyjnius(classes), "android": None})
+    monkeypatch.setattr(sys, "path", [])
+    assert Android(appname="app").user_data_dir == "/data/user/10/org.example.app/files/app"
+
+
+@pytest.mark.usefixtures("_clear_android_caches", "_posix_path_join")
+def test_android_folder_without_python_for_android_uses_sys_path(
+    mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mocker.patch.dict(sys.modules, {"jnius": _pyjnius({}), "android": None})
+    monkeypatch.setattr(sys, "path", ["/data/user/10/org.example.app/files/app"])
+    assert Android(appname="app").user_data_dir == "/data/user/10/org.example.app/files/app"
+
+
+@pytest.mark.usefixtures("_clear_android_caches", "_posix_path_join")
+@pytest.mark.parametrize(
+    ("prop", "expected"),
+    [
+        pytest.param("user_documents_dir", "/storage/emulated/10/Documents", id="documents"),
+        pytest.param("user_downloads_dir", "/storage/emulated/10/Download", id="downloads"),
+        pytest.param("user_pictures_dir", "/storage/emulated/10/Pictures", id="pictures"),
+        pytest.param("user_videos_dir", "/storage/emulated/10/Movies", id="videos"),
+        pytest.param("user_music_dir", "/storage/emulated/10/Music", id="music"),
+    ],
+)
+def test_android_media_dir_from_environment(mocker: MockerFixture, prop: str, expected: str) -> None:
+    classes = {"android.os.Environment": _environment()}
+    mocker.patch.dict(sys.modules, {"jnius": _pyjnius(classes)})
+    assert getattr(Android(), prop) == expected
+
+
+@pytest.mark.usefixtures("_clear_android_caches")
+def test_android_media_dir_without_environment_falls_back(mocker: MockerFixture) -> None:
+    mocker.patch.dict(sys.modules, {"jnius": _pyjnius({})})
+    assert Android().user_downloads_dir == "/storage/emulated/0/Download"
 
 
 def test_android_folder_not_found(mocker: MockerFixture, monkeypatch: pytest.MonkeyPatch) -> None:
-    mocker.patch.dict(sys.modules, {"jnius": MagicMock(autoclass=MagicMock(side_effect=ModuleNotFoundError))})
+    mocker.patch.dict(sys.modules, {"jnius": None})
 
     from platformdirs.android import _android_folder  # ruff:ignore[import-outside-top-level]
 

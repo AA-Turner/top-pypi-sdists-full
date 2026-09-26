@@ -164,6 +164,8 @@ _MODEL_DB = {
     "H5074": ModelInfo("H5074", requires_active_scan=True),
     "H5075": ModelInfo("H5075", requires_active_scan=True),
     "H5129": ModelInfo("H5129", requires_active_scan=True),
+    "H5179": ModelInfo("H5179", requires_active_scan=True),
+    "GV5179": ModelInfo("GV5179", requires_active_scan=True),
     "H5121": ModelInfo("H5121", sensor_type=SensorType.MOTION, sleepy=True),
     "H5122": ModelInfo(
         "H5122", sensor_type=SensorType.BUTTON, button_count=1, sleepy=True
@@ -178,7 +180,11 @@ _MODEL_DB = {
     ),
     "H5127": ModelInfo("H5127", sensor_type=SensorType.PRESENCE, sleepy=True),
     "H5130": ModelInfo(
-        "H5130", sensor_type=SensorType.PRESSURE, button_count=1, sleepy=True
+        "H5130",
+        sensor_type=SensorType.PRESSURE,
+        button_count=1,
+        sleepy=True,
+        requires_active_scan=True,
     ),
 }
 
@@ -362,14 +368,20 @@ class GoveeBluetoothDeviceData(BluetoothData):
                 self.fire_event(f"button_{button_number_pressed}", "press")
             return
 
-        if msg_length == 6 and (
-            (data.startswith(b"\xec\x00\x01\x01") and "H5127" in local_name)
-            or mgr_id == 0x8803
-            # Firmware 1.00.13 switched mgr_id 0x8803 -> 0x8843 and the payload
-            # prefix ec0001... -> ec0002...; the present/motion byte offsets are
-            # unchanged. See issue #264.
-            or (data.startswith(b"\xec\x00\x02") and "H5127" in local_name)
-            or mgr_id == 0x8843
+        # Firmware 1.00.13 switched mgr_id 0x8803 -> 0x8843 and the payload
+        # prefix ec000101... -> ec000201...; the present/motion byte offsets are
+        # unchanged. See issue #264.
+        #
+        # 0x8803/0x8843 are not real company ids: Govee puts a flags byte right
+        # after 0xFF, which BlueZ reads as the low byte of a little-endian
+        # company id. 0x43 only means "broadcast v3, encrypted", which most of
+        # the modern Govee lineup sets, so the payload prefix must be checked as
+        # well or unrelated lights and plugs get published as presence sensors.
+        # See issue #283.
+        if (
+            msg_length == 6
+            and data.startswith((b"\xec\x00\x01\x01", b"\xec\x00\x02\x01"))
+            and ("H5127" in local_name or mgr_id in (0x8803, 0x8843))
         ):
             self.set_device_type("H5127")
             self.set_device_name(f"H5127{short_address(address)}")
@@ -379,6 +391,15 @@ class GoveeBluetoothDeviceData(BluetoothData):
                 BinarySensorDeviceClass.OCCUPANCY, present
             )
             self.update_predefined_binary_sensor(BinarySensorDeviceClass.MOTION, motion)
+            return
+
+        if msg_length == 6 and mgr_id in (0x8803, 0x8843) and debug_logging:
+            _LOGGER.debug(
+                "6 byte Govee packet with key 0x%04x not matched as H5127: %s %s",
+                mgr_id,
+                local_name,
+                data.hex(),
+            )
 
         if msg_length == 6 and (
             (is_5072 := "H5072" in local_name)

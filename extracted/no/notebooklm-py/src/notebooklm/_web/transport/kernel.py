@@ -7,13 +7,14 @@ from typing import Any
 
 import httpx
 
+from ..._loop_bound import EpochFenced
 from ...auth import AuthTokens, build_cookie_jar
 from ...types import ConnectionLimits
 from .request_types import PostBody
 from .streaming_post import stream_post_with_size_cap
 
 
-class Kernel:
+class Kernel(EpochFenced):
     """Own the live HTTP transport and cookie jar.
 
     Client lifecycle code decides when to open and close. The kernel owns the
@@ -27,6 +28,7 @@ class Kernel:
         auth: AuthTokens | None = None,
         async_client_factory: Callable[..., httpx.AsyncClient] = httpx.AsyncClient,
     ) -> None:
+        super().__init__("NotebookLMClient resource generation is retired")
         self._async_client_factory = async_client_factory
         self._http_client: httpx.AsyncClient | None = None
         # The kernel owns the one mutable cookie jar for the whole client
@@ -34,30 +36,16 @@ class Kernel:
         # A composed client seeds this once from AuthTokens' bootstrap shadow;
         # after open, ``get_cookies`` resolves directly to the transport jar.
         self._cookies = self._bootstrap_cookies(auth) if auth is not None else None
-        self._timeout: float | None = None
+        self._read_timeout: float | None = None
+        self._write_timeout: float | None = None
+        self._pool_timeout: float | None = None
         self._connect_timeout: float | None = None
-        # Resource-generation fence. ClientLifecycle activates this before
-        # publishing a handle and clears it synchronously before teardown.
-        self._active_epoch: int | None = None
 
-    def activate_epoch(self, epoch: int) -> None:
+    def activate(self, epoch: int) -> None:
         """Activate ``epoch`` before a live client can be published."""
         if self._http_client is not None and self._active_epoch != epoch:
             raise RuntimeError("Cannot replace a live web transport generation.")
-        self._active_epoch = epoch
-
-    def fence_epoch(self, epoch: int | None) -> None:
-        """Retire ``epoch`` synchronously before close performs its first await."""
-        if epoch is None or self._active_epoch == epoch:
-            self._active_epoch = None
-
-    def assert_epoch(self, expected_epoch: int) -> None:
-        """Reject an admitted workflow whose resource generation was retired."""
-        if self._active_epoch != expected_epoch:
-            raise RuntimeError(
-                "NotebookLMClient resource generation is retired "
-                f"(expected={expected_epoch}, active={self._active_epoch!r})."
-            )
+        super().activate(epoch)
 
     @staticmethod
     def _bootstrap_cookies(auth: AuthTokens) -> httpx.Cookies:
@@ -129,8 +117,10 @@ class Kernel:
         self,
         *,
         auth: AuthTokens,
-        timeout: float,
-        connect_timeout: float,
+        read_timeout: float | None,
+        write_timeout: float | None,
+        pool_timeout: float | None,
+        connect_timeout: float | None,
         limits: ConnectionLimits,
         capture_cookie_snapshot: Callable[[httpx.Cookies], object],
         expected_epoch: int | None = None,
@@ -145,11 +135,13 @@ class Kernel:
 
         http_timeout = httpx.Timeout(
             connect=connect_timeout,
-            read=timeout,
-            write=timeout,
-            pool=timeout,
+            read=read_timeout,
+            write=write_timeout,
+            pool=pool_timeout,
         )
-        self._timeout = timeout
+        self._read_timeout = read_timeout
+        self._write_timeout = write_timeout
+        self._pool_timeout = pool_timeout
         self._connect_timeout = connect_timeout
         # Direct Kernel callers seed here; composed clients already seeded at
         # construction so account identity can be resolved before open. This
@@ -213,8 +205,8 @@ class Kernel:
             timeout_override = httpx.Timeout(
                 connect=self._connect_timeout,
                 read=read_timeout,
-                write=self._timeout,
-                pool=self._timeout,
+                write=self._write_timeout,
+                pool=self._pool_timeout,
             )
         headers_arg = dict(headers) if headers is not None else None
         stream_kwargs: dict[str, Any] = {}
@@ -242,9 +234,11 @@ class Kernel:
             # the seed for a later reopen of this same client.
             self._cookies = client.cookies
             self._http_client = None
-            self._timeout = None
+            self._read_timeout = None
+            self._write_timeout = None
+            self._pool_timeout = None
             self._connect_timeout = None
-            self._active_epoch = None
+            self.fence()
 
 
 __all__ = ["Kernel"]

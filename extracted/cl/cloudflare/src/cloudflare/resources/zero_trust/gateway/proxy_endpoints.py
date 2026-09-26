@@ -20,7 +20,11 @@ from ...._response import (
 from ...._wrappers import ResultWrapper
 from ....pagination import SyncSinglePage, AsyncSinglePage
 from ...._base_client import AsyncPaginator, make_request_options
-from ....types.zero_trust.gateway import proxy_endpoint_edit_params, proxy_endpoint_create_params
+from ....types.zero_trust.gateway import (
+    proxy_endpoint_edit_params,
+    proxy_endpoint_list_params,
+    proxy_endpoint_create_params,
+)
 from ....types.zero_trust.gateway.gateway_ips import GatewayIPs
 from ....types.zero_trust.gateway.proxy_endpoint import ProxyEndpoint
 
@@ -65,6 +69,8 @@ class ProxyEndpointsResource(SyncAPIResource):
         Create a new Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           name: Specify the name of the proxy endpoint.
 
           kind: The proxy endpoint kind
@@ -97,6 +103,8 @@ class ProxyEndpointsResource(SyncAPIResource):
         Create a new Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           kind: The proxy endpoint kind
 
           name: Specify the name of the proxy endpoint.
@@ -155,6 +163,10 @@ class ProxyEndpointsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: SequenceNotStr[str] | Omit = omit,
+        order_by: Literal["name", "created_at", "updated_at"] | Omit = omit,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -166,6 +178,43 @@ class ProxyEndpointsResource(SyncAPIResource):
         List all Zero Trust Gateway proxy endpoints for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
+          direction: Sort direction. Only takes effect when `order_by` is also provided; it is
+              ignored otherwise. When `direction` is omitted the effective direction is
+              field-specific: `created_at` and `updated_at` default to descending (newest
+              first); `name` defaults to ascending.
+
+              - `asc` — ascending.
+              - `desc` — descending.
+
+          filter: Filter the returned proxy endpoints by one or more `field:value` pairs. Repeat
+              the parameter to apply multiple filters; they are combined with logical AND (an
+              endpoint must satisfy every filter to be returned).
+
+              Supported fields and their matching behaviour:
+
+              - `name` — case-insensitive substring match on the endpoint name.
+              - `id` — substring match on the endpoint ID (UUID), with or without dashes.
+              - `kind` — exact match on the endpoint kind. The value must be `ip` or
+                `identity`; any other value returns `400`.
+
+              Each entry must match one of the per-field patterns below: the field must be one
+              of `name`, `id`, or `kind`; `name`/`id` accept any value, while `kind` only
+              accepts `ip` or `identity`.
+
+          order_by: Field to sort the returned endpoints by. When omitted, the order of results is
+              unspecified. Supported values:
+
+              - `name` — sort alphabetically by endpoint name.
+              - `created_at` — sort by creation time; defaults to descending unless
+                `direction` is set.
+              - `updated_at` — sort by last-modified time; defaults to descending unless
+                `direction` is set.
+
+          search: Case-insensitive substring match on the endpoint name. When combined with
+              `filter`, both must match (logical AND).
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -180,7 +229,19 @@ class ProxyEndpointsResource(SyncAPIResource):
             path_template("/accounts/{account_id}/gateway/proxy_endpoints", account_id=account_id),
             page=SyncSinglePage[ProxyEndpoint],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "direction": direction,
+                        "filter": filter,
+                        "order_by": order_by,
+                        "search": search,
+                    },
+                    proxy_endpoint_list_params.ProxyEndpointListParams,
+                ),
             ),
             model=cast(Any, ProxyEndpoint),  # Union types cannot be passed in as arguments in the type system
         )
@@ -201,6 +262,8 @@ class ProxyEndpointsResource(SyncAPIResource):
         Delete a configured Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -247,6 +310,8 @@ class ProxyEndpointsResource(SyncAPIResource):
         Update a configured Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           ips: Specify the list of CIDRs to restrict ingress connections.
 
           name: Specify the name of the proxy endpoint.
@@ -307,6 +372,8 @@ class ProxyEndpointsResource(SyncAPIResource):
         Get a single Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -379,6 +446,8 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         Create a new Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           name: Specify the name of the proxy endpoint.
 
           kind: The proxy endpoint kind
@@ -411,6 +480,8 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         Create a new Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           kind: The proxy endpoint kind
 
           name: Specify the name of the proxy endpoint.
@@ -469,6 +540,10 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: SequenceNotStr[str] | Omit = omit,
+        order_by: Literal["name", "created_at", "updated_at"] | Omit = omit,
+        search: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -480,6 +555,43 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         List all Zero Trust Gateway proxy endpoints for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
+          direction: Sort direction. Only takes effect when `order_by` is also provided; it is
+              ignored otherwise. When `direction` is omitted the effective direction is
+              field-specific: `created_at` and `updated_at` default to descending (newest
+              first); `name` defaults to ascending.
+
+              - `asc` — ascending.
+              - `desc` — descending.
+
+          filter: Filter the returned proxy endpoints by one or more `field:value` pairs. Repeat
+              the parameter to apply multiple filters; they are combined with logical AND (an
+              endpoint must satisfy every filter to be returned).
+
+              Supported fields and their matching behaviour:
+
+              - `name` — case-insensitive substring match on the endpoint name.
+              - `id` — substring match on the endpoint ID (UUID), with or without dashes.
+              - `kind` — exact match on the endpoint kind. The value must be `ip` or
+                `identity`; any other value returns `400`.
+
+              Each entry must match one of the per-field patterns below: the field must be one
+              of `name`, `id`, or `kind`; `name`/`id` accept any value, while `kind` only
+              accepts `ip` or `identity`.
+
+          order_by: Field to sort the returned endpoints by. When omitted, the order of results is
+              unspecified. Supported values:
+
+              - `name` — sort alphabetically by endpoint name.
+              - `created_at` — sort by creation time; defaults to descending unless
+                `direction` is set.
+              - `updated_at` — sort by last-modified time; defaults to descending unless
+                `direction` is set.
+
+          search: Case-insensitive substring match on the endpoint name. When combined with
+              `filter`, both must match (logical AND).
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -494,7 +606,19 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
             path_template("/accounts/{account_id}/gateway/proxy_endpoints", account_id=account_id),
             page=AsyncSinglePage[ProxyEndpoint],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "direction": direction,
+                        "filter": filter,
+                        "order_by": order_by,
+                        "search": search,
+                    },
+                    proxy_endpoint_list_params.ProxyEndpointListParams,
+                ),
             ),
             model=cast(Any, ProxyEndpoint),  # Union types cannot be passed in as arguments in the type system
         )
@@ -515,6 +639,8 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         Delete a configured Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -561,6 +687,8 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         Update a configured Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           ips: Specify the list of CIDRs to restrict ingress connections.
 
           name: Specify the name of the proxy endpoint.
@@ -621,6 +749,8 @@ class AsyncProxyEndpointsResource(AsyncAPIResource):
         Get a single Zero Trust Gateway proxy endpoint.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

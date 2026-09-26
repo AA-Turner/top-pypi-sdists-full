@@ -52,7 +52,7 @@ class TrafficAnomaly(BaseModel):
 
     origin_details: Optional[TrafficAnomalyOriginDetails] = FieldInfo(alias="originDetails", default=None)
 
-    start_date: str = FieldInfo(alias="startDate")
+    start_date: datetime = FieldInfo(alias="startDate")
 
     status: str
 

@@ -46,6 +46,8 @@ changes — which is the right cache-bust behavior for tests.
 
 from __future__ import annotations
 
+from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
+
 import asyncio
 import hashlib
 import json
@@ -322,13 +324,21 @@ class RecordReplayExecutor:
     def _path(self, key: str) -> Path:
         return self.recordings_dir / f"{key}.json"
 
+    @mandate_carrier_passthrough(
+        "a drop-in test executor: it forwards the config and metadata its caller hands "
+        "it to execute_ai_request unchanged (or replays a recording of exactly that)"
+    )
     async def __call__(
         self,
         config: UnifiedConfig,
         max_iterations: int = 100,
         max_retries_per_iteration: int = 2,
         metadata: dict[str, Any] | None = None,
+        **carrier: Any,
     ) -> Any:
+        """``carrier`` is the executor's keyword surface beyond the four
+        positionals (``mandate_key``, ``store``, ``conversation_id``) — a drop-in
+        must accept exactly what the real funnel accepts and forward it."""
         stub = _match_stub(config)
         if stub is not None:
             return _stub_to_completed(stub, config)
@@ -349,7 +359,7 @@ class RecordReplayExecutor:
         from matrx_ai.orchestrator.executor import execute_ai_request
 
         result = await execute_ai_request(
-            config, max_iterations, max_retries_per_iteration, metadata
+            config, max_iterations, max_retries_per_iteration, metadata, **carrier
         )
         await asyncio.to_thread(self._persist, path, result, config)
         return result

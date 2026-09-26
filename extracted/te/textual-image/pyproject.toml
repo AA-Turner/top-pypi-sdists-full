@@ -74,11 +74,14 @@ exclude = ["build/"]
 extend-ignore-identifiers-re = ["arange"]
 
 [tool.typos.files]
-extend-exclude = ["tests/renderable/__snapshots__/*.ambr"]
+extend-exclude = [
+    "CHANGELOG.md",
+    "tests/renderable/__snapshots__/*.ambr",
+]
 
 [project]
 name = "textual-image"
-version = "0.14.0"
+version = "0.14.1"
 description = "Render images via Kitty's Terminal Graphics Protocol with Rich and Textual"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -96,6 +99,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 license = "LGPL-3.0-or-later"
+license-files = ["LICENSE.txt"]
 dependencies = [
     "pillow>=10.3.0",
     "rich>=13.4.0",

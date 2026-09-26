@@ -58,10 +58,10 @@ class UploadResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UploadCreateResponse]:
-        """Upload assets ahead of creating a Worker version.
+        """Upload Worker assets ahead of creating a Worker version.
 
-        To learn more about the direct
-        uploads of assets, see
+        To learn more about the
+        direct uploads of assets, see
         https://developers.cloudflare.com/workers/static-assets/direct-upload/.
 
         Args:
@@ -131,10 +131,10 @@ class AsyncUploadResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[UploadCreateResponse]:
-        """Upload assets ahead of creating a Worker version.
+        """Upload Worker assets ahead of creating a Worker version.
 
-        To learn more about the direct
-        uploads of assets, see
+        To learn more about the
+        direct uploads of assets, see
         https://developers.cloudflare.com/workers/static-assets/direct-upload/.
 
         Args:

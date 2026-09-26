@@ -426,12 +426,16 @@ class ExternalMCPClient:
             )
 
         config_mgr = get_instance("tool_mcp_config_manager_instance")
+        # An archived recipe (tool.mcp_config.deleted_at) is never a launch recipe.
         configs = await config_mgr.filter_items(
             server_id=tool_def.managed_by_server_id,
             is_default=True,
+            deleted_at__isnull=True,
         )
         if not configs:
-            configs = await config_mgr.filter_items(server_id=tool_def.managed_by_server_id)
+            configs = await config_mgr.filter_items(
+                server_id=tool_def.managed_by_server_id, deleted_at__isnull=True
+            )
         if not configs:
             raise ValueError("stdio MCP server has no tool.mcp_config launch recipe")
         config = configs[0]

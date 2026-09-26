@@ -12,6 +12,7 @@ __all__ = ["ProxyEndpointEditParams"]
 
 class ProxyEndpointEditParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     ips: SequenceNotStr[GatewayIPs]
     """Specify the list of CIDRs to restrict ingress connections."""

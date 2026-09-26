@@ -106,6 +106,7 @@ __all__ = (
     "RelevanceLevelType",
     "RelevanceType",
     "ResourceServiceName",
+    "RetrieveErrorCodeType",
     "ReturnReasonType",
     "SearchContentPaginatorName",
     "SearchMessageTemplatesPaginatorName",
@@ -335,6 +336,7 @@ RecommendationTypeType = Literal[
     "INTENT_ANSWER_CHUNK",
     "KNOWLEDGE_CONTENT",
     "NOTES_CHUNK",
+    "PROACTIVE_RECOMMENDATION",
     "SUGGESTED_MESSAGE",
 ]
 ReferenceTypeType = Literal[
@@ -351,6 +353,14 @@ ReferenceTypeType = Literal[
 ]
 RelevanceLevelType = Literal["HIGH", "LOW", "MEDIUM"]
 RelevanceType = Literal["HELPFUL", "NOT_HELPFUL"]
+RetrieveErrorCodeType = Literal[
+    "ACCESS_DENIED",
+    "DEPENDENCY_FAILED",
+    "INTERNAL_SERVER_ERROR",
+    "RESOURCE_NOT_FOUND",
+    "THROTTLED",
+    "VALIDATION_ERROR",
+]
 ReturnReasonType = Literal["COMPLETE", "COMPLETE_WITH_ERROR", "ESCALATE", "OUT_OF_DOMAIN"]
 SearchContentPaginatorName = Literal["search_content"]
 SearchMessageTemplatesPaginatorName = Literal["search_message_templates"]
@@ -456,6 +466,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -530,6 +541,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -653,6 +665,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

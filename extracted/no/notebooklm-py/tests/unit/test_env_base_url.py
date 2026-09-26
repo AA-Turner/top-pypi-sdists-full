@@ -13,6 +13,7 @@ from notebooklm._env import (
     get_base_host,
     get_base_url,
 )
+from notebooklm._web.rows.sharing import decode_share_status
 from notebooklm._web.sources import WebSourcesAPI
 from notebooklm._web.sources.upload import SourceUploadPipeline
 from notebooklm.auth import AuthTokens
@@ -132,7 +133,7 @@ def test_core_build_url_uses_enterprise_base_url(monkeypatch):
         authuser=core._auth.authuser,
         account_email=core._auth.account_email,
     )
-    url = core._rpc_executor.build_url(RPCMethod.LIST_NOTEBOOKS, snapshot)
+    url = core._web_runtime.executor.build_url(RPCMethod.LIST_NOTEBOOKS, snapshot)
 
     assert url.startswith("https://notebooklm.cloud.google.com/_/LabsTailwindUi/data/")
 
@@ -149,7 +150,7 @@ async def test_invalid_rpc_base_url_keeps_pre_chain_accounting(monkeypatch) -> N
     monkeypatch.setenv("NOTEBOOKLM_BASE_URL", "https://evil.example")
     try:
         with pytest.raises(ValueError, match="NOTEBOOKLM_BASE_URL"):
-            await client.rpc_call(RPCMethod.LIST_NOTEBOOKS, [])
+            await client.raw.call(RPCMethod.LIST_NOTEBOOKS, [])
     finally:
         await client.close(drain=False)
 
@@ -177,7 +178,7 @@ async def test_upload_start_uses_enterprise_url_and_headers(monkeypatch, httpx_m
     uploader = SourceUploadPipeline(
         rpc=core,
         supervisor=core._collaborators.call_supervisor,
-        kernel=core._collaborators.kernel,
+        kernel=core._web_runtime.kernel,
         auth=core._auth,
         record_upload_queue_wait=core._collaborators.metrics.record_upload_queue_wait,
     )
@@ -230,6 +231,6 @@ async def test_client_refresh_auth_uses_enterprise_base_url(monkeypatch, httpx_m
 def test_share_status_uses_enterprise_base_url(monkeypatch):
     monkeypatch.setenv("NOTEBOOKLM_BASE_URL", "https://notebooklm.cloud.google.com")
 
-    status = ShareStatus.from_api_response([[["owner@example.com"]], [True], 1000], "nb_123")
+    status = decode_share_status(ShareStatus, [[["owner@example.com"]], [True], 1000], "nb_123")
 
     assert status.share_url == "https://notebooklm.cloud.google.com/notebook/nb_123"

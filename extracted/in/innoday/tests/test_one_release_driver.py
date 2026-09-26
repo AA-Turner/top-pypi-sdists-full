@@ -277,7 +277,7 @@ class TestTheCommandLineStillWorks:
     @staticmethod
     def _parse(argv):
         parser = argparse.ArgumentParser()
-        ReleaseProxyCommands.setup_parser(parser, "hotfix")
+        ReleaseProxyCommands.setup_parser(parser)
         return parser.parse_args(argv)
 
     def test_the_narrowing_switches_are_declared(self):

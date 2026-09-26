@@ -9,7 +9,7 @@ __all__ = ["SnippetGetResponse"]
 
 
 class SnippetGetResponse(BaseModel):
-    """Contain the response result."""
+    """Define a snippet."""
 
     created_on: datetime
     """Indicates when the snippet was created."""

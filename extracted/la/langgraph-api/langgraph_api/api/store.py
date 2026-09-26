@@ -24,13 +24,29 @@ from langgraph_api.validation import (
 from langgraph_runtime.retry import retry_db
 
 
-def _validate_namespace(namespace: tuple[str, ...]) -> Response | None:
+def _validate_namespace(namespace: Any) -> Response | None:
+    if not isinstance(namespace, list | tuple):
+        return _rejected_namespace("Namespace must be a list of labels")
     for label in namespace:
-        if not label or "." in label:
-            return Response(
-                status_code=422,
-                content=f"Namespace labels cannot be empty or contain periods. Received: {namespace}",
+        if not isinstance(label, str) or not label or "." in label:
+            return _rejected_namespace(
+                f"Namespace label {label!r} must be a non-empty string without periods"
             )
+    return None
+
+
+def _validate_optional_namespace(namespace: Any) -> Response | None:
+    return None if namespace is None else _validate_namespace(namespace)
+
+
+def _as_namespace(
+    namespace: list[str] | tuple[str, ...] | None,
+) -> tuple[str, ...] | None:
+    return None if namespace is None else tuple(namespace)
+
+
+def _rejected_namespace(detail: str) -> Response:
+    return Response(status_code=422, content=detail)
 
 
 async def handle_event(
@@ -72,8 +88,10 @@ async def put_item(request: ApiRequest):
         "ttl": payload.get("ttl"),
     }
     await handle_event("put", handler_payload)
+    if err := _validate_namespace(handler_payload["namespace"]):
+        return err
     await (await get_store()).aput(
-        handler_payload["namespace"],
+        tuple(handler_payload["namespace"]),
         handler_payload["key"],
         handler_payload["value"],
         index=handler_payload["index"],
@@ -100,15 +118,22 @@ async def get_item(request: ApiRequest):
         else None,
     }
     await handle_event("get", handler_payload)
+    if err := _validate_namespace(handler_payload["namespace"]):
+        return err
     result = await (await get_store()).aget(
-        handler_payload["namespace"],
+        tuple(handler_payload["namespace"]),
         handler_payload["key"],
         refresh_ttl=handler_payload["refresh_ttl"],
     )
     if result is None:
         return ApiResponse(None)
     return ApiResponse(
-        await decrypt_response(result.dict(), "store", STORE_ENCRYPTION_FIELDS)
+        await decrypt_response(
+            result.dict(),
+            "store",
+            STORE_ENCRYPTION_FIELDS,
+            plaintext_from_core=config.USE_GRPC_STORE,
+        )
     )
 
 
@@ -124,8 +149,10 @@ async def delete_item(request: ApiRequest):
         "key": payload["key"],
     }
     await handle_event("delete", handler_payload)
+    if err := _validate_namespace(handler_payload["namespace"]):
+        return err
     await (await get_store()).adelete(
-        handler_payload["namespace"], handler_payload["key"]
+        tuple(handler_payload["namespace"]), handler_payload["key"]
     )
     return Response(status_code=204)
 
@@ -150,6 +177,8 @@ async def search_items(request: ApiRequest):
         "refresh_ttl": payload.get("refresh_ttl"),
     }
     auth_filter = await handle_event("search", handler_payload)
+    if err := _validate_namespace(handler_payload["namespace"]):
+        return err
     if auth_filter:
         existing = handler_payload.get("filter")
         if existing:
@@ -157,7 +186,7 @@ async def search_items(request: ApiRequest):
         else:
             handler_payload["filter"] = auth_filter
     items = await (await get_store()).asearch(
-        handler_payload["namespace"],
+        tuple(handler_payload["namespace"]),
         filter=handler_payload["filter"],
         limit=handler_payload["limit"],
         offset=handler_payload["offset"],
@@ -167,7 +196,10 @@ async def search_items(request: ApiRequest):
     return ApiResponse(
         {
             "items": await decrypt_responses(
-                [item.dict() for item in items], "store", STORE_ENCRYPTION_FIELDS
+                [item.dict() for item in items],
+                "store",
+                STORE_ENCRYPTION_FIELDS,
+                plaintext_from_core=config.USE_GRPC_STORE,
             )
         }
     )
@@ -179,10 +211,9 @@ async def list_namespaces(request: ApiRequest):
     payload = await request.json(StoreListNamespacesRequest)
     prefix = tuple(payload["prefix"]) if payload.get("prefix") else None
     suffix = tuple(payload["suffix"]) if payload.get("suffix") else None
-    err = None
-    if prefix and (err := _validate_namespace(prefix)):
+    if err := _validate_optional_namespace(prefix):
         return err
-    if suffix and (err := _validate_namespace(suffix)):
+    if err := _validate_optional_namespace(suffix):
         return err
     max_depth = payload.get("max_depth")
     limit = payload.get("limit", 100)
@@ -195,9 +226,12 @@ async def list_namespaces(request: ApiRequest):
         "offset": offset,
     }
     await handle_event("list_namespaces", handler_payload)
+    for candidate in (handler_payload["namespace"], handler_payload["suffix"]):
+        if err := _validate_optional_namespace(candidate):
+            return err
     result = await (await get_store()).alist_namespaces(
-        prefix=handler_payload["namespace"],
-        suffix=handler_payload["suffix"],
+        prefix=_as_namespace(handler_payload["namespace"]),
+        suffix=_as_namespace(handler_payload["suffix"]),
         max_depth=handler_payload["max_depth"],
         limit=handler_payload["limit"],
         offset=handler_payload["offset"],

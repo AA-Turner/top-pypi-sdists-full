@@ -27,8 +27,8 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
 
+from ..._adapter_support import redact
 from ..._app.auth_check import AuthCheckPlan, run_auth_check
-from ..._redact import redact
 from ..._version_info import version_string
 from ...client import NotebookLMClient
 from ...exceptions import AuthError, NotebookLMError
@@ -135,7 +135,6 @@ async def server_info(
         has_home_env=False,
         auth_source_label=f"file ({storage_path})",
         test_fetch=False,
-        json_output=True,
     )
     account_client: NotebookLMClient | None = None
     if include_account:

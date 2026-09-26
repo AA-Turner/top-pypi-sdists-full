@@ -98,7 +98,7 @@ async def test_session_close_drains_artifact_poll_hook() -> None:
     core = build_client_shell_for_tests(_auth())
     # Artifact polling receives the same call supervisor as production.
     artifacts = WebArtifactsAPI(
-        rpc=core._rpc_executor,
+        rpc=core._web_runtime.executor,
         supervisor=core._collaborators.call_supervisor,
         notebooks=MagicMock(),
         mind_maps=MagicMock(spec=NoteBackedMindMapService),
@@ -150,7 +150,7 @@ async def test_session_close_absorbs_drain_hook_errors() -> None:
     # return_exceptions=True in close() means this should NOT propagate.
     await asyncio.wait_for(core.close(), timeout=1.0)
 
-    assert core._collaborators.kernel.http_client is None
+    assert core._web_runtime.kernel.http_client is None
 
 
 @pytest.mark.asyncio
@@ -159,7 +159,7 @@ async def test_session_close_with_no_polls_is_noop_on_drain_step() -> None:
     core = build_client_shell_for_tests(_auth())
     await core.__aenter__()
     await core.close()
-    assert core._collaborators.kernel.http_client is None
+    assert core._web_runtime.kernel.http_client is None
 
 
 @pytest.mark.asyncio
@@ -226,7 +226,7 @@ async def test_close_drain_cancels_inflight_poll_in_operation_scope() -> None:
     assert task.done()
     assert cancellation_seen.is_set()
     assert generation.in_flight == 0
-    assert core._collaborators.kernel.http_client is None
+    assert core._web_runtime.kernel.http_client is None
     # Resolve the registered future so it isn't GC'd un-awaited (the poll task
     # was cancelled, so mirror that on the shared future).
     if not future.done():
@@ -249,7 +249,7 @@ async def test_close_delegates_hook_and_drain_policy_to_root_lifecycle() -> None
         order.append("close")
 
     client._collaborators.call_supervisor.run_drain_hooks = fake_run_drain_hooks  # type: ignore[method-assign]
-    client._collaborators.lifecycle.close = fake_close  # type: ignore[method-assign]
+    client._lifecycle.close = fake_close  # type: ignore[method-assign]
 
     await client.close()
 
@@ -271,7 +271,7 @@ async def test_client_close_default_drain_is_true() -> None:
     async def fake_close(**kwargs: object) -> None:
         close_kwargs.append(kwargs)
 
-    client._collaborators.lifecycle.close = fake_close  # type: ignore[method-assign]
+    client._lifecycle.close = fake_close  # type: ignore[method-assign]
 
     await client.close()
 
@@ -287,7 +287,7 @@ async def test_client_close_drain_false_skips_drain() -> None:
     async def fake_close(**kwargs: object) -> None:
         close_kwargs.append(kwargs)
 
-    client._collaborators.lifecycle.close = fake_close  # type: ignore[method-assign]
+    client._lifecycle.close = fake_close  # type: ignore[method-assign]
 
     await client.close(drain=False)
 
@@ -303,7 +303,7 @@ async def test_client_aexit_uses_drain_true_default() -> None:
     async def fake_close(**kwargs: object) -> None:
         close_kwargs.append(kwargs)
 
-    client._collaborators.lifecycle.close = fake_close  # type: ignore[method-assign]
+    client._lifecycle.close = fake_close  # type: ignore[method-assign]
 
     # Drive __aexit__ directly rather than `async with` so we can use the
     # patched core without going through ``open()``.

@@ -20,6 +20,7 @@ from notebooklm._auth.cookies import (
     _build_cookie_pair_from_storage_state,
     _LoadedCookiePair,
 )
+from notebooklm._auth.paths import resolve_auth_json_env
 from notebooklm._auth.profile_account import ProfileAccount
 from notebooklm._auth.profile_document import ProfileDocument
 from notebooklm._auth.profile_migration import (
@@ -120,6 +121,12 @@ def test_paired_cookie_projection_skips_malformed_first_without_reserving_identi
 
 
 def test_paired_cookie_projection_sanitizes_and_converts_each_row_once(monkeypatch) -> None:
+    """One source pass, policy revalidation, and conversion occur per row.
+
+    These pure, idempotent operations leave no distinct result-state signal for
+    duplicate calls, so lexical spies retain the invocation-count contract
+    without moving the patches into a shared helper or fixture.
+    """
     state = {
         "cookies": [
             _row("SID", "sid"),
@@ -233,6 +240,8 @@ def test_closed_values_validate_carriers_copy_baselines_and_redact_secrets(tmp_p
         SessionSeed(object(), baseline)  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="allow_headless"):
         LoadPolicy(allow_headless=1)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="heal_psidts"):
+        LoadPolicy(heal_psidts=1)  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="token acquisition fields"):
         TokenAcquisition("csrf", "session", _live(), baseline, object())  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="file loaded auth fields"):
@@ -262,7 +271,8 @@ async def test_inherited_from_storage_constructs_runtime_subclass_exactly_once(m
 
     monkeypatch.setattr(_auth_tokens, "_load_stored_auth", fake_load)
 
-    result = await DerivedAuth.from_storage()
+    with pytest.warns(DeprecationWarning, match="AuthTokens.from_storage"):
+        result = await DerivedAuth.from_storage()
 
     assert type(result) is DerivedAuth
     assert calls == 1
@@ -301,7 +311,7 @@ async def test_source_resolution_preserves_explicit_env_empty_and_profile_preced
 
 
 @pytest.mark.asyncio
-async def test_inline_source_resolution_parses_one_captured_environment_value(
+async def test_inline_source_resolution_uses_real_environment_value(
     monkeypatch,
 ) -> None:
     loader = StoredAuthLoader(
@@ -311,20 +321,26 @@ async def test_inline_source_resolution_parses_one_captured_environment_value(
         promotions=LegacyPromotionScheduler(),
     )
     captured = json.dumps(_document(account={"email": "captured@example.com"}).to_json())
-    reads = 0
-
-    def resolve_once() -> str | None:
-        nonlocal reads
-        reads += 1
-        return captured if reads == 1 else None
-
-    monkeypatch.setattr(_auth_tokens, "resolve_auth_json_env", resolve_once)
+    monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", captured)
 
     source = await loader._resolve_source(None, "must-not-be-read")
 
     assert isinstance(source, InlineAuthSource)
     assert source.document.to_json()["notebooklm"]["account"]["email"] == ("captured@example.com")
-    assert reads == 1
+
+
+@pytest.mark.parametrize("raw", [None, "", "  raw-json  "])
+def test_auth_json_env_owner_preserves_presence_and_raw_value(
+    monkeypatch: pytest.MonkeyPatch,
+    raw: str | None,
+) -> None:
+    """The canonical owner performs the environment read without test rebinding."""
+    if raw is None:
+        monkeypatch.delenv("NOTEBOOKLM_AUTH_JSON", raising=False)
+    else:
+        monkeypatch.setenv("NOTEBOOKLM_AUTH_JSON", raw)
+
+    assert resolve_auth_json_env() == raw
 
 
 @pytest.mark.asyncio

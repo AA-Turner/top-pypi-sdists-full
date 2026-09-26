@@ -17,4 +17,5 @@ class MessageListParams(TypedDict, total=False):
     per_page: int
     """The number of results per page. Maximum value is 1000."""
 
-    status: Literal["PENDING", "DISCOVERING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED"]
+    status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED"]
+    """Filter by message status."""

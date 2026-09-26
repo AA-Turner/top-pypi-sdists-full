@@ -12,11 +12,13 @@ from notebooklm._web.transport.middleware.context import (
     RPC_CONTEXT_BUILD_REQUEST,
     RPC_CONTEXT_DISABLE_INTERNAL_RETRIES,
     RPC_CONTEXT_DISABLE_READ_TIMEOUT_RETRIES,
+    RPC_CONTEXT_JOURNAL,
     RPC_CONTEXT_LOG_LABEL,
     RPC_CONTEXT_MAX_RESPONSE_BYTES,
     RPC_CONTEXT_READ_TIMEOUT,
     RPC_CONTEXT_REFRESH_BUDGET,
     RPC_CONTEXT_RESOURCE_EPOCH,
+    RPC_CONTEXT_RETRY_BUDGET,
     RPC_CONTEXT_RETRY_DEADLINE,
     RPC_CONTEXT_RPC_METHOD,
     RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS,
@@ -29,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 # are intentionally absent; after the transport/middleware extraction they
 # should not read or write request context directly.
 PRODUCTION_CONTEXT_FILES = [
-    *sorted((ROOT / "src/notebooklm/_middleware").glob("*.py")),
+    *sorted((ROOT / "src/notebooklm/_web/transport/middleware").glob("*.py")),
     ROOT / "src/notebooklm/_web/transport/runtime.py",
 ]
 
@@ -165,6 +167,8 @@ def test_allowed_rpc_context_keys_match_adr_vocabulary() -> None:
         RPC_CONTEXT_AUTH_REFRESHED,
         RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS,
         RPC_CONTEXT_REFRESH_BUDGET,
+        RPC_CONTEXT_JOURNAL,
+        RPC_CONTEXT_RETRY_BUDGET,
         RPC_CONTEXT_RETRY_DEADLINE,
         RPC_CONTEXT_RESOURCE_EPOCH,
     } == ALLOWED_RPC_CONTEXT_KEYS

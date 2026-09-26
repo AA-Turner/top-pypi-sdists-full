@@ -11,7 +11,10 @@ from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
 from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
 from cloudflare.types.shared import Subscription
-from cloudflare.types.accounts import SubscriptionDeleteResponse
+from cloudflare.types.accounts import (
+    SubscriptionDeleteResponse,
+    SubscriptionCancelDowngradeResponse,
+)
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -198,6 +201,52 @@ class TestSubscriptions:
             )
 
     @parametrize
+    def test_method_cancel_downgrade(self, client: Cloudflare) -> None:
+        subscription = client.accounts.subscriptions.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+        assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+    @parametrize
+    def test_method_cancel_downgrade_with_all_params(self, client: Cloudflare) -> None:
+        subscription = client.accounts.subscriptions.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            subscription_ids=["string"],
+        )
+        assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+    @parametrize
+    def test_raw_response_cancel_downgrade(self, client: Cloudflare) -> None:
+        response = client.accounts.subscriptions.with_raw_response.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        subscription = response.parse()
+        assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+    @parametrize
+    def test_streaming_response_cancel_downgrade(self, client: Cloudflare) -> None:
+        with client.accounts.subscriptions.with_streaming_response.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            subscription = response.parse()
+            assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_cancel_downgrade(self, client: Cloudflare) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+            client.accounts.subscriptions.with_raw_response.cancel_downgrade(
+                account_id="",
+            )
+
+    @parametrize
     def test_method_get(self, client: Cloudflare) -> None:
         subscription = client.accounts.subscriptions.get(
             account_id="account_id",
@@ -245,6 +294,56 @@ class TestSubscriptions:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             client.accounts.subscriptions.with_raw_response.get(
                 account_id="account_id",
+            )
+
+    @parametrize
+    def test_method_get_by_identifier(self, client: Cloudflare) -> None:
+        subscription = client.accounts.subscriptions.get_by_identifier(
+            subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+        assert_matches_type(Subscription, subscription, path=["response"])
+
+    @parametrize
+    def test_raw_response_get_by_identifier(self, client: Cloudflare) -> None:
+        response = client.accounts.subscriptions.with_raw_response.get_by_identifier(
+            subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        subscription = response.parse()
+        assert_matches_type(Subscription, subscription, path=["response"])
+
+    @parametrize
+    def test_streaming_response_get_by_identifier(self, client: Cloudflare) -> None:
+        with client.accounts.subscriptions.with_streaming_response.get_by_identifier(
+            subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            subscription = response.parse()
+            assert_matches_type(Subscription, subscription, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_get_by_identifier(self, client: Cloudflare) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+            client.accounts.subscriptions.with_raw_response.get_by_identifier(
+                subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+                account_id="",
+            )
+
+        with pytest.raises(
+            ValueError, match=r"Expected a non-empty value for `subscription_identifier` but received ''"
+        ):
+            client.accounts.subscriptions.with_raw_response.get_by_identifier(
+                subscription_identifier="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
 
@@ -432,6 +531,52 @@ class TestAsyncSubscriptions:
             )
 
     @parametrize
+    async def test_method_cancel_downgrade(self, async_client: AsyncCloudflare) -> None:
+        subscription = await async_client.accounts.subscriptions.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+        assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+    @parametrize
+    async def test_method_cancel_downgrade_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        subscription = await async_client.accounts.subscriptions.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            subscription_ids=["string"],
+        )
+        assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+    @parametrize
+    async def test_raw_response_cancel_downgrade(self, async_client: AsyncCloudflare) -> None:
+        response = await async_client.accounts.subscriptions.with_raw_response.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        subscription = await response.parse()
+        assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_cancel_downgrade(self, async_client: AsyncCloudflare) -> None:
+        async with async_client.accounts.subscriptions.with_streaming_response.cancel_downgrade(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            subscription = await response.parse()
+            assert_matches_type(SubscriptionCancelDowngradeResponse, subscription, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_cancel_downgrade(self, async_client: AsyncCloudflare) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+            await async_client.accounts.subscriptions.with_raw_response.cancel_downgrade(
+                account_id="",
+            )
+
+    @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
         subscription = await async_client.accounts.subscriptions.get(
             account_id="account_id",
@@ -479,4 +624,54 @@ class TestAsyncSubscriptions:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
             await async_client.accounts.subscriptions.with_raw_response.get(
                 account_id="account_id",
+            )
+
+    @parametrize
+    async def test_method_get_by_identifier(self, async_client: AsyncCloudflare) -> None:
+        subscription = await async_client.accounts.subscriptions.get_by_identifier(
+            subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+        assert_matches_type(Subscription, subscription, path=["response"])
+
+    @parametrize
+    async def test_raw_response_get_by_identifier(self, async_client: AsyncCloudflare) -> None:
+        response = await async_client.accounts.subscriptions.with_raw_response.get_by_identifier(
+            subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        subscription = await response.parse()
+        assert_matches_type(Subscription, subscription, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_get_by_identifier(self, async_client: AsyncCloudflare) -> None:
+        async with async_client.accounts.subscriptions.with_streaming_response.get_by_identifier(
+            subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            subscription = await response.parse()
+            assert_matches_type(Subscription, subscription, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_get_by_identifier(self, async_client: AsyncCloudflare) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+            await async_client.accounts.subscriptions.with_raw_response.get_by_identifier(
+                subscription_identifier="506e3185e9c882d175a2d0cb0093d9f2",
+                account_id="",
+            )
+
+        with pytest.raises(
+            ValueError, match=r"Expected a non-empty value for `subscription_identifier` but received ''"
+        ):
+            await async_client.accounts.subscriptions.with_raw_response.get_by_identifier(
+                subscription_identifier="",
+                account_id="023e105f4ecef8ad9ca31a8372d0c353",
             )

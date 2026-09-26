@@ -122,7 +122,7 @@ class Meta(BaseModel):
 
 
 class Top0(BaseModel):
-    rank: float
+    rank: int
 
     target_country_alpha2: str = FieldInfo(alias="targetCountryAlpha2")
 

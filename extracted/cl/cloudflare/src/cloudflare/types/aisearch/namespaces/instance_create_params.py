@@ -67,12 +67,15 @@ class InstanceCreateParams(TypedDict, total=False):
     fusion_method: Literal["max", "rrf"]
 
     hybrid_search_enabled: bool
-    """Deprecated — use index_method instead."""
+    """Deprecated — use index_method instead.
+
+    Defaults to true for new instances; set false to create a vector-only instance.
+    """
 
     index_method: IndexMethod
     """Controls which storage backends are used during indexing.
 
-    Defaults to vector-only.
+    Defaults to vector and keyword indexing for new instances.
     """
 
     indexing_options: Optional[IndexingOptions]
@@ -113,6 +116,12 @@ class InstanceCreateParams(TypedDict, total=False):
     token_id: str
 
     type: Optional[Literal["r2", "web-crawler"]]
+    """Source type.
+
+    When omitted or null with a non-blank source, HTTP(S) URLs infer web-crawler and
+    existing R2 bucket names infer r2. A missing or blank source without a type uses
+    managed upload-only storage.
+    """
 
 
 class CustomMetadata(TypedDict, total=False):
@@ -124,7 +133,7 @@ class CustomMetadata(TypedDict, total=False):
 class IndexMethod(TypedDict, total=False):
     """Controls which storage backends are used during indexing.
 
-    Defaults to vector-only.
+    Defaults to vector and keyword indexing for new instances.
     """
 
     keyword: Required[bool]
@@ -142,6 +151,12 @@ class IndexingOptions(TypedDict, total=False):
     language queries). trigram enables character-level substring matching (good for
     partial matches, code, identifiers). Changing this triggers a full re-index.
     Defaults to porter.
+    """
+
+    use_ocr: bool
+    """Enables OCR ingestion for PDFs and images.
+
+    Changing this triggers a full re-index. Defaults to false.
     """
 
 

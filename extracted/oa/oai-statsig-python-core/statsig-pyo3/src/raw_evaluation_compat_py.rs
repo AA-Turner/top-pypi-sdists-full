@@ -24,6 +24,18 @@ pub struct LayerParamExposureDataPy {
     pub(crate) inner: PartialLayerRaw,
 }
 
+/// Native fields consumed by FeatureGate._from_parts; the Python tuple shape
+/// is inferred for generated stubs. Py handles preserve common-string reuse.
+pub(crate) type FeatureGatePartsPy = (
+    bool,                 // value
+    Py<PyString>,         // rule_id
+    Option<Py<PyString>>, // id_type
+    Py<PyString>,         // reason
+    Option<u64>,          // lcut
+    Option<u64>,          // received_at
+    Option<u32>,          // version
+);
+
 pub(crate) fn raw_gate_to_py_dict(py: Python, raw: &FeatureGateRaw) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
 
@@ -44,6 +56,21 @@ pub(crate) fn raw_gate_to_py_dict(py: Python, raw: &FeatureGateRaw) -> PyResult<
     )?;
 
     Ok(dict.unbind())
+}
+
+/// Trusted fields for FeatureGate._from_parts. Keep the existing dict API for
+/// callers that consume its wire-shaped representation. The public result uses
+/// the original Python name and needs neither an intermediate dict nor a copy.
+pub(crate) fn raw_gate_to_py_parts(py: Python, raw: &FeatureGateRaw) -> FeatureGatePartsPy {
+    (
+        raw.value,
+        py_intern_rule_id(py, &raw.rule_id).unbind(),
+        py_intern_id_type(py, opt_interned_str(&raw.id_type)).map(Bound::unbind),
+        py_intern_reason(py, &raw.details.reason).unbind(),
+        raw.details.lcut,
+        raw.details.received_at,
+        raw.details.version,
+    )
 }
 
 pub(crate) fn raw_dynamic_config_to_py_dict(

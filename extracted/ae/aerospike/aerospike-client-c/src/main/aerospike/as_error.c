@@ -1,5 +1,5 @@
 /*
- * Copyright 2008-2025 Aerospike, Inc.
+ * Copyright 2008-2026 Aerospike, Inc.
  *
  * Portions may be licensed to Aerospike, Inc. under one or more contributor
  * license agreements.
@@ -15,6 +15,8 @@
  * the License.
  */
 #include <aerospike/as_error.h>
+#include <aerospike/as_node.h>
+#include <aerospike/as_string_builder.h>
 
 //---------------------------------
 // Functions
@@ -81,6 +83,7 @@ as_error_string(as_status status)
 		CASE_ASSIGN(AEROSPIKE_ERR_OP_NOT_APPLICABLE);
 		CASE_ASSIGN(AEROSPIKE_FILTERED_OUT);
 		CASE_ASSIGN(AEROSPIKE_LOST_CONFLICT);
+		CASE_ASSIGN(AEROSPIKE_INVALID_ENCODING);
 		CASE_ASSIGN(AEROSPIKE_XDR_KEY_BUSY);
 		CASE_ASSIGN(AEROSPIKE_SECURITY_NOT_SUPPORTED);
 		CASE_ASSIGN(AEROSPIKE_SECURITY_NOT_ENABLED);
@@ -137,4 +140,62 @@ as_error_string(as_status status)
 				ERR_ASSIGN(AEROSPIKE_ERR_SERVER);
 			}
 	}
+}
+
+void
+as_error_default_message(as_error* err, as_node* node)
+{
+	as_string_builder sb;
+	as_string_builder_assign(&sb, sizeof(err->message), err->message);
+
+	if (node) {
+		as_string_builder_append(&sb, as_node_get_address_string(node));
+		as_string_builder_append_char(&sb, ' ');
+	}
+
+	as_string_builder_append(&sb, as_error_string(err->code));
+}
+
+as_status
+as_error_setnode(
+	as_error* err, as_node* node, as_status code, const char* func, const char* file, uint32_t line
+	)
+{
+	err->code = code;
+	err->func = func;
+	err->file = file;
+	err->line = line;
+	err->in_doubt = false;
+
+	// Detailed server error fields may have already been applied to the message.
+	// If the error fields did not exist, add node address and error code.
+	if (err->message[0] == 0) {
+		as_error_default_message(err, node);
+	}
+	return code;
+}
+
+as_status
+as_error_setudf(
+	as_error* err, as_node* node, as_status code, const char* message, const char* func,
+	const char* file, uint32_t line
+	)
+{
+	err->code = code;
+	err->func = func;
+	err->file = file;
+	err->line = line;
+	err->in_doubt = false;
+
+	// UDF FAILURE bin messages override any detailed server error message.
+	as_string_builder sb;
+	as_string_builder_assign(&sb, sizeof(err->message), err->message);
+
+	if (node) {
+		as_string_builder_append(&sb, as_node_get_address_string(node));
+		as_string_builder_append_char(&sb, ' ');
+	}
+
+	as_string_builder_append(&sb, message);
+	return code;
 }

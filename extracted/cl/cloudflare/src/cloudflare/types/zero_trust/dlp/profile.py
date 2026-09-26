@@ -1105,6 +1105,8 @@ class IntegrationProfile(BaseModel):
 
     entries: List[IntegrationProfileEntry]
 
+    integration_id: str
+
     name: str
 
     shared_entries: List[IntegrationProfileSharedEntry]

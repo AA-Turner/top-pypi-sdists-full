@@ -7,7 +7,7 @@ from typing import Type, Optional, cast
 import httpx
 
 from ...._types import Body, Query, Headers, NotGiven, not_given
-from ...._utils import path_template, maybe_transform, async_maybe_transform
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -18,7 +18,6 @@ from ...._response import (
 )
 from ...._wrappers import ResultWrapper
 from ...._base_client import make_request_options
-from ....types.dns.zone_transfers import force_axfr_create_params
 from ....types.dns.zone_transfers.force_axfr import ForceAXFR
 
 __all__ = ["ForceAXFRResource", "AsyncForceAXFRResource"]
@@ -48,7 +47,6 @@ class ForceAXFRResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -72,7 +70,6 @@ class ForceAXFRResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
             path_template("/zones/{zone_id}/secondary_dns/force_axfr", zone_id=zone_id),
-            body=maybe_transform(body, force_axfr_create_params.ForceAXFRCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -108,7 +105,6 @@ class AsyncForceAXFRResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -132,7 +128,6 @@ class AsyncForceAXFRResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
             path_template("/zones/{zone_id}/secondary_dns/force_axfr", zone_id=zone_id),
-            body=await async_maybe_transform(body, force_axfr_create_params.ForceAXFRCreateParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

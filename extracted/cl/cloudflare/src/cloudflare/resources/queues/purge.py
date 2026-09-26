@@ -59,14 +59,14 @@ class PurgeResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Queue]:
         """
-        Deletes all messages from the Queue.
+        Starts a purge that deletes all messages from a Queue.
 
         Args:
           account_id: A Resource identifier.
 
           queue_id: A Resource identifier.
 
-          delete_messages_permanently: Confimation that all messages will be deleted permanently.
+          delete_messages_permanently: Confirms that all messages will be permanently deleted.
 
           extra_headers: Send extra headers
 
@@ -108,7 +108,7 @@ class PurgeResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PurgeStatusResponse]:
         """
-        Get details about a Queue's purge status.
+        Returns the status of a Queue purge operation.
 
         Args:
           account_id: A Resource identifier.
@@ -174,14 +174,14 @@ class AsyncPurgeResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Queue]:
         """
-        Deletes all messages from the Queue.
+        Starts a purge that deletes all messages from a Queue.
 
         Args:
           account_id: A Resource identifier.
 
           queue_id: A Resource identifier.
 
-          delete_messages_permanently: Confimation that all messages will be deleted permanently.
+          delete_messages_permanently: Confirms that all messages will be permanently deleted.
 
           extra_headers: Send extra headers
 
@@ -223,7 +223,7 @@ class AsyncPurgeResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[PurgeStatusResponse]:
         """
-        Get details about a Queue's purge status.
+        Returns the status of a Queue purge operation.
 
         Args:
           account_id: A Resource identifier.

@@ -43,7 +43,7 @@ class TestLocks:
                     "prefix": "prefix",
                 }
             ],
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(object, lock, path=["response"])
 
@@ -105,7 +105,7 @@ class TestLocks:
         lock = client.r2.buckets.locks.get(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(LockGetResponse, lock, path=["response"])
 
@@ -184,7 +184,7 @@ class TestAsyncLocks:
                     "prefix": "prefix",
                 }
             ],
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(object, lock, path=["response"])
 
@@ -246,7 +246,7 @@ class TestAsyncLocks:
         lock = await async_client.r2.buckets.locks.get(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(LockGetResponse, lock, path=["response"])
 

@@ -54,6 +54,7 @@ static GLOBAL_RESPONSE_HYDRATION_BUDGET: OnceLock<Arc<ResponseHydrationBudget>> 
 const HYDRATION_COUNT_METRIC: &str = "remote_config_hydration.count";
 const HYDRATION_LATENCY_METRIC: &str = "remote_config_hydration.latency";
 const HYDRATION_BYTES_METRIC: &str = "remote_config_hydration.bytes";
+const HYDRATION_RESULT_METRIC: &str = "remote_config_hydration.result";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum HydrationOutcome {
@@ -74,6 +75,7 @@ impl HydrationOutcome {
 enum HydrationFailureReason {
     TotalTimeout,
     DownloadFailed,
+    BodyReadFailed,
     EmptyResponse,
     MissingResponseContentType,
     MissingProtoData,
@@ -101,10 +103,52 @@ enum HydrationFailureReason {
 }
 
 impl HydrationFailureReason {
+    // Keep metric labels bounded even though StatsigErr carries a diagnostic string.
+    fn from_error(error: &StatsigErr) -> Option<Self> {
+        let StatsigErr::CustomError(message) = error else {
+            return None;
+        };
+        let (reason, _) = message
+            .strip_prefix("Dynamic config hydration failure: ")?
+            .split_once(": ")?;
+        [
+            Self::TotalTimeout,
+            Self::DownloadFailed,
+            Self::BodyReadFailed,
+            Self::EmptyResponse,
+            Self::MissingResponseContentType,
+            Self::MissingProtoData,
+            Self::MetadataWithoutValue,
+            Self::MetadataConflict,
+            Self::TooManyValues,
+            Self::TotalBytesExceeded,
+            Self::InvalidDefaultMetadata,
+            Self::InvalidMetadata,
+            Self::InvalidPlaceholder,
+            Self::InvalidSha256,
+            Self::InvalidContentType,
+            Self::InvalidCompression,
+            Self::InvalidSourceUrl,
+            Self::InvalidDownloadUrl,
+            Self::InvalidDownloadScheme,
+            Self::UntrustedDownloadOrigin,
+            Self::DownloadPathMismatch,
+            Self::ByteLengthMismatch,
+            Self::ResponseContentTypeMismatch,
+            Self::ChecksumMismatch,
+            Self::InvalidJson,
+            Self::InvalidProtoWireType,
+            Self::MissingHydratedValue,
+        ]
+        .into_iter()
+        .find(|candidate| candidate.as_str() == reason)
+    }
+
     const fn as_str(self) -> &'static str {
         match self {
             Self::TotalTimeout => "total_timeout",
             Self::DownloadFailed => "download_failed",
+            Self::BodyReadFailed => "body_read_failed",
             Self::EmptyResponse => "empty_response",
             Self::MissingResponseContentType => "missing_response_content_type",
             Self::MissingProtoData => "missing_proto_data",
@@ -129,6 +173,83 @@ impl HydrationFailureReason {
             Self::InvalidJson => "invalid_json",
             Self::InvalidProtoWireType => "invalid_proto_wire_type",
             Self::MissingHydratedValue => "missing_hydrated_value",
+        }
+    }
+}
+
+/// One terminal result for a response containing actual remote metadata. The
+/// legacy count also includes probe failures, so it cannot be this denominator.
+struct HydrationResult<'a> {
+    hydrator: &'a RemoteConfigValueHydrator,
+    saw_remote_metadata: bool,
+    finished: bool,
+    download_failure: Option<HydrationFailureReason>,
+}
+
+impl<'a> HydrationResult<'a> {
+    fn new(hydrator: &'a RemoteConfigValueHydrator) -> Self {
+        Self {
+            hydrator,
+            saw_remote_metadata: false,
+            finished: false,
+            download_failure: None,
+        }
+    }
+
+    fn mark_remote_metadata(&mut self) {
+        self.saw_remote_metadata = true;
+    }
+
+    fn record_download_error(&mut self, error: &StatsigErr) {
+        self.download_failure = Some(
+            HydrationFailureReason::from_error(error)
+                .unwrap_or(HydrationFailureReason::BodyReadFailed),
+        );
+    }
+
+    fn finish(&mut self, result: Result<(), &StatsigErr>) {
+        if self.finished {
+            return;
+        }
+        self.finished = true;
+        let (outcome, reason) = match result {
+            Ok(()) => ("success", "none"),
+            Err(error) => match self
+                .download_failure
+                .or_else(|| HydrationFailureReason::from_error(error))
+            {
+                Some(reason) => ("failure", reason.as_str()),
+                None if matches!(error, StatsigErr::ProtobufParseError(tag, _) if tag == "proto::RemoteConfigMetadata") => {
+                    ("failure", "invalid_metadata_marker")
+                }
+                // Integrated protobuf parsing can fail after hydration for an
+                // unrelated reason. Keep it visible without calling it a blob failure.
+                None => ("aborted", "response_processing_failed"),
+            },
+        };
+        self.log(outcome, reason);
+    }
+
+    fn log(&self, outcome: &str, failure_reason: &str) {
+        if !self.saw_remote_metadata {
+            return;
+        }
+        self.hydrator.log_metric(
+            MetricType::Increment,
+            HYDRATION_RESULT_METRIC,
+            1.0,
+            Some(HashMap::from([
+                ("outcome".to_string(), outcome.to_string()),
+                ("failure_reason".to_string(), failure_reason.to_string()),
+            ])),
+        );
+    }
+}
+
+impl Drop for HydrationResult<'_> {
+    fn drop(&mut self) {
+        if !self.finished {
+            self.log("aborted", "cancelled");
         }
     }
 }
@@ -469,13 +590,16 @@ impl RemoteConfigValueHydrator {
         }
 
         let started_at = Instant::now();
+        let mut hydration_result = HydrationResult::new(self);
         let result = timeout(
             HYDRATION_TIMEOUT,
-            self.hydrate_response_within_timeout(data, source_url),
+            self.hydrate_response_within_timeout(data, source_url, &mut hydration_result),
         )
         .await
         .map_err(|_| total_timeout_error())
         .and_then(|result| result);
+
+        hydration_result.finish(result.as_ref().map(|_| ()));
 
         match result {
             Ok(false) => Ok(()),
@@ -494,11 +618,12 @@ impl RemoteConfigValueHydrator {
         &self,
         data: &mut ResponseData,
         source_url: &str,
+        hydration_result: &mut HydrationResult<'_>,
     ) -> Result<bool, StatsigErr> {
         if get_specs_response_format(data) == SpecsResponseFormat::Protobuf {
-            protobuf::hydrate_response(self, data, source_url).await
+            protobuf::hydrate_response(self, data, source_url, hydration_result).await
         } else {
-            json::hydrate_response(self, data, source_url).await
+            json::hydrate_response(self, data, source_url, hydration_result).await
         }
     }
 

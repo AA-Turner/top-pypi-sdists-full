@@ -1,13 +1,13 @@
 //
-// Created by Laky64 on 13/10/24.
+// Created by Lauren on 13/10/24.
 //
 
 #include <ntgcalls/utils/version_parser.hpp>
 #include <sstream>
 #include <vector>
 
-namespace ntgcalls {
-    VersionParser VersionParser::Parse(const std::string& version) {
+namespace ntgcalls::utils {
+    VersionParser VersionParser::parse(const std::string& version) {
         try {
             std::vector<std::string> parts;
             std::istringstream stream(version);
@@ -44,7 +44,7 @@ namespace ntgcalls {
         return std::tie(major, minor, micro) == std::tie(other.major, other.minor, other.micro);
     }
 
-    std::string VersionParser::toString() const {
+    std::string VersionParser::to_string() const {
         return std::to_string(major) + '.' + std::to_string(minor) + '.' + std::to_string(micro);
     }
-} // ntgcalls
+} // ntgcalls::utils

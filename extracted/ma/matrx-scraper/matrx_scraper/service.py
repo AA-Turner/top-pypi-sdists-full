@@ -184,6 +184,11 @@ class ScrapeService:
         self.urls: list[str] = []
         self.use_cache: bool = True
         self.options: ScrapeOptions = ScrapeOptions()
+        # SOURCE-CONVERGENCE §4.1: the `origin_client` every successful page this run reads is
+        # landed as (a route sets "web"). `None` = this caller does not produce Sources. When
+        # set, each page is landed at the result boundary — after the parse, before it is sent,
+        # cached or not — and carries `processed_document_id` / `notices`.
+        self.land_as: str | None = None
 
         # The capture ladder's CLIENT rungs — the person's own logged-in Chrome
         # (`own_browser`) and the person driving it (`human_drive`). Which of
@@ -245,6 +250,24 @@ class ScrapeService:
             return None
         return get_ext("cache")
 
+    async def _landed(self, result: ScrapeResult, page: dict[str, Any]) -> dict[str, Any]:
+        """Land ``result`` as a Source when this run produces Sources; stamp the page payload.
+
+        Unwired hook → :class:`matrx_scraper.source_landing.SourceLandingNotConfigured` (raised:
+        the route's stream reports it as a fatal error — never a quiet scrape with no Source).
+        """
+        if not self.land_as or not result.success:
+            return page
+        from matrx_scraper.source_landing import land_page_result, stamp_page
+
+        outcome = await land_page_result(
+            result,
+            organization_id=self.organization_id,
+            user_id=self.acting_user_id,
+            origin_client=self.land_as,
+        )
+        return stamp_page(page, outcome)
+
     # ------------------------------------------------------------------
     # Quick-scrape — always streaming, results emitted as they finish
     # ------------------------------------------------------------------
@@ -271,7 +294,7 @@ class ScrapeService:
                     name="scrape-failure-log",
                     context={"url": result.url},
                 )
-            page = _apply_field_flags(result.to_dict(), self.options)
+            page = await self._landed(result, _apply_field_flags(result.to_dict(), self.options))
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             await self.emitter.send_data(
                 FetchResultsData(
@@ -297,7 +320,7 @@ class ScrapeService:
             organization_id=self.organization_id,
             acting_user_id=self.acting_user_id,
         ):
-            results.append(_apply_field_flags(result.to_dict(), self.options))
+            results.append(await self._landed(result, _apply_field_flags(result.to_dict(), self.options)))
         elapsed_ms = round((time.monotonic() - start) * 1000, 1)
         await self.emitter.send_data(
             FetchResultsData(
@@ -405,7 +428,7 @@ class ScrapeService:
                     name="scrape-failure-log",
                     context={"url": result.url},
                 )
-            page = _apply_field_flags(result.to_dict(), self.options)
+            page = await self._landed(result, _apply_field_flags(result.to_dict(), self.options))
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             await self.emitter.send_data(
                 FetchResultsData(
@@ -472,7 +495,7 @@ class ScrapeService:
                 )
                 continue
             successful += 1
-            page = _apply_field_flags(result.to_dict(), self.options)
+            page = await self._landed(result, _apply_field_flags(result.to_dict(), self.options))
             elapsed_ms = round((time.monotonic() - start) * 1000, 1)
             await self.emitter.send_data(
                 FetchResultsData(

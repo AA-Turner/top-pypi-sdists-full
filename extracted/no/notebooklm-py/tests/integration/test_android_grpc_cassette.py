@@ -12,6 +12,8 @@ sanitized placeholders while replaying. Re-record with::
 from __future__ import annotations
 
 import asyncio
+import os
+from pathlib import Path
 from typing import Any, Protocol
 
 import grpc
@@ -20,6 +22,7 @@ import pytest
 
 from notebooklm.types import (
     ChatSessionStatus,
+    CollectionError,
     Notebook,
     PlayBook,
     RelevantChunk,
@@ -40,6 +43,9 @@ class CassetteBinder(Protocol):
 replay_only = pytest.mark.skipif(
     is_record_mode(), reason="the unbound-channel guards are lifted while recording"
 )
+
+ANDROID_CASSETTES = Path(__file__).resolve().parents[1] / "cassettes" / "android"
+_RECORDED_COLLECTION_ID = "00000000-0000-4000-8000-000000000006"
 
 
 @replay_only
@@ -76,6 +82,39 @@ async def test_settings_get_user_settings_over_get_or_create_account(
     # replay but its presence must survive decoding.
     assert settings.output_language
     assert settings.limits.notebook_limit is not None and settings.limits.notebook_limit >= 1
+
+
+@pytest.mark.parametrize(
+    ("cassette_name", "profile_env"),
+    [
+        ("usage_standard", "NOTEBOOKLM_USAGE_STANDARD_PROFILE"),
+        ("usage_pro", "NOTEBOOKLM_USAGE_PRO_PROFILE"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_settings_usage_over_get_account_and_list_quota_summary(
+    android_usage_grpc_cassette: CassetteBinder,
+    cassette_name: str,
+    profile_env: str,
+) -> None:
+    if is_record_mode():
+        expected_profile = os.environ.get(profile_env)
+        if not expected_profile:
+            pytest.skip(f"set {profile_env} to the reviewed local recording profile")
+        if os.environ.get("NOTEBOOKLM_PROFILE") != expected_profile:
+            pytest.skip(f"record {cassette_name} with NOTEBOOKLM_PROFILE matching {profile_env}")
+    cassette_path = ANDROID_CASSETTES / f"{cassette_name}_recorded.grpc.json"
+    if not is_record_mode() and not cassette_path.is_file():
+        pytest.skip(f"{cassette_path.name} has not been recorded yet")
+
+    async with android_usage_grpc_cassette(cassette_name) as (client, _values):
+        usage = await client.settings.get_usage()
+
+    assert usage.enabled is True
+    assert usage.available is True
+    assert [int(window.kind) for window in usage.windows] == [1, 2]
+    assert usage.actions
+    assert all(action.code > 0 for action in usage.actions)
 
 
 # --- 2. rich GetProject project/source response ------------------------------
@@ -179,14 +218,17 @@ async def test_label_and_collection_listing_over_get_labels(
         labels = await client.labels.list(values.notebook_id)
         # Establish one known collection so the account arm is non-empty on
         # any recording account, then remove it again.
-        created = await client.collections.create(values.texts[0])
+        with pytest.raises(CollectionError):
+            await client.collections.create(values.texts[0])
         try:
             collections = await client.collections.list()
         finally:
-            await client.collections.delete(created.id)
+            # This ID is fixture data recorded independently of the public
+            # create result; recovery candidates are never promoted to ownership.
+            await client.collections.delete(_RECORDED_COLLECTION_ID)
     assert labels == []
     # A regression returning [] from the second GetLabels arm would fail here.
-    assert any(item.id == created.id for item in collections)
+    assert any(item.id == _RECORDED_COLLECTION_ID for item in collections)
     assert all(item.id and item.name for item in collections)
 
 
@@ -295,6 +337,8 @@ async def test_notebook_lifecycle_over_project_mutations(
     android_grpc_cassette: CassetteBinder,
 ) -> None:
     async with android_grpc_cassette("notebook_lifecycle") as (client, values):
+        # Consume the cassette's independently recorded pre-mutation inventory.
+        await client.notebooks.list()
         created = await client.notebooks.create(values.texts[0])
         copied = None
         try:
@@ -428,17 +472,19 @@ async def test_collection_lifecycle_over_collection_mutations(
     android_grpc_cassette: CassetteBinder,
 ) -> None:
     async with android_grpc_cassette("collection_lifecycle") as (client, values):
-        collection = await client.collections.create(values.texts[0])
+        with pytest.raises(CollectionError):
+            await client.collections.create(values.texts[0])
+        collection_id = _RECORDED_COLLECTION_ID
         try:
-            renamed = await client.collections.rename(collection.id, values.texts[1])
-            await client.collections.add_notebooks(collection.id, [values.notebook_id])
-            members = await client.collections.notebooks(collection.id)
-            await client.collections.remove_notebooks(collection.id, [values.notebook_id])
+            renamed = await client.collections.rename(collection_id, values.texts[1])
+            await client.collections.add_notebooks(collection_id, [values.notebook_id])
+            members = await client.collections.notebooks(collection_id)
+            await client.collections.remove_notebooks(collection_id, [values.notebook_id])
         finally:
             # Collections are account-scoped and outlive the scratch notebook.
-            await client.collections.delete(collection.id)
-        remaining = await client.collections.get_or_none(collection.id)
-    assert collection.id and renamed is not None and renamed.id == collection.id
+            await client.collections.delete(collection_id)
+        remaining = await client.collections.get_or_none(collection_id)
+    assert renamed is not None and renamed.id == collection_id
     assert [member.id for member in members] == [values.notebook_id]
     assert remaining is None
 
@@ -751,6 +797,7 @@ async def test_source_transfers_over_add_async_append_and_copy(
     android_grpc_cassette: CassetteBinder,
 ) -> None:
     async with android_grpc_cassette("source_transfers") as (client, values):
+        await client.notebooks.list()
         target = await client.notebooks.create(values.texts[0])
         try:
             queued = await client.sources.add_urls_async(values.notebook_id, [values.url])
@@ -795,6 +842,7 @@ async def test_artifact_copy_over_copy_artifacts_async(
             if status.is_complete or status.is_failed or polls >= 16:
                 break
             await _settle(15)
+        await client.notebooks.list()
         target = await client.notebooks.create(values.texts[0])
         try:
             copied = await client.artifacts.copy(values.notebook_id, [started.task_id], target.id)

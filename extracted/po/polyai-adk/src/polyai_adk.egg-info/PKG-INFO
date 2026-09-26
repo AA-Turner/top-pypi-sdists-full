@@ -1,14 +1,23 @@
 Metadata-Version: 2.4
 Name: polyai-adk
-Version: 0.61.2
-Summary: Agent Development Kit (ADK) — a CLI for managing Agent Studio projects locally
+Version: 0.62.0
+Summary: Agent Development Kit (ADK) — a CLI for building, testing, and deploying PolyAI voice and chat agents, self-serve
 License: Apache-2.0
+Project-URL: Documentation, https://docs.poly.ai/adk
+Project-URL: Homepage, https://docs.poly.ai/adk
+Project-URL: Source, https://github.com/polyai/adk
+Project-URL: Changelog, https://github.com/polyai/adk/blob/main/CHANGELOG.md
+Keywords: voice-ai,conversational-ai,cli,agent-development-kit,voice-agents
+Classifier: Topic :: Communications :: Telephony
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Intended Audience :: Developers
 Requires-Python: >=3.14.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: protobuf>=4.21.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: ruamel.yaml>=0.18.0
+Requires-Dist: ruamel.yaml.clib==0.2.15; platform_python_implementation == "CPython" and python_version < "3.15" and (platform_machine == "x86_64" or platform_machine == "AMD64" or platform_machine == "arm64" or platform_machine == "aarch64")
 Requires-Dist: questionary==2.1.1
 Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: requests==2.31.0

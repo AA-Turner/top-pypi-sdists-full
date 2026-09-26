@@ -58,7 +58,7 @@ class TailResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailCreateResponse:
         """
-        Starts a tail that receives logs and exception from a Worker.
+        Starts a tail that receives logs and exceptions from a Worker.
 
         Args:
           account_id: Identifier.
@@ -156,7 +156,7 @@ class TailResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailGetResponse:
         """
-        Get list of tails currently deployed on a Worker.
+        Get a list of tails currently deployed on a Worker.
 
         Args:
           account_id: Identifier.
@@ -225,7 +225,7 @@ class AsyncTailResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailCreateResponse:
         """
-        Starts a tail that receives logs and exception from a Worker.
+        Starts a tail that receives logs and exceptions from a Worker.
 
         Args:
           account_id: Identifier.
@@ -323,7 +323,7 @@ class AsyncTailResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TailGetResponse:
         """
-        Get list of tails currently deployed on a Worker.
+        Get a list of tails currently deployed on a Worker.
 
         Args:
           account_id: Identifier.

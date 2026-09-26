@@ -88,11 +88,17 @@ class CDF:
             self.ftype = "file"
             path = Path(path).resolve().expanduser()
             if not path.is_file():
-                path = path.with_suffix(".cdf")
+                # Fall back to appending a ``.cdf`` extension only when the
+                # path has no suffix (e.g. the user passed ``mydata`` instead
+                # of ``mydata.cdf``). ``Path.with_suffix`` *replaces* the last
+                # suffix, so for a non-existent path that already has one,
+                # e.g. ``mydata.cdfINVALID``, it used to silently resolve to
+                # ``mydata.cdf`` and read the wrong file (GH #328).
+                if not path.suffix:
+                    path = path.with_suffix(".cdf")
                 if not path.is_file():
                     raise FileNotFoundError(f"{path} not found")
             self.file = path  # path for files, fname for urls and S3
-            self.file = path
 
         self.string_encoding = string_encoding
 
@@ -435,7 +441,9 @@ class CDF:
 
         vdr_info = self.vdr_info(variable)
         if vdr_info.max_rec < 0:
-            raise ValueError(f"No records found for variable {variable}")
+            # No records have been written (all records are virtual), so return an empty array
+            dimensions = [size for size, vary in zip(vdr_info.dim_sizes, vdr_info.dim_vary) if vary]
+            return self._read_data(b"", vdr_info.data_type, 0, vdr_info.num_elements, dimensions)
 
         return self._read_vardata(
             vdr_info,

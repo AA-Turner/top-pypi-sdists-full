@@ -48,6 +48,7 @@ class LogListParams(TypedDict, total=False):
     min_total_tokens: float
 
     model: str
+    """Model filter."""
 
     model_type: str
 
@@ -66,6 +67,7 @@ class LogListParams(TypedDict, total=False):
     response_content_type: str
 
     search: str
+    """Free-text search over log metadata."""
 
     start_date: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
 
@@ -105,3 +107,4 @@ class Filter(TypedDict, total=False):
     operator: Required[Literal["eq", "neq", "contains", "lt", "gt"]]
 
     value: Required[SequenceNotStr[Union[Optional[str], float, bool]]]
+    """Filter values."""

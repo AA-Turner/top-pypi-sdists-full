@@ -1,11 +1,14 @@
 """Web backend for notebook operations."""
 
+from __future__ import annotations
+
 import builtins
+import contextlib
 import logging
 import reprlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .._idempotency import mark_unconfirmed
+from .._idempotency import JournalEntry, attach_journal_entry, bound_operation_journal_entry
 from .._notebook_metadata import (
     NotebookMetadataService,
     NotebookSourceLister,
@@ -24,6 +27,7 @@ from ..exceptions import (
     ServerError,
     ValidationError,
 )
+from ..outcomes import CommitState
 from ..rpc import RPCMethod, safe_index
 from ..types import (
     AccountLimits,
@@ -46,6 +50,7 @@ from .params.notebooks import (
 from .rows.chat import NextStepSuggestionRow
 from .rows.notebooks import (
     PromptSuggestionRow,
+    decode_notebook,
     unwrap_next_step_suggestions,
     unwrap_prompt_suggestions,
 )
@@ -53,6 +58,9 @@ from .rows.sources import SourceRow
 from .settings import build_get_user_settings_params, extract_account_limits
 from .sharing import ShareManager
 from .sources.listing import SourceLister
+
+if TYPE_CHECKING:
+    from .._runtime.call_supervisor import CallSupervisor, OperationLease
 
 logger = logging.getLogger("notebooklm._notebooks")
 
@@ -212,12 +220,21 @@ class WebNotebooksAPI(NotebooksAPI):
     """
 
     _create_method_id = RPCMethod.CREATE_NOTEBOOK.value
+    _copy_method_id = RPCMethod.COPY_NOTEBOOK.value
+    _copy_failure_chain = "explicit"
+
+    def _operation_scope(
+        self, label: str
+    ) -> contextlib.AbstractAsyncContextManager[OperationLease]:
+        """Keep neutral notebook workflows under the Web supervisor."""
+        return self._supervisor.operation_scope(label)
 
     def __init__(
         self,
         rpc: RpcCaller,
         sources_api: NotebookSourceLister | None = None,
         *,
+        supervisor: CallSupervisor,
         metadata_service: NotebookMetadataService | None = None,
         share_manager: ShareManager | None = None,
     ) -> None:
@@ -230,8 +247,13 @@ class WebNotebooksAPI(NotebooksAPI):
             share_manager: Optional explicit legacy share manager for tests or advanced wiring.
         """
         self._rpc = rpc
+        self._supervisor = supervisor
         resolved_sources = sources_api or create_default_source_lister(self._rpc)
-        super().__init__(resolved_sources, metadata_service=metadata_service)
+        super().__init__(
+            resolved_sources,
+            spawn_child=supervisor.spawn_child,
+            metadata_service=metadata_service,
+        )
 
         if share_manager:
             self._share_manager = share_manager
@@ -258,17 +280,6 @@ class WebNotebooksAPI(NotebooksAPI):
                 self._rpc,
                 share_url_builder=default_share_url,
             )
-        # CREATE_NOTEBOOK volunteers its newly-created ChatSession, while
-        # GET_NOTEBOOK omits it. Keep that one-shot hint until ChatAPI consumes
-        # it so the first ask need not immediately re-fetch the same id through
-        # hPTbtc (#2133). The cache is scoped to this client instance and each
-        # entry is popped on first use; closing the client releases any hints
-        # from notebooks that were created without a subsequent ask.
-        self._created_chat_session_ids: dict[str, str] = {}
-
-    def _take_created_chat_session_id(self, notebook_id: str) -> str | None:
-        """Consume CREATE_NOTEBOOK's volunteered current chat-session id."""
-        return self._created_chat_session_ids.pop(notebook_id, None)
 
     async def _rpc_call(
         self,
@@ -465,30 +476,33 @@ class WebNotebooksAPI(NotebooksAPI):
             build_prompt_suggestions_params(notebook_id, [], mode=mode)
         except ValueError as exc:
             raise ValidationError(str(exc)) from exc
-        if source_ids is None:
-            source_ids = await self.get_source_ids(notebook_id)
+        async with self._operation_scope("notebooks.suggest_prompts"):
+            if source_ids is None:
+                source_ids = await self.get_source_ids(notebook_id)
 
-        params = build_prompt_suggestions_params(notebook_id, source_ids, mode=mode, query=query)
-        result = await self._rpc.rpc_call(
-            RPCMethod.SUGGEST_PROMPTS,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-        )
+            params = build_prompt_suggestions_params(
+                notebook_id, source_ids, mode=mode, query=query
+            )
+            result = await self._rpc.rpc_call(
+                RPCMethod.SUGGEST_PROMPTS,
+                params,
+                source_path=f"/notebook/{notebook_id}",
+                allow_null=True,
+            )
 
-        rows = unwrap_prompt_suggestions(result, source="suggest_prompts")
-        # ``is_well_formed`` only gates on row LENGTH (>= 2 slots), not on the
-        # field values, mirroring ``ReportSuggestionRow``: a length-ok row whose
-        # title/prompt degrade to "" (a non-string leaf) still maps to a
-        # ``PromptSuggestion("", "")``. Real traffic always carries string
-        # leaves, so this is a best-effort tolerance for a degenerate server
-        # payload, not an expected output — callers should not treat an empty
-        # title/prompt as meaningful.
-        return [
-            PromptSuggestion(title=row.title, prompt=row.prompt)
-            for row in map(PromptSuggestionRow, rows)
-            if row.is_well_formed
-        ]
+            rows = unwrap_prompt_suggestions(result, source="suggest_prompts")
+            # ``is_well_formed`` only gates on row LENGTH (>= 2 slots), not on the
+            # field values, mirroring ``ReportSuggestionRow``: a length-ok row whose
+            # title/prompt degrade to "" (a non-string leaf) still maps to a
+            # ``PromptSuggestion("", "")``. Real traffic always carries string
+            # leaves, so this is a best-effort tolerance for a degenerate server
+            # payload, not an expected output — callers should not treat an empty
+            # title/prompt as meaningful.
+            return [
+                PromptSuggestion(title=row.title, prompt=row.prompt)
+                for row in map(PromptSuggestionRow, rows)
+                if row.is_well_formed
+            ]
 
     async def suggest_next_steps(
         self,
@@ -587,7 +601,7 @@ class WebNotebooksAPI(NotebooksAPI):
                 result, 0, method_id=RPCMethod.LIST_NOTEBOOKS.value, source="NotebooksAPI.list"
             )
             if isinstance(raw_notebooks, list):
-                return [Notebook.from_api_response(nb) for nb in raw_notebooks]
+                return [decode_notebook(Notebook, nb) for nb in raw_notebooks]
             if raw_notebooks is None:
                 return []
         raise DecodingError(
@@ -600,6 +614,7 @@ class WebNotebooksAPI(NotebooksAPI):
 
     async def _send_create(self, title: str) -> Notebook:
         """Send CREATE_NOTEBOOK and decode its web response."""
+        journal_entry = bound_operation_journal_entry()
         params = build_create_notebook_params(title)
         try:
             result = await self._rpc.rpc_call(
@@ -608,46 +623,29 @@ class WebNotebooksAPI(NotebooksAPI):
                 disable_internal_retries=True,
             )
         except RPCError as exc:
-            await self._raise_quota_error_if_detected(exc)
+            await self._raise_quota_error_if_detected(exc, journal_entry=journal_entry)
             raise
-        notebook = Notebook.from_api_response(result)
+        notebook = decode_notebook(Notebook, result)
+        if journal_entry is not None:
+            journal_entry.record(
+                CommitState.CONFIRMED,
+                "decoded notebook create",
+                known_resource_ids=((notebook.id,) if notebook.id else ()),
+            )
         if notebook.id and notebook.chat_sessions:
             self._created_chat_session_ids[notebook.id] = notebook.chat_sessions[0].id
         logger.debug("Created notebook: %s", notebook.id)
         return notebook
 
-    async def copy(self, notebook_id: str, title: str) -> Notebook:
-        """Copy a notebook, including its sources and Studio artifacts.
-
-        ``CopyProject`` has no caller-provided idempotency token. Internal
-        transport retries are disabled so a lost response cannot create a
-        second copy. If the call fails after the server commits, callers must
-        disambiguate the intended copy from their notebook list.
-        """
-        if not notebook_id:
-            raise ValidationError("notebook_id must not be empty")
-        if not title or not title.strip():
-            raise ValidationError("title must not be empty")
-
+    async def _send_copy(self, notebook_id: str, title: str) -> Notebook:
+        """Send one Web ``CopyProject`` request and decode the new notebook."""
         logger.debug("Copying notebook %s", notebook_id)
-        try:
-            result = await self._rpc.rpc_call(
-                RPCMethod.COPY_NOTEBOOK,
-                build_copy_notebook_params(notebook_id, title),
-                source_path=f"/notebook/{notebook_id}",
-            )
-        except (NetworkError, RateLimitError, ServerError) as exc:
-            rpc_code = exc.rpc_code if isinstance(exc, RPCError) else None
-            raise mark_unconfirmed(
-                RPCError(
-                    "UNRESOLVED — CopyProject may have committed before its response was "
-                    "lost. Do not blindly retry; list notebooks and resolve copies "
-                    "manually first.",
-                    method_id=RPCMethod.COPY_NOTEBOOK.value,
-                    rpc_code=rpc_code,
-                )
-            ) from exc
-        notebook = Notebook.from_api_response(result)
+        result = await self._rpc.rpc_call(
+            RPCMethod.COPY_NOTEBOOK,
+            build_copy_notebook_params(notebook_id, title),
+            source_path=f"/notebook/{notebook_id}",
+        )
+        notebook = decode_notebook(Notebook, result)
         if not notebook.id:
             raise DecodingError(
                 "CopyProject response did not contain a notebook id",
@@ -662,7 +660,12 @@ class WebNotebooksAPI(NotebooksAPI):
             )
         return notebook
 
-    async def _raise_quota_error_if_detected(self, error: RPCError) -> None:
+    async def _raise_quota_error_if_detected(
+        self,
+        error: RPCError,
+        *,
+        journal_entry: JournalEntry | None = None,
+    ) -> None:
         """Convert CREATE_NOTEBOOK invalid-argument failures into quota errors."""
         if (
             error.method_id != RPCMethod.CREATE_NOTEBOOK.value
@@ -707,11 +710,14 @@ class WebNotebooksAPI(NotebooksAPI):
         if owned_count < max(notebook_limit - 1, 0):
             return
 
-        raise NotebookLimitError(
+        limit_error = NotebookLimitError(
             owned_count,
             limit=notebook_limit,
             original_error=error,
-        ) from error
+        )
+        if journal_entry is not None:
+            attach_journal_entry(limit_error, journal_entry)
+        raise limit_error from error
 
     async def _get_account_limits(self) -> AccountLimits:
         """Fetch NotebookLM account limits from user settings."""
@@ -788,7 +794,7 @@ class WebNotebooksAPI(NotebooksAPI):
                 notebook_id,
                 method_id=RPCMethod.GET_NOTEBOOK.value,
             )
-        notebook = Notebook.from_api_response(nb_info, include_chat_settings=True)
+        notebook = decode_notebook(Notebook, nb_info, include_chat_settings=True)
         # Defense-in-depth: even when the outer list isn't empty, the server can
         # return a payload whose id and title both parse to ``""``. A valid
         # notebook always has at least one of the two populated.
@@ -840,27 +846,28 @@ class WebNotebooksAPI(NotebooksAPI):
         if title is None and emoji is None:
             raise ValidationError("At least one of title or emoji must be provided")
 
-        logger.debug("Updating notebook %s (title=%r, emoji=%r)", notebook_id, title, emoji)
-        # RENAME_NOTEBOOK is the live ``MutateProject``, a generic notebook
-        # mutator: the same RPC sets the title here, chat config in
-        # ``ChatAPI.configure``, and the share view-level in
-        # ``SharingAPI.set_view_level`` — each with a different params shape.
-        # Payload format recovered from the web client's generated protobuf
-        # serializer and live-verified: ChangeProperty tag 2 is title and tag 3
-        # is emoji.
-        # [notebook_id, [[null, null, null, [null, title, emoji]]]]
-        # (the trailing emoji slot is omitted for a title-only mutation)
-        params = build_update_notebook_params(notebook_id, title=title, emoji=emoji)
-        await self._rpc.rpc_call(
-            RPCMethod.RENAME_NOTEBOOK,
-            params,
-            source_path="/",  # Home page context, not notebook page
-            allow_null=True,
-            # #2290: a status-tagged null is a server rejection, not an empty success.
-            raise_on_null_status=True,
-        )
-        # Fetch and return the updated notebook
-        return await self.get(notebook_id)
+        async with self._operation_scope("notebooks.update"):
+            logger.debug("Updating notebook %s (title=%r, emoji=%r)", notebook_id, title, emoji)
+            # RENAME_NOTEBOOK is the live ``MutateProject``, a generic notebook
+            # mutator: the same RPC sets the title here, chat config in
+            # ``ChatAPI.configure``, and the share view-level in
+            # ``SharingAPI.set_view_level`` — each with a different params shape.
+            # Payload format recovered from the web client's generated protobuf
+            # serializer and live-verified: ChangeProperty tag 2 is title and tag 3
+            # is emoji.
+            # [notebook_id, [[null, null, null, [null, title, emoji]]]]
+            # (the trailing emoji slot is omitted for a title-only mutation)
+            params = build_update_notebook_params(notebook_id, title=title, emoji=emoji)
+            await self._rpc.rpc_call(
+                RPCMethod.RENAME_NOTEBOOK,
+                params,
+                source_path="/",  # Home page context, not notebook page
+                allow_null=True,
+                # #2290: status-tagged null is a server rejection, not empty success.
+                raise_on_null_status=True,
+            )
+            # Fetch and return the updated notebook
+            return await self.get(notebook_id)
 
     async def get_summary(self, notebook_id: str) -> str:
         """Get raw summary text for a notebook.

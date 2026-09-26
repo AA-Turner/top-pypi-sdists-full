@@ -11,6 +11,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Literal, Optional, Union
 
+from matrx_ai.code_call_mandate_keys import MEMORY_OBSERVER_MANDATE, MEMORY_REFLECTOR_MANDATE
+
 
 # ---------------------------------------------------------------------------
 # Scope / Config enumerations
@@ -27,12 +29,14 @@ class MemoryScope(str, Enum):
 
 @dataclass
 class ModelConfig:
-    """Configuration for an LLM used by Observer or Reflector."""
-    model: str
-    temperature: float = 0.0
-    max_tokens: int = 100_000
-    # Thinking budget (for models that support it, e.g. Gemini Flash)
-    thinking_budget: Optional[int] = None
+    """Which mandate holds an Observer or Reflector call.
+
+    The Holder decides the model, the instructions and the sampling
+    (2026-09-25, BYPASS-CENSUS row 33). ``model`` is a run-scope override a
+    caller EXPLICITLY named (a request's ``memory_model``) — never a default.
+    """
+    mandate_key: str
+    model: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -64,16 +68,13 @@ class ObservationConfig:
     
     token_threshold: When unobserved message tokens exceed this, trigger observation.
     model: LLM model config.
-    instruction: Additional instruction appended to the system prompt.
+    instruction: Additional instruction appended to the Observer's task (user turn).
     previous_observer_tokens: Token budget for passing prior observations back to Observer.
     """
     token_threshold: TokenThreshold = 30_000
-    model: ModelConfig = field(default_factory=lambda: ModelConfig(
-        model="gemini-2.5-flash",
-        temperature=0.3,
-        max_tokens=100_000,
-        thinking_budget=215,
-    ))
+    model: ModelConfig = field(
+        default_factory=lambda: ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE)
+    )
     instruction: Optional[str] = None
     previous_observer_tokens: Optional[int] = None
     # Buffer: fraction (<1.0) or absolute token count >0
@@ -90,12 +91,9 @@ class ReflectionConfig:
     token_threshold: When observation tokens exceed this, trigger reflection.
     """
     token_threshold: TokenThreshold = 40_000
-    model: ModelConfig = field(default_factory=lambda: ModelConfig(
-        model="gemini-2.5-flash",
-        temperature=0.0,
-        max_tokens=100_000,
-        thinking_budget=1024,
-    ))
+    model: ModelConfig = field(
+        default_factory=lambda: ModelConfig(mandate_key=MEMORY_REFLECTOR_MANDATE)
+    )
     instruction: Optional[str] = None
     # Buffer similar to observation buffering
     buffer_activation: float = 0.5
@@ -137,6 +135,8 @@ class ObservationalMemoryConfig:
     obscure_thread_ids: bool = False
     # Called for debug events during processing
     on_debug_event: Optional[Callable[[dict], None]] = None
+    # The organization whose memory-framing knob applies (context_framing.py).
+    organization_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

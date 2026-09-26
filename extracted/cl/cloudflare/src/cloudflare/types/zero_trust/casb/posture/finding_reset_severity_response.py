@@ -20,8 +20,6 @@ __all__ = [
 
 
 class FindingCategory(BaseModel):
-    """Category information for a finding."""
-
     observation: Literal["Issue", "Insight", "Activity"]
     """The type of the observation."""
 
@@ -61,13 +59,12 @@ class Finding(BaseModel):
     """The unique identifier of the finding."""
 
     category: FindingCategory
-    """Category information for a finding."""
 
     name: str
     """The name of the finding."""
 
     severity: Literal["Critical", "High", "Medium", "Low"]
-    """The severity level of a finding."""
+    """Default severity used when no integration-specific severity override exists."""
 
     vendor: str
     """The SaaS/Cloud vendor of the platform with which the finding is associated."""

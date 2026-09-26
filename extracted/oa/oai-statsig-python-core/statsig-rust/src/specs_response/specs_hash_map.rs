@@ -20,7 +20,12 @@ use crate::{
         },
     },
     log_e,
-    specs_response::{parse_options::should_preserve_session_update_mode, spec_types::Spec},
+    specs_response::{
+        parse_options::{
+            should_preserve_session_update_mode, should_skip_unhydrated_dynamic_configs_for_preload,
+        },
+        spec_types::Spec,
+    },
 };
 
 const TAG: &str = "SpecsHashMap";
@@ -170,96 +175,117 @@ mod decode_stats_tests {
 }
 
 impl<'de> Deserialize<'de> for SpecsHashMap {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
         let raw_values: HashMap<InternedString, Box<RawValue>> =
-            Deserialize::deserialize(_deserializer)?;
+            Deserialize::deserialize(deserializer)?;
 
-        let preserve_session_update_mode = should_preserve_session_update_mode();
-        let mut result = SpecsHashMap(HashMap::with_capacity(raw_values.len()));
-        for (key, raw_value) in raw_values.into_iter() {
-            let json_string = raw_value.get();
-            if raw_spec_has_unhydrated_remote_config_metadata(json_string) {
-                return Err(D::Error::custom(
-                    UNHYDRATED_JSON_REMOTE_CONFIG_METADATA_MESSAGE,
-                ));
+        decode_raw_specs(raw_values, false)
+    }
+}
+
+/// The shared preloader can cache all ordinary dynamic configs without
+/// materializing remote values. Other spec maps and regular SDK parses retain
+/// the strict pre-hydration guard.
+pub(crate) fn deserialize_dynamic_configs<'de, D>(deserializer: D) -> Result<SpecsHashMap, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw_values: HashMap<InternedString, Box<RawValue>> =
+        Deserialize::deserialize(deserializer)?;
+    decode_raw_specs(
+        raw_values,
+        should_skip_unhydrated_dynamic_configs_for_preload(),
+    )
+}
+
+fn decode_raw_specs<E: SerdeError>(
+    raw_values: HashMap<InternedString, Box<RawValue>>,
+    skip_unhydrated_remote_configs: bool,
+) -> Result<SpecsHashMap, E> {
+    let preserve_session_update_mode = should_preserve_session_update_mode();
+    let mut result = SpecsHashMap(HashMap::with_capacity(raw_values.len()));
+    for (key, raw_value) in raw_values.into_iter() {
+        let json_string = raw_value.get();
+        if raw_spec_has_unhydrated_remote_config_metadata(json_string) {
+            if skip_unhydrated_remote_configs {
+                continue;
             }
+            return Err(E::custom(UNHYDRATED_JSON_REMOTE_CONFIG_METADATA_MESSAGE));
+        }
 
-            let mut preloaded = None;
-            if InternedStore::has_preloaded_mmap_v2() {
-                if preserve_session_update_mode {
-                    if let Ok(identity) =
-                        serde_json::from_str::<SpecIdentityWithSessionUpdateMode<'_>>(json_string)
-                    {
-                        preloaded =
-                            InternedStore::try_get_preloaded_spec(&key, identity.entity.as_ref());
-                        if let Some(spec) = &preloaded {
-                            let existing_checksum =
-                                spec.view().checksum().map(|value| value.as_str());
-                            match (identity.checksum.as_deref(), existing_checksum) {
-                                (Some(checksum), Some(existing)) if existing == checksum => {
-                                    if let Some(spec) = spec.with_session_update_mode(
-                                        identity.session_update_mode.as_deref(),
-                                    ) {
-                                        result.insert(key, spec);
-                                        continue;
-                                    }
-                                }
-                                (None, None) => {}
-                                _ => preloaded = None,
-                            }
-                        }
-                    }
-                } else if let Ok(identity) = serde_json::from_str::<SpecIdentity<'_>>(json_string) {
+        let mut preloaded = None;
+        if InternedStore::has_preloaded_mmap_v2() {
+            if preserve_session_update_mode {
+                if let Ok(identity) =
+                    serde_json::from_str::<SpecIdentityWithSessionUpdateMode<'_>>(json_string)
+                {
                     preloaded =
                         InternedStore::try_get_preloaded_spec(&key, identity.entity.as_ref());
                     if let Some(spec) = &preloaded {
                         let existing_checksum = spec.view().checksum().map(|value| value.as_str());
                         match (identity.checksum.as_deref(), existing_checksum) {
                             (Some(checksum), Some(existing)) if existing == checksum => {
-                                result.insert(key, preloaded.expect("preloaded spec must exist"));
-                                continue;
+                                if let Some(spec) = spec.with_session_update_mode(
+                                    identity.session_update_mode.as_deref(),
+                                ) {
+                                    result.insert(key, spec);
+                                    continue;
+                                }
                             }
                             (None, None) => {}
                             _ => preloaded = None,
                         }
                     }
                 }
-            }
-
-            let spec: Spec = match serde_json::from_str(json_string) {
-                Ok(spec) => spec,
-                Err(e) => {
-                    log_e!(TAG, "Failed to deserialize spec: {}", e);
-                    continue;
-                }
-            };
-
-            if preloaded
-                .as_ref()
-                .is_some_and(|preloaded| preloaded.matches_owned_spec(&spec))
-            {
-                let preloaded = preloaded.take().expect("preloaded spec must exist");
-                if !preserve_session_update_mode {
-                    result.insert(key, preloaded);
-                    continue;
-                }
-
-                if let Some(preloaded) =
-                    preloaded.with_session_update_mode(spec.session_update_mode.as_deref())
-                {
-                    result.insert(key, preloaded);
-                    continue;
+            } else if let Ok(identity) = serde_json::from_str::<SpecIdentity<'_>>(json_string) {
+                preloaded = InternedStore::try_get_preloaded_spec(&key, identity.entity.as_ref());
+                if let Some(spec) = &preloaded {
+                    let existing_checksum = spec.view().checksum().map(|value| value.as_str());
+                    match (identity.checksum.as_deref(), existing_checksum) {
+                        (Some(checksum), Some(existing)) if existing == checksum => {
+                            result.insert(key, preloaded.expect("preloaded spec must exist"));
+                            continue;
+                        }
+                        (None, None) => {}
+                        _ => preloaded = None,
+                    }
                 }
             }
-
-            result.insert(key, SpecPointer::Pointer(Arc::new(spec)));
         }
 
-        Ok(result)
+        let spec: Spec = match serde_json::from_str(json_string) {
+            Ok(spec) => spec,
+            Err(e) => {
+                log_e!(TAG, "Failed to deserialize spec: {}", e);
+                continue;
+            }
+        };
+
+        if preloaded
+            .as_ref()
+            .is_some_and(|preloaded| preloaded.matches_owned_spec(&spec))
+        {
+            let preloaded = preloaded.take().expect("preloaded spec must exist");
+            if !preserve_session_update_mode {
+                result.insert(key, preloaded);
+                continue;
+            }
+
+            if let Some(preloaded) =
+                preloaded.with_session_update_mode(spec.session_update_mode.as_deref())
+            {
+                result.insert(key, preloaded);
+                continue;
+            }
+        }
+
+        result.insert(key, SpecPointer::Pointer(Arc::new(spec)));
     }
+
+    Ok(result)
 }
 
 #[derive(Deserialize)]

@@ -15,8 +15,9 @@ class ScriptDeleteParams(TypedDict, total=False):
     """Name of the Workers for Platforms dispatch namespace."""
 
     force: bool
-    """
-    If set to true, delete will not be stopped by associated service binding,
-    durable object, or other binding. Any of these associated bindings/durable
-    objects will be deleted along with the script.
+    """If true, delete the script even when other Workers still reference it.
+
+    Service bindings in those Workers may be left broken. Durable Object namespaces
+    implemented by the deleted script are deleted even if other Workers reference
+    them.
     """

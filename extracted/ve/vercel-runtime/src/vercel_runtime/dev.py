@@ -5,6 +5,7 @@ import logging
 import logging.config
 import mimetypes
 import os
+import posixpath
 import sys
 from typing import TYPE_CHECKING, Any, cast
 
@@ -254,8 +255,7 @@ def _static_wsgi_app(
         return _not_found(start_response)
 
     req_path = environ.get("PATH_INFO", "/") or "/"
-    safe = os.path.normpath(req_path).lstrip("/")
-    full = os.path.join(PUBLIC_DIR, safe)
+    full = posixpath.join(PUBLIC_DIR, req_path.lstrip("/"))
     if not _is_safe_file(PUBLIC_DIR, full):
         return _not_found(start_response)
 
@@ -328,8 +328,7 @@ async def _asgi_app(
 
     if static_asgi is not None and effective_scope.get("type") == "http":
         req_path = effective_scope.get("path", "/") or "/"
-        safe = os.path.normpath(req_path).lstrip("/")
-        full = os.path.join(PUBLIC_DIR, safe)
+        full = posixpath.join(PUBLIC_DIR, req_path.lstrip("/"))
         try:
             base = os.path.realpath(PUBLIC_DIR)
             target = os.path.realpath(full)

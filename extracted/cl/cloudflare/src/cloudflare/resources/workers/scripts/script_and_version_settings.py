@@ -59,7 +59,7 @@ class ScriptAndVersionSettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptAndVersionSettingEditResponse:
         """
-        Patch metadata or config, such as bindings or usage model.
+        Patch Worker script metadata or config, such as bindings or usage model.
 
         Args:
           account_id: Identifier.
@@ -115,7 +115,7 @@ class ScriptAndVersionSettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptAndVersionSettingGetResponse:
         """
-        Get metadata and config, such as bindings or usage model.
+        Get Worker script metadata and config, such as bindings or usage model.
 
         Args:
           account_id: Identifier.
@@ -185,7 +185,7 @@ class AsyncScriptAndVersionSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptAndVersionSettingEditResponse:
         """
-        Patch metadata or config, such as bindings or usage model.
+        Patch Worker script metadata or config, such as bindings or usage model.
 
         Args:
           account_id: Identifier.
@@ -241,7 +241,7 @@ class AsyncScriptAndVersionSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptAndVersionSettingGetResponse:
         """
-        Get metadata and config, such as bindings or usage model.
+        Get Worker script metadata and config, such as bindings or usage model.
 
         Args:
           account_id: Identifier.

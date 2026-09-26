@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Dict, Union
+from typing import Dict, Union, Optional
+from datetime import datetime
 from typing_extensions import Literal, Annotated, TypeAlias
 
 from ..._utils import PropertyInfo
@@ -20,6 +21,10 @@ __all__ = [
     "ResourceTaggingTaggedResourceObjectCloudflaredTunnel",
     "ResourceTaggingTaggedResourceObjectCustomCertificate",
     "ResourceTaggingTaggedResourceObjectCustomHostname",
+    "ResourceTaggingTaggedResourceObjectCwsDeployment",
+    "ResourceTaggingTaggedResourceObjectCwsPolicy",
+    "ResourceTaggingTaggedResourceObjectCwsPolicySet",
+    "ResourceTaggingTaggedResourceObjectCwsWorkload",
     "ResourceTaggingTaggedResourceObjectD1Database",
     "ResourceTaggingTaggedResourceObjectDNSRecord",
     "ResourceTaggingTaggedResourceObjectDurableObjectNamespace",
@@ -75,6 +80,17 @@ class ResourceTaggingTaggedResourceObjectAccessApplication(BaseModel):
 
     type: Literal["access_application"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectAccessApplicationPolicy(BaseModel):
     """Response for access_application_policy resources"""
@@ -109,6 +125,17 @@ class ResourceTaggingTaggedResourceObjectAccessApplicationPolicy(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectAccessGroup(BaseModel):
     """Response for access_group resources"""
@@ -136,6 +163,17 @@ class ResourceTaggingTaggedResourceObjectAccessGroup(BaseModel):
     """
 
     type: Literal["access_group"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectAccount(BaseModel):
@@ -165,6 +203,17 @@ class ResourceTaggingTaggedResourceObjectAccount(BaseModel):
 
     type: Literal["account"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectAccountRuleset(BaseModel):
     """Response for account_ruleset resources"""
@@ -192,6 +241,17 @@ class ResourceTaggingTaggedResourceObjectAccountRuleset(BaseModel):
     """
 
     type: Literal["account_ruleset"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectAIGateway(BaseModel):
@@ -221,6 +281,17 @@ class ResourceTaggingTaggedResourceObjectAIGateway(BaseModel):
 
     type: Literal["ai_gateway"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectAlertingPolicy(BaseModel):
     """Response for alerting_policy resources"""
@@ -249,6 +320,17 @@ class ResourceTaggingTaggedResourceObjectAlertingPolicy(BaseModel):
 
     type: Literal["alerting_policy"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectAlertingWebhook(BaseModel):
     """Response for alerting_webhook resources"""
@@ -276,6 +358,17 @@ class ResourceTaggingTaggedResourceObjectAlertingWebhook(BaseModel):
     """
 
     type: Literal["alerting_webhook"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectAPIGatewayOperation(BaseModel):
@@ -308,6 +401,17 @@ class ResourceTaggingTaggedResourceObjectAPIGatewayOperation(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectCloudflaredTunnel(BaseModel):
     """Response for cloudflared_tunnel resources"""
@@ -335,6 +439,17 @@ class ResourceTaggingTaggedResourceObjectCloudflaredTunnel(BaseModel):
     """
 
     type: Literal["cloudflared_tunnel"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectCustomCertificate(BaseModel):
@@ -367,6 +482,17 @@ class ResourceTaggingTaggedResourceObjectCustomCertificate(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectCustomHostname(BaseModel):
     """Response for custom_hostname resources"""
@@ -398,6 +524,173 @@ class ResourceTaggingTaggedResourceObjectCustomHostname(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
+
+class ResourceTaggingTaggedResourceObjectCwsDeployment(BaseModel):
+    """Response for cws_deployment resources"""
+
+    id: str
+    """Identifies the unique resource."""
+
+    etag: str
+    """ETag identifier for optimistic concurrency control.
+
+    Formatted as "v1:<hash>" where the hash is the base64url-encoded SHA-256
+    (truncated to 128 bits) of the tags map canonicalized using RFC 8785 (JSON
+    Canonicalization Scheme). Clients should treat ETags as opaque strings and pass
+    them back via the If-Match header on write operations.
+    """
+
+    name: str
+    """Human-readable name of the resource."""
+
+    tags: Dict[str, str]
+    """Contains key-value pairs of tags.
+
+    Keys may contain at most 256 characters. Values may contain at most 1024
+    characters and may be empty for key-only tags.
+    """
+
+    type: Literal["cws_deployment"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
+
+class ResourceTaggingTaggedResourceObjectCwsPolicy(BaseModel):
+    """Response for cws_policy resources"""
+
+    id: str
+    """Identifies the unique resource."""
+
+    etag: str
+    """ETag identifier for optimistic concurrency control.
+
+    Formatted as "v1:<hash>" where the hash is the base64url-encoded SHA-256
+    (truncated to 128 bits) of the tags map canonicalized using RFC 8785 (JSON
+    Canonicalization Scheme). Clients should treat ETags as opaque strings and pass
+    them back via the If-Match header on write operations.
+    """
+
+    name: str
+    """Human-readable name of the resource."""
+
+    tags: Dict[str, str]
+    """Contains key-value pairs of tags.
+
+    Keys may contain at most 256 characters. Values may contain at most 1024
+    characters and may be empty for key-only tags.
+    """
+
+    type: Literal["cws_policy"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
+
+class ResourceTaggingTaggedResourceObjectCwsPolicySet(BaseModel):
+    """Response for cws_policy_set resources"""
+
+    id: str
+    """Identifies the unique resource."""
+
+    etag: str
+    """ETag identifier for optimistic concurrency control.
+
+    Formatted as "v1:<hash>" where the hash is the base64url-encoded SHA-256
+    (truncated to 128 bits) of the tags map canonicalized using RFC 8785 (JSON
+    Canonicalization Scheme). Clients should treat ETags as opaque strings and pass
+    them back via the If-Match header on write operations.
+    """
+
+    name: str
+    """Human-readable name of the resource."""
+
+    tags: Dict[str, str]
+    """Contains key-value pairs of tags.
+
+    Keys may contain at most 256 characters. Values may contain at most 1024
+    characters and may be empty for key-only tags.
+    """
+
+    type: Literal["cws_policy_set"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
+
+class ResourceTaggingTaggedResourceObjectCwsWorkload(BaseModel):
+    """Response for cws_workload resources"""
+
+    id: str
+    """Identifies the unique resource."""
+
+    etag: str
+    """ETag identifier for optimistic concurrency control.
+
+    Formatted as "v1:<hash>" where the hash is the base64url-encoded SHA-256
+    (truncated to 128 bits) of the tags map canonicalized using RFC 8785 (JSON
+    Canonicalization Scheme). Clients should treat ETags as opaque strings and pass
+    them back via the If-Match header on write operations.
+    """
+
+    name: str
+    """Human-readable name of the resource."""
+
+    tags: Dict[str, str]
+    """Contains key-value pairs of tags.
+
+    Keys may contain at most 256 characters. Values may contain at most 1024
+    characters and may be empty for key-only tags.
+    """
+
+    type: Literal["cws_workload"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectD1Database(BaseModel):
     """Response for d1_database resources"""
@@ -425,6 +718,17 @@ class ResourceTaggingTaggedResourceObjectD1Database(BaseModel):
     """
 
     type: Literal["d1_database"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectDNSRecord(BaseModel):
@@ -457,6 +761,17 @@ class ResourceTaggingTaggedResourceObjectDNSRecord(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectDurableObjectNamespace(BaseModel):
     """Response for durable_object_namespace resources"""
@@ -484,6 +799,17 @@ class ResourceTaggingTaggedResourceObjectDurableObjectNamespace(BaseModel):
     """
 
     type: Literal["durable_object_namespace"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectGatewayList(BaseModel):
@@ -513,6 +839,17 @@ class ResourceTaggingTaggedResourceObjectGatewayList(BaseModel):
 
     type: Literal["gateway_list"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectGatewayRule(BaseModel):
     """Response for gateway_rule resources"""
@@ -540,6 +877,17 @@ class ResourceTaggingTaggedResourceObjectGatewayRule(BaseModel):
     """
 
     type: Literal["gateway_rule"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectHealthcheck(BaseModel):
@@ -572,6 +920,17 @@ class ResourceTaggingTaggedResourceObjectHealthcheck(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectImage(BaseModel):
     """Response for image resources"""
@@ -599,6 +958,17 @@ class ResourceTaggingTaggedResourceObjectImage(BaseModel):
     """
 
     type: Literal["image"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectInfrastructureTarget(BaseModel):
@@ -628,6 +998,17 @@ class ResourceTaggingTaggedResourceObjectInfrastructureTarget(BaseModel):
 
     type: Literal["infrastructure_target"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectKVNamespace(BaseModel):
     """Response for kv_namespace resources"""
@@ -655,6 +1036,17 @@ class ResourceTaggingTaggedResourceObjectKVNamespace(BaseModel):
     """
 
     type: Literal["kv_namespace"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectLoadBalancer(BaseModel):
@@ -687,6 +1079,17 @@ class ResourceTaggingTaggedResourceObjectLoadBalancer(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectLoadBalancerMonitor(BaseModel):
     """Response for load_balancer_monitor resources"""
@@ -715,6 +1118,17 @@ class ResourceTaggingTaggedResourceObjectLoadBalancerMonitor(BaseModel):
 
     type: Literal["load_balancer_monitor"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectLoadBalancerPool(BaseModel):
     """Response for load_balancer_pool resources"""
@@ -742,6 +1156,17 @@ class ResourceTaggingTaggedResourceObjectLoadBalancerPool(BaseModel):
     """
 
     type: Literal["load_balancer_pool"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectManagedClientCertificate(BaseModel):
@@ -774,6 +1199,17 @@ class ResourceTaggingTaggedResourceObjectManagedClientCertificate(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectPagesProject(BaseModel):
     """Response for pages_project resources"""
@@ -801,6 +1237,17 @@ class ResourceTaggingTaggedResourceObjectPagesProject(BaseModel):
     """
 
     type: Literal["pages_project"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectQueue(BaseModel):
@@ -830,6 +1277,17 @@ class ResourceTaggingTaggedResourceObjectQueue(BaseModel):
 
     type: Literal["queue"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectR2Bucket(BaseModel):
     """Response for r2_bucket resources"""
@@ -857,6 +1315,17 @@ class ResourceTaggingTaggedResourceObjectR2Bucket(BaseModel):
     """
 
     type: Literal["r2_bucket"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectResourceShare(BaseModel):
@@ -886,6 +1355,17 @@ class ResourceTaggingTaggedResourceObjectResourceShare(BaseModel):
 
     type: Literal["resource_share"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectStreamLiveInput(BaseModel):
     """Response for stream_live_input resources"""
@@ -913,6 +1393,17 @@ class ResourceTaggingTaggedResourceObjectStreamLiveInput(BaseModel):
     """
 
     type: Literal["stream_live_input"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectStreamVideo(BaseModel):
@@ -942,6 +1433,17 @@ class ResourceTaggingTaggedResourceObjectStreamVideo(BaseModel):
 
     type: Literal["stream_video"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectVectorizeIndex(BaseModel):
     """Response for vectorize_index resources"""
@@ -970,6 +1472,17 @@ class ResourceTaggingTaggedResourceObjectVectorizeIndex(BaseModel):
 
     type: Literal["vectorize_index"]
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectWorker(BaseModel):
     """Response for worker resources"""
@@ -997,6 +1510,17 @@ class ResourceTaggingTaggedResourceObjectWorker(BaseModel):
     """
 
     type: Literal["worker"]
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectWorkerRoute(BaseModel):
@@ -1029,6 +1553,17 @@ class ResourceTaggingTaggedResourceObjectWorkerRoute(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectWorkerVersion(BaseModel):
     """Response for worker_version resources"""
@@ -1059,6 +1594,17 @@ class ResourceTaggingTaggedResourceObjectWorkerVersion(BaseModel):
 
     worker_id: str
     """Worker ID is required only for worker_version resources"""
+
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
 
 
 class ResourceTaggingTaggedResourceObjectZone(BaseModel):
@@ -1091,6 +1637,17 @@ class ResourceTaggingTaggedResourceObjectZone(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 class ResourceTaggingTaggedResourceObjectZoneRuleset(BaseModel):
     """Response for zone_ruleset resources"""
@@ -1122,6 +1679,17 @@ class ResourceTaggingTaggedResourceObjectZoneRuleset(BaseModel):
     zone_id: str
     """Zone ID is required only for zone-level resources"""
 
+    tags_updated_at: Optional[datetime] = None
+    """
+    Monotonic version of the resource's tags: the timestamp assigned when the tags
+    were last written. Returned by read endpoints, by 2PC prepare (the version that
+    will be assigned on commit, unless a concurrent write lands first, in which case
+    a newer version is assigned), and by 2PC commit (the authoritative committed
+    version). Omitted for untagged resources and delete commits: a deleted resource
+    has no current version, and deletions are ordered by event order rather than by
+    version.
+    """
+
 
 AccountTagGetResponse: TypeAlias = Annotated[
     Union[
@@ -1137,6 +1705,10 @@ AccountTagGetResponse: TypeAlias = Annotated[
         ResourceTaggingTaggedResourceObjectCloudflaredTunnel,
         ResourceTaggingTaggedResourceObjectCustomCertificate,
         ResourceTaggingTaggedResourceObjectCustomHostname,
+        ResourceTaggingTaggedResourceObjectCwsDeployment,
+        ResourceTaggingTaggedResourceObjectCwsPolicy,
+        ResourceTaggingTaggedResourceObjectCwsPolicySet,
+        ResourceTaggingTaggedResourceObjectCwsWorkload,
         ResourceTaggingTaggedResourceObjectD1Database,
         ResourceTaggingTaggedResourceObjectDNSRecord,
         ResourceTaggingTaggedResourceObjectDurableObjectNamespace,

@@ -12,6 +12,7 @@ __all__ = ["ListEditParams", "Append"]
 
 class ListEditParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     append: Iterable[Append]
     """Add items to the list."""

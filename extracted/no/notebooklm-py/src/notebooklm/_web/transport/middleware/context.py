@@ -14,11 +14,13 @@ RPC_CONTEXT_DISABLE_READ_TIMEOUT_RETRIES: Final = "disable_read_timeout_retries"
 RPC_CONTEXT_AUTH_SNAPSHOT: Final = "auth_snapshot"
 RPC_CONTEXT_AUTH_REFRESHED: Final = "auth_refreshed"
 RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS: Final = "rpc_queue_wait_seconds"
+# Historical spelling retained at the context-vocabulary boundary.
+RPC_QUEUE_WAIT_CONTEXT_KEY: Final = RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS
 # Resource generation captured when the logical web call enters the chain.
 # Every terminal attempt reuses it so a forced close/reopen cannot redirect
 # an old retry into the newly-opened Kernel.
 RPC_CONTEXT_RESOURCE_EPOCH: Final = "resource_epoch"
-# Optional :class:`notebooklm._web.transport.auth_refresh_retry.RefreshBudget`. Seeded by
+# Optional :class:`notebooklm._runtime.auth_refresh_retry.RefreshBudget`. Seeded by
 # ``RpcExecutor.rpc_call`` so the HTTP-status refresh layer
 # (``AuthRefreshMiddleware``) and the decoded-RPC refresh layer
 # (``RpcExecutor``) share ONE once-per-logical-call refresh allowance — a
@@ -39,6 +41,13 @@ RPC_CONTEXT_REFRESH_BUDGET: Final = "refresh_budget"
 # deadline (e.g. the chat path), in which case ``RetryMiddleware`` falls back
 # to ``_start_retry_deadline()``.
 RPC_CONTEXT_RETRY_DEADLINE: Final = "retry_deadline"
+# Optional shared retry counters. The executor seeds one instance for the
+# complete logical RPC so decode-time auth recursion cannot reset the 429 or
+# server-error allowance when it re-enters the middleware chain.
+RPC_CONTEXT_RETRY_BUDGET: Final = "retry_budget"
+# Optional bound journal entry, or tuple of batch-member entries. The runtime
+# terminal is the sole owner that opens one attempt per physical POST.
+RPC_CONTEXT_JOURNAL: Final = "operation_journal"
 
 ALLOWED_RPC_CONTEXT_KEYS: Final[frozenset[str]] = frozenset(
     {
@@ -55,6 +64,8 @@ ALLOWED_RPC_CONTEXT_KEYS: Final[frozenset[str]] = frozenset(
         RPC_CONTEXT_RESOURCE_EPOCH,
         RPC_CONTEXT_REFRESH_BUDGET,
         RPC_CONTEXT_RETRY_DEADLINE,
+        RPC_CONTEXT_RETRY_BUDGET,
+        RPC_CONTEXT_JOURNAL,
     }
 )
 
@@ -65,12 +76,15 @@ __all__ = [
     "RPC_CONTEXT_BUILD_REQUEST",
     "RPC_CONTEXT_DISABLE_INTERNAL_RETRIES",
     "RPC_CONTEXT_LOG_LABEL",
+    "RPC_CONTEXT_JOURNAL",
     "RPC_CONTEXT_MAX_RESPONSE_BYTES",
     "RPC_CONTEXT_READ_TIMEOUT",
     "RPC_CONTEXT_DISABLE_READ_TIMEOUT_RETRIES",
     "RPC_CONTEXT_REFRESH_BUDGET",
     "RPC_CONTEXT_RETRY_DEADLINE",
+    "RPC_CONTEXT_RETRY_BUDGET",
     "RPC_CONTEXT_RPC_METHOD",
     "RPC_CONTEXT_RPC_QUEUE_WAIT_SECONDS",
     "RPC_CONTEXT_RESOURCE_EPOCH",
+    "RPC_QUEUE_WAIT_CONTEXT_KEY",
 ]

@@ -23,9 +23,14 @@ import json
 import logging
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
 
@@ -72,9 +77,19 @@ def _context_cache_key(
     scope_ids: list[str] | None,
     *,
     entity_is_new: bool = False,
+    system_item_refs: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[Any, ...]:
+    # The System refs are an INPUT of the resolver (lane CONTEXT-VALUES-NAMED-2: it reads only
+    # the System items they name), so they are part of the key — two turns naming different
+    # System items never share one cached answer.
     effective_entity = _NEW_ENTITY_SENTINEL if entity_is_new else entity_id
-    return (user_id, entity_type, effective_entity, tuple(sorted(scope_ids or [])))
+    return (
+        user_id,
+        entity_type,
+        effective_entity,
+        tuple(sorted(scope_ids or [])),
+        tuple(sorted(system_item_refs or [])),
+    )
 
 
 def invalidate_context_cache(user_id: str | None = None) -> None:
@@ -103,18 +118,82 @@ def invalidate_context_cache(user_id: str | None = None) -> None:
 #
 # A provider is keyed by the item's `key`. To EXPOSE one, an admin seeds a
 # System Context Item with that key; absent the seeded item, the provider is
-# inert (nothing to bind to). UTC for now — per-user timezone is a later
-# enhancement that needs the user's settings.
+# inert (nothing to bind to).
+#
+# THE PERSON'S CLOCK (lane CONTEXT-VALUES-NAMED-2, chair ruling b): `current_timezone` is the
+# timezone of the person running the turn, read from the ONE timezone ladder
+# (`communication.person_notification_window` — what they declared, what their browser reported
+# through /api/person/timezone, their profile, their work location, their organization's
+# default), UTC when nothing answers. `current_date` and `current_datetime` are rendered in it,
+# the date-time with its UTC offset shown. `current_time` stays UTC and says so.
 # ---------------------------------------------------------------------------
-def _ambient_providers(user_id: str | None) -> dict[str, Callable[[], str]]:
+#: The ambient keys whose value depends on the person's timezone — the ladder is read only when
+#: one of these was named.
+TIMEZONE_AMBIENT_KEYS: frozenset[str] = frozenset(
+    {"current_date", "current_datetime", "current_timezone"}
+)
+
+
+def _ambient_providers(user_id: str | None, timezone: str = "UTC") -> dict[str, Callable[[], str]]:
     now = datetime.now(UTC)
+    try:
+        local = now.astimezone(ZoneInfo(timezone))
+    except (ZoneInfoNotFoundError, ValueError):
+        timezone, local = "UTC", now
     return {
-        "current_date": lambda: now.date().isoformat(),
-        "current_datetime": lambda: now.isoformat(timespec="seconds"),
+        "current_date": lambda: local.date().isoformat(),
+        "current_datetime": lambda: local.isoformat(timespec="seconds"),
+        "current_timezone": lambda: timezone,
         "current_time": lambda: now.strftime("%H:%M UTC"),
         "current_year": lambda: str(now.year),
         "current_user_id": lambda: user_id or "",
     }
+
+
+_TIMEZONE_TTL_SECONDS = 300.0
+_timezone_cache: dict[tuple[str, str], tuple[float, str]] = {}
+
+
+async def person_timezone(user_id: str | None, organization_id: str | None) -> str:
+    """The IANA timezone of the person running the turn — ONE source,
+    ``communication.person_notification_window`` — or ``"UTC"`` when nothing answers.
+
+    Memoised per (person, organization) for five minutes. An unreadable ladder answers UTC and
+    says so in the log; it never fails the turn."""
+    if not user_id:
+        return "UTC"
+    key = (str(user_id), str(organization_id or ""))
+    hit = _timezone_cache.get(key)
+    now = time.monotonic()
+    if hit is not None and now - hit[0] < _TIMEZONE_TTL_SECONDS:
+        return hit[1]
+    tz = "UTC"
+    try:
+        from matrx_orm import call_function
+
+        rows = await call_function(
+            _resolve_context_database(),
+            "communication",
+            "person_notification_window",
+            str(user_id),
+            str(organization_id) if organization_id else None,
+            "sms",
+            mode="rows",
+        )
+        row = rows[0] if isinstance(rows, list) and rows else None
+        candidate = row.get("timezone") if isinstance(row, dict) else None
+        if candidate:
+            ZoneInfo(str(candidate))
+            tz = str(candidate)
+    except Exception as exc:  # noqa: BLE001 — announced; the turn is answered in UTC
+        logger.warning(
+            "[context_engine] could not read the timezone of person %s (%r); the date and time "
+            "this turn carries are in UTC and say so.",
+            user_id,
+            exc,
+        )
+    _timezone_cache[key] = (now, tz)
+    return tz
 
 
 def _as_cell_list(raw: Any, *, context_item_id: str) -> list[dict[str, Any]]:
@@ -166,17 +245,314 @@ async def _normalize_cell_values(raw_cells: dict[str, Any]) -> dict[str, list[di
     }
 
 
+# ---------------------------------------------------------------------------
+# A SYSTEM ITEM REACHES AN AGENT ONLY WHEN SOMETHING NAMES IT
+# (lane CONTEXT-VALUES-NAMED; Arman, 2026-09-25: "It must be named in context values or
+# variables or it should not be fed … these will grow to thousands … some of them will also
+# trigger api calls or other fetching").
+#
+# THE NAMING REACHES THE DATABASE (lane CONTEXT-VALUES-NAMED-2, chair ruling c). Both resolvers
+# (``public.resolve_full_context`` and the record store's ``custom.resolve_context``) take
+# ``p_system_item_refs`` — :meth:`SystemContextNames.refs`, the same list on both sides — and
+# read ONLY those System rows (``context.named_system_context_items``); nothing is read for an
+# item nobody named. The answer still passes through ``agent_context_from_resolved``, which
+# applies the same naming again (a resolver that over-answers is filtered, never trusted), and an
+# ambient (computed) item is computed only when it survived. Organization / scope context is
+# untouched — only cells the resolver stamped ``source: "system"``.
+#
+# Who names an item: an agent's variable or context-slot binding to it (by id), the platform's
+# declared default list below, or an explicit pick (the context inspector). Nothing else.
+# ---------------------------------------------------------------------------
+
+#: THE DEFAULT LIST IS A KNOB (chair ruling a, lane CONTEXT-VALUES-NAMED-2): the System items
+#: every agent run is handed without naming them are the platform knob
+#: ``context/system_item_defaults`` (keys, not ids, so the list is portable across databases),
+#: read through the host's reader (:func:`configure_system_item_defaults`).
+SYSTEM_ITEM_DEFAULTS_KNOB: tuple[str, str] = ("context", "system_item_defaults")
+
+#: KNOB MIRROR of platform.feature_knob "context" "system_item_defaults" — the registered default,
+#: answered only when no host reader is bound or the row cannot be read (announced).
+PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS: tuple[str, ...] = (
+    "current_date",
+    "current_datetime",
+    "current_timezone",
+)
+
+#: What an item named by the default list says it was named by.
+PLATFORM_DEFAULT_NAMER = "the platform's default list"
+
+_defaults_reader: Callable[[], Awaitable[Any]] | None = None
+_defaults_announced = False
+
+
+def configure_system_item_defaults(reader: Callable[[], Awaitable[Any]] | None) -> None:
+    """Bind (or unbind) the host's async reader of ``context/system_item_defaults``. The host's
+    knob cache is the memo; this package never caches the list itself."""
+    global _defaults_reader, _defaults_announced
+    _defaults_reader = reader
+    _defaults_announced = False
+
+
+async def platform_default_system_item_keys() -> tuple[str, ...]:
+    """The keys of the System items every agent receives without naming them — the knob's
+    value, or its registered default (announced) when it cannot be read."""
+    global _defaults_announced
+    if _defaults_reader is None:
+        if not _defaults_announced:
+            _defaults_announced = True
+            logger.warning(
+                "[context_engine] no host reader is bound for the knob %s/%s; every agent is "
+                "handed the registered default list %s (bind one with "
+                "configure_system_item_defaults()).",
+                *SYSTEM_ITEM_DEFAULTS_KNOB,
+                list(PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS),
+            )
+        return PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS
+    try:
+        raw = await _defaults_reader()
+    except Exception as exc:  # noqa: BLE001 — announced; the registered default answers
+        logger.error(
+            "[context_engine] the knob %s/%s could not be read (%r); every agent is handed the "
+            "registered default list %s until it can.",
+            *SYSTEM_ITEM_DEFAULTS_KNOB,
+            exc,
+            list(PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS),
+        )
+        return PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = None
+    if not isinstance(raw, list) or not all(isinstance(k, str) for k in raw):
+        logger.error(
+            "[context_engine] the knob %s/%s holds %r, which is not a list of System item keys; "
+            "every agent is handed the registered default list %s until it is fixed.",
+            *SYSTEM_ITEM_DEFAULTS_KNOB,
+            raw,
+            list(PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS),
+        )
+        return PLATFORM_DEFAULT_SYSTEM_ITEM_KEYS
+    return tuple(dict.fromkeys(k.strip() for k in raw if k.strip()))
+
+
+class NamedSystemItem(BaseModel):
+    """One naming: ``ref`` is a System item's id or key, ``by`` says who named it."""
+
+    model_config = ConfigDict(frozen=True)
+
+    ref: str
+    by: str
+
+
+class SystemContextNames(BaseModel):
+    """THE NAMING CONTRACT — which System items one turn may receive, and who named each.
+
+    One typed shape for every path: the run path, the scope bindings, the preview and both
+    sides of the compare all hand this object to :func:`agent_context_from_resolved`. Empty
+    (:meth:`none`) means no System item at all.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    items: tuple[NamedSystemItem, ...] = ()
+    #: The platform's default list is part of this naming, not yet read from its knob.
+    #: :meth:`resolved` reads it and folds its keys into ``items``.
+    with_platform_defaults: bool = False
+
+    @classmethod
+    def none(cls) -> SystemContextNames:
+        return cls()
+
+    @classmethod
+    def platform_defaults(cls) -> SystemContextNames:
+        """The platform's default list — read from the knob ``context/system_item_defaults``
+        when the naming is :meth:`resolved`, never frozen here."""
+        return cls(with_platform_defaults=True)
+
+    def naming(self, refs: Any, *, by: str) -> SystemContextNames:
+        """This set plus ``refs`` (ids or keys), each named by ``by``."""
+        added = [
+            NamedSystemItem(ref=str(r).strip(), by=by)
+            for r in (refs or [])
+            if r is not None and str(r).strip()
+        ]
+        merged = list(self.items)
+        for item in added:
+            if item not in merged:
+                merged.append(item)
+        return SystemContextNames(
+            items=tuple(merged), with_platform_defaults=self.with_platform_defaults
+        )
+
+    def merged(self, other: SystemContextNames | None) -> SystemContextNames:
+        if other is None:
+            return self
+        merged = list(self.items)
+        for item in other.items:
+            if item not in merged:
+                merged.append(item)
+        return SystemContextNames(
+            items=tuple(merged),
+            with_platform_defaults=self.with_platform_defaults or other.with_platform_defaults,
+        )
+
+    async def resolved(self) -> SystemContextNames:
+        """This naming with the platform's default list read from its knob and folded in (the
+        defaults first, as they always were). Idempotent."""
+        if not self.with_platform_defaults:
+            return self
+        keys = await platform_default_system_item_keys()
+        return SystemContextNames().naming(keys, by=PLATFORM_DEFAULT_NAMER).merged(
+            SystemContextNames(items=self.items)
+        )
+
+    def refs(self) -> list[str]:
+        """THE LIST BOTH RESOLVERS ARE HANDED (``p_system_item_refs``) — every named id or key,
+        once, sorted. Call on a :meth:`resolved` naming; an unresolved default list is refused
+        rather than silently dropped."""
+        if self.with_platform_defaults:
+            raise RuntimeError(
+                "SystemContextNames.refs() on a naming whose platform default list was not read "
+                "yet — await .resolved() first."
+            )
+        return sorted({item.ref for item in self.items})
+
+    def named_by(self, *, key: str | None, context_item_id: str | None) -> list[str]:
+        """Who named this System item — empty when nobody did."""
+        wanted = {str(v) for v in (key, context_item_id) if v}
+        out: list[str] = []
+        for item in self.items:
+            if item.ref in wanted and item.by not in out:
+                out.append(item.by)
+        return out
+
+    def admits(self, *, key: str | None, context_item_id: str | None) -> bool:
+        return bool(self.named_by(key=key, context_item_id=context_item_id))
+
+
+#: The naming in force for a resolution that was not handed one explicitly. Unset = the
+#: platform's declared default list (a caller that names nothing gets the defaults, never all).
+_system_names_var: ContextVar[SystemContextNames | None] = ContextVar(
+    "matrx_ai_system_context_names", default=None
+)
+
+
+async def system_names_in_force(names: SystemContextNames | None = None) -> SystemContextNames:
+    """The naming a resolution uses, resolved: ``names`` when given, else the one in force
+    (:func:`naming_system_items`), else the platform's default list — never every item."""
+    chosen = names if names is not None else _system_names_var.get()
+    if chosen is None:
+        chosen = SystemContextNames.platform_defaults()
+    return await chosen.resolved()
+
+
+@contextmanager
+def naming_system_items(names: SystemContextNames | None) -> Iterator[None]:
+    """Resolve context inside this block with ``names`` as the System naming.
+
+    For callers that reach :func:`agent_context_from_resolved` through a seam they do not own
+    (``resolve_active_selection`` → ``build_agent_context``)."""
+    token = _system_names_var.set(names)
+    try:
+        yield
+    finally:
+        _system_names_var.reset(token)
+
+
+def _is_system_cell(cell: Any) -> bool:
+    return isinstance(cell, dict) and cell.get("source") == "system"
+
+
+def _admit_named_system_items(
+    variables: dict[str, Any],
+    cell_values: dict[str, list[dict[str, Any]]],
+    names: SystemContextNames,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Drop every System cell nobody named. Returns (delivered, withheld keys).
+
+    ``delivered`` is ``[{key, context_item_id, named_by}]``. Mutates both maps in place.
+    A scope item that shares a System key keeps its own cells and value — only the System
+    cell goes (the resolvers fold a System cell into a same-key scope entry's ``cells``)."""
+    delivered: dict[str, dict[str, Any]] = {}
+    withheld: list[str] = []
+
+    def _admit(cell: dict[str, Any], item_id: str | None) -> bool:
+        key = str(cell.get("key") or "")
+        cid = str(cell.get("context_item_id") or item_id or "")
+        by = names.named_by(key=key, context_item_id=cid)
+        if by:
+            delivered.setdefault(key, {"key": key, "context_item_id": cid or None, "named_by": by})
+            return True
+        if key and key not in withheld:
+            withheld.append(key)
+        return False
+
+    for item_id in list(cell_values):
+        cells = cell_values[item_id]
+        kept = [c for c in cells if not _is_system_cell(c) or _admit(c, item_id)]
+        if kept:
+            cell_values[item_id] = kept
+        else:
+            del cell_values[item_id]
+
+    for key in list(variables):
+        entry = variables[key]
+        if not isinstance(entry, dict):
+            continue
+        cells = entry.get("cells")
+        if isinstance(cells, list):
+            entry["cells"] = [
+                c for c in cells if not _is_system_cell(c) or _admit(c, c.get("context_item_id"))
+            ]
+        if entry.get("source") == "system":
+            system_cells = [c for c in (entry.get("cells") or []) if _is_system_cell(c)]
+            if not system_cells and not names.named_by(key=key, context_item_id=None):
+                del variables[key]
+                if key not in withheld:
+                    withheld.append(key)
+    withheld = [k for k in withheld if k not in delivered]
+    return list(delivered.values()), withheld
+
+
+def _present_system_keys(
+    variables: dict[str, Any], cell_values: dict[str, list[dict[str, Any]]]
+) -> set[str]:
+    return {
+        key
+        for key, entry in variables.items()
+        if isinstance(entry, dict) and entry.get("source") == "system"
+    } | {
+        str(c.get("key"))
+        for cells in cell_values.values()
+        for c in cells
+        if _is_system_cell(c)
+    }
+
+
 def _apply_ambient(
     user_id: str | None,
     variables: dict[str, Any],
     cell_values: dict[str, list[dict[str, Any]]],
+    *,
+    timezone: str = "UTC",
 ) -> None:
     """Override the value of any resolved System item whose key matches an ambient provider.
     Mutates the freshly-deserialized RPC dicts in place (variables keyed by key, each
     carrying its own `cells` list; cell_values keyed by context_item_id UUID -> [cell, ...],
-    each cell carrying its `key`)."""
-    providers = _ambient_providers(user_id)
+    each cell carrying its `key`).
+
+    A provider is CALLED only for an ambient item that is still present — i.e. one that was
+    named (:func:`_admit_named_system_items` runs first). An unnamed computed item is never
+    evaluated. ``timezone`` is the person's (:func:`person_timezone`); the date and date-time
+    are rendered in it."""
+    present = _present_system_keys(variables, cell_values)
+    if not present:
+        return
+    providers = _ambient_providers(user_id, timezone)
     for key, compute in providers.items():
+        if key not in present:
+            continue
         value = compute()
         # ONLY override System items (source == "system"). A user/org context item that
         # happens to share a reserved ambient key must NEVER be clobbered — guard on the
@@ -269,6 +645,7 @@ async def build_agent_context(
     entity_is_new: bool = False,
     use_cache: bool = True,
     path: str = "chosen",
+    system_names: SystemContextNames | None = None,
 ) -> AgentContext:
     """Resolve all context variables for ``user_id`` and return an AgentContext.
 
@@ -298,11 +675,22 @@ async def build_agent_context(
         selection hits one cached slice instead of always missing. Only assert
         this from a path that literally just created the entity.
     """
+    # WHICH System items this resolution may read (lane CONTEXT-VALUES-NAMED-2): decided HERE,
+    # before either resolver runs, and handed to both as ``p_system_item_refs`` — the database
+    # reads only the named rows. The same naming then filters the answer in
+    # agent_context_from_resolved, so the two can never disagree.
+    names = await system_names_in_force(system_names)
+    system_item_refs = names.refs()
     # Process-cache the RPC result keyed by all inputs (short TTL + write
     # invalidation). A hit is the exact same answer; ambient items are applied
     # fresh below on the (deep-copied) result so they never go stale.
     cache_key = _context_cache_key(
-        user_id, entity_type, entity_id, scope_ids, entity_is_new=entity_is_new
+        user_id,
+        entity_type,
+        entity_id,
+        scope_ids,
+        entity_is_new=entity_is_new,
+        system_item_refs=system_item_refs,
     )
     now = time.monotonic()
     # ``use_cache=False`` is for a caller that must see THIS instant's answer — the agent-context
@@ -313,7 +701,11 @@ async def build_agent_context(
     if _path_chooser is not None and path != "old":
         try:
             from_the_store = await _path_chooser(
-                user_id=user_id, entity_type=entity_type, entity_id=entity_id, scope_ids=list(scope_ids or [])
+                user_id=user_id,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                scope_ids=list(scope_ids or []),
+                system_item_refs=system_item_refs,
             )
         except Exception as exc:  # noqa: BLE001 — announced, then the old path answers
             logger.error(
@@ -356,6 +748,10 @@ async def build_agent_context(
                 entity_type,
                 entity_id,
                 ArrayArg(scope_ids or None),
+                # p_system_item_refs text[] — ALWAYS an explicit array: '{}' reads no System item,
+                # while NULL (an old caller that does not know the argument) is the knob's
+                # default list (chair ruling, cvn3). This caller always knows what it names.
+                ArrayArg(list(system_item_refs), "text"),
                 mode="scalar",
             )
             or {}
@@ -380,7 +776,7 @@ async def build_agent_context(
         while len(_context_cache) > _CONTEXT_CACHE_MAX:
             _context_cache.popitem(last=False)
     return await agent_context_from_resolved(
-        user_id, resolved, entity_type=entity_type, entity_id=entity_id
+        user_id, resolved, entity_type=entity_type, entity_id=entity_id, system_names=names
     )
 
 
@@ -390,8 +786,13 @@ async def agent_context_from_resolved(
     *,
     entity_type: str,
     entity_id: str,
+    system_names: SystemContextNames | None = None,
 ) -> AgentContext:
     """Everything that happens to a resolver's answer after it comes back — ONE body.
+
+    ``system_names`` — which System items this turn may receive (:class:`SystemContextNames`).
+    Not passed: the naming in force (:func:`naming_system_items`); none in force: the platform's
+    declared default list. An unnamed System item is dropped here, before anything evaluates it.
 
     ``resolved`` is ``public.resolve_full_context``'s answer, or the record store's twin of
     it (``custom.resolve_context``, the same shape — lane SC-3'). The ambient refresh, the
@@ -411,8 +812,17 @@ async def agent_context_from_resolved(
     raw_cells: dict[str, Any] = resolved.get("cell_values", {}) or {}
     cell_values = await _normalize_cell_values(raw_cells)
 
-    # Ambient System items — override their value with the freshly computed one.
-    _apply_ambient(user_id, variables, cell_values)
+    # A System item reaches the agent only when something named it — dropped BEFORE the
+    # ambient refresh, so an unnamed computed item is never computed.
+    names = await system_names_in_force(system_names)
+    system_delivered, system_withheld = _admit_named_system_items(variables, cell_values, names)
+
+    # Ambient System items — override their value with the freshly computed one. The person's
+    # timezone is read only when a date, date-time or timezone item survived the naming.
+    timezone = "UTC"
+    if TIMEZONE_AMBIENT_KEYS & _present_system_keys(variables, cell_values):
+        timezone = await person_timezone(user_id, context_scope.get("organization_id"))
+    _apply_ambient(user_id, variables, cell_values, timezone=timezone)
 
     # THE ONE PRODUCER (DYN-23). When a merge-field resolver is wired, every variable
     # and every context cell is resolved through it — one ladder, one memo, one
@@ -472,6 +882,8 @@ async def agent_context_from_resolved(
                 tool_variables=resolved_tiers.get("tool_accessible", {}),
                 searchable_variables=resolved_tiers.get("searchable", {}),
                 cells_by_item_id=cell_values,
+                system_delivered=system_delivered,
+                system_withheld=system_withheld,
             )
 
     tier1_direct: dict[str, Any] = {}
@@ -510,6 +922,8 @@ async def agent_context_from_resolved(
         tool_variables=tier2_tools,
         searchable_variables=tier2_searchable,
         cells_by_item_id=cell_values,
+        system_delivered=system_delivered,
+        system_withheld=system_withheld,
     )
 
 
@@ -548,6 +962,8 @@ class AgentContext:
         tool_variables: dict[str, Any],
         searchable_variables: dict[str, Any],
         cells_by_item_id: dict[str, list[dict[str, Any]]] | None = None,
+        system_delivered: list[dict[str, Any]] | None = None,
+        system_withheld: list[str] | None = None,
     ) -> None:
         self.scope = scope
         self.scope_labels = scope_labels
@@ -560,6 +976,10 @@ class AgentContext:
         # names the concrete cell. Never collapse this to one cell — two active scopes of a
         # type legitimately carry two different values.
         self.cells_by_item_id = cells_by_item_id or {}
+        #: The System items this turn received — ``[{key, context_item_id, named_by}]`` — and
+        #: the keys of those it did not, because nothing named them (lane CONTEXT-VALUES-NAMED).
+        self.system_delivered = list(system_delivered or [])
+        self.system_withheld = list(system_withheld or [])
 
     def build_system_prompt_block(self) -> str:
         """Build the condensed XML block injected via SystemInstruction.inject_context_block().

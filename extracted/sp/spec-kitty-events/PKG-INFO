@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: spec-kitty-events
-Version: 9.1.6
+Version: 10.4.0
 Summary: Event log library with Lamport clocks and systematic error tracking
 Author-email: Robert Douglass <rob@example.com>
 License: MIT License
         
-        Copyright (c) 2026 Spec Kitty Contributors
+        Copyright (c) 2026 Spec Kitty, Inc. and contributors
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,8 @@ License: MIT License
         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
         SOFTWARE.
         
-Project-URL: Homepage, https://github.com/Priivacy-ai/spec-kitty-events
-Project-URL: Changelog, https://github.com/Priivacy-ai/spec-kitty-events/blob/main/CHANGELOG.md
+Project-URL: Homepage, https://github.com/spec-kitty/spec-kitty-events
+Project-URL: Changelog, https://github.com/spec-kitty/spec-kitty-events/blob/main/CHANGELOG.md
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
@@ -39,6 +39,7 @@ Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
 Requires-Dist: hypothesis>=6.0.0; extra == "dev"
 Requires-Dist: mypy>=1.0.0; extra == "dev"
+Requires-Dist: pyyaml<7,>=6.0; extra == "dev"
 Provides-Extra: conformance
 Requires-Dist: jsonschema<5.0.0,>=4.21.0; extra == "conformance"
 Dynamic: license-file
@@ -47,7 +48,7 @@ Dynamic: license-file
 
 Canonical event contracts for Spec Kitty mission state, mission runtime, conformance, and replay.
 
-**Package Version**: `9.1.6` | **Envelope Schema Version**: `3.0.0` | **Python**: `>=3.10`
+**Package Version**: `10.4.0` | **Envelope Schema Version**: `3.0.0` | **Python**: `>=3.10`
 
 ## What Changed In 8.0.0
 

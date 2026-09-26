@@ -1112,16 +1112,8 @@ mod tests {
     #[serial]
     async fn id_list_server_reports_request_outcomes_and_latency_to_host_observers() {
         let mut server = mockito::Server::new_async().await;
-        let member_lookup: String = HashUtil::new()
-            .sha256("observed-member")
-            .chars()
-            .take(8)
-            .collect();
-        let failed_lookup: String = HashUtil::new()
-            .sha256("observed-failure")
-            .chars()
-            .take(8)
-            .collect();
+        let member_lookup = "observed-member";
+        let failed_lookup = "observed-failure";
         let success = server
             .mock("POST", "/get_id_list_results")
             .match_body(mockito::Matcher::Json(serde_json::json!({
@@ -1267,13 +1259,13 @@ mod tests {
             .mock("POST", "/get_id_list_results")
             .match_body(mockito::Matcher::Json(serde_json::json!({
                 "companyID": "authorized-tenant",
-                "mapping": { "tenant_members": member_lookup }
+                "mapping": { "tenant_members": "server-member" }
             })))
             .with_status(200)
             .with_header("content-type", "application/json")
             .with_body(
                 serde_json::json!({
-                    "result": [format!("tenant_members|{member_lookup}")]
+                    "result": ["tenant_members|server-member"]
                 })
                 .to_string(),
             )
@@ -1284,7 +1276,7 @@ mod tests {
             .mock("POST", "/get_id_list_results")
             .match_body(mockito::Matcher::Json(serde_json::json!({
                 "companyID": "authorized-tenant",
-                "mapping": { "tenant_members": shared_lookup }
+                "mapping": { "tenant_members": "shared-member" }
             })))
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -1296,7 +1288,7 @@ mod tests {
             .mock("POST", "/get_id_list_results")
             .match_body(mockito::Matcher::Json(serde_json::json!({
                 "companyID": "other-tenant",
-                "mapping": { "tenant_members": member_lookup }
+                "mapping": { "tenant_members": "server-member" }
             })))
             .with_status(200)
             .with_header("content-type", "application/json")
@@ -1408,16 +1400,8 @@ mod tests {
     #[serial]
     async fn id_list_server_preserves_custom_units_operators_and_denied_capabilities() {
         let mut server = mockito::Server::new_async().await;
-        let member_lookup: String = HashUtil::new()
-            .sha256("member-company")
-            .chars()
-            .take(8)
-            .collect();
-        let outsider_lookup: String = HashUtil::new()
-            .sha256("outsider-company")
-            .chars()
-            .take(8)
-            .collect();
+        let member_lookup = "member-company";
+        let outsider_lookup = "outsider-company";
         let member = server
             .mock("POST", "/get_id_list_results")
             .match_body(mockito::Matcher::Json(serde_json::json!({

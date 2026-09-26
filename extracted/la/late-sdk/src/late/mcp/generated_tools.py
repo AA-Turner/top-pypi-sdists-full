@@ -3568,6 +3568,7 @@ def register_generated_tools(mcp, _get_client):
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str = "PAUSED",
+        location_targeting_type: str | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
         roas_average_floor: float | None = None,
@@ -3588,6 +3589,7 @@ def register_generated_tools(mcp, _get_client):
             budget_amount: Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType.
             budget_type
             status
+            location_targeting_type: Google only (400 elsewhere). Written on the new campaign.
             bid_strategy: Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level on Meta, set the strategy there instead. On Google: LOWEST_COST_WITHOUT_CAP = Maximize Conversions, COST_CAP + bidAmount = Target CPA, LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS, LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling; portfolioBidStrategyId attaches a portfolio strategy instead.
             bid_amount: Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise. On Meta, validated here but NOT stored: the campaign object has no bid_amount field, only bid_strategy lives on it, and the amount takes effect once an ad set joins this campaign (existingCampaignId on POST /v1/ads/create) and supplies its own bidAmount there. On Google, stored directly on the campaign's bidding strategy.
             roas_average_floor: Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS.
@@ -3607,6 +3609,7 @@ def register_generated_tools(mcp, _get_client):
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 status=status,
+                location_targeting_type=location_targeting_type,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
                 roas_average_floor=roas_average_floor,
@@ -4502,8 +4505,18 @@ def register_generated_tools(mcp, _get_client):
                 status
                 budget
                 targeting: Meta + TikTok (demographics/interests), Google (keyword and device
-        bid adjustment edits only), and LinkedIn (countries or regions required).
+        bid adjustment edits only), and LinkedIn (locations, B2B facets, audiences).
         Pinterest / X return 501.
+
+        On Meta, TikTok and LinkedIn this is a partial update: every targeting setting
+        you do not send is preserved (on Meta: Advantage+ audience, placements, custom
+        audiences, exclusions, interests, languages; on TikTok: languages, interest
+        keywords, devices, behaviours; on LinkedIn: skills, member traits, interface
+        locales, and any facet set in Campaign Manager). A field you send replaces its
+        platform counterpart, and an empty or null value (for example `audienceInclude: []`,
+        `industries: []` or `gender: "all"`) clears only that field. Any location field
+        (countries, regions, cities, zips, ...) replaces the whole included location set;
+        an update with no location keeps the current locations.
                 creative: Replace or patch the ad's creative. Meta, TikTok, and LinkedIn.
 
         - **Meta**: patch-style. Pass any subset: fields you omit are preserved from the
@@ -4973,6 +4986,7 @@ def register_generated_tools(mcp, _get_client):
         end_date: str | None = None,
         schedule: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
+        location_targeting_type: str | None = None,
         raw_targeting: dict[str, Any] | None = None,
         bid_strategy: str | None = None,
         bid_amount: float | None = None,
@@ -5030,6 +5044,7 @@ def register_generated_tools(mcp, _get_client):
         GET /v1/ads/targeting/search?dimension=geo. City radius and lat/lng
         `customLocations` are Meta-only and preserve the boosted post's
         social proof (the ad references the existing post).
+                location_targeting_type: Google only (400 elsewhere). Written on the campaign the boost creates.
                 raw_targeting: Meta only. A Meta-native targeting spec (e.g.
         `{ "geo_locations": { "cities": [{ "key": "...", "radius": 15, "distance_unit": "kilometer" }] } }`).
         Sent alone it is forwarded unchanged. Use for advanced fields the structured
@@ -5181,6 +5196,7 @@ def register_generated_tools(mcp, _get_client):
                 end_date=end_date,
                 schedule=schedule,
                 targeting=targeting,
+                location_targeting_type=location_targeting_type,
                 raw_targeting=raw_targeting,
                 bid_strategy=bid_strategy,
                 bid_amount=bid_amount,
@@ -5288,13 +5304,13 @@ def register_generated_tools(mcp, _get_client):
         targeting: dict[str, Any] | None = None,
         countries: list[str] | None = None,
         country_groups: list[str] | None = None,
-        cities: list[dict[str, Any]] | None = None,
-        regions: list[dict[str, Any]] | None = None,
+        cities: list[Any] | None = None,
+        regions: list[Any] | None = None,
         age_min: int | None = None,
         age_max: int | None = None,
         interests: list[dict[str, Any]] | None = None,
-        zips: list[dict[str, Any]] | None = None,
-        metros: list[dict[str, Any]] | None = None,
+        zips: list[Any] | None = None,
+        metros: list[Any] | None = None,
         custom_locations: list[dict[str, Any]] | None = None,
         behaviors: list[dict[str, Any]] | None = None,
         work_positions: list[dict[str, Any]] | None = None,
@@ -5320,6 +5336,7 @@ def register_generated_tools(mcp, _get_client):
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str = "display",
+        location_targeting_type: str | None = None,
         asset_group: dict[str, Any] | None = None,
         keywords: list[Any] | None = None,
         negative_keywords: list[Any] | None = None,
@@ -5521,10 +5538,10 @@ def register_generated_tools(mcp, _get_client):
         for targeting a whole region without listing its countries. Combines with
         `countries` rather than replacing it. Discoverable via
         `GET /v1/ads/targeting/search?dimension=geo&geoType=country_group`.
-                cities: City-level geo targeting (Meta and TikTok). Each city is targeted by the platform's opaque `key` (the city ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. Optional `radius` + `distance_unit` (Meta only) extend the targeting beyond the city limits (e.g. radius 25 km around the city center). Both must be set together, or both omitted (Meta defaults to ~16 km when omitted).
+                cities: City-level geo targeting (Meta, Google and TikTok). An entry is either `{ key }` or the key alone as a plain string (`["1006410"]`). Each city is targeted by the platform's opaque `key` (the city ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. Optional `radius` + `distance_unit` (Meta only) extend the targeting beyond the city limits (e.g. radius 25 km around the city center). Both must be set together, or both omitted (Meta defaults to ~16 km when omitted).
 
         On Meta, cannot overlap with the same country in `countries` (Meta returns a "locations overlap" error). Either drop the country or scope it to a different country. On TikTok, keys are numeric location ids and can be sent without `countries`.
-                regions: Region-level (state/province) geo targeting (Meta and TikTok). Each region is targeted by the platform's opaque `key` (the region ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`.
+                regions: Region-level (state/province) geo targeting (Meta, Google and TikTok). Each region is targeted by the platform's opaque `key` (the region ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. An entry may also be the key alone as a plain string.
                 age_min
                 age_max
                 interests: Interest objects from /v1/ads/interests. Each must include id and name.
@@ -5681,6 +5698,7 @@ def register_generated_tools(mcp, _get_client):
         posters; Meta auto-generates when omitted). Exactly one catch-all default is required.
                 audience_id: Custom audience ID for targeting
                 campaign_type: Google only. Performance Max requires assetGroup and is always created PAUSED.
+                location_targeting_type: Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations.
                 asset_group
                 keywords: Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords.
                 negative_keywords: Google Search only; other platforms return 400. Ad-group-level negative keywords on the new ad group. Editable later via PUT /v1/ads/{adId} targeting.negativeKeywords.
@@ -5904,6 +5922,7 @@ def register_generated_tools(mcp, _get_client):
                 placement_assets=placement_assets,
                 audience_id=audience_id,
                 campaign_type=campaign_type,
+                location_targeting_type=location_targeting_type,
                 asset_group=asset_group,
                 keywords=keywords,
                 negative_keywords=negative_keywords,
@@ -10828,12 +10847,12 @@ def register_generated_tools(mcp, _get_client):
         """Get post comments
 
         Args:
-            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies (not supported on Instagram). (required)
+            post_id: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies, kept for backwards compatibility; prefer the `commentId` query parameter, which also works on Instagram. (required)
             account_id: (required)
             subreddit: (Reddit only) Subreddit name
             limit: Maximum number of comments to return
             cursor: Pagination cursor, returned by a previous call as `pagination.cursor`. This is the platform's own opaque paging value passed through verbatim: never construct, decode or validate it client-side.
-            comment_id: (Reddit and TikTok only) Get replies to a specific comment"""
+            comment_id: (Facebook, Instagram, Reddit and TikTok) Get replies to a specific comment. On Facebook and Instagram, the requested comment is returned in the top-level `comment` field and comments[] holds its replies."""
         client = _get_client()
         try:
             response = client.comments.get_inbox_post_comments(
@@ -11294,8 +11313,53 @@ def register_generated_tools(mcp, _get_client):
                 redirect_url: Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
         On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
-        `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason` and
-        `dashboard_url` are conditional and must be treated as optional.
+        `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason`,
+        `dashboard_url`, `missing_scopes`, `error_reason` and the `platform_error*` params are
+        conditional and must be treated as optional. Your own query params are kept on every
+        redirect, but ours overwrite a param of yours with the same name. On an error redirect the
+        internal `headless`, `adsConnect` and `adsScope` markers we add during the flow are removed.
+
+        Correlation (every redirect from an OAuth callback, success and failure, and the
+        `redirect_url` returned by the selection endpoints such as POST /v1/connect/facebook/select-page):
+          - `request_id`: the id we log that request under. Quote it when reporting a problem.
+          - `stage`: where the flow ended. `authorize` = the platform's consent dialog returned an
+            error or denial instead of a code. `callback` = we processed the returned code (success,
+            a selection step, or a failure). `select_page` = the destination-selection endpoint
+            (page, account, organization, board, location, profile or phone number) completed it.
+
+        `oauth_denied` carries `error_message` and, when the platform sent them, its own values as
+        `platform_error` (e.g. `access_denied`), `platform_error_reason` (e.g. `user_denied`) and
+        `platform_error_description` (truncated to 500 characters). `is_user_fixable=true` is set when
+        the platform reported that the user cancelled or declined.
+
+        `no_facebook_pages` comes with `is_user_fixable=true`, an `error_message` telling the user to
+        click "Edit previous settings" in Meta's dialog and tick the Page (or create one), and, when
+        Meta's token debug answered, `error_reason`:
+          - `pages_permission_declined`: the user declined the pages_show_list permission.
+          - `no_pages_granted`: the permission was granted with no Page ticked. Meta reports a user who
+            manages no Page the same way, so this covers both.
+          - `granted_pages_not_listed`: Pages were ticked but Meta listed none the user can manage.
+
+        Headless Facebook success (`step=select_page`): `userProfile` is JSON that was
+        percent-encoded once before being set as a query param, so it is encoded twice on the wire.
+        After your framework decodes the query string once, run one more decodeURIComponent (or
+        equivalent) and then JSON.parse it. `tempToken` and `connect_token` are plain values.
+
+        `code_already_redeemed` means the same authorization code arrived more than once and an earlier
+        request already processed it (the code is never sent to the platform twice). It is not a
+        failure: check GET /v1/accounts or wait for the `account.connected` webhook.
+
+        `missing_google_permissions` (YouTube, Google Business and Google Ads) means the user unchecked one or more
+        permissions on Google's consent screen. It always comes with `is_user_fixable=true`. When Google
+        reported the granted scopes, `missing_scopes` is also present: a comma-separated list of the
+        requested Google scopes that were not granted. Ask the user to connect again and keep every
+        permission checked.
+
+        `no_youtube_channel` means Google authorized the account but it has no YouTube channel we can
+        connect. It always comes with `is_user_fixable=true` and an `error_message`. The usual causes: the
+        user picked their personal Google identity instead of the Brand Account in Google's account
+        chooser, they only have YouTube Studio access (not Brand Account owner or manager), or the
+        account has no channel yet.
 
         This list is NOT exhaustive and new values may be added at any time. Treat an unrecognized
         value as a generic failure rather than matching it exhaustively. Existing values are not
@@ -11305,7 +11369,8 @@ def register_generated_tools(mcp, _get_client):
           oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
           internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
           missing_google_permissions, missing_tiktok_permissions, platform_requires_destination,
-          reconnect_account_mismatch, instagram_login_method_mismatch, invalid_request
+          reconnect_account_mismatch, instagram_login_method_mismatch, invalid_request,
+          code_already_redeemed
 
         Access and limits:
           profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
@@ -11314,7 +11379,7 @@ def register_generated_tools(mcp, _get_client):
         Destination selection:
           no_facebook_pages, facebook_pages_error, no_google_locations, google_locations_error,
           google_permission_denied, no_snapchat_public_profiles, snapchat_profiles_error,
-          discord_no_guild, slack_no_team
+          no_youtube_channel, discord_no_guild, slack_no_team
 
         WhatsApp:
           whatsapp_error, one_whatsapp_per_profile, whatsapp_number_already_connected,
@@ -11337,8 +11402,8 @@ def register_generated_tools(mcp, _get_client):
           shopify_auth_failed, shopify_config_error, shopify_invalid_state, shopify_invalid_hmac,
           shopify_invalid_shop, shopify_missing_scopes, shopify_callback_error
 
-        1. On this endpoint every upstream OAuth error is collapsed into `oauth_denied`. The
-        provider's own value (for example Meta's `access_denied`) is not forwarded. The dedicated
+        1. On this endpoint every upstream OAuth error is collapsed into `oauth_denied`, with the
+        provider's own values in the `platform_error*` params described above. The dedicated
         ads flows below are different: they use their own denial slugs and `google_ads_auth_failed`
         and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
 
@@ -11504,6 +11569,11 @@ def register_generated_tools(mcp, _get_client):
         Set `force=true` to bypass that and always receivean `authUrl`.
         Completing the returned OAuth refreshes the stored token
         on the existing posting and ads accounts in place.
+        An `alreadyConnected` response re-runs ad discovery and webhook
+        subscriptions in the background at most once every 15 minutes per ads
+        account (always when the call changes the ad-account scope), so it is not
+        a sync trigger. To check the connection's health, read
+        GET /v1/ads/accounts?accountId=<ads account ID>.
                 ad_account_id: Scope ad sync to a single platform ad account. Without this param,
         sync covers every ad account the connected token can see. Business-login reconnects
         preserve the existing scope; supplied IDs are checked against the new grant. To change
@@ -17847,6 +17917,7 @@ def register_generated_tools(mcp, _get_client):
         country: str = "US",
         number_type: str | None = None,
         area_code: str | None = None,
+        claim_id: str | None = None,
         phone_number: str | None = None,
         connect_whatsapp: bool = True,
         wants_sms: bool = False,
@@ -17862,6 +17933,7 @@ def register_generated_tools(mcp, _get_client):
                country: ISO 3166-1 alpha-2 country for the number (default US). International numbers require usage-based billing. Tier 3/4 countries return 202 { status: "kyc_required", kycUrl }. The customer must complete KYC at that URL before the number is ordered. See GET /v1/phone-numbers/countries.
                number_type: Which of the country's offered number types to order (see `types[]` on GET /v1/phone-numbers/countries). Omitted = the country's default type, which is always the WhatsApp-safe choice. Capabilities, price, and KYC requirements are per (country, type): toll_free can never connect WhatsApp (400 when combined with connectWhatsapp:true), and wantsSms:true requires an SMS-capable type.
                area_code: Area code (national destination code, e.g. 11 for Sao Paulo) the number must be in. Hard constraint: when the area has no deliverable inventory the purchase fails with 409 code AREA_CODE_UNAVAILABLE instead of assigning a number from another area, and later replacements stay in this area too. Omit for any area. Get live options from GET /v1/phone-numbers/availability (areaOptions).
+               claim_id: Keyless calls only: a `claimId` from a keyless GET /v1/phone-numbers/available. The 401 then carries a `claimUrl` for that exact number. Ignored when an API key is sent.
                phone_number: One exact number to buy, in E.164, taken from GET /v1/phone-numbers/available. Hard constraint: when it is no longer available (bought by someone else, or WhatsApp's buy-time check rejects it) the purchase fails with 409 code PHONE_NUMBER_UNAVAILABLE instead of assigning another number; search again and pick another. Only for countries and types that activate instantly: a regulated one (202 kyc_required) returns 400 when phoneNumber is set.
                connect_whatsapp: A phone number is the unit; WhatsApp is one optional feature. Pass false to buy a STANDALONE number (Calls/SMS only): provisioning skips the Meta pre-verify/OTP steps and the number activates immediately. Omitted defaults to the WhatsApp provisioning path. WhatsApp can be connected to a standalone number later from the connect flow.
                wants_sms: SMS capability is per-number, not per-country. Pass true to provision from the SMS-capable inventory pool so the number can actually text (see also GET /v1/phone-numbers/available with sms=true, and smsAvailable on GET /v1/phone-numbers/countries).
@@ -17875,6 +17947,7 @@ def register_generated_tools(mcp, _get_client):
                 country=country,
                 number_type=number_type,
                 area_code=area_code,
+                claim_id=claim_id,
                 phone_number=phone_number,
                 connect_whatsapp=connect_whatsapp,
                 wants_sms=wants_sms,
@@ -17882,6 +17955,26 @@ def register_generated_tools(mcp, _get_client):
                 purchase_intent_id=purchase_intent_id,
                 allow_multiple=allow_multiple,
             )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Resolve a number claim",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def phone_numbers_get_phone_number_claim(claim_id: str) -> str:
+        """Resolve a number claim
+
+        Args:
+            claim_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.phone_numbers.get_phone_number_claim(claim_id=claim_id)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -17921,11 +18014,12 @@ def register_generated_tools(mcp, _get_client):
         contains: str | None = None,
         sms: bool | None = None,
         limit: int = 20,
+        masked: bool | None = None,
     ) -> str:
         """Search available numbers
 
         Args:
-            country
+            country: ISO code, or `auto` on the keyless shape to search the caller's own country (from their IP) near their city, falling back to US.
             number_type: Number type; defaults to the country's WhatsApp-safe type (the same name as on purchase, availability and kyc)
             area_code: Area code or national dialing code the number must start with, e.g. 415 or 91
             type: Alias of numberType, kept for existing callers
@@ -17933,7 +18027,8 @@ def register_generated_tools(mcp, _get_client):
             locality: City
             contains: Pattern to match within the number
             sms: true narrows the pool to SMS-capable numbers. Each result still carries its full `features` list for per-number capability badging.
-            limit"""
+            limit
+            masked: true returns the keyless shape (masked numbers with claimId and claimUrl) even when you send an API key, e.g. to hand a user a signup link for a number."""
         client = _get_client()
         try:
             response = client.phone_numbers.search_available_phone_numbers(
@@ -17946,6 +18041,7 @@ def register_generated_tools(mcp, _get_client):
                 contains=contains,
                 sms=sms,
                 limit=limit,
+                masked=masked,
             )
             return _format_response(response)
         except Exception as e:
@@ -18260,16 +18356,39 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def phone_numbers_check_phone_number_portability(
-        phone_numbers: list[str] | None,
+        phone_numbers: list[str] | None, claim_links: bool | None = None
     ) -> str:
         """Check portability
 
         Args:
-            phone_numbers: E.164 numbers to check, e.g. +13035550000. (required)"""
+            phone_numbers: E.164 numbers to check, e.g. +13035550000. At most one without an API key. (required)
+            claim_links: true adds `claimId` and `claimUrl` to portable results even when you send an API key, e.g. to hand a user a signup link that opens the port form with their number."""
         client = _get_client()
         try:
             response = client.phone_numbers.check_phone_number_portability(
-                phone_numbers=phone_numbers
+                phone_numbers=phone_numbers, claim_links=claim_links
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Resolve a port claim",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def phone_numbers_get_phone_number_port_claim(claim_id: str) -> str:
+        """Resolve a port claim
+
+        Args:
+            claim_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.phone_numbers.get_phone_number_port_claim(
+                claim_id=claim_id
             )
             return _format_response(response)
         except Exception as e:
@@ -20912,18 +21031,24 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def sms_respond_to_sms_registration_review(
-        id: str, note: str | None = None, files: list[str] | None = None
+        id: str,
+        note: str | None = None,
+        files: list[str] | None = None,
+        request_id: str | None = None,
+        answers: list[dict[str, Any]] | None = None,
     ) -> str:
         """Reply to a change request
 
         Args:
             id: (required)
             note: Answer for the reviewer. Required when no files are sent.
-            files: Hosted document URLs returned by POST /v1/sms/opt-in-proof."""
+            files: Hosted document URLs returned by POST /v1/sms/opt-in-proof.
+            request_id: The `reviewRequest.id` you are answering. When it no longer matches the open request the reply is refused with 409.
+            answers: One answer per point of the open `reviewRequest`, each point at most once. Required (every point) when the request has points; a missing, repeated or unknown point is a 400 naming the point ids. At most 10 files per reply."""
         client = _get_client()
         try:
             response = client.sms.respond_to_sms_registration_review(
-                id=id, note=note, files=files
+                id=id, note=note, files=files, request_id=request_id, answers=answers
             )
             return _format_response(response)
         except Exception as e:

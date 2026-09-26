@@ -34,6 +34,7 @@ from ....._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
+from ....._wrappers import ResultWrapper
 from .....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ....._base_client import AsyncPaginator, make_request_options
 from .....types.firewall.waf import package_list_params
@@ -186,10 +187,14 @@ class PackagesResource(SyncAPIResource):
                     "/zones/{zone_id}/firewall/waf/packages/{package_id}", zone_id=zone_id, package_id=package_id
                 ),
                 options=make_request_options(
-                    extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                    extra_headers=extra_headers,
+                    extra_query=extra_query,
+                    extra_body=extra_body,
+                    timeout=timeout,
+                    post_parser=ResultWrapper[PackageGetResponse]._unwrapper,
                 ),
                 cast_to=cast(
-                    Any, PackageGetResponse
+                    Any, ResultWrapper[PackageGetResponse]
                 ),  # Union types cannot be passed in as arguments in the type system
             ),
         )
@@ -339,10 +344,14 @@ class AsyncPackagesResource(AsyncAPIResource):
                     "/zones/{zone_id}/firewall/waf/packages/{package_id}", zone_id=zone_id, package_id=package_id
                 ),
                 options=make_request_options(
-                    extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                    extra_headers=extra_headers,
+                    extra_query=extra_query,
+                    extra_body=extra_body,
+                    timeout=timeout,
+                    post_parser=ResultWrapper[PackageGetResponse]._unwrapper,
                 ),
                 cast_to=cast(
-                    Any, PackageGetResponse
+                    Any, ResultWrapper[PackageGetResponse]
                 ),  # Union types cannot be passed in as arguments in the type system
             ),
         )

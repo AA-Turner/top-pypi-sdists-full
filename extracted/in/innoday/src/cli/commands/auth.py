@@ -8,7 +8,6 @@ import argparse
 from typing import Any, Dict, Optional
 
 import httpx
-from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.table import Table
@@ -21,8 +20,9 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console
 
-console = Console()
+console = make_console()
 
 
 class AuthCommands:

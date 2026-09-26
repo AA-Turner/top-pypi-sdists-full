@@ -1,7 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+import datetime
 from typing import Dict, List
-from datetime import datetime
 from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
@@ -26,7 +26,7 @@ class MetaUnit(BaseModel):
 
 
 class Meta(BaseModel):
-    date: str
+    date: datetime.date
     """Date of the returned scan (YYYY-MM-DD).
 
     May differ from the requested date if no scan exists for that exact date.
@@ -38,7 +38,7 @@ class Meta(BaseModel):
     Use as filter options for the domainCategory parameter.
     """
 
-    last_updated: datetime = FieldInfo(alias="lastUpdated")
+    last_updated: datetime.datetime = FieldInfo(alias="lastUpdated")
     """Timestamp of the last dataset update."""
 
     normalization: Literal[

@@ -361,9 +361,10 @@ async def _fetch_default_mcp_config(server_id: str) -> dict[str, Any] | None:
         from matrx_ai.db._registry import get_instance
 
         mgr = get_instance("tool_mcp_config_manager_instance")
-        rows = await mgr.filter_items(server_id=server_id, is_default=True)
+        # An archived recipe (tool.mcp_config.deleted_at) is never a launch recipe.
+        rows = await mgr.filter_items(server_id=server_id, is_default=True, deleted_at__isnull=True)
         if not rows:
-            rows = await mgr.filter_items(server_id=server_id)
+            rows = await mgr.filter_items(server_id=server_id, deleted_at__isnull=True)
     except Exception as exc:
         vcprint(
             f"[mcp_sync] tool.mcp_config fetch for {server_id!r} failed: {exc!r}",

@@ -37,7 +37,8 @@ from notebooklm._android.proto.notebooklm.internal.android.wire.v1 import (
     notebooks_pb2 as wire_notebooks_pb2,
 )
 from notebooklm._android.session import AndroidSession
-from notebooklm._chat import ChatAPI
+from notebooklm._chat import ChatAPI, _TurnRoleSnapshot
+from notebooklm._idempotency import bound_operation_journal_entries
 from notebooklm._types.documents import BlockKind, BlockStyle, ListStyle, StructuredDocument
 from notebooklm._types.enums import ChatGoal, ChatResponseLength
 from notebooklm.exceptions import (
@@ -45,6 +46,7 @@ from notebooklm.exceptions import (
     ChatError,
     ChatResponseParseError,
     DecodingError,
+    NetworkError,
     UnknownRPCMethodError,
     ValidationError,
 )
@@ -84,9 +86,14 @@ class FakeSession:
         return response
 
     async def stream(self, method: str, request: Any, **kwargs: Any) -> AsyncIterator[Any]:
+        for entry in bound_operation_journal_entries():
+            entry.mark_dispatched()
         self.stream_calls.append((method, request, kwargs))
+        stop_after = kwargs.get("stop_after")
         for response in self.stream_responses.pop(0):
             yield response
+            if stop_after is not None and stop_after(response):
+                break
 
 
 @dataclass(frozen=True)
@@ -700,6 +707,39 @@ async def test_history_uses_response_document_when_legacy_answer_text_is_empty()
 
 
 @pytest.mark.asyncio
+async def test_get_history_returns_empty_when_no_conversation() -> None:
+    """No chat session is a real empty history, not a swallowed fetch failure (#2384)."""
+    fake = FakeSession()
+    fake.unary_responses[LIST_CHAT_SESSIONS_METHOD] = [chat_pb2.ListChatSessionsResponse()]
+    api, _, _ = _api(fake)
+
+    assert await api.get_history("notebook-1") == []
+    assert [call[0] for call in fake.unary_calls] == [LIST_CHAT_SESSIONS_METHOD]
+
+
+@pytest.mark.parametrize(
+    ("exc_type", "message"),
+    [
+        (ChatError, "API error"),
+        (NetworkError, "connection error"),
+    ],
+    ids=["chat_error", "network_error"],
+)
+@pytest.mark.asyncio
+async def test_get_history_raises_on_turns_rpc_error(
+    exc_type: type[Exception],
+    message: str,
+) -> None:
+    """Turn-fetch ChatError/NetworkError from ListChatTurns propagates (#2384)."""
+    fake = FakeSession()
+    fake.unary_responses[LIST_CHAT_TURNS_METHOD] = [exc_type(message)]
+    api, _, _ = _api(fake)
+
+    with pytest.raises(exc_type, match=message):
+        await api.get_history("notebook-1")
+
+
+@pytest.mark.asyncio
 async def test_list_turns_zero_limit_skips_transport_and_token_cycle_fails() -> None:
     fake = FakeSession()
     fake.unary_responses[LIST_CHAT_TURNS_METHOD] = [
@@ -723,7 +763,7 @@ async def test_list_turns_zero_limit_skips_transport_and_token_cycle_fails() -> 
 
 
 @pytest.mark.asyncio
-async def test_base_ask_uses_latest_cumulative_final_without_concatenating_frames() -> None:
+async def test_base_ask_stops_at_authoritative_cumulative_final_without_concatenating() -> None:
     fake = FakeSession()
     fake.unary_responses[LIST_CHAT_SESSIONS_METHOD] = [
         chat_pb2.ListChatSessionsResponse(),
@@ -734,8 +774,8 @@ async def test_base_ask_uses_latest_cumulative_final_without_concatenating_frame
     fake.stream_responses = [
         [
             _frame("Part", final=False),
-            _frame("Superseded final", final=True),
             _frame("Final answer [2]", final=True),
+            _frame("Must not be consumed", final=False),
         ]
     ]
     api, guard, notebooks = _api(fake, source_ids=["source-1", "source-2"])
@@ -785,7 +825,12 @@ async def test_base_ask_uses_latest_cumulative_final_without_concatenating_frame
         origin=chat_pb2.QUERY_ORIGIN_CHAT_TEXT_BOX,
     )
     assert request.request_context.client_type == 2
+    stop_after = kwargs.pop("stop_after")
+    assert callable(stop_after)
+    assert stop_after(_frame("done", final=True)) is True
+    assert stop_after(_frame("partial", final=False)) is False
     assert kwargs == {
+        "replay_safe": False,
         "timeout": 180.0,
         "response_type": chat_pb2.GenerateFreeFormStreamedResponse,
         "telemetry_method": "chat.ask",
@@ -872,7 +917,9 @@ async def test_follow_up_maps_cached_turns_to_captured_conversation_events() -> 
     api, _, _ = _api(fake)
     api._cache.cache_conversation_turn("conversation-1", "Cached question?", "Cached answer.", 1)
 
-    assert await api._list_turn_roles("notebook-1", "conversation-1", 2) == [2, 1]
+    assert await api._list_turn_roles("notebook-1", "conversation-1", 2) == _TurnRoleSnapshot(
+        roles=(2, 1), exhausted=True
+    )
     result = await api.ask(
         "notebook-1",
         "Follow-up?",

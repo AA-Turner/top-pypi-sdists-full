@@ -82,6 +82,8 @@ class AccountResource(SyncAPIResource):
               affects how they are served at the edge. See more on
               [Enforce DNS-only](https://developers.cloudflare.com/dns/proxy-status/enforce-dns-only).
 
+          zone_defaults: Default settings for new zones created in this account.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -199,6 +201,8 @@ class AsyncAccountResource(AsyncAPIResource):
               that this account-level override does not modify the records themselves; it only
               affects how they are served at the edge. See more on
               [Enforce DNS-only](https://developers.cloudflare.com/dns/proxy-status/enforce-dns-only).
+
+          zone_defaults: Default settings for new zones created in this account.
 
           extra_headers: Send extra headers
 

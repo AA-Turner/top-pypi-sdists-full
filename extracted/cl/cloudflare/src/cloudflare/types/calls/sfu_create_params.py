@@ -12,4 +12,4 @@ class SFUCreateParams(TypedDict, total=False):
     """The account identifier tag."""
 
     name: str
-    """A short description of Calls app, not shown to end users."""
+    """A short description of a Realtime SFU app, not shown to end users."""

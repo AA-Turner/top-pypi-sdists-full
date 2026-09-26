@@ -34,7 +34,7 @@ class TestMeetings:
     @parametrize
     def test_method_create(self, client: Cloudflare) -> None:
         meeting = client.realtime_kit.meetings.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(MeetingCreateResponse, meeting, path=["response"])
@@ -43,7 +43,7 @@ class TestMeetings:
     @parametrize
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
         meeting = client.realtime_kit.meetings.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             ai_config={
                 "summarization": {
@@ -110,7 +110,7 @@ class TestMeetings:
     @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.realtime_kit.meetings.with_raw_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -123,7 +123,7 @@ class TestMeetings:
     @parametrize
     def test_streaming_response_create(self, client: Cloudflare) -> None:
         with client.realtime_kit.meetings.with_streaming_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -139,7 +139,7 @@ class TestMeetings:
     def test_path_params_create(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.meetings.with_raw_response.create(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -155,7 +155,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
         )
@@ -167,7 +167,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
             name="Mary Sue",
@@ -181,7 +181,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
         )
@@ -197,7 +197,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
         ) as response:
@@ -216,7 +216,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.add_participant(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 custom_participant_id="custom_participant_id",
                 preset_name="preset_name",
             )
@@ -234,7 +234,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.add_participant(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 custom_participant_id="custom_participant_id",
                 preset_name="preset_name",
             )
@@ -245,7 +245,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.delete_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingDeleteMeetingParticipantResponse, meeting, path=["response"])
@@ -256,7 +256,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -271,7 +271,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.delete_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -289,7 +289,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -305,7 +305,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -313,7 +313,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -323,7 +323,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingEditParticipantResponse, meeting, path=["response"])
@@ -334,7 +334,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             name="Jane Doe",
             picture="https://example.com",
@@ -348,7 +348,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -363,7 +363,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -381,7 +381,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.edit_participant(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -397,7 +397,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.edit_participant(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -405,7 +405,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.edit_participant(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -413,7 +413,7 @@ class TestMeetings:
     @parametrize
     def test_method_get(self, client: Cloudflare) -> None:
         meeting = client.realtime_kit.meetings.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(MeetingGetResponse, meeting, path=["response"])
@@ -422,7 +422,7 @@ class TestMeetings:
     @parametrize
     def test_method_get_with_all_params(self, client: Cloudflare) -> None:
         meeting = client.realtime_kit.meetings.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             page_no=0,
@@ -437,7 +437,7 @@ class TestMeetings:
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
         response = client.realtime_kit.meetings.with_raw_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -450,7 +450,7 @@ class TestMeetings:
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
         with client.realtime_kit.meetings.with_streaming_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -466,7 +466,7 @@ class TestMeetings:
     def test_path_params_get(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.meetings.with_raw_response.get(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -482,7 +482,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingGetMeetingByIDResponse, meeting, path=["response"])
 
@@ -492,7 +492,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             name="name",
         )
         assert_matches_type(MeetingGetMeetingByIDResponse, meeting, path=["response"])
@@ -503,7 +503,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -517,7 +517,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -534,7 +534,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_by_id(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -548,7 +548,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_by_id(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -557,7 +557,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.get_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingGetMeetingParticipantResponse, meeting, path=["response"])
@@ -568,7 +568,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -583,7 +583,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.get_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -601,7 +601,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -617,7 +617,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -625,7 +625,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -635,7 +635,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingGetMeetingParticipantsResponse, meeting, path=["response"])
 
@@ -645,7 +645,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             page_no=0,
             per_page=0,
         )
@@ -657,7 +657,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -671,7 +671,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -688,7 +688,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_participants(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -702,7 +702,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.get_meeting_participants(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -711,7 +711,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.refresh_participant_token(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingRefreshParticipantTokenResponse, meeting, path=["response"])
@@ -722,7 +722,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -737,7 +737,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.refresh_participant_token(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -755,7 +755,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -771,7 +771,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -779,7 +779,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -789,7 +789,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingReplaceMeetingByIDResponse, meeting, path=["response"])
 
@@ -799,7 +799,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             ai_config={
                 "summarization": {
                     "summary_type": "general",
@@ -867,7 +867,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -881,7 +881,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -898,7 +898,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.replace_meeting_by_id(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -912,7 +912,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.replace_meeting_by_id(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -921,7 +921,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingUpdateMeetingByIDResponse, meeting, path=["response"])
 
@@ -931,7 +931,7 @@ class TestMeetings:
         meeting = client.realtime_kit.meetings.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             ai_config={
                 "summarization": {
                     "summary_type": "general",
@@ -1000,7 +1000,7 @@ class TestMeetings:
         response = client.realtime_kit.meetings.with_raw_response.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1014,7 +1014,7 @@ class TestMeetings:
         with client.realtime_kit.meetings.with_streaming_response.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1031,7 +1031,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.update_meeting_by_id(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1045,7 +1045,7 @@ class TestMeetings:
             client.realtime_kit.meetings.with_raw_response.update_meeting_by_id(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
 
@@ -1058,7 +1058,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         meeting = await async_client.realtime_kit.meetings.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(MeetingCreateResponse, meeting, path=["response"])
@@ -1067,7 +1067,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
         meeting = await async_client.realtime_kit.meetings.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             ai_config={
                 "summarization": {
@@ -1134,7 +1134,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.meetings.with_raw_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -1147,7 +1147,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.meetings.with_streaming_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -1163,7 +1163,7 @@ class TestAsyncMeetings:
     async def test_path_params_create(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.meetings.with_raw_response.create(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -1179,7 +1179,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
         )
@@ -1191,7 +1191,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
             name="Mary Sue",
@@ -1205,7 +1205,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
         )
@@ -1221,7 +1221,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.add_participant(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             custom_participant_id="custom_participant_id",
             preset_name="preset_name",
         ) as response:
@@ -1240,7 +1240,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.add_participant(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 custom_participant_id="custom_participant_id",
                 preset_name="preset_name",
             )
@@ -1258,7 +1258,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.add_participant(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 custom_participant_id="custom_participant_id",
                 preset_name="preset_name",
             )
@@ -1269,7 +1269,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.delete_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingDeleteMeetingParticipantResponse, meeting, path=["response"])
@@ -1280,7 +1280,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -1295,7 +1295,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.delete_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -1313,7 +1313,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1329,7 +1329,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -1337,7 +1337,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.delete_meeting_participant(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1347,7 +1347,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingEditParticipantResponse, meeting, path=["response"])
@@ -1358,7 +1358,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             name="Jane Doe",
             picture="https://example.com",
@@ -1372,7 +1372,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -1387,7 +1387,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.edit_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -1405,7 +1405,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.edit_participant(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1421,7 +1421,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.edit_participant(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -1429,7 +1429,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.edit_participant(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1437,7 +1437,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
         meeting = await async_client.realtime_kit.meetings.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(MeetingGetResponse, meeting, path=["response"])
@@ -1446,7 +1446,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_method_get_with_all_params(self, async_client: AsyncCloudflare) -> None:
         meeting = await async_client.realtime_kit.meetings.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             end_time=parse_datetime("2019-12-27T18:11:19.117Z"),
             page_no=0,
@@ -1461,7 +1461,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.meetings.with_raw_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -1474,7 +1474,7 @@ class TestAsyncMeetings:
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.meetings.with_streaming_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -1490,7 +1490,7 @@ class TestAsyncMeetings:
     async def test_path_params_get(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.meetings.with_raw_response.get(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -1506,7 +1506,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingGetMeetingByIDResponse, meeting, path=["response"])
 
@@ -1516,7 +1516,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             name="name",
         )
         assert_matches_type(MeetingGetMeetingByIDResponse, meeting, path=["response"])
@@ -1527,7 +1527,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1541,7 +1541,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.get_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1558,7 +1558,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_by_id(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1572,7 +1572,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_by_id(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -1581,7 +1581,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.get_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingGetMeetingParticipantResponse, meeting, path=["response"])
@@ -1592,7 +1592,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -1607,7 +1607,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.get_meeting_participant(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -1625,7 +1625,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1641,7 +1641,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -1649,7 +1649,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participant(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1659,7 +1659,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingGetMeetingParticipantsResponse, meeting, path=["response"])
 
@@ -1669,7 +1669,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             page_no=0,
             per_page=0,
         )
@@ -1681,7 +1681,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1695,7 +1695,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.get_meeting_participants(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1712,7 +1712,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participants(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1726,7 +1726,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.get_meeting_participants(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -1735,7 +1735,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.refresh_participant_token(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
         assert_matches_type(MeetingRefreshParticipantTokenResponse, meeting, path=["response"])
@@ -1746,7 +1746,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
 
@@ -1761,7 +1761,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.refresh_participant_token(
             participant_id="participant_id",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         ) as response:
             assert not response.is_closed
@@ -1779,7 +1779,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
                 participant_id="participant_id",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1795,7 +1795,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
                 participant_id="participant_id",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="",
             )
 
@@ -1803,7 +1803,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.refresh_participant_token(
                 participant_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             )
 
@@ -1813,7 +1813,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingReplaceMeetingByIDResponse, meeting, path=["response"])
 
@@ -1823,7 +1823,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             ai_config={
                 "summarization": {
                     "summary_type": "general",
@@ -1891,7 +1891,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1905,7 +1905,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.replace_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1922,7 +1922,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.replace_meeting_by_id(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1936,7 +1936,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.replace_meeting_by_id(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -1945,7 +1945,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(MeetingUpdateMeetingByIDResponse, meeting, path=["response"])
 
@@ -1955,7 +1955,7 @@ class TestAsyncMeetings:
         meeting = await async_client.realtime_kit.meetings.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             ai_config={
                 "summarization": {
                     "summary_type": "general",
@@ -2024,7 +2024,7 @@ class TestAsyncMeetings:
         response = await async_client.realtime_kit.meetings.with_raw_response.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -2038,7 +2038,7 @@ class TestAsyncMeetings:
         async with async_client.realtime_kit.meetings.with_streaming_response.update_meeting_by_id(
             meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -2055,7 +2055,7 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.update_meeting_by_id(
                 meeting_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -2069,5 +2069,5 @@ class TestAsyncMeetings:
             await async_client.realtime_kit.meetings.with_raw_response.update_meeting_by_id(
                 meeting_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )

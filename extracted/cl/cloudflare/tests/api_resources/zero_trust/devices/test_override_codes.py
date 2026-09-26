@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
-from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
-from cloudflare.types.zero_trust.devices import OverrideCodeGetResponse
+from cloudflare.types.zero_trust.devices import OverrideCodeGetResponse, OverrideCodeListResponse
 
 # pyright: reportDeprecated=false
 
@@ -29,7 +28,7 @@ class TestOverrideCodes:
                 account_id="699d98642c564d2e855e9661899b7252",
             )
 
-        assert_matches_type(SyncSinglePage[object], override_code, path=["response"])
+        assert_matches_type(Optional[OverrideCodeListResponse], override_code, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
@@ -43,7 +42,7 @@ class TestOverrideCodes:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override_code = response.parse()
-        assert_matches_type(SyncSinglePage[object], override_code, path=["response"])
+        assert_matches_type(Optional[OverrideCodeListResponse], override_code, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
@@ -57,7 +56,7 @@ class TestOverrideCodes:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override_code = response.parse()
-                assert_matches_type(SyncSinglePage[object], override_code, path=["response"])
+                assert_matches_type(Optional[OverrideCodeListResponse], override_code, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -144,7 +143,7 @@ class TestAsyncOverrideCodes:
                 account_id="699d98642c564d2e855e9661899b7252",
             )
 
-        assert_matches_type(AsyncSinglePage[object], override_code, path=["response"])
+        assert_matches_type(Optional[OverrideCodeListResponse], override_code, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
@@ -158,7 +157,7 @@ class TestAsyncOverrideCodes:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override_code = await response.parse()
-        assert_matches_type(AsyncSinglePage[object], override_code, path=["response"])
+        assert_matches_type(Optional[OverrideCodeListResponse], override_code, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
@@ -172,7 +171,7 @@ class TestAsyncOverrideCodes:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override_code = await response.parse()
-                assert_matches_type(AsyncSinglePage[object], override_code, path=["response"])
+                assert_matches_type(Optional[OverrideCodeListResponse], override_code, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

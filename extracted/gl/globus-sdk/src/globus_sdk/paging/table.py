@@ -42,11 +42,6 @@ class PaginatorTable:
         # return paginators
         self._bindings: dict[str, t.Callable[..., Paginator[t.Any]]] = {}
 
-    def _add_binding(
-        self, methodname: str, bound_method: t.Callable[..., t.Any]
-    ) -> None:
-        self._bindings[methodname] = Paginator.wrap(bound_method)
-
     def __getattr__(self, attrname: str) -> t.Callable[..., Paginator[t.Any]]:
         if attrname not in self._bindings:
             # this could raise AttributeError -- in which case, let it!

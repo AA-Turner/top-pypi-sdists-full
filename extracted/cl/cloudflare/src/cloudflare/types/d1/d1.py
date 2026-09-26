@@ -39,6 +39,10 @@ class D1(BaseModel):
     """D1 database name."""
 
     num_tables: Optional[float] = None
+    """The number of tables in the D1 database.
+
+    This count is no longer accurate and should not be relied upon.
+    """
 
     read_replication: Optional[ReadReplication] = None
     """Configuration for D1 read replication."""

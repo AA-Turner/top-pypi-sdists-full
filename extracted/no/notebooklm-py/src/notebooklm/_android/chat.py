@@ -3,13 +3,27 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from typing import Any, cast
 from uuid import uuid4
 
-from .._chat import _TURN_COUNT_INITIAL_LIMIT, _TURN_COUNT_MAX_LIMIT, ChatAPI, _PostedAsk
+from .._chat import (
+    ChatAPI,
+    _ChatSettingsRead,
+    _ConfigureAttemptLogPolicy,
+    _PostedAsk,
+    _TurnRoleSnapshot,
+)
 from .._conversation_cache import ConversationCache
+from .._idempotency import (
+    OperationJournal,
+    attach_journal_entry,
+    bind_operation_journal_entries,
+    mark_unconfirmed,
+)
 from .._notebook_metadata import CreatedChatSessionProvider, NotebookSourceIdProvider
+from .._runtime.call_supervisor import OperationLease
 from .._runtime.config import (
     DEFAULT_CHAT_RESPONSE_MAX_BYTES,
     DEFAULT_CHAT_TIMEOUT,
@@ -20,19 +34,19 @@ from .._types.enums import ChatGoal, ChatResponseLength
 from ..exceptions import (
     ChatError,
     ChatResponseParseError,
+    NotebookLMError,
     UnknownRPCMethodError,
-    ValidationError,
 )
 from ..types import (
     ChatReference,
     ChatSessionStatus,
-    ChatSettings,
     ConversationTurn,
     NextStepSuggestion,
     Note,
 )
 from .codecs.chat import decode_document, decode_history, decode_references, decode_turn_key
 from .codecs.notebooks import validate_project_identity
+from .epoch import bind_workflow_epoch, reset_workflow_epoch
 from .notes import SAVED_RESPONSE_NOTE_TYPE, create_note
 from .session import AndroidSession
 
@@ -82,6 +96,12 @@ def _new_turn_id() -> str:
     return str(uuid4())
 
 
+def _is_final_chat_response(response: Any) -> bool:
+    """Stop the native stream once its protocol-level final snapshot arrives."""
+
+    return bool(response.is_final_response)
+
+
 def _cancellable_chat_request_context() -> Any:
     """Return the Android metadata envelope with Web chat semantics.
 
@@ -98,6 +118,17 @@ def _cancellable_chat_request_context() -> Any:
 
 class AndroidChatAPI(ChatAPI):
     """Android chat adapter installed by public Android backend selection."""
+
+    _configure_attempt_log_policy: _ConfigureAttemptLogPolicy = "silent"
+
+    @asynccontextmanager
+    async def _operation_scope(self, label: str) -> AsyncIterator[OperationLease]:
+        async with self._transport.operation_scope(label) as lease:
+            token = bind_workflow_epoch(self._transport, lease.epoch)
+            try:
+                yield lease
+            finally:
+                reset_workflow_epoch(token)
 
     def __init__(
         self,
@@ -260,59 +291,42 @@ class AndroidChatAPI(ChatAPI):
         limit: int = 100,
         conversation_id: str | None = None,
     ) -> list[tuple[str, str]]:
-        """Return captured newest-first Android history as oldest-first pairs."""
+        """Return captured newest-first Android history as oldest-first pairs.
+
+        Empty means no conversation, no turns, or a non-positive limit; fetch failures raise.
+        """
         bounded_limit = max(0, limit)
         if bounded_limit == 0:
             return []
-        resolved_id = conversation_id or await self.get_conversation_id(notebook_id)
-        if not resolved_id:
-            return []
-        response = await self.get_conversation_turns(
-            notebook_id,
-            resolved_id,
-            # Android exposes separate generated-response and user-query rows,
-            # while the public limit counts completed Q&A pairs.
-            limit=bounded_limit * 2,
-        )
-        return decode_history(response, limit=bounded_limit)
+        async with self._operation_scope("chat.get_history"):
+            resolved_id = conversation_id or await self.get_conversation_id(notebook_id)
+            if not resolved_id:
+                return []
+            response = await self.get_conversation_turns(
+                notebook_id,
+                resolved_id,
+                # Android exposes separate generated-response and user-query rows,
+                # while the public limit counts completed Q&A pairs.
+                limit=bounded_limit * 2,
+            )
+            return decode_history(response, limit=bounded_limit)
 
     async def _list_turn_roles(
         self,
         notebook_id: str,
         conversation_id: str,
         limit: int,
-    ) -> list[object]:
+    ) -> _TurnRoleSnapshot:
         response = await self.get_conversation_turns(
             notebook_id,
             conversation_id,
             limit=limit,
         )
-        return [turn.observed_event_type for turn in response.chat_turns[: max(0, limit)]]
-
-    async def _count_prior_server_turns(
-        self,
-        notebook_id: str,
-        conversation_id: str,
-    ) -> int:
-        """Count from Android's authoritative rows and exhaustion token."""
-        limit = _TURN_COUNT_INITIAL_LIMIT
-        while True:
-            response = await self.get_conversation_turns(
-                notebook_id,
-                conversation_id,
-                limit=limit,
-            )
-            roles = [turn.observed_event_type for turn in response.chat_turns]
-            question_count = sum(role == 1 for role in roles)
-            if len(roles) < limit or not response.next_page_token:
-                return question_count
-            if limit >= _TURN_COUNT_MAX_LIMIT:
-                raise ChatError(
-                    f"Conversation history filled the maximum "
-                    f"{_TURN_COUNT_MAX_LIMIT:,}-row snapshot; cannot derive an "
-                    "authoritative turn number."
-                )
-            limit *= 2
+        roles = tuple(turn.observed_event_type for turn in response.chat_turns[: max(0, limit)])
+        return _TurnRoleSnapshot(
+            roles=roles,
+            exhausted=len(roles) < limit or not response.next_page_token,
+        )
 
     @staticmethod
     def _conversation_history(cached_turns: list[ConversationTurn]) -> list[Any]:
@@ -367,37 +381,70 @@ class AndroidChatAPI(ChatAPI):
 
         final_response = None
         next_steps: list[NextStepSuggestion] = []
-        async for response in self._transport.stream(
-            GENERATE_FREE_FORM_STREAMED_METHOD,
-            request,
-            timeout=self._chat_timeout,
-            response_type=proto.GenerateFreeFormStreamedResponse,
-            telemetry_method="chat.ask",
-            max_response_bytes=self._chat_response_max_bytes,
-        ):
-            if response.HasField("next_step_suggestions"):
-                decoded_next_steps = [
-                    NextStepSuggestion(
-                        question=next_step.suggestion,
-                        type_code=int(next_step.suggestion_type),
-                    )
-                    for next_step in response.next_step_suggestions.next_steps
-                    if next_step.suggestion
-                ]
-                if decoded_next_steps:
-                    next_steps = decoded_next_steps
-            if response.is_final_response:
-                final_response = response
+        journal_entry = OperationJournal("chat").new_entry(
+            method=GENERATE_FREE_FORM_STREAMED_METHOD
+        )
+        try:
+            with bind_operation_journal_entries(journal_entry):
+                async for response in self._transport.stream(
+                    GENERATE_FREE_FORM_STREAMED_METHOD,
+                    request,
+                    replay_safe=False,
+                    timeout=self._chat_timeout,
+                    response_type=proto.GenerateFreeFormStreamedResponse,
+                    telemetry_method="chat.ask",
+                    max_response_bytes=self._chat_response_max_bytes,
+                    stop_after=_is_final_chat_response,
+                ):
+                    if response.HasField("next_step_suggestions"):
+                        decoded_next_steps = [
+                            NextStepSuggestion(
+                                question=next_step.suggestion,
+                                type_code=int(next_step.suggestion_type),
+                            )
+                            for next_step in response.next_step_suggestions.next_steps
+                            if next_step.suggestion
+                        ]
+                        if decoded_next_steps:
+                            next_steps = decoded_next_steps
+                    if response.is_final_response:
+                        final_response = response
+        except NotebookLMError as exc:
+            # Android status mapping already supplies UNKNOWN for this
+            # non-replayable stream. Add the feature identity at the boundary
+            # that knows it was a chat turn so every adapter gives the caller
+            # conversation-history guidance.
+            if getattr(exc, "unconfirmed", False):
+                mark_unconfirmed(exc, operation="chat")
+            attach_journal_entry(exc, journal_entry)
+            raise
 
         if final_response is None:
-            raise ChatResponseParseError(
-                "Android GenerateFreeFormStreamed ended before response field 5 "
-                "declared a final snapshot."
+            error = mark_unconfirmed(
+                ChatResponseParseError(
+                    "Android GenerateFreeFormStreamed ended before response field 5 "
+                    "declared a final snapshot."
+                ),
+                operation="chat",
             )
+            raise attach_journal_entry(error, journal_entry)
 
         answer = final_response.answer
-        answer_document = decode_document(answer.response_doc)
-        references = decode_references(answer.response_doc, answer_document)
+        try:
+            answer_document = decode_document(answer.response_doc)
+            references = decode_references(answer.response_doc, answer_document)
+        except NotebookLMError as exc:
+            mark_unconfirmed(exc, operation="chat")
+            attach_journal_entry(exc, journal_entry)
+            raise
+        except Exception as exc:
+            error = mark_unconfirmed(
+                ChatResponseParseError(
+                    f"Failed to decode Android chat response: {type(exc).__name__}"
+                ),
+                operation="chat",
+            )
+            raise attach_journal_entry(error, journal_entry) from exc
         from google.protobuf.json_format import MessageToJson
 
         return _PostedAsk(
@@ -438,19 +485,14 @@ class AndroidChatAPI(ChatAPI):
                 expected_epoch=lease.epoch,
             )
 
-    async def configure(
+    async def _send_configure(
         self,
         notebook_id: str,
-        goal: ChatGoal | None = None,
-        response_length: ChatResponseLength | None = None,
-        custom_prompt: str | None = None,
+        goal: ChatGoal,
+        response_length: ChatResponseLength,
+        custom_prompt: str | None,
     ) -> None:
-        if goal is None:
-            goal = ChatGoal.DEFAULT
-        if response_length is None:
-            response_length = ChatResponseLength.DEFAULT
-        if goal == ChatGoal.CUSTOM and not custom_prompt:
-            raise ValidationError("custom_prompt is required when goal is CUSTOM")
+        """Send one Android whole-settings mutation."""
         active_prompt = custom_prompt if goal == ChatGoal.CUSTOM else ""
 
         from .upload import android_request_context
@@ -481,7 +523,8 @@ class AndroidChatAPI(ChatAPI):
         )
         validate_project_identity(response, notebook_id, method_id=MUTATE_PROJECT_METHOD)
 
-    async def get_settings(self, notebook_id: str) -> ChatSettings:
+    async def _read_settings(self, notebook_id: str) -> _ChatSettingsRead:
+        """Read and validate Android chat settings."""
         read_proto = _read_proto()
         wire = _wire_proto()
         response = await self._transport.unary(
@@ -503,9 +546,10 @@ class AndroidChatAPI(ChatAPI):
         project = response.project
         validate_project_identity(project, notebook_id, method_id=GET_PROJECT_METHOD)
         if not project.HasField("advanced_settings"):
-            return ChatSettings(
+            return _ChatSettingsRead(
                 goal=ChatGoal.DEFAULT,
                 response_length=ChatResponseLength.DEFAULT,
+                custom_prompt=None,
             )
 
         settings = project.advanced_settings
@@ -542,7 +586,7 @@ class AndroidChatAPI(ChatAPI):
             )
         if goal != ChatGoal.CUSTOM:
             custom_prompt = None
-        return ChatSettings(
+        return _ChatSettingsRead(
             goal=goal,
             response_length=response_length,
             custom_prompt=custom_prompt,

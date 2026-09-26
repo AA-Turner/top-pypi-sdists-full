@@ -39,6 +39,7 @@ from .literals import (
     EmotionNameType,
     FaceAttributesType,
     FaceSearchSortByType,
+    FeedbackCodeType,
     GenderTypeType,
     KnownGenderTypeType,
     LabelDetectionAggregateByType,
@@ -193,6 +194,7 @@ __all__ = (
     "FaceRecordTypeDef",
     "FaceSearchSettingsTypeDef",
     "FaceTypeDef",
+    "FeedbackItemTypeDef",
     "GenderTypeDef",
     "GeneralLabelsSettingsTypeDef",
     "GeometryTypeDef",
@@ -317,6 +319,7 @@ __all__ = (
     "SearchedUserTypeDef",
     "SegmentDetectionTypeDef",
     "SegmentTypeInfoTypeDef",
+    "SessionMetadataTypeDef",
     "ShotSegmentTypeDef",
     "SmileTypeDef",
     "StartCelebrityRecognitionRequestTypeDef",
@@ -727,6 +730,10 @@ class FaceSearchSettingsTypeDef(TypedDict):
     CollectionId: NotRequired[str]
     FaceMatchThreshold: NotRequired[float]
 
+class FeedbackItemTypeDef(TypedDict):
+    Code: FeedbackCodeType
+    Message: str
+
 class PointTypeDef(TypedDict):
     X: NotRequired[float]
     Y: NotRequired[float]
@@ -767,6 +774,9 @@ class GetFaceDetectionRequestTypeDef(TypedDict):
 
 class GetFaceLivenessSessionResultsRequestTypeDef(TypedDict):
     SessionId: str
+
+class SessionMetadataTypeDef(TypedDict):
+    SDKType: str
 
 class GetFaceSearchRequestTypeDef(TypedDict):
     JobId: str
@@ -1441,6 +1451,8 @@ class GetFaceLivenessSessionResultsResponseTypeDef(TypedDict):
     ReferenceImage: AuditImageTypeDef
     AuditImages: list[AuditImageTypeDef]
     Challenge: ChallengeTypeDef
+    Feedback: list[FeedbackItemTypeDef]
+    Metadata: SessionMetadataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AssetTypeDef(TypedDict):

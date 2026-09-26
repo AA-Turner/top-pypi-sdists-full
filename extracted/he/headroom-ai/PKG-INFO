@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: headroom-ai
-Version: 0.38.0
+Version: 0.39.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
@@ -36,7 +35,7 @@ Requires-Dist: crewai>=1.15.21 ; extra == 'crewai'
 Requires-Dist: pytest>=7.0.0 ; extra == 'dev'
 Requires-Dist: pytest-cov>=4.0.0 ; extra == 'dev'
 Requires-Dist: pytest-asyncio>=0.21.0 ; extra == 'dev'
-Requires-Dist: ruff==0.16.7 ; extra == 'dev'
+Requires-Dist: ruff==0.16.8 ; extra == 'dev'
 Requires-Dist: mypy>=1.0.0 ; extra == 'dev'
 Requires-Dist: pre-commit>=3.0.0 ; extra == 'dev'
 Requires-Dist: openai>=1.0.0 ; extra == 'dev'
@@ -44,7 +43,7 @@ Requires-Dist: anthropic>=0.18.0 ; extra == 'dev'
 Requires-Dist: litellm>=1.96.2,<2.0 ; extra == 'dev'
 Requires-Dist: fastapi>=0.100.0 ; extra == 'dev'
 Requires-Dist: uvicorn>=0.23.0,<1.0 ; extra == 'dev'
-Requires-Dist: httpx[http2]>=0.24.0 ; extra == 'dev'
+Requires-Dist: httpx[http2,socks]>=0.24.0 ; extra == 'dev'
 Requires-Dist: websockets>=13.0 ; extra == 'dev'
 Requires-Dist: opentelemetry-sdk>=1.24.0 ; extra == 'dev'
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.24.0 ; extra == 'dev'
@@ -57,6 +56,7 @@ Requires-Dist: numpy>=1.24.0 ; extra == 'dev'
 Requires-Dist: openpyxl>=3.1.0 ; extra == 'dev'
 Requires-Dist: xlrd>=2.0.1 ; extra == 'dev'
 Requires-Dist: xlwt>=1.3.0 ; extra == 'dev'
+Requires-Dist: cryptography>=50.0.0 ; extra == 'dev'
 Requires-Dist: respx>=0.20.0 ; extra == 'dev'
 Requires-Dist: datasets>=5.0.1 ; extra == 'evals'
 Requires-Dist: sentence-transformers>=2.2.0,<7.0 ; (platform_machine != 'x86_64' and extra == 'evals') or (sys_platform != 'darwin' and extra == 'evals')
@@ -491,6 +491,8 @@ project you will open in VS Code:
 ```bash
 pip install "headroom-ai[proxy]"
 headroom wrap vscode-claude
+# Optional: persist Claude Code's client-owned 1M model selector
+headroom wrap vscode-claude --1m
 ```
 
 Reload the VS Code window on first run. Keep the wrapper terminal running while
@@ -498,6 +500,16 @@ you use the Claude Code panel; the dashboard or proxy log printed at startup
 shows requests and savings. Your Anthropic authentication and selected model are
 preserved. `Ctrl+C` stops the proxy; `headroom unwrap vscode-claude` restores the
 settings that existed before setup.
+
+With `--1m`, Headroom writes the resolved `[1m]` model selector to Claude Code's
+top-level user setting and restores the exact prior model on
+`headroom unwrap vscode-claude` or when setup runs again without `--1m`. Use
+`headroom wrap vscode-claude --no-configure --1m` to print the setting without
+writing files.
+
+Claude Code and Anthropic own 1M model support and account eligibility. Local
+tests prove persisted settings and restoration, not a live entitled VS Code
+session or the resulting context window.
 [Full guide →](https://docs.headroomlabs.ai/docs/vscode-claude-code)
 
 </details>
@@ -540,7 +552,7 @@ reduction, and blocks under `min_input_words` come back byte-identical.
 <summary><b>What's inside</b></summary>
 
 - **SmartCrusher** — universal JSON: arrays of dicts, nested objects, mixed types. It keeps error items, values outside the normal statistical range, and first/last boundaries, selected from field-variance statistics rather than a keyword list.
-- **CodeCompressor** — AST-aware for Python, JS/TS, Go, Rust, Java, C/C++ and Perl.
+- **CodeCompressor** — AST-aware for Python, JS/TS, Go, Rust, Java, C/C++, C#, PHP.
 - **Kompress-v2-base** — our HuggingFace model, trained on agentic traces.
 - **Image compression** — 40–90% reduction through a trained ML router.
 - **CacheAligner** — flags volatile content that would bust a provider KV-cache prefix; never rewrites prompts.

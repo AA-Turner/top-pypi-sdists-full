@@ -13,8 +13,10 @@ __all__ = ["Deployment", "Version", "Annotations"]
 
 class Version(BaseModel):
     percentage: float
+    """Percentage of traffic served by this version."""
 
     version_id: str
+    """Identifier of the Worker Version."""
 
 
 class Annotations(BaseModel):
@@ -35,6 +37,14 @@ class Deployment(BaseModel):
     strategy: Literal["percentage"]
 
     versions: List[Version]
+    """Worker versions included in this deployment.
+
+    Each object must contain a `version_id` UUID and a `percentage`; percentages
+    across all objects must total 100. In the `cf` CLI, pass the entire array as one
+    JSON value to `--versions`, either inline, for example
+    `--versions '[{"version_id":"023e105f-2a42-4f8b-a1c1-73f6a2a30c0f","percentage":100}]'`,
+    or from a JSON file with `--versions @versions.json`.
+    """
 
     annotations: Optional[Annotations] = None
 

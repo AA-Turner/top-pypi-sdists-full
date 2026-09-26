@@ -45,6 +45,7 @@ const MAX_SEEN_ERRORS: usize = 1000;
 // If we never see the exception, log to sdk exception
 // TODO: By session end, we flush stats
 pub struct SDKErrorsObserver {
+    output_policy: crate::output_policy::OutputPolicy,
     errors_aggregator: RwLock<HashMap<String, u32>>,
     network_client: NetworkClient,
     statsig_options_logging_copy: String,
@@ -56,8 +57,14 @@ impl SDKErrorsObserver {
         let mut headers =
             StatsigMetadata::get_constant_request_headers(sdk_key, options.service_name.as_deref());
         headers.insert("Content-Type".to_string(), "application/json".to_string());
-        let options_logging_copy = serde_json::to_string(options).unwrap_or_default();
+        let output_policy = crate::output_policy::OutputPolicy::from_options(Some(options));
+        let options_logging_copy = if output_policy.is_silent() {
+            String::new()
+        } else {
+            serde_json::to_string(options).unwrap_or_default()
+        };
         SDKErrorsObserver {
+            output_policy,
             network_client: NetworkClient::new(sdk_key, Some(headers), Some(options))
                 .mute_network_error_log(),
             errors_aggregator: RwLock::new(HashMap::new()),
@@ -126,8 +133,67 @@ impl SDKErrorsObserver {
 #[async_trait]
 impl OpsStatsEventObserver for SDKErrorsObserver {
     async fn handle_event(&self, event: OpsStatsEvent) {
+        if self.output_policy.is_silent() {
+            return;
+        }
         if let OpsStatsEvent::SDKError(e) = event {
             self.handle_eb_event(e).await;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::networking::{HttpMethod, NetworkProvider, Response};
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+
+    struct RecordingTransport(AtomicUsize);
+
+    #[async_trait]
+    impl NetworkProvider for RecordingTransport {
+        async fn send(&self, _method: &HttpMethod, _args: &RequestArgs) -> Response {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Response {
+                status_code: Some(200),
+                data: None,
+                error: None,
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn silent_observer_never_posts_exception_or_disables_same_id_ordinary_observer() {
+        let transport = Arc::new(RecordingTransport(AtomicUsize::new(0)));
+        let network: Arc<dyn NetworkProvider> = transport.clone();
+        for silent in [true, false] {
+            let options = StatsigOptions {
+                sdk_instance_id: Some("same-instance".into()),
+                ..StatsigOptions::default()
+            }
+            .suppress_diagnostic_output(silent);
+            let mut observer = SDKErrorsObserver::new("secret-FAKE_ONLY", &options);
+            observer
+                .network_client
+                .set_network_provider_for_test(Arc::downgrade(&network));
+            observer
+                .handle_event(OpsStatsEvent::SDKError(ErrorBoundaryEvent {
+                    tag: "fake".into(),
+                    info: "secret-FAKE_ONLY payload".into(),
+                    exception: "fixture".into(),
+                    dedupe_key: None,
+                    bypass_dedupe: false,
+                    extra: None,
+                }))
+                .await;
+            assert_eq!(transport.0.load(Ordering::SeqCst), usize::from(!silent));
+            if silent {
+                assert!(observer.statsig_options_logging_copy.is_empty());
+                assert!(observer.errors_aggregator.read().await.is_empty());
+            }
         }
     }
 }

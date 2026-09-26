@@ -2,6 +2,14 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "collections",
+    "dataclasses",
+    "fnmatch",
+    "packaging",
+    "packaging.version",
+    "pathlib",
+    "shlex",
+    "shutil",
+    "typing",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._check_extra",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.setuptools.errors",
@@ -11,17 +19,11 @@ __lazy_modules__ = {
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.macos",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_read_settings",
-    "fnmatch",
-    "packaging",
-    "packaging.version",
-    "pathlib",
-    "shlex",
-    "shutil",
-    "typing",
 }
 
 import contextlib
 import contextvars
+import dataclasses
 import enum
 import os
 import shlex
@@ -120,13 +122,17 @@ def set_config_settings(
 
 def _apply_cmake_install_target(
     settings: ScikitBuildSettings, dist: Distribution
-) -> None:
-    # Classic scikit-build's cmake_install_target names the build target that
-    # performs the install; a non-default target maps directly onto
-    # install.targets ("install" is already the cmake --install default).
+) -> ScikitBuildSettings:
+    # Classic scikit-build's cmake_install_target maps onto install.targets
+    # ("install" is the cmake --install default). Returns a new object so the
+    # cached settings stay untouched.
     target = getattr(dist, "cmake_install_target", None) or "install"
-    if target != "install":
-        settings.install.targets = [*settings.install.targets, target]
+    if target == "install":
+        return settings
+    install = dataclasses.replace(
+        settings.install, targets=[*settings.install.targets, target]
+    )
+    return dataclasses.replace(settings, install=install)
 
 
 def _validate_settings(
@@ -150,21 +156,31 @@ def _validate_settings(
         if settings.editable.mode != "inplace":
             msg = "setuptools editable installs require editable.mode = 'inplace'"
             raise SetupError(msg)
-        if settings.editable.rebuild_enabled:
+        if settings.editable.persistent_install:
             msg = "editable.rebuild is not supported in setuptools mode"
             raise SetupError(msg)
 
 
 def _load_settings(
+    dist: Distribution | None = None,
     state: Literal["sdist", "wheel", "editable"] = "sdist",
 ) -> ScikitBuildSettings:
-    # setup.py-only projects (common with the classic scikit-build wrapper)
-    # don't have a pyproject.toml.
-    if not Path("pyproject.toml").is_file():
-        return SettingsReader({}, _CONFIG_SETTINGS.get() or {}, state=state).settings
-    return SettingsReader.from_file(
-        "pyproject.toml", _CONFIG_SETTINGS.get(), state=state
-    ).settings
+    # Read more than once per build, so cache per state on the distribution.
+    # Callers must not mutate the returned object.
+    cache: dict[str, ScikitBuildSettings] = (
+        {} if dist is None else vars(dist).setdefault("_skbuild_settings_cache", {})
+    )
+    if state not in cache:
+        config_settings = _CONFIG_SETTINGS.get()
+        # setup.py-only projects (classic scikit-build style) have no pyproject.
+        if Path("pyproject.toml").is_file():
+            reader = SettingsReader.from_file(
+                "pyproject.toml", config_settings, state=state
+            )
+        else:
+            reader = SettingsReader({}, config_settings or {}, state=state)
+        cache[state] = reader.settings
+    return cache[state]
 
 
 def get_source_dir_from_pyproject_toml() -> str | None:
@@ -475,9 +491,9 @@ class BuildCMake(setuptools.Command):
         self._editable_mode = self._get_editable_mode()
 
         if isinstance(self.cmake_args, str):
-            self.cmake_args = [
-                b.strip() for a in self.cmake_args.split() for b in a.split(";")
-            ]
+            # shlex keeps quoted values whole; ";" is also a separator.
+            split = shlex.split(self.cmake_args)
+            self.cmake_args = [b for a in split for b in a.split(";") if b]
 
     def _get_editable_mode(self) -> _EditableMode:
         # setuptools marks a PEP 660 editable build by setting editable_mode
@@ -532,6 +548,19 @@ class BuildCMake(setuptools.Command):
             package_dir = getattr(self.distribution, "package_dir", {}) or {}
             source_root = Path(package_dir.get("", "."))
         return source_root.resolve() / install_subdir
+
+    def _get_staged_install_prefix(self, build_temp: Path) -> Path:
+        """CMake's install prefix: where files land before staging into the wheel.
+
+        Under wrapper classic-layout compat this is
+        <build_ext build_temp>/_skbuild/cmake-install[/install_subdir]. Classic
+        scikit-build's skbuild.constants.CMAKE_INSTALL_DIR() shim advertises that
+        path to downstream setup.py files (the DracoPy pattern); coordinate with
+        scikit-build before moving it.
+        """
+        if self._wrapper_classic_layout_compat_enabled():
+            return build_temp / "cmake-install" / self._get_install_subdir()
+        return self._get_install_dir()
 
     def _set_generated_data_files(
         self, data_files: list[tuple[str, list[str]]] | None = None
@@ -646,10 +675,11 @@ class BuildCMake(setuptools.Command):
         # run() is always a wheel or editable build; pass the matching state so
         # overrides (if.state = "wheel"/"editable") are applied correctly.
         settings = _load_settings(
-            state="editable" if self._editable_mode.is_editable else "wheel"
+            self.distribution,
+            state="editable" if self._editable_mode.is_editable else "wheel",
         )
         _validate_settings(settings, pep660_editable=self._editable_mode.is_pep660)
-        _apply_cmake_install_target(settings, self.distribution)
+        settings = _apply_cmake_install_target(settings, self.distribution)
 
         build_tmp_folder = Path(self.build_temp)
         build_temp = build_tmp_folder / "_skbuild"
@@ -715,21 +745,17 @@ class BuildCMake(setuptools.Command):
         # Setting the install prefix because some libs hardcode CMAKE_INSTALL_PREFIX
         # Otherwise `cmake --install --prefix` would work by itself
         install_subdir = self._get_install_subdir()
-        install_dir = self._get_install_dir()
         use_wrapper_classic_layout_compat = (
             self._wrapper_classic_layout_compat_enabled()
         )
-        cmake_install_prefix = (
-            build_temp / "cmake-install" / install_subdir
-            if use_wrapper_classic_layout_compat
-            else install_dir
-        )
+        cmake_install_prefix = self._get_staged_install_prefix(build_temp)
         installed_before = _collect_recursive_files(cmake_install_prefix)
         defines = {"CMAKE_INSTALL_PREFIX": cmake_install_prefix}
 
         builder.configure(
             name=dist.get_name(),
             version=Version(dist.get_version()),
+            raw_version=dist.get_version(),
             defines=defines,
             limited_api=bool(limited_api),
             configure_args=configure_args,
@@ -783,7 +809,7 @@ class BuildCMake(setuptools.Command):
         # (the file API reply isn't available before configuring), and
         # setuptools owns the rest of the sdist file list, so only the
         # explicit opt-in selection is supported.
-        settings = _load_settings()
+        settings = _load_settings(self.distribution)
         include = list(settings.sdist.include)
         if include and settings.sdist.inclusion_mode != "explicit":
             msg = (
@@ -898,7 +924,7 @@ def _cmake_extension(dist: Distribution) -> None:
         dist.ext_modules = getattr(dist, "ext_modules", []) or EvilList()
 
     # Setup logging
-    settings = _load_settings()
+    settings = _load_settings(dist)
     level_value = LEVEL_VALUE[settings.logging.level]
     raw_logger.setLevel(level_value)
 

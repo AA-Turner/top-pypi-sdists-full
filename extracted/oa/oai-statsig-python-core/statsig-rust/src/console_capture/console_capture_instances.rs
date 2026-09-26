@@ -41,7 +41,8 @@ impl ConsoleCaptureInstance {
             .console_capture_options
             .clone()
             .unwrap_or_default();
-        let enabled = console_capture_options.enabled;
+        let enabled = console_capture_options.enabled
+            && !crate::output_policy::OutputPolicy::from_options(Some(statsig_options)).is_silent();
         let sdk_instance_id = statsig_options.get_sdk_instance_id(sdk_key);
         let ops_stats_instance = OPS_STATS.get_for_instance(sdk_instance_id);
         let allowed_log_levels = console_capture_options
@@ -91,6 +92,9 @@ impl ConsoleCaptureRegistry {
         options: &StatsigOptions,
         environment: &Option<HashMap<String, DynamicValue>>,
     ) -> Arc<ConsoleCaptureInstance> {
+        if crate::output_policy::OutputPolicy::from_options(Some(options)).is_silent() {
+            return Arc::new(ConsoleCaptureInstance::new(sdk_key, options, environment));
+        }
         match self
             .instances_map
             .try_read_for(std::time::Duration::from_secs(5))

@@ -14,6 +14,7 @@ __all__ = [
 
 class ZeroTrustGatewayProxyEndpointIPCreate(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     name: Required[str]
     """Specify the name of the proxy endpoint."""
@@ -24,6 +25,7 @@ class ZeroTrustGatewayProxyEndpointIPCreate(TypedDict, total=False):
 
 class ZeroTrustGatewayProxyEndpointIdentityCreate(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     kind: Required[Literal["identity"]]
     """The proxy endpoint kind"""

@@ -89,7 +89,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Returns the created D1 database.
+        Create a new D1 database in your account.
 
         Args:
           account_id: Account identifier tag.
@@ -149,7 +149,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Updates the specified D1 database.
+        Update a D1 database's configuration.
 
         Args:
           account_id: Account identifier tag.
@@ -200,7 +200,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[DatabaseListResponse]:
         """
-        Returns a list of D1 databases.
+        List D1 databases in your account.
 
         Args:
           account_id: Account identifier tag.
@@ -254,7 +254,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Deletes the specified D1 database.
+        Delete a D1 database.
 
         Args:
           account_id: Account identifier tag.
@@ -301,7 +301,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Updates partially the specified D1 database.
+        Partially update a D1 database's configuration.
 
         Args:
           account_id: Account identifier tag.
@@ -352,12 +352,12 @@ class DatabaseResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseExportResponse:
-        """Returns a URL where the SQL contents of your D1 can be downloaded.
-
-        Note: this
-        process may take some time for larger DBs, during which your D1 will be
-        unavailable to serve queries. To avoid blocking your DB unnecessarily, an
-        in-progress export must be continually polled or will automatically cancel.
+        """
+        Export the SQL contents of a D1 database and return a URL where they can be
+        downloaded. Note: this process may take some time for larger DBs, during which
+        your D1 will be unavailable to serve queries. To avoid blocking your DB
+        unnecessarily, an in-progress export must be continually polled or will
+        automatically cancel.
 
         Args:
           account_id: Account identifier tag.
@@ -432,7 +432,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Returns the specified D1 database.
+        Get details for a specific D1 database.
 
         Args:
           account_id: Account identifier tag.
@@ -485,8 +485,8 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseImportResponse:
         """
-        Generates a temporary URL for uploading an SQL file to, then instructing the D1
-        to import it and polling it for status updates. Imports block the D1 for their
+        Generate a temporary URL for uploading an SQL file to, then instruct the D1 to
+        import it and poll it for status updates. Imports block the D1 for their
         duration.
 
         Args:
@@ -527,8 +527,8 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseImportResponse:
         """
-        Generates a temporary URL for uploading an SQL file to, then instructing the D1
-        to import it and polling it for status updates. Imports block the D1 for their
+        Generate a temporary URL for uploading an SQL file to, then instruct the D1 to
+        import it and poll it for status updates. Imports block the D1 for their
         duration.
 
         Args:
@@ -569,8 +569,8 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseImportResponse:
         """
-        Generates a temporary URL for uploading an SQL file to, then instructing the D1
-        to import it and polling it for status updates. Imports block the D1 for their
+        Generate a temporary URL for uploading an SQL file to, then instruct the D1 to
+        import it and poll it for status updates. Imports block the D1 for their
         duration.
 
         Args:
@@ -658,7 +658,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[QueryResult]:
         """
-        Returns the query result as an object.
+        Execute a SQL query against a D1 database and return results as objects.
 
         Args:
           account_id: Account identifier tag.
@@ -693,7 +693,7 @@ class DatabaseResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[QueryResult]:
         """
-        Returns the query result as an object.
+        Execute a SQL query against a D1 database and return results as objects.
 
         Args:
           account_id: Account identifier tag.
@@ -765,10 +765,10 @@ class DatabaseResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[DatabaseRawResponse]:
-        """Returns the query result rows as arrays rather than objects.
-
-        This is a
-        performance-optimized version of the /query endpoint.
+        """
+        Execute a SQL query against a D1 database and return result rows as arrays
+        rather than objects. This is a performance-optimized version of the /query
+        endpoint.
 
         Args:
           account_id: Account identifier tag.
@@ -802,10 +802,10 @@ class DatabaseResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[DatabaseRawResponse]:
-        """Returns the query result rows as arrays rather than objects.
-
-        This is a
-        performance-optimized version of the /query endpoint.
+        """
+        Execute a SQL query against a D1 database and return result rows as arrays
+        rather than objects. This is a performance-optimized version of the /query
+        endpoint.
 
         Args:
           account_id: Account identifier tag.
@@ -903,7 +903,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Returns the created D1 database.
+        Create a new D1 database in your account.
 
         Args:
           account_id: Account identifier tag.
@@ -963,7 +963,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Updates the specified D1 database.
+        Update a D1 database's configuration.
 
         Args:
           account_id: Account identifier tag.
@@ -1016,7 +1016,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DatabaseListResponse, AsyncV4PagePaginationArray[DatabaseListResponse]]:
         """
-        Returns a list of D1 databases.
+        List D1 databases in your account.
 
         Args:
           account_id: Account identifier tag.
@@ -1070,7 +1070,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Deletes the specified D1 database.
+        Delete a D1 database.
 
         Args:
           account_id: Account identifier tag.
@@ -1117,7 +1117,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Updates partially the specified D1 database.
+        Partially update a D1 database's configuration.
 
         Args:
           account_id: Account identifier tag.
@@ -1170,12 +1170,12 @@ class AsyncDatabaseResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseExportResponse:
-        """Returns a URL where the SQL contents of your D1 can be downloaded.
-
-        Note: this
-        process may take some time for larger DBs, during which your D1 will be
-        unavailable to serve queries. To avoid blocking your DB unnecessarily, an
-        in-progress export must be continually polled or will automatically cancel.
+        """
+        Export the SQL contents of a D1 database and return a URL where they can be
+        downloaded. Note: this process may take some time for larger DBs, during which
+        your D1 will be unavailable to serve queries. To avoid blocking your DB
+        unnecessarily, an in-progress export must be continually polled or will
+        automatically cancel.
 
         Args:
           account_id: Account identifier tag.
@@ -1250,7 +1250,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> D1:
         """
-        Returns the specified D1 database.
+        Get details for a specific D1 database.
 
         Args:
           account_id: Account identifier tag.
@@ -1303,8 +1303,8 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseImportResponse:
         """
-        Generates a temporary URL for uploading an SQL file to, then instructing the D1
-        to import it and polling it for status updates. Imports block the D1 for their
+        Generate a temporary URL for uploading an SQL file to, then instruct the D1 to
+        import it and poll it for status updates. Imports block the D1 for their
         duration.
 
         Args:
@@ -1345,8 +1345,8 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseImportResponse:
         """
-        Generates a temporary URL for uploading an SQL file to, then instructing the D1
-        to import it and polling it for status updates. Imports block the D1 for their
+        Generate a temporary URL for uploading an SQL file to, then instruct the D1 to
+        import it and poll it for status updates. Imports block the D1 for their
         duration.
 
         Args:
@@ -1387,8 +1387,8 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatabaseImportResponse:
         """
-        Generates a temporary URL for uploading an SQL file to, then instructing the D1
-        to import it and polling it for status updates. Imports block the D1 for their
+        Generate a temporary URL for uploading an SQL file to, then instruct the D1 to
+        import it and poll it for status updates. Imports block the D1 for their
         duration.
 
         Args:
@@ -1476,7 +1476,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[QueryResult, AsyncSinglePage[QueryResult]]:
         """
-        Returns the query result as an object.
+        Execute a SQL query against a D1 database and return results as objects.
 
         Args:
           account_id: Account identifier tag.
@@ -1511,7 +1511,7 @@ class AsyncDatabaseResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[QueryResult, AsyncSinglePage[QueryResult]]:
         """
-        Returns the query result as an object.
+        Execute a SQL query against a D1 database and return results as objects.
 
         Args:
           account_id: Account identifier tag.
@@ -1583,10 +1583,10 @@ class AsyncDatabaseResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DatabaseRawResponse, AsyncSinglePage[DatabaseRawResponse]]:
-        """Returns the query result rows as arrays rather than objects.
-
-        This is a
-        performance-optimized version of the /query endpoint.
+        """
+        Execute a SQL query against a D1 database and return result rows as arrays
+        rather than objects. This is a performance-optimized version of the /query
+        endpoint.
 
         Args:
           account_id: Account identifier tag.
@@ -1620,10 +1620,10 @@ class AsyncDatabaseResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DatabaseRawResponse, AsyncSinglePage[DatabaseRawResponse]]:
-        """Returns the query result rows as arrays rather than objects.
-
-        This is a
-        performance-optimized version of the /query endpoint.
+        """
+        Execute a SQL query against a D1 database and return result rows as arrays
+        rather than objects. This is a performance-optimized version of the /query
+        endpoint.
 
         Args:
           account_id: Account identifier tag.

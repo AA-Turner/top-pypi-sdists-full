@@ -28,6 +28,9 @@ class DeviceListParams(TypedDict, total=False):
     response.
     """
 
+    has_registration_type: Literal["warp", "browser_extension"]
+    """Filter by the type of active registration associated with the device."""
+
     include: str
     """
     Comma-separated list of additional information that should be included in the
@@ -63,6 +66,12 @@ class DeviceListParams(TypedDict, total=False):
 
     sort_order: Literal["asc", "desc"]
     """Sort direction."""
+
+    tag: SequenceNotStr[str]
+    """Filter by one or more device tags in key:value format.
+
+    Devices must match all provided tags.
+    """
 
 
 class LastSeenRegistration(TypedDict, total=False):

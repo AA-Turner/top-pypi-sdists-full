@@ -26,13 +26,7 @@ from ....._response import (
 )
 from ....._wrappers import ResultWrapper
 from ....._base_client import make_request_options
-from .....types.dns.zone_transfers import (
-    outgoing_create_params,
-    outgoing_enable_params,
-    outgoing_update_params,
-    outgoing_disable_params,
-    outgoing_force_notify_params,
-)
+from .....types.dns.zone_transfers import outgoing_create_params, outgoing_update_params
 from .....types.dns.zone_transfers.enable_transfer import EnableTransfer
 from .....types.dns.zone_transfers.disable_transfer import DisableTransfer
 from .....types.dns.zone_transfers.outgoing_get_response import OutgoingGetResponse
@@ -209,7 +203,6 @@ class OutgoingResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -234,7 +227,6 @@ class OutgoingResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
             path_template("/zones/{zone_id}/secondary_dns/outgoing/disable", zone_id=zone_id),
-            body=maybe_transform(body, outgoing_disable_params.OutgoingDisableParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -249,7 +241,6 @@ class OutgoingResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -273,7 +264,6 @@ class OutgoingResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
             path_template("/zones/{zone_id}/secondary_dns/outgoing/enable", zone_id=zone_id),
-            body=maybe_transform(body, outgoing_enable_params.OutgoingEnableParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -288,7 +278,6 @@ class OutgoingResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -312,7 +301,6 @@ class OutgoingResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
             path_template("/zones/{zone_id}/secondary_dns/outgoing/force_notify", zone_id=zone_id),
-            body=maybe_transform(body, outgoing_force_notify_params.OutgoingForceNotifyParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -526,7 +514,6 @@ class AsyncOutgoingResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -551,7 +538,6 @@ class AsyncOutgoingResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
             path_template("/zones/{zone_id}/secondary_dns/outgoing/disable", zone_id=zone_id),
-            body=await async_maybe_transform(body, outgoing_disable_params.OutgoingDisableParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -566,7 +552,6 @@ class AsyncOutgoingResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -590,7 +575,6 @@ class AsyncOutgoingResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
             path_template("/zones/{zone_id}/secondary_dns/outgoing/enable", zone_id=zone_id),
-            body=await async_maybe_transform(body, outgoing_enable_params.OutgoingEnableParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -605,7 +589,6 @@ class AsyncOutgoingResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -629,7 +612,6 @@ class AsyncOutgoingResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
             path_template("/zones/{zone_id}/secondary_dns/outgoing/force_notify", zone_id=zone_id),
-            body=await async_maybe_transform(body, outgoing_force_notify_params.OutgoingForceNotifyParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

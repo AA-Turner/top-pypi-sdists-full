@@ -10,6 +10,7 @@ __all__ = ["ListCreateParams", "Item"]
 
 class ListCreateParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     name: Required[str]
     """Specify the list name."""

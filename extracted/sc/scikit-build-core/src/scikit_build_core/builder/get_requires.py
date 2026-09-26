@@ -1,35 +1,30 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
+    "importlib",
+    "importlib.util",
+    "pathlib",
+    "shlex",
+    "sysconfig",
+    "typing",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._variants",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.format",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.program_search",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.settings.skbuild_read_settings",
+    f"{__spec__.parent}._known_wheels",
     f"{__spec__.parent}._load_provider",
     f"{__spec__.parent}.generator",
-    "importlib",
-    "importlib.util",
-    "packaging",
-    "packaging.tags",
-    "pathlib",
-    "shlex",
-    "sysconfig",
-    "typing",
 }
 
 import dataclasses
-import functools
 import importlib.util
 import os
 import shlex
 import sysconfig
 from pathlib import Path
 from typing import Any, Literal
-
-from packaging.tags import sys_tags
 
 from .._compat import tomllib
 from .._logging import logger
@@ -41,14 +36,14 @@ from ..program_search import (
     get_make_programs,
     get_ninja_programs,
 )
-from ..resources import resources
 from ..settings.skbuild_read_settings import SettingsReader
+from ._known_wheels import is_known_platform, known_wheels
 from ._load_provider import load_dynamic_metadata, load_provider
-from .generator import parse_generator
+from .generator import resolve_generator
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Generator, Mapping
+    from collections.abc import Generator, Mapping, Sequence
 
     from .._compat.typing import Self
     from ..settings.skbuild_model import ScikitBuildSettings
@@ -66,25 +61,10 @@ def _uses_ninja_generator(settings: ScikitBuildSettings) -> bool | None:
     otherwise.
     """
     args = [*settings.cmake.args, *shlex.split(os.environ.get("CMAKE_ARGS", ""))]
-    generator = parse_generator(args)
-    if generator:
-        return "Ninja" in generator
-
-    if "CMAKE_GENERATOR" in os.environ:
-        return "Ninja" in os.environ["CMAKE_GENERATOR"]
-
-    return None
-
-
-@functools.lru_cache(maxsize=2)
-def known_wheels(name: Literal["ninja", "cmake"]) -> frozenset[str]:
-    with resources.joinpath("known_wheels.toml").open("rb") as f:
-        return frozenset(tomllib.load(f)["tool"]["scikit-build"][name]["known-wheels"])
-
-
-@functools.lru_cache(maxsize=2)
-def is_known_platform(platforms: frozenset[str]) -> bool:
-    return any(tag.platform in platforms for tag in sys_tags())
+    generator = resolve_generator(args, settings.cmake.define, os.environ)
+    if generator is None:
+        return None
+    return "Ninja" in generator
 
 
 def _load_scikit_build_settings(
@@ -114,6 +94,9 @@ class GetRequires:
     settings: ScikitBuildSettings = dataclasses.field(
         default_factory=_load_scikit_build_settings
     )
+    dynamic_metadata_entries: Sequence[dict[str, Any]] = dataclasses.field(
+        default_factory=_read_dynamic_metadata
+    )
 
     @classmethod
     def from_config_settings(
@@ -121,7 +104,10 @@ class GetRequires:
         config_settings: Mapping[str, list[str] | str] | None,
         state: Literal["sdist", "wheel", "editable"] = "sdist",
     ) -> Self:
-        return cls(_load_scikit_build_settings(config_settings, state))
+        reader = SettingsReader.from_file(
+            "pyproject.toml", config_settings, state=state
+        )
+        return cls(reader.settings, reader.dynamic_metadata)
 
     def cmake(self) -> Generator[str, None, None]:
         if self.settings.fail or os.environ.get("CMAKE_EXECUTABLE", ""):
@@ -130,8 +116,10 @@ class GetRequires:
         cmake_verset = self.settings.cmake.version
 
         # If the module is already installed (via caching the build
-        # environment, for example), we will use that
-        if importlib.util.find_spec("cmake") is not None:
+        # environment, for example), we will use that. A namespace package
+        # (a bare "cmake" directory on sys.path) has no origin.
+        cmake_spec = importlib.util.find_spec("cmake")
+        if cmake_spec is not None and cmake_spec.origin is not None:
             yield f"cmake{cmake_verset}"
             return
 
@@ -160,8 +148,10 @@ class GetRequires:
         ninja_verset = self.settings.ninja.version
 
         # If the module is already installed (via caching the build
-        # environment, for example), we will use that
-        if importlib.util.find_spec("ninja") is not None:
+        # environment, for example), we will use that. A namespace package
+        # (a bare "ninja" directory on sys.path) has no origin.
+        ninja_spec = importlib.util.find_spec("ninja")
+        if ninja_spec is not None and ninja_spec.origin is not None:
             yield f"ninja{ninja_verset}"
             return
 
@@ -207,7 +197,7 @@ class GetRequires:
                 )(config)
 
         # Standard top-level [[tool.dynamic-metadata]] entries (0.3).
-        for provider, settings in load_dynamic_metadata(_read_dynamic_metadata()):
+        for provider, settings in load_dynamic_metadata(self.dynamic_metadata_entries):
             get_requires = getattr(provider, "get_requires_for_dynamic_metadata", None)
             if get_requires is not None:
                 yield from get_requires(settings)

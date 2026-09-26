@@ -73,6 +73,8 @@ class ZoneDefaultsSOA(BaseModel):
 
 
 class ZoneDefaults(BaseModel):
+    """Default settings for new zones created in this account."""
+
     flatten_all_cnames: bool
     """Whether to flatten all CNAME records in the zone.
 
@@ -116,6 +118,7 @@ class ZoneDefaults(BaseModel):
 
 class AccountEditResponse(BaseModel):
     zone_defaults: ZoneDefaults
+    """Default settings for new zones created in this account."""
 
     enforce_dns_only: Optional[bool] = None
     """

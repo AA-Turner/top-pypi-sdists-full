@@ -1,6 +1,6 @@
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicUsize, Ordering},
+    atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use async_trait::async_trait;
@@ -25,6 +25,10 @@ pub struct MockDataStore {
     get_bytes_error: Mutex<Option<String>>,
     supports_polling: bool,
     byte_cache_enabled: bool,
+    read_only: bool,
+    read_only_once: AtomicBool,
+    read_only_after_first_check: bool,
+    read_only_call_count: AtomicUsize,
     get_call_count: Arc<AtomicUsize>,
     get_bytes_call_count: Arc<AtomicUsize>,
     zstd_get_bytes_call_count: Arc<AtomicUsize>,
@@ -40,6 +44,10 @@ impl MockDataStore {
             get_bytes_error: Mutex::new(None),
             supports_polling,
             byte_cache_enabled: false,
+            read_only: false,
+            read_only_once: AtomicBool::new(false),
+            read_only_after_first_check: false,
+            read_only_call_count: AtomicUsize::new(0),
             get_call_count: Arc::new(AtomicUsize::new(0)),
             get_bytes_call_count: Arc::new(AtomicUsize::new(0)),
             zstd_get_bytes_call_count: Arc::new(AtomicUsize::new(0)),
@@ -53,6 +61,21 @@ impl MockDataStore {
             byte_cache_enabled: true,
             ..Self::new(supports_polling)
         }
+    }
+
+    pub fn with_read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
+
+    pub fn with_read_only_once(mut self) -> Self {
+        self.read_only_once = AtomicBool::new(true);
+        self
+    }
+
+    pub fn with_read_only_after_first_check(mut self) -> Self {
+        self.read_only_after_first_check = true;
+        self
     }
 
     pub fn with_proto_cache(proto: &[u8]) -> Self {
@@ -110,6 +133,10 @@ impl MockDataStore {
         self.get_call_count.load(Ordering::SeqCst)
     }
 
+    pub fn num_read_only_calls(&self) -> usize {
+        self.read_only_call_count.load(Ordering::SeqCst)
+    }
+
     pub fn num_get_bytes_calls(&self) -> usize {
         self.get_bytes_call_count.load(Ordering::SeqCst)
     }
@@ -140,6 +167,13 @@ impl MockDataStore {
 
 #[async_trait]
 impl DataStoreTrait for MockDataStore {
+    fn is_read_only(&self) -> bool {
+        let prior_checks = self.read_only_call_count.fetch_add(1, Ordering::SeqCst);
+        self.read_only
+            || self.read_only_once.swap(false, Ordering::SeqCst)
+            || (self.read_only_after_first_check && prior_checks > 0)
+    }
+
     async fn initialize(&self) -> Result<(), StatsigErr> {
         Ok(())
     }

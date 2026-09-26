@@ -109,13 +109,13 @@ def extract_identity(claims: Dict[str, Any]) -> Dict[str, Optional[str]]:
     meta = claims.get("user_metadata") or {}
     return {
         "supabase_user_id": claims.get("sub"),
-        "email": claims.get("email") or meta.get("email"),
+        # Top-level only: `user_metadata` is writable by the token's own holder,
+        # so an email or confirmation read from it proves nothing (PF-465).
+        "email": claims.get("email"),
         "full_name": meta.get("full_name") or meta.get("name"),
-        # Supabase puts the confirmation timestamp on the token; we used to drop
-        # it, so there was no way to know whether the address was ever proven.
-        # GoTrue emits `email_verified` in user_metadata and, on some versions,
-        # a top-level `email_confirmed_at` -- accept either.
-        "email_confirmed_at": (
-            claims.get("email_confirmed_at") or meta.get("email_verified") or None
-        ),
+        # Only a top-level claim, which GoTrue sets. `user_metadata.email_verified`
+        # used to count too, and any signed-in user can set that on themselves.
+        # Where this is absent, decisions that need proof ask the IdP directly
+        # (supabase_invite.fetch_identity_confirmation).
+        "email_confirmed_at": claims.get("email_confirmed_at") or None,
     }

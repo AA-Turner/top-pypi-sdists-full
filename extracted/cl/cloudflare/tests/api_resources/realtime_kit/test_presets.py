@@ -28,7 +28,7 @@ class TestPresets:
     @parametrize
     def test_method_create(self, client: Cloudflare) -> None:
         preset = client.realtime_kit.presets.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -138,7 +138,7 @@ class TestPresets:
     @parametrize
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
         preset = client.realtime_kit.presets.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -267,7 +267,7 @@ class TestPresets:
     @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.realtime_kit.presets.with_raw_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -381,7 +381,7 @@ class TestPresets:
     @parametrize
     def test_streaming_response_create(self, client: Cloudflare) -> None:
         with client.realtime_kit.presets.with_streaming_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -498,7 +498,7 @@ class TestPresets:
     def test_path_params_create(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.presets.with_raw_response.create(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
                 config={
                     "max_screenshare_count": 0,
@@ -716,7 +716,7 @@ class TestPresets:
         preset = client.realtime_kit.presets.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(PresetUpdateResponse, preset, path=["response"])
 
@@ -726,7 +726,7 @@ class TestPresets:
         preset = client.realtime_kit.presets.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "livestream_viewer_qualities": [0],
                 "max_screenshare_count": 0,
@@ -856,7 +856,7 @@ class TestPresets:
         response = client.realtime_kit.presets.with_raw_response.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -870,7 +870,7 @@ class TestPresets:
         with client.realtime_kit.presets.with_streaming_response.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -887,7 +887,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.update(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -901,7 +901,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.update(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -910,7 +910,7 @@ class TestPresets:
         preset = client.realtime_kit.presets.delete(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(PresetDeleteResponse, preset, path=["response"])
 
@@ -920,7 +920,7 @@ class TestPresets:
         response = client.realtime_kit.presets.with_raw_response.delete(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -934,7 +934,7 @@ class TestPresets:
         with client.realtime_kit.presets.with_streaming_response.delete(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -951,7 +951,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.delete(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -965,14 +965,14 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.delete(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
     @parametrize
     def test_method_get(self, client: Cloudflare) -> None:
         preset = client.realtime_kit.presets.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(PresetGetResponse, preset, path=["response"])
@@ -981,7 +981,7 @@ class TestPresets:
     @parametrize
     def test_method_get_with_all_params(self, client: Cloudflare) -> None:
         preset = client.realtime_kit.presets.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             page_no=0,
             per_page=0,
@@ -993,7 +993,7 @@ class TestPresets:
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
         response = client.realtime_kit.presets.with_raw_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -1006,7 +1006,7 @@ class TestPresets:
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
         with client.realtime_kit.presets.with_streaming_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -1022,7 +1022,7 @@ class TestPresets:
     def test_path_params_get(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.presets.with_raw_response.get(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -1038,7 +1038,7 @@ class TestPresets:
         preset = client.realtime_kit.presets.get_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(PresetGetPresetByIDResponse, preset, path=["response"])
 
@@ -1048,7 +1048,7 @@ class TestPresets:
         response = client.realtime_kit.presets.with_raw_response.get_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -1062,7 +1062,7 @@ class TestPresets:
         with client.realtime_kit.presets.with_streaming_response.get_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1079,7 +1079,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.get_preset_by_id(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -1093,7 +1093,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.get_preset_by_id(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -1102,7 +1102,7 @@ class TestPresets:
         preset = client.realtime_kit.presets.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -1213,7 +1213,7 @@ class TestPresets:
         preset = client.realtime_kit.presets.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -1343,7 +1343,7 @@ class TestPresets:
         response = client.realtime_kit.presets.with_raw_response.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -1458,7 +1458,7 @@ class TestPresets:
         with client.realtime_kit.presets.with_streaming_response.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -1576,7 +1576,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.replace_preset_by_id(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 config={
                     "max_screenshare_count": 0,
                     "max_video_streams": {
@@ -1792,7 +1792,7 @@ class TestPresets:
             client.realtime_kit.presets.with_raw_response.replace_preset_by_id(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 config={
                     "max_screenshare_count": 0,
                     "max_video_streams": {
@@ -1906,7 +1906,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         preset = await async_client.realtime_kit.presets.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -2016,7 +2016,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
         preset = await async_client.realtime_kit.presets.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -2145,7 +2145,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.presets.with_raw_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -2259,7 +2259,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.presets.with_streaming_response.create(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             config={
                 "max_screenshare_count": 0,
@@ -2376,7 +2376,7 @@ class TestAsyncPresets:
     async def test_path_params_create(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.presets.with_raw_response.create(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
                 config={
                     "max_screenshare_count": 0,
@@ -2594,7 +2594,7 @@ class TestAsyncPresets:
         preset = await async_client.realtime_kit.presets.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(PresetUpdateResponse, preset, path=["response"])
 
@@ -2604,7 +2604,7 @@ class TestAsyncPresets:
         preset = await async_client.realtime_kit.presets.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "livestream_viewer_qualities": [0],
                 "max_screenshare_count": 0,
@@ -2734,7 +2734,7 @@ class TestAsyncPresets:
         response = await async_client.realtime_kit.presets.with_raw_response.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -2748,7 +2748,7 @@ class TestAsyncPresets:
         async with async_client.realtime_kit.presets.with_streaming_response.update(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -2765,7 +2765,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.update(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -2779,7 +2779,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.update(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -2788,7 +2788,7 @@ class TestAsyncPresets:
         preset = await async_client.realtime_kit.presets.delete(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(PresetDeleteResponse, preset, path=["response"])
 
@@ -2798,7 +2798,7 @@ class TestAsyncPresets:
         response = await async_client.realtime_kit.presets.with_raw_response.delete(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -2812,7 +2812,7 @@ class TestAsyncPresets:
         async with async_client.realtime_kit.presets.with_streaming_response.delete(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -2829,7 +2829,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.delete(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -2843,14 +2843,14 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.delete(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
     @parametrize
     async def test_method_get(self, async_client: AsyncCloudflare) -> None:
         preset = await async_client.realtime_kit.presets.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(PresetGetResponse, preset, path=["response"])
@@ -2859,7 +2859,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_method_get_with_all_params(self, async_client: AsyncCloudflare) -> None:
         preset = await async_client.realtime_kit.presets.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             page_no=0,
             per_page=0,
@@ -2871,7 +2871,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.presets.with_raw_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -2884,7 +2884,7 @@ class TestAsyncPresets:
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.presets.with_streaming_response.get(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -2900,7 +2900,7 @@ class TestAsyncPresets:
     async def test_path_params_get(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.presets.with_raw_response.get(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -2916,7 +2916,7 @@ class TestAsyncPresets:
         preset = await async_client.realtime_kit.presets.get_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(PresetGetPresetByIDResponse, preset, path=["response"])
 
@@ -2926,7 +2926,7 @@ class TestAsyncPresets:
         response = await async_client.realtime_kit.presets.with_raw_response.get_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -2940,7 +2940,7 @@ class TestAsyncPresets:
         async with async_client.realtime_kit.presets.with_streaming_response.get_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -2957,7 +2957,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.get_preset_by_id(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -2971,7 +2971,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.get_preset_by_id(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -2980,7 +2980,7 @@ class TestAsyncPresets:
         preset = await async_client.realtime_kit.presets.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -3091,7 +3091,7 @@ class TestAsyncPresets:
         preset = await async_client.realtime_kit.presets.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -3221,7 +3221,7 @@ class TestAsyncPresets:
         response = await async_client.realtime_kit.presets.with_raw_response.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -3336,7 +3336,7 @@ class TestAsyncPresets:
         async with async_client.realtime_kit.presets.with_streaming_response.replace_preset_by_id(
             preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             config={
                 "max_screenshare_count": 0,
                 "max_video_streams": {
@@ -3454,7 +3454,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.replace_preset_by_id(
                 preset_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 config={
                     "max_screenshare_count": 0,
                     "max_video_streams": {
@@ -3670,7 +3670,7 @@ class TestAsyncPresets:
             await async_client.realtime_kit.presets.with_raw_response.replace_preset_by_id(
                 preset_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 config={
                     "max_screenshare_count": 0,
                     "max_video_streams": {

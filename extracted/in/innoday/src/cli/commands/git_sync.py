@@ -8,14 +8,14 @@ are attached to a project -- there is no manual link command.
 
 import argparse
 
-from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import describe_error, format_error, format_success
+from src.cli.utils.presentation import make_console
 
-console = Console()
+console = make_console()
 
 
 class GitSyncCommands:

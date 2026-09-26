@@ -12,7 +12,6 @@ import traceback
 from typing import List, Optional
 
 from colorama import init as colorama_init
-from rich.console import Console
 
 from src.cli.client import SignInRejected
 from src.cli.commands.auth import AuthCommands
@@ -40,8 +39,9 @@ from src.cli.commands.upgrade import UpgradeCommands
 from src.cli.commands.utils import UtilityCommands
 from src.cli.commands.workspace import WorkspaceCommands
 from src.cli.config import CLIConfig
-from src.cli.utils import guidance
+from src.cli.utils import guidance, presentation
 from src.cli.utils.formatters import describe_exception, format_error, format_warning
+from src.cli.utils.presentation import make_console
 from src.version import get_display_version
 
 
@@ -69,6 +69,39 @@ _SIGNED_OUT_OK = {
     "restart",
     "logs",
 }
+
+#: Command groups that do real work when given no subcommand (bare `sync`
+#: syncs everything), so a missing subcommand is not a request for usage.
+_RUNS_WITHOUT_SUBCOMMAND = {"sync"}
+
+
+def _group_missing_subcommand(
+    args: argparse.Namespace,
+) -> Optional[argparse.ArgumentParser]:
+    """The command group's parser if it was given no subcommand, else None.
+
+    Generic over every group: whatever `dest` a group's subparsers use
+    (`ticket_command`, `repos_action`, ...), argparse leaves it None when no
+    subcommand was typed.
+    """
+    if args.command in _RUNS_WITHOUT_SUBCOMMAND:
+        return None
+    top = create_parser()
+    group = next(
+        (
+            a.choices.get(args.command)
+            for a in top._actions
+            if isinstance(a, argparse._SubParsersAction)
+        ),
+        None,
+    )
+    if group is None:
+        return None
+    for action in group._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            return group if getattr(args, action.dest, None) is None else None
+    return None
+
 
 #: Commands that never touch an organization. Priming for these would spend a
 #: request to answer a question they do not ask -- and `login` in particular runs
@@ -260,16 +293,14 @@ For more help: innoday <command> --help
         "--no-color", action="store_true", help="Disable colored output"
     )
 
-    # Custom version action to show banner
+    # The version is stated the same way every command states it: the header's
+    # identity line, alone. The ASCII box this replaces was 39 columns wide by
+    # hand and appeared nowhere else in the product.
     class VersionAction(argparse.Action):
         def __call__(self, parser, namespace, values, option_string=None):
-            from src.cli.banner import get_banner_config, show_version_banner
+            from src.cli.utils.presentation import print_identity
 
-            banner_config = get_banner_config()
-            if banner_config["show_banners"] and banner_config["show_on_version"]:
-                show_version_banner()
-            else:
-                print(f"InnoDay CLI {get_display_version()}")
+            print_identity()
             parser.exit()
 
     parser.add_argument(
@@ -504,25 +535,25 @@ For more help: innoday <command> --help
         "--release to be asked before tagging, --release --yes to tag without "
         "being asked, --hotfix to patch the last released version instead.",
     )
-    ReleaseProxyCommands.setup_parser(blastoff_parser, "blastoff")
+    ReleaseProxyCommands.setup_parser(blastoff_parser)
 
-    # Kept, because they are what people type. `release` is the old name;
-    # `hotfix` is the short form of `blastoff --hotfix` and worth keeping on its
-    # own merits.
-    release_parser = subparsers.add_parser(
-        "release",
-        help="Alias for `blastoff`",
-        description="Alias for `innoday blastoff`.",
-    )
-    ReleaseProxyCommands.setup_parser(release_parser, "release")
-
+    # `hotfix` stays: it is not a second spelling of `blastoff`, it is the short
+    # form of `blastoff --hotfix`, and it is what people type when a released
+    # version needs patching.
+    #
+    # The top-level `release` alias is gone. It was the old name for this
+    # command, and keeping it meant `innoday release` and `innoday releases`
+    # sat one letter apart doing entirely different things -- ship the version,
+    # versus read the records. The alias now lives inside the record API as
+    # `innoday releases blastoff`, where the plural reads as the noun it is and
+    # the subcommand as the verb.
     hotfix_parser = subparsers.add_parser(
         "hotfix",
         help="Alias for `blastoff --hotfix`",
         description="Alias for `innoday blastoff --hotfix`: patch the last "
         "released version rather than cutting the next planned one.",
     )
-    ReleaseProxyCommands.setup_parser(hotfix_parser, "hotfix")
+    ReleaseProxyCommands.setup_parser(hotfix_parser)
 
     # Platform commands
     platform_parser = subparsers.add_parser(
@@ -599,9 +630,12 @@ async def execute_command(args: argparse.Namespace) -> int:
             context_dir=getattr(args, "dir", None),
         )
 
-        # Disable color output if requested
+        # Disable color output if requested. This reaches every console the CLI
+        # writes through, not just OutputFormatter's -- the flag used to apply
+        # to one of about two dozen.
         if args.no_color:
             config.set_color_enabled(False)
+            presentation.set_color_enabled(False)
 
         # An outdated .innoday/project.yml in the cwd is a hard stop for every
         # command except the legacy-tolerant ones (`_legacy_ok`: the upgrade
@@ -616,7 +650,7 @@ async def execute_command(args: argparse.Namespace) -> int:
             # tag and garble the output or raise MarkupError.
             from rich.markup import escape
 
-            Console().print(
+            make_console().print(
                 f"[yellow]⚠  {escape(str(config.legacy_context_error))}[/yellow]"
             )
             return 1
@@ -626,7 +660,13 @@ async def execute_command(args: argparse.Namespace) -> int:
         # advice to run `config init`). `status` stays usable -- it is what you
         # run to find out what is wrong (PF-460).
         if args.command not in _SIGNED_OUT_OK and not config.get_cli_token():
-            Console().print(f"[red]✗ {guidance.NOT_SIGNED_IN}[/red]")
+            # A bare group (`innoday tickets`) is asking what it can do, not
+            # trying to do something: show its usage, not a sign-in error.
+            group = _group_missing_subcommand(args)
+            if group is not None:
+                group.print_help()
+                return 1
+            make_console().print(f"[red]✗ {guidance.NOT_SIGNED_IN}[/red]")
             return 1
 
         # Resolve the organization alias to a UUID once, here, before any
@@ -650,7 +690,7 @@ async def execute_command(args: argparse.Namespace) -> int:
         # empty list.
         project_error = await _prime_project_id(config, args)
         if project_error:
-            Console().print(f"[red]✗ {project_error}[/red]")
+            make_console().print(f"[red]✗ {project_error}[/red]")
             return 1
 
         # Route to appropriate command handler
@@ -667,7 +707,7 @@ async def execute_command(args: argparse.Namespace) -> int:
             # start/stop/restart/logs` (docker-compose backed, see
             # PlatformCommands) is now the canonical local run path; `innoday
             # platform status` reports on that process-based service state.
-            Console().print(
+            make_console().print(
                 format_warning(
                     f"This command has moved to 'innoday platform {args.command}'. "
                     "The old form will be removed in a future release."
@@ -713,7 +753,7 @@ async def execute_command(args: argparse.Namespace) -> int:
             return await ScopeCommands.execute(args, config)
         elif args.command == "releases":
             return await ReleasesCommands.execute(args, config)
-        elif args.command in ("blastoff", "release"):
+        elif args.command == "blastoff":
             return await ReleaseProxyCommands.execute_release(args, config)
         elif args.command == "hotfix":
             return await ReleaseProxyCommands.execute_hotfix(args, config)
@@ -732,21 +772,21 @@ async def execute_command(args: argparse.Namespace) -> int:
             return 1
 
     except SignInRejected as rejected:
-        Console().print(f"[red]✗ {rejected}[/red]")
+        make_console().print(f"[red]✗ {rejected}[/red]")
         return 1
     except KeyboardInterrupt:
         if not args.quiet:
-            console = Console()
+            console = make_console()
             console.print("\n[yellow]Operation cancelled by user[/yellow]")
         return 130
     except Exception as e:
         if args.verbose:
-            console = Console()
+            console = make_console()
             console.print(format_error(f"Error: {describe_exception(e)}"))
             console.print("[red]Traceback:[/red]")
             traceback.print_exc()
         else:
-            console = Console()
+            console = make_console()
             console.print(format_error(f"Error: {describe_exception(e)}"))
             console.print("[yellow]Use --verbose for more details[/yellow]")
         return 1

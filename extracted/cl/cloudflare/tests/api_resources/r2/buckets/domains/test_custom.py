@@ -46,7 +46,7 @@ class TestCustom:
             zone_id="36ca64a6d92827b8a6b90be344bb1bfd",
             ciphers=["string"],
             min_tls="1.0",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomCreateResponse, custom, path=["response"])
 
@@ -125,7 +125,7 @@ class TestCustom:
             ciphers=["string"],
             enabled=True,
             min_tls="1.2",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomUpdateResponse, custom, path=["response"])
 
@@ -198,7 +198,7 @@ class TestCustom:
         custom = client.r2.buckets.domains.custom.list(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomListResponse, custom, path=["response"])
 
@@ -262,7 +262,7 @@ class TestCustom:
             domain="example-domain/custom-domain.com",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomDeleteResponse, custom, path=["response"])
 
@@ -337,7 +337,7 @@ class TestCustom:
             domain="example-domain/custom-domain.com",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomGetResponse, custom, path=["response"])
 
@@ -424,7 +424,7 @@ class TestAsyncCustom:
             zone_id="36ca64a6d92827b8a6b90be344bb1bfd",
             ciphers=["string"],
             min_tls="1.0",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomCreateResponse, custom, path=["response"])
 
@@ -503,7 +503,7 @@ class TestAsyncCustom:
             ciphers=["string"],
             enabled=True,
             min_tls="1.2",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomUpdateResponse, custom, path=["response"])
 
@@ -576,7 +576,7 @@ class TestAsyncCustom:
         custom = await async_client.r2.buckets.domains.custom.list(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomListResponse, custom, path=["response"])
 
@@ -640,7 +640,7 @@ class TestAsyncCustom:
             domain="example-domain/custom-domain.com",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomDeleteResponse, custom, path=["response"])
 
@@ -715,7 +715,7 @@ class TestAsyncCustom:
             domain="example-domain/custom-domain.com",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             bucket_name="example-bucket",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(CustomGetResponse, custom, path=["response"])
 

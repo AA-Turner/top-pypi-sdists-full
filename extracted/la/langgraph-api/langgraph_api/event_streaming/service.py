@@ -97,6 +97,25 @@ def validate_checkpoint_id_from_runnable_config(params: dict[str, Any]) -> str |
     return None
 
 
+def _langsmith_tracer_from_run_start(
+    params: dict[str, Any],
+) -> dict[str, str] | None:
+    tracer = params.get("langsmith_tracer")
+    if tracer is None:
+        return None
+    if not _is_record(tracer):
+        raise ValueError("langsmith_tracer must be an object.")
+    unknown = tracer.keys() - {"project_name", "example_id"}
+    if unknown:
+        raise ValueError(
+            f"langsmith_tracer has unsupported fields: {sorted(unknown)!r}."
+        )
+    for key, value in tracer.items():
+        if not isinstance(value, str):
+            raise ValueError(f"langsmith_tracer.{key} must be a string.")
+    return dict(tracer)
+
+
 # Concurrency strategies accepted on ``run.start`` — the four values the
 # SDK's ``multitaskStrategy`` option can take, derived from the canonical
 # ``MultitaskStrategy`` literal so the two never drift.
@@ -481,6 +500,10 @@ class ThreadRunManager:
         checkpoint_error = validate_checkpoint_id_from_runnable_config(params)
         if checkpoint_error is not None:
             return self._error(command.get("id"), "invalid_argument", checkpoint_error)
+        try:
+            _langsmith_tracer_from_run_start(params)
+        except ValueError as exc:
+            return self._error(command.get("id"), "invalid_argument", str(exc))
 
         try:
             run = await self._create_or_resume_run(assistant_id, params)
@@ -818,7 +841,7 @@ class ThreadRunManager:
             # every run.start), falling back to ``enqueue`` — the legacy
             # stream-endpoint default — when omitted.
             "multitask_strategy": _multitask_strategy_from_run_start(params),
-            "langsmith_tracer": None,
+            "langsmith_tracer": _langsmith_tracer_from_run_start(params),
             "durability": None,
         }
 

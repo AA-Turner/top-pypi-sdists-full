@@ -71,6 +71,9 @@ class Asset(BaseModel):
     link: Optional[str] = None
     """Direct link to the asset."""
 
+    updated: Optional[datetime] = None
+    """Timestamp of the asset row version represented by this data."""
+
 
 class DLPContext(BaseModel):
     """DLP context information for a finding."""

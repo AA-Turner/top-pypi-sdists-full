@@ -172,7 +172,7 @@ def extract_json_block(text: str) -> str:
     will then raise and the executor will report a parse error.
 
     Public helper — reused by ``run_agent``'s schema validator and by any
-    downstream agent (notably ``SchemaCoerceAgent``) that needs to recover
+    downstream step that needs to recover
     JSON from a noisy LLM response.
     """
     if not text:

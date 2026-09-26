@@ -149,7 +149,7 @@ class CrawlResource(SyncAPIResource):
               has loaded (such as taking screenshots, extracting content, or generating PDFs).
               If this time limit is exceeded, the action stops and returns a timeout error.
 
-          add_script_tag: Adds a `<script>` tag into the page with the desired URL or content.
+          add_script_tag: Adds a script element into the page with the desired URL or content.
 
           add_style_tag: Adds a `<link rel="stylesheet">` tag into the page with the desired URL or a
               `<style type="text/css">` tag with the content.
@@ -682,7 +682,7 @@ class AsyncCrawlResource(AsyncAPIResource):
               has loaded (such as taking screenshots, extracting content, or generating PDFs).
               If this time limit is exceeded, the action stops and returns a timeout error.
 
-          add_script_tag: Adds a `<script>` tag into the page with the desired URL or content.
+          add_script_tag: Adds a script element into the page with the desired URL or content.
 
           add_style_tag: Adds a `<link rel="stylesheet">` tag into the page with the desired URL or a
               `<style type="text/css">` tag with the content.

@@ -28,6 +28,14 @@ from .mitigations import (
 )
 from ...pagination import SyncV4PagePagination, AsyncV4PagePagination
 from ..._base_client import AsyncPaginator, make_request_options
+from .submitted.submitted import (
+    SubmittedResource,
+    AsyncSubmittedResource,
+    SubmittedResourceWithRawResponse,
+    AsyncSubmittedResourceWithRawResponse,
+    SubmittedResourceWithStreamingResponse,
+    AsyncSubmittedResourceWithStreamingResponse,
+)
 from ...types.abuse_reports import abuse_report_list_params, abuse_report_create_params
 from ...types.abuse_reports.abuse_report_get_response import AbuseReportGetResponse
 from ...types.abuse_reports.abuse_report_list_response import AbuseReportListResponse
@@ -37,6 +45,10 @@ __all__ = ["AbuseReportsResource", "AsyncAbuseReportsResource"]
 
 
 class AbuseReportsResource(SyncAPIResource):
+    @cached_property
+    def submitted(self) -> SubmittedResource:
+        return SubmittedResource(self._client)
+
     @cached_property
     def mitigations(self) -> MitigationsResource:
         return MitigationsResource(self._client)
@@ -1112,6 +1124,10 @@ class AbuseReportsResource(SyncAPIResource):
 
 
 class AsyncAbuseReportsResource(AsyncAPIResource):
+    @cached_property
+    def submitted(self) -> AsyncSubmittedResource:
+        return AsyncSubmittedResource(self._client)
+
     @cached_property
     def mitigations(self) -> AsyncMitigationsResource:
         return AsyncMitigationsResource(self._client)
@@ -2201,6 +2217,10 @@ class AbuseReportsResourceWithRawResponse:
         )
 
     @cached_property
+    def submitted(self) -> SubmittedResourceWithRawResponse:
+        return SubmittedResourceWithRawResponse(self._abuse_reports.submitted)
+
+    @cached_property
     def mitigations(self) -> MitigationsResourceWithRawResponse:
         return MitigationsResourceWithRawResponse(self._abuse_reports.mitigations)
 
@@ -2218,6 +2238,10 @@ class AsyncAbuseReportsResourceWithRawResponse:
         self.get = async_to_raw_response_wrapper(
             abuse_reports.get,
         )
+
+    @cached_property
+    def submitted(self) -> AsyncSubmittedResourceWithRawResponse:
+        return AsyncSubmittedResourceWithRawResponse(self._abuse_reports.submitted)
 
     @cached_property
     def mitigations(self) -> AsyncMitigationsResourceWithRawResponse:
@@ -2239,6 +2263,10 @@ class AbuseReportsResourceWithStreamingResponse:
         )
 
     @cached_property
+    def submitted(self) -> SubmittedResourceWithStreamingResponse:
+        return SubmittedResourceWithStreamingResponse(self._abuse_reports.submitted)
+
+    @cached_property
     def mitigations(self) -> MitigationsResourceWithStreamingResponse:
         return MitigationsResourceWithStreamingResponse(self._abuse_reports.mitigations)
 
@@ -2256,6 +2284,10 @@ class AsyncAbuseReportsResourceWithStreamingResponse:
         self.get = async_to_streamed_response_wrapper(
             abuse_reports.get,
         )
+
+    @cached_property
+    def submitted(self) -> AsyncSubmittedResourceWithStreamingResponse:
+        return AsyncSubmittedResourceWithStreamingResponse(self._abuse_reports.submitted)
 
     @cached_property
     def mitigations(self) -> AsyncMitigationsResourceWithStreamingResponse:

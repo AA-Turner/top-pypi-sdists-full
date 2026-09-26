@@ -39,6 +39,7 @@ class GetAuditLogResponse200Operation(str, Enum):
     JOBS_RUN_FLOW_PREVIEW = "jobs.run.flow_preview"
     JOBS_RUN_IDENTITY = "jobs.run.identity"
     JOBS_RUN_NOOP = "jobs.run.noop"
+    JOBS_RUN_NOW = "jobs.run_now"
     JOBS_RUN_PREVIEW = "jobs.run.preview"
     JOBS_RUN_SCRIPT = "jobs.run.script"
     JOBS_RUN_SCRIPT_HUB = "jobs.run.script_hub"

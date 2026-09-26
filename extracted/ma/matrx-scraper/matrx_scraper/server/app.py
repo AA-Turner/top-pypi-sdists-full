@@ -682,6 +682,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         # would quietly re-create exactly the fallback that was deleted.
         os.environ.setdefault("BRAVE_SEARCH_API_KEY_PRO_AI", config.brave_api_key)
 
+    # THE SOURCE LANDING HOOK (SOURCE-CONVERGENCE §3): every page a route here reads becomes a
+    # Source through aidream's door over authenticated HTTP. Registered only when the process has
+    # none — aidream, hosting these routers in-process, wires its own (in-process) hook first.
+    if not has_ext("source_landing"):
+        from matrx_scraper.server.source_landing_http import make_http_landing_hook
+
+        ext_kwargs["source_landing"] = make_http_landing_hook(
+            aidream_url=config.aidream_url, service_token=config.aidream_service_token
+        )
+
     if ext_kwargs:
         configure_ext(**ext_kwargs)
 

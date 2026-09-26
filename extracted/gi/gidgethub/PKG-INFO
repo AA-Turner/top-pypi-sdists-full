@@ -1,51 +1,37 @@
 Metadata-Version: 2.4
 Name: gidgethub
-Version: 5.4.0
+Version: 6.0.0
 Summary: An async GitHub API library
-Keywords: github sans-io async
-Author: Brett Cannon
-Author-email: brett@python.org
-Requires-Python: >=3.8
-Description-Content-Type: text/x-rst
-License: Apache
+Keywords: github,sans-io,async
+Author-Email: Brett Cannon <brett@python.org>
+Maintainer-Email: Mariatta <mariatta@mariatta.ca>
+License-Expression: Apache-2.0 AND MIT
+License-File: LICENSE
+License-File: Third-Party-Notices.md
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 6 - Mature
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-License-File: LICENSE
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Project-URL: Documentation, https://gidgethub.readthedocs.io
+Project-URL: Repository, https://github.com/gidgethub/gidgethub
+Requires-Python: >=3.10
 Requires-Dist: uritemplate>=3.0.1
 Requires-Dist: PyJWT[crypto]>=2.4.0
-Requires-Dist: aiohttp ; extra == "aiohttp"
-Requires-Dist: aiohttp ; extra == "dev"
-Requires-Dist: black ; extra == "dev"
-Requires-Dist: coverage[toml]>=5.0.3 ; extra == "dev"
-Requires-Dist: httpx ; extra == "dev"
-Requires-Dist: mypy ; extra == "dev"
-Requires-Dist: pytest-cov ; extra == "dev"
-Requires-Dist: pytest-xdist ; extra == "dev"
-Requires-Dist: tornado ; extra == "dev"
-Requires-Dist: sphinx>=4.0.0 ; extra == "doc"
-Requires-Dist: sphinx-rtd-theme>=0.5.2 ; extra == "doc"
-Requires-Dist: httpx>=0.16.1 ; extra == "httpx"
-Requires-Dist: importlib-resources ; extra == "test"
-Requires-Dist: pytest>=5.4.1 ; extra == "test"
-Requires-Dist: pytest-asyncio ; extra == "test"
-Requires-Dist: pytest-tornasync ; extra == "test"
-Requires-Dist: tornado ; extra == "tornado"
-Project-URL: Documentation, https://gidgethub.readthedocs.io
-Project-URL: Repository, https://github.com/brettcannon/gidgethub
+Requires-Dist: typing_extensions>=4.0.0
 Provides-Extra: aiohttp
-Provides-Extra: dev
-Provides-Extra: doc
-Provides-Extra: httpx
-Provides-Extra: test
+Requires-Dist: aiohttp; extra == "aiohttp"
 Provides-Extra: tornado
+Requires-Dist: tornado; extra == "tornado"
+Provides-Extra: httpx
+Requires-Dist: httpx2; extra == "httpx"
+Provides-Extra: httpx2
+Requires-Dist: httpx2; extra == "httpx2"
+Description-Content-Type: text/x-rst
 
 gidgethub
 =========
@@ -55,11 +41,11 @@ An asynchronous `GitHub API <https://docs.github.com/>`_ library.
 Development status
 ------------------
 
-.. image:: https://github.com/brettcannon/gidgethub/workflows/CI/badge.svg?event=push
-    :target: https://github.com/brettcannon/gidgethub/actions
+.. image:: https://github.com/gidgethub/gidgethub/actions/workflows/main.yml/badge.svg
+    :target: https://github.com/gidgethub/gidgethub/actions/workflows/main.yml
 
-.. image:: https://codecov.io/gh/brettcannon/gidgethub/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/brettcannon/gidgethub
+.. image:: https://codecov.io/gh/gidgethub/gidgethub/branch/main/graph/badge.svg
+    :target: https://codecov.io/gh/gidgethub/gidgethub
 
 .. image:: https://readthedocs.org/projects/gidgethub/badge/?version=latest
     :target: http://gidgethub.readthedocs.io/en/latest/
@@ -74,7 +60,7 @@ Gidgethub is `available on PyPI <https://pypi.org/project/gidgethub/>`_.
   python3 -m pip install gidgethub
 
 
-Gidgethub requires Python version 3.8 and up.
+Gidgethub requires Python version 3.10 and up.
 
 
 Goals
@@ -86,8 +72,8 @@ The key goal is to provide a base library for the
 choose whatever HTTP library they prefer while parceling out GitHub-specific
 details to this library. This base library is then built upon to provide an
 abstract base class to a cleaner API to work with. Finally, implementations of
-the abstract base class are provided for asynchronous HTTP libraries for
-immediate usage.
+the abstract base class are provided for asynchronous HTTP libraries to work
+with.
 
 
 Alternative libraries
@@ -95,6 +81,14 @@ Alternative libraries
 
 If you think you want a different approach to the GitHub API,
 `GitHub maintains a list of libraries <https://docs.github.com/en/free-pro-team@latest/rest/overview/libraries>`_.
+
+
+Project status
+--------------
+
+This project is in maintenance mode. We welcome bug reports and will make a
+best-effort at fixing them. We do **not** accept features requests or pull requests
+from external contributors.
 
 
 *Aside*: what's with the name?
@@ -111,4 +105,3 @@ Changelog
 ---------
 
 See the documentation for the `full changelog <https://gidgethub.readthedocs.io/en/latest/changelog.html>`_.
-

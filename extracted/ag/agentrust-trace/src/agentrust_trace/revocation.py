@@ -63,6 +63,8 @@ import jsonschema
 import referencing
 import referencing.jsonschema
 
+from agentrust_trace.sign import TRACE_PROFILE_V0_2
+from agentrust_trace.citation import CitationCheck
 from agentrust_trace.sign import (
     _b64url_decode,
     _canonical_bytes,
@@ -107,10 +109,41 @@ class VerificationResult:
     Every other rejection still raises, as before. This type exists so that the
     outcomes section 3.2.3 says may not be reported as an affirming appraisal have
     somewhere to be reported, alongside the checks that passed.
+
+    ``profile`` and ``accepted_profiles`` are the verifier-compatibility obligations
+    proposed in agentrust-io/trace-spec#116 and are **not accepted normative text**.
+    They are fields on this type rather than on one of their own, which is the smaller
+    change and the one that follows from this type already existing: evidence outlives
+    verifier builds, and a result that does not name the semantics it ran under cannot
+    be re-read years later.
+
+    ``citations`` carries, for each surface in ``agentrust_trace.citation.SURFACES``,
+    what the caller's resolver did with the URI the record cites, and asserts nothing
+    about what the cited object binds.
     """
 
     revocation: RevocationCheck
     trusted_key_thumbprint: str
+    citations: dict[str, CitationCheck] = field(default_factory=dict)
+
+    profile: str = TRACE_PROFILE_V0_2
+    """The ``eat_profile`` the record was verified under. Always a member of
+    ``accepted_profiles``, and covered by the verified signature. Obligation 3 of #116.
+
+    Defaulted so that constructing a result without it stays valid while the proposal
+    is under review, and because exactly one profile is admissible in this build.
+    """
+
+    accepted_profiles: tuple[str, ...] = (TRACE_PROFILE_V0_2,)
+    """The full set the verifier declared it supports for this call.
+
+    Obligation 3 as #116 words it is the profile alone. The set is carried on the
+    ruling of 2026-09-13 in that thread: obligation 2 requires a verifier to declare
+    its set and says nothing about where the declaration survives, so recording it at
+    verification time is what makes obligation 2 auditable once the verifier build is
+    gone. The profile alone does not distinguish a verifier that supported only v0.2
+    from one that supported v0.2 and v0.3 and met a v0.2 record.
+    """
 
 
 NO_CHECK = RevocationCheck(outcome="no_check_performed")
@@ -119,6 +152,14 @@ NO_CHECK = RevocationCheck(outcome="no_check_performed")
 
 def _unverified(cause: Cause, evidence: dict[str, Any]) -> RevocationCheck:
     return RevocationCheck(outcome="unverified_for_revocation", cause=cause, evidence=evidence)
+
+
+def _check_seconds(name: str, value: Any) -> None:
+    """Reject a malformed bundle-freshness input before using it as seconds."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer, got {type(value).__name__}")
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative, got {value}")
 
 
 @lru_cache(maxsize=1)
@@ -173,6 +214,30 @@ def _trusted_bundle_key(
     return None
 
 
+def _sequence_of(value: Any, name: str, element: type) -> list[Any]:
+    """Materialise a caller-supplied iterable, refusing the shapes that iterate wrongly.
+
+    A ``str`` iterates as characters, so ``trusted_key_identifiers="sha256:..."`` used to
+    become a list of one-character identifiers that matched no statement, and the check
+    reported ``verified`` for a key it never looked up. A ``dict`` iterates as its keys,
+    so a single JWK passed where a list of them was meant became a list of field names.
+    Neither is an iterable of *element* and both are refused here, with the documented
+    error, rather than turned into a result.
+    """
+    if isinstance(value, (str, bytes, bytearray, dict)) or not hasattr(value, "__iter__"):
+        raise ValueError(
+            f"{name} must be an iterable of {element.__name__} values, got "
+            f"{type(value).__name__}"
+        )
+    items = list(value)
+    bad = [type(v).__name__ for v in items if not isinstance(v, element)]
+    if bad:
+        raise ValueError(
+            f"{name} must contain only {element.__name__} values, found {sorted(set(bad))}"
+        )
+    return items
+
+
 def check_bundle(
     bundle: dict[str, Any],
     *,
@@ -196,10 +261,17 @@ def check_bundle(
 
     Raises ``ValueError`` when a statement on the bundle's log names the trusted
     key. That is evidence failing rather than evidence absent, and it fails closed
-    like the ``revocation`` store does.
+    like the ``revocation`` store does. Also raises ``ValueError`` for the caller's
+    own arguments when they are not what they say: ``trusted_key_identifiers`` must
+    be an iterable of strings and ``trusted_bundle_keys`` an iterable of JWK
+    objects, and a bare string or a single object is refused rather than iterated
+    as characters or field names.
     """
-    trusted_ids = list(trusted_key_identifiers)
-    trusted_bundle_keys = list(trusted_bundle_keys)
+    _check_seconds("now", now)
+    _check_seconds("max_bundle_age_seconds", max_bundle_age_seconds)
+    _check_seconds("max_future_skew_seconds", max_future_skew_seconds)
+    trusted_ids = _sequence_of(trusted_key_identifiers, "trusted_key_identifiers", str)
+    trusted_bundle_keys = _sequence_of(trusted_bundle_keys, "trusted_bundle_keys", dict)
 
     # 3a. Shape, against the packaged schema pair. The first error by path, so the
     # evidence points at one place rather than listing the file.
@@ -228,8 +300,15 @@ def check_bundle(
 
     issued_at = bundle["issued_at"]
     valid_until = bundle["valid_until"]
+    try:
+        digest = bundle_digest(bundle)
+    except ValueError as exc:
+        return _unverified("bundle_malformed", {
+            "path": "/",
+            "error": f"bundle has no RFC 8785 form: {exc}",
+        })
     base = {
-        "bundle_digest": bundle_digest(bundle),
+        "bundle_digest": digest,
         "log_id": log_id,
         "issued_at": issued_at,
         "valid_until": valid_until,

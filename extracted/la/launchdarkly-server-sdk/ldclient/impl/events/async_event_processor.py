@@ -29,6 +29,7 @@ from ldclient.impl.events.event_processor_common import (
     EventOutputFormatter
 )
 from ldclient.impl.events.types import EventInput
+from ldclient.impl.http import ASYNC_USER_AGENT
 from ldclient.impl.lru_cache import SimpleLRUCache
 from ldclient.impl.sampler import Sampler
 from ldclient.impl.util import (
@@ -201,13 +202,13 @@ class DefaultAsyncEventProcessor(AsyncEventProcessor):
     def __init__(self, config: AsyncConfig, http=None, dispatcher_class=None, diagnostic_accumulator=None):
         self._inbox = AsyncQueue(config.events_max_pending)
         self._inbox_full = False
-        self._flush_timer = AsyncRepeatingTask("ldclient.events.flush", config.flush_interval, config.flush_interval, self.flush)
-        self._contexts_flush_timer = AsyncRepeatingTask("ldclient.events.context-flush", config.context_keys_flush_interval, config.context_keys_flush_interval, self._flush_contexts)
+        self._flush_timer = AsyncRepeatingTask.at_interval("ldclient.events.flush", config.flush_interval, config.flush_interval, self.flush)
+        self._contexts_flush_timer = AsyncRepeatingTask.at_interval("ldclient.events.context-flush", config.context_keys_flush_interval, config.context_keys_flush_interval, self._flush_contexts)
         self._flush_timer.start()
         self._contexts_flush_timer.start()
         self._diagnostic_event_timer: Optional[AsyncRepeatingTask]
         if diagnostic_accumulator is not None:
-            self._diagnostic_event_timer = AsyncRepeatingTask("ldclient.events.send-diagnostic", config.diagnostic_recording_interval, config.diagnostic_recording_interval, self._send_diagnostic)
+            self._diagnostic_event_timer = AsyncRepeatingTask.at_interval("ldclient.events.send-diagnostic", config.diagnostic_recording_interval, config.diagnostic_recording_interval, self._send_diagnostic)
             self._diagnostic_event_timer.start()
         else:
             self._diagnostic_event_timer = None
@@ -277,7 +278,7 @@ class DefaultAsyncEventProcessor(AsyncEventProcessor):
 
 
 async def _post_events_with_retry(http_client: AsyncHTTPTransport, config: AsyncConfig, uri: str, payload_id: Optional[str], body: str, events_description: str):
-    hdrs = _headers(config)
+    hdrs = _headers(config, ASYNC_USER_AGENT)
     hdrs['Content-Type'] = 'application/json'
     if config.enable_event_compression:
         hdrs['Content-Encoding'] = 'gzip'

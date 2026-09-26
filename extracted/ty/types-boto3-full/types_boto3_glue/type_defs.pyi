@@ -149,6 +149,7 @@ from .literals import (
     TableAttributesType,
     TableOptimizerEventTypeType,
     TableOptimizerTypeType,
+    TableResourceShareTypeType,
     TargetFormatType,
     TaskRunSortColumnTypeType,
     TaskStatusTypeType,
@@ -5242,6 +5243,7 @@ class GetTablesRequestTypeDef(TypedDict):
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
     AuditContext: NotRequired[AuditContextTypeDef]
+    ResourceShareType: NotRequired[TableResourceShareTypeType]
     IncludeStatusDetails: NotRequired[bool]
     AttributesToGet: NotRequired[Sequence[TableAttributesType]]
 
@@ -5771,6 +5773,7 @@ class GetTablesRequestPaginateTypeDef(TypedDict):
     TransactionId: NotRequired[str]
     QueryAsOfTime: NotRequired[TimestampTypeDef]
     AuditContext: NotRequired[AuditContextTypeDef]
+    ResourceShareType: NotRequired[TableResourceShareTypeType]
     IncludeStatusDetails: NotRequired[bool]
     AttributesToGet: NotRequired[Sequence[TableAttributesType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -9062,6 +9065,7 @@ class TableInputTypeDef(TypedDict):
     TableType: NotRequired[str]
     Parameters: NotRequired[Mapping[str, str]]
     TargetTable: NotRequired[TableIdentifierTypeDef]
+    FederatedTable: NotRequired[FederatedTableTypeDef]
     ViewDefinition: NotRequired[ViewDefinitionInputTypeDef]
 
 class GetTablesResponsePaginatorTypeDef(TypedDict):

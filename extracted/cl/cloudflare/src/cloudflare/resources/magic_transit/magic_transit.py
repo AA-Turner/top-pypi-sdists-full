@@ -60,6 +60,14 @@ from .cf_interconnects import (
     CfInterconnectsResourceWithStreamingResponse,
     AsyncCfInterconnectsResourceWithStreamingResponse,
 )
+from .bgp_filter_profiles import (
+    BGPFilterProfilesResource,
+    AsyncBGPFilterProfilesResource,
+    BGPFilterProfilesResourceWithRawResponse,
+    AsyncBGPFilterProfilesResourceWithRawResponse,
+    BGPFilterProfilesResourceWithStreamingResponse,
+    AsyncBGPFilterProfilesResourceWithStreamingResponse,
+)
 from .cf1_sites.cf1_sites import (
     Cf1SitesResource,
     AsyncCf1SitesResource,
@@ -100,6 +108,10 @@ class MagicTransitResource(SyncAPIResource):
     @cached_property
     def routes(self) -> RoutesResource:
         return RoutesResource(self._client)
+
+    @cached_property
+    def bgp_filter_profiles(self) -> BGPFilterProfilesResource:
+        return BGPFilterProfilesResource(self._client)
 
     @cached_property
     def sites(self) -> SitesResource:
@@ -157,6 +169,10 @@ class AsyncMagicTransitResource(AsyncAPIResource):
     @cached_property
     def routes(self) -> AsyncRoutesResource:
         return AsyncRoutesResource(self._client)
+
+    @cached_property
+    def bgp_filter_profiles(self) -> AsyncBGPFilterProfilesResource:
+        return AsyncBGPFilterProfilesResource(self._client)
 
     @cached_property
     def sites(self) -> AsyncSitesResource:
@@ -219,6 +235,10 @@ class MagicTransitResourceWithRawResponse:
         return RoutesResourceWithRawResponse(self._magic_transit.routes)
 
     @cached_property
+    def bgp_filter_profiles(self) -> BGPFilterProfilesResourceWithRawResponse:
+        return BGPFilterProfilesResourceWithRawResponse(self._magic_transit.bgp_filter_profiles)
+
+    @cached_property
     def sites(self) -> SitesResourceWithRawResponse:
         return SitesResourceWithRawResponse(self._magic_transit.sites)
 
@@ -258,6 +278,10 @@ class AsyncMagicTransitResourceWithRawResponse:
     @cached_property
     def routes(self) -> AsyncRoutesResourceWithRawResponse:
         return AsyncRoutesResourceWithRawResponse(self._magic_transit.routes)
+
+    @cached_property
+    def bgp_filter_profiles(self) -> AsyncBGPFilterProfilesResourceWithRawResponse:
+        return AsyncBGPFilterProfilesResourceWithRawResponse(self._magic_transit.bgp_filter_profiles)
 
     @cached_property
     def sites(self) -> AsyncSitesResourceWithRawResponse:
@@ -301,6 +325,10 @@ class MagicTransitResourceWithStreamingResponse:
         return RoutesResourceWithStreamingResponse(self._magic_transit.routes)
 
     @cached_property
+    def bgp_filter_profiles(self) -> BGPFilterProfilesResourceWithStreamingResponse:
+        return BGPFilterProfilesResourceWithStreamingResponse(self._magic_transit.bgp_filter_profiles)
+
+    @cached_property
     def sites(self) -> SitesResourceWithStreamingResponse:
         return SitesResourceWithStreamingResponse(self._magic_transit.sites)
 
@@ -340,6 +368,10 @@ class AsyncMagicTransitResourceWithStreamingResponse:
     @cached_property
     def routes(self) -> AsyncRoutesResourceWithStreamingResponse:
         return AsyncRoutesResourceWithStreamingResponse(self._magic_transit.routes)
+
+    @cached_property
+    def bgp_filter_profiles(self) -> AsyncBGPFilterProfilesResourceWithStreamingResponse:
+        return AsyncBGPFilterProfilesResourceWithStreamingResponse(self._magic_transit.bgp_filter_profiles)
 
     @cached_property
     def sites(self) -> AsyncSitesResourceWithStreamingResponse:

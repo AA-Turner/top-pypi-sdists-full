@@ -2,12 +2,34 @@
 
 from typing import List, Optional
 from datetime import datetime
+from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
 
 from ....._models import BaseModel
 
-__all__ = ["ByDatasetListResponse", "Indicator", "IndicatorRelatedEvent", "IndicatorTag", "Pagination"]
+__all__ = [
+    "ByDatasetListResponse",
+    "Indicator",
+    "IndicatorSource",
+    "IndicatorRelatedEvent",
+    "IndicatorTag",
+    "Pagination",
+]
+
+
+class IndicatorSource(BaseModel):
+    resource_id: str = FieldInfo(alias="resourceId")
+
+    resource_type: Literal["article"] = FieldInfo(alias="resourceType")
+
+    system: Literal["threat-signals"]
+
+    title: Optional[str] = None
+    """
+    Threat Signals article title; null for historical provenance without a stored
+    title.
+    """
 
 
 class IndicatorRelatedEvent(BaseModel):
@@ -37,6 +59,9 @@ class Indicator(BaseModel):
     created_at: datetime = FieldInfo(alias="createdAt")
 
     indicator_type: str = FieldInfo(alias="indicatorType")
+
+    sources: List[IndicatorSource]
+    """RSS article sources from which this indicator was extracted."""
 
     updated_at: datetime = FieldInfo(alias="updatedAt")
 

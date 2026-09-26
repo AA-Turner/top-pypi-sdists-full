@@ -3,15 +3,17 @@ from __future__ import annotations
 import builtins
 import functools
 import inspect
+import os
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
 import platformdirs
 from platformdirs.android import Android
+from platformdirs.windows import Windows
 
 builtin_import = builtins.__import__
 
@@ -19,6 +21,8 @@ builtin_import = builtins.__import__
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
     from types import ModuleType
+
+    from pytest_mock import MockerFixture
 
 
 def test_package_metadata() -> None:
@@ -121,6 +125,28 @@ def test_android_active(  # ruff:ignore[too-many-arguments]
         assert platformdirs._set_platform_dir_class() is not Android  # ruff:ignore[private-member-access]
 
 
+@pytest.mark.parametrize(
+    ("prefix", "expected"),
+    [
+        pytest.param(None, Android, id="cleared-environment"),
+        pytest.param("/data/data/com.termux/files/usr", platformdirs._Result, id="termux"),  # ruff:ignore[private-member-access]
+    ],
+)
+def test_android_build_detected_without_environment(
+    monkeypatch: pytest.MonkeyPatch, prefix: str | None, expected: type[platformdirs.PlatformDirsABC]
+) -> None:
+    for env_var in ("ANDROID_DATA", "ANDROID_ROOT", "SHELL", "PREFIX"):
+        monkeypatch.delenv(env_var, raising=False)
+    if prefix is not None:
+        monkeypatch.setenv("PREFIX", prefix)
+    monkeypatch.setattr(sys, "getandroidapilevel", lambda: 34, raising=False)
+    monkeypatch.setattr(sys, "path", ["/data/user/0/org.example.app/files/app"])
+    from platformdirs.android import _android_folder  # ruff:ignore[import-outside-top-level]
+
+    _android_folder.cache_clear()
+    assert platformdirs._set_platform_dir_class() is expected  # ruff:ignore[private-member-access]
+
+
 def _fake_import(
     name: str,
     globals: Mapping[str, object] | None = None,  # ruff:ignore[builtin-argument-shadowing]
@@ -177,29 +203,63 @@ def test_iter_dirs_yields_user_before_site(kind: str) -> None:
     assert next(getattr(dirs, f"iter_{kind}_dirs")()) == getattr(dirs, f"user_{kind}_dir")
 
 
-@pytest.mark.parametrize("field", ["appname", "appauthor", "version"])
-@pytest.mark.parametrize(
-    "value",
-    [
-        pytest.param("../evil", id="parent"),
-        pytest.param("nested/../../evil", id="nested-parent"),
-        pytest.param("..\\evil", id="backslash-parent"),
-        pytest.param("/evil", id="rooted"),
-        pytest.param("\\evil", id="backslash-rooted"),
-        pytest.param("//server/share/evil", id="unc"),
-        pytest.param(
-            "C:/evil",
-            marks=pytest.mark.skipif(sys.platform != "win32", reason="drive letters only exist on Windows"),
-            id="drive",
-        ),
-    ],
-)
+_APP_FIELDS: Final = [
+    pytest.param("appname", id="appname"),
+    pytest.param("appauthor", id="appauthor"),
+    pytest.param("version", id="version"),
+]
+_ESCAPING_VALUES: Final = [
+    pytest.param("../evil", id="parent"),
+    pytest.param("nested/../../evil", id="nested-parent"),
+    pytest.param("..\\evil", id="backslash-parent"),
+    pytest.param("/evil", id="rooted"),
+    pytest.param("\\evil", id="backslash-rooted"),
+    pytest.param("//server/share/evil", id="unc"),
+    pytest.param(
+        "C:/evil",
+        marks=pytest.mark.skipif(sys.platform != "win32", reason="drive letters only exist on Windows"),
+        id="drive",
+    ),
+]
+
+
+@pytest.mark.parametrize("field", _APP_FIELDS)
+@pytest.mark.parametrize("value", _ESCAPING_VALUES)
 def test_app_argument_escaping_base_is_rejected(field: str, value: str) -> None:
     args = {"appname": "app", "appauthor": "author", "version": "1.0"} | {field: value}
     with pytest.raises(
         ValueError, match=rf"^{field} must stay inside the base directory, got {re.escape(repr(value))}$"
     ):
         platformdirs.PlatformDirs(args["appname"], args["appauthor"], args["version"])
+
+
+@pytest.mark.parametrize("field", _APP_FIELDS)
+@pytest.mark.parametrize("value", _ESCAPING_VALUES)
+def test_app_argument_escaping_base_is_rejected_on_assignment(field: str, value: str) -> None:
+    dirs = platformdirs.PlatformDirs("app", "author", "1.0")
+    with pytest.raises(
+        ValueError, match=rf"^{field} must stay inside the base directory, got {re.escape(repr(value))}$"
+    ):
+        setattr(dirs, field, value)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "parts"),
+    [
+        pytest.param("appname", "other", ("author", "other", "1.0"), id="appname"),
+        pytest.param("appname", None, (), id="appname-none"),
+        pytest.param("appauthor", False, ("app", "1.0"), id="appauthor-false"),
+        pytest.param("version", None, ("author", "app"), id="version-none"),
+    ],
+)
+def test_app_argument_assignment_within_base_changes_the_path(
+    mocker: MockerFixture, field: str, value: str | bool | None, parts: tuple[str, ...]
+) -> None:
+    # only Windows paths include appauthor
+    mocker.patch("platformdirs.windows.get_win_folder", return_value="C:/Local")
+    dirs = Windows("app", "author", "1.0")
+    setattr(dirs, field, value)
+    assert Path(dirs.user_data_dir) == Path(os.path.normpath("C:/Local"), *parts)
 
 
 @pytest.mark.parametrize(

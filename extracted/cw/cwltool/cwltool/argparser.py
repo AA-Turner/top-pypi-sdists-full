@@ -69,7 +69,8 @@ def arg_parser() -> argparse.ArgumentParser:
         f"[{bt}]dockerFile[/] images will also be searched for and stored here. "
         f"Images can be pre-pulled into this directory using "
         f"[link=https://cwl-utils.readthedocs.io/en/latest/#cwl-docker-extract]"
-        f"cwl-docker-extract[/] from cwl-utils",
+        f"cwl-docker-extract[/] from cwl-utils. If not set, images will be stored "
+        f"in the current directory.",
     )
     env_table.add_env(
         "ORCID",
@@ -941,6 +942,20 @@ class AppendAction(argparse.Action):
         setattr(namespace, self.dest, g)
 
 
+def doc_to_str(doc: Any) -> str:
+    """Normalize a CWL ``doc``/``label`` field to a single string.
+
+    The CWL spec allows ``doc`` to be either a single string or an array
+    of strings (one entry per line). Join list entries with newlines so
+    downstream consumers (argparse, rich) always receive a plain string.
+    """
+    if isinstance(doc, MutableSequence):
+        return "\n".join(doc)
+    if doc is None:
+        return ""
+    return str(doc)
+
+
 def add_argument(
     toolparser: argparse.ArgumentParser,
     name: str,
@@ -1052,7 +1067,7 @@ def generate_parser(
     base_uri: str = "",
 ) -> argparse.ArgumentParser:
     """Generate an ArgumentParser for the given CWL Process."""
-    toolparser.description = tool.tool.get("doc", tool.tool.get("label", None))
+    toolparser.description = doc_to_str(tool.tool.get("doc", tool.tool.get("label", None))) or None
     toolparser.add_argument("job_order", nargs="?", help="Job input json file")
     namemap["job_order"] = "job_order"
 
@@ -1060,7 +1075,7 @@ def generate_parser(
         name = shortname(inp["id"])
         namemap[name.replace("-", "_")] = name
         inptype = inp["type"]
-        description = inp.get("doc", inp.get("label", ""))
+        description = doc_to_str(inp.get("doc", inp.get("label", "")))
         default = inp.get("default", None)
         add_argument(
             toolparser,

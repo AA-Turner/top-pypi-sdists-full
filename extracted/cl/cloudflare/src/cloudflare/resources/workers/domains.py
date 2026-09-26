@@ -127,7 +127,7 @@ class DomainsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[DomainListResponse]:
         """
-        Lists all domains for an account.
+        Lists all Worker domains for an account.
 
         Args:
           account_id: Identifier.
@@ -231,7 +231,7 @@ class DomainsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DomainGetResponse:
         """
-        Gets information about a domain.
+        Gets information about a Worker domain.
 
         Args:
           account_id: Identifier.
@@ -364,7 +364,7 @@ class AsyncDomainsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[DomainListResponse, AsyncSinglePage[DomainListResponse]]:
         """
-        Lists all domains for an account.
+        Lists all Worker domains for an account.
 
         Args:
           account_id: Identifier.
@@ -468,7 +468,7 @@ class AsyncDomainsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DomainGetResponse:
         """
-        Gets information about a domain.
+        Gets information about a Worker domain.
 
         Args:
           account_id: Identifier.

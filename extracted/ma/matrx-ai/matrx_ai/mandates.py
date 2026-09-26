@@ -43,13 +43,14 @@ from __future__ import annotations
 import inspect
 import json
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, NoReturn
 
 from pydantic import BaseModel
 
 from matrx_ai.agents import AgentRunResult
 from matrx_ai.agents.named import AgentSource, NamedAgent, offer_view, to_template_value
+from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
 
 MandateCompletion = Callable[
     [AgentRunResult, dict[str, Any], str | None],
@@ -102,6 +103,13 @@ class MandateResolution:
     variable_mapping: dict[str, Any] | None = None
     spill_variables: frozenset[str] = frozenset()
     complete: MandateCompletion | None = None
+    #: The host's ONE consumption pipeline for a code call site that builds its
+    #: own request (aidream ``consumption.run_variables_for_mandate``): the
+    #: binding's consumption map, the provision's guaranteed values and the
+    #: required-input gate, applied to the site's offered values. Returns the
+    #: variables the Holder runs on, or raises in words. ``None`` = the host
+    #: offers no pipeline, and the site's values pass by name.
+    materialize: Callable[[dict[str, Any]], Awaitable[dict[str, Any]]] | None = None
     # THE INPUT SIDE, mirroring output_kind: the provision this mandate's call
     # site declares (all values available at the call site) travels WITH the
     # resolution, so a consumer never re-queries — or disagrees about — what
@@ -444,4 +452,544 @@ async def run_mandated(agent_cls: type[NamedAgent], **kwargs: Any) -> AgentRunRe
                 f"{type(exc).__name__}: {exc}",
                 color="red",
             )
+    return result
+
+
+# ── THE CODE-CALL HOLDER ────────────────────────────────────────────────────
+#
+# A code position that calls the funnel directly (``llm_to_text`` /
+# ``llm_to_pydantic`` / ``execute_ai_request`` / a host ``llm_provider`` seam)
+# used to name its own model and write its own system prompt. Under the
+# Universal Law that is a bypass (BYPASS-CENSUS, aidream): a change to the
+# mandate changes nothing. ``hold_code_call`` is the one door that turns such a
+# site into a mandated one WITHOUT changing its call mechanics: it resolves the
+# mandate, loads the Holder agent with the site's variables and the winning
+# binding's settings, and hands back exactly what the site used to hard-code —
+# the model, the system prompt, the sampling knobs — plus the metadata that
+# names who held the call. The Holder ALWAYS wins; the code chooses nothing.
+#
+# Resolve or refuse, like ``run_mandated``: the Holder IS the work here, so an
+# unresolvable mandate raises :class:`MandateResolutionUnavailable` (loud, with
+# a durable ``mandate_resolution_failed`` row) and never runs a frozen default.
+
+
+@dataclass(frozen=True, slots=True)
+class HeldCall:
+    """What a mandated code call runs: all of it comes from the Holder."""
+
+    mandate_key: str
+    model: str
+    system: str
+    #: The Holder's sampling knobs after the binding's overrides. ``None`` means
+    #: the Holder left it unset — pass it through as unset, never a code default.
+    temperature: float | None
+    max_output_tokens: int | None
+    #: The Holder's own authored non-system turns, variables applied, as plain
+    #: ``{"role", "content": str}`` dicts. A site whose Holder authors the user
+    #: turn too sends THESE instead of composing its own.
+    turns: list[dict[str, str]]
+    #: The Holder's full config (variables applied) for callers that send more
+    #: than model + system (image / speech settings, web search).
+    config: Any
+    #: ``mandate_key`` + the Holder identity, for the funnel's ``metadata=`` so
+    #: the runtime carrier gate and the persisted request both name the Holder.
+    metadata: dict[str, Any]
+    #: The variables the Holder actually ran on (after the binding's map).
+    variables: dict[str, Any] = field(default_factory=dict)
+    #: Values the binding SPILLS into the user text (``spill_variables``): a
+    #: site composing its own user turn appends this; ``run_held_call`` does.
+    spilled_text: str | None = None
+    #: The host's post-run honesty callback for this exact pin (required output
+    #: keys, exemplar capture). Called by :meth:`finish`.
+    complete: MandateCompletion | None = None
+    #: Every variable the Holder DECLARES, as it resolved for this call (the
+    #: site's offered value, else the Holder's own default). A Holder-authored
+    #: text that is not a turn (a retry nudge, a per-turn budget line) lives here
+    #: as a variable default; :meth:`authored_text` reads it.
+    holder_values: dict[str, str] = field(default_factory=dict)
+
+    # ── THE ONE PRECEDENCE RULE for every held call (2026-09-25) ───────────
+    # The Holder's settings apply. A caller's value wins ONLY when it was
+    # explicitly set (a workflow author's node field, an API request field) —
+    # never a code default dressed up as a choice.
+
+    def pick_model(self, explicit: str | None = None) -> str:
+        return explicit or self.model
+
+    def pick_temperature(self, explicit: float | None = None) -> float | None:
+        return explicit if explicit is not None else self.temperature
+
+    def pick_max_tokens(self, explicit: int | None = None, *, unset: int) -> int:
+        """``unset`` is what the funnel needs when BOTH the caller and the
+        Holder leave the ceiling unset — the funnel's own default, not a choice."""
+        if explicit is not None:
+            return explicit
+        return self.max_output_tokens if self.max_output_tokens else unset
+
+    def user_text(self, text: str) -> str:
+        """The site's user turn plus whatever the binding spills into it."""
+        return f"{text}\n\n{self.spilled_text}" if self.spilled_text else text
+
+    def authored_user(self) -> str:
+        """The user turn the HOLDER authors, the site's values applied.
+
+        For a site whose framing text ("Below is a case…", "## Your Task…")
+        lives on the Holder, not in code: the site offers only the data as
+        variables (``hold_code_call(variables=...)``) and sends this. A Holder
+        rebound to an agent that authors no user turn is refused in words —
+        never an empty prompt sent to a model.
+        """
+        texts = [turn["content"] for turn in self.turns if turn.get("role") == "user"]
+        if not texts:
+            consumer = str((self.metadata.get("mandate_holder") or {}).get("consumer") or "")
+            raise MandateResolutionUnavailable(
+                self.mandate_key,
+                consumer,
+                "this call sends the user turn its Holder authors, and the Holder authors "
+                "none — rebind it to an agent whose messages include the user turn",
+            )
+        return "\n\n".join(texts)
+
+    def authored_text(self, variable: str, **values: Any) -> str:
+        """A text the HOLDER authors outside its turns, the site's values applied.
+
+        For instruction text a site sends mid-run — a retry nudge after a
+        malformed answer, a budget line before each research turn — which
+        cannot be one of the Holder's authored turns because it is sent only
+        sometimes, or once per loop. The Holder carries it as the default of
+        ``variable``; ``values`` fill its ``{{placeholders}}`` through the same
+        prompt door every template uses. A Holder that declares no such text
+        is refused in words — never a code fallback, never an empty turn.
+        """
+        from matrx_ai.config.prompt_values import prompt_safe_value
+
+        text = self.holder_values.get(variable, "")
+        if not str(text).strip():
+            consumer = str((self.metadata.get("mandate_holder") or {}).get("consumer") or "")
+            raise MandateResolutionUnavailable(
+                self.mandate_key,
+                consumer,
+                f"this call sends the {variable!r} text its Holder authors, and the Holder "
+                f"declares none — rebind it to an agent whose variable {variable!r} carries it",
+            )
+        from matrx_ai.config.template_substitution import substitute_authored
+
+        # One pass: a value's own braces are data, never re-filled.
+        return substitute_authored(str(text), str(text), values, prompt_safe_value)
+
+    async def finish(
+        self,
+        output: str,
+        *,
+        parsed: Any = None,
+        success: bool = True,
+        error: str | None = None,
+    ) -> None:
+        """Hand the call's result to the mandate's post-run check.
+
+        Every held site calls this once its call returns — the same completion
+        ``run_mandated`` runs, so a Holder that stops answering in its declared
+        shape is caught for code calls too. Never raises: completion cannot
+        invalidate a delivered response, but a failure is said out loud.
+        """
+        if self.complete is None:
+            return
+        result = AgentRunResult(
+            success=success,
+            output=output or "",
+            model_id=self.model,
+            parsed=parsed,
+            error=error,
+            error_kind="provider" if not success else None,
+        )
+        try:
+            await self.complete(result, dict(self.variables), self.spilled_text)
+        except Exception as exc:  # noqa: BLE001 — see docstring
+            from matrx_utils import vcprint
+
+            vcprint(
+                f"[mandates] post-run honesty callback FAILED for {self.mandate_key!r}: "
+                f"{type(exc).__name__}: {exc}",
+                color="red",
+            )
+
+
+async def _refuse_code_call(mandate_key: str, consumer: str, reason: str) -> NoReturn:
+    """Every refusal of a code call is recorded durably, then raised."""
+    exc = MandateResolutionUnavailable(mandate_key, consumer, reason)
+    await _report_resolution_failure(mandate_key=mandate_key, consumer=consumer, exc=exc)
+    raise exc
+
+
+async def hold_code_call(
+    mandate_key: str,
+    *,
+    consumer: str,
+    variables: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> HeldCall:
+    """Resolve ``mandate_key`` and return the Holder's model, prompt and knobs.
+
+    ``variables`` are the site's OFFERED values (the dynamic parts it used to
+    f-string into its prompt). They go through the binding's whole contract —
+    the host's consumption pipeline (consumption map, guaranteed values, the
+    required-input gate), then the binding's ``variable_mapping`` and
+    ``spill_variables`` onto the Holder's own declared variables — exactly as
+    ``run_mandated`` does, so rebinding to an agent with different variable
+    names works. Every refusal writes a durable ``mandate_resolution_failed``
+    record before raising. ``metadata`` is merged under the Holder stamp.
+    """
+    from matrx_ai.agents.named import resolve_variable_mapping
+    from matrx_ai.orchestrator.mandate_carrier import (
+        MANDATE_HOLDER_METADATA_KEY,
+        MANDATE_KEY_METADATA_KEY,
+    )
+
+    resolution = await resolve_mandate_by_key(mandate_key, consumer=consumer)
+    if resolution.holder_type != "agent" or resolution.source is None:
+        await _refuse_code_call(
+            mandate_key,
+            consumer,
+            f"it resolved to a {resolution.holder_type!r} Holder, and a code call needs an "
+            "AGENT Holder to take its model and instructions from — rebind it to an agent",
+        )
+    try:
+        agent = await resolution.source.load()
+    except Exception as exc:  # noqa: BLE001 — every load failure is one shape
+        await _refuse_code_call(
+            mandate_key, consumer, f"its Holder could not be loaded: {type(exc).__name__}: {exc}"
+        )
+    if resolution.config_overrides:
+        agent.apply_config_overrides(**dict(resolution.config_overrides))
+
+    offered = dict(variables or {})
+    # A binding that carries a consumption map re-routes the site's offered
+    # values, so the host's ONE pipeline decides what the Holder receives (and
+    # refuses a context/media route this call site cannot deliver). With no map
+    # — the default pin — values pass by name, exactly as for run_mandated.
+    if resolution.consumption_map and resolution.materialize is not None:
+        try:
+            offered = await resolution.materialize(offered)
+        except Exception as exc:  # noqa: BLE001 — the pipeline refuses in words
+            await _refuse_code_call(mandate_key, consumer, f"{type(exc).__name__}: {exc}")
+    elif resolution.consumption_map:
+        await _refuse_code_call(
+            mandate_key,
+            consumer,
+            "the binding carries a consumption map and this host offers no pipeline to apply "
+            "it — the map would be silently ignored, so the call refuses",
+        )
+    try:
+        bound = resolve_variable_mapping(
+            offered,
+            getattr(agent, "variable_defaults", {}) or {},
+            dict(resolution.variable_mapping) if resolution.variable_mapping else None,
+            spill=set(resolution.spill_variables or ()),
+            user_input=None,
+        )
+    except ValueError as exc:
+        await _refuse_code_call(
+            mandate_key, consumer, f"the binding's variable mapping cannot be read: {exc}"
+        )
+    if bound.blocking:
+        detail = "; ".join(v.message for v in bound.verdicts if v.blocking)
+        await _refuse_code_call(
+            mandate_key, consumer, f"the binding's variable mapping is invalid: {detail}"
+        )
+    dropped = [
+        v.code_name for v in bound.verdicts if getattr(v, "caution", False) and v.code_name
+    ]
+    if dropped:
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"[mandates] {mandate_key} ({consumer}): the Holder does not consume {dropped}",
+            color="yellow",
+        )
+    held_variables = {k: to_template_value(v) for k, v in bound.variables.items()}
+    agent.with_variables(**held_variables)
+    holder_values: dict[str, str] = {}
+    for name, declared in (getattr(agent, "variable_defaults", None) or {}).items():
+        if name in held_variables:
+            holder_values[name] = str(held_variables[name] or "")
+            continue
+        get_value = getattr(declared, "get_value", None)
+        holder_values[name] = str(get_value() if callable(get_value) else "") or ""
+    config = agent.config
+    model = str(getattr(config, "model", "") or "").strip()
+    if not model:
+        await _refuse_code_call(mandate_key, consumer, "its Holder agent names no model")
+    # The Holder's AUTHORED instructions, without the per-send decorations (the
+    # "Current date" line, the tools list): the funnel this text is handed to
+    # decorates it again, so leaving them in would send them twice.
+    instruction = getattr(config, "system_instruction", None)
+    if hasattr(instruction, "strip_chat_decorations"):
+        import copy
+
+        instruction = copy.deepcopy(instruction)
+        instruction.strip_chat_decorations()
+        system = str(instruction)
+    else:
+        system = config.resolved_system_instruction or ""
+    turns: list[dict[str, str]] = []
+    messages = getattr(config, "messages", None)
+    raw_turns = messages.to_dict_list() if hasattr(messages, "to_dict_list") else list(messages or [])
+    for message in raw_turns:
+        role = str(message.get("role") or "")
+        if role in ("system", "developer") or not role:
+            continue
+        content = message.get("content")
+        if isinstance(content, list):
+            text = "\n".join(
+                str(part.get("text") or "")
+                for part in content
+                if isinstance(part, dict) and part.get("type") == "text"
+            )
+        else:
+            text = str(content or "")
+        turns.append({"role": role, "content": text})
+    carried: dict[str, Any] = dict(metadata or {})
+    carried[MANDATE_KEY_METADATA_KEY] = mandate_key
+    carried[MANDATE_HOLDER_METADATA_KEY] = {
+        "mandate_key": mandate_key,
+        "holder_type": "agent",
+        "agent_id": str(getattr(resolution.source, "agent_id", "") or ""),
+        "is_version": bool(getattr(resolution.source, "is_version", False)),
+        "name": getattr(agent, "name", None),
+        "consumer": consumer,
+    }
+    return HeldCall(
+        mandate_key=mandate_key,
+        model=model,
+        system=system,
+        temperature=getattr(config, "temperature", None),
+        max_output_tokens=getattr(config, "max_output_tokens", None),
+        turns=turns,
+        config=config,
+        metadata=carried,
+        variables=held_variables,
+        spilled_text=bound.spilled_text or None,
+        complete=resolution.complete,
+        holder_values=holder_values,
+    )
+
+
+#: The Holder's own generation knobs a held call carries verbatim. Anything the
+#: Holder leaves unset stays unset — the code never supplies a default.
+_HELD_KNOBS: tuple[str, ...] = (
+    "top_p",
+    "top_k",
+    "reasoning_effort",
+    "reasoning_summary",
+    "thinking_level",
+    "thinking_budget",
+    "include_thoughts",
+    "verbosity",
+    "response_format",
+    "stop_sequences",
+)
+
+
+def held_request_config(
+    held: HeldCall,
+    *,
+    extra_turns: list[dict[str, Any]] | None = None,
+    stream: bool = False,
+    max_output_tokens: int | None = None,
+) -> Any:
+    """The whole request a held call sends, built ONLY from its Holder.
+
+    ``hold_code_call`` hands back the model, prompt and sampling knobs; a site
+    that needs the Holder's OTHER settings too — its reasoning effort, its
+    response format (JSON mode), its authored few-shot turns — sends this
+    instead of re-typing any of them. ``extra_turns`` are the run's own turns
+    (the text being processed), appended after the Holder's authored ones.
+    ``max_output_tokens`` is a run-scope ceiling a caller may lower, never a
+    default: when omitted the Holder's own ceiling applies.
+    """
+    from matrx_ai.config import UnifiedConfig
+
+    cfg: dict[str, Any] = {
+        "model": held.model,
+        "system_instruction": held.system,
+        "messages": [
+            *held.turns,
+            *(extra_turns or []),
+            *([{"role": "user", "content": held.spilled_text}] if held.spilled_text else []),
+        ],
+        "stream": stream,
+    }
+    ceiling = max_output_tokens if max_output_tokens is not None else held.max_output_tokens
+    if ceiling is not None:
+        cfg["max_output_tokens"] = ceiling
+    if held.temperature is not None:
+        cfg["temperature"] = held.temperature
+    for knob in _HELD_KNOBS:
+        value = getattr(held.config, knob, None)
+        if value not in (None, [], ""):
+            cfg[knob] = value
+    return UnifiedConfig.from_dict(cfg)
+
+
+@mandate_carrier_passthrough(
+    "the HeldCall handed in IS the resolved Holder (hold_code_call); its metadata names it"
+)
+async def run_held_call(
+    held: HeldCall,
+    *,
+    extra_turns: list[dict[str, Any]] | None = None,
+    max_output_tokens: int | None = None,
+    store: bool = False,
+) -> Any:
+    """Run one held call to completion and return the normalized result.
+
+    One turn, no tools, not streamed to any listener — the shape of a code call
+    (a labeler, a cleaner, an observer). Returns ``AiExecutionResult``:
+    ``final_text`` plus the usage the funnel measured. The metadata names the
+    Holder, so the runtime carrier gate and ``chat.request`` both record who
+    held it.
+    """
+    import asyncio
+
+    from matrx_ai.graph_nodes.shared import normalize_completed
+    from matrx_ai.orchestrator.executor import execute_ai_request
+
+    from matrx_connect.context.app_context import (
+        clear_app_context,
+        set_app_context,
+        try_get_app_context,
+    )
+    from matrx_connect.emitters.console_emitter import ConsoleEmitter
+
+    # A code call belongs to no listener: whatever stream the surrounding
+    # request owns (a person's chat) must never receive this call's events.
+    parent = try_get_app_context()
+    token = None
+    if parent is not None:
+        token = set_app_context(
+            parent.with_overrides(
+                emitter=ConsoleEmitter(label=f"held:{held.mandate_key}", debug=False),
+                store=store,
+            )
+        )
+    try:
+        completed = await execute_ai_request(
+            held_request_config(
+                held, extra_turns=extra_turns, max_output_tokens=max_output_tokens
+            ),
+            max_iterations=1,
+            max_retries_per_iteration=2,
+            # The Holder stamp (mandate_key + mandate_holder) rides the metadata;
+            # that is the carrier the executor reads.
+            metadata=dict(held.metadata),
+            store=store,
+        )
+    except Exception as exc:
+        await held.finish("", success=False, error=f"{type(exc).__name__}: {exc}")
+        raise
+    finally:
+        if token is not None:
+            clear_app_context(token)
+    result = await asyncio.to_thread(normalize_completed, completed)
+    await held.finish(result.final_text or "")
+    return result
+
+
+@mandate_carrier_passthrough(
+    "the HeldCall handed in IS the resolved Holder (hold_code_call); its metadata names it"
+)
+async def run_held_pydantic(
+    held: HeldCall,
+    *,
+    output_cls: type[Any],
+    user: str | None = None,
+    messages: list[dict[str, Any]] | None = None,
+    model: str | None = None,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+    unset_max_tokens: int = 8092,
+    system: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    **funnel_kwargs: Any,
+) -> Any:
+    """A held strict-JSON call: the Holder's settings, the one precedence rule,
+    the binding's spill, and the post-run check — in one place.
+
+    ``model`` / ``max_tokens`` / ``temperature`` are EXPLICIT caller overrides
+    (a workflow author's field, an API request's field) and win only when set.
+    ``system`` replaces the Holder's system text only when a site composes it
+    FROM the Holder's (``held.system`` + an author's addendum). Everything
+    else in ``funnel_kwargs`` passes to ``llm_messages_to_pydantic`` untouched.
+    """
+    import importlib
+
+    # Looked up at call time on the module (not bound at import) so a test that
+    # swaps the funnel module sees its double — the same seam every caller uses.
+    funnel = importlib.import_module("matrx_ai.graph_nodes._strict_json")
+    common: dict[str, Any] = {
+        "model": held.pick_model(model),
+        "system": held.system if system is None else system,
+        "output_cls": output_cls,
+        "max_tokens": held.pick_max_tokens(max_tokens, unset=unset_max_tokens),
+        "temperature": held.pick_temperature(temperature),
+        "metadata": {**(metadata or {}), **held.metadata},
+        **funnel_kwargs,
+    }
+    try:
+        if messages is None:
+            value = await funnel.llm_to_pydantic(user=held.user_text(user or ""), **common)
+        else:
+            if held.spilled_text:
+                messages = [*messages, {"role": "user", "content": held.spilled_text}]
+            value = await funnel.llm_messages_to_pydantic(messages=messages, **common)
+    except Exception as exc:
+        await held.finish(
+            getattr(exc, "raw_output", "") or "",
+            success=False,
+            error=f"{type(exc).__name__}: {exc}"[:500],
+        )
+        raise
+    dumped = value.model_dump(mode="json") if hasattr(value, "model_dump") else value
+    await held.finish(json.dumps(dumped, ensure_ascii=False, default=str), parsed=dumped)
+    return value
+
+
+@mandate_carrier_passthrough(
+    "the HeldCall handed in IS the resolved Holder (hold_code_call); its metadata names it"
+)
+async def run_held_text(
+    held: HeldCall,
+    *,
+    user: str,
+    model: str | None = None,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+    unset_max_tokens: int = 8092,
+    system: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    measured: bool = False,
+    **funnel_kwargs: Any,
+) -> Any:
+    """The free-text twin of :func:`run_held_pydantic` (``llm_to_text``, or
+    ``llm_to_text_measured`` with ``measured=True`` — then the whole
+    ``AiExecutionResult`` is returned, usage included)."""
+    import importlib
+
+    funnel = importlib.import_module("matrx_ai.graph_nodes._strict_json")
+    call = funnel.llm_to_text_measured if measured else funnel.llm_to_text
+    try:
+        result = await call(
+            model=held.pick_model(model),
+            system=held.system if system is None else system,
+            user=held.user_text(user),
+            max_tokens=held.pick_max_tokens(max_tokens, unset=unset_max_tokens),
+            temperature=held.pick_temperature(temperature),
+            metadata={**(metadata or {}), **held.metadata},
+            **funnel_kwargs,
+        )
+    except Exception as exc:
+        await held.finish("", success=False, error=f"{type(exc).__name__}: {exc}"[:500])
+        raise
+    text = (getattr(result, "final_text", None) or "") if measured else (result or "")
+    await held.finish(text)
     return result

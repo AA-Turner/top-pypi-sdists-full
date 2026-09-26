@@ -60,7 +60,7 @@ const MMAP_GENERATION_SDK_KEY: &str = "interned-store-conditional-generation-mma
 const MMAP_STALE_SDK_KEY: &str = "interned-store-conditional-stale-mmap";
 const MMAP_NO_CHECKSUM_SDK_KEY: &str = "interned-store-conditional-no-checksum-mmap";
 const MMAP_SAME_LCUT_REPAIR_SDK_KEY: &str = "interned-store-same-lcut-repair-mmap";
-const MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY: &str = "interned-store-empty-checksum-conflict";
+const MMAP_BODY_IDENTITY_SDK_KEY: &str = "interned-store-body-identity";
 const MMAP_V2_PUBLIC_SDK_KEY: &str = "interned-store-v2-public-mmap";
 const MMAP_CONCURRENT_A_SDK_KEY: &str = "interned-store-concurrent-a";
 const MMAP_CONCURRENT_B_SDK_KEY: &str = "interned-store-concurrent-b";
@@ -239,7 +239,7 @@ async fn fetch_and_write_mmap_uses_header_auth_and_authoritative_storage_key() {
 }
 
 #[tokio::test]
-async fn conditional_fetch_preserves_artifact_on_legacy_proto_header_no_update() {
+async fn conditional_fetch_preserves_artifact_on_json_no_update() {
     let server = MockServer::start().await;
     let initial_body = config_json_with_cursor(100, Some("checksum100"));
     Mock::given(method("GET"))
@@ -248,10 +248,9 @@ async fn conditional_fetch_preserves_artifact_on_legacy_proto_header_no_update()
         .respond_with(move |request: &Request| {
             if query_params(request).contains_key("sinceTime") {
                 ResponseTemplate::new(200)
-                    .insert_header("content-type", "application/octet-stream")
-                    .insert_header("content-encoding", "statsig-br")
-                    .insert_header("x-cache-hit", "true")
-                    .insert_header("x-since-time", "100")
+                    .insert_header("content-type", "application/json")
+                    .insert_header("x-since-time", "999")
+                    .insert_header("x-checksum", "different-header-checksum")
                     .set_body_string(r#"{"has_updates":false}"#)
             } else {
                 config_response(initial_body.clone(), 100, Some("checksum100"))
@@ -314,7 +313,7 @@ async fn conditional_fetch_preserves_artifact_on_legacy_proto_header_no_update()
 }
 
 #[tokio::test]
-async fn conditional_fetch_publishes_higher_lcut_and_same_lcut_checksum_repair() {
+async fn conditional_fetch_publishes_body_generations_despite_stale_headers() {
     let server = MockServer::start().await;
     let initial_body = config_json_with_cursor(100, Some("checksum100"));
     let higher_body = config_json_with_cursor(101, Some("checksum101"));
@@ -324,12 +323,12 @@ async fn conditional_fetch_publishes_higher_lcut_and_same_lcut_checksum_repair()
         .respond_with(move |request: &Request| {
             let query = query_params(request);
             match query.get("checksum").map(String::as_str) {
-                None => config_response(initial_body.clone(), 100, Some("checksum100")),
+                None => config_response(initial_body.clone(), 99, Some("checksum99")),
                 Some("checksum100") => {
-                    config_response(higher_body.clone(), 101, Some("checksum101"))
+                    config_response(higher_body.clone(), 100, Some("checksum100"))
                 }
                 Some("checksum101") => {
-                    config_response(repair_body.clone(), 101, Some("checksum102"))
+                    config_response(repair_body.clone(), 101, Some("checksum101"))
                 }
                 checksum => panic!("unexpected checksum query {checksum:?}"),
             }
@@ -421,9 +420,9 @@ async fn conditional_fetch_ignores_stale_response_and_rejects_malformed_identity
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
-                .insert_header("x-since-time", "99")
-                .insert_header("x-checksum", "stalechecksum")
-                .set_body_string("this stale body must not be parsed"),
+                .insert_header("x-since-time", "999")
+                .insert_header("x-checksum", "newer-header-checksum")
+                .set_body_string(config_json_with_cursor(99, Some("stalechecksum"))),
         )
         .mount(&server)
         .await;
@@ -457,27 +456,32 @@ async fn conditional_fetch_ignores_stale_response_and_rejects_malformed_identity
     assert_eq!(explicit_no_update, MmapWriteOutcome::NoUpdate);
     assert_eq!(fs::read(&artifact_path).unwrap(), before_bytes);
 
-    server.reset().await;
-    Mock::given(method("GET"))
-        .and(path("/v2/download_config_specs"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .insert_header("content-type", "application/json")
-                .insert_header("x-checksum", "checksum101")
-                .set_body_string(r#"{"has_updates":false}"#),
+    for body in [
+        "not a config body",
+        r#"{"has_updates":true,"time":0}"#,
+        r#"{"has_updates":true}"#,
+        r#"{"time":101,"checksum":"checksum101"}"#,
+        r#"{"has_updates":false,"checksum":"checksum101"}"#,
+        r#"{"has_updates":false,"time":101,"checksum":"checksum101"}"#,
+        r#"{"has_updates":false,"time":100,"checksum":"changed"}"#,
+    ] {
+        server.reset().await;
+        Mock::given(method("GET"))
+            .and(path("/v2/download_config_specs"))
+            .respond_with(config_response(body.to_string(), 100, Some("checksum100")))
+            .mount(&server)
+            .await;
+        let malformed = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
+            MMAP_STALE_SDK_KEY,
+            &specs_url,
+            Some(&cursor),
         )
-        .mount(&server)
         .await;
-    let malformed = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
-        MMAP_STALE_SDK_KEY,
-        &specs_url,
-        Some(&cursor),
-    )
-    .await;
-    assert!(matches!(malformed, Err(StatsigErr::InvalidOperation(_))));
-    assert_eq!(fs::read(&artifact_path).unwrap(), before_bytes);
-    #[cfg(unix)]
-    assert_eq!(fs::metadata(&artifact_path).unwrap().ino(), before_inode);
+        assert!(malformed.is_err(), "accepted invalid body: {body}");
+        assert_eq!(fs::read(&artifact_path).unwrap(), before_bytes);
+        #[cfg(unix)]
+        assert_eq!(fs::metadata(&artifact_path).unwrap().ino(), before_inode);
+    }
 }
 
 #[tokio::test]
@@ -492,7 +496,7 @@ async fn conditional_fetch_supports_an_empty_optional_checksum() {
                     .insert_header("content-type", "application/json")
                     .insert_header("x-since-time", "200")
                     .insert_header("x-checksum", "")
-                    .set_body_string("an exact response must not be parsed")
+                    .set_body_string(initial_body.clone())
             } else {
                 config_response(initial_body.clone(), 200, Some(""))
             }
@@ -612,131 +616,142 @@ async fn conditional_fetch_publishes_same_lcut_checksum_without_header() {
 }
 
 #[tokio::test]
-async fn conditional_fetch_rejects_explicit_empty_checksum_conflicts() {
+async fn conditional_fetch_uses_json_body_identity_regardless_of_headers() {
     let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/v2/download_config_specs"))
-        .respond_with(config_response(
-            config_json_with_cursor(400, Some("checksum400")),
-            400,
-            Some("checksum400"),
-        ))
-        .mount(&server)
-        .await;
-
     let specs_url = format!("{}/v2/download_config_specs", server.uri());
-    let first = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
-        MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY,
-        &specs_url,
-        None,
-    )
-    .await
-    .unwrap();
-    let cursor = MmapSyncCursor {
+    let previous = MmapSyncCursor {
         lcut: 400,
         checksum: Some("checksum400".to_string()),
     };
-    assert_eq!(first, MmapWriteOutcome::Published(cursor.clone()));
-
-    let artifact_path = mmap_v2_path_for_sdk_key(MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY);
-    let artifact_bytes = fs::read(&artifact_path).unwrap();
-    #[cfg(unix)]
-    let artifact_inode = fs::metadata(&artifact_path).unwrap().ino();
-
-    server.reset().await;
-    Mock::given(method("GET"))
-        .and(path("/v2/download_config_specs"))
-        .respond_with(config_response(
-            config_json_with_cursor(401, Some("checksum401")),
-            401,
-            Some(""),
-        ))
-        .mount(&server)
-        .await;
-    let full_mismatch = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
-        MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY,
-        &specs_url,
-        Some(&cursor),
-    )
-    .await;
-    assert!(matches!(
-        full_mismatch,
-        Err(StatsigErr::InvalidOperation(_))
-    ));
-
-    server.reset().await;
-    Mock::given(method("GET"))
-        .and(path("/v2/download_config_specs"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .insert_header("content-type", "application/json")
-                .insert_header("x-cache-hit", "true")
-                .insert_header("x-since-time", "400")
-                .insert_header("x-checksum", "")
-                .set_body_string(r#"{"has_updates":false}"#),
+    for (lcut, checksum) in [
+        (Some("400"), Some("checksum400")),
+        (Some("not-a-time"), Some("header-checksum")),
+        (None, Some("header-checksum")),
+        (Some("999"), Some("")),
+        (None, None),
+    ] {
+        server.reset().await;
+        let mut response = ResponseTemplate::new(200)
+            .insert_header("content-type", "application/json")
+            .insert_header("x-cache-hit", "true")
+            .set_body_string(config_json_with_cursor(401, Some("checksum401")));
+        if let Some(lcut) = lcut {
+            response = response.insert_header("x-since-time", lcut);
+        }
+        if let Some(checksum) = checksum {
+            response = response.insert_header("x-checksum", checksum);
+        }
+        Mock::given(method("GET"))
+            .and(path("/v2/download_config_specs"))
+            .respond_with(response)
+            .mount(&server)
+            .await;
+        let outcome = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
+            MMAP_BODY_IDENTITY_SDK_KEY,
+            &specs_url,
+            Some(&previous),
         )
-        .mount(&server)
-        .await;
-    let no_update_mismatch = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
-        MMAP_EMPTY_CHECKSUM_CONFLICT_SDK_KEY,
-        &specs_url,
-        Some(&cursor),
-    )
-    .await;
-    assert!(matches!(
-        no_update_mismatch,
-        Err(StatsigErr::InvalidOperation(_))
-    ));
-
-    assert_eq!(fs::read(&artifact_path).unwrap(), artifact_bytes);
-    #[cfg(unix)]
-    assert_eq!(fs::metadata(&artifact_path).unwrap().ino(), artifact_inode);
+        .await
+        .unwrap();
+        assert_eq!(
+            outcome,
+            MmapWriteOutcome::Published(MmapSyncCursor {
+                lcut: 401,
+                checksum: Some("checksum401".to_string()),
+            })
+        );
+        validate_mmap_v2_for_test(&mmap_v2_path_for_sdk_key(MMAP_BODY_IDENTITY_SDK_KEY)).unwrap();
+    }
 }
 
 #[tokio::test]
-async fn conditional_fetch_accepts_protobuf_generation_without_checksum_header() {
+async fn conditional_fetch_uses_protobuf_body_identity_regardless_of_headers() {
     const PROTO_LCUT: u64 = 1_767_981_029_384;
-
     let server = MockServer::start().await;
+    let specs_url = format!("{}/v2/download_config_specs", server.uri());
+    let mut body_cursor = None;
+    for (previous_lcut, header_lcut) in [
+        (PROTO_LCUT - 1, Some((PROTO_LCUT - 1).to_string())),
+        (PROTO_LCUT, Some(PROTO_LCUT.to_string())),
+        (PROTO_LCUT - 1, None),
+        (PROTO_LCUT - 1, Some("not-a-time".to_string())),
+        (PROTO_LCUT + 1, Some((PROTO_LCUT + 2).to_string())),
+    ] {
+        server.reset().await;
+        let mut response = ResponseTemplate::new(200)
+            .insert_header("content-type", "application/octet-stream")
+            .insert_header("content-encoding", "statsig-br")
+            .insert_header("x-cache-hit", "true")
+            .insert_header("x-checksum", "previouschecksum")
+            .set_body_bytes(EVAL_PROJ_PROTO);
+        if let Some(lcut) = header_lcut {
+            response = response.insert_header("x-since-time", lcut);
+        }
+        Mock::given(method("GET"))
+            .and(path("/v2/download_config_specs"))
+            .respond_with(response)
+            .mount(&server)
+            .await;
+        let previous = MmapSyncCursor {
+            lcut: previous_lcut,
+            checksum: Some("previouschecksum".to_string()),
+        };
+        let outcome = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
+            MMAP_PROTO_GENERATION_SDK_KEY,
+            &specs_url,
+            Some(&previous),
+        )
+        .await
+        .unwrap();
+        if previous_lcut > PROTO_LCUT {
+            assert_eq!(outcome, MmapWriteOutcome::NoUpdate);
+        } else {
+            let MmapWriteOutcome::Published(cursor) = outcome else {
+                panic!("new protobuf body generation did not publish");
+            };
+            assert_eq!(cursor.lcut, PROTO_LCUT);
+            assert!(cursor.checksum.is_some());
+            assert_ne!(cursor.checksum.as_deref(), Some("previouschecksum"));
+            if let Some(expected) = &body_cursor {
+                assert_eq!(&cursor, expected);
+            }
+            body_cursor = Some(cursor);
+        }
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        let query = query_params(&requests[0]);
+        assert_eq!(query["sinceTime"], previous_lcut.to_string());
+        assert_eq!(query["checksum"], "previouschecksum");
+    }
+
+    // Matching headers cannot turn a truncated body into a successful refresh.
+    let cursor = body_cursor.unwrap();
+    let artifact_path = mmap_v2_path_for_sdk_key(MMAP_PROTO_GENERATION_SDK_KEY);
+    let before_bytes = fs::read(&artifact_path).unwrap();
+    server.reset().await;
     Mock::given(method("GET"))
         .and(path("/v2/download_config_specs"))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/octet-stream")
                 .insert_header("content-encoding", "statsig-br")
-                .insert_header("x-since-time", PROTO_LCUT.to_string())
-                .set_body_bytes(EVAL_PROJ_PROTO),
+                .insert_header("x-cache-hit", "true")
+                .insert_header("x-since-time", cursor.lcut.to_string())
+                .insert_header("x-checksum", cursor.checksum.as_deref().unwrap())
+                .set_body_bytes(&EVAL_PROJ_PROTO[..EVAL_PROJ_PROTO.len() / 2]),
         )
         .mount(&server)
         .await;
-
-    let previous = MmapSyncCursor {
-        lcut: PROTO_LCUT - 1,
-        checksum: Some("previouschecksum".to_string()),
-    };
-    let specs_url = format!("{}/v2/download_config_specs", server.uri());
-    let outcome = InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
-        MMAP_PROTO_GENERATION_SDK_KEY,
-        &specs_url,
-        Some(&previous),
-    )
-    .await
-    .unwrap();
-
-    let MmapWriteOutcome::Published(cursor) = outcome else {
-        panic!("higher-LCUT protobuf response did not publish");
-    };
-    assert_eq!(cursor.lcut, PROTO_LCUT);
-    assert!(cursor.checksum.is_some());
-
-    let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests.len(), 1);
-    let query = query_params(&requests[0]);
-    assert_eq!(query["sinceTime"], (PROTO_LCUT - 1).to_string());
-    assert_eq!(
-        query.get("checksum").map(String::as_str),
-        Some("previouschecksum")
+    assert!(
+        InternedStore::fetch_and_write_mmap_with_specs_url_if_changed(
+            MMAP_PROTO_GENERATION_SDK_KEY,
+            &specs_url,
+            Some(&cursor),
+        )
+        .await
+        .is_err()
     );
+    assert_eq!(fs::read(&artifact_path).unwrap(), before_bytes);
 }
 
 #[tokio::test]

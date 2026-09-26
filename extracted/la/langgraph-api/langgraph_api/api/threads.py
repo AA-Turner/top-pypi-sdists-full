@@ -63,14 +63,12 @@ async def create_thread(
     if thread_id := payload.get("thread_id"):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload
-    else:
-        effective_payload = await encrypt_request(
-            payload,
-            "thread",
-            ["metadata"],
-        )
+    effective_payload = await encrypt_request(
+        payload,
+        "thread",
+        ["metadata"],
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     thread_id = thread_id or str(uuid7())
     supersteps = payload.get("supersteps")
@@ -111,12 +109,12 @@ async def create_thread(
                     raise HTTPException(status_code=201, detail=detail) from e
 
     thread = await fetchone(iter, not_found_code=409)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        thread = await decrypt_response(
-            thread,
-            "thread",
-            THREAD_ENCRYPTION_FIELDS,
-        )
+    thread = await decrypt_response(
+        thread,
+        "thread",
+        THREAD_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(thread)
 
 
@@ -179,14 +177,12 @@ async def search_threads(
         threads_iter, next_offset, offset
     )
 
-    if needs_python_decryption:
-        decrypted_threads = await decrypt_responses(
-            threads,
-            "thread",
-            THREAD_ENCRYPTION_FIELDS,
-        )
-    else:
-        decrypted_threads = threads
+    decrypted_threads = await decrypt_responses(
+        threads,
+        "thread",
+        THREAD_ENCRYPTION_FIELDS,
+        plaintext_from_core=not needs_python_decryption,
+    )
 
     # When SQL-side extraction was skipped (encryption active), extract
     # from the decrypted plaintext in Python.
@@ -397,12 +393,12 @@ async def get_thread(
         thread = await Threads.get(conn, thread_id, include_ttl=include_ttl)
 
     thread_data = await fetchone(thread)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        thread_data = await decrypt_response(
-            thread_data,
-            "thread",
-            THREAD_ENCRYPTION_FIELDS,
-        )
+    thread_data = await decrypt_response(
+        thread_data,
+        "thread",
+        THREAD_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(thread_data)
 
 
@@ -415,14 +411,12 @@ async def patch_thread(
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadPatch)
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload
-    else:
-        effective_payload = await encrypt_request(
-            payload,
-            "thread",
-            ["metadata"],
-        )
+    effective_payload = await encrypt_request(
+        payload,
+        "thread",
+        ["metadata"],
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return_minimal = request.headers.get("Prefer") == "return=minimal"
 
@@ -440,12 +434,12 @@ async def patch_thread(
         return Response(status_code=204)
 
     thread_data = await fetchone(thread)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        thread_data = await decrypt_response(
-            thread_data,
-            "thread",
-            THREAD_ENCRYPTION_FIELDS,
-        )
+    thread_data = await decrypt_response(
+        thread_data,
+        "thread",
+        THREAD_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(thread_data)
 
 
@@ -497,12 +491,12 @@ async def copy_thread(request: ApiRequest):
         iter = await Threads.copy(conn, thread_id)
 
     thread_data = await fetchone(iter, not_found_code=409)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        thread_data = await decrypt_response(
-            thread_data,
-            "thread",
-            THREAD_ENCRYPTION_FIELDS,
-        )
+    thread_data = await decrypt_response(
+        thread_data,
+        "thread",
+        THREAD_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(thread_data)
 
 

@@ -1056,15 +1056,18 @@ class ToolExecutor:
         # funnel filters these out for non-admins, but this backstop guarantees it even
         # if a misconfigured agent or a path that bypasses the funnel slips one through.
         if getattr(tool_def, "admin_only", False):
-            from matrx_connect import get_app_context
+            # THE ADMIN SURFACE (2026-09-25): an admin identity is not enough — the
+            # run must have been started from an admin surface (admin app / admin MCP).
+            from matrx_connect import admin_surface_active
 
             try:
-                _is_admin = bool(getattr(get_app_context(), "is_admin", False))
+                _is_admin = admin_surface_active()
             except Exception:
                 _is_admin = False
             if not _is_admin:
                 _admin_msg = (
-                    f"Tool '{tool_name}' is admin-only and cannot be run by a non-admin caller."
+                    f"Tool '{tool_name}' is an admin tool: admin tools work only from the "
+                    "admin app or the admin MCP, never from a normal chat."
                 )
                 result = ToolResult(
                     success=False,

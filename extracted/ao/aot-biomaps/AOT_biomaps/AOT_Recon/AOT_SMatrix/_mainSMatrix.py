@@ -83,6 +83,7 @@ class SMatrix(ABC):
         self.preconditioner_inv = None
         self.preconditioner_gpu = None
         self.preconditioner_inv_gpu = None
+        self.normalization_factor = 1.0
         
         self.sparse_mod = None
 
@@ -95,6 +96,15 @@ class SMatrix(ABC):
 
     def __exit__(self, exc_type, exc, tb):
         self.free()
+    
+    def _release_pool(self):
+        """
+        Release cuda memory
+        """
+        if CUPY_AVAILABLE:
+            with cp.cuda.Device(self.gpu_index):
+                cp.get_default_memory_pool().free_all_blocks()
+                cp.cuda.Stream.null.synchronize()
 
     def _get_dtype(self):
         """Returns the appropriate dtype based on isComplexSMatrix."""

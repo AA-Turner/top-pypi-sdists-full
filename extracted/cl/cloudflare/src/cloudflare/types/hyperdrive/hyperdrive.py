@@ -24,7 +24,10 @@ class OriginPublicDatabase(BaseModel):
     """Set the name of your origin database."""
 
     host: str
-    """Defines the host (hostname or IP) of your origin database."""
+    """Defines the publicly reachable hostname or IP of your origin database.
+
+    Private, loopback, and link-local IP addresses are not allowed.
+    """
 
     port: int
     """Defines the port of your origin database.
@@ -120,7 +123,12 @@ class MTLS(BaseModel):
     """Define mTLS certificate ID obtained after uploading client cert."""
 
     sslmode: Optional[str] = None
-    """Set SSL mode to 'require', 'verify-ca', or 'verify-full' to verify the CA."""
+    """PostgreSQL accepts `require`, `verify-ca`, and `verify-full`.
+
+    MySQL accepts `REQUIRED`, `VERIFY_CA`, and `VERIFY_IDENTITY`. The verify modes
+    require a CA certificate; the require modes cannot be used with a CA
+    certificate.
+    """
 
 
 class Hyperdrive(BaseModel):
@@ -134,6 +142,9 @@ class Hyperdrive(BaseModel):
     """
 
     origin: Origin
+    """
+    Combines database connection fields with exactly one supported network location.
+    """
 
     caching: Optional[Caching] = None
 

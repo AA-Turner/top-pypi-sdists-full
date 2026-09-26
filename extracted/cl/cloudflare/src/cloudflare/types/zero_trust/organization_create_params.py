@@ -8,7 +8,7 @@ from typing_extensions import Literal, Required, TypedDict
 from ..._types import SequenceNotStr
 from .login_design_param import LoginDesignParam
 
-__all__ = ["OrganizationCreateParams", "MfaConfig", "MfaPivKeyRequirements"]
+__all__ = ["OrganizationCreateParams", "MfaConfig", "MfaPivKeyRequirements", "ServiceTokenInactivity"]
 
 
 class OrganizationCreateParams(TypedDict, total=False):
@@ -74,6 +74,15 @@ class OrganizationCreateParams(TypedDict, total=False):
     and a session duration configured. Note: 'allowed_authenticators' cannot contain
     only the infrastructure SSH authenticators ('piv_key' and 'ssh_fido2_key') if
     the organization has any non-infrastructure applications.
+    """
+
+    service_token_inactivity: ServiceTokenInactivity
+    """Configures automatic enforcement for inactive service tokens.
+
+    A service token is inactive if no policy references it, and it has not
+    successfully authenticated with an Access application during the selected
+    inactivity period. This setting applies to every service token in your Zero
+    Trust account.
     """
 
     session_duration: str
@@ -171,4 +180,23 @@ class MfaPivKeyRequirements(TypedDict, total=False):
 
     Valid values: `never` (no touch required), `always` (touch required for each
     use), `cached` (touch cached for 15 seconds).
+    """
+
+
+class ServiceTokenInactivity(TypedDict, total=False):
+    """Configures automatic enforcement for inactive service tokens.
+
+    A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
+    """
+
+    action: Required[Literal["disable", "delete"]]
+    """The action applied to an inactive service token."""
+
+    enabled: Required[bool]
+    """Whether automatic enforcement for inactive service tokens is enabled."""
+
+    inactivity_threshold_days: Required[int]
+    """
+    The number of days a service token must be inactive before the configured action
+    is applied.
     """

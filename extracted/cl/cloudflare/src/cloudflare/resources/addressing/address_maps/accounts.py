@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from ...._types import Body, Query, Headers, NotGiven, not_given
-from ...._utils import path_template, maybe_transform, async_maybe_transform
+from ...._utils import path_template
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -15,7 +15,6 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._base_client import make_request_options
-from ....types.addressing.address_maps import account_update_params
 from ....types.addressing.address_maps.account_delete_response import AccountDeleteResponse
 from ....types.addressing.address_maps.account_update_response import AccountUpdateResponse
 
@@ -44,10 +43,10 @@ class AccountsResource(SyncAPIResource):
 
     def update(
         self,
-        address_map_id: str,
+        member_account_id: str,
         *,
         account_id: str,
-        body: object,
+        address_map_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -63,6 +62,8 @@ class AccountsResource(SyncAPIResource):
 
           address_map_id: Identifier of an Address Map.
 
+          member_account_id: Identifier of a Cloudflare account.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -75,13 +76,15 @@ class AccountsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not address_map_id:
             raise ValueError(f"Expected a non-empty value for `address_map_id` but received {address_map_id!r}")
+        if not member_account_id:
+            raise ValueError(f"Expected a non-empty value for `member_account_id` but received {member_account_id!r}")
         return self._put(
             path_template(
-                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{account_id}",
+                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{member_account_id}",
                 account_id=account_id,
                 address_map_id=address_map_id,
+                member_account_id=member_account_id,
             ),
-            body=maybe_transform(body, account_update_params.AccountUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -90,9 +93,10 @@ class AccountsResource(SyncAPIResource):
 
     def delete(
         self,
-        address_map_id: str,
+        member_account_id: str,
         *,
         account_id: str,
+        address_map_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -108,6 +112,8 @@ class AccountsResource(SyncAPIResource):
 
           address_map_id: Identifier of an Address Map.
 
+          member_account_id: Identifier of a Cloudflare account.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -120,11 +126,14 @@ class AccountsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not address_map_id:
             raise ValueError(f"Expected a non-empty value for `address_map_id` but received {address_map_id!r}")
+        if not member_account_id:
+            raise ValueError(f"Expected a non-empty value for `member_account_id` but received {member_account_id!r}")
         return self._delete(
             path_template(
-                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{account_id}",
+                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{member_account_id}",
                 account_id=account_id,
                 address_map_id=address_map_id,
+                member_account_id=member_account_id,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
@@ -155,10 +164,10 @@ class AsyncAccountsResource(AsyncAPIResource):
 
     async def update(
         self,
-        address_map_id: str,
+        member_account_id: str,
         *,
         account_id: str,
-        body: object,
+        address_map_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -174,6 +183,8 @@ class AsyncAccountsResource(AsyncAPIResource):
 
           address_map_id: Identifier of an Address Map.
 
+          member_account_id: Identifier of a Cloudflare account.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -186,13 +197,15 @@ class AsyncAccountsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not address_map_id:
             raise ValueError(f"Expected a non-empty value for `address_map_id` but received {address_map_id!r}")
+        if not member_account_id:
+            raise ValueError(f"Expected a non-empty value for `member_account_id` but received {member_account_id!r}")
         return await self._put(
             path_template(
-                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{account_id}",
+                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{member_account_id}",
                 account_id=account_id,
                 address_map_id=address_map_id,
+                member_account_id=member_account_id,
             ),
-            body=await async_maybe_transform(body, account_update_params.AccountUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -201,9 +214,10 @@ class AsyncAccountsResource(AsyncAPIResource):
 
     async def delete(
         self,
-        address_map_id: str,
+        member_account_id: str,
         *,
         account_id: str,
+        address_map_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -219,6 +233,8 @@ class AsyncAccountsResource(AsyncAPIResource):
 
           address_map_id: Identifier of an Address Map.
 
+          member_account_id: Identifier of a Cloudflare account.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -231,11 +247,14 @@ class AsyncAccountsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not address_map_id:
             raise ValueError(f"Expected a non-empty value for `address_map_id` but received {address_map_id!r}")
+        if not member_account_id:
+            raise ValueError(f"Expected a non-empty value for `member_account_id` but received {member_account_id!r}")
         return await self._delete(
             path_template(
-                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{account_id}",
+                "/accounts/{account_id}/addressing/address_maps/{address_map_id}/accounts/{member_account_id}",
                 account_id=account_id,
                 address_map_id=address_map_id,
+                member_account_id=member_account_id,
             ),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout

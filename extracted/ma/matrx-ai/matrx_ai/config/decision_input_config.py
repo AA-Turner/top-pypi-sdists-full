@@ -64,13 +64,11 @@ class DecisionQuestionsContent:
         if not variables:
             return False
         from matrx_ai.config.prompt_values import prompt_safe_value
-
-        rendered = {name: prompt_safe_value(value) for name, value in variables.items()}
+        from matrx_ai.config.template_substitution import substitute_authored
 
         def fill(text: str) -> str:
-            for name, value in rendered.items():
-                text = text.replace(f"{{{{{name}}}}}", value)
-            return text
+            # One pass: a value's own braces are data, never re-filled.
+            return substitute_authored(text, text, variables, prompt_safe_value)
 
         filled: list[dict[str, Any]] = []
         for question in self.questions:

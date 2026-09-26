@@ -23,7 +23,7 @@ from epicscorelibs.config import get_config_var
 # our choice of version suffix is constrained by PEP 440
 # so we always append .99.ABI.SRC to most recent upstream version
 # the following line is matched from cibuild.py
-package_version = '7.0.10.99.0.1'
+package_version = '7.0.10.99.0.2'
 
 assert package_version.split('.')[-3]=='99', package_version
 
@@ -443,7 +443,11 @@ if toolchain_macros.get('__GNUC__') is not None:
 modules = []
 headers = ['epicsVersion.h']
 
-local_defs = [('USE_TYPED_RSET', None)]
+local_defs = [
+    ('USE_TYPED_RSET', None),
+    ('USE_TYPED_DSET', None),
+    ('USE_TYPED_DRVET', None),
+]
 
 def build_module(name, srcdir, defs=[], deps=[], srcs=[], soversion=None):
     #print("Include EPICS module %s in %s"%(name, srcdir))

@@ -11,7 +11,7 @@ use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
 use crate::specs_response::explicit_params::ExplicitParameters;
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
-use crate::specs_response::specs_hash_map::SpecsHashMap;
+use crate::specs_response::specs_hash_map::{SpecsHashMap, deserialize_dynamic_configs};
 use crate::{DynamicValue, hashing};
 
 use super::{cmab_types::CMABConfig, param_store_types::ParameterStore};
@@ -369,6 +369,7 @@ response_struct!(SpecsResponseFull, {
     pub checksum: Option<String>,
     pub company_id: Option<String>,
     pub condition_map: AHashMap<InternedString, Condition>,
+    #[serde(deserialize_with = "deserialize_dynamic_configs")]
     pub dynamic_configs: SpecsHashMap,
     pub feature_gates: SpecsHashMap,
     pub has_updates: bool,

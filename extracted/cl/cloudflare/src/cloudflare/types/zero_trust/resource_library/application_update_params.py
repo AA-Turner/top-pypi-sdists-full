@@ -16,7 +16,11 @@ class ApplicationUpdateParams(TypedDict, total=False):
     """Hostnames matched by the application."""
 
     ip_subnets: SequenceNotStr[str]
-    """IP subnets matched by the application."""
+    """IP subnets for this application.
+
+    Custom application create and update requests accept IPv4 prefix lengths /8
+    through /32 and IPv6 prefix lengths /32 through /128.
+    """
 
     port_protocols: SequenceNotStr[str]
     """Port and protocol pairs matched by the application."""

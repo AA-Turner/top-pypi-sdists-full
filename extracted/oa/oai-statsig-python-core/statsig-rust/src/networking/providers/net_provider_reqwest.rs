@@ -152,6 +152,31 @@ impl Default for NetworkProviderReqwest {
 #[async_trait]
 impl NetworkProvider for NetworkProviderReqwest {
     async fn send(&self, method: &HttpMethod, args: &RequestArgs) -> Response {
+        self.send_impl(method, args, false).await
+    }
+
+    async fn send_without_redirects(&self, method: &HttpMethod, args: &RequestArgs) -> Response {
+        self.send_impl(method, args, true).await
+    }
+
+    async fn send_with_response_limit(
+        &self,
+        method: &HttpMethod,
+        args: &RequestArgs,
+        max_response_bytes: u64,
+    ) -> ResponseLimitOutcome {
+        self.send_with_response_limit_impl(method, args, max_response_bytes)
+            .await
+    }
+}
+
+impl NetworkProviderReqwest {
+    async fn send_impl(
+        &self,
+        method: &HttpMethod,
+        args: &RequestArgs,
+        disable_redirects: bool,
+    ) -> Response {
         if let Some(is_shutdown) = &args.is_shutdown {
             if is_shutdown.load(std::sync::atomic::Ordering::SeqCst) {
                 return Response {
@@ -162,7 +187,7 @@ impl NetworkProvider for NetworkProviderReqwest {
             }
         }
 
-        let request = self.build_request(method, args, false);
+        let request = self.build_request(method, args, disable_redirects);
 
         let mut error = None;
         let mut status_code = None;
@@ -198,19 +223,6 @@ impl NetworkProvider for NetworkProviderReqwest {
             error,
         }
     }
-
-    async fn send_with_response_limit(
-        &self,
-        method: &HttpMethod,
-        args: &RequestArgs,
-        max_response_bytes: u64,
-    ) -> ResponseLimitOutcome {
-        self.send_with_response_limit_impl(method, args, max_response_bytes)
-            .await
-    }
-}
-
-impl NetworkProviderReqwest {
     async fn send_with_response_limit_impl(
         &self,
         method: &HttpMethod,
@@ -276,7 +288,7 @@ impl NetworkProviderReqwest {
         &self,
         method: &HttpMethod,
         request_args: &RequestArgs,
-        response_limited: bool,
+        disable_redirects: bool,
     ) -> reqwest::RequestBuilder {
         let method_actual = match method {
             HttpMethod::GET => Method::GET,
@@ -284,7 +296,7 @@ impl NetworkProviderReqwest {
         };
         let is_post = method_actual == Method::POST;
 
-        let client = self.get_client(request_args, response_limited);
+        let client = self.get_client(request_args, disable_redirects);
 
         let mut request = client.request(method_actual, &request_args.url);
 
@@ -318,8 +330,9 @@ impl NetworkProviderReqwest {
         request
     }
 
-    fn get_client(&self, request_args: &RequestArgs, response_limited: bool) -> reqwest::Client {
-        if response_limited {
+    fn get_client(&self, request_args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
+        if disable_redirects {
+            // Reuse the redirect-disabled clients already used by response-limited requests.
             return self.get_response_limited_client(request_args);
         }
 

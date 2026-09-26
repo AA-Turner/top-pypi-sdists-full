@@ -30,6 +30,7 @@ from arthur_client.api_bindings.api.data_plane_associations_v1_api import DataPl
 from arthur_client.api_bindings.api.data_planes_v1_api import DataPlanesV1Api
 from arthur_client.api_bindings.api.data_retrieval_v1_api import DataRetrievalV1Api
 from arthur_client.api_bindings.api.datasets_v1_api import DatasetsV1Api
+from arthur_client.api_bindings.api.discovery_runs_v1_api import DiscoveryRunsV1Api
 from arthur_client.api_bindings.api.discovery_sources_v1_api import DiscoverySourcesV1Api
 from arthur_client.api_bindings.api.feature_flags_v1_api import FeatureFlagsV1Api
 from arthur_client.api_bindings.api.groups_v1_api import GroupsV1Api
@@ -191,7 +192,11 @@ from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteM
 from arthur_client.api_bindings.models.detection import Detection
 from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
+from arthur_client.api_bindings.models.discovery_denied_scope import DiscoveryDeniedScope
 from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
+from arthur_client.api_bindings.models.discovery_run import DiscoveryRun
+from arthur_client.api_bindings.models.discovery_run_list import DiscoveryRunList
+from arthur_client.api_bindings.models.discovery_run_status import DiscoveryRunStatus
 from arthur_client.api_bindings.models.discovery_scan import DiscoveryScan
 from arthur_client.api_bindings.models.discovery_scan_source_state import DiscoveryScanSourceState
 from arthur_client.api_bindings.models.discovery_scan_source_status import DiscoveryScanSourceStatus
@@ -220,6 +225,7 @@ from arthur_client.api_bindings.models.example_config import ExampleConfig
 from arthur_client.api_bindings.models.examples_config import ExamplesConfig
 from arthur_client.api_bindings.models.extended_role import ExtendedRole
 from arthur_client.api_bindings.models.fetch_data_job_spec import FetchDataJobSpec
+from arthur_client.api_bindings.models.fetch_discovered_agents_job_spec import FetchDiscoveredAgentsJobSpec
 from arthur_client.api_bindings.models.fetch_model_task_job_spec import FetchModelTaskJobSpec
 from arthur_client.api_bindings.models.gcp_agent_creation_source_input import GCPAgentCreationSourceInput
 from arthur_client.api_bindings.models.gcp_agent_creation_source_output import GCPAgentCreationSourceOutput
@@ -413,6 +419,7 @@ from arthur_client.api_bindings.models.put_available_dataset import PutAvailable
 from arthur_client.api_bindings.models.put_available_datasets import PutAvailableDatasets
 from arthur_client.api_bindings.models.put_custom_aggregation_spec_schema import PutCustomAggregationSpecSchema
 from arthur_client.api_bindings.models.put_dataset_schema import PutDatasetSchema
+from arthur_client.api_bindings.models.put_discovery_run_outcome import PutDiscoveryRunOutcome
 from arthur_client.api_bindings.models.put_job_state import PutJobState
 from arthur_client.api_bindings.models.put_model_metric_spec import PutModelMetricSpec
 from arthur_client.api_bindings.models.put_model_metrics_schedule import PutModelMetricsSchedule

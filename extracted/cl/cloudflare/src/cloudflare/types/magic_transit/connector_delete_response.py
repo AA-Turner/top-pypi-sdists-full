@@ -37,8 +37,6 @@ class ConnectorDeleteResponse(BaseModel):
 
     notes: str
 
-    primary: bool
-
     timezone: str
 
     device: Optional[Device] = None
@@ -48,5 +46,3 @@ class ConnectorDeleteResponse(BaseModel):
     last_seen_version: Optional[str] = None
 
     license_key: Optional[str] = None
-
-    site_id: Optional[str] = None

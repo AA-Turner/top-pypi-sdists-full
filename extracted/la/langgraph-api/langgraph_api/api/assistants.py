@@ -20,7 +20,6 @@ from langgraph_api.encryption.middleware import (
     encrypt_request,
 )
 from langgraph_api.encryption.shared import (
-    using_aes_encryption,
     using_custom_encryption,
 )
 from langgraph_api.feature_flags import (
@@ -203,14 +202,12 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
 
     assert_graph_exists(payload["graph_id"])
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload
-    else:
-        effective_payload = await encrypt_request(
-            payload,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    effective_payload = await encrypt_request(
+        payload,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     async with connect() as conn:
         assistant = await Assistants.put(
@@ -226,12 +223,12 @@ async def create_assistant(request: ApiRequest) -> ApiResponse:
         )
 
     assistant_data = await fetchone(assistant, not_found_code=409)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        assistant_data = await decrypt_response(
-            assistant_data,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(assistant_data)
 
 
@@ -269,14 +266,12 @@ async def search_assistants(
         assistants_iter, next_offset, offset
     )
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        decrypted_assistants = assistants
-    else:
-        decrypted_assistants = await decrypt_responses(
-            assistants,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    decrypted_assistants = await decrypt_responses(
+        assistants,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(decrypted_assistants, headers=response_headers)
 
@@ -318,12 +313,12 @@ async def get_assistant(
         raise HTTPException(
             status_code=404, detail=f"assistant {assistant_id} not found"
         )
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        assistant_data = await decrypt_response(
-            assistant_data,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(assistant_data)
 
 
@@ -499,14 +494,12 @@ async def patch_assistant(
     if graph_id is not None:
         assert_graph_exists(graph_id)
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload
-    else:
-        effective_payload = await encrypt_request(
-            payload,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    effective_payload = await encrypt_request(
+        payload,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     async with connect() as conn:
         assistant = await Assistants.patch(
@@ -521,12 +514,12 @@ async def patch_assistant(
         )
 
     assistant_data = await fetchone(assistant)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        assistant_data = await decrypt_response(
-            assistant_data,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(assistant_data)
 
 
@@ -575,14 +568,12 @@ async def get_assistant_versions(request: ApiRequest) -> ApiResponse:
             status_code=404, detail=f"Assistant {assistant_id} not found"
         )
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and not using_aes_encryption():
-        decrypted_assistants = assistants
-    else:
-        decrypted_assistants = await decrypt_responses(
-            assistants,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    decrypted_assistants = await decrypt_responses(
+        assistants,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(decrypted_assistants)
 
@@ -599,12 +590,12 @@ async def set_latest_assistant_version(request: ApiRequest) -> ApiResponse:
         )
 
     assistant_data = await fetchone(assistant, not_found_code=404)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        assistant_data = await decrypt_response(
-            assistant_data,
-            "assistant",
-            ASSISTANT_ENCRYPTION_FIELDS,
-        )
+    assistant_data = await decrypt_response(
+        assistant_data,
+        "assistant",
+        ASSISTANT_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(assistant_data)
 
 

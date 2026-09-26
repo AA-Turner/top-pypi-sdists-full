@@ -13,6 +13,9 @@ for i in range(0, 3):
     else:
         prefix = '../' + prefix
 
+import pycdlib.dates
+import pycdlib.dr
+import pycdlib.headervd
 import pycdlib.rockridge
 
 # SP record
@@ -203,6 +206,12 @@ def test_rrcerecord_update_offset_not_initialized():
     ce = pycdlib.rockridge.RRCERecord()
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
         ce.update_offset(0)
+    assert(str(excinfo.value) == 'CE record not initialized')
+
+def test_rrcerecord_update_len_not_initialized():
+    ce = pycdlib.rockridge.RRCERecord()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+        ce.update_len(0)
     assert(str(excinfo.value) == 'CE record not initialized')
 
 def test_rrcerecord_update_add_record_not_initialized():
@@ -907,6 +916,148 @@ def test_rrtfrecord_new_no_creation_seconds_keeps_flags():
     assert(not (tf.time_flags & 0x01))
     assert(tf.creation_time is None)
 
+# The seven TF timestamp fields, in SUSP/RRIP bit order (bit 0 through bit 6).
+_TF_FIELD_NAMES = ['creation_time', 'access_time', 'modification_time',
+                   'attribute_change_time', 'backup_time', 'expiration_time',
+                   'effective_time']
+
+def _tf_vol_desc_date(day):
+    # A 17-byte Volume Descriptor style date; the day of month is varied so
+    # that each timestamp in a record is distinguishable from the others.
+    return ('2020010%d00000000' % day).encode() + b'\x00'
+
+def _tf_dir_record_date(day):
+    # A 7-byte Directory Record style date, likewise varied by day of month.
+    return struct.pack('=BBBBBBb', 120, 1, day, 0, 0, 0, 0)
+
+def _tf_record_bytes(time_flags, dates_bytes):
+    return b'TF' + struct.pack('=BBB', 5 + len(dates_bytes), 1, time_flags) + dates_bytes
+
+def test_rrtfrecord_parse_all_fields_long_form():
+    # Bit 7 set selects the long (Volume Descriptor, 17-byte) form.  With all
+    # seven timestamps enabled, each one must land in its own field; giving
+    # each a distinct day of month catches any slip in the offset arithmetic.
+    days = list(range(1, 8))
+    data = _tf_record_bytes(0xFF, b''.join(_tf_vol_desc_date(d) for d in days))
+    assert(len(data) == pycdlib.rockridge.RRTFRecord.length(0xFF))
+
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.parse(data)
+
+    for name, day in zip(_TF_FIELD_NAMES, days):
+        field = getattr(tf, name)
+        assert(type(field) == pycdlib.dates.VolumeDescriptorDate)
+        assert(field.dayofmonth == day)
+
+def test_rrtfrecord_parse_all_fields_short_form():
+    # The same, for the short (Directory Record, 7-byte) form.
+    days = list(range(1, 8))
+    data = _tf_record_bytes(0x7F, b''.join(_tf_dir_record_date(d) for d in days))
+    assert(len(data) == pycdlib.rockridge.RRTFRecord.length(0x7F))
+
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.parse(data)
+
+    for name, day in zip(_TF_FIELD_NAMES, days):
+        field = getattr(tf, name)
+        assert(type(field) == pycdlib.dates.DirectoryRecordDate)
+        assert(field.day_of_month == day)
+
+def test_rrtfrecord_parse_backup_expiration_effective_only_long_form():
+    # Only the three trailing timestamps enabled, so the parser has to skip
+    # over the four disabled ones rather than reading them in sequence.
+    days = [5, 6, 7]
+    data = _tf_record_bytes(0xF0, b''.join(_tf_vol_desc_date(d) for d in days))
+    assert(len(data) == pycdlib.rockridge.RRTFRecord.length(0xF0))
+
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.parse(data)
+
+    for name in _TF_FIELD_NAMES[:4]:
+        assert(getattr(tf, name) is None)
+    assert(tf.backup_time.dayofmonth == 5)
+    assert(tf.expiration_time.dayofmonth == 6)
+    assert(tf.effective_time.dayofmonth == 7)
+
+def test_rrtfrecord_parse_backup_expiration_effective_only_short_form():
+    days = [5, 6, 7]
+    data = _tf_record_bytes(0x70, b''.join(_tf_dir_record_date(d) for d in days))
+    assert(len(data) == pycdlib.rockridge.RRTFRecord.length(0x70))
+
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.parse(data)
+
+    for name in _TF_FIELD_NAMES[:4]:
+        assert(getattr(tf, name) is None)
+    assert(tf.backup_time.day_of_month == 5)
+    assert(tf.expiration_time.day_of_month == 6)
+    assert(tf.effective_time.day_of_month == 7)
+
+def test_rrtfrecord_new_all_fields_short_form():
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(0x7F, 1234567890.0)
+
+    for name in _TF_FIELD_NAMES:
+        field = getattr(tf, name)
+        assert(type(field) == pycdlib.dates.DirectoryRecordDate)
+        assert(field.years_since_1900 == 109)
+        assert(field.month == 2)
+        assert(field.day_of_month == 13)
+
+def test_rrtfrecord_new_all_fields_long_form():
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(0xFF, 1234567890.0)
+
+    for name in _TF_FIELD_NAMES:
+        field = getattr(tf, name)
+        assert(type(field) == pycdlib.dates.VolumeDescriptorDate)
+        assert(field.year == 2009)
+        assert(field.month == 2)
+        assert(field.dayofmonth == 13)
+
+def test_rrtfrecord_new_backup_expiration_effective_only():
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(0x70, 1234567890.0)
+
+    for name in _TF_FIELD_NAMES[:4]:
+        assert(getattr(tf, name) is None)
+    for name in _TF_FIELD_NAMES[4:]:
+        assert(getattr(tf, name) is not None)
+
+def test_rrtfrecord_record_round_trip_short_form():
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(0x7F, 1234567890.0)
+
+    rec = tf.record()
+    assert(len(rec) == pycdlib.rockridge.RRTFRecord.length(0x7F))
+
+    parsed = pycdlib.rockridge.RRTFRecord()
+    parsed.parse(rec)
+    assert(parsed.time_flags == 0x7F)
+    for name in _TF_FIELD_NAMES:
+        original = getattr(tf, name)
+        field = getattr(parsed, name)
+        assert(field.years_since_1900 == original.years_since_1900)
+        assert(field.month == original.month)
+        assert(field.day_of_month == original.day_of_month)
+
+def test_rrtfrecord_record_round_trip_long_form():
+    tf = pycdlib.rockridge.RRTFRecord()
+    tf.new(0xFF, 1234567890.0)
+
+    rec = tf.record()
+    assert(len(rec) == pycdlib.rockridge.RRTFRecord.length(0xFF))
+
+    parsed = pycdlib.rockridge.RRTFRecord()
+    parsed.parse(rec)
+    assert(parsed.time_flags == 0xFF)
+    for name in _TF_FIELD_NAMES:
+        original = getattr(tf, name)
+        field = getattr(parsed, name)
+        assert(field.year == original.year)
+        assert(field.month == original.month)
+        assert(field.dayofmonth == original.dayofmonth)
+
 # SF record
 def test_rrsfrecord_parse_double_initialized():
     sf = pycdlib.rockridge.RRSFRecord()
@@ -1528,10 +1679,28 @@ def test_rr_relocated_record_not_initialized():
         rr.relocated_record()
     assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
 
-def test_rr_update_ce_block_not_initialized():
+def test_rr_add_ce_area_not_initialized():
     rr = pycdlib.rockridge.RockRidge()
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
-        rr.update_ce_block(None)
+        rr.add_ce_area(None, 0, 0)
+    assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
+
+def test_rr_clear_ce_areas_not_initialized():
+    rr = pycdlib.rockridge.RockRidge()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+        rr.clear_ce_areas()
+    assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
+
+def test_rr_ce_area_lengths_not_initialized():
+    rr = pycdlib.rockridge.RockRidge()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+        rr.ce_area_lengths(2048)
+    assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
+
+def test_rr_record_ce_areas_not_initialized():
+    rr = pycdlib.rockridge.RockRidge()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+        rr.record_ce_areas()
     assert(str(excinfo.value) == 'Rock Ridge extension not initialized')
 
 def test_rr_parse_continuation_does_not_downgrade_version():
@@ -1706,8 +1875,325 @@ def test_rrcontentry_add_multiple():
     assert(rr._entries[2].offset == 40)
     assert(rr._entries[2].length == 12)
 
+def _ce_record(block, offset, length):
+    def swab(x):
+        return struct.unpack('>I', struct.pack('<I', x))[0]
+    return b'CE' + bytes([28, 1]) + struct.pack('<IIIIII', block, swab(block),
+                                                offset, swab(offset),
+                                                length, swab(length))
+
+def test_rr_two_ce_records_in_one_area():
+    # A CE record is single-instance per System Use area, not per Rock Ridge
+    # object: an area is allowed to chain to a further area via its own CE, but
+    # two CE records in the same area is invalid.
+    rr = pycdlib.rockridge.RockRidge()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        rr.parse(_ce_record(24, 0, 100) + _ce_record(25, 0, 100), False, 0,
+                 True, b'foo')
+    assert(str(excinfo.value) == 'Only single CE record supported')
+
+def test_rr_ce_record_in_each_area():
+    # One CE in the directory record and another in the continuation area it
+    # points at is a legal chain, and must not trip the single-instance check.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.parse(_ce_record(24, 0, 100), False, 0, False, b'foo')
+    rr.parse(_ce_record(25, 0, 100), False, 0, True, b'foo')
+
+    assert(rr.dr_entries.ce_record is not None)
+    assert(rr.dr_entries.ce_record.bl_cont_area == 24)
+    assert(rr.ce_entries is not None)
+    assert(rr.ce_entries.ce_record is not None)
+    assert(rr.ce_entries.ce_record.bl_cont_area == 25)
+
+def test_rrcontentry_add_no_room_returns_none():
+    # Regression test for issue #177: when the continuation block is full,
+    # add_entry() must return None (as documented), not -1.  The caller in
+    # PrimaryOrSupplementaryVD.add_rr_ce_entry() checks 'is not None' to
+    # decide whether to allocate a new block, so a -1 return silently gets
+    # stored as the CE offset and later blows up in swab_32bit() on write.
+    rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)
+    assert(rr.add_entry(2048) == 0)
+
+    assert(rr.add_entry(1) is None)
+    assert(len(rr._entries) == 1)
+
+def test_rrcontentry_add_no_room_at_beginning_returns_none():
+    # Same as above, but exercising the path where entries already exist and
+    # neither the leading gap nor the tail has room for the new entry.
+    rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)
+    rr.track_entry(10, 2038)
+
+    assert(rr.add_entry(11) is None)
+    assert(len(rr._entries) == 1)
+
+def test_rrcontentry_add_larger_than_block_returns_none():
+    rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)
+
+    assert(rr.add_entry(2049) is None)
+    assert(len(rr._entries) == 0)
+
 def test_rrcontblock_remove_entry_no_entry():
     rr = pycdlib.rockridge.RockRidgeContinuationBlock(24, 2048)
     with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
         rr.remove_entry(0, 0)
     assert(str(excinfo.value) == 'Could not find an entry for the RR CE entry in the CE block!')
+
+def test_rr_get_file_mode_no_px_anywhere():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.dr_entries.px_record = None
+    rr.ce_entries = None
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        rr.get_file_mode()
+    assert(str(excinfo.value) == 'No Rock Ridge file mode')
+
+def test_rr_child_link_update_from_dirrecord_no_cl_record():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.cl_to_moved_dr = pycdlib.dr.DirectoryRecord()
+    rr.dr_entries.cl_record = None
+    rr.ce_entries = None
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        rr.child_link_update_from_dirrecord()
+    assert(str(excinfo.value) == 'Could not find child link record!')
+
+def test_rr_parent_link_update_from_dirrecord_no_pl_record():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.parent_link = pycdlib.dr.DirectoryRecord()
+    rr.dr_entries.pl_record = None
+    rr.ce_entries = None
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        rr.parent_link_update_from_dirrecord()
+    assert(str(excinfo.value) == 'Could not find parent link record!')
+
+def test_rr_ce_area_lengths_entry_too_large_for_area():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 254-28, {}, time.time())
+    assert(rr.ce_entries is not None)
+
+    # An area with room for the linking CE record and almost nothing else
+    # cannot hold any real entry.
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+        rr.ce_area_lengths(pycdlib.rockridge.RRCERecord.length() + 2)
+    assert(str(excinfo.value) == 'Rock Ridge entry is too large to fit into a Continuation Area')
+
+def test_rr_record_ce_areas_entries_do_not_fit():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 254-28, {}, time.time())
+    assert(rr.ce_entries is not None)
+
+    # Deliberately allocate an area far smaller than ce_area_lengths asked for.
+    block = pycdlib.rockridge.RockRidgeContinuationBlock(0, 2048)
+    rr.add_ce_area(block, 0, 4)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+        rr.record_ce_areas()
+    assert(str(excinfo.value) == 'Rock Ridge Continuation entries do not fit into the areas allocated for them')
+
+def test_rr_parse_al_record():
+    # AL (Arbitrary Attribute) records round-trip: generate one via new(),
+    # then parse it back out of a SUSP byte string.
+    source = pycdlib.rockridge.RockRidge()
+    source.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 254-28,
+               {b'name': b'value'}, time.time())
+    al_bytes = source.ce_entries.al_records[0].record()
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.parse(b'RR\x05\x01\x89' + al_bytes, False, 0, False, b'foo')
+
+    assert(len(rr.dr_entries.al_records) == 1)
+    components = rr.dr_entries.al_records[0].components
+    assert(len(components) == 2)
+    assert(components[0].data == b'name')
+    assert(components[1].data == b'value')
+
+def test_rr_record_ce_entries_includes_al_records():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 254-28,
+           {b'name': b'value'}, time.time())
+    assert(len(rr.ce_entries.al_records) == 1)
+
+    ce = rr.record_ce_entries()
+    assert(rr.ce_entries.al_records[0].record() in ce)
+
+def test_rr_record_ce_entries_no_ce_entries():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    assert(rr.ce_entries is None)
+    assert(rr.record_ce_entries() == b'')
+
+# Each of the SUSP records that _assign_entries lays down has its own "this
+# will not fit in the Directory Record" path, which returns -1 so that new()
+# retries with a Continuation Entry.  The tests below drive one record type
+# each, sizing curr_dr_len so that the record under test is the one that
+# overflows.
+#
+# With a 3-byte Rock Ridge name, the records ahead of CL/RE/PL consume a fixed
+# 75 bytes: RR (5) + NM (5 + 3) + PX (36) + TF (26).
+_RR_BYTES_BEFORE_RELOCATION_RECORDS = 75
+
+def test_rr_assign_entries_sp_record_does_not_fit():
+    # The SP record is the first one laid down, so it overflows as soon as the
+    # incoming length leaves fewer bytes than the record needs.  _assign_entries
+    # is driven directly here because at these sizes new() cannot succeed even
+    # after adding a Continuation Entry -- the CE record itself no longer fits.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.rr_version = '1.09'
+
+    curr_dr_len = pycdlib.rockridge.ALLOWED_DR_SIZE - pycdlib.rockridge.RRSPRecord.length() + 1
+    assert(rr._assign_entries(True, b'foo', 0, None, False, False, False, 0,
+                              curr_dr_len, {}, 1234567890.0) == -1)
+
+def test_rr_assign_entries_rr_record_does_not_fit():
+    # With is_first_dir_record_of_root False there is no SP record, so the RR
+    # record is the first one laid down.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.rr_version = '1.09'
+
+    curr_dr_len = pycdlib.rockridge.ALLOWED_DR_SIZE - pycdlib.rockridge.RRRRRecord.length() + 1
+    assert(rr._assign_entries(False, b'foo', 0, None, False, False, False, 0,
+                              curr_dr_len, {}, 1234567890.0) == -1)
+
+def test_rr_new_cl_record_forced_into_continuation_area():
+    curr_dr_len = (pycdlib.rockridge.ALLOWED_DR_SIZE
+                   - _RR_BYTES_BEFORE_RELOCATION_RECORDS
+                   - pycdlib.rockridge.RRCLRecord.length() + 1)
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', True, False, False, 0, curr_dr_len,
+           {}, time.time())
+
+    assert(rr.dr_entries.ce_record is not None)
+    assert(rr.dr_entries.cl_record is None)
+    assert(rr.ce_entries.cl_record is not None)
+
+def test_rr_new_re_record_forced_into_continuation_area():
+    curr_dr_len = (pycdlib.rockridge.ALLOWED_DR_SIZE
+                   - _RR_BYTES_BEFORE_RELOCATION_RECORDS
+                   - pycdlib.rockridge.RRRERecord.length() + 1)
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, True, False, 0, curr_dr_len,
+           {}, time.time())
+
+    assert(rr.dr_entries.ce_record is not None)
+    assert(rr.dr_entries.re_record is None)
+    assert(rr.ce_entries.re_record is not None)
+
+def test_rr_new_pl_record_forced_into_continuation_area():
+    curr_dr_len = (pycdlib.rockridge.ALLOWED_DR_SIZE
+                   - _RR_BYTES_BEFORE_RELOCATION_RECORDS
+                   - pycdlib.rockridge.RRPLRecord.length() + 1)
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, True, 0, curr_dr_len,
+           {}, time.time())
+
+    assert(rr.dr_entries.ce_record is not None)
+    assert(rr.dr_entries.pl_record is None)
+    assert(rr.ce_entries.pl_record is not None)
+
+def test_rr_new_al_record_does_not_fit():
+    # The AL record is sized from the attribute name/value pairs, and splits
+    # across the Directory Record and the Continuation Entry when it cannot fit
+    # inline.
+    attributes = {b'k': b'v'*60}
+    attr_list = list(attributes.keys()) + list(attributes.values())
+    curr_dr_len = (pycdlib.rockridge.ALLOWED_DR_SIZE
+                   - _RR_BYTES_BEFORE_RELOCATION_RECORDS
+                   - pycdlib.rockridge.RRALRecord.length(attr_list) + 1)
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, curr_dr_len,
+           attributes, time.time())
+
+    assert(rr.dr_entries.ce_record is not None)
+    assert(len(rr.dr_entries.al_records) == 1)
+    assert(len(rr.ce_entries.al_records) == 1)
+
+def _rr_with_records_in_continuation_area():
+    # A curr_dr_len that leaves no room inline pushes the PX record (and the
+    # rest) out into the continuation area.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 254-28, {},
+           time.time())
+    assert(rr.dr_entries.px_record is None)
+    assert(rr.ce_entries.px_record is not None)
+    return rr
+
+def _dirrecord_at_extent(extent):
+    pvd = pycdlib.headervd.pvd_factory(b'', b'', 0, 0, 2048, b'', b'', b'', b'', b'', b'', b'', 0.0, b'', False)
+    rec = pycdlib.dr.DirectoryRecord()
+    rec.new_root(pvd, 1, 2048, time.time())
+    rec.set_data_location(extent, 0)
+    return rec
+
+def test_rr_copy_file_links_from_continuation_area():
+    # Both the source and the destination keep their PX record in the
+    # continuation area rather than inline.
+    src = _rr_with_records_in_continuation_area()
+    dst = _rr_with_records_in_continuation_area()
+
+    src.ce_entries.px_record.posix_file_links = 7
+    dst.copy_file_links(src)
+
+    assert(dst.ce_entries.px_record.posix_file_links == 7)
+
+def test_rr_child_link_update_from_dirrecord_in_continuation_area():
+    curr_dr_len = (pycdlib.rockridge.ALLOWED_DR_SIZE
+                   - _RR_BYTES_BEFORE_RELOCATION_RECORDS
+                   - pycdlib.rockridge.RRCLRecord.length() + 1)
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', True, False, False, 0, curr_dr_len,
+           {}, time.time())
+    assert(rr.dr_entries.cl_record is None)
+    assert(rr.ce_entries.cl_record is not None)
+
+    rr.cl_to_moved_dr = _dirrecord_at_extent(1234)
+    rr.child_link_update_from_dirrecord()
+
+    assert(rr.ce_entries.cl_record.child_log_block_num == 1234)
+    assert(rr.child_link_extent() == 1234)
+
+def test_rr_parent_link_update_from_dirrecord_in_continuation_area():
+    curr_dr_len = (pycdlib.rockridge.ALLOWED_DR_SIZE
+                   - _RR_BYTES_BEFORE_RELOCATION_RECORDS
+                   - pycdlib.rockridge.RRPLRecord.length() + 1)
+
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, True, 0, curr_dr_len,
+           {}, time.time())
+    assert(rr.dr_entries.pl_record is None)
+    assert(rr.ce_entries.pl_record is not None)
+
+    rr.parent_link = _dirrecord_at_extent(1234)
+    rr.parent_link_update_from_dirrecord()
+
+    assert(rr.ce_entries.pl_record.parent_log_block_num == 1234)
+    assert(rr.parent_link_extent() == 1234)
+
+def test_rr_ce_area_lengths_no_ce_entries():
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    assert(rr.ce_entries is None)
+    assert(rr.ce_area_lengths(2048) == [])
+
+def test_rr_ce_area_lengths_empty_ce_entries():
+    # A continuation entry that ended up holding no SUSP records at all needs
+    # no areas allocated for it.
+    rr = pycdlib.rockridge.RockRidge()
+    rr.new(False, b'foo', 0, None, '1.09', False, False, False, 0, 0, {}, time.time())
+    rr.ce_entries = pycdlib.rockridge.RockRidgeEntries()
+    assert(rr.ce_area_lengths(2048) == [])
+
+def test_rr_record_ce_areas_no_areas_assigned():
+    # There are continuation entries, but no areas have been handed out for
+    # them yet, so there is nothing to record.
+    rr = _rr_with_records_in_continuation_area()
+    assert(not rr.ce_areas)
+    assert(rr.record_ce_areas() == [])

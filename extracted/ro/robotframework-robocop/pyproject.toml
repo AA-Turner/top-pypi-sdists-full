@@ -19,9 +19,9 @@ dependencies = [
     "tomli-w>=1.0",
     "pathspec>=0.12",
     "platformdirs>=4.3",
-    "pytz>=2022.7",
     "msgpack>=1.0.0",
     "typing-extensions>=4.15.0",
+    'tzdata; sys_platform == "win32"',
 ]
 
 keywords = ["robotframework", "automation", "testautomation", "testing", "linter", "qa", "formatting", "formatter"]
@@ -86,7 +86,6 @@ dev = [
     "packaging>=25.0",
     "mypy>=1.19.1",
     "types-jinja2",
-    "types-pytz",
     "msgpack-types",
     "deptry>=0.25.1",
 ]
@@ -102,6 +101,15 @@ doc = [
 mcp = [
     "fastmcp>=3.0.0",
     "pydantic>=2.13.4",
+]
+
+[tool.deptry]
+# The distribution is named "robotframework-robocop" but the importable module is "robocop".
+known_first_party = ["robocop"]
+# Dev-only scripts that legitimately import dev/doc dependencies.
+extend_exclude = [
+    "docs",
+    "noxfile.py",
 ]
 
 [tool.ruff]
@@ -242,7 +250,7 @@ ignore_missing_imports = true
 
 # External libraries that may have incomplete stubs or no stubs at all
 [[tool.mypy.overrides]]
-module = ["typer.*", "click.*", "rich.*", "rich_click.*", "platformdirs.*", "tomli.*", "tomli_w.*", "jinja2.*"]
+module = ["typer.*", "click.*", "rich.*", "platformdirs.*", "tomli.*", "tomli_w.*", "jinja2.*"]
 ignore_missing_imports = true
 
 # CLI module - intentionally passes None values to dataclasses which are handled by overwrite()

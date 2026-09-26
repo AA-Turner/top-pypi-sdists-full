@@ -76,14 +76,23 @@ namespace kiwi
 		return isVerbClass(morph->tag) && FeatureTestor::isMatched(morph->kform, CondPolarity::negative);
 	}
 
-	inline bool isVerbVowel(const Morpheme* morph)
+	inline bool isContractableVerbVowel(const Morpheme* morph)
 	{
-		return isVerbClass(morph->tag) && morph->kform && !morph->kform->empty() && !isHangulCoda(morph->kform->back());
+		if (!isVerbClass(morph->tag)) return false;
+		if (!morph->kform || morph->kform->empty()) return false;
+		if (isHangulCoda(morph->kform->back())) return false;
+		const int vowel = extractVowel(morph->kform->back());
+		if (vowel == 12) return false; // ㅛ
+		if (vowel == 16) return false; // ㅟ
+		if (vowel == 17) return false; // ㅠ
+		if (vowel == 19) return false; // ㅢ
+		if (vowel == 20) return false; // ㅣ
+		return true;
 	}
 
 	inline uint8_t hashSbTypeOrder(uint8_t type, uint8_t order)
 	{
-		return ((type << 1) ^ (type >> 7) ^ order) % 63 + 1;
+		return ((type << 1) ^ (type >> 7) ^ order) % 31 + 1;
 	}
 
 	struct RuleBasedScorer
@@ -107,6 +116,8 @@ namespace kiwi
 			snEndswithPoint{ curMorph->tag == POSTag::sn && !node->uform.empty() && node->uform.back() == u'.'},
 			condP{ curMorph->polar }
 		{
+			if (curMorph->tag == POSTag::sso && node->uform == u"(") curMorphSpecialType = Kiwi::SpecialMorph::parenthesisOpen;
+			else if (curMorph->tag == POSTag::ssc && node->uform == u")") curMorphSpecialType = Kiwi::SpecialMorph::parenthesisClose;
 		}
 
 		float operator()(const Morpheme* prevMorpheme, const SpecialState prevSpState) const
@@ -134,7 +145,7 @@ namespace kiwi
 				accScore -= 100;
 			}
 			// 아/어로 시작하는 어미가 받침 없는 동사 뒤에서 축약되지 않은 경우 벌점 부여
-			if (contractableE && isVerbVowel(prevMorpheme))
+			if (contractableE && isContractableVerbVowel(prevMorpheme))
 			{
 				accScore -= 3;
 			}
@@ -147,15 +158,19 @@ namespace kiwi
 			{
 				if (static_cast<uint8_t>(curMorphSpecialType) != prevSpState.singleQuote)
 				{
-					accScore -= 2;
+					accScore -= 4;
 				}
 			}
 			else if (curMorphSpecialType <= Kiwi::SpecialMorph::doubleQuoteNA)
 			{
 				if ((static_cast<uint8_t>(curMorphSpecialType) - 3) != prevSpState.doubleQuote)
 				{
-					accScore -= 2;
+					accScore -= 4;
 				}
+			}
+			else if (curMorphSpecialType == Kiwi::SpecialMorph::parenthesisClose && prevSpState.parenthesis == 0)
+			{
+				accScore -= 3;
 			}
 
 			// discount for SB in form "[가-하]."
@@ -225,6 +240,8 @@ namespace kiwi
 			else if (ruleBasedScorer.curMorphSpecialType == Kiwi::SpecialMorph::singleQuoteClose) spState.singleQuote = 0;
 			else if (ruleBasedScorer.curMorphSpecialType == Kiwi::SpecialMorph::doubleQuoteOpen) spState.doubleQuote = 1;
 			else if (ruleBasedScorer.curMorphSpecialType == Kiwi::SpecialMorph::doubleQuoteClose) spState.doubleQuote = 0;
+			else if (ruleBasedScorer.curMorphSpecialType == Kiwi::SpecialMorph::parenthesisOpen) spState.parenthesis = 1;
+			else if (ruleBasedScorer.curMorphSpecialType == Kiwi::SpecialMorph::parenthesisClose) spState.parenthesis = 0;
 			if (ruleBasedScorer.curMorphSbType)
 			{
 				spState.bulletHash = hashSbTypeOrder(ruleBasedScorer.curMorphSbType, ruleBasedScorer.curMorphSbOrder + 1);
@@ -804,14 +821,16 @@ namespace kiwi
 				const auto curMorph = morphs[curId];
 				bestPathCont.clear();
 
+				const Morpheme* firstMorph;
 				const Morpheme* lastMorph;
 				if (curMorph->isSingle())
 				{
-					lastMorph = curMorph->getCombined() ? curMorph->getCombined() : curMorph;
+					firstMorph = lastMorph = curMorph->getCombined() ? curMorph->getCombined() : curMorph;
 				}
 				// if the morpheme has chunk set
 				else
 				{
+					firstMorph = curMorph->chunks[0];
 					lastMorph = curMorph->chunks[curMorph->chunks.size() - 1];
 				}
 
@@ -825,8 +844,8 @@ namespace kiwi
 					lastSeqId = lastMorph->lmMorphemeId;
 				}
 
-				RuleBasedScorer ruleBasedScorer{ kw, curMorph, node };
-				const float morphScore = kw->tagScorer.evalLeftBoundary(hasLeftBoundary(node), curMorph->tag);
+				RuleBasedScorer ruleBasedScorer{ kw, firstMorph, node };
+				const float morphScore = kw->tagScorer.evalLeftBoundary(hasLeftBoundary(node), firstMorph->tag);
 				size_t prevId = -1;
 				for (auto* prev = node->getPrev(); prev; prev = prev->getSibling())
 				{

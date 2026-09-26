@@ -143,6 +143,11 @@ class PageCaptureResult(BaseModel):
     screenshot_failure_reason: str | None = None
     failure_reason: str | None = None
     failure_details: list[dict[str, str]] = Field(default_factory=list)
+    #: The Source this page became (SOURCE-CONVERGENCE §4.1) — ``None`` when it did not, and
+    #: ``notices`` says why. Landed on every successful parse, cached or not.
+    processed_document_id: str | None = None
+    source_id: str | None = None
+    notices: list[dict[str, str]] = Field(default_factory=list)
 
 
 def _highlight_target_link_script(target_url: str) -> str:
@@ -192,7 +197,7 @@ async def _capture_backlink_screenshot(
 
     from uuid import uuid4
 
-    from matrx_files import SCRAPER, FileManager
+    from matrx_files import FileManager
     from matrx_files.service import FileService
     from matrx_scraper._ext import get_ext, has_ext
     from matrx_scraper.recipe_runtime import execute_directives
@@ -238,18 +243,20 @@ async def _capture_backlink_screenshot(
         highlighted_match = re.search(r'data-matrx-backlink-matches="(\d+)"', rendered.content)
         highlighted_count = int(highlighted_match.group(1)) if highlighted_match else 0
         capture_id = str(uuid4())
-        file_path = SCRAPER.path(
-            "seo",
-            request.site_id,
-            "backlinks",
-            request.backlink_id,
-            f"{capture_id}-link-evidence.png",
-        )
+        from urllib.parse import urlsplit
+
+        site_host = (urlsplit(request.target_url or "").hostname or "").removeprefix("www.")
         file_manager: FileManager = get_ext("file_manager")
-        upload = await FileService(file_manager).upload_with_intent(
+        # Carried FOR the site's organization: its own "SEO data / Backlink evidence · <site>"
+        # folder through the one door, never a shared system-files tree (FILES-FOLDER-ORG).
+        upload = await FileService(file_manager).upload_for_organization(
             shot.bytes,
+            root="seo-data",
+            source_key=f"backlinks-{request.site_id}",
+            source_label=f"Backlink evidence · {site_host or request.site_id}",
+            sub_folders=[str(request.backlink_id)],
+            file_name=f"{capture_id}-link-evidence.png",
             intent="force_new_copy",
-            file_path=file_path,
             owner_id=ctx.user_id,
             organization_id=organization_id,
             mime_type="image/png",
@@ -381,6 +388,18 @@ async def page_capture(
         organization_id=organization_id,
     )
 
+    # THE RESULT BOUNDARY (SOURCE-CONVERGENCE §4.1): the parse succeeded, so the page becomes a
+    # Source before the response — whether or not the cache was used. Unwired raises; a page that
+    # did not land says so in `notices`.
+    from matrx_scraper.source_landing import land_page_result
+
+    landed = await land_page_result(
+        result,
+        organization_id=organization_id,
+        user_id=str(ctx.user_id or "") or None,
+        origin_client="web",
+    )
+
     return PageCaptureResult(
         success=result.success,
         status_code=result.status_code,
@@ -401,6 +420,9 @@ async def page_capture(
         **screenshot,
         failure_reason=result.failure_reason,
         failure_details=result.failure_details,
+        processed_document_id=landed["processed_document_id"],
+        source_id=landed["source_id"],
+        notices=landed["notices"],
     )
 
 
@@ -769,6 +791,7 @@ async def _run_quick_scrape(
         )
         service.urls = request.urls
         service.use_cache = request.use_cache
+        service.land_as = "web"
         service.options = _build_options(request)
         await emitter.send_info(
             InfoPayload(
@@ -879,6 +902,7 @@ async def _run_search_and_scrape(
         service.total_results_per_keyword = request.total_results_per_keyword
         service.search_type = request.search_type
         service.options = _build_options(request)
+        service.land_as = "web"
         await emitter.send_info(
             InfoPayload(
                 code="scrape_start",
@@ -934,6 +958,7 @@ async def _run_search_and_scrape_limited(
         service.max_page_read = request.max_page_read
         service.search_type = request.search_type
         service.options = _build_options(request)
+        service.land_as = "web"
         await emitter.send_info(
             InfoPayload(
                 code="scrape_start",

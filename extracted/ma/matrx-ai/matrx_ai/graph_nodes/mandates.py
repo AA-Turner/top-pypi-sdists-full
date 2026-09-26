@@ -7,7 +7,7 @@ loop) reached the provider through ``execute_ai_request`` carrying nothing but
 a model id read out of the node's config. No mandate key, no agent, no Holder —
 so no scanner could find them, no admin could rebind them, and one of them
 shipped ``"gpt-4o-mini"`` hard-coded in code as its default. `D20
-</systems/mandates/DECISIONS.md>`_: intelligence outside a Mandate is a defect
+</systems/intelligence/mandates/DECISIONS.md>`_: intelligence outside a Mandate is a defect
 row, never an approved class.
 
 WHAT THIS IS, AND WHAT IT IS NOT
@@ -46,7 +46,7 @@ or refuses, because there nothing else could run.
 workflow AUTHOR chose the model and the instructions on the node, and that
 choice stays exactly where it is: the run-scope layer, the top rung of the
 precedence walk (agent definition → binding overrides → mandate pins, with
-run-scope config winning — ``/systems/mandates/RUNTIME.md`` § THE PINS LAW,
+run-scope config winning — ``/systems/intelligence/mandates/RUNTIME.md`` § THE PINS LAW,
 which also forbids a mandate from ever naming a model in code). The Holder's
 definition and the winning binding's ``config_overrides`` fill only the fields
 the step LEFT UNSET, and only fields the step type has (an image step has no
@@ -297,6 +297,13 @@ async def hold_ambient_workflow_strict_json(
     authored workflow step.  Other callers remain pass-throughs: a generic
     funnel must never assign them this workflow mandate.
     """
+    from matrx_ai.orchestrator.mandate_carrier import MANDATE_HOLDER_METADATA_KEY
+
+    if isinstance(metadata, dict) and isinstance(metadata.get(MANDATE_HOLDER_METADATA_KEY), dict):
+        # Already HELD by its own mandate (``matrx_ai.mandates.hold_code_call``):
+        # the step type's own Holder answers for this call, and re-stamping the
+        # generic workflow Holder over it would name the wrong accountable party.
+        return metadata
     if ctx is None:
         from matrx_connect.context.app_context import try_get_app_context
 

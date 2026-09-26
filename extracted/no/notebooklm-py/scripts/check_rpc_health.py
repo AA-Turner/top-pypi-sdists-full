@@ -2,7 +2,7 @@
 """RPC Health Check - Verify NotebookLM RPC method IDs are still valid.
 
 This script makes minimal API calls to exercise RPC methods and verify
-that the method IDs in rpc/types.py still match what the API returns.
+that the method IDs in rpc/_identifiers.py still match what the API returns.
 
 Exit codes:
     0 - All RPC methods OK (or only transient errors: rate-limits / ReadTimeouts)
@@ -73,6 +73,7 @@ import json
 import os
 import re
 import sys
+import traceback
 from collections import Counter
 from dataclasses import dataclass
 from enum import Enum
@@ -82,6 +83,11 @@ from urllib.parse import urlencode, urlparse
 from uuid import uuid4
 
 import httpx
+
+try:
+    from scripts._ci_rpc_progress import live_progress, progress_note, progress_phase, trace_probe
+except ModuleNotFoundError:
+    from _ci_rpc_progress import live_progress, progress_note, progress_phase, trace_probe
 
 from notebooklm._auth.tokens import LoadPolicy, _load_stored_auth
 from notebooklm._env import (
@@ -115,6 +121,7 @@ from notebooklm.exceptions import (
     ChatError,
     ChatResponseParseError,
     DecodingError,
+    RateLimitError,
     UnknownRPCMethodError,
 )
 from notebooklm.paths import get_storage_path
@@ -402,6 +409,9 @@ async def load_auth(storage_path: Path | None) -> AuthTokens:
         )
         return loaded.auth
     except FileNotFoundError as e:
+        progress_note(
+            "Authentication failed: credentials missing; configure CI auth or run notebooklm login"
+        )
         # ``e`` names the storage path that was actually checked — under
         # profiles that is the only way to see which one the script resolved.
         print(
@@ -411,6 +421,9 @@ async def load_auth(storage_path: Path | None) -> AuthTokens:
         )
         sys.exit(2)
     except ValueError as e:
+        progress_note(
+            "Authentication failed: stored credentials invalid or expired; inspect auth report"
+        )
         # Name the auth source. The file branch of ``_load_storage_state``
         # re-raises a bare ``json`` error carrying no context at all, so a
         # corrupt storage_state.json would otherwise print only
@@ -421,6 +434,9 @@ async def load_auth(storage_path: Path | None) -> AuthTokens:
         )
         sys.exit(2)
     except httpx.HTTPError as e:
+        progress_note(
+            "Authentication failed: network error while fetching tokens; inspect auth report"
+        )
         # ``httpx`` exception strings can echo full request URLs including
         # ``f.sid=<session_id>`` query params, so scrub before logging.
         print(
@@ -498,9 +514,10 @@ async def make_rpc_request(
     except httpx.HTTPStatusError as e:
         return None, f"HTTP {e.response.status_code}"
     except httpx.RequestError as e:
-        # ``httpx.ReadTimeout`` can stringify to ``""``; fall back to the
-        # class name so callers don't mislabel it as an empty response (#864).
-        return None, str(e) or type(e).__name__
+        # RequestError messages can contain the complete request URL, including
+        # the managed notebook handle in ``source-path``. Reports are durable,
+        # so expose only the useful transport category.
+        return None, type(e).__name__
 
 
 async def make_rpc_call(
@@ -534,9 +551,10 @@ async def make_rpc_call(
         found_ids = collect_rpc_ids(chunks)
         return found_ids, None
     except (json.JSONDecodeError, ValueError, IndexError, TypeError) as e:
-        return [], f"Parse error: {e}"
+        return [], f"Parse error: {type(e).__name__}"
 
 
+@trace_probe()
 async def test_rpc_method(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -578,6 +596,7 @@ async def test_rpc_method(
     )
 
 
+@trace_probe()
 async def test_rpc_method_with_data(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -630,7 +649,7 @@ async def test_rpc_method_with_data(
             status=CheckStatus.ERROR,
             expected_id=expected_id,
             found_ids=[],
-            error=f"Parse error: {e}",
+            error=f"Parse error: {type(e).__name__}",
         ), None
 
     status = CheckStatus.OK if expected_id in found_ids else CheckStatus.ERROR
@@ -669,6 +688,12 @@ def get_test_params(method: RPCMethod, notebook_id: str | None) -> list[Any] | N
     # Methods that work without a notebook
     if method == RPCMethod.LIST_NOTEBOOKS:
         return []
+
+    if method == RPCMethod.GET_ACCOUNT:
+        return []
+
+    if method == RPCMethod.LIST_QUOTA_SUMMARY:
+        return [None]
 
     # Global settings (no notebook required)
     if method == RPCMethod.GET_USER_SETTINGS:
@@ -849,6 +874,7 @@ def get_test_params(method: RPCMethod, notebook_id: str | None) -> list[Any] | N
     return None
 
 
+@trace_probe()
 async def check_method(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -969,6 +995,7 @@ class _ChatQueryProbe:
 CHAT_QUERY_PROBE = _ChatQueryProbe()
 
 
+@trace_probe("CHAT GENERATE_FREE_FORM_STREAMED", proof="streamed-chat framing recognized")
 async def check_chat_query(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -1031,15 +1058,14 @@ async def check_chat_query(
             error=f"HTTP {e.response.status_code}",
         )
     except httpx.RequestError as e:
-        # ``httpx.ReadTimeout`` can stringify to ``""``; fall back to the class
-        # name so the downstream transient classifier (and the operator) sees a
-        # usable signal — same posture as ``make_rpc_request`` (#864).
+        # Keep the transport class while withholding the request URL, which can
+        # carry the managed notebook handle.
         return CheckResult(
             method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
             status=CheckStatus.ERROR,
             expected_id=CHAT_QUERY_PROBE.value,
             found_ids=[],
-            error=str(e) or type(e).__name__,
+            error=type(e).__name__,
         )
 
     try:
@@ -1057,20 +1083,20 @@ async def check_chat_query(
             status=CheckStatus.ERROR,
             expected_id=CHAT_QUERY_PROBE.value,
             found_ids=[],
-            error=f"Parse error: {e}",
+            error=f"Parse error: {type(e).__name__}",
         )
-    except ChatError as e:
+    except (ChatError, RateLimitError) as e:
         # A recognized server-side ``"er"`` / rate-limit frame: the wire shape
         # is INTACT (the parser identified the frame), the server simply
         # declined this request. Treat as OK — the contract is healthy. The
-        # message is preserved for the operator (and so a rate-limit frame
-        # stays visible), but it does not fail the canary.
+        # exception category stays visible, but the raw server message does
+        # not enter a durable report.
         return CheckResult(
             method=CHAT_QUERY_PROBE,  # type: ignore[arg-type]
             status=CheckStatus.OK,
             expected_id=CHAT_QUERY_PROBE.value,
             found_ids=[CHAT_QUERY_PROBE.value],
-            error=f"Server declined (recognized frame): {e}",
+            error=f"Server declined (recognized frame): {type(e).__name__}",
         )
 
     return CheckResult(
@@ -1195,11 +1221,10 @@ async def make_raw_rpc_request(
     except httpx.HTTPStatusError as e:
         return None, f"HTTP {e.response.status_code}"
     except httpx.RequestError as e:
-        # httpx.RequestError subclasses can stringify the failed request URL,
-        # which carries f.sid; scrub before it reaches a live print site.
-        return None, scrub_secrets(str(e) or type(e).__name__)
+        return None, type(e).__name__
 
 
+@trace_probe("CUSTOMIZATION GET_CUSTOMIZATION_CHOICES (sqTeoe)")
 async def check_customization_table(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -1385,6 +1410,7 @@ def classify_rebrand_status(
     return RebrandProbeStatus.ABSENT, f"HTTP {status_code}"
 
 
+@trace_probe("REBRAND LIST_NOTEBOOKS (wXbhsf)")
 async def probe_rebrand_batchexecute(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -1428,7 +1454,7 @@ async def probe_rebrand_batchexecute(
         return RebrandProbe(
             REBRAND_BATCHEXECUTE,
             RebrandProbeStatus.UNKNOWN,
-            scrub_secrets(str(e) or type(e).__name__),
+            type(e).__name__,
         )
 
     verdict = classify_rebrand_status(response.status_code, response.headers.get("location"))
@@ -1460,6 +1486,7 @@ async def probe_rebrand_batchexecute(
     )
 
 
+@trace_probe("REBRAND GENERATE_FREE_FORM_STREAMED")
 async def probe_rebrand_chat(
     client: httpx.AsyncClient,
     auth: AuthTokens,
@@ -1502,7 +1529,7 @@ async def probe_rebrand_chat(
         return RebrandProbe(
             REBRAND_CHAT,
             RebrandProbeStatus.UNKNOWN,
-            scrub_secrets(str(e) or type(e).__name__),
+            type(e).__name__,
         )
 
     verdict = classify_rebrand_status(response.status_code, response.headers.get("location"))
@@ -1521,7 +1548,7 @@ async def probe_rebrand_chat(
             RebrandProbeStatus.ABSENT,
             "HTTP 200 but the body is not a streamed-chat response",
         )
-    except ChatError as e:
+    except (ChatError, RateLimitError) as e:
         return RebrandProbe(
             REBRAND_CHAT,
             RebrandProbeStatus.PRESENT,
@@ -1730,7 +1757,7 @@ async def fetch_app_shell(client: httpx.AsyncClient, url: str) -> tuple[str | No
         try:
             response = await client.get(url)
         except httpx.RequestError as e:
-            return None, scrub_secrets(str(e) or type(e).__name__)
+            return None, type(e).__name__
         if response.status_code == 200:
             return response.text, ""
         if not 300 <= response.status_code < 400:
@@ -1808,6 +1835,7 @@ def classify_build_label(served: str | None, detail: str) -> BuildLabelProbe:
     return BuildLabelProbe(BuildLabelStatus.DRIFTED, drift, DEFAULT_BL, served, days)
 
 
+@trace_probe("BUILD_LABEL app shell")
 async def check_build_label(client: httpx.AsyncClient) -> BuildLabelProbe:
     """Read the served build label off the app shell and score the pin against it.
 
@@ -1887,6 +1915,9 @@ async def setup_temp_resources(
     # Response format: [title, None, notebook_id, ...]
     temp.notebook_id = extract_id(data, 2)
     if not temp.notebook_id:
+        progress_note(
+            "WARNING: notebook ID not returned; dependent probes cannot run; cleanup may be needed"
+        )
         print(
             "WARNING: Notebook created but ID not found in response. May need manual cleanup.",
             file=sys.stderr,
@@ -1926,15 +1957,7 @@ async def setup_temp_resources(
     if result.status == CheckStatus.OK:
         temp.source_id = extract_id(data, 0, 0)
         if not temp.source_id:
-            # Decoded response may carry residual credential-shaped substrings
-            # (cookies/CSRF tokens echoed in error payloads, etc.). Scrub the
-            # FULL repr before slicing — slicing first risks chopping a
-            # secret-shaped substring (e.g. ``cookie: SID=ab|cd``) at the
-            # 200-char boundary, leaving the prefix outside the scrub
-            # patterns. Scrub-then-truncate keeps the redaction intact even
-            # if the bytes after position 200 carried the matching anchor.
-            preview = scrub_secrets(repr(data))[:200]
-            print(f"  WARNING: ADD_SOURCE ID extraction failed. Response: {preview}")
+            print("  WARNING: ADD_SOURCE ID extraction failed; response body withheld")
 
     # Test ADD_SOURCE_FILE - registers file source intent (no actual upload needed)
     # Params format: [[[filename]], notebook_id, [2], [1, None, ...]]
@@ -2043,12 +2066,7 @@ async def setup_temp_resources(
             # Artifact ID is at response[0][0]
             temp.artifact_id = extract_id(data, 0, 0)
             if not temp.artifact_id:
-                # Same scrub-then-truncate ordering as the ADD_SOURCE
-                # failure site upstream — slicing first risks chopping a
-                # cookie / CSRF token at the 200-char boundary and
-                # missing the scrub-pattern anchor.
-                preview = scrub_secrets(repr(data))[:200]
-                print(f"  WARNING: CREATE_ARTIFACT ID extraction failed. Response: {preview}")
+                print("  WARNING: CREATE_ARTIFACT ID extraction failed; response body withheld")
 
         # Probe LIST_ARTIFACTS briefly so artifact generation gets a grace
         # period before DELETE_ARTIFACT cleanup.
@@ -2086,6 +2104,9 @@ async def setup_temp_resources(
                 )
     else:
         # Skip artifact tests - no source_id available
+        progress_note(
+            "setup: SKIPPED CREATE_ARTIFACT; source creation did not yield a usable source"
+        )
         print("SKIP     CREATE_ARTIFACT - No source_id available (source extraction failed)")
 
     return temp
@@ -2119,7 +2140,7 @@ async def cleanup_temp_resources(
             results.append(result)
             print(format_check_with_success(result, "temp note deleted"))
         except Exception as e:
-            print(f"ERROR    DELETE_NOTE - {e}")
+            print(f"ERROR    DELETE_NOTE - {type(e).__name__}")
 
     # Test DELETE_SOURCE if we have a source (best effort)
     if temp.source_id:
@@ -2135,7 +2156,7 @@ async def cleanup_temp_resources(
             results.append(result)
             print(format_check_with_success(result, "temp source deleted"))
         except Exception as e:
-            print(f"ERROR    DELETE_SOURCE - {e}")
+            print(f"ERROR    DELETE_SOURCE - {type(e).__name__}")
 
     # Test DELETE_ARTIFACT if we have an artifact (best effort)
     if temp.artifact_id:
@@ -2151,7 +2172,7 @@ async def cleanup_temp_resources(
             results.append(result)
             print(format_check_with_success(result, "temp artifact deleted"))
         except Exception as e:
-            print(f"ERROR    DELETE_ARTIFACT - {e}")
+            print(f"ERROR    DELETE_ARTIFACT - {type(e).__name__}")
 
     # ALWAYS delete notebook - this is critical to avoid orphaned notebooks
     try:
@@ -2160,8 +2181,11 @@ async def cleanup_temp_resources(
         results.append(result)
         print(format_check_with_success(result, "temp notebook deleted"))
     except Exception as e:
-        print(f"ERROR    DELETE_NOTEBOOK - {e}")
-        print(f"WARNING: Notebook {temp.notebook_id} may need manual cleanup", file=sys.stderr)
+        print(f"ERROR    DELETE_NOTEBOOK - {type(e).__name__}")
+        print(
+            "WARNING: A temporary RPC-health notebook may need manual cleanup",
+            file=sys.stderr,
+        )
 
 
 async def run_health_check(
@@ -2213,9 +2237,11 @@ async def run_health_check(
     )
     previous_state_path = rebrand_previous_state_path or rebrand_state_path
 
+    progress_phase("authentication")
     storage_path = resolve_storage_path()
     print(f"Fetching auth tokens... (source: {describe_auth_source(storage_path)})")
     auth = await load_auth(storage_path)
+    progress_note("Authentication ready; RPC-ID checks validate response IDs, not full behavior")
     print(f"Auth OK (CSRF token length: {len(auth.csrf_token)})")
     print(f"  base host:     {httpx.URL(get_base_url()).host} (from: {base_url_source})")
     print(f"  account route: {auth.account_route}")
@@ -2226,6 +2252,7 @@ async def run_health_check(
     async with build_probe_client(auth) as client:
         try:
             if full_mode:
+                progress_phase("setup")
                 print("Creating temp resources for full testing...")
                 temp_resources = await setup_temp_resources(client, auth, results)
                 if temp_resources.notebook_id:
@@ -2238,6 +2265,10 @@ async def run_health_check(
             print(f"Checking {total} RPC methods...")
             print("=" * 60)
 
+            progress_phase("method inventory")
+            progress_note(
+                f"Checking {total} registered RPC methods; skipped probes include a reason"
+            )
             for i, method in enumerate(methods, 1):
                 result = await check_method(client, auth, method, notebook_id, full_mode)
                 results.append(result)
@@ -2261,6 +2292,7 @@ async def run_health_check(
             # so it is checked separately from the method-ID loop above — but
             # its ``CheckResult`` flows through the same summary + exit-code
             # machinery so chat drift fails the canary like any other probe.
+            progress_phase("chat framing")
             chat_result = await check_chat_query(client, auth, notebook_id)
             results.append(chat_result)
             chat_icon = STATUS_ICONS[chat_result.status]
@@ -2273,6 +2305,7 @@ async def run_health_check(
             # (the id echo is already covered by the regular GET_CUSTOMIZATION_CHOICES
             # row): MATCH is the steady state, DRIFT is the loud signal that the
             # served format codes / labels no longer agree with the client enums.
+            progress_phase("customization tables")
             customization_status, customization_detail = await check_customization_table(
                 client, auth, notebook_id
             )
@@ -2286,6 +2319,7 @@ async def run_health_check(
             # only STALE is exit-coded, and it clears itself the moment the
             # constant is bumped.
             await asyncio.sleep(CALL_DELAY)
+            progress_phase("build label")
             build_label = await check_build_label(client)
             for line in format_build_label_lane(build_label):
                 print(line)
@@ -2294,6 +2328,7 @@ async def run_health_check(
             # never join ``results``, so they cannot reach ``partition_errors``
             # / ``compute_exit_code`` and cannot poison the main lane's
             # title-deduped issue.
+            progress_phase("rebrand endpoints")
             rebrand_probes = await probe_rebrand_host(client, auth, notebook_id)
             rebrand_state = build_rebrand_state(
                 rebrand_probe_host(),
@@ -2308,6 +2343,7 @@ async def run_health_check(
         finally:
             if full_mode and temp_resources.notebook_id:
                 print()
+                progress_phase("cleanup")
                 print("Testing DELETE operations during cleanup...")
                 await cleanup_temp_resources(client, auth, temp_resources, results)
 
@@ -2320,11 +2356,9 @@ async def run_health_check(
 # Currently classified as transient:
 #   * ``HTTP 429`` and gRPC ``RESOURCE_EXHAUSTED`` — explicit rate-limit
 #     signals from the backend.
-#   * ``API rate limit`` — catches the decoder's user-displayable messages
-#     raised as ``RateLimitError`` ("API rate limit exceeded..." and
-#     "API rate limit or quota exceeded..."). These reach the canary via
-#     the ``except RPCError`` parse-error branch in
-#     ``test_rpc_method_with_data`` and were previously misclassified.
+#   * ``Parse error: RateLimitError`` — the redacted typed marker emitted
+#     when the decoder rejects a user-displayable quota response. The legacy
+#     ``API rate limit`` marker remains for older safe reports.
 #   * ``ReadTimeout`` — ``httpx.ReadTimeout`` against Google's RPC
 #     endpoints is almost always server-side slowness, not an RPC
 #     contract change. It consistently passes on retry (see #1004 and
@@ -2340,6 +2374,8 @@ TRANSIENT_ERROR_MARKERS: tuple[str, ...] = (
     "HTTP 429",
     "RESOURCE_EXHAUSTED",
     "API rate limit",
+    "Parse error: RateLimitError",
+    "Chat rate limit",
     "ReadTimeout",
 )
 
@@ -2460,7 +2496,10 @@ def print_summary(
             print(f"  {r.method.name}:")
             print(f"    Expected: '{r.expected_id}'")
             print(f"    Found:    {r.found_ids}")
-            print(f"    Action:   Update RPCMethod.{r.method.name} in src/notebooklm/rpc/types.py")
+            print(
+                f"    Action:   Update RPCMethod.{r.method.name} in "
+                "src/notebooklm/rpc/_identifiers.py"
+            )
             print()
 
     # Print details for errors, split into non-transient (real failures)
@@ -2642,6 +2681,12 @@ def main() -> int:
             "consumer can verify the document it reads was produced by this run."
         ),
     )
+    parser.add_argument(
+        "--progress-fd",
+        type=int,
+        default=None,
+        help="Additional file descriptor for safe live probe diagnostics (CI)",
+    )
     args = parser.parse_args()
 
     source = describe_base_url_source(args.base_url is not None)
@@ -2651,21 +2696,37 @@ def main() -> int:
         except ValueError as e:
             parser.error(str(e))
 
-    mode_str = "FULL" if args.full else "QUICK"
-    print(f"RPC Health Check ({mode_str} mode)")
-    print("=" * 60)
-    print()
+    with live_progress(args.progress_fd):
+        mode_str = "FULL" if args.full else "QUICK"
+        print(f"RPC Health Check ({mode_str} mode)")
+        print("=" * 60)
+        print()
 
-    results, customization_status, rebrand_state, build_label = asyncio.run(
-        run_health_check(
-            full_mode=args.full,
-            base_url_source=source,
-            rebrand_state_path=args.rebrand_state_file,
-            rebrand_previous_state_path=args.rebrand_previous_state_file,
-            rebrand_run_id=args.rebrand_run_id,
-        )
-    )
-    return print_summary(results, customization_status, rebrand_state, build_label)
+        try:
+            results, customization_status, rebrand_state, build_label = asyncio.run(
+                run_health_check(
+                    full_mode=args.full,
+                    base_url_source=source,
+                    rebrand_state_path=args.rebrand_state_file,
+                    rebrand_previous_state_path=args.rebrand_previous_state_file,
+                    rebrand_run_id=args.rebrand_run_id,
+                )
+            )
+            exit_code = print_summary(results, customization_status, rebrand_state, build_label)
+            counts = Counter(result.status.value for result in results)
+            progress_note(
+                f"RPC health finished: exit={exit_code}; "
+                + " ".join(f"{status}={count}" for status, count in sorted(counts.items()))
+            )
+            return exit_code
+        except SystemExit as error:
+            progress_note(f"RPC health stopped: exit={error.code}; see authentication diagnostics")
+            raise
+        except Exception as e:
+            progress_note("RPC health crashed: exit=2; see full diagnostic report")
+            print(f"\nFATAL: RPC health check crashed: {scrub_secrets(e)}", file=sys.stderr)
+            print(scrub_secrets(traceback.format_exc()), file=sys.stderr)
+            return 2
 
 
 if __name__ == "__main__":

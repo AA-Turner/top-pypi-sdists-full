@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import Type, Optional, cast
+from typing_extensions import overload
 
 import httpx
 
 from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from ..._utils import path_template, maybe_transform, async_maybe_transform
+from ..._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -20,7 +21,12 @@ from ..._wrappers import ResultWrapper
 from ...pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.hyperdrive import config_edit_params, config_list_params, config_create_params, config_update_params
-from ...types.hyperdrive.hyperdrive import Hyperdrive
+from ...types.hyperdrive.config_get_response import ConfigGetResponse
+from ...types.hyperdrive.config_edit_response import ConfigEditResponse
+from ...types.hyperdrive.config_list_response import ConfigListResponse
+from ...types.hyperdrive.config_create_response import ConfigCreateResponse
+from ...types.hyperdrive.config_update_response import ConfigUpdateResponse
+from ...types.hyperdrive.config_restart_response import ConfigRestartResponse
 
 __all__ = ["ConfigsResource", "AsyncConfigsResource"]
 
@@ -45,14 +51,16 @@ class ConfigsResource(SyncAPIResource):
         """
         return ConfigsResourceWithStreamingResponse(self)
 
+    @overload
     def create(
         self,
         *,
         account_id: str,
         name: str,
-        origin: config_create_params.Origin,
-        caching: config_create_params.Caching | Omit = omit,
-        mtls: config_create_params.MTLS | Omit = omit,
+        origin: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginOrigin,
+        caching: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginCaching | Omit = omit,
+        integration: Optional[object] | Omit = omit,
+        mtls: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginMTLS | Omit = omit,
         origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -60,12 +68,72 @@ class ConfigsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
-        """
-        Creates and returns a new Hyperdrive configuration.
+    ) -> ConfigCreateResponse:
+        """Creates and returns a new Hyperdrive configuration.
+
+        For a PlanetScale
+        integration, the Cloudflare account must already be linked to PlanetScale in the
+        Hyperdrive dashboard.
 
         Args:
           account_id: Define configurations using a unique string identifier.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          origin: Combines database connection fields with exactly one supported network location.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Certain
+              Cloudflare-managed origins may be permitted a higher limit. Contact Cloudflare
+              if you need a higher limit.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        ...
+
+    @overload
+    def create(
+        self,
+        *,
+        account_id: str,
+        integration: config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationIntegration,
+        name: str,
+        caching: config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationCaching | Omit = omit,
+        mtls: config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationMTLS | Omit = omit,
+        origin: Optional[object] | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConfigCreateResponse:
+        """Creates and returns a new Hyperdrive configuration.
+
+        For a PlanetScale
+        integration, the Cloudflare account must already be linked to PlanetScale in the
+        Hyperdrive dashboard.
+
+        Args:
+          account_id: Define configurations using a unique string identifier.
+
+          integration: Connects to a PlanetScale database using credentials managed by Cloudflare. The
+              Cloudflare account must already be linked to PlanetScale in the Hyperdrive
+              dashboard.
 
           name: The name of the Hyperdrive configuration. Used to identify the configuration in
               the Cloudflare dashboard and API.
@@ -89,6 +157,32 @@ class ConfigsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        ...
+
+    @required_args(["account_id", "name", "origin"], ["account_id", "integration", "name"])
+    def create(
+        self,
+        *,
+        account_id: str,
+        name: str,
+        origin: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginOrigin | Optional[object] | Omit = omit,
+        caching: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginCaching
+        | config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationCaching
+        | Omit = omit,
+        integration: Optional[object]
+        | config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationIntegration
+        | Omit = omit,
+        mtls: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginMTLS
+        | config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationMTLS
+        | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConfigCreateResponse:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
@@ -98,6 +192,7 @@ class ConfigsResource(SyncAPIResource):
                     "name": name,
                     "origin": origin,
                     "caching": caching,
+                    "integration": integration,
                     "mtls": mtls,
                     "origin_connection_limit": origin_connection_limit,
                 },
@@ -108,9 +203,9 @@ class ConfigsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigCreateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigCreateResponse], ResultWrapper[ConfigCreateResponse]),
         )
 
     def update(
@@ -129,7 +224,7 @@ class ConfigsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
+    ) -> ConfigUpdateResponse:
         """Replaces and returns the specified Hyperdrive configuration.
 
         The request must
@@ -145,6 +240,8 @@ class ConfigsResource(SyncAPIResource):
 
           name: The name of the Hyperdrive configuration. Used to identify the configuration in
               the Cloudflare dashboard and API.
+
+          origin: Combines database connection fields with exactly one supported network location.
 
           mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
               origins; TLS must be managed on the VPC Service.
@@ -190,9 +287,9 @@ class ConfigsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigUpdateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigUpdateResponse], ResultWrapper[ConfigUpdateResponse]),
         )
 
     def list(
@@ -207,7 +304,7 @@ class ConfigsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncV4PagePaginationArray[Hyperdrive]:
+    ) -> SyncV4PagePaginationArray[ConfigListResponse]:
         """
         Returns a list of Hyperdrives.
 
@@ -230,7 +327,7 @@ class ConfigsResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
             path_template("/accounts/{account_id}/hyperdrive/configs", account_id=account_id),
-            page=SyncV4PagePaginationArray[Hyperdrive],
+            page=SyncV4PagePaginationArray[ConfigListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -244,7 +341,7 @@ class ConfigsResource(SyncAPIResource):
                     config_list_params.ConfigListParams,
                 ),
             ),
-            model=Hyperdrive,
+            model=ConfigListResponse,
         )
 
     def delete(
@@ -311,7 +408,7 @@ class ConfigsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
+    ) -> ConfigEditResponse:
         """Updates and returns the specified fields of the Hyperdrive configuration.
 
         Custom
@@ -326,7 +423,7 @@ class ConfigsResource(SyncAPIResource):
               origins; TLS must be managed on the VPC Service.
 
           name: The name of the Hyperdrive configuration. Used to identify the configuration in
-              the Cloudflare dashboard and API.
+              the Cloudflare dashboard and API. An empty value leaves the name unchanged.
 
           origin: Connect to a database through a Workers VPC Service. TLS settings (mTLS,
               sslmode) cannot be configured on the Hyperdrive when using a VPC Service origin;
@@ -373,9 +470,9 @@ class ConfigsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigEditResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigEditResponse], ResultWrapper[ConfigEditResponse]),
         )
 
     def get(
@@ -389,7 +486,7 @@ class ConfigsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
+    ) -> ConfigGetResponse:
         """
         Returns the specified Hyperdrive configuration.
 
@@ -421,9 +518,59 @@ class ConfigsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigGetResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigGetResponse], ResultWrapper[ConfigGetResponse]),
+        )
+
+    def restart(
+        self,
+        hyperdrive_id: str,
+        *,
+        account_id: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConfigRestartResponse:
+        """
+        Restarts the connection pool for the specified Hyperdrive configuration without
+        changing its configuration. Existing connections are drained and a new pool is
+        established at the edge.
+
+        Args:
+          account_id: Define configurations using a unique string identifier.
+
+          hyperdrive_id: Define configurations using a unique string identifier.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not account_id:
+            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        if not hyperdrive_id:
+            raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
+        return self._post(
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}/restart",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[ConfigRestartResponse]._unwrapper,
+            ),
+            cast_to=cast(Type[ConfigRestartResponse], ResultWrapper[ConfigRestartResponse]),
         )
 
 
@@ -447,14 +594,16 @@ class AsyncConfigsResource(AsyncAPIResource):
         """
         return AsyncConfigsResourceWithStreamingResponse(self)
 
+    @overload
     async def create(
         self,
         *,
         account_id: str,
         name: str,
-        origin: config_create_params.Origin,
-        caching: config_create_params.Caching | Omit = omit,
-        mtls: config_create_params.MTLS | Omit = omit,
+        origin: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginOrigin,
+        caching: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginCaching | Omit = omit,
+        integration: Optional[object] | Omit = omit,
+        mtls: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginMTLS | Omit = omit,
         origin_connection_limit: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -462,12 +611,72 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
-        """
-        Creates and returns a new Hyperdrive configuration.
+    ) -> ConfigCreateResponse:
+        """Creates and returns a new Hyperdrive configuration.
+
+        For a PlanetScale
+        integration, the Cloudflare account must already be linked to PlanetScale in the
+        Hyperdrive dashboard.
 
         Args:
           account_id: Define configurations using a unique string identifier.
+
+          name: The name of the Hyperdrive configuration. Used to identify the configuration in
+              the Cloudflare dashboard and API.
+
+          origin: Combines database connection fields with exactly one supported network location.
+
+          mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
+              origins; TLS must be managed on the VPC Service.
+
+          origin_connection_limit: The (soft) maximum number of connections the Hyperdrive is allowed to make to
+              the origin database.
+
+              Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+              specified, defaults to 20 for free tier and 60 for paid tier. Certain
+              Cloudflare-managed origins may be permitted a higher limit. Contact Cloudflare
+              if you need a higher limit.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        ...
+
+    @overload
+    async def create(
+        self,
+        *,
+        account_id: str,
+        integration: config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationIntegration,
+        name: str,
+        caching: config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationCaching | Omit = omit,
+        mtls: config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationMTLS | Omit = omit,
+        origin: Optional[object] | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConfigCreateResponse:
+        """Creates and returns a new Hyperdrive configuration.
+
+        For a PlanetScale
+        integration, the Cloudflare account must already be linked to PlanetScale in the
+        Hyperdrive dashboard.
+
+        Args:
+          account_id: Define configurations using a unique string identifier.
+
+          integration: Connects to a PlanetScale database using credentials managed by Cloudflare. The
+              Cloudflare account must already be linked to PlanetScale in the Hyperdrive
+              dashboard.
 
           name: The name of the Hyperdrive configuration. Used to identify the configuration in
               the Cloudflare dashboard and API.
@@ -491,6 +700,32 @@ class AsyncConfigsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        ...
+
+    @required_args(["account_id", "name", "origin"], ["account_id", "integration", "name"])
+    async def create(
+        self,
+        *,
+        account_id: str,
+        name: str,
+        origin: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginOrigin | Optional[object] | Omit = omit,
+        caching: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginCaching
+        | config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationCaching
+        | Omit = omit,
+        integration: Optional[object]
+        | config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationIntegration
+        | Omit = omit,
+        mtls: config_create_params.HyperdriveHyperdriveConfigCreateWithOriginMTLS
+        | config_create_params.HyperdriveHyperdriveConfigCreateWithIntegrationMTLS
+        | Omit = omit,
+        origin_connection_limit: int | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConfigCreateResponse:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
@@ -500,6 +735,7 @@ class AsyncConfigsResource(AsyncAPIResource):
                     "name": name,
                     "origin": origin,
                     "caching": caching,
+                    "integration": integration,
                     "mtls": mtls,
                     "origin_connection_limit": origin_connection_limit,
                 },
@@ -510,9 +746,9 @@ class AsyncConfigsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigCreateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigCreateResponse], ResultWrapper[ConfigCreateResponse]),
         )
 
     async def update(
@@ -531,7 +767,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
+    ) -> ConfigUpdateResponse:
         """Replaces and returns the specified Hyperdrive configuration.
 
         The request must
@@ -547,6 +783,8 @@ class AsyncConfigsResource(AsyncAPIResource):
 
           name: The name of the Hyperdrive configuration. Used to identify the configuration in
               the Cloudflare dashboard and API.
+
+          origin: Combines database connection fields with exactly one supported network location.
 
           mtls: mTLS configuration for the origin connection. Cannot be used with VPC Service
               origins; TLS must be managed on the VPC Service.
@@ -592,9 +830,9 @@ class AsyncConfigsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigUpdateResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigUpdateResponse], ResultWrapper[ConfigUpdateResponse]),
         )
 
     def list(
@@ -609,7 +847,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[Hyperdrive, AsyncV4PagePaginationArray[Hyperdrive]]:
+    ) -> AsyncPaginator[ConfigListResponse, AsyncV4PagePaginationArray[ConfigListResponse]]:
         """
         Returns a list of Hyperdrives.
 
@@ -632,7 +870,7 @@ class AsyncConfigsResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
             path_template("/accounts/{account_id}/hyperdrive/configs", account_id=account_id),
-            page=AsyncV4PagePaginationArray[Hyperdrive],
+            page=AsyncV4PagePaginationArray[ConfigListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -646,7 +884,7 @@ class AsyncConfigsResource(AsyncAPIResource):
                     config_list_params.ConfigListParams,
                 ),
             ),
-            model=Hyperdrive,
+            model=ConfigListResponse,
         )
 
     async def delete(
@@ -713,7 +951,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
+    ) -> ConfigEditResponse:
         """Updates and returns the specified fields of the Hyperdrive configuration.
 
         Custom
@@ -728,7 +966,7 @@ class AsyncConfigsResource(AsyncAPIResource):
               origins; TLS must be managed on the VPC Service.
 
           name: The name of the Hyperdrive configuration. Used to identify the configuration in
-              the Cloudflare dashboard and API.
+              the Cloudflare dashboard and API. An empty value leaves the name unchanged.
 
           origin: Connect to a database through a Workers VPC Service. TLS settings (mTLS,
               sslmode) cannot be configured on the Hyperdrive when using a VPC Service origin;
@@ -775,9 +1013,9 @@ class AsyncConfigsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigEditResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigEditResponse], ResultWrapper[ConfigEditResponse]),
         )
 
     async def get(
@@ -791,7 +1029,7 @@ class AsyncConfigsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Hyperdrive:
+    ) -> ConfigGetResponse:
         """
         Returns the specified Hyperdrive configuration.
 
@@ -823,9 +1061,59 @@ class AsyncConfigsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Hyperdrive]._unwrapper,
+                post_parser=ResultWrapper[ConfigGetResponse]._unwrapper,
             ),
-            cast_to=cast(Type[Hyperdrive], ResultWrapper[Hyperdrive]),
+            cast_to=cast(Type[ConfigGetResponse], ResultWrapper[ConfigGetResponse]),
+        )
+
+    async def restart(
+        self,
+        hyperdrive_id: str,
+        *,
+        account_id: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> ConfigRestartResponse:
+        """
+        Restarts the connection pool for the specified Hyperdrive configuration without
+        changing its configuration. Existing connections are drained and a new pool is
+        established at the edge.
+
+        Args:
+          account_id: Define configurations using a unique string identifier.
+
+          hyperdrive_id: Define configurations using a unique string identifier.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not account_id:
+            raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        if not hyperdrive_id:
+            raise ValueError(f"Expected a non-empty value for `hyperdrive_id` but received {hyperdrive_id!r}")
+        return await self._post(
+            path_template(
+                "/accounts/{account_id}/hyperdrive/configs/{hyperdrive_id}/restart",
+                account_id=account_id,
+                hyperdrive_id=hyperdrive_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[ConfigRestartResponse]._unwrapper,
+            ),
+            cast_to=cast(Type[ConfigRestartResponse], ResultWrapper[ConfigRestartResponse]),
         )
 
 
@@ -851,6 +1139,9 @@ class ConfigsResourceWithRawResponse:
         self.get = to_raw_response_wrapper(
             configs.get,
         )
+        self.restart = to_raw_response_wrapper(
+            configs.restart,
+        )
 
 
 class AsyncConfigsResourceWithRawResponse:
@@ -874,6 +1165,9 @@ class AsyncConfigsResourceWithRawResponse:
         )
         self.get = async_to_raw_response_wrapper(
             configs.get,
+        )
+        self.restart = async_to_raw_response_wrapper(
+            configs.restart,
         )
 
 
@@ -899,6 +1193,9 @@ class ConfigsResourceWithStreamingResponse:
         self.get = to_streamed_response_wrapper(
             configs.get,
         )
+        self.restart = to_streamed_response_wrapper(
+            configs.restart,
+        )
 
 
 class AsyncConfigsResourceWithStreamingResponse:
@@ -922,4 +1219,7 @@ class AsyncConfigsResourceWithStreamingResponse:
         )
         self.get = async_to_streamed_response_wrapper(
             configs.get,
+        )
+        self.restart = async_to_streamed_response_wrapper(
+            configs.restart,
         )

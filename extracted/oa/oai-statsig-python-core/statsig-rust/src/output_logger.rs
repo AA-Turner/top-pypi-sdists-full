@@ -94,6 +94,9 @@ pub fn initialize_output_logger(
     level: &Option<LogLevel>,
     provider: Option<Arc<dyn OutputLogProvider>>,
 ) {
+    if crate::output_policy::OutputPolicy::current().is_silent() {
+        return;
+    }
     let was_initialized = INITIALIZED.swap(true, Ordering::SeqCst);
     if was_initialized {
         return;
@@ -135,6 +138,9 @@ pub fn initialize_output_logger(
 }
 
 pub fn shutdown_output_logger() {
+    if crate::output_policy::OutputPolicy::current().is_silent() {
+        return;
+    }
     let mut state = match LOGGER_STATE.try_write_for(Duration::from_secs(5)) {
         Some(state) => state,
         None => {
@@ -153,6 +159,9 @@ pub fn shutdown_output_logger() {
 }
 
 pub fn log_message(tag: &str, level: LogLevel, msg: String) {
+    if crate::output_policy::OutputPolicy::current().is_silent() {
+        return;
+    }
     let truncated_msg = if msg.chars().count() > MAX_CHARS {
         let visible_chars = MAX_CHARS.saturating_sub(TRUNCATED_SUFFIX.len());
         format!(
@@ -196,6 +205,9 @@ pub fn log_message(tag: &str, level: LogLevel, msg: String) {
 }
 
 pub fn has_valid_log_level(level: &LogLevel) -> bool {
+    if crate::output_policy::OutputPolicy::current().is_silent() {
+        return false;
+    }
     let state = match LOGGER_STATE.try_read_for(Duration::from_secs(5)) {
         Some(state) => state,
         None => {
@@ -207,6 +219,11 @@ pub fn has_valid_log_level(level: &LogLevel) -> bool {
     };
     let current_level = &state.level;
     level.to_number() <= current_level.to_number()
+}
+
+#[doc(hidden)]
+pub fn is_diagnostic_output_suppressed() -> bool {
+    crate::output_policy::OutputPolicy::current().is_silent()
 }
 
 #[macro_export]
@@ -260,21 +277,23 @@ macro_rules! log_e {
 #[macro_export]
 macro_rules! log_error_to_statsig_and_console {
     ($ops_stats:expr, $tag:expr, $err:expr) => {
-        let event = ErrorBoundaryEvent {
-            bypass_dedupe: false,
-            exception: $err.name().to_string(),
-            info: serde_json::to_string(&$err).unwrap_or_default(),
-            tag: $tag.to_string(),
-            extra: None,
-            dedupe_key: None,
-        };
-        $ops_stats.log_error(event);
+        if !$crate::output_logger::is_diagnostic_output_suppressed() {
+            let event = ErrorBoundaryEvent {
+                bypass_dedupe: false,
+                exception: $err.name().to_string(),
+                info: serde_json::to_string(&$err).unwrap_or_default(),
+                tag: $tag.to_string(),
+                extra: None,
+                dedupe_key: None,
+            };
+            $ops_stats.log_error(event);
 
-        $crate::output_logger::log_message(
-            &$tag,
-            $crate::output_logger::LogLevel::Error,
-            $err.to_string(),
-        );
+            $crate::output_logger::log_message(
+                &$tag,
+                $crate::output_logger::LogLevel::Error,
+                $err.to_string(),
+            );
+        }
     };
 }
 

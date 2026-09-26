@@ -43,23 +43,11 @@ class TestEmailSending:
                     "type": "application/pdf",
                 }
             ],
-            bcc=[
-                "recipient-a@example.com",
-                {
-                    "address": "recipient-b@example.com",
-                    "name": "Recipient B",
-                },
-            ],
-            cc=[
-                "recipient-a@example.com",
-                {
-                    "address": "recipient-b@example.com",
-                    "name": "Recipient B",
-                },
-            ],
+            bcc=["bcc-recipient@example.com"],
+            cc=["cc-recipient@example.com"],
             headers={"X-Custom-Header": "value"},
             html="<h1>Hello</h1><p>Please find your report attached.</p>",
-            reply_to="user@example.com",
+            reply_to="replies@example.com",
             text="Hello\n\nPlease find your report attached.",
             to=["recipient@example.com"],
         )
@@ -181,23 +169,11 @@ class TestAsyncEmailSending:
                     "type": "application/pdf",
                 }
             ],
-            bcc=[
-                "recipient-a@example.com",
-                {
-                    "address": "recipient-b@example.com",
-                    "name": "Recipient B",
-                },
-            ],
-            cc=[
-                "recipient-a@example.com",
-                {
-                    "address": "recipient-b@example.com",
-                    "name": "Recipient B",
-                },
-            ],
+            bcc=["bcc-recipient@example.com"],
+            cc=["cc-recipient@example.com"],
             headers={"X-Custom-Header": "value"},
             html="<h1>Hello</h1><p>Please find your report attached.</p>",
-            reply_to="user@example.com",
+            reply_to="replies@example.com",
             text="Hello\n\nPlease find your report attached.",
             to=["recipient@example.com"],
         )

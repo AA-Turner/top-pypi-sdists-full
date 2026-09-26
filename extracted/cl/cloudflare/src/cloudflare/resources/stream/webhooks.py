@@ -60,7 +60,7 @@ class WebhooksResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[WebhookUpdateResponse]:
         """
-        Creates a webhook notification.
+        Create a webhook for notifications about on-demand video uploads.
 
         Args:
           account_id: The account identifier tag.
@@ -110,7 +110,7 @@ class WebhooksResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Deletes a webhook.
+        Deletes the on-demand video webhook.
 
         Args:
           account_id: The account identifier tag.
@@ -149,7 +149,7 @@ class WebhooksResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[WebhookGetResponse]:
         """
-        Retrieves a list of webhooks.
+        Retrieve current on-demand webhook information.
 
         Args:
           account_id: The account identifier tag.
@@ -211,7 +211,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[WebhookUpdateResponse]:
         """
-        Creates a webhook notification.
+        Create a webhook for notifications about on-demand video uploads.
 
         Args:
           account_id: The account identifier tag.
@@ -261,7 +261,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> str:
         """
-        Deletes a webhook.
+        Deletes the on-demand video webhook.
 
         Args:
           account_id: The account identifier tag.
@@ -300,7 +300,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[WebhookGetResponse]:
         """
-        Retrieves a list of webhooks.
+        Retrieve current on-demand webhook information.
 
         Args:
           account_id: The account identifier tag.

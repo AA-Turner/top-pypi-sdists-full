@@ -106,8 +106,6 @@ class ConnectorsResource(SyncAPIResource):
         interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
         interrupt_window_hour_of_day: float | Omit = omit,
         notes: str | Omit = omit,
-        primary: bool | Omit = omit,
-        site_id: str | Omit = omit,
         timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -147,8 +145,6 @@ class ConnectorsResource(SyncAPIResource):
                     "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
-                    "primary": primary,
-                    "site_id": site_id,
                     "timezone": timezone,
                 },
                 connector_create_params.ConnectorCreateParams,
@@ -177,9 +173,7 @@ class ConnectorsResource(SyncAPIResource):
         interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
         interrupt_window_hour_of_day: float | Omit = omit,
         notes: str | Omit = omit,
-        primary: bool | Omit = omit,
         provision_license: bool | Omit = omit,
-        site_id: str | Omit = omit,
         timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -226,9 +220,7 @@ class ConnectorsResource(SyncAPIResource):
                     "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
-                    "primary": primary,
                     "provision_license": provision_license,
-                    "site_id": site_id,
                     "timezone": timezone,
                 },
                 connector_update_params.ConnectorUpdateParams,
@@ -342,9 +334,7 @@ class ConnectorsResource(SyncAPIResource):
         interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
         interrupt_window_hour_of_day: float | Omit = omit,
         notes: str | Omit = omit,
-        primary: bool | Omit = omit,
         provision_license: bool | Omit = omit,
-        site_id: str | Omit = omit,
         timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -391,9 +381,7 @@ class ConnectorsResource(SyncAPIResource):
                     "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
-                    "primary": primary,
                     "provision_license": provision_license,
-                    "site_id": site_id,
                     "timezone": timezone,
                 },
                 connector_edit_params.ConnectorEditParams,
@@ -499,8 +487,6 @@ class AsyncConnectorsResource(AsyncAPIResource):
         interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
         interrupt_window_hour_of_day: float | Omit = omit,
         notes: str | Omit = omit,
-        primary: bool | Omit = omit,
-        site_id: str | Omit = omit,
         timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -540,8 +526,6 @@ class AsyncConnectorsResource(AsyncAPIResource):
                     "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
-                    "primary": primary,
-                    "site_id": site_id,
                     "timezone": timezone,
                 },
                 connector_create_params.ConnectorCreateParams,
@@ -570,9 +554,7 @@ class AsyncConnectorsResource(AsyncAPIResource):
         interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
         interrupt_window_hour_of_day: float | Omit = omit,
         notes: str | Omit = omit,
-        primary: bool | Omit = omit,
         provision_license: bool | Omit = omit,
-        site_id: str | Omit = omit,
         timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -619,9 +601,7 @@ class AsyncConnectorsResource(AsyncAPIResource):
                     "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
-                    "primary": primary,
                     "provision_license": provision_license,
-                    "site_id": site_id,
                     "timezone": timezone,
                 },
                 connector_update_params.ConnectorUpdateParams,
@@ -735,9 +715,7 @@ class AsyncConnectorsResource(AsyncAPIResource):
         interrupt_window_embargo_dates: SequenceNotStr[str] | Omit = omit,
         interrupt_window_hour_of_day: float | Omit = omit,
         notes: str | Omit = omit,
-        primary: bool | Omit = omit,
         provision_license: bool | Omit = omit,
-        site_id: str | Omit = omit,
         timezone: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -784,9 +762,7 @@ class AsyncConnectorsResource(AsyncAPIResource):
                     "interrupt_window_embargo_dates": interrupt_window_embargo_dates,
                     "interrupt_window_hour_of_day": interrupt_window_hour_of_day,
                     "notes": notes,
-                    "primary": primary,
                     "provision_license": provision_license,
-                    "site_id": site_id,
                     "timezone": timezone,
                 },
                 connector_edit_params.ConnectorEditParams,

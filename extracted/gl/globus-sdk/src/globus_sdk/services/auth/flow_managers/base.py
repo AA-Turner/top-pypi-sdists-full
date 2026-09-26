@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import abc
+import logging
 import typing as t
+import urllib.parse
+
+from globus_sdk._internal.remarshal import commajoin
+from globus_sdk._missing import filter_missing
 
 from ..response import OAuthAuthorizationCodeResponse
+
+log = logging.getLogger(__name__)
 
 
 class GlobusOAuthFlowManager(abc.ABC):
@@ -39,6 +46,52 @@ class GlobusOAuthFlowManager(abc.ABC):
         :param query_params: Any additional parameters to be passed through
             as query params on the URL.
         """
+
+    @staticmethod
+    def _get_authorize_url(
+        *,
+        base_url: str,
+        base_query_params: dict[str, t.Any],
+        query_params: dict[str, t.Any] | None,
+    ) -> str:
+        """
+        Get an authorize URL.
+
+        Query parameters may be formatted or excluded to meet known requirements.
+
+        :param base_url:
+            The base URL, which may include a path.
+        :param base_query_params:
+            The base query parameters that are provided by the subclass.
+        :param query_params:
+            Query parameters that are provided by callers.
+            These will always override *base_query_params*
+            but are still subject to format and exclusion requirements.
+        """
+
+        log.debug(f"Building authorization URI. Base URL: {base_url}")
+        log.debug(f"query_params={query_params}")
+
+        params = {
+            **base_query_params,
+            **(query_params or {}),
+        }
+        params = filter_missing(params)
+
+        # Format well-known keys, if they have truth-y values.
+        comma_joined_keys = {
+            "session_required_identities",
+            "session_required_single_domain",
+            "session_required_policies",
+        }
+        for key in comma_joined_keys:
+            # Pop the value and only re-set it if it's truth-y.
+            value = params.pop(key, None)
+            if value:
+                params[key] = commajoin(value)
+
+        encoded_params = urllib.parse.urlencode(params)
+        return f"{base_url}?{encoded_params}"
 
     @abc.abstractmethod
     def exchange_code_for_tokens(

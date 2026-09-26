@@ -93,7 +93,7 @@ def test_pep517_sdist(tmp_path: Path):
         """\
         Name: cmake-example
         Version: 0.0.1
-        Requires-Python: >=3.8
+        Requires-Python: >=3.9
         Provides-Extra: test
         """
         # TODO: why is this missing?
@@ -315,7 +315,7 @@ def test_toml_sdist(tmp_path: Path):
         """\
         Name: cmake-example
         Version: 0.0.1
-        Requires-Python: >=3.8
+        Requires-Python: >=3.9
         """
         # This was removed in https://github.com/pypa/setuptools/pull/4698 as part of 2.2 support:
         # Metadata-Version: 2.1
@@ -493,6 +493,22 @@ def test_wrapper_classic_layout_wheel(tmp_path: Path):
     venv = VEnv(tmp_path / "classic-layout-venv")
     venv.install(str(wheel))
     _assert_extension_import(venv, "classic_layout_example")
+
+
+def test_wrapper_staged_install_layout(tmp_path: Path):
+    """The wrapper stages the CMake install at
+    <build_ext build_temp>/_skbuild/cmake-install. Classic scikit-build's
+    skbuild.constants.CMAKE_INSTALL_DIR() compat shim advertises this path to
+    downstream setup.py files (the DracoPy pattern); coordinate with
+    scikit-build before changing the layout."""
+    dist = setuptools.Distribution()
+    setattr(dist, build_cmake.WRAPPER_COMPAT, True)
+    cmd = build_cmake.BuildCMake(dist)
+    # Non-editable build: classic-layout compat is active.
+    cmd._editable_mode = build_cmake._EditableMode.DISABLED
+
+    build_temp = tmp_path / "_skbuild"
+    assert cmd._get_staged_install_prefix(build_temp) == build_temp / "cmake-install"
 
 
 @pytest.mark.compile
@@ -809,8 +825,9 @@ def test_cmake_install_target_maps_to_install_targets():
     settings.install.targets = ["existing"]
     dist = setuptools.Distribution()
     dist.cmake_install_target = "install-distribution"  # type: ignore[attr-defined]
-    build_cmake._apply_cmake_install_target(settings, dist)
-    assert settings.install.targets == ["existing", "install-distribution"]
+    new = build_cmake._apply_cmake_install_target(settings, dist)
+    assert new.install.targets == ["existing", "install-distribution"]
+    assert settings.install.targets == ["existing"]
 
 
 @pytest.mark.parametrize("target", [None, "install"])
@@ -819,8 +836,7 @@ def test_cmake_install_target_default_is_noop(target):
     dist = setuptools.Distribution()
     if target is not None:
         dist.cmake_install_target = target  # type: ignore[attr-defined]
-    build_cmake._apply_cmake_install_target(settings, dist)
-    assert settings.install.targets == []
+    assert build_cmake._apply_cmake_install_target(settings, dist) is settings
 
 
 def test_load_settings_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
@@ -906,3 +922,64 @@ def test_wrapper_forwards_manifest_hook(
         )
         is dist
     )
+
+
+def test_get_requires_uses_hook_state(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    # Each hook must read the settings with its own state, so that
+    # `if.state = "wheel"` / `"editable"` overrides reach the injected
+    # cmake requirement.
+    (tmp_path / "CMakeLists.txt").write_text(
+        "cmake_minimum_required(VERSION 3.15)\n", encoding="utf-8"
+    )
+    (tmp_path / "pyproject.toml").write_text(
+        textwrap.dedent(
+            """\
+            [build-system]
+            requires = ["setuptools", "scikit-build-core"]
+            build-backend = "scikit_build_core.setuptools.build_meta"
+
+            [project]
+            name = "state-example"
+            version = "0.0.1"
+
+            [tool.scikit-build]
+            sdist.cmake = true
+
+            [[tool.scikit-build.overrides]]
+            if.state = "wheel"
+            cmake.version = ">=99.1"
+
+            [[tool.scikit-build.overrides]]
+            if.state = "editable"
+            cmake.version = ">=99.2"
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("CMAKE_EXECUTABLE", raising=False)
+    monkeypatch.chdir(tmp_path)
+
+    assert "cmake>=99.1" in setuptools_build_meta.get_requires_for_build_wheel()
+
+    sdist_requires = setuptools_build_meta.get_requires_for_build_sdist()
+    assert not [r for r in sdist_requires if r.startswith("cmake>=99")]
+
+    get_requires_for_build_editable = getattr(
+        setuptools_build_meta, "get_requires_for_build_editable", None
+    )
+    if get_requires_for_build_editable is not None:
+        assert "cmake>=99.2" in get_requires_for_build_editable()
+
+
+def test_finalize_options_parses_cmake_args():
+    # Separators must not produce empty arguments, and a quoted value must stay
+    # a single argument.
+    dist = setuptools.Distribution({"name": "cmake-example", "version": "0.0.1"})
+    cmd = build_cmake.BuildCMake(dist)
+    cmd.initialize_options()
+    cmd.cmake_args = '-DA=1;;-DB=2  -DC="x y"  ; '
+
+    cmd.finalize_options()
+
+    result: list[str] | str | None = cmd.cmake_args
+    assert result == ["-DA=1", "-DB=2", "-DC=x y"]

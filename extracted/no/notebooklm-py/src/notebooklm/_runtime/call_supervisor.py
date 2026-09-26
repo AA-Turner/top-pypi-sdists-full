@@ -23,13 +23,21 @@ from .._deadline import RuntimeDeadline
 from .._logging import get_request_id
 from .._loop_affinity import assert_bound_loop
 from .._loop_bound import LoopBoundPrimitive
-from .._transport_drain import TransportDrainTracker, _TransportOperationToken
 from ..types import RpcTelemetryEvent
+from .operation_context import (
+    OperationContext,
+    activate_operation_context,
+    create_operation_context,
+    current_operation_context,
+    detached_operation_context,
+    earlier_deadline,
+    fork_operation_context,
+    operation_timeout_error,
+)
 
 _T = TypeVar("_T")
-# Drain-hook warnings historically came from the bookkeeping module.  Keep the
-# logger stable while moving hook ownership to the supervisor.
-logger = logging.getLogger("notebooklm._transport_drain")
+logger = logging.getLogger(__name__)
+_OPERATION_TIMEOUT_UNSET = object()
 
 
 class AdmissionState(str, Enum):
@@ -47,7 +55,6 @@ class AdmissionGeneration:
 
     epoch: int
     loop: asyncio.AbstractEventLoop
-    drain: TransportDrainTracker
     condition: asyncio.Condition = field(default_factory=asyncio.Condition)
     state: AdmissionState = AdmissionState.CLOSED
     in_flight: int = 0
@@ -61,7 +68,6 @@ class AdmissionGeneration:
 class _AdmissionToken:
     generation: AdmissionGeneration
     task: asyncio.Task[Any] | None
-    drain_token: _TransportOperationToken
 
 
 @dataclass(frozen=True)
@@ -78,6 +84,7 @@ class OperationLease:
     """Generation-bearing proof held across a multi-call workflow."""
 
     epoch: int
+    context: OperationContext
     _token: _AdmissionToken = field(repr=False, compare=False)
 
 
@@ -97,7 +104,7 @@ class _SettlementResult:
 
 
 class CallSupervisor(LoopBoundPrimitive):
-    """Apply ``Drain -> Metrics -> Semaphore`` around logical calls.
+    """Apply admission, metrics, and semaphore policy around logical calls.
 
     Construction is event-loop agnostic.  The drain condition and RPC
     semaphore remain lazy, and ``set_bound_loop``/``reset_after_open`` are the
@@ -108,19 +115,15 @@ class CallSupervisor(LoopBoundPrimitive):
         self,
         *,
         metrics: ClientMetrics,
-        drain_tracker: TransportDrainTracker,
         max_concurrent_rpcs: int | None,
+        operation_timeout: float | None = None,
         monotonic: Callable[[], float] | None = None,
     ) -> None:
         if max_concurrent_rpcs is not None and max_concurrent_rpcs < 1:
             raise ValueError(f"max_concurrent_rpcs must be >= 1, got {max_concurrent_rpcs!r}")
         self._metrics = metrics
-        # The injected tracker belongs exclusively to the first admission
-        # generation.  Every later generation receives a fresh tracker so a
-        # late epoch-N settlement keeps using epoch N's loop-local condition
-        # after the supervisor has reopened on another loop.
-        self._first_generation_drain: TransportDrainTracker | None = drain_tracker
         self._max_concurrent_rpcs = max_concurrent_rpcs
+        self._operation_timeout = operation_timeout
         self._rpc_semaphore: asyncio.Semaphore | None = None
         self._monotonic = time.perf_counter if monotonic is None else monotonic
         self._current: AdmissionGeneration | None = None
@@ -137,6 +140,11 @@ class CallSupervisor(LoopBoundPrimitive):
     def get_bound_loop(self) -> asyncio.AbstractEventLoop | None:
         """Return the historical loop binding through a method-shaped seam."""
         return self._bound_loop
+
+    def active_epoch(self) -> int | None:
+        """Return the current resource generation for adapter fencing."""
+
+        return None if self._current is None else self._current.epoch
 
     def set_bound_loop(self, loop: asyncio.AbstractEventLoop | None) -> None:
         """Bind supervisor-owned current-generation primitives to ``loop``."""
@@ -198,7 +206,7 @@ class CallSupervisor(LoopBoundPrimitive):
             raise RuntimeError("Client not initialized. Use 'async with' context.")
 
         # Once a resource generation exists, retain the Phase A logical-call
-        # placement: ``started`` is recorded before Drain can reject a top-level
+        # placement: ``started`` is recorded before admission can reject a top-level
         # call in DRAINING/CLOSING.  Nested same-generation work is admitted by
         # ``call_scope``; every other state decision remains there.
         self._metrics.increment(rpc_calls_started=1)
@@ -223,14 +231,7 @@ class CallSupervisor(LoopBoundPrimitive):
             )
         if epoch <= self._last_epoch or epoch in self._retired:
             raise RuntimeError(f"admission generation {epoch} is not newer than prior epochs")
-        drain = self._first_generation_drain
-        if drain is None:
-            drain = TransportDrainTracker()
-        else:
-            self._first_generation_drain = None
-        drain.set_bound_loop(loop)
-        drain.reset_after_open()
-        generation = AdmissionGeneration(epoch=epoch, loop=loop, drain=drain)
+        generation = AdmissionGeneration(epoch=epoch, loop=loop)
         self._current = generation
         self._last_epoch = epoch
         self._rpc_semaphore = None
@@ -342,6 +343,26 @@ class CallSupervisor(LoopBoundPrimitive):
             for generation in generations
         )
 
+    def assert_shutdown_allowed(self, action: str) -> None:
+        """Reject shutdown from a task holding this client's admission.
+
+        Inspect generation-owned task-depth maps rather than task-local
+        context. A copied context in an independent shutdown task is not an
+        admission, while a late task that still owns a retired generation must
+        not drain or close a reopened generation.
+        """
+        task = asyncio.current_task()
+        if task is None:
+            return
+        generations = list(self._retired.values())
+        if self._current is not None:
+            generations.append(self._current)
+        if any(generation.depths.get(task, 0) > 0 for generation in generations):
+            raise RuntimeError(
+                f"Cannot {action} NotebookLMClient from a task that holds client admission; "
+                "schedule shutdown from an independent task."
+            )
+
     async def _admit(
         self,
         label: str,
@@ -378,29 +399,9 @@ class CallSupervisor(LoopBoundPrimitive):
             generation.in_flight += 1
             if task is not None:
                 generation.depths[task] = depth + 1
-        try:
-            drain_token = await generation.drain.begin_transport_post(label)
-        except BaseException as exc:
-            settlement, state = self._publish_partial_settlement(
-                generation=generation,
-                task=task,
-            )
-            try:
-                await self._await_settlement(
-                    settlement,
-                    state,
-                    cancellation_already_active=isinstance(exc, asyncio.CancelledError),
-                )
-            except BaseException:
-                # The admission failure/cancellation owns precedence.  A
-                # re-cancel may detach this waiter, but the strongly retained
-                # settlement still retires the generation token.
-                pass
-            raise
         return _AdmissionToken(
             generation=generation,
             task=task,
-            drain_token=drain_token,
         )
 
     async def _finish_generation_token(
@@ -448,6 +449,15 @@ class CallSupervisor(LoopBoundPrimitive):
                 # Keep queue-deadline behavior interpreter-independent; on
                 # Python 3.10 asyncio.TimeoutError is a distinct class.
                 raise TimeoutError from None
+        # A force-close can fence this generation while the caller is queued.
+        # Acquiring a slot after that fence must not authorize transport I/O.
+        # Return the permit locally and let the already-admitted operation
+        # settle against its retired generation.
+        if generation.state in {AdmissionState.CLOSING, AdmissionState.CLOSED}:
+            semaphore.release()
+            raise RuntimeError(
+                "NotebookLMClient operation belongs to a closing resource generation."
+            )
         return semaphore
 
     def _retain_settlement(
@@ -509,24 +519,6 @@ class CallSupervisor(LoopBoundPrimitive):
         state.abandoned = True
         self._report_abandoned_settlement(task, state)
 
-    def _publish_partial_settlement(
-        self,
-        *,
-        generation: AdmissionGeneration,
-        task: asyncio.Task[Any] | None,
-        child: asyncio.Task[Any] | None = None,
-    ) -> tuple[asyncio.Task[_SettlementResult], _SettlementState]:
-        """Settle a generation reservation that has no legacy drain token."""
-
-        async def _settle() -> None:
-            try:
-                if child is not None:
-                    await asyncio.gather(child, return_exceptions=True)
-            finally:
-                await self._finish_generation_token(generation, task)
-
-        return self._retain_settlement(_settle(), epoch=generation.epoch)
-
     def _publish_settlement(
         self,
         *,
@@ -536,14 +528,9 @@ class CallSupervisor(LoopBoundPrimitive):
         async def _settle() -> None:
             first_error: BaseException | None = None
             try:
-                await token.generation.drain.finish_transport_post(token.drain_token)
-            except BaseException as exc:
-                first_error = exc
-            try:
                 await self._finish_generation_token(token.generation, token.task)
             except BaseException as exc:
-                if first_error is None:
-                    first_error = exc
+                first_error = exc
             if queue_wait is not None:
                 try:
                     self._metrics.record_rpc_queue_wait(queue_wait)
@@ -594,8 +581,8 @@ class CallSupervisor(LoopBoundPrimitive):
         semaphore: asyncio.Semaphore | None,
         outcome: BaseException | None,
     ) -> None:
-        # Callback-visible order is load-bearing: release -> event -> drain
-        # finish -> queue recorder.
+        # Callback-visible order is load-bearing: release -> event -> generation
+        # settlement -> queue recorder.
         if semaphore is not None:
             semaphore.release()
 
@@ -665,6 +652,11 @@ class CallSupervisor(LoopBoundPrimitive):
         expected_epoch: int | None = None,
     ) -> AsyncIterator[CallLease]:
         """Admit one logical call and apply metrics/semaphore policy."""
+        operation = current_operation_context(self)
+        if operation is not None and operation.remaining() == 0.0:
+            raise operation_timeout_error(operation)
+        inner_deadline = deadline
+        deadline = earlier_deadline(deadline, operation)
         token = await self._admit(label, expected_epoch=expected_epoch)
         started_at = self._monotonic()
         queue_started_at = started_at
@@ -680,6 +672,13 @@ class CallSupervisor(LoopBoundPrimitive):
                 semaphore=None,
                 outcome=exc,
             )
+            if (
+                isinstance(exc, TimeoutError)
+                and operation is not None
+                and operation.remaining() == 0.0
+                and (inner_deadline is None or not inner_deadline.expired())
+            ):
+                raise operation_timeout_error(operation) from None
             raise
 
         queue_wait = self._monotonic() - queue_started_at
@@ -730,17 +729,65 @@ class CallSupervisor(LoopBoundPrimitive):
         label: str,
         *,
         expected_epoch: int | None = None,
+        timeout: float | None | object = _OPERATION_TIMEOUT_UNSET,
+        _absolute_deadline: float | None = None,
     ) -> AsyncIterator[OperationLease]:
         """Hold admission across a complete multi-call workflow."""
-        token = await self._admit(label, expected_epoch=expected_epoch)
-        lease = OperationLease(epoch=token.generation.epoch, _token=token)
+        parent = current_operation_context(self)
+        explicit = timeout is not _OPERATION_TIMEOUT_UNSET
+        if parent is not None and not explicit:
+            self._run_operation_scope_body(label, expected_epoch, parent)
+            token = await self._admit(label, expected_epoch=expected_epoch)
+            lease = OperationLease(epoch=token.generation.epoch, context=parent, _token=token)
+            async with self._settle_operation_token(token):
+                self._run_operation_scope_body(label, expected_epoch, parent)
+                yield lease
+            return
+
+        generation = self._current
+        if generation is None:
+            raise RuntimeError("Client not initialized. Use 'async with' context.")
+        resolved_timeout = self._operation_timeout if not explicit else timeout
+        assert resolved_timeout is None or isinstance(resolved_timeout, (int, float))
+        context = create_operation_context(
+            self,
+            epoch=generation.epoch,
+            label=label,
+            timeout=resolved_timeout,
+            parent=parent,
+            absolute_deadline=_absolute_deadline,
+        )
+        with activate_operation_context(context):
+            self._run_operation_scope_body(label, expected_epoch, context)
+            token = await self._admit(label, expected_epoch=expected_epoch)
+            lease = OperationLease(epoch=token.generation.epoch, context=context, _token=token)
+            async with self._settle_operation_token(token):
+                self._run_operation_scope_body(label, expected_epoch, context)
+                yield lease
+
+    def _run_operation_scope_body(
+        self,
+        label: str,
+        expected_epoch: int | None,
+        context: OperationContext,
+    ) -> None:
+        """Reject a nested dispatch after its inherited deadline expired."""
+
+        del label, expected_epoch
+        if context.remaining() == 0.0:
+            raise operation_timeout_error(context)
+
+    @asynccontextmanager
+    async def _settle_operation_token(
+        self,
+        token: _AdmissionToken,
+    ) -> AsyncIterator[None]:
+        """Settle one workflow token while preserving the body's exception."""
+
         try:
-            yield lease
+            yield
         except BaseException as exc:
-            settlement, state = self._publish_settlement(
-                token=token,
-                queue_wait=None,
-            )
+            settlement, state = self._publish_settlement(token=token, queue_wait=None)
             try:
                 await self._await_settlement(
                     settlement,
@@ -751,10 +798,7 @@ class CallSupervisor(LoopBoundPrimitive):
                 pass
             raise
         else:
-            settlement, state = self._publish_settlement(
-                token=token,
-                queue_wait=None,
-            )
+            settlement, state = self._publish_settlement(token=token, queue_wait=None)
             await self._await_settlement(
                 settlement,
                 state,
@@ -765,13 +809,15 @@ class CallSupervisor(LoopBoundPrimitive):
         self,
         label: str,
         factory: Callable[[], Awaitable[_T]],
+        *,
+        inherit_operation: bool = True,
     ) -> asyncio.Task[_T]:
         """Atomically reserve and spawn same-generation internal work.
 
         The wrapper's private gate is deliberately incomplete during task
         construction.  Even under an eager task factory, ``factory`` cannot be
         invoked until the parent token and child depth are associated while
-        the drain condition remains held.
+        the admission condition remains held.
         """
         self.assert_bound_loop()
         parent = asyncio.current_task()
@@ -785,6 +831,7 @@ class CallSupervisor(LoopBoundPrimitive):
         started: asyncio.Future[None] = asyncio.get_running_loop().create_future()
         token: _AdmissionToken | None = None
         wrapper_started = False
+        parent_operation = current_operation_context(self)
 
         async def _wrapper() -> _T:
             nonlocal wrapper_started
@@ -795,7 +842,13 @@ class CallSupervisor(LoopBoundPrimitive):
                 wrapper_started = True
                 if not started.done():
                     started.set_result(None)
-                return await factory()
+                child_task = asyncio.current_task()
+                if inherit_operation and parent_operation is not None and child_task is not None:
+                    child_context = fork_operation_context(parent_operation, child_task)
+                    with activate_operation_context(child_context):
+                        return await factory()
+                with detached_operation_context():
+                    return await factory()
             except BaseException as exc:
                 body_error = exc
                 raise
@@ -835,32 +888,12 @@ class CallSupervisor(LoopBoundPrimitive):
             task = asyncio.create_task(_wrapper(), name=label)
             generation.depths[task] = generation.depths.get(task, 0) + 1
             generation.in_flight += 1
-        try:
-            drain_token = await generation.drain.begin_transport_task(task, label)
-        except BaseException as exc:
-            gate.cancel()
-            task.cancel()
-            settlement, state = self._publish_partial_settlement(
-                generation=generation,
-                task=task,
-                child=task,
-            )
-            try:
-                await self._await_settlement(
-                    settlement,
-                    state,
-                    cancellation_already_active=isinstance(exc, asyncio.CancelledError),
-                )
-            except BaseException:
-                pass
-            raise
         token = _AdmissionToken(
             generation=generation,
             task=task,
-            drain_token=drain_token,
         )
-        # No coroutine factory can run before both generation and legacy-drain
-        # tokens have been associated with the gated wrapper.
+        # No coroutine factory can run before the generation token has been
+        # associated with the gated wrapper.
         if not gate.done():
             gate.set_result(None)
         try:

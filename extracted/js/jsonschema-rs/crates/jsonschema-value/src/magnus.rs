@@ -58,8 +58,7 @@ impl Json for Magnus {
     type StringBuffer = ();
 
     fn with_string_node<T>((): &mut (), string: &str, f: impl FnOnce(RbNode<'_>) -> T) -> T {
-        let value = unsafe { rb_utf8_str_new(string.as_ptr().cast(), string.len() as c_long) };
-        f(RbNode::new(value))
+        f(string_node(string))
     }
 
     fn prepare_key(key: &str) -> PreparedKey {
@@ -175,6 +174,17 @@ pub enum PendingError {
     Argument(String),
 }
 
+impl From<PendingError> for ::magnus::Error {
+    fn from(error: PendingError) -> Self {
+        let ruby = ::magnus::Ruby::get().expect("Ruby VM should be initialized");
+        match error {
+            PendingError::Type(message) => Self::new(ruby.exception_type_error(), message),
+            PendingError::Encoding(message) => Self::new(ruby.exception_encoding_error(), message),
+            PendingError::Argument(message) => Self::new(ruby.exception_arg_error(), message),
+        }
+    }
+}
+
 thread_local! {
     static PENDING_ERROR: RefCell<Option<PendingError>> = const { RefCell::new(None) };
 }
@@ -264,6 +274,14 @@ pub fn probe_root(node: RbNode<'_>) {
         Kind::Unsupported => record_unsupported(node.value),
         _ => {}
     }
+}
+
+/// A fresh string node; the caller keeps it on the stack, where conservative marking pins it.
+#[doc(hidden)]
+#[must_use]
+pub fn string_node<'a>(text: &str) -> RbNode<'a> {
+    let value = unsafe { rb_utf8_str_new(text.as_ptr().cast(), text.len() as c_long) };
+    RbNode::new(value)
 }
 
 /// Whether a node renders its children as named members rather than indices.
@@ -381,8 +399,8 @@ enum NumberKind {
 ///
 /// One place, so `is_number` and `as_number` cannot drift apart.
 #[inline]
-fn number_kind(value: VALUE) -> Option<NumberKind> {
-    match value_kind(value) {
+fn number_kind(value: VALUE, kind: Kind) -> Option<NumberKind> {
+    match kind {
         // Integers always read; only the float and decimal forms can fail.
         Kind::Fixnum => Some(NumberKind::Fixnum),
         Kind::Bignum => Some(NumberKind::Bignum),
@@ -795,35 +813,64 @@ impl<'a> Node<'a, Magnus> for RbNode<'a> {
                 len: unsafe { rb_sys::RARRAY_LEN(self.value) }.max(0) as usize,
                 marker: PhantomData,
             }),
+            Kind::Unsupported => {
+                record_unsupported(self.value);
+                None
+            }
             _ => None,
         }
     }
 
     fn as_string(&self) -> Option<Cow<'a, str>> {
-        text_of(self.value).map(Cow::Borrowed)
+        match value_kind(self.value) {
+            Kind::Str => str_ref(self.value).map(Cow::Borrowed),
+            Kind::Symbol => symbol_str(self.value).map(Cow::Borrowed),
+            Kind::Unsupported => {
+                record_unsupported(self.value);
+                None
+            }
+            _ => None,
+        }
     }
 
     fn as_number(&self) -> Option<RbNumber> {
-        number_kind(self.value).map(|kind| RbNumber {
-            value: self.value,
-            kind,
-        })
+        match value_kind(self.value) {
+            Kind::Unsupported => {
+                record_unsupported(self.value);
+                None
+            }
+            kind => number_kind(self.value, kind).map(|kind| RbNumber {
+                value: self.value,
+                kind,
+            }),
+        }
     }
 
     fn is_number(&self) -> bool {
-        number_kind(self.value).is_some()
+        number_kind(self.value, value_kind(self.value)).is_some()
     }
 
     fn as_boolean(&self) -> Option<bool> {
         match value_kind(self.value) {
             Kind::True => Some(true),
             Kind::False => Some(false),
+            Kind::Unsupported => {
+                record_unsupported(self.value);
+                None
+            }
             _ => None,
         }
     }
 
     fn is_null(&self) -> bool {
-        unsafe { rb_sys::RB_TYPE(self.value) == ruby_value_type::RUBY_T_NIL }
+        match value_kind(self.value) {
+            Kind::Null => true,
+            Kind::Unsupported => {
+                record_unsupported(self.value);
+                false
+            }
+            _ => false,
+        }
     }
 
     fn json_type(&self) -> JsonType {
@@ -850,7 +897,7 @@ impl<'a> Node<'a, Magnus> for RbNode<'a> {
             Kind::Str if is_ascii_only(self.value) => {
                 Some(unsafe { rb_sys::RSTRING_LEN(self.value) }.max(0) as u64)
             }
-            _ => self.as_string().map(|text| text.chars().count() as u64),
+            _ => text_of(self.value).map(|text| text.chars().count() as u64),
         }
     }
 
@@ -876,16 +923,18 @@ fn equals_value(value: VALUE, expected: &Value) -> bool {
         Value::Number(expected) => node
             .as_number()
             .is_some_and(|number| cmp::equal_numbers(&number, expected)),
-        Value::String(expected) => text_of(value).is_some_and(|text| text == expected.as_str()),
+        Value::String(expected) => node
+            .as_string()
+            .is_some_and(|text| text == expected.as_str()),
         Value::Array(expected) => {
-            value_kind(value) == Kind::Array
+            node.as_array().is_some()
                 && (unsafe { rb_sys::RARRAY_LEN(value) }) as usize == expected.len()
                 && raw_elements(value)
                     .zip(expected)
                     .all(|(element, expected)| equals_value(element, expected))
         }
         Value::Object(expected) => {
-            value_kind(value) == Kind::Hash && {
+            node.as_object().is_some() && {
                 let members = raw_members(value);
                 members.len() == expected.len()
                     && members.iter().all(|(key, element)| {
@@ -938,6 +987,7 @@ fn equal_nodes(left: VALUE, right: VALUE, depth: u16) -> bool {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct RbHash<'a> {
     value: VALUE,
     marker: PhantomData<&'a ()>,
@@ -1014,19 +1064,44 @@ pub struct RbMembers<'a> {
     marker: PhantomData<&'a ()>,
 }
 
+impl RbMembers<'_> {
+    fn next_raw(&mut self) -> Option<(VALUE, VALUE)> {
+        if self.index >= self.len {
+            return None;
+        }
+        let entry = self.entries.get(self.index);
+        self.index += 1;
+        Some(entry)
+    }
+}
+
 impl<'a> Iterator for RbMembers<'a> {
     type Item = (RbName<'a>, RbNode<'a>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.len {
-            return None;
-        }
-        let (key, value) = self.entries.get(self.index);
-        self.index += 1;
-        Some((RbName::new(key), RbNode::new(value)))
+        self.next_raw()
+            .map(|(key, value)| (RbName::new(key), RbNode::new(value)))
     }
 }
 
+/// Member values only; the keys are never typed or decoded.
+pub struct RbValues<'a>(RbMembers<'a>);
+
+impl<'a> Iterator for RbValues<'a> {
+    type Item = RbNode<'a>;
+
+    fn next(&mut self) -> Option<RbNode<'a>> {
+        self.0.next_raw().map(|(_, value)| RbNode::new(value))
+    }
+}
+
+#[doc(hidden)]
+#[must_use]
+pub fn object_values(hash: RbHash<'_>) -> RbValues<'_> {
+    RbValues(hash.members())
+}
+
+#[derive(Clone, Copy)]
 pub struct RbArray<'a> {
     value: VALUE,
     len: usize,
@@ -1223,9 +1298,83 @@ mod tests {
         error_path_helpers_walk_the_instance(&ruby);
         pending_errors_nest(&ruby);
         unsupported_values_are_recorded_where_read(&ruby);
+        unsupported_silent_reads_stay_silent(&ruby);
+        unsupported_reads_record(&ruby);
         hashing_covers_every_shape(&ruby);
         snapshot_edges(&ruby);
         non_ascii_keys_resolve(&ruby);
+        hash_and_array_handles_copy(&ruby);
+        object_values_skip_the_keys(&ruby);
+        string_nodes_read_back();
+        pending_errors_become_ruby_exceptions(&ruby);
+    }
+
+    fn pending_errors_become_ruby_exceptions(ruby: &Ruby) {
+        for (error, class, expected) in [
+            (
+                PendingError::Type("t".to_owned()),
+                ruby.exception_type_error(),
+                "TypeError: t",
+            ),
+            (
+                PendingError::Encoding("e".to_owned()),
+                ruby.exception_encoding_error(),
+                "EncodingError: e",
+            ),
+            (
+                PendingError::Argument("a".to_owned()),
+                ruby.exception_arg_error(),
+                "ArgumentError: a",
+            ),
+        ] {
+            let error = ::magnus::Error::from(error);
+            assert!(error.is_kind_of(class), "{expected}");
+            assert_eq!(error.to_string(), expected);
+        }
+    }
+
+    // Schema-supplied text, such as a property name under `propertyNames`, becomes a string node.
+    fn string_nodes_read_back() {
+        let node = string_node("h\u{e9}llo");
+
+        assert_eq!(node.json_type(), JsonType::String);
+        assert_eq!(node.as_string().as_deref(), Some("h\u{e9}llo"));
+        assert_eq!(node.string_length(), Some(5));
+        assert!(node.equals_value(&json!("h\u{e9}llo")));
+        assert_eq!(pending(), None);
+    }
+
+    // Values-only iteration never types a key, so one that `members()` rejects records nothing.
+    fn object_values_skip_the_keys(ruby: &Ruby) {
+        let node = RbNode::new(eval(ruby, "{ 1 => 'x', b: [true] }"));
+        let object = node.as_object().expect("object");
+
+        let values: Vec<Value> = object_values(object)
+            .map(|value| value.to_value().into_owned())
+            .collect();
+        assert_eq!(values, [json!("x"), json!([true])]);
+        assert_eq!(pending(), None);
+
+        assert_eq!(object.members().count(), 2);
+        assert_eq!(
+            pending().as_deref(),
+            Some("Hash keys must be strings or symbols. Got 'Integer'")
+        );
+    }
+
+    fn hash_and_array_handles_copy(ruby: &Ruby) {
+        let node = RbNode::new(eval(ruby, "{ 'a' => [1, 2] }"));
+        let object = node.as_object().expect("object");
+        let object_copy = object;
+        assert_eq!(object.len(), object_copy.len());
+
+        let array = object
+            .get(&Magnus::prepare_key("a"))
+            .and_then(|found| found.as_array())
+            .expect("array");
+        let array_copy = array;
+        assert_eq!(array.len(), array_copy.len());
+        assert_eq!(pending(), None);
     }
 
     fn non_ascii_keys_resolve(ruby: &Ruby) {
@@ -1428,6 +1577,42 @@ mod tests {
         let text = RbNode::new(eval(ruby, "'plain'"));
         probe_root(text);
         assert_eq!(pending(), None);
+    }
+
+    // `minLength` and `type: number` read any instance; they answer "not one" without raising.
+    fn unsupported_silent_reads_stay_silent(ruby: &Ruby) {
+        let node = RbNode::new(eval(ruby, "Object.new"));
+
+        assert!(node.string_length().is_none());
+        assert!(!node.is_number());
+        assert_eq!(pending(), None);
+    }
+
+    fn unsupported_reads_record(ruby: &Ruby) {
+        type Read = fn(RbNode<'_>) -> bool;
+        let reads: &[(&str, Read)] = &[
+            ("is_null", |node| !node.is_null()),
+            ("as_boolean", |node| node.as_boolean().is_none()),
+            ("as_number", |node| node.as_number().is_none()),
+            ("as_string", |node| node.as_string().is_none()),
+            ("as_array", |node| node.as_array().is_none()),
+            ("equals_value(string)", |node| {
+                !node.equals_value(&json!("x"))
+            }),
+            ("equals_value(array)", |node| !node.equals_value(&json!([]))),
+            ("equals_value(object)", |node| {
+                !node.equals_value(&json!({}))
+            }),
+        ];
+        for &(name, read) in reads {
+            let node = RbNode::new(eval(ruby, "Object.new"));
+            assert!(read(node), "{name}");
+            assert_eq!(
+                pending().as_deref(),
+                Some("Unsupported type: 'Object'"),
+                "{name}"
+            );
+        }
     }
 
     // The hashing path only reaches a shape if no earlier element already collided, so the repeat

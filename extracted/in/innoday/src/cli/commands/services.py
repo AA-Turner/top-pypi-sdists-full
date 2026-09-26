@@ -11,12 +11,12 @@ import json
 import os
 from typing import Dict
 
-from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
 from src.cli.config import CLIConfig
+from src.cli.utils.presentation import make_console
 from src.config.schema import ServiceStatus
 from src.services.manager import InnoServiceManager
 
@@ -204,7 +204,7 @@ class ServiceCommands:
     @staticmethod
     async def _handle_status_watch(manager: InnoServiceManager) -> int:
         """Handle status command with continuous monitoring."""
-        console = Console()
+        console = make_console()
 
         try:
             with Live(console=console, refresh_per_second=2) as live:
@@ -221,7 +221,7 @@ class ServiceCommands:
     @staticmethod
     def _display_status_table(status: Dict[str, ServiceStatus]) -> None:
         """Display service status as a formatted table."""
-        console = Console()
+        console = make_console()
         table = ServiceCommands._create_status_table(status)
         console.print(table)
 

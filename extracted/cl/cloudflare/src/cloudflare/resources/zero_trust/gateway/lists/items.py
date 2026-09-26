@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import httpx
 
-from ....._types import Body, Query, Headers, NotGiven, not_given
-from ....._utils import path_template
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ....._utils import path_template, maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from ....._response import (
@@ -14,8 +14,9 @@ from ....._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .....pagination import SyncSinglePage, AsyncSinglePage
+from .....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ....._base_client import AsyncPaginator, make_request_options
+from .....types.zero_trust.gateway.lists import item_list_params
 from .....types.zero_trust.gateway.gateway_item import GatewayItem
 
 __all__ = ["ItemsResource", "AsyncItemsResource"]
@@ -46,18 +47,26 @@ class ItemsResource(SyncAPIResource):
         list_id: str,
         *,
         account_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncSinglePage[GatewayItem]:
+    ) -> SyncV4PagePaginationArray[GatewayItem]:
         """
         Fetch all items in a single Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
+
+          page: Page number of paginated results.
+
+          per_page: Number of items per page.
 
           extra_headers: Send extra headers
 
@@ -75,9 +84,19 @@ class ItemsResource(SyncAPIResource):
             path_template(
                 "/accounts/{account_id}/gateway/lists/{list_id}/items", account_id=account_id, list_id=list_id
             ),
-            page=SyncSinglePage[GatewayItem],
+            page=SyncV4PagePaginationArray[GatewayItem],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    item_list_params.ItemListParams,
+                ),
             ),
             model=GatewayItem,
         )
@@ -108,18 +127,26 @@ class AsyncItemsResource(AsyncAPIResource):
         list_id: str,
         *,
         account_id: str,
+        page: int | Omit = omit,
+        per_page: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[GatewayItem, AsyncSinglePage[GatewayItem]]:
+    ) -> AsyncPaginator[GatewayItem, AsyncV4PagePaginationArray[GatewayItem]]:
         """
         Fetch all items in a single Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
+
+          page: Page number of paginated results.
+
+          per_page: Number of items per page.
 
           extra_headers: Send extra headers
 
@@ -137,9 +164,19 @@ class AsyncItemsResource(AsyncAPIResource):
             path_template(
                 "/accounts/{account_id}/gateway/lists/{list_id}/items", account_id=account_id, list_id=list_id
             ),
-            page=AsyncSinglePage[GatewayItem],
+            page=AsyncV4PagePaginationArray[GatewayItem],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "per_page": per_page,
+                    },
+                    item_list_params.ItemListParams,
+                ),
             ),
             model=GatewayItem,
         )

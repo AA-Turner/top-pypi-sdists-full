@@ -19,6 +19,10 @@ from matrx_utils import vcprint
 
 from matrx_ai.config.unified_config import UnifiedMessage
 from matrx_ai.db._registry import get_model
+from matrx_ai.db.edited_answers import (
+    edited_answer_visible_to_model,
+    original_model_content,
+)
 
 CxMessage = get_model("Message")
 CxToolCall = get_model("ToolCall")
@@ -393,6 +397,8 @@ async def rebuild_conversation_messages(
     synth_done: dict[str, int] = {}
 
     result: list[dict[str, Any]] = []
+    # One knob read per organization per rebuild (a conversation has one).
+    edited_visible_by_org: dict[str | None, bool] = {}
     for msg in ordered_messages:
         # Agent-context boundary (the designed primitive): the model sees ONLY
         # messages flagged is_visible_to_model and not soft-deleted. A failed
@@ -419,6 +425,19 @@ async def rebuild_conversation_messages(
             msg.content = rebuilt_content
 
         unified_message = UnifiedMessage.from_cx_message(msg)
+        # An assistant answer a person edited in place replays as EDITED unless
+        # the organization's knob says the model sees its own original output
+        # (agents.messages / edited_answer_visible_to_model, default true —
+        # rich-content PLAN decision 13). Only the model-facing projection
+        # changes; the row itself is never touched.
+        original = original_model_content(msg)
+        if original is not None:
+            org_id = getattr(msg, "organization_id", None)
+            org_key = str(org_id) if org_id is not None else None
+            if org_key not in edited_visible_by_org:
+                edited_visible_by_org[org_key] = await edited_answer_visible_to_model(org_key)
+            if not edited_visible_by_org[org_key]:
+                unified_message.content = UnifiedMessage._reconstruct_stored_content(original)
         result.append(unified_message)
 
         # SYNTHESISE the matching tool_result(s) for any tool_use in THIS

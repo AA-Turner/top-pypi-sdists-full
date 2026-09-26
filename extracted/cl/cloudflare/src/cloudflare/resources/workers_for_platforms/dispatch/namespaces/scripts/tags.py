@@ -60,7 +60,8 @@ class TagsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[TagUpdateResponse]:
         """
-        Put script tags for a script uploaded to a Workers for Platforms namespace.
+        Replace tags for a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -115,7 +116,7 @@ class TagsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[TagListResponse]:
         """
-        Fetch tags from a script uploaded to a Workers for Platforms namespace.
+        Fetch tags from a script uploaded to a Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -167,7 +168,8 @@ class TagsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Delete script tag for a script uploaded to a Workers for Platforms namespace.
+        Delete a tag from a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -246,7 +248,8 @@ class AsyncTagsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TagUpdateResponse, AsyncSinglePage[TagUpdateResponse]]:
         """
-        Put script tags for a script uploaded to a Workers for Platforms namespace.
+        Replace tags for a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -301,7 +304,7 @@ class AsyncTagsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TagListResponse, AsyncSinglePage[TagListResponse]]:
         """
-        Fetch tags from a script uploaded to a Workers for Platforms namespace.
+        Fetch tags from a script uploaded to a Workers for Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -353,7 +356,8 @@ class AsyncTagsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Delete script tag for a script uploaded to a Workers for Platforms namespace.
+        Delete a tag from a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.

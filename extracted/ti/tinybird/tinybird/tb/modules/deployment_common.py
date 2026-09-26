@@ -335,13 +335,12 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool, request_f
         click.echo(FeedbackManager.error(message="Only one deployment found. Cannot discard the only deployment."))
         return
 
-    current_deployment, deployment_to_discard = deployments[0], deployments[1]
+    live_deployment = next((deployment for deployment in deployments if deployment.get("live")), deployments[0])
+    deployment_to_discard = next(deployment for deployment in deployments if deployment is not live_deployment)
 
-    # NOTE(eclbg): we never get here. We wrote this code when we though we'd enable promoting back and forth between
-    # staging and live, but the current CLI commands don't allow getting in that state
-    if current_deployment.get("status") != "data_ready":
+    if live_deployment.get("status") != "data_ready":
         click.echo(FeedbackManager.error(message="Previous deployment is not ready"))
-        deploy_errors = current_deployment.get("errors", [])
+        deploy_errors = live_deployment.get("errors", [])
         for deploy_error in deploy_errors:
             click.echo(FeedbackManager.error(message=f"* {deploy_error}"))
         return
@@ -359,7 +358,6 @@ def discard_deployment(host: Optional[str], headers: dict, wait: bool, request_f
         click.echo(FeedbackManager.error(message=result.get("error")))
         sys_exit("deployment_error", result.get("error", "Unknown error"))
 
-    deployment_to_discard = deployments[1]
     click.echo(FeedbackManager.success(message="Discard process successfully started"))
 
     if wait:

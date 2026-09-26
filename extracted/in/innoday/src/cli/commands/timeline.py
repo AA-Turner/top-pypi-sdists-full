@@ -22,14 +22,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.markup import escape
 
 from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.utils.formatters import ProgressReporter, format_error, format_warning
+from src.cli.utils.presentation import make_console, print_command_header
 from src.cli.utils.project_context import load_project_context
 
-console = Console()
+console = make_console()
 
 #: Event type -> glyph. Keyed on the lowercase value; the column arrives as the
 #: enum NAME from Postgres and the value from the API, so both are folded.
@@ -208,6 +208,8 @@ class TimelineCommands:
                 or context.get("project_name")
                 or project_label
             )
+
+        print_command_header(args, config, "timeline")
 
         params: Dict[str, Any] = {"limit": max(1, min(200, args.timeline_limit))}
         event = getattr(args, "timeline_event", None)

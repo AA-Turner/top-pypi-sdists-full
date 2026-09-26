@@ -121,7 +121,7 @@ impl MockScrapi {
         let no_diagnostics_logged_events = self.no_diagnostics_logged_events.clone();
         let reqs = self.requests.clone();
 
-        let mut builder = Mock::given(method(stub.method));
+        let mut builder = Mock::given(method(WiremockMethod::from(stub.method)));
         builder = self.set_endpoint_matcher(builder, &stub.endpoint);
 
         builder
@@ -242,7 +242,7 @@ fn get_non_diagnostics_logged_event_count(body: &Vec<u8>) -> u64 {
     count
 }
 
-#[cfg(not(feature = "with_zstd"))]
+#[cfg(not(any(feature = "with_zstd", feature = "pyo3_event_zstd")))]
 fn decompress_body(body: &Vec<u8>) -> Vec<u8> {
     let mut decoder = flate2::read::GzDecoder::new(std::io::Cursor::new(body));
     let mut unzipped = Vec::new();
@@ -251,7 +251,7 @@ fn decompress_body(body: &Vec<u8>) -> Vec<u8> {
     unzipped
 }
 
-#[cfg(feature = "with_zstd")]
+#[cfg(any(feature = "with_zstd", feature = "pyo3_event_zstd"))]
 fn decompress_body(body: &Vec<u8>) -> Vec<u8> {
     let mut decoder = zstd::Decoder::new(std::io::Cursor::new(body)).unwrap();
     let mut unzipped = Vec::new();

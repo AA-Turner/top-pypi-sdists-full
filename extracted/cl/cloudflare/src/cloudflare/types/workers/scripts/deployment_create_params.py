@@ -17,6 +17,14 @@ class DeploymentCreateParams(TypedDict, total=False):
     strategy: Required[Literal["percentage"]]
 
     versions: Required[Iterable[Version]]
+    """Worker versions included in this deployment.
+
+    Each object must contain a `version_id` UUID and a `percentage`; percentages
+    across all objects must total 100. In the `cf` CLI, pass the entire array as one
+    JSON value to `--versions`, either inline, for example
+    `--versions '[{"version_id":"023e105f-2a42-4f8b-a1c1-73f6a2a30c0f","percentage":100}]'`,
+    or from a JSON file with `--versions @versions.json`.
+    """
 
     force: bool
     """
@@ -29,8 +37,10 @@ class DeploymentCreateParams(TypedDict, total=False):
 
 class Version(TypedDict, total=False):
     percentage: Required[float]
+    """Percentage of traffic served by this version."""
 
     version_id: Required[str]
+    """Identifier of the Worker Version."""
 
 
 class Annotations(TypedDict, total=False):

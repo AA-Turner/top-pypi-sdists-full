@@ -34,7 +34,6 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import httpx
-from rich.console import Console
 
 from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.config import CLIConfig
@@ -44,9 +43,10 @@ from src.cli.utils.formatters import (
     format_info,
     format_warning,
 )
+from src.cli.utils.presentation import make_console
 from src.cli.utils.project_context import load_project_context
 
-console = Console()
+console = make_console()
 
 
 def _role_can_release(role: str) -> bool:
@@ -119,15 +119,15 @@ def _run_gh(*argv: str) -> Optional[Tuple[str, str]]:
 
 
 class ReleaseProxyCommands:
-    """`innoday release` / `innoday hotfix` -- blastoff proxied through InnoDay."""
+    """`innoday blastoff` / `innoday hotfix` -- blastoff proxied through InnoDay."""
 
     @staticmethod
-    def setup_parser(parser: argparse.ArgumentParser, command: str) -> None:
+    def setup_parser(parser: argparse.ArgumentParser) -> None:
         """Configure the parser for ``innoday blastoff``.
 
-        One command with one option surface. ``release`` and ``hotfix`` remain
-        as aliases -- ``hotfix`` is the short form people type, and it simply
-        implies ``--hotfix`` -- so ``command`` only decides that default.
+        One command with one option surface, shared by every spelling of it:
+        the top-level ``blastoff``, ``hotfix`` (which implies ``--hotfix``, set
+        by its own entry point rather than here), and ``releases blastoff``.
         """
         # **No `-c`.** It was a key into a `release_configs` block in
         # project.yml, and that block held the GitHub org and topic -- values
@@ -336,7 +336,12 @@ class ReleaseProxyCommands:
         # machine, and a spinner drawn over it is the same corruption a stray
         # line of prose caused in the engine's own report.
         as_json = getattr(args, "as_json", False)
-        reporter = None if as_json else ProgressReporter("🚀 Finding your project")
+        # **No header here, and no rockets on the captions.** The release report
+        # states the release identity once -- `blastoff.report.render_header`
+        # documents the run where a driving tool printed it a second time -- and
+        # that report is the shape every other command's header now copies. One
+        # rocket per run means it belongs to the report, not to five spinners.
+        reporter = None if as_json else ProgressReporter("Finding your project")
         with reporter or contextlib.nullcontext():
             return await ReleaseProxyCommands._run_with_progress(
                 args, config, hotfix, reporter
@@ -356,7 +361,7 @@ class ReleaseProxyCommands:
         org_id, project_id, github_org, topics, alias, prerelease = resolved
 
         if reporter is not None:
-            reporter.update(f"🚀 Checking you can release {alias}")
+            reporter.update(f"Checking you can release {alias}")
 
         # Check who you are and what you may do BEFORE anything is tagged.
         #
@@ -629,7 +634,7 @@ class ReleaseProxyCommands:
         from blastoff.release import Release
 
         if reporter is not None:
-            reporter.update("🚀 Working out which version is next")
+            reporter.update("Working out which version is next")
         try:
             org_config = store.load_org_config(alias)
         except FileNotFoundError as e:
@@ -667,7 +672,7 @@ class ReleaseProxyCommands:
         # machine, and a spinner drawn over it is the same corruption a stray
         # line of prose caused in the engine's own report.
         if reporter is not None:
-            reporter.update("🚀 Working out what ships")
+            reporter.update("Working out what ships")
         with contextlib.nullcontext():
             picture = ReleaseProxyCommands._ticket_picture(store, version)
 
@@ -710,7 +715,7 @@ class ReleaseProxyCommands:
                     else "since the last release"
                 )
                 if reporter is not None:
-                    reporter.update(f"🚀 Reading what shipped {since_label}")
+                    reporter.update(f"Reading what shipped {since_label}")
 
                 content = await ReleaseProxyCommands._fetch_content(
                     config,
@@ -728,7 +733,7 @@ class ReleaseProxyCommands:
                     brief["content"] = content
 
             if reporter is not None:
-                reporter.update("🚀 Writing the report")
+                reporter.update("Writing the report")
 
         # **Put the spinner away before anything is printed.** The report goes
         # to stdout and the confirmation prompt waits on a person; an animation

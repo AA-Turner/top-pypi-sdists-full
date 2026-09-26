@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing_extensions import Literal, Required, TypedDict
+from typing_extensions import Literal, Required, Annotated, TypedDict
+
+from ..._utils import PropertyInfo
 
 __all__ = ["AccountCreateParams", "Unit"]
 
@@ -11,19 +13,29 @@ class AccountCreateParams(TypedDict, total=False):
     name: Required[str]
     """Account name"""
 
+    standalone: Literal[True]
+    """Set to `true` and omit `unit` to create a standalone Free Account.
+
+    If provided, this field must be `true`.
+    """
+
     type: Literal["standard", "enterprise"]
 
     unit: Unit
+    """Information related to the tenant unit.
+
+    Provide its ID and omit `standalone` to create the Account within an
+    Organization. See
+    https://developers.cloudflare.com/tenant/how-to/manage-accounts/.
     """
-    information related to the tenant unit, and optionally, an id of the unit to
-    create the account on. see
-    https://developers.cloudflare.com/tenant/how-to/manage-accounts/
-    """
+
+    idempotency_key: Annotated[str, PropertyInfo(alias="Idempotency-Key")]
 
 
 class Unit(TypedDict, total=False):
-    """
-    information related to the tenant unit, and optionally, an id of the unit to create the account on. see https://developers.cloudflare.com/tenant/how-to/manage-accounts/
+    """Information related to the tenant unit.
+
+    Provide its ID and omit `standalone` to create the Account within an Organization. See https://developers.cloudflare.com/tenant/how-to/manage-accounts/.
     """
 
     id: str

@@ -37,11 +37,12 @@ path 1). See ``src.services.bootstrap`` for seeding the first platform users.
 Bearer-token auth without per-router changes.
 """
 
+import logging
 import os
 from typing import Optional
 
 from fastapi import Request
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from src.domain.cli_token import CLI_TOKEN_PREFIXES, CLIToken, hash_cli_token
 from src.domain.user import User
@@ -51,6 +52,9 @@ from src.services.supabase_auth import (
     supabase_auth_configured,
     verify_supabase_jwt,
 )
+from src.services.supabase_invite import fetch_identity_confirmation
+
+logger = logging.getLogger(__name__)
 
 
 class UnverifiedEmailError(Exception):
@@ -92,7 +96,9 @@ def _bearer_token(request: Request) -> Optional[str]:
     return header[len("Bearer ") :].strip() or None
 
 
-def _user_from_cli_token(raw_token: str, session: Session) -> Optional[User]:
+def _user_from_cli_token(
+    raw_token: str, session: Session, record_use: bool = True
+) -> Optional[User]:
     """Path 1: look up a prefixed opaque CLI token by its hash.
 
     Prefix-agnostic: the full presented string (prefix + org segment + secret)
@@ -109,14 +115,81 @@ def _user_from_cli_token(raw_token: str, session: Session) -> Optional[User]:
     if not user:
         return None
     _assert_email_verified(user)
+    if not record_use:
+        return user
     row.mark_used()
     session.add(row)
     session.commit()
     return user
 
 
-def _user_from_supabase_jwt(raw_token: str, session: Session) -> Optional[User]:
-    """Path 2: verify a Supabase JWT and lazily mirror the user."""
+def _linkable_by_email(
+    session: Session, email: Optional[str], sub: str, confirmed
+) -> Optional[User]:
+    """The existing user a Supabase sign-in may attach to by email, if any.
+
+    Only when the email is **confirmed** -- an unconfirmed address proves
+    nothing about who holds it -- and only onto a user not already attached to
+    a *different* Supabase identity. Without both, a JWT for a new identity
+    carrying someone else's address resolved to them, platform admins included
+    (PF-465). Confirmation comes from a claim GoTrue sets or, failing that, from
+    Supabase's own record (the admin API) -- never from `user_metadata`, which
+    the token's holder can write. Invite links and Google sign-ins arrive
+    confirmed, so real first sign-ins still link. Refusals are logged: a person
+    turned away here otherwise sees only a 401.
+    """
+    if not email:
+        return None
+    user = _user_by_email(session, email)
+    if not user:
+        return None
+    if user.supabase_user_id not in (None, sub):
+        logger.warning(
+            "Refused to link Supabase identity %s to user %s: already linked to "
+            "another identity",
+            sub,
+            user.id,
+        )
+        return None
+    if not (confirmed or _idp_confirms(sub, email)):
+        logger.warning(
+            "Refused to link Supabase identity %s to user %s: email not "
+            "confirmed by the IdP",
+            sub,
+            user.id,
+        )
+        return None
+    return user
+
+
+def _idp_confirms(sub: str, email: Optional[str]) -> bool:
+    """Whether Supabase's own record says this identity confirmed this email."""
+    if not email:
+        return False
+    idp = fetch_identity_confirmation(sub)
+    return bool(
+        idp is not None
+        and idp.email_confirmed_at
+        and (idp.email or "").strip().lower() == email.strip().lower()
+    )
+
+
+def _user_by_email(session: Session, email: str) -> Optional[User]:
+    """Case-insensitive, as sign-in links and identity resolution already are."""
+    return session.exec(
+        select(User).where(func.lower(User.email) == email.strip().lower())
+    ).first()
+
+
+def _user_from_supabase_jwt(
+    raw_token: str, session: Session, record_use: bool = True
+) -> Optional[User]:
+    """Path 2: verify a Supabase JWT and lazily mirror the user.
+
+    ``record_use=False`` makes the same decision without writing: no
+    verification mirror, no email link, and no new user row (an unknown
+    subject resolves to None).
+    """
     if not supabase_auth_configured():
         return None
     try:
@@ -133,8 +206,22 @@ def _user_from_supabase_jwt(raw_token: str, session: Session) -> Optional[User]:
 
     # Already linked?
     user = session.exec(select(User).where(User.supabase_user_id == sub)).first()
+    if not record_use:
+        if not user:
+            user = _linkable_by_email(session, identity.get("email"), sub, confirmed)
+        if not user:
+            return None
+        # The IdP's confirmation counts as verified, exactly as the write path
+        # would record it.
+        if not confirmed:
+            _assert_email_verified(user)
+        return user
     if user:
-        if confirmed:
+        if not confirmed and not user.email_verified:
+            # The token alone can't prove it (see extract_identity); ask the IdP,
+            # only until the user is verified -- after that nothing is asked.
+            confirmed = _idp_confirms(sub, identity.get("email"))
+        if confirmed and not user.email_verified:
             # The IdP is the source of truth; mirror its confirmation locally so
             # the CLI-token path can gate on it without a round-trip.
             user.mark_email_verified()
@@ -144,9 +231,10 @@ def _user_from_supabase_jwt(raw_token: str, session: Session) -> Optional[User]:
         return user
 
     email = identity.get("email")
-    # Link an existing header-era row by email, if present (lazy migration).
+    # Link an existing header-era row by email, if present (lazy migration) --
+    # but only a confirmed email, onto a user not attached elsewhere.
     if email:
-        user = session.exec(select(User).where(User.email == email)).first()
+        user = _linkable_by_email(session, email, sub, confirmed)
         if user:
             user.supabase_user_id = sub
             if confirmed:
@@ -159,8 +247,12 @@ def _user_from_supabase_jwt(raw_token: str, session: Session) -> Optional[User]:
             return user
 
     # Otherwise create the mirror row (invite-accept normally does this first;
-    # this covers a first login via an already-provisioned Supabase user).
+    # this covers a first login via an already-provisioned Supabase user) --
+    # unless the address already belongs to someone: a refused link must not
+    # turn into a second account under the same email.
     if not email:
+        return None
+    if _user_by_email(session, email):
         return None
     user = User(
         email=email,
@@ -176,16 +268,23 @@ def _user_from_supabase_jwt(raw_token: str, session: Session) -> Optional[User]:
     return user
 
 
-def resolve_user_from_request(request: Request, session: Session) -> Optional[User]:
-    """Resolve the authenticated user, or None if no source succeeds."""
+def resolve_user_from_request(
+    request: Request, session: Session, *, record_use: bool = True
+) -> Optional[User]:
+    """Resolve the authenticated user, or None if no source succeeds.
+
+    ``record_use=False`` runs the same validation but writes nothing (no
+    ``last_used_at`` stamp, no user row created or linked) -- for anonymous
+    routes that only peek at who is asking (PF-463).
+    """
     raw_token = _bearer_token(request)
     if raw_token:
         if any(raw_token.startswith(p) for p in CLI_TOKEN_PREFIXES):
-            user = _user_from_cli_token(raw_token, session)
+            user = _user_from_cli_token(raw_token, session, record_use)
             if user:
                 return user
         else:
-            user = _user_from_supabase_jwt(raw_token, session)
+            user = _user_from_supabase_jwt(raw_token, session, record_use)
             if user:
                 return user
 

@@ -126,7 +126,7 @@ class Top0(BaseModel):
 
     origin_country_name: str = FieldInfo(alias="originCountryName")
 
-    rank: float
+    rank: int
 
     value: str
 

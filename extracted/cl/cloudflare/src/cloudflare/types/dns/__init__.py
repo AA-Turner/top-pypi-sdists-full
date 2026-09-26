@@ -50,7 +50,6 @@ from .https_record_param import HTTPSRecordParam as HTTPSRecordParam
 from .naptr_record_param import NAPTRRecordParam as NAPTRRecordParam
 from .record_edit_params import RecordEditParams as RecordEditParams
 from .record_list_params import RecordListParams as RecordListParams
-from .record_scan_params import RecordScanParams as RecordScanParams
 from .sshfp_record_param import SSHFPRecordParam as SSHFPRecordParam
 from .dnskey_record_param import DNSKEYRecordParam as DNSKEYRecordParam
 from .record_batch_params import RecordBatchParams as RecordBatchParams

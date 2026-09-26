@@ -96,6 +96,10 @@ class LogsResource(SyncAPIResource):
         Args:
           gateway_id: gateway id
 
+          model: Model filter.
+
+          search: Free-text search over log metadata.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -498,6 +502,10 @@ class AsyncLogsResource(AsyncAPIResource):
 
         Args:
           gateway_id: gateway id
+
+          model: Model filter.
+
+          search: Free-text search over log metadata.
 
           extra_headers: Send extra headers
 

@@ -116,6 +116,7 @@ dependencies = [
     "tqdm>=4.65.0,<=4.67.1",
     "phonenumbers==9.0.9",
     "navigator-auth>=0.15.8",
+    "lark>=1.3.1",
 ]
 
 [project.optional-dependencies]
@@ -192,6 +193,7 @@ include = ["querysource", "querysource.*"]
 [tool.setuptools.package-data]
 querysource = ["py.typed"]
 "querysource.qs_parsers" = ["*.so", "*.pyd"]
+"querysource.qsurl" = ["*.so", "*.pyd", "*.lark"]
 
 # Exclude Cython-generated intermediate sources from the wheel.
 # These .c/.cpp files are build artifacts (the compiled .so already ships)

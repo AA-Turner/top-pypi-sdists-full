@@ -86,7 +86,7 @@ dependencies = [
 
 [libffi]
 name = "libffi"
-version = "2b42587b9b5c8f4ab4144b615014e20d9e4d396f"
+version = "3fe3257235cc9ffd192e1cd567f1bdfff751fa3e"
 url = "https://github.com/frida/libffi.git"
 options = [
     "-Dexe_static_tramp=false",
@@ -123,7 +123,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "129e8d998936cdd47be41d25d3ffd1294c26a920"
+version = "e0cc7c6f0d88f47e4dee4607df085d08c89b8a6a"
 url = "https://github.com/frida/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -233,7 +233,7 @@ url = "https://github.com/frida/sqlite.git"
 [libunwind]
 when = "machine.os in {'linux', 'android', 'freebsd', 'qnx'} and not machine.is_freestanding"
 name = "libunwind"
-version = "4d0abea0effd3c80916e70abe38c2a6156596f05"
+version = "509f83336cc9af43f52a60b7ff07d56a0dcbcdd8"
 url = "https://github.com/frida/libunwind.git"
 options = [
     "-Dgeneric_library=disabled",
@@ -293,7 +293,7 @@ url = "https://github.com/frida/libusb.git"
 [lwip]
 when = "not machine.is_freestanding"
 name = "lwIP"
-version = "9122f0d0006b7990c0f9d0c58506cc454f6a1f49"
+version = "00ea2b4c3c57dae81ec3a88c3d58ef38ab17e0c9"
 url = "https://github.com/frida/lwip.git"
 options = [
     "-Dipv4=disabled",
@@ -310,7 +310,7 @@ dependencies = [
 [usrsctp]
 when = "not machine.is_freestanding"
 name = "usrsctp"
-version = "377fecfe06bb766c69cc0e1e1f6d5c72cf7704e6"
+version = "57b8b42abad9b00861f92281f013830bbbd0b5f0"
 url = "https://github.com/frida/usrsctp.git"
 options = [
     "-Dsctp_inet=false",
@@ -428,7 +428,7 @@ dependencies = [
 
 [quickjs]
 name = "QuickJS"
-version = "fd4842d54368a52d44dc3913df291ea82ca6174f"
+version = "5925b4859d6ada980c6f6df5833ce30c6d7ea2e0"
 url = "https://github.com/frida/quickjs.git"
 options = [
     "-Dlibc=false",
@@ -479,6 +479,7 @@ when = """ \
        and not machine.arch.startswith('mips') \
        and not machine.arch.startswith('powerpc') \
        and machine.os not in {'none', 'qnx'} \
+       and machine.config != 'prospero' \
        and not machine.is_freestanding \
        """
 name = "V8"

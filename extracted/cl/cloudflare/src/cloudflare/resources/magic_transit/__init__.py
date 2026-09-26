@@ -80,6 +80,14 @@ from .cf_interconnects import (
     CfInterconnectsResourceWithStreamingResponse,
     AsyncCfInterconnectsResourceWithStreamingResponse,
 )
+from .bgp_filter_profiles import (
+    BGPFilterProfilesResource,
+    AsyncBGPFilterProfilesResource,
+    BGPFilterProfilesResourceWithRawResponse,
+    AsyncBGPFilterProfilesResourceWithRawResponse,
+    BGPFilterProfilesResourceWithStreamingResponse,
+    AsyncBGPFilterProfilesResourceWithStreamingResponse,
+)
 
 __all__ = [
     "AppsResource",
@@ -112,6 +120,12 @@ __all__ = [
     "AsyncRoutesResourceWithRawResponse",
     "RoutesResourceWithStreamingResponse",
     "AsyncRoutesResourceWithStreamingResponse",
+    "BGPFilterProfilesResource",
+    "AsyncBGPFilterProfilesResource",
+    "BGPFilterProfilesResourceWithRawResponse",
+    "AsyncBGPFilterProfilesResourceWithRawResponse",
+    "BGPFilterProfilesResourceWithStreamingResponse",
+    "AsyncBGPFilterProfilesResourceWithStreamingResponse",
     "SitesResource",
     "AsyncSitesResource",
     "SitesResourceWithRawResponse",

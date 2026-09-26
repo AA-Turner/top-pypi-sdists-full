@@ -2,6 +2,7 @@
 
 from typing import List, Optional
 from datetime import datetime
+from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
 
@@ -24,6 +25,7 @@ __all__ = [
     "PropertiesCompletenessPropertiesWarningsItems",
     "PropertiesIndicators",
     "PropertiesIndicatorsItems",
+    "PropertiesIndicatorsItemsSource",
     "PropertiesIndicatorsItemsRelatedEvent",
     "PropertiesIndicatorsItemsTag",
     "PropertiesPagination",
@@ -104,6 +106,20 @@ class PropertiesCompleteness(BaseModel):
     type: str
 
 
+class PropertiesIndicatorsItemsSource(BaseModel):
+    resource_id: str = FieldInfo(alias="resourceId")
+
+    resource_type: Literal["article"] = FieldInfo(alias="resourceType")
+
+    system: Literal["threat-signals"]
+
+    title: Optional[str] = None
+    """
+    Threat Signals article title; null for historical provenance without a stored
+    title.
+    """
+
+
 class PropertiesIndicatorsItemsRelatedEvent(BaseModel):
     dataset_id: str = FieldInfo(alias="datasetId")
 
@@ -131,6 +147,9 @@ class PropertiesIndicatorsItems(BaseModel):
     created_at: datetime = FieldInfo(alias="createdAt")
 
     indicator_type: str = FieldInfo(alias="indicatorType")
+
+    sources: List[PropertiesIndicatorsItemsSource]
+    """RSS article sources from which this indicator was extracted."""
 
     updated_at: datetime = FieldInfo(alias="updatedAt")
 

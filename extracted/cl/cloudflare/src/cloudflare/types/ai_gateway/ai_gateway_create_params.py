@@ -26,6 +26,12 @@ class AIGatewayCreateParams(TypedDict, total=False):
 
     authentication: bool
 
+    byok_only: bool
+    """
+    Requires customer-provided provider credentials and prevents fallback to Unified
+    Billing.
+    """
+
     log_management: Optional[int]
 
     log_management_strategy: Optional[Literal["STOP_INSERTING", "DELETE_OLDEST"]]
@@ -40,7 +46,7 @@ class AIGatewayCreateParams(TypedDict, total=False):
     """Backoff strategy for retry delays"""
 
     retry_delay: Optional[int]
-    """Delay between retry attempts in milliseconds (0-5000)"""
+    """Delay between retry attempts in milliseconds (0-60000)"""
 
     retry_max_attempts: Optional[int]
     """Maximum number of retry attempts for failed requests (1-5)"""

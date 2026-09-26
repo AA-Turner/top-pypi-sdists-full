@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyAttributeError, PyTypeError};
 use pyo3::types::{PyAny, PyAnyMethods, PyBytes, PyDict, PyModule};
-use pyo3::{FromPyObject, Py, PyResult, prelude::Bound, pyclass, pymethods};
+use pyo3::{Borrowed, FromPyObject, Py, PyErr, PyResult, prelude::Bound, pyclass, pymethods};
 use pyo3_stub_gen::derive::*;
 use statsig_rust::{
     StatsigErr,
@@ -18,8 +18,9 @@ const TAG: &str = "DataStoreBasey";
 
 #[gen_stub_pyclass]
 #[pyclass(name = "DataStoreBase", module = "statsig_python_core", subclass)]
-#[derive(FromPyObject, Default)]
+#[derive(Default)]
 pub struct DataStoreBasePy {
+    is_read_only_fn: Option<Py<PyAny>>,
     initialize_fn: Option<Py<PyAny>>,
     shutdown_fn: Option<Py<PyAny>>,
     get_fn: Option<Py<PyAny>>,
@@ -29,6 +30,31 @@ pub struct DataStoreBasePy {
     support_polling_updates_for_fn: Option<Py<PyAny>>,
 }
 
+impl<'a, 'py> FromPyObject<'a, 'py> for DataStoreBasePy {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+        // Older Python wrappers do not register the optional capability callback.
+        let is_read_only_fn = match obj.getattr("is_read_only_fn") {
+            Ok(value) => value.extract()?,
+            Err(error) if error.is_instance_of::<PyAttributeError>(obj.py()) => None,
+            Err(error) => return Err(error),
+        };
+        Ok(Self {
+            is_read_only_fn,
+            initialize_fn: obj.getattr("initialize_fn")?.extract()?,
+            shutdown_fn: obj.getattr("shutdown_fn")?.extract()?,
+            get_fn: obj.getattr("get_fn")?.extract()?,
+            get_bytes_fn: obj.getattr("get_bytes_fn")?.extract()?,
+            set_fn: obj.getattr("set_fn")?.extract()?,
+            set_bytes_fn: obj.getattr("set_bytes_fn")?.extract()?,
+            support_polling_updates_for_fn: obj
+                .getattr("support_polling_updates_for_fn")?
+                .extract()?,
+        })
+    }
+}
+
 #[gen_stub_pymethods]
 #[pymethods]
 impl DataStoreBasePy {
@@ -36,10 +62,43 @@ impl DataStoreBasePy {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Override to skip preparing and writing cached specs while retaining reads.
+    /// The result should remain stable during an update; stores are writable by default.
+    pub fn is_read_only(&self) -> bool {
+        false
+    }
 }
 
 #[async_trait]
 impl DataStoreTrait for DataStoreBasePy {
+    fn is_read_only(&self) -> bool {
+        let Some(is_read_only_fn) = &self.is_read_only_fn else {
+            return false;
+        };
+
+        SafeGil::run(|py| {
+            let Some(py) = py else {
+                return true;
+            };
+            match is_read_only_fn
+                .call0(py)
+                .and_then(|value| value.extract::<bool>(py))
+            {
+                Ok(read_only) => read_only,
+                Err(error) => {
+                    log_e!(
+                        TAG,
+                        "Failed to call DataStoreBasePy.is_read_only: {:?}",
+                        error
+                    );
+                    // Do not attempt writes when a store cannot establish its role.
+                    true
+                }
+            }
+        })
+    }
+
     async fn initialize(&self) -> Result<(), StatsigErr> {
         SafeGil::run(|py| {
             let py = match py {

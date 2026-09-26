@@ -256,7 +256,7 @@ fn assert_flushing_interval_and_scheduled_batch(
     );
 }
 
-#[cfg(feature = "with_zstd")]
+#[cfg(any(feature = "with_zstd", feature = "pyo3_event_zstd"))]
 pub fn decompress_json(compressed: &[u8]) -> Result<Value, Box<dyn std::error::Error>> {
     let mut decoder = zstd::Decoder::new(compressed)?;
     let mut decompressed = String::new();
@@ -265,7 +265,7 @@ pub fn decompress_json(compressed: &[u8]) -> Result<Value, Box<dyn std::error::E
     Ok(json)
 }
 
-#[cfg(not(feature = "with_zstd"))]
+#[cfg(not(any(feature = "with_zstd", feature = "pyo3_event_zstd")))]
 pub fn decompress_json(compressed: &[u8]) -> Result<Value, Box<dyn std::error::Error>> {
     let mut decoder = flate2::read::GzDecoder::new(compressed);
     let mut decompressed = String::new();

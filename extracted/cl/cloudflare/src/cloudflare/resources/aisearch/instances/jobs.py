@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Type, cast
 
 import httpx
@@ -48,6 +49,7 @@ class JobsResource(SyncAPIResource):
         """
         return JobsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def create(
         self,
         id: str,
@@ -63,6 +65,9 @@ class JobsResource(SyncAPIResource):
     ) -> JobCreateResponse:
         """
         Creates a new indexing job for an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -92,6 +97,7 @@ class JobsResource(SyncAPIResource):
             cast_to=cast(Type[JobCreateResponse], ResultWrapper[JobCreateResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         id: str,
@@ -108,6 +114,9 @@ class JobsResource(SyncAPIResource):
     ) -> SyncV4PagePaginationArray[JobListResponse]:
         """
         Lists indexing jobs for an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -143,6 +152,7 @@ class JobsResource(SyncAPIResource):
             model=JobListResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def get(
         self,
         job_id: str,
@@ -158,6 +168,9 @@ class JobsResource(SyncAPIResource):
     ) -> JobGetResponse:
         """
         Retrieves details for a specific AI Search indexing job.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -193,6 +206,7 @@ class JobsResource(SyncAPIResource):
             cast_to=cast(Type[JobGetResponse], ResultWrapper[JobGetResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def logs(
         self,
         job_id: str,
@@ -210,6 +224,9 @@ class JobsResource(SyncAPIResource):
     ) -> JobLogsResponse:
         """
         Lists log entries for an AI Search indexing job.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -273,6 +290,7 @@ class AsyncJobsResource(AsyncAPIResource):
         """
         return AsyncJobsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def create(
         self,
         id: str,
@@ -288,6 +306,9 @@ class AsyncJobsResource(AsyncAPIResource):
     ) -> JobCreateResponse:
         """
         Creates a new indexing job for an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -317,6 +338,7 @@ class AsyncJobsResource(AsyncAPIResource):
             cast_to=cast(Type[JobCreateResponse], ResultWrapper[JobCreateResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         id: str,
@@ -333,6 +355,9 @@ class AsyncJobsResource(AsyncAPIResource):
     ) -> AsyncPaginator[JobListResponse, AsyncV4PagePaginationArray[JobListResponse]]:
         """
         Lists indexing jobs for an AI Search instance.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -368,6 +393,7 @@ class AsyncJobsResource(AsyncAPIResource):
             model=JobListResponse,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def get(
         self,
         job_id: str,
@@ -383,6 +409,9 @@ class AsyncJobsResource(AsyncAPIResource):
     ) -> JobGetResponse:
         """
         Retrieves details for a specific AI Search indexing job.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -418,6 +447,7 @@ class AsyncJobsResource(AsyncAPIResource):
             cast_to=cast(Type[JobGetResponse], ResultWrapper[JobGetResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def logs(
         self,
         job_id: str,
@@ -435,6 +465,9 @@ class AsyncJobsResource(AsyncAPIResource):
     ) -> JobLogsResponse:
         """
         Lists log entries for an AI Search indexing job.
+
+        Deprecated: use /accounts/{account_id}/ai-search/namespaces/{name}/instances
+        (and descendant paths) instead.
 
         Args:
           id: AI Search instance ID. Lowercase alphanumeric, hyphens, and underscores.
@@ -482,17 +515,25 @@ class JobsResourceWithRawResponse:
     def __init__(self, jobs: JobsResource) -> None:
         self._jobs = jobs
 
-        self.create = to_raw_response_wrapper(
-            jobs.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                jobs.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_raw_response_wrapper(
-            jobs.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                jobs.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_raw_response_wrapper(
-            jobs.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                jobs.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.logs = to_raw_response_wrapper(
-            jobs.logs,
+        self.logs = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                jobs.logs,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -500,17 +541,25 @@ class AsyncJobsResourceWithRawResponse:
     def __init__(self, jobs: AsyncJobsResource) -> None:
         self._jobs = jobs
 
-        self.create = async_to_raw_response_wrapper(
-            jobs.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                jobs.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_raw_response_wrapper(
-            jobs.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                jobs.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_raw_response_wrapper(
-            jobs.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                jobs.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.logs = async_to_raw_response_wrapper(
-            jobs.logs,
+        self.logs = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                jobs.logs,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -518,17 +567,25 @@ class JobsResourceWithStreamingResponse:
     def __init__(self, jobs: JobsResource) -> None:
         self._jobs = jobs
 
-        self.create = to_streamed_response_wrapper(
-            jobs.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                jobs.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_streamed_response_wrapper(
-            jobs.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                jobs.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_streamed_response_wrapper(
-            jobs.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                jobs.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.logs = to_streamed_response_wrapper(
-            jobs.logs,
+        self.logs = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                jobs.logs,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -536,15 +593,23 @@ class AsyncJobsResourceWithStreamingResponse:
     def __init__(self, jobs: AsyncJobsResource) -> None:
         self._jobs = jobs
 
-        self.create = async_to_streamed_response_wrapper(
-            jobs.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                jobs.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_streamed_response_wrapper(
-            jobs.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                jobs.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_streamed_response_wrapper(
-            jobs.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                jobs.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.logs = async_to_streamed_response_wrapper(
-            jobs.logs,
+        self.logs = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                jobs.logs,  # pyright: ignore[reportDeprecated],
+            )
         )

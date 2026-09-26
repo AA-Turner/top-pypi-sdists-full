@@ -21,6 +21,7 @@ __all__ = [
     "ExportsWorkersDurableObjectExpectingTransferExport",
     "NamedHandler",
     "Observability",
+    "ObservabilityIssues",
     "ObservabilityLogs",
     "ObservabilityTraces",
     "Placement",
@@ -236,6 +237,13 @@ class NamedHandler(BaseModel):
     """The name of the export."""
 
 
+class ObservabilityIssues(BaseModel):
+    """Real-time Issues settings for the Worker."""
+
+    enabled: Optional[bool] = None
+    """Whether real-time Issues are enabled for the Worker."""
+
+
 class ObservabilityLogs(BaseModel):
     """Log settings for the Worker."""
 
@@ -295,6 +303,9 @@ class Observability(BaseModel):
 
     From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1.
     """
+
+    issues: Optional[ObservabilityIssues] = None
+    """Real-time Issues settings for the Worker."""
 
     logs: Optional[ObservabilityLogs] = None
     """Log settings for the Worker."""

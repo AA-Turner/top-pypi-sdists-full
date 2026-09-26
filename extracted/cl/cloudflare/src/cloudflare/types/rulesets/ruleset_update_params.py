@@ -808,7 +808,6 @@ class RuleRulesetsSetCacheControlRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: RuleRulesetsSetCacheControlRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -966,7 +965,6 @@ class RuleRulesetsSetCacheTagsRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: RuleRulesetsSetCacheTagsRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -1061,7 +1059,6 @@ class RuleRulesetsTransformResponseHTMLRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: RuleRulesetsTransformResponseHTMLRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""

@@ -64,5 +64,6 @@ class ContentListParams(TypedDict, total=False):
         "SALESFORCE",
         "SERVICENOW",
         "SLACK",
+        "ZOOM",
     ]
     """Filter by vendor"""

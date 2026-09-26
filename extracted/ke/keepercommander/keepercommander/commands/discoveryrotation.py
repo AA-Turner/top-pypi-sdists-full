@@ -569,6 +569,25 @@ class PAMCreateRecordRotationCommand(Command):
     def get_parser(self):
         return PAMCreateRecordRotationCommand.parser
 
+    def execute_args(self, params, args, **kwargs):
+        # Reached only via normal command dispatch (interactive shell, a one-shot
+        # `keeper pam rotation edit ...` invocation, or a run-batch script line) -
+        # never by callers that instantiate this class directly and call execute()
+        # themselves (bulk PAM import/extend), who keep trusting their own
+        # pre-warmed record_rotation_cache for speed.
+        kwargs.setdefault('trust_cache', False)
+        # Only a literal False opts into the forced-resync path; any other value
+        # (True, None, or anything else a caller might pass) is treated as True.
+        trust_cache = kwargs['trust_cache'] is not False
+        kwargs['trust_cache'] = trust_cache
+        try:
+            return super().execute_args(params, args, **kwargs)
+        finally:
+            if not trust_cache:
+                # Make sure the shell picks up the change (or the fresh sync we just
+                # forced) via the standard "sync after command" mechanism in do_command().
+                params.sync_data = True
+
     def execute(self, params, **kwargs):
         """Configure rotation settings for one or multiple PAM records.
 
@@ -577,6 +596,9 @@ class PAMCreateRecordRotationCommand(Command):
         resource linkage and then submits rotation requests to the Keeper
         PAM router service.
         """
+        # Only a literal False opts into the forced-resync path; any other value
+        # (True, missing/defaulted True, None, or anything else) is treated as True.
+        trust_cache = kwargs.pop('trust_cache', True) is not False
 
         def config_resource(_dag, target_record, target_config_uid, silent=None):
             if not _dag.linking_dag.has_graph:
@@ -1496,6 +1518,15 @@ class PAMCreateRecordRotationCommand(Command):
         else:
             if not kwargs.get('silent'):
                 logging.info('Selected %d PAM record(s) for rotation', len(pam_records))
+
+        if not trust_cache:
+            # Refresh the local rotation cache before reading any cached revision below.
+            # A stale rotation revision here would collide with a real rotation change made
+            # elsewhere (another session, a scheduled rotation) since this cache was
+            # last warmed, and the router rejects the update with an error like
+            # mismatched_revision_blocking_update. Bulk callers that pre-warm record_rotation_cache
+            # themselves (pam project import/extend) pass trust_cache=True and skip this.
+            api.sync_down(params)
 
         schedule_config = kwargs.get('schedule_config') is True
         if schedule_config:
@@ -2429,7 +2460,7 @@ class PAMConfigurationListCommand(Command):
         for c in configurations:  # type: vault.TypedRecord
             if c.record_type in ('pamAwsConfiguration', 'pamAzureConfiguration', 'pamGcpConfiguration',
                                  'pamDomainConfiguration', 'pamNetworkConfiguration', 'pamOciConfiguration',
-                                 'pamGitHubConfiguration'):
+                                 'pamGitHubConfiguration', 'pamHashiCorpConfiguration'):
                 facade.record = c
                 folder_info = resolve_pam_config_folder_info(
                     params, facade, c.record_uid)
@@ -2489,7 +2520,7 @@ class PAMConfigurationListCommand(Command):
 
 common_parser = argparse.ArgumentParser(add_help=False)
 common_parser.add_argument('--environment', '-env', dest='config_type', action='store',
-                           choices=['local', 'aws', 'azure', 'gcp', 'domain', 'oci', 'github'], help='PAM Configuration Type')
+                           choices=['local', 'aws', 'azure', 'gcp', 'domain', 'oci', 'github', 'hashicorp'], help='PAM Configuration Type')
 common_parser.add_argument('--title', '-t', dest='title', action='store', help='Title of the PAM Configuration')
 common_parser.add_argument('--gateway', '-g', dest='gateway_uid', action='store', help='Gateway UID or Name')
 common_parser.add_argument('--shared-folder', '-sf', dest='shared_folder_uid', action='store',
@@ -2555,12 +2586,23 @@ github_group.add_argument('--personal-access-token', dest='personal_access_token
 github_group.add_argument('--github-base-url', dest='github_base_url', action='store',
                        help='GitHub Base URL')
 
+hashicorp_group = common_parser.add_argument_group('hashicorp', 'HashiCorp Vault configuration')
+hashicorp_group.add_argument('--hashicorp-id', dest='hashicorp_id', action='store', help='HashiCorp Id')
+hashicorp_group.add_argument('--vault-base-url', dest='vault_base_url', action='store',
+                            help='Vault Base URL (e.g., https://vault.company.com:8200)')
+hashicorp_group.add_argument('--vault-token', dest='vault_token', action='store',
+                            help='Vault Token (optional; syncIdentity takes precedence)')
+hashicorp_group.add_argument('--vault-namespace', dest='vault_namespace', action='store',
+                            help='Vault Namespace (optional; leave blank for Community Edition)')
+hashicorp_group.add_argument('--vault-mount-path', dest='vault_mount_path', action='store',
+                            help='Vault KV Mount Path (optional; defaults to "secret")')
+
 class PamConfigurationEditMixin(RecordEditMixin):
     pam_record_types = None
     PAM_CONFIG_RECORD_TYPES = frozenset({
         'pamAwsConfiguration', 'pamAzureConfiguration', 'pamGcpConfiguration',
         'pamDomainConfiguration', 'pamNetworkConfiguration', 'pamOciConfiguration',
-        'pamGitHubConfiguration',
+        'pamGitHubConfiguration', 'pamHashiCorpConfiguration',
     })
     PAM_RESOURCE_RECORD_TYPES = frozenset({
         'pamDatabase', 'pamDirectory', 'pamMachine', 'pamRemoteBrowser',
@@ -2859,6 +2901,22 @@ class PamConfigurationEditMixin(RecordEditMixin):
             oci_region = kwargs.get('oci_region')
             if oci_region:
                 extra_properties.append(f'text.regionOci={oci_region}')
+        elif record.record_type == 'pamHashiCorpConfiguration':
+            hashicorp_id = kwargs.get('hashicorp_id')
+            if hashicorp_id:
+                extra_properties.append(f'text.pamHashiCorpId={hashicorp_id}')
+            vault_base_url = kwargs.get('vault_base_url')
+            if vault_base_url:
+                extra_properties.append(f'text.pamHashiCorpVaultBaseUrl={vault_base_url}')
+            vault_token = kwargs.get('vault_token')
+            if vault_token:
+                extra_properties.append(f'secret.pamHashiCorpVaultToken={vault_token}')
+            vault_namespace = kwargs.get('vault_namespace')
+            if vault_namespace:
+                extra_properties.append(f'text.pamHashiCorpVaultNamespace={vault_namespace}')
+            vault_mount_path = kwargs.get('vault_mount_path')
+            if vault_mount_path:
+                extra_properties.append(f'text.pamHashiCorpVaultMountPath={vault_mount_path}')
         if extra_properties:
             self.assign_typed_fields(record, [RecordEditMixin.parse_field(x) for x in extra_properties])
 
@@ -2936,9 +2994,11 @@ class PAMConfigurationNewCommand(Command, PamConfigurationEditMixin):
             record_type = 'pamDomainConfiguration'
         elif config_type == 'oci':
             record_type = 'pamOciConfiguration'
+        elif config_type == 'hashicorp':
+            record_type = 'pamHashiCorpConfiguration'
         else:
             raise CommandError('pam-config-new', f'--environment {config_type} is not supported'
-                                                 ' - supported options: local, aws, azure, gcp, domain, oci, github')
+                                                 ' - supported options: local, aws, azure, gcp, domain, oci, github, hashicorp')
 
         title = kwargs.get('title')
         if not title:
@@ -3265,7 +3325,34 @@ class PAMRouterGetRotationInfo(Command):
         if rri_status_name == 'RRS_ONLINE':
 
             configuration_uid = utils.base64_url_encode(rri.configurationUid)
-            gateway_name = rri.controllerName if rri.controllerName else '-'
+            gateway_name = rri.controllerName
+            if not gateway_name and rri.controllerUid:
+                def _normalize_uid(uid):
+                    if uid is None:
+                        return None
+                    if isinstance(uid, (bytes, bytearray)):
+                        return utils.base64_url_encode(uid)
+                    return str(uid)
+
+                target_uid = _normalize_uid(rri.controllerUid)
+                if target_uid is None:
+                    gateway_name = None
+                else:
+                    try:
+                        all_gateways = gateway_helper.get_all_gateways(params) or []
+                    except (Exception,) as ex:
+                        logging.debug(f"Failed to retrieve gateway list for name resolution: {ex}")
+                        all_gateways = []
+
+                    if all_gateways:
+                        matched = next((g for g in all_gateways
+                                       if _normalize_uid(getattr(g, 'controllerUid', None)) == target_uid), None)
+                        if matched:
+                            gateway_name = getattr(matched, 'controllerName', None)
+                            if gateway_name:
+                                logging.debug(f"Resolved gateway name from controllerUid {target_uid} -> {gateway_name}")
+
+            gateway_name = gateway_name if gateway_name else '-'
             gateway_uid = utils.base64_url_encode(rri.controllerUid) if rri.controllerUid else '-'
 
             def is_resource_ok(resource_id, params, configuration_uid):
@@ -3752,6 +3839,28 @@ def _is_rotation_allowed_by_enforcement(params):
     except Exception as _e:
         logging.debug('Rotation enforcement check failed; allowing: %s', _e)
         return True
+
+
+def ensure_gateway_management_allowed(params):
+    # type: (KeeperParams) -> bool
+    """Per-user enforcement gate on the 'allow_pam_gateway' role enforcement
+    (confirmed via live account_summary payload). Prints an error and returns
+    False when the user's enterprise enforcement disallows Gateway management.
+    Shared by both PAMCreateGatewayCommand and PAMGatewayRemoveCommand (and
+    their legacy discoveryrotation_v1 counterparts) to avoid duplicating the
+    check at every call site.
+    """
+    try:
+        from .workflow.helpers import is_pam_action_allowed_by_enforcement
+    except ImportError as _e:
+        logging.debug('workflow.helpers not available; skipping gateway enforcement check: %s', _e)
+        return True
+
+    if not is_pam_action_allowed_by_enforcement(params, 'allow_pam_gateway'):
+        print(f"{bcolors.FAIL}Gateway management is not allowed by your enterprise "
+              f"enforcement (allow_pam_gateway).{bcolors.ENDC}")
+        return False
+    return True
 
 
 class PAMGatewayActionRotateCommand(Command):
@@ -4393,6 +4502,9 @@ class PAMGatewayRemoveCommand(Command):
         return PAMGatewayRemoveCommand.dr_remove_controller_parser
 
     def execute(self, params, **kwargs):
+        if not ensure_gateway_management_allowed(params):
+            return
+
         gateway_name = kwargs.get('gateway')
         gateways = gateway_helper.get_all_gateways(params)
 
@@ -4461,6 +4573,8 @@ class PAMCreateGatewayCommand(Command):
         return PAMCreateGatewayCommand.dr_create_controller_parser
 
     def execute(self, params, **kwargs):
+        if not ensure_gateway_management_allowed(params):
+            return
 
         gateway_name = kwargs.get('gateway_name')
         ksm_app = kwargs.get('ksm_app')

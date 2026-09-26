@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(kiwi VERSION 0.23.2 DESCRIPTION "Kiwi, Korean Intelligent Word Identifier")
+project(kiwi VERSION 0.24.0 DESCRIPTION "Kiwi, Korean Intelligent Word Identifier")
 
 set ( CMAKE_CXX_STANDARD 17 )
 set ( CMAKE_VERBOSE_MAKEFILE true )
@@ -59,6 +59,7 @@ endif()
 
 set ( CORE_SRCS
   src/ArchUtils.cpp
+  src/BpeTokenizer.cpp
   src/Combiner.cpp
   src/CoNgramModel.cpp
   src/Dataset.cpp
@@ -74,6 +75,7 @@ set ( CORE_SRCS
   src/search.cpp
   src/ScriptType.cpp
   src/SkipBigramModel.cpp
+  src/Spacing.cpp
   src/SubstringExtractor.cpp
   src/SwTokenizer.cpp
   src/TagUtils.cpp
@@ -99,6 +101,9 @@ endif()
 include_directories( include/ )
 include_directories( third_party/tclap/include )
 include_directories( third_party/cpp-btree )
+# Eigen: exclude the LGPL-licensed modules so that only MPL2 (and more
+# permissive) Eigen code is compiled in. See NOTICE.
+add_definitions( -DEIGEN_MPL2_ONLY )
 include_directories( third_party/eigen )
 include_directories( third_party/json/include )
 include_directories( third_party/streamvbyte/include )

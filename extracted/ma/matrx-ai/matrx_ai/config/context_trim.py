@@ -70,6 +70,7 @@ What this function is NOT
 from __future__ import annotations
 
 import json
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -156,7 +157,88 @@ class TrimPolicy:
             "tier_2_min_output_chars": self.tier_2_min_output_chars,
             "skip_media_results": self.skip_media_results,
             "trim_tool_call_arguments": self.trim_tool_call_arguments,
+            "source": self.source,
         }
+
+    # Where the tier numbers came from — lands in every audit row so a trim is
+    # always attributable: "package_default" (standalone, no host resolver),
+    # "org_knobs" (the host's per-organization knob resolution), or
+    # "package_default:resolver_failed" (the host resolver raised; announced).
+    source: str = "package_default"
+
+
+# --------------------------------------------------------------------------- #
+# Org knobs — the host resolves the tiers per organization                     #
+# --------------------------------------------------------------------------- #
+#
+# The tiers are an OPINION (cost vs recall), so they are organization knobs
+# (law 6): ``platform.feature_knob`` feature ``agents.context_trim``, seeded by
+# aidream ``db/migrations/ai_096`` with exactly the ruled defaults above,
+# overridable at the ORGANIZATION rung. This package must not import the host,
+# so the host installs ONE async resolver at boot
+# (``set_trim_policy_resolver``) and ``prepare_for_send`` — the one send
+# boundary — resolves the policy through it. With no host the dataclass
+# defaults are the ruling. A resolver that RAISES (e.g. the host's
+# ``KnobNotRegisteredError`` for a missing row) is announced in red and the
+# audit row carries ``source="package_default:resolver_failed"`` — never a
+# silent default.
+
+TRIM_POLICY_KNOB_FEATURE = "agents.context_trim"
+TRIM_POLICY_KNOB_KEYS: tuple[str, ...] = (
+    "tier_1_min_positions_back",
+    "tier_1_min_output_chars",
+    "tier_2_min_positions_back",
+    "tier_2_min_output_chars",
+)
+
+#: ``async (organization_id) -> TrimPolicy``.
+TrimPolicyResolver = Callable[[str | None], Awaitable[TrimPolicy]]
+
+_TRIM_POLICY_RESOLVER: TrimPolicyResolver | None = None
+
+
+def set_trim_policy_resolver(resolver: TrimPolicyResolver | None) -> None:
+    """Install the host's per-organization knob reader (``None`` = standalone)."""
+    global _TRIM_POLICY_RESOLVER
+    _TRIM_POLICY_RESOLVER = resolver
+
+
+def get_trim_policy_resolver() -> TrimPolicyResolver | None:
+    return _TRIM_POLICY_RESOLVER
+
+
+def trim_policy_from_knobs(values: dict[str, Any]) -> TrimPolicy:
+    """Build a policy from resolved knob values (every key REQUIRED — a missing
+    one raises ``KeyError`` naming it rather than quietly using a default)."""
+    return TrimPolicy(
+        **{key: int(values[key]) for key in TRIM_POLICY_KNOB_KEYS},
+        source="org_knobs",
+    )
+
+
+async def resolve_trim_policy(organization_id: str | None) -> TrimPolicy:
+    """The trim policy this organization's sends obey."""
+    resolver = _TRIM_POLICY_RESOLVER
+    if resolver is None:
+        return TrimPolicy()
+    try:
+        policy = await resolver(organization_id)
+    except Exception as exc:  # noqa: BLE001 — one failure shape, said out loud
+        from matrx_utils import vcprint
+
+        vcprint(
+            f"[context_trim] the {TRIM_POLICY_KNOB_FEATURE} knobs could not be resolved for "
+            f"organization {organization_id!r} ({type(exc).__name__}: {exc}); this send uses "
+            "the package's ruled defaults (12/8000 + 24/2000). Fix the knob rows or the "
+            "host resolver.",
+            color="red",
+        )
+        return TrimPolicy(source="package_default:resolver_failed")
+    if not isinstance(policy, TrimPolicy):
+        raise TypeError(
+            f"trim policy resolver returned {type(policy).__name__}, not TrimPolicy"
+        )
+    return policy
 
 
 @dataclass

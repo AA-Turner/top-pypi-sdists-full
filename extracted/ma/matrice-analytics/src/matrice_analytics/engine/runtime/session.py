@@ -144,6 +144,7 @@ from matrice_analytics.engine.manifest.models import (
 )
 from matrice_analytics.engine.primitives import REGISTRY
 from matrice_analytics.engine.primitives.base import (
+    AttributeRef,
     Clock,
     FrameClock,
     FrameContext,
@@ -250,6 +251,10 @@ _KEYPOINT_KEY: Final[str] = "keypoints"
 #: Where the model input dimensions come from when the keypoints are in pixel space.  ``[w, h]``
 #: for ``keypoint_space``/``image_size``; ``shape`` is ``[h, w]`` like a numpy shape.
 _KEYPOINT_SPACE_KEYS: Final[tuple[str, ...]] = ("keypoint_space", "image_size", "input_shape")
+#: Where a decoded second-stage attribute map arrives. One spelling, not the generous list
+#: ``_CATEGORY_KEYS``/``_BOX_KEYS`` are, because this key is produced by *our own*
+#: ``intake/attributes.attach_attributes`` and not by an arbitrary inference worker.
+_ATTRIBUTE_KEYS: Final[tuple[str, ...]] = ("attributes",)
 _BOX_CORNER_ALIASES: Final[tuple[tuple[str, ...], ...]] = (
     ("xmin", "x1", "left", "x"),
     ("ymin", "y1", "top", "y"),
@@ -1195,8 +1200,9 @@ class Session:
         **This method rebuilds :class:`PipelineDetection` field by field, so every field the
         pipeline's detection carries has to be listed here.**  A field that is not is dropped
         in silence, and the primitive that reads it publishes zeros with no error -- which is
-        exactly the failure class this engine exists to remove.  ``mask`` and ``keypoints``
-        are parsed by :func:`_to_mask` and :func:`_to_keypoints` and passed through below;
+        exactly the failure class this engine exists to remove.  ``mask``, ``keypoints`` and
+        ``attributes`` are parsed by :func:`_to_mask`, :func:`_to_keypoints` and
+        :func:`_to_attributes` and passed through below;
         the two other copy sites (:func:`_stamp_track_ids` and the zone stamp in
         ``primitives/geometry.py``) use ``model_copy``, which carries every field by
         construction and needs no maintenance.
@@ -1235,7 +1241,7 @@ class Session:
                     else detection.model_copy(update={"category": label})
                 )
                 continue
-            mask, keypoints = self._detection_extras(item, detection)
+            mask, keypoints, attributes = self._detection_extras(item, detection)
             kept.append(
                 PipelineDetection(
                     # A deployment that sends only a class index has no usable label on the
@@ -1253,6 +1259,7 @@ class Session:
                     # this branch reconstructs the detection: see the method docstring.
                     mask=mask,
                     keypoints=keypoints,
+                    attributes=attributes,
                     # `zone` was the field this rebuild forgot. A caller that hands in an
                     # already-zoned PipelineDetection whose entity does not match the resolved
                     # one misses the fast path above and lands here, and dropping the field
@@ -1284,11 +1291,12 @@ class Session:
 
     def _detection_extras(
         self, item: Any, detection: Detection
-    ) -> tuple[MaskRef | None, tuple[Keypoint, ...]]:
-        """This detection's mask and keypoints -- the two engine-internal input fields.
+    ) -> tuple[MaskRef | None, tuple[Keypoint, ...], dict[str, AttributeRef]]:
+        """This detection's mask, keypoints and attributes -- the three engine-internal
+        input fields.
 
-        Both are optional and both are dropped by :meth:`PipelineDetection.to_wire`, so adding
-        them is additive on the wire.  A caller that hands in a
+        All three are optional and all three are dropped by :meth:`PipelineDetection.to_wire`,
+        so adding them is additive on the wire.  A caller that hands in a
         :class:`~matrice_analytics.engine.primitives.base.PipelineDetection` has already
         parsed them and keeps its own; a raw producer dict is parsed here.
 
@@ -1299,16 +1307,23 @@ class Session:
         resolution -- so it is used and **logged once**, rather than guessed silently, and a
         producer that sends normalized keypoints (the documented wire shape, contract ``04``
         §5.1) never reaches that path at all.
+
+        Attributes carry no such assumption to warn about: they arrive already decoded onto
+        the flat ``attributes`` key by
+        :func:`~matrice_analytics.engine.intake.attributes.attach_attributes`, run by the
+        deployment's worker before this session ever sees the frame (P2/P3,
+        ``classification-primitives.md``).
         """
         if isinstance(detection, PipelineDetection):
-            return (detection.mask, detection.keypoints)
+            return (detection.mask, detection.keypoints, dict(detection.attributes))
         if not isinstance(item, Mapping):
-            return (None, ())
+            return (None, (), {})
         mask = _to_mask(item)
         # The provider is passed, not called: a stream whose producer sends normalized
         # keypoints -- or none at all -- must not emit the assumption warning below.
         keypoints = _to_keypoints(item, self._keypoint_space)
-        return (mask, keypoints)
+        attributes = _to_attributes(item)
+        return (mask, keypoints, attributes)
 
     def _keypoint_space(self) -> tuple[int, int] | None:
         """``(width, height)`` to normalize pixel-space keypoints by, or ``None``.
@@ -2235,7 +2250,7 @@ class Session:
             ``None`` when no frame has arrived since (or when the window is empty and
             ``emit_empty_windows`` is false).
         """
-        if not self._window.is_open:
+        if not self._window.is_open:  # type: ignore[truthy-function]
             return None
         return self._close_window()
 
@@ -2553,6 +2568,49 @@ def _corners(node: Mapping[str, Any]) -> tuple[float, float, float, float] | Non
         else:
             return None
     return (found[0], found[1], found[2], found[3])
+
+
+def _to_attributes(item: Mapping[str, Any]) -> dict[str, AttributeRef]:
+    """Read the decoded second-stage attribute map, dropping anything not a usable pair.
+
+    Strict where :func:`_to_detection` is generous: a malformed attribute is dropped rather
+    than raised on, because -- unlike a pixel-space bounding box, which is silently
+    mis-rendered everywhere downstream (**BE-10**) -- a missing attribute has an honest
+    reading the primitives already publish (``unknown_count``). Dropping it makes a
+    classifier-chain outage visible; raising would take down a whole camera for one bad crop.
+
+    The map here is expected to already be in the flat ``{name: {"label", "confidence"}}``
+    shape :func:`~matrice_analytics.engine.intake.attributes.attach_attributes` writes --
+    this function does not itself try the four producer shapes (``heads``/``top_k``/
+    ``predictor_output``/...) that module decodes; that decode has to have already happened,
+    the same way a whole-frame classifier's box has to already exist by the time
+    :mod:`~matrice_analytics.engine.intake.classification` hands off to this session.
+    """
+    raw = next((item[key] for key in _ATTRIBUTE_KEYS if isinstance(item.get(key), Mapping)), None)
+    if raw is None:
+        return {}
+    decoded: dict[str, AttributeRef] = {}
+    for name, value in raw.items():
+        if not isinstance(name, str) or not name.strip():
+            continue
+        if isinstance(value, AttributeRef):
+            decoded[name] = value
+        elif (
+            isinstance(value, Mapping)
+            and isinstance(value.get("label"), str)
+            and value["label"].strip()
+        ):
+            confidence = value.get("confidence")
+            usable_confidence = isinstance(confidence, (int, float)) and not isinstance(
+                confidence, bool
+            )
+            decoded[name] = AttributeRef(
+                value["label"].strip(), float(confidence) if usable_confidence else 0.0
+            )
+        elif isinstance(value, str) and value.strip():
+            # A bare string is a label with no confidence: 0.0, never 1.0.
+            decoded[name] = AttributeRef(value.strip(), 0.0)
+    return decoded
 
 
 def _to_mask(item: Mapping[str, Any]) -> MaskRef | None:
@@ -2956,7 +3014,7 @@ def _threshold_matches(threshold: MetricThreshold, value: float) -> bool:
     what "graded" means: below the first rung nothing is wrong.
     """
     operators = threshold.operators
-    if operators:
+    if operators:  # type: ignore[truthy-function]
         for operator, bound in operators.items():
             if _compare(operator, value, bound):
                 return True

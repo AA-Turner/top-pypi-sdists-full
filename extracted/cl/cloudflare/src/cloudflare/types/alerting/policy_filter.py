@@ -130,6 +130,12 @@ class PolicyFilter(BaseModel):
     target_zone_name: Optional[List[str]] = None
     """Used for configuring advanced_ddos_attack_l7_alert"""
 
+    token_id: Optional[List[str]] = None
+    """Access service token IDs to include for expiring_service_token_alert.
+
+    Omit this property to include all current and future service tokens.
+    """
+
     traffic_exclusions: Optional[List[Literal["security_events"]]] = None
     """Used for configuring traffic_anomalies_alert"""
 

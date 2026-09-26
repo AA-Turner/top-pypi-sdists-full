@@ -40,6 +40,7 @@ const DELTAS_USED_TAG: &str = "deltas_used";
 const TAG: &str = stringify!(NetworkClient);
 
 pub struct NetworkClient {
+    output_policy: crate::output_policy::OutputPolicy,
     headers: HashMap<String, String>,
     is_shutdown: Arc<AtomicBool>,
     ops_stats: Arc<OpsStatsForInstance>,
@@ -54,12 +55,19 @@ pub struct NetworkClient {
 }
 
 impl NetworkClient {
+    #[cfg(test)]
+    pub(crate) fn set_network_provider_for_test(&mut self, provider: Weak<dyn NetworkProvider>) {
+        self.net_provider = provider;
+    }
+
     #[must_use]
     pub fn new(
         sdk_key: &str,
         headers: Option<HashMap<String, String>>,
         options: Option<&StatsigOptions>,
     ) -> Self {
+        let output_policy = crate::output_policy::OutputPolicy::from_options(options);
+        let _output_scope = output_policy.enter();
         let net_provider = get_network_provider();
         let (disable_network, proxy_config, ca_cert_pem, log_event_connection_reuse) = options
             .map(|opts| {
@@ -98,6 +106,7 @@ impl NetworkClient {
             .unwrap_or(sdk_key);
 
         NetworkClient {
+            output_policy,
             headers: headers.unwrap_or_default(),
             is_shutdown: Arc::new(AtomicBool::new(false)),
             net_provider,
@@ -119,7 +128,16 @@ impl NetworkClient {
     }
 
     pub async fn get(&self, request_args: RequestArgs) -> Result<Response, NetworkError> {
-        self.make_request(HttpMethod::GET, request_args, None).await
+        self.make_request(HttpMethod::GET, request_args, None, false)
+            .await
+    }
+
+    pub(crate) async fn get_without_redirects(
+        &self,
+        request_args: RequestArgs,
+    ) -> Result<Response, NetworkError> {
+        self.make_request(HttpMethod::GET, request_args, None, true)
+            .await
     }
 
     pub(crate) async fn get_with_response_limit(
@@ -127,8 +145,13 @@ impl NetworkClient {
         request_args: RequestArgs,
         max_response_bytes: u64,
     ) -> Result<Response, NetworkError> {
-        self.make_request(HttpMethod::GET, request_args, Some(max_response_bytes))
-            .await
+        self.make_request(
+            HttpMethod::GET,
+            request_args,
+            Some(max_response_bytes),
+            false,
+        )
+        .await
     }
 
     pub async fn post(
@@ -137,7 +160,7 @@ impl NetworkClient {
         body: Option<Vec<u8>>,
     ) -> Result<Response, NetworkError> {
         request_args.body = body;
-        self.make_request(HttpMethod::POST, request_args, None)
+        self.make_request(HttpMethod::POST, request_args, None, false)
             .await
     }
 
@@ -146,7 +169,9 @@ impl NetworkClient {
         method: HttpMethod,
         mut request_args: RequestArgs,
         max_response_bytes: Option<u64>,
+        disable_redirects: bool,
     ) -> Result<Response, NetworkError> {
+        self.output_policy.scope(async {
         let is_shutdown = if let Some(is_shutdown) = &request_args.is_shutdown {
             is_shutdown.clone()
         } else {
@@ -205,12 +230,19 @@ impl NetworkClient {
             let request_start = Instant::now();
             let (mut response, response_size_limit_exceeded, response_limit_unsupported) =
                 match self.net_provider.upgrade() {
-                    Some(net_provider) => match max_response_bytes {
-                        Some(max_response_bytes) => net_provider
+                    Some(net_provider) => match (max_response_bytes, disable_redirects) {
+                        (Some(max_response_bytes), _) => net_provider
                             .send_with_response_limit(&method, &request_args, max_response_bytes)
                             .await
                             .into_parts(),
-                        None => (
+                        (None, true) => (
+                            net_provider
+                                .send_without_redirects(&method, &request_args)
+                                .await,
+                            false,
+                            false,
+                        ),
+                        (None, false) => (
                             net_provider.send(&method, &request_args).await,
                             false,
                             false,
@@ -348,6 +380,7 @@ impl NetworkClient {
 
             tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
         }
+            }).await
     }
 
     pub fn mute_network_error_log(mut self) -> Self {

@@ -335,6 +335,8 @@ from .type_defs import (
     ListWorkloadIdentitiesResponseTypeDef,
     PutResourcePolicyRequestTypeDef,
     PutResourcePolicyResponseTypeDef,
+    RotatePaymentConnectorCredentialsRequestTypeDef,
+    RotatePaymentConnectorCredentialsResponseTypeDef,
     SetTokenVaultCMKRequestTypeDef,
     SetTokenVaultCMKResponseTypeDef,
     StartPolicyGenerationRequestTypeDef,
@@ -1855,6 +1857,17 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/put_resource_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#put_resource_policy)
+        """
+
+    def rotate_payment_connector_credentials(
+        self, **kwargs: Unpack[RotatePaymentConnectorCredentialsRequestTypeDef]
+    ) -> RotatePaymentConnectorCredentialsResponseTypeDef:
+        """
+        Replaces the service-managed credentials of a payment connector with newly
+        issued credentials.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/rotate_payment_connector_credentials.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#rotate_payment_connector_credentials)
         """
 
     def set_token_vault_cmk(

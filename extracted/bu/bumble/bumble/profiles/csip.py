@@ -22,11 +22,13 @@ import enum
 import struct
 
 from bumble import core, crypto, device, gatt, gatt_client
+from bumble.gatt_adapters import UTF8CharacteristicProxyAdapter
 
 # -----------------------------------------------------------------------------
 # Constants
 # -----------------------------------------------------------------------------
 SET_IDENTITY_RESOLVING_KEY_LENGTH = 16
+COORDINATED_SET_NAME_MAX_LENGTH = 128
 
 
 class SirkType(enum.IntEnum):
@@ -98,6 +100,7 @@ class CoordinatedSetIdentificationService(gatt.TemplateService):
     coordinated_set_size_characteristic: gatt.Characteristic[bytes] | None = None
     set_member_lock_characteristic: gatt.Characteristic[bytes] | None = None
     set_member_rank_characteristic: gatt.Characteristic[bytes] | None = None
+    coordinated_set_name_characteristic: gatt.Characteristic[bytes] | None = None
 
     def __init__(
         self,
@@ -106,6 +109,7 @@ class CoordinatedSetIdentificationService(gatt.TemplateService):
         coordinated_set_size: int | None = None,
         set_member_lock: MemberLock | None = None,
         set_member_rank: int | None = None,
+        coordinated_set_name: str | None = None,
     ) -> None:
         if len(set_identity_resolving_key) != SET_IDENTITY_RESOLVING_KEY_LENGTH:
             raise core.InvalidArgumentError(
@@ -157,6 +161,22 @@ class CoordinatedSetIdentificationService(gatt.TemplateService):
             )
             characteristics.append(self.set_member_rank_characteristic)
 
+        if coordinated_set_name is not None:
+            name_bytes = coordinated_set_name.encode('utf-8')
+            if len(name_bytes) > COORDINATED_SET_NAME_MAX_LENGTH:
+                raise core.InvalidArgumentError(
+                    f'Coordinated Set Name is {len(name_bytes)} octets, '
+                    f'maximum is {COORDINATED_SET_NAME_MAX_LENGTH}'
+                )
+            self.coordinated_set_name_characteristic = gatt.Characteristic(
+                uuid=gatt.GATT_COORDINATED_SET_NAME_CHARACTERISTIC,
+                properties=gatt.Characteristic.Properties.READ
+                | gatt.Characteristic.Properties.NOTIFY,
+                permissions=gatt.Characteristic.Permissions.READ_REQUIRES_ENCRYPTION,
+                value=name_bytes,
+            )
+            characteristics.append(self.coordinated_set_name_characteristic)
+
         super().__init__(characteristics)
 
     async def on_sirk_read(self, connection: device.Connection) -> bytes:
@@ -200,6 +220,7 @@ class CoordinatedSetIdentificationProxy(gatt_client.ProfileServiceProxy):
     coordinated_set_size: gatt_client.CharacteristicProxy[bytes] | None = None
     set_member_lock: gatt_client.CharacteristicProxy[bytes] | None = None
     set_member_rank: gatt_client.CharacteristicProxy[bytes] | None = None
+    coordinated_set_name: UTF8CharacteristicProxyAdapter | None = None
 
     def __init__(self, service_proxy: gatt_client.ServiceProxy) -> None:
         self.service_proxy = service_proxy
@@ -222,6 +243,13 @@ class CoordinatedSetIdentificationProxy(gatt_client.ProfileServiceProxy):
             gatt.GATT_SET_MEMBER_RANK_CHARACTERISTIC
         ):
             self.set_member_rank = characteristics[0]
+
+        if characteristics := service_proxy.get_characteristics_by_uuid(
+            gatt.GATT_COORDINATED_SET_NAME_CHARACTERISTIC
+        ):
+            self.coordinated_set_name = UTF8CharacteristicProxyAdapter(
+                characteristics[0]
+            )
 
     async def read_set_identity_resolving_key(self) -> tuple[SirkType, bytes]:
         '''Reads SIRK and decrypts if encrypted.'''

@@ -3934,7 +3934,7 @@ class DiscoverySourcesV1Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, Optional[str]]:
+    ) -> Dict[str, str]:
         """Retrieve Source Credentials
 
         Returns current sensitive fields only to an authenticated data-plane account assigned to this config in the same organization. Disabled or deleted sources/configs are denied. Never place the result in job parameters.
@@ -3972,7 +3972,7 @@ class DiscoverySourcesV1Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[str]]",
+            '200': "Dict[str, str]",
             '500': "InternalServerError",
             '422': "HTTPValidationError",
         }
@@ -4003,7 +4003,7 @@ class DiscoverySourcesV1Api:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, Optional[str]]]:
+    ) -> ApiResponse[Dict[str, str]]:
         """Retrieve Source Credentials
 
         Returns current sensitive fields only to an authenticated data-plane account assigned to this config in the same organization. Disabled or deleted sources/configs are denied. Never place the result in job parameters.
@@ -4041,7 +4041,7 @@ class DiscoverySourcesV1Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[str]]",
+            '200': "Dict[str, str]",
             '500': "InternalServerError",
             '422': "HTTPValidationError",
         }
@@ -4110,7 +4110,7 @@ class DiscoverySourcesV1Api:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, Optional[str]]",
+            '200': "Dict[str, str]",
             '500': "InternalServerError",
             '422': "HTTPValidationError",
         }

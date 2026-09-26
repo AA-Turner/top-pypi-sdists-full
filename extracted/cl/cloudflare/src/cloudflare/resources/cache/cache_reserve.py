@@ -18,7 +18,7 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._wrappers import ResultWrapper
-from ...types.cache import cache_reserve_edit_params, cache_reserve_clear_params
+from ...types.cache import cache_reserve_edit_params
 from ..._base_client import make_request_options
 from ...types.cache.cache_reserve_get_response import CacheReserveGetResponse
 from ...types.cache.cache_reserve_edit_response import CacheReserveEditResponse
@@ -52,7 +52,6 @@ class CacheReserveResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -81,7 +80,6 @@ class CacheReserveResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return self._post(
             path_template("/zones/{zone_id}/cache/cache_reserve_clear", zone_id=zone_id),
-            body=maybe_transform(body, cache_reserve_clear_params.CacheReserveClearParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -251,7 +249,6 @@ class AsyncCacheReserveResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -280,7 +277,6 @@ class AsyncCacheReserveResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         return await self._post(
             path_template("/zones/{zone_id}/cache/cache_reserve_clear", zone_id=zone_id),
-            body=await async_maybe_transform(body, cache_reserve_clear_params.CacheReserveClearParams),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

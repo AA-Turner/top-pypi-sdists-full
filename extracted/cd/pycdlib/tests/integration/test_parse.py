@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import io
 import subprocess
 import os
 import sys
@@ -10,6 +11,8 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import pycdlib
+import pycdlib.rockridge
+import pycdlib.udf
 
 from test_common import *
 
@@ -935,6 +938,53 @@ def test_parse_eltorito_multi_boot(tmpdir):
                      '-b', 'boot', '-c', 'boot.cat', '-no-emul-boot',
                      '-eltorito-alt-boot', '-b', 'boot2', '-no-emul-boot',
                      '-o', str(outfile), str(indir)])
+
+    do_a_test(tmpdir, outfile, check_eltorito_multi_boot)
+
+def test_parse_eltorito_multi_boot_nonbootable(tmpdir):
+    # El Torito uses a boot indicator of 0x00 both for a non-bootable section
+    # entry and for the empty entry that terminates the boot catalog, so a
+    # non-bootable section entry has to be told apart from the terminator by
+    # context.  genisoimage produces exactly this with -no-boot.
+    indir = tmpdir.mkdir('multibootnonbootable')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'boot'), 'wb') as outfp:
+        outfp.write(b'boot\n')
+    with open(os.path.join(str(indir), 'boot2'), 'wb') as outfp:
+        outfp.write(b'boot2\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '4', '-no-pad',
+                     '-b', 'boot', '-c', 'boot.cat', '-no-emul-boot',
+                     '-eltorito-alt-boot', '-b', 'boot2', '-no-emul-boot',
+                     '-no-boot', '-o', str(outfile), str(indir)])
+
+    do_a_test(tmpdir, outfile, check_eltorito_multi_boot_nonbootable)
+
+def test_parse_eltorito_multi_boot_unterminated_catalog(tmpdir):
+    # Some ISOs do not terminate the El Torito Boot Catalog with an empty
+    # entry, and instead pad the rest of the extent with garbage.  The OpenBSD
+    # install ISOs pad with 0xdf (see
+    # https://github.com/clalancette/pycdlib/issues/180).  Since the last
+    # section header is marked as the final one (0x91) and has all of the
+    # entries it promised, the padding means the end of the catalog.
+    indir = tmpdir.mkdir('multibootunterminated')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'boot'), 'wb') as outfp:
+        outfp.write(b'boot\n')
+    with open(os.path.join(str(indir), 'boot2'), 'wb') as outfp:
+        outfp.write(b'boot2\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '4', '-no-pad',
+                     '-b', 'boot', '-c', 'boot.cat', '-no-emul-boot',
+                     '-eltorito-alt-boot', '-b', 'boot2', '-no-emul-boot',
+                     '-o', str(outfile), str(indir)])
+
+    # genisoimage lays the catalog out as a validation entry, an initial entry,
+    # a final (0x91) section header, and one section entry, which is 128 bytes;
+    # overwrite everything after that with 0xdf so the catalog is unterminated.
+    with open(str(outfile), 'r+b') as fp:
+        fp.seek(17*2048 + 71)
+        catalog_extent, = struct.unpack('<L', fp.read(4))
+        fp.seek(catalog_extent*2048 + 128)
+        fp.write(b'\xdf'*(2048 - 128))
 
     do_a_test(tmpdir, outfile, check_eltorito_multi_boot)
 
@@ -3290,3 +3340,465 @@ def test_parse_one_extent_path_tables(tmpdir):
         outfp.write(shrunk)
 
     do_a_test(tmpdir, outfile, check_onefile_one_extent_path_tables)
+
+def _write_chained_ce_iso(path):
+    """
+    Write an ISO holding a symlink whose target needs more than one Rock Ridge
+    continuation area, so that the areas have to be chained together.  Returns
+    the symlink target.
+    """
+    target = '/'.join(['c' * 200] * 20)
+
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_symlink('/LINK.;1', 'link', target)
+    iso.write(path)
+    iso.close()
+
+    return target
+
+def test_parse_rr_chained_ce(tmpdir):
+    # A symlink target too long to fit in a single continuation area is spread
+    # across several, each linking to the next with a CE record.
+    outfile = str(tmpdir.join('chainedce.iso'))
+    target = _write_chained_ce_iso(outfile)
+
+    iso = pycdlib.PyCdlib()
+    iso.open(outfile)
+    rec = iso.get_record(rr_path='/link')
+    assert(len(rec.rock_ridge.ce_areas) > 1)
+    for ce_area in rec.rock_ridge.ce_areas:
+        assert(ce_area.length <= 2048)
+    assert(rec.rock_ridge.symlink_path() == target.encode('utf-8'))
+    iso.close()
+
+def test_parse_rr_chained_ce_round_trip(tmpdir):
+    # Reading an ISO with chained continuation areas and writing it back out
+    # has to reproduce it exactly.
+    first = str(tmpdir.join('chainedce.iso'))
+    second = str(tmpdir.join('chainedce2.iso'))
+    target = _write_chained_ce_iso(first)
+
+    iso = pycdlib.PyCdlib()
+    iso.open(first)
+    iso.write(second)
+    iso.close()
+
+    iso = pycdlib.PyCdlib()
+    iso.open(second)
+    assert(iso.get_record(rr_path='/link').rock_ridge.symlink_path() == target.encode('utf-8'))
+    iso.close()
+
+    with open(first, 'rb') as infp:
+        firstdata = infp.read()
+    with open(second, 'rb') as infp:
+        seconddata = infp.read()
+    assert(firstdata == seconddata)
+
+def test_parse_rr_ce_loop(tmpdir):
+    # A CE record pointing back at the area holding it would spin the parser
+    # forever without a loop guard.  pycdlib will not write one of these, so
+    # take a good ISO and corrupt the link.
+    outfile = str(tmpdir.join('celoop.iso'))
+    _write_chained_ce_iso(outfile)
+
+    iso = pycdlib.PyCdlib()
+    iso.open(outfile)
+    first_area = iso.get_record(rr_path='/link').rock_ridge.ce_areas[0]
+    extent = first_area.extent_location()
+    offset = first_area.offset
+    length = first_area.length
+    iso.close()
+
+    ce_record = pycdlib.rockridge.RRCERecord()
+    ce_record.new()
+    ce_record.update_extent(extent)
+    ce_record.update_offset(offset)
+    ce_record.update_len(length)
+
+    # The CE linking the first area to the second sits at the end of the first.
+    with open(outfile, 'rb') as infp:
+        data = bytearray(infp.read())
+    link = extent * 2048 + offset + length - 28
+    data[link:link + 28] = ce_record.record()
+    with open(outfile, 'wb') as outfp:
+        outfp.write(bytes(data))
+
+    iso = pycdlib.PyCdlib()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        iso.open(outfile)
+    assert(str(excinfo.value) == 'Rock Ridge Continuation Entries form a loop')
+
+def _iso_bytes(iso):
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+    return out.getvalue()
+
+def _get_extent(data, extent):
+    return data[extent*2048:(extent+1)*2048]
+
+def _replace_extent(data, extent, block):
+    buf = bytearray(data)
+    buf[extent*2048:(extent+1)*2048] = block
+    return bytes(buf)
+
+def _open_bytes(data):
+    iso = pycdlib.PyCdlib()
+    iso.open_fp(io.BytesIO(data))
+    return iso
+
+def test_parse_two_joliet_svds():
+    # A Joliet + ISO level 4 ISO lays out PVD, Joliet SVD, enhanced SVD,
+    # terminator.  Overwriting the enhanced SVD with a copy of the Joliet
+    # one leaves the ISO with two Joliet SVDs.
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3, interchange_level=4)
+    data = _iso_bytes(iso)
+
+    data = _replace_extent(data, 17, _get_extent(data, 18))
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'Only a single Joliet SVD is supported')
+
+def test_parse_two_enhanced_vds():
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3, interchange_level=4)
+    data = _iso_bytes(iso)
+
+    # The mirror of the above: two enhanced VDs and no Joliet SVD.
+    data = _replace_extent(data, 18, _get_extent(data, 17))
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'Only a single enhanced VD is supported')
+
+def test_parse_two_eltorito_boot_records():
+    # Joliet + El Torito lays out PVD, boot record, Joliet SVD, terminator.
+    # Overwriting the SVD with a copy of the boot record gives two boot
+    # records while leaving the terminator in place.
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3)
+    bootstr = b'boot\n'
+    iso.add_fp(io.BytesIO(bootstr), len(bootstr), '/BOOT.;1', joliet_path='/boot')
+    iso.add_eltorito('/BOOT.;1', '/BOOT.CAT;1')
+    data = _iso_bytes(iso)
+
+    data = _replace_extent(data, 18, _get_extent(data, 17))
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'Only one El Torito boot record is allowed')
+
+def test_parse_eltorito_boot_record_not_at_extent_17():
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3)
+    bootstr = b'boot\n'
+    iso.add_fp(io.BytesIO(bootstr), len(bootstr), '/BOOT.;1', joliet_path='/boot')
+    iso.add_eltorito('/BOOT.;1', '/BOOT.CAT;1')
+    data = _iso_bytes(iso)
+
+    # Swap the boot record and the Joliet SVD so the boot record lands at 18.
+    br = _get_extent(data, 17)
+    svd = _get_extent(data, 18)
+    data = _replace_extent(_replace_extent(data, 17, svd), 18, br)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'El Torito Boot Record must be at extent 17')
+
+def test_parse_udf_too_few_anchors():
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    data = _iso_bytes(iso)
+
+    # Zero the anchor at extent 256, leaving only the trailing one.
+    data = _replace_extent(data, 256, b'\x00'*2048)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'Expected at least 2 UDF Anchors')
+
+def test_parse_udf_mismatched_anchors():
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    data = _iso_bytes(iso)
+
+    # Point the anchor at extent 256 at a different main volume descriptor
+    # sequence than the trailing anchor does.
+    anchor = pycdlib.udf.parse_anchor(_get_extent(data, 256), 256)
+    anchor.main_vd.extent_location += 1
+    data = _replace_extent(data, 256, anchor.record().ljust(2048, b'\x00'))
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'Anchor points do not match')
+
+def test_parse_udf_empty_file_entry_for_directory():
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_directory('/DIR1', udf_path='/dir1')
+    data = _iso_bytes(iso)
+
+    # Find where the directory's UDF File Entry lives, then zero it out.
+    probe = _open_bytes(data)
+    ident_unused, file_entry = probe._find_udf_record(b'/dir1')
+    entry_extent = file_entry.extent_location()
+    probe.close()
+
+    data = _replace_extent(data, entry_extent, b'\x00'*2048)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        _open_bytes(data)
+    assert(str(excinfo.value) == 'Empty UDF File Entry for directories are not allowed')
+
+def test_parse_duplicate_directory_records():
+    # Two directory records with the same name in one parent is only tolerated
+    # for the multi-extent (very large file) case; duplicated directories are
+    # rejected.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_directory('/DIR1')
+    iso.add_directory('/DIR2')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    root_extent = iso.pvd.root_directory_record().extent_location()
+    iso.close()
+
+    data = bytearray(out.getvalue())
+    base = root_extent*2048
+
+    # Walk the root directory extent to find the DIR1 and DIR2 records.
+    offsets = []
+    offset = 0
+    while offset < 2048:
+        length = data[base+offset]
+        if length == 0:
+            break
+        offsets.append((offset, length))
+        offset += length
+
+    (dir1_offset, dir1_len) = offsets[2]
+    (dir2_offset, dir2_len) = offsets[3]
+    assert(dir1_len == dir2_len)
+
+    # Overwrite the DIR2 record with a copy of the DIR1 record.
+    data[base+dir2_offset:base+dir2_offset+dir2_len] = data[base+dir1_offset:base+dir1_offset+dir1_len]
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        _open_bytes(bytes(data))
+    assert(str(excinfo.value) == 'Failed adding duplicate name to parent')
+
+def _iso_with_standalone_eltorito_entry():
+    # El Torito 2.4 requires a section entry to follow a section header, but
+    # ISOs exist in the wild that omit the header (Mageia 4, per the comment
+    # in EltoritoBootCatalog.parse).  The parser keeps such an entry as a
+    # 'standalone' entry.  Build one by overwriting a real section header with
+    # a copy of the section entry that followed it.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'boot\n'), 5, '/BOOT.;1')
+    iso.add_fp(io.BytesIO(b'efi\n'), 4, '/EFI.;1')
+    iso.add_eltorito('/BOOT.;1', '/BOOT.CAT;1')
+    iso.add_eltorito('/EFI.;1', '/BOOT.CAT;1', efi=True)
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+    catalog_extent = iso.eltorito_boot_catalog.extent_location()
+    iso.close()
+
+    data = bytearray(out.getvalue())
+    base = catalog_extent*2048
+    # Slots are 32 bytes each: validation, initial, section header, entry.
+    data[base+64:base+96] = data[base+96:base+128]
+    return bytes(data)
+
+def test_parse_standalone_eltorito_entry_gets_inode():
+    # A standalone entry has to be linked to an Inode like any other El Torito
+    # entry.  Without it, _reshuffle_extents dereferences entry.inode and any
+    # modification of the ISO fails with an AttributeError.
+    iso = _open_bytes(_iso_with_standalone_eltorito_entry())
+
+    entries = iso.eltorito_boot_catalog.standalone_entries
+    assert(len(entries) == 2)
+    for entry in entries:
+        assert(entry.inode is not None)
+
+    iso.close()
+
+def test_parse_standalone_eltorito_entry_survives_modification():
+    # Anything that forces a reshuffle walks the standalone entries, so these
+    # all used to fail on an ISO carrying them.
+    data = _iso_with_standalone_eltorito_entry()
+
+    iso = _open_bytes(data)
+    iso.force_consistency()
+    iso.close()
+
+    iso = _open_bytes(data)
+    iso.add_fp(io.BytesIO(b'new\n'), 4, '/NEW.;1')
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    # The rewritten ISO still parses, still carries the standalone entries,
+    # and every file reads back correctly.
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(out)
+    assert(len(iso2.eltorito_boot_catalog.standalone_entries) == 2)
+    for path, contents in (('/BOOT.;1', b'boot\n'), ('/EFI.;1', b'efi\n'),
+                           ('/NEW.;1', b'new\n')):
+        buf = io.BytesIO()
+        iso2.get_file_from_iso_fp(buf, iso_path=path)
+        assert(buf.getvalue() == contents)
+    iso2.close()
+
+def test_parse_standalone_eltorito_entry_blocks_rm_file():
+    # A file referenced only by a standalone entry is still referenced by El
+    # Torito, so rm_file must refuse it with the same message it uses for a
+    # normal boot file rather than failing deeper in the removal.
+    iso = _open_bytes(_iso_with_standalone_eltorito_entry())
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.rm_file('/EFI.;1')
+    assert(str(excinfo.value) == "Cannot remove a file that is referenced by El Torito; use 'rm_eltorito' to remove El Torito, or use 'rm_hard_link' to hide the entry")
+
+    iso.close()
+
+def _make_eltorito_iso(tmpdir, name):
+    # Generate a small ISO with an El Torito boot record, and return its path.
+    indir = tmpdir.mkdir(name)
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'boot'), 'wb') as outfp:
+        outfp.write(b'boot\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '1', '-no-pad',
+                     '-c', 'boot.cat', '-b', 'boot', '-no-emul-boot',
+                     '-o', str(outfile), str(indir)])
+    return outfile
+
+def test_parse_eltorito_boot_catalog_past_end_of_iso(tmpdir):
+    # The Boot Record points at the first sector of the Boot Catalog and there
+    # is no length anywhere, so an ISO can point it past its own end.
+    outfile = _make_eltorito_iso(tmpdir, 'bootcatpastend')
+
+    past_the_end = (os.stat(outfile).st_size // 2048) + 100
+    with open(outfile, 'r+b') as fp:
+        fp.seek(17*2048 + 0x47)
+        fp.write(struct.pack('<L', past_the_end))
+
+    iso = pycdlib.PyCdlib()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        iso.open(outfile)
+    assert(str(excinfo.value) == 'El Torito Boot Catalog extends past the end of the ISO')
+
+def test_parse_eltorito_boot_catalog_unterminated_runs_out_of_iso(tmpdir):
+    # A Boot Catalog that fills its sector without ending asks for the next
+    # sector.  When there isn't one, the ISO is truncated rather than the
+    # parser running away.
+    outfile = _make_eltorito_iso(tmpdir, 'bootcatunterminated')
+
+    val = pycdlib.eltorito.EltoritoValidationEntry()
+    val.new(0)
+    entry = pycdlib.eltorito.EltoritoEntry()
+    entry.new(4, 0, 'noemul', 0, True)
+
+    # Fill the last sector of the ISO with a catalog that never terminates:
+    # a validation entry, an initial entry, and then nothing but section
+    # entries with no section header marked as the final one.
+    sector = val.record() + entry.record()
+    sector += entry.record() * ((2048 - len(sector)) // 32)
+    assert(len(sector) == 2048)
+
+    last_extent = (os.stat(outfile).st_size // 2048) - 1
+    with open(outfile, 'r+b') as fp:
+        fp.seek(17*2048 + 0x47)
+        fp.write(struct.pack('<L', last_extent))
+        fp.seek(last_extent*2048)
+        fp.write(sector)
+
+    iso = pycdlib.PyCdlib()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        iso.open(outfile)
+    assert(str(excinfo.value) == 'El Torito Boot Catalog extends past the end of the ISO')
+
+# The unbounded-allocation tests below use BOGUS_LENGTH, MAX_ALLOWED_PEAK, and
+# open_measuring_peak() out of test_common.py.  The two matching tests for the
+# isohybrid GPT live in test_new.py, since their ISOs are built with pycdlib
+# rather than with genisoimage.
+def test_parse_path_table_size_larger_than_iso(tmpdir):
+    indir = tmpdir.mkdir('pathtabletoobig')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'foo'), 'wb') as outfp:
+        outfp.write(b'foo\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '1', '-no-pad',
+                     '-o', str(outfile), str(indir)])
+
+    # The PVD path table size is at PVD offset 132 (little-endian) and 136
+    # (big-endian); the two have to agree for the PVD to parse at all.
+    with open(str(outfile), 'r+b') as fp:
+        fp.seek(16*2048 + 132)
+        fp.write(struct.pack('<I', BOGUS_LENGTH))
+        fp.seek(16*2048 + 136)
+        fp.write(struct.pack('>I', BOGUS_LENGTH))
+
+    err, peak = open_measuring_peak(str(outfile))
+
+    assert(isinstance(err, pycdlib.pycdlibexception.PyCdlibInvalidISO))
+    assert(str(err) == 'Path table size exceeds the size of the ISO')
+    assert(peak < MAX_ALLOWED_PEAK)
+
+def test_parse_directory_record_length_larger_than_iso(tmpdir):
+    indir = tmpdir.mkdir('dirrecordtoobig')
+    outfile = str(indir)+'.iso'
+    with open(os.path.join(str(indir), 'foo'), 'wb') as outfp:
+        outfp.write(b'foo\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-iso-level', '1', '-no-pad',
+                     '-o', str(outfile), str(indir)])
+
+    # The root directory record starts at PVD offset 156, and its data length
+    # is at offset 10 (little-endian) and 14 (big-endian) within the record.
+    with open(str(outfile), 'r+b') as fp:
+        fp.seek(16*2048 + 156 + 10)
+        fp.write(struct.pack('<I', BOGUS_LENGTH))
+        fp.seek(16*2048 + 156 + 14)
+        fp.write(struct.pack('>I', BOGUS_LENGTH))
+
+    err, peak = open_measuring_peak(str(outfile))
+
+    # Exactly which error comes out depends on what the data past the end of
+    # the real directory extent happens to look like, so just check that the
+    # ISO is rejected rather than pinning the message.
+    assert(isinstance(err, pycdlib.pycdlibexception.PyCdlibInvalidISO))
+    assert(peak < MAX_ALLOWED_PEAK)
+
+def test_parse_rr_ce_length_larger_than_iso(tmpdir):
+    indir = tmpdir.mkdir('celentoobig')
+    outfile = str(indir)+'.iso'
+    # A name this long does not fit in a single directory record, which forces
+    # genisoimage to spill the Rock Ridge entries into a continuation area.
+    with open(os.path.join(str(indir), 'a'*200), 'wb') as outfp:
+        outfp.write(b'foo\n')
+    subprocess.call(['genisoimage', '-v', '-v', '-rock', '-no-pad',
+                     '-o', str(outfile), str(indir)])
+
+    # Find the Rock Ridge CE entries and claim their continuation areas are
+    # enormous.  A CE entry is 28 bytes, with the length of the continuation
+    # area at offset 20 (little-endian) and 24 (big-endian).
+    with open(str(outfile), 'rb') as fp:
+        data = fp.read()
+    ce_offsets = [i for i in range(len(data) - 28)
+                  if data[i:i+2] == b'CE' and data[i+2] == 28 and data[i+3] == 1]
+    assert(len(ce_offsets) > 0)
+
+    with open(str(outfile), 'r+b') as fp:
+        for off in ce_offsets:
+            fp.seek(off + 20)
+            fp.write(struct.pack('<I', BOGUS_LENGTH))
+            fp.seek(off + 24)
+            fp.write(struct.pack('>I', BOGUS_LENGTH))
+
+    err, peak = open_measuring_peak(str(outfile))
+
+    assert(isinstance(err, pycdlib.pycdlibexception.PyCdlibInvalidISO))
+    assert(peak < MAX_ALLOWED_PEAK)

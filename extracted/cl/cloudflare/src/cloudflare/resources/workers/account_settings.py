@@ -59,7 +59,7 @@ class AccountSettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AccountSettingUpdateResponse:
         """
-        Creates Worker account settings for an account.
+        Configure Workers account settings for an account.
 
         Args:
           account_id: Identifier.
@@ -105,7 +105,7 @@ class AccountSettingsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AccountSettingGetResponse:
         """
-        Fetches Worker account settings for an account.
+        Fetches Workers account settings for an account.
 
         Args:
           account_id: Identifier.
@@ -167,7 +167,7 @@ class AsyncAccountSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AccountSettingUpdateResponse:
         """
-        Creates Worker account settings for an account.
+        Configure Workers account settings for an account.
 
         Args:
           account_id: Identifier.
@@ -213,7 +213,7 @@ class AsyncAccountSettingsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AccountSettingGetResponse:
         """
-        Fetches Worker account settings for an account.
+        Fetches Workers account settings for an account.
 
         Args:
           account_id: Identifier.

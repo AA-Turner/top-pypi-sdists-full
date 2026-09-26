@@ -51,6 +51,7 @@ class TestTargets:
                     "virtual_network_id": "c77b744e-acc8-428f-9257-6878c046ed55",
                 },
             },
+            tags={"foo": "string"},
         )
         assert_matches_type(Optional[TargetCreateResponse], target, path=["response"])
 
@@ -117,6 +118,7 @@ class TestTargets:
                     "virtual_network_id": "c77b744e-acc8-428f-9257-6878c046ed55",
                 },
             },
+            tags={"foo": "string"},
         )
         assert_matches_type(Optional[TargetUpdateResponse], target, path=["response"])
 
@@ -197,6 +199,7 @@ class TestTargets:
             order="hostname",
             page=1,
             per_page=1,
+            tag=["string"],
             target_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             virtual_network_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )
@@ -506,6 +509,7 @@ class TestAsyncTargets:
                     "virtual_network_id": "c77b744e-acc8-428f-9257-6878c046ed55",
                 },
             },
+            tags={"foo": "string"},
         )
         assert_matches_type(Optional[TargetCreateResponse], target, path=["response"])
 
@@ -572,6 +576,7 @@ class TestAsyncTargets:
                     "virtual_network_id": "c77b744e-acc8-428f-9257-6878c046ed55",
                 },
             },
+            tags={"foo": "string"},
         )
         assert_matches_type(Optional[TargetUpdateResponse], target, path=["response"])
 
@@ -652,6 +657,7 @@ class TestAsyncTargets:
             order="hostname",
             page=1,
             per_page=1,
+            tag=["string"],
             target_ids=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
             virtual_network_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
         )

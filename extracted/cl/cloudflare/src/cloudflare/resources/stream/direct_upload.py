@@ -68,7 +68,8 @@ class DirectUploadResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DirectUploadCreateResponse]:
         """
-        Creates a direct upload that allows video uploads without an API key.
+        Creates a direct upload endpoint that allows an end-user to upload a video
+        without an API key.
 
         Args:
           account_id: The account identifier tag.
@@ -183,7 +184,8 @@ class AsyncDirectUploadResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[DirectUploadCreateResponse]:
         """
-        Creates a direct upload that allows video uploads without an API key.
+        Creates a direct upload endpoint that allows an end-user to upload a video
+        without an API key.
 
         Args:
           account_id: The account identifier tag.

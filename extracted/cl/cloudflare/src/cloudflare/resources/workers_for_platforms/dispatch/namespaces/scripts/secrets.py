@@ -74,7 +74,11 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
-        Add a secret to a script uploaded to a Workers for Platforms namespace.
+        Add a secret to a Workers for Platforms script by creating a new version with
+        that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -123,7 +127,11 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
-        Add a secret to a script uploaded to a Workers for Platforms namespace.
+        Add a secret to a Workers for Platforms script by creating a new version with
+        that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -242,7 +250,8 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[SecretListResponse]:
         """
-        List secrets bound to a script uploaded to a Workers for Platforms namespace.
+        List secrets bound to a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -295,7 +304,11 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Remove a secret from a script uploaded to a Workers for Platforms namespace.
+        Remove a secret from a Workers for Platforms script by creating a new version
+        without that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -359,8 +372,10 @@ class SecretsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretBulkUpdateResponse:
         """
-        Create, update, or delete multiple secrets on a script in a single operation
-        using JSON Merge Patch (RFC 7396).
+        Create, update, or delete multiple secrets on a Workers for Platforms script in
+        a single operation using JSON Merge Patch (RFC 7396). This operation creates a
+        single version with all changes included. Prefer this API instead of changing
+        many secrets individually.
 
         Usage:
 
@@ -439,7 +454,7 @@ class SecretsResource(SyncAPIResource):
     ) -> SecretGetResponse:
         """
         Get a given secret binding (value omitted) on a script uploaded to a Workers for
-        Platforms namespace.
+        Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.
@@ -531,7 +546,11 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
-        Add a secret to a script uploaded to a Workers for Platforms namespace.
+        Add a secret to a Workers for Platforms script by creating a new version with
+        that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -580,7 +599,11 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretUpdateResponse:
         """
-        Add a secret to a script uploaded to a Workers for Platforms namespace.
+        Add a secret to a Workers for Platforms script by creating a new version with
+        that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -699,7 +722,8 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[SecretListResponse, AsyncSinglePage[SecretListResponse]]:
         """
-        List secrets bound to a script uploaded to a Workers for Platforms namespace.
+        List secrets bound to a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -752,7 +776,11 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
         """
-        Remove a secret from a script uploaded to a Workers for Platforms namespace.
+        Remove a secret from a Workers for Platforms script by creating a new version
+        without that secret.
+
+        When changing more than one secret at a time, prefer the "Patch multiple script
+        secrets" API instead of changing many secrets individually.
 
         Args:
           account_id: Identifier.
@@ -818,8 +846,10 @@ class AsyncSecretsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SecretBulkUpdateResponse:
         """
-        Create, update, or delete multiple secrets on a script in a single operation
-        using JSON Merge Patch (RFC 7396).
+        Create, update, or delete multiple secrets on a Workers for Platforms script in
+        a single operation using JSON Merge Patch (RFC 7396). This operation creates a
+        single version with all changes included. Prefer this API instead of changing
+        many secrets individually.
 
         Usage:
 
@@ -898,7 +928,7 @@ class AsyncSecretsResource(AsyncAPIResource):
     ) -> SecretGetResponse:
         """
         Get a given secret binding (value omitted) on a script uploaded to a Workers for
-        Platforms namespace.
+        Platforms dispatch namespace.
 
         Args:
           account_id: Identifier.

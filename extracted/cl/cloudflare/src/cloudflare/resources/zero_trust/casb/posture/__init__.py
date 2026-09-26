@@ -32,6 +32,14 @@ from .findings import (
     FindingsResourceWithStreamingResponse,
     AsyncFindingsResourceWithStreamingResponse,
 )
+from .policies import (
+    PoliciesResource,
+    AsyncPoliciesResource,
+    PoliciesResourceWithRawResponse,
+    AsyncPoliciesResourceWithRawResponse,
+    PoliciesResourceWithStreamingResponse,
+    AsyncPoliciesResourceWithStreamingResponse,
+)
 from .webhooks import (
     WebhooksResource,
     AsyncWebhooksResource,
@@ -88,6 +96,12 @@ __all__ = [
     "AsyncRemediationsResourceWithRawResponse",
     "RemediationsResourceWithStreamingResponse",
     "AsyncRemediationsResourceWithStreamingResponse",
+    "PoliciesResource",
+    "AsyncPoliciesResource",
+    "PoliciesResourceWithRawResponse",
+    "AsyncPoliciesResourceWithRawResponse",
+    "PoliciesResourceWithStreamingResponse",
+    "AsyncPoliciesResourceWithStreamingResponse",
     "WebhooksResource",
     "AsyncWebhooksResource",
     "WebhooksResourceWithRawResponse",

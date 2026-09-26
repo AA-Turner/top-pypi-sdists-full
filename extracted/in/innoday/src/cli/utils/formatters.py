@@ -16,12 +16,13 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 
+from src.cli.utils.presentation import THEME, advisory
 from src.utils.time_windows import as_utc
 
 
 def format_error(message: str) -> str:
     """Format error message with color."""
-    return f"[red]✗ {message}[/red]"
+    return f"[bad]✗ {message}[/bad]"
 
 
 def describe_error(exc: BaseException) -> str:
@@ -102,17 +103,17 @@ def describe_exception(exc: BaseException) -> str:
 
 def format_success(message: str) -> str:
     """Format success message with color."""
-    return f"[green]✓ {message}[/green]"
+    return f"[good]✓ {message}[/good]"
 
 
 def format_warning(message: str) -> str:
     """Format warning message with color."""
-    return f"[yellow]⚠ {message}[/yellow]"
+    return f"[warn]⚠ {message}[/warn]"
 
 
 def format_info(message: str) -> str:
     """Format info message with color."""
-    return f"[cyan]ℹ {message}[/cyan]"
+    return f"[muted]ℹ {message}[/muted]"
 
 
 def format_datetime(dt_str: Union[str, datetime, None]) -> str:
@@ -183,7 +184,7 @@ def format_datetime(dt_str: Union[str, datetime, None]) -> str:
 #: immediately before `--format json` output and makes the whole stream
 #: unparseable, which is exactly how the JSON contract broke. rich sends this to
 #: stderr, so a human still sees it in the terminal and `| jq` never does.
-advisory_console = Console(stderr=True)
+advisory_console = advisory
 
 
 class OutputFormatter:
@@ -201,7 +202,9 @@ class OutputFormatter:
         """
         self.format_type = format_type or "table"
         self.color_enabled = color_enabled
-        self.console = Console(color_system="auto" if color_enabled else None)
+        self.console = Console(
+            theme=THEME, color_system="auto" if color_enabled else None
+        )
 
     def format_tickets(self, tickets: List[Dict[str, Any]]) -> None:
         """Format and display tickets."""
@@ -305,12 +308,12 @@ class OutputFormatter:
 
     def _print_tickets_table(self, tickets: List[Dict[str, Any]]) -> None:
         """Print tickets as a Rich table."""
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("ID", style="cyan", width=8)
+        table = Table(show_header=True, header_style="muted")
+        table.add_column("ID", style="header", width=8)
         table.add_column("Title", style="white", min_width=30)
         table.add_column("Status", style="yellow", width=12)
         table.add_column("Assignee", style="green", width=15)
-        table.add_column("Created", style="blue", width=12)
+        table.add_column("Created", style="muted", width=12)
 
         for ticket in tickets:
             # Format status with color
@@ -354,7 +357,7 @@ class OutputFormatter:
 
         # Create ticket info table
         info_table = Table.grid(padding=1)
-        info_table.add_column(style="bold cyan", justify="right")
+        info_table.add_column(style="muted", justify="right")
         info_table.add_column(style="white")
 
         info_table.add_row("ID:", str(ticket.get("id", "")))
@@ -394,7 +397,7 @@ class OutputFormatter:
         panel = Panel(
             panel_content,
             title=f"[bold white]{title}[/bold white]",
-            border_style="blue",
+            border_style="muted",
         )
 
         self.console.print(panel)
@@ -405,10 +408,10 @@ class OutputFormatter:
 
     def _print_comments_table(self, comments: List[Dict[str, Any]]) -> None:
         """Print comments as a Rich table."""
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Author", style="cyan", width=15)
+        table = Table(show_header=True, header_style="muted")
+        table.add_column("Author", style="header", width=15)
         table.add_column("Comment", style="white", min_width=40)
-        table.add_column("Date", style="blue", width=12)
+        table.add_column("Date", style="muted", width=12)
 
         for comment in comments:
             content = comment.get("content", "")
@@ -448,7 +451,7 @@ class OutputFormatter:
     def _print_status_panel(self, status_data: Dict[str, Any]) -> None:
         """Print system status as a Rich panel."""
         table = Table.grid(padding=1)
-        table.add_column(style="bold cyan", justify="right")
+        table.add_column(style="muted", justify="right")
         table.add_column(style="white")
 
         # API Status
@@ -466,8 +469,8 @@ class OutputFormatter:
 
         panel = Panel(
             table,
-            title="[bold blue]InnoDay System Status[/bold blue]",
-            border_style="blue",
+            title="[header]InnoDay System Status[/header]",
+            border_style="muted",
         )
 
         self.console.print(panel)
@@ -475,13 +478,13 @@ class OutputFormatter:
     def _get_status_style(self, status: str) -> str:
         """Get Rich style for ticket status."""
         status_styles = {
-            "DRAFT": "dim",
-            "BACKLOG": "dim",
-            "TODO": "blue",
-            "IN_PROGRESS": "yellow",
-            "IN_REVIEW": "magenta",
-            "DONE": "green",
-            "CANCELLED": "red",
+            "DRAFT": "muted",
+            "BACKLOG": "muted",
+            "TODO": "muted",
+            "IN_PROGRESS": "warn",
+            "IN_REVIEW": "header",
+            "DONE": "good",
+            "CANCELLED": "bad",
         }
         return status_styles.get(enum_key(status), "white")
 
@@ -531,11 +534,11 @@ class OutputFormatter:
         self, organizations: List[Dict[str, Any]], show_members: bool = False
     ) -> None:
         """Print organizations as a Rich table."""
-        table = Table(show_header=True, header_style="bold magenta")
+        table = Table(show_header=True, header_style="muted")
         table.add_column("Name", style="white", min_width=20)
-        table.add_column("Slug", style="cyan", width=20)
+        table.add_column("Slug", style="header", width=20)
         if show_members:
-            table.add_column("Members", style="blue", width=8, justify="right")
+            table.add_column("Members", style="muted", width=8, justify="right")
         table.add_column("Created", style="dim", width=12)
         table.add_column("Current", style="green", width=8, justify="center")
 
@@ -581,7 +584,7 @@ class OutputFormatter:
 
         # Create organization info table
         info_table = Table.grid(padding=1)
-        info_table.add_column(style="bold cyan", justify="right")
+        info_table.add_column(style="muted", justify="right")
         info_table.add_column(style="white")
 
         info_table.add_row("Name:", org_data.get("name", "Unknown"))
@@ -623,7 +626,7 @@ class OutputFormatter:
         panel = Panel(
             info_table,
             title=f"[bold white]Organization: {org_data.get('name', 'Unknown')}[/bold white]",
-            border_style="blue",
+            border_style="muted",
         )
 
         self.console.print(panel)
@@ -649,11 +652,11 @@ class OutputFormatter:
 
     def _print_projects_table(self, projects: List[Dict[str, Any]]) -> None:
         """Print projects as a Rich table."""
-        table = Table(show_header=True, header_style="bold magenta")
+        table = Table(show_header=True, header_style="muted")
         table.add_column("Name", style="white", min_width=25)
-        table.add_column("Alias", style="cyan", width=20)
+        table.add_column("Alias", style="header", width=20)
         table.add_column("Status", style="yellow", width=12)
-        table.add_column("Priority", style="blue", width=10)
+        table.add_column("Priority", style="muted", width=10)
         table.add_column("Tags", style="dim", width=20)
         table.add_column("Created", style="dim", width=12)
 
@@ -729,7 +732,7 @@ class OutputFormatter:
 
         # Create project info table
         info_table = Table.grid(padding=1)
-        info_table.add_column(style="bold cyan", justify="right")
+        info_table.add_column(style="muted", justify="right")
         info_table.add_column(style="white")
 
         info_table.add_row("Name:", project.get("name", "Unknown"))
@@ -814,7 +817,7 @@ class OutputFormatter:
         panel = Panel(
             info_table,
             title=f"[bold white]Project: {project.get('name', 'Unknown')}[/bold white]",
-            border_style="blue",
+            border_style="muted",
         )
 
         self.console.print(panel)
@@ -832,9 +835,9 @@ class OutputFormatter:
 
         self.console.print("\n[bold]Repositories by layer:[/bold]")
 
-        table = Table(show_header=True, header_style="bold magenta")
+        table = Table(show_header=True, header_style="muted")
         table.add_column("Layer", style="yellow", width=14)
-        table.add_column("Repos", style="cyan", width=7, justify="right")
+        table.add_column("Repos", style="header", width=7, justify="right")
         table.add_column("Issues", style="white", width=8, justify="right")
         table.add_column("Open", style="green", width=7, justify="right")
 
@@ -852,8 +855,8 @@ class OutputFormatter:
         """Print project repositories table."""
         self.console.print("\n[bold]Repositories:[/bold]")
 
-        table = Table(show_header=True, header_style="bold magenta")
-        table.add_column("Repository", style="cyan", min_width=30)
+        table = Table(show_header=True, header_style="muted")
+        table.add_column("Repository", style="header", min_width=30)
         table.add_column("Layer", style="yellow", width=12)
         table.add_column("Primary", style="green", width=8, justify="center")
 
@@ -874,9 +877,9 @@ class OutputFormatter:
             # Keys mirror ProjectStatus (PLANNING/ACTIVE/ARCHIVED). ON_HOLD and
             # COMPLETED were listed here but are not members of the enum, so they
             # could never match -- removed rather than left implying support.
-            "PLANNING": "cyan",
-            "ACTIVE": "green",
-            "ARCHIVED": "dim",
+            "PLANNING": "header",
+            "ACTIVE": "good",
+            "ARCHIVED": "muted",
         }
         return status_styles.get(enum_key(status), "white")
 
@@ -885,9 +888,9 @@ class OutputFormatter:
         priority_styles = {
             # Mirrors ProjectPriority (HIGH/MEDIUM/LOW). CRITICAL is not a
             # member; it was unreachable and is gone for the same reason.
-            "LOW": "dim",
-            "MEDIUM": "blue",
-            "HIGH": "yellow",
+            "LOW": "muted",
+            "MEDIUM": "plain",
+            "HIGH": "warn",
         }
         return priority_styles.get(enum_key(priority), "white")
 

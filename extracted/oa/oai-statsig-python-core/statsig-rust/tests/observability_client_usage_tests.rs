@@ -701,6 +701,10 @@ async fn test_id_lists_sync_overall_latency_tags_recorded_for_success() {
     );
     let tags = found_tags.unwrap();
 
+    assert_eq!(
+        tags.get("id_lists_sync_success").map(String::as_str),
+        Some("true")
+    );
     assert!(found_value > 0.0);
     assert_eq!(
         tags.get("id_list_manifest_success"),
@@ -751,6 +755,10 @@ async fn test_id_lists_sync_overall_latency_tags_recorded_for_single_list_failur
     );
     let tags = found_tags.unwrap();
 
+    assert_eq!(
+        tags.get("id_lists_sync_success").map(String::as_str),
+        Some("false")
+    );
     assert!(found_value > 0.0);
     assert_eq!(
         tags.get("id_list_manifest_success"),

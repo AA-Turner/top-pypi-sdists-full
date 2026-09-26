@@ -126,7 +126,7 @@ class Top0(BaseModel):
 
     origin_asn_name: str = FieldInfo(alias="originAsnName")
 
-    rank: float
+    rank: int
 
     value: str
 

@@ -7462,10 +7462,9 @@ class ReinforcementLoopSnapshotSelection(pycarlo.lib.types.Enum):
 
 class ReinforcementLoopV2EmptyReason(pycarlo.lib.types.Enum):
     """Why getReinforcementLoopV2Issues returned no nodes.
-    NO_ISSUE_SPACE = the agent has no agent-wide Issue space;
-    NO_ISSUES = the account has no issue of the requested mode for
-    this agent, before any filter; NO_MATCHES = issues exist but none
-    match the filters.
+    NO_ISSUE_SPACE = the agent has no Issue space; NO_ISSUES = the
+    account has no issue of the requested mode for this agent, before
+    any filter; NO_MATCHES = issues exist but none match the filters.
 
     Enumeration Choices:
 
@@ -9400,6 +9399,7 @@ class TraceSortField(pycarlo.lib.types.Enum):
     * `DURATION_SECONDS`None
     * `PROMPT_TOKENS`None
     * `QUERY_COST`None
+    * `STATUS`None
     * `TOTAL_COST`None
     * `TOTAL_TOKENS`None
     * `TRACE_END_TIME`None
@@ -9415,6 +9415,7 @@ class TraceSortField(pycarlo.lib.types.Enum):
         "DURATION_SECONDS",
         "PROMPT_TOKENS",
         "QUERY_COST",
+        "STATUS",
         "TOTAL_COST",
         "TOTAL_TOKENS",
         "TRACE_END_TIME",
@@ -12189,7 +12190,9 @@ class ClusteringConfigInput(sgqlc.types.Input):
     """
 
     min_confidence = sgqlc.types.Field(Float, graphql_name="minConfidence")
-    """Confidence below which a conversation routes to Uncategorized."""
+    """Confidence below which a label is dropped. On Intent spaces, the
+    conversation routes to Uncategorized.
+    """
 
     user_input_char_cap = sgqlc.types.Field(Int, graphql_name="userInputCharCap")
     """Per-turn cap on user-input characters sent to the model."""
@@ -19914,9 +19917,7 @@ class UpdateReinforcementLoopSelectorInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("issue_space_uuid", "selected_cluster_keys", "is_enabled")
     issue_space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueSpaceUuid")
-    """issueSpaceUuid from the selector, or the agent-wide ISSUE space
-    uuid.
-    """
+    """issueSpaceUuid from the selector, or the ISSUE space's uuid."""
 
     selected_cluster_keys = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="selectedClusterKeys"
@@ -29749,7 +29750,9 @@ class ClusteringConfig(sgqlc.types.Type):
     """
 
     min_confidence = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="minConfidence")
-    """Confidence below which a conversation routes to Uncategorized."""
+    """Confidence below which a label is dropped. On Intent spaces, the
+    conversation routes to Uncategorized.
+    """
 
     user_input_char_cap = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="userInputCharCap"
@@ -30680,6 +30683,7 @@ class Conversation(sgqlc.types.Type):
         "active_duration_seconds",
         "status",
         "errors_count",
+        "errored_turns",
         "workflows",
         "eval_scores",
         "intent_cluster",
@@ -30719,6 +30723,12 @@ class Conversation(sgqlc.types.Type):
     errors_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="errorsCount")
     """Number of spans across all traces in this conversation that
     errored (excluding LangGraph GraphInterrupt sentinels).
+    """
+
+    errored_turns = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="erroredTurns")
+    """Number of turns containing at least one erroring span (excluding
+    LangGraph GraphInterrupt sentinels). A turn can contain errors
+    even when its overall result is OK.
     """
 
     workflows = sgqlc.types.Field(
@@ -80101,8 +80111,8 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) The reinforcement loop's Issue-cluster selectors
     for one agent, with the clusters available to select. One per
-    agent-wide Issue space; a space without saved settings reports the
-    defaults.
+    Issue space, the agent-wide one first, then each workflow-scoped
+    one; a space without saved settings reports the defaults.
 
     Arguments:
 
@@ -105128,7 +105138,7 @@ class ReinforcementLoopReport(sgqlc.types.Type):
 
 class ReinforcementLoopSelector(sgqlc.types.Type):
     """Which Issue clusters the reinforcement loop diagnoses for one
-    agent. An agent whose Issue space has no saved settings reports
+    Issue space of an agent. A space with no saved settings reports
     the defaults.
     """
 
@@ -105137,21 +105147,25 @@ class ReinforcementLoopSelector(sgqlc.types.Type):
         "issue_space_uuid",
         "agent_name",
         "trace_table_mcon",
+        "scope_workflow",
         "selected_cluster_keys",
         "is_enabled",
         "eval_score_threshold",
         "available_clusters",
     )
     issue_space_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueSpaceUuid")
-    """The agent's Issue space; the id updateReinforcementLoopSelector
-    takes.
-    """
+    """The Issue space; the id updateReinforcementLoopSelector takes."""
 
     agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
 
     trace_table_mcon = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="traceTableMcon"
     )
+
+    scope_workflow = sgqlc.types.Field(String, graphql_name="scopeWorkflow")
+    """The Issue space's workflow; null for the agent-wide space. Mirrors
+    ConversationClusteringSpaceType.scopeWorkflow.
+    """
 
     selected_cluster_keys = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
@@ -122200,6 +122214,7 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
         "table_counts",
         "monitor_counts",
         "alert_counts",
+        "agent_count",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """Domain UUID"""
@@ -122336,6 +122351,14 @@ class DomainOutputV2(sgqlc.types.Type, NodeWithUUID):
 
     alert_counts = sgqlc.types.Field(DomainAlertCounts, graphql_name="alertCounts")
     """Alert/Incident counts grouped by acknowledgment status"""
+
+    agent_count = sgqlc.types.Field(Int, graphql_name="agentCount")
+    """Number of observed agents whose trace table is assigned to the
+    domain, directly or through inherited or tag rules. Platform
+    agents count only when domain access controls apply to them for
+    the account. Null when the caller cannot access assets in the
+    domain or the count failed.
+    """
 
 
 class DomainRestriction(sgqlc.types.Type, Node):

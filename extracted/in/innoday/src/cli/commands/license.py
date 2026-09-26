@@ -8,13 +8,12 @@ usage tracking, license upgrades, and license validation.
 import argparse
 from typing import Optional
 
-from rich.console import Console
-
 from src.cli.config import CLIConfig
 from src.cli.utils import guidance
 from src.cli.utils.formatters import format_error, format_warning
+from src.cli.utils.presentation import make_console
 
-console = Console()
+console = make_console()
 
 
 class LicenseCommands:

@@ -6,6 +6,10 @@ from pydantic import BaseModel, ConfigDict
 # AGENT VARIABLE
 # ============================================================================
 
+#: The ``binding.kind`` of a variable filled by a MERGE FIELD (data kits P1). A binding
+#: with no ``kind`` is the original scope-context-item binding, unchanged.
+MERGE_FIELD_BINDING_KIND = "merge_field"
+
 
 class AgentVariable(BaseModel):
     """Represents a variable in an agent/prompt"""
@@ -19,6 +23,8 @@ class AgentVariable(BaseModel):
     # server-side resolution (e.g. picklist binding -> list_id) has an authoritative,
     # client-unforgeable source. Display-only fields are otherwise ignored by the server.
     custom_component: dict[str, Any] | None = None
+    # Binding. Two kinds: (1) no ``kind`` — a scope-context binding (below); (2)
+    # ``kind: "merge_field"`` — a merge-field declaration (``merge_field_binding``).
     # Scope-context binding. When set, this variable is filled at run time from a scope
     # context item (the active scope of `scope_type_id` supplies the value of `item_key`).
     # Authored on the agent (client-unforgeable). Resolved by
@@ -86,6 +92,9 @@ class AgentVariable(BaseModel):
         b = self.binding
         if not isinstance(b, dict):
             return None
+        if b.get("kind") == MERGE_FIELD_BINDING_KIND:
+            # The second binding kind is never a scope binding (see merge_field_binding).
+            return None
         item_key = b.get("itemKey") or b.get("item_key")
         context_item_id = b.get("contextItemId") or b.get("context_item_id")
         # A binding needs at least an item_key (portable) or a context_item_id to resolve.
@@ -102,6 +111,33 @@ class AgentVariable(BaseModel):
             "item_key": item_key if isinstance(item_key, str) else None,
             "on_missing": on_missing,
         }
+
+    def merge_field_binding(self) -> dict[str, Any] | None:
+        """Return this variable's merge-field declaration, or None.
+
+        The second binding kind (data kits P1). The binding IS a merge-field declaration —
+        exactly the snake_case document ``matrx_records.merge.declaration.parse`` reads —
+        with ``kind: "merge_field"`` and the ``key`` implied by the variable's name::
+
+            {"kind": "merge_field", "source": "record",
+             "semantic_type": "collection" | "reference" | "value",
+             "table_id": "<uuid>", "record_id"?: "<uuid>", "field_key"?: "<key>",
+             "match"?: {field_key: value}, "sort"?: {"field": "<key>", "dir": "asc"|"desc"},
+             "limit"?: 40,
+             "transform"?: {"name": "list", "template": "- {purpose}: {model.name}",
+                            "join": "\n", "max": 40},
+             "missing"?: "absent" | "block", "override_policy"?: "shown_locked"}
+
+        Returned verbatim (minus ``kind``, plus ``key``) — this package never judges the
+        shape; the host parses it and names what is wrong, so a malformed binding is
+        announced rather than dropped.
+        """
+        b = self.binding
+        if not isinstance(b, dict) or b.get("kind") != MERGE_FIELD_BINDING_KIND:
+            return None
+        declaration = {k: v for k, v in b.items() if k != "kind"}
+        declaration["key"] = self.name
+        return declaration
 
     @classmethod
     def from_dict(cls, var_def: dict[str, Any]) -> "AgentVariable":
@@ -187,4 +223,19 @@ def scope_bindings_from_variables(
         binding = var.scope_binding()
         if binding is not None:
             out[name] = binding
+    return out
+
+
+def merge_field_bindings_from_variables(
+    variable_defaults: dict[str, "AgentVariable"] | None,
+) -> dict[str, dict[str, Any]]:
+    """``{var_name: merge_field_declaration}`` for every variable whose binding is a merge
+    field (see ``AgentVariable.merge_field_binding``). Authored on the agent, so a client
+    can never choose which Table a variable reads."""
+    out: dict[str, dict[str, Any]] = {}
+    for name, var in (variable_defaults or {}).items():
+        reader = getattr(var, "merge_field_binding", None)
+        declaration = reader() if callable(reader) else None
+        if declaration is not None:
+            out[name] = declaration
     return out

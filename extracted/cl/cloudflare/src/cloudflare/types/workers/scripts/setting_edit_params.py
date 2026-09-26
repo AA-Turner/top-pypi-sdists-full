@@ -8,7 +8,7 @@ from typing_extensions import Literal, Required, TypedDict
 from ...._types import SequenceNotStr
 from .consumer_script_param import ConsumerScriptParam
 
-__all__ = ["SettingEditParams", "Observability", "ObservabilityLogs", "ObservabilityTraces"]
+__all__ = ["SettingEditParams", "Observability", "ObservabilityIssues", "ObservabilityLogs", "ObservabilityTraces"]
 
 
 class SettingEditParams(TypedDict, total=False):
@@ -26,6 +26,13 @@ class SettingEditParams(TypedDict, total=False):
 
     tail_consumers: Optional[Iterable[ConsumerScriptParam]]
     """List of Workers that will consume logs from the attached Worker."""
+
+
+class ObservabilityIssues(TypedDict, total=False):
+    """Real-time Issues settings for the Worker."""
+
+    enabled: bool
+    """Whether real-time Issues are enabled for the Worker."""
 
 
 class ObservabilityLogs(TypedDict, total=False):
@@ -87,6 +94,9 @@ class Observability(TypedDict, total=False):
 
     From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1.
     """
+
+    issues: Optional[ObservabilityIssues]
+    """Real-time Issues settings for the Worker."""
 
     logs: Optional[ObservabilityLogs]
     """Log settings for the Worker."""

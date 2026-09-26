@@ -95,6 +95,9 @@ if (port := int(os.getenv("PORT", "8080"))) and port in (GRAPH_PORT, REMOTE_PORT
         f"PORT={port} is a reserved port for the JS worker. Please choose a different port."
     )
 
+# Per-graph context schema, prefetched at startup so get_context_jsonschema stays sync.
+_context_jsonschema_cache: dict[str, dict[str, Any] | None] = {}
+
 _client = httpx.AsyncClient(
     base_url=f"http://localhost:{GRAPH_PORT}",
     # Temporarily allow longer idle periods between sidecar response chunks.
@@ -291,7 +294,34 @@ class RemotePregel(BaseRemotePregel):
             yield event
 
     async def fetch_state_schema(self):
-        return await _client_invoke("getSchema", {"graph_id": self.graph_id})
+        return await _client_invoke(
+            "getSchema",
+            {
+                "graph_id": self.graph_id,
+                "graph_config": self._inject_auth_to_config(self.config),
+            },
+        )
+
+    async def _refresh_context_jsonschema(self) -> None:
+        """Fetch and cache the context schema only when the request succeeds."""
+        try:
+            schema = await self.fetch_state_schema()
+            _context_jsonschema_cache[self.graph_id] = schema.get("config")
+        except Exception as e:
+            await logger.adebug(
+                f"Failed to fetch context schema for JS graph {self.graph_id}; "
+                f"its context will not be filtered this attempt: {e}",
+                exc_info=e,
+            )
+
+    async def prefetch_context_jsonschema(self) -> None:
+        await self._refresh_context_jsonschema()
+
+    async def aget_context_jsonschema(self) -> dict:
+        """Fetch the context schema under request authentication and cache it on success."""
+        if self.graph_id not in _context_jsonschema_cache:
+            await self._refresh_context_jsonschema()
+        return _context_jsonschema_cache.get(self.graph_id) or {}
 
     async def fetch_graph(
         self,
@@ -468,7 +498,7 @@ class RemotePregel(BaseRemotePregel):
         raise NotImplementedError()
 
     def get_context_jsonschema(self) -> dict:
-        raise NotImplementedError()
+        return _context_jsonschema_cache.get(self.graph_id) or {}
 
     async def invoke(self, input: Any, config: RunnableConfig | None = None):
         raise NotImplementedError()
@@ -1208,19 +1238,104 @@ async def handle_js_auth_event(
 
     filters = cast("Auth.types.FilterType | None", response.get("filters"))
 
-    # mutate metadata in value if applicable
-    # we need to preserve the identity of the object, so cannot create a new
-    # dictionary, otherwise the changes will not persist
-    metadata = None
-    if (
-        isinstance(value, dict)
-        and (updated_value := response.get("value"))
-        and isinstance(value.get("metadata"), dict)
-        and (metadata := updated_value.get("metadata"))
-    ):
-        value["metadata"].update(metadata)
+    try:
+        _apply_auth_mutations(value, response.get("mutations"))
+    except _RefusedAuthMutation as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"JS auth handler result could not be applied: {error}",
+        ) from error
 
     return filters
+
+
+_MutationKey = str | int
+_MutationContainer = dict[str, Any] | list[Any] | tuple[Any, ...]
+_UNADDRESSABLE_MUTATION = "a mutation does not address the request payload"
+
+
+class _RefusedAuthMutation(Exception):
+    pass
+
+
+def _apply_auth_mutations(payload: dict[str, Any], mutations: Any) -> None:
+    if not isinstance(mutations, list):
+        raise _RefusedAuthMutation("the sidecar returned no mutation list")
+    for mutation in mutations:
+        path = _mutation_path(mutation)
+        if "value" in mutation:
+            _write(payload, path, mutation["value"])
+        elif len(path) > 1:
+            _remove(payload, path)
+        else:
+            raise _RefusedAuthMutation(
+                f"a mutation removes the route-owned key {path[0]!r}"
+            )
+
+
+def _mutation_path(mutation: Any) -> list[_MutationKey]:
+    path = mutation.get("path") if isinstance(mutation, dict) else None
+    if (
+        isinstance(path, list)
+        and path
+        and all(isinstance(key, str) or type(key) is int for key in path)
+    ):
+        return path
+    raise _RefusedAuthMutation("a mutation is malformed")
+
+
+def _write(container: _MutationContainer, path: list[_MutationKey], value: Any) -> Any:
+    key = path[0]
+    if len(path) > 1:
+        return _with_member(
+            container, key, _write(_child(container, key), path[1:], value)
+        )
+    existing = _member(container, key)
+    return _with_member(container, key, _keeping_existing_type(existing, value))
+
+
+def _remove(container: _MutationContainer, path: list[_MutationKey]) -> Any:
+    key = path[0]
+    if len(path) > 1:
+        return _with_member(container, key, _remove(_child(container, key), path[1:]))
+    if not (isinstance(container, dict) and _addresses(container, key)):
+        raise _RefusedAuthMutation(_UNADDRESSABLE_MUTATION)
+    container.pop(key, None)
+    return container
+
+
+def _addresses(container: Any, key: _MutationKey) -> bool:
+    if isinstance(container, dict):
+        return isinstance(key, str)
+    if isinstance(container, list | tuple):
+        return type(key) is int and 0 <= key < len(container)
+    return False
+
+
+def _member(container: _MutationContainer, key: _MutationKey) -> Any:
+    if not _addresses(container, key):
+        raise _RefusedAuthMutation(_UNADDRESSABLE_MUTATION)
+    return container.get(key) if isinstance(container, dict) else container[key]
+
+
+def _child(container: _MutationContainer, key: _MutationKey) -> _MutationContainer:
+    child = _member(container, key)
+    if not isinstance(child, dict | list | tuple):
+        raise _RefusedAuthMutation(_UNADDRESSABLE_MUTATION)
+    return child
+
+
+def _with_member(container: _MutationContainer, key: _MutationKey, value: Any) -> Any:
+    if isinstance(container, tuple):
+        return (*container[:key], value, *container[key + 1 :])
+    container[key] = value
+    return container
+
+
+def _keeping_existing_type(existing: Any, replacement: Any) -> Any:
+    if isinstance(existing, tuple) and isinstance(replacement, list):
+        return tuple(replacement)
+    return replacement
 
 
 class JSCustomHTTPProxyMiddleware:

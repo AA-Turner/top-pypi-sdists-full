@@ -912,12 +912,12 @@ class ProjectFile(System.Object):
         ...
 
     @property
-    def date_modified(self) -> datetime.datetime:
-        """DateTime project file was modified"""
+    def date_modified(self) -> typing.Optional[datetime.datetime]:
+        """DateTime project file was modified, can be null"""
         ...
 
     @date_modified.setter
-    def date_modified(self, value: datetime.datetime) -> None:
+    def date_modified(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
     @property

@@ -3,21 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import re
 import weakref
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Literal
 
 from ._conversation_cache import ConversationCache
+from ._idempotency import attach_operation_metadata
 from ._loop_bound import LoopBoundPrimitive
 from ._notebook_metadata import CreatedChatSessionProvider, NotebookSourceIdProvider
+from ._runtime.call_supervisor import OperationLease
 from ._runtime.contracts import LoopGuard
 from ._types.documents import StructuredDocument, utf16_len
 from ._types.enums import ChatGoal, ChatResponseLength
-from .exceptions import ChatError, NetworkError
+from .exceptions import ChatError, NotebookLMError, ValidationError
+from .outcomes import CommitState, OperationMetadata, RecoveryAction
 from .types import (
     AskResult,
     ChatMode,
@@ -79,6 +83,26 @@ class _PostedAsk:
     answer_document: StructuredDocument
     turn_key: ConversationTurnKey | None
     next_steps: list[NextStepSuggestion]
+
+
+@dataclass(frozen=True)
+class _ChatSettingsRead:
+    """Backend-decoded chat settings before public model construction."""
+
+    goal: ChatGoal
+    response_length: ChatResponseLength
+    custom_prompt: str | None
+
+
+@dataclass(frozen=True)
+class _TurnRoleSnapshot:
+    """One bounded role snapshot plus backend-specific exhaustion evidence."""
+
+    roles: tuple[object, ...]
+    exhausted: bool
+
+
+_ConfigureAttemptLogPolicy = Literal["before_validation", "silent"]
 
 
 def _strip_citation_markers(answer_text: str) -> tuple[str, list[tuple[int, int]]]:
@@ -157,6 +181,15 @@ class ChatAPI(LoopBoundPrimitive, ABC):
                 conversation_id=result.conversation_id
             )
     """
+
+    _configure_attempt_log_policy: _ConfigureAttemptLogPolicy = "silent"
+
+    @abstractmethod
+    def _operation_scope(
+        self, label: str
+    ) -> contextlib.AbstractAsyncContextManager[OperationLease | None]:
+        """Return the backend's scope for one multi-call workflow."""
+        raise NotImplementedError
 
     def __init__(
         self,
@@ -254,10 +287,9 @@ class ChatAPI(LoopBoundPrimitive, ABC):
         """Count questions from a complete newest-first role snapshot."""
         limit = _TURN_COUNT_INITIAL_LIMIT
         while True:
-            roles = await self._list_turn_roles(notebook_id, conversation_id, limit)
-            row_count = len(roles)
-            question_count = sum(role == 1 for role in roles)
-            if row_count < limit:
+            snapshot = await self._list_turn_roles(notebook_id, conversation_id, limit)
+            question_count = sum(role == 1 for role in snapshot.roles)
+            if snapshot.exhausted:
                 return question_count
             if limit >= _TURN_COUNT_MAX_LIMIT:
                 raise ChatError(
@@ -307,6 +339,22 @@ class ChatAPI(LoopBoundPrimitive, ABC):
             last_conversation_id)`` — the server then has nothing to
             extend and the next ``ask()`` starts a new conversation.
         """
+        async with self._operation_scope("chat.ask"):
+            return await self._ask_in_scope(
+                notebook_id,
+                question,
+                source_ids=source_ids,
+                conversation_id=conversation_id,
+            )
+
+    async def _ask_in_scope(
+        self,
+        notebook_id: str,
+        question: str,
+        source_ids: list[str] | None = None,
+        conversation_id: str | None = None,
+    ) -> AskResult:
+        """Execute :meth:`ask` after its workflow admission has been acquired."""
         self._loop_guard.assert_bound_loop()
         logger.debug(
             "Asking question in notebook %s (conversation=%s)",
@@ -339,15 +387,34 @@ class ChatAPI(LoopBoundPrimitive, ABC):
             if resolved_id_override is not None:
                 resolved_conversation_id = resolved_id_override
             elif is_new_conversation:
+
+                def confirmed_readback_failure(exc: NotebookLMError) -> NotebookLMError:
+                    metadata = exc.operation_metadata or OperationMetadata()
+                    return attach_operation_metadata(
+                        exc,
+                        replace(
+                            metadata,
+                            commit_state=CommitState.CONFIRMED,
+                            operation="chat",
+                            recovery_action=RecoveryAction.INSPECT_AND_RECONCILE,
+                            known_resource_ids=(
+                                (posted.conversation_id,)
+                                if posted.conversation_id
+                                else metadata.known_resource_ids
+                            ),
+                        ),
+                    )
+
                 try:
                     resolved_conversation_id = await self.get_conversation_id(notebook_id)
-                except (ChatError, NetworkError):
+                except NotebookLMError as exc:
                     logger.error(
                         "Chat ask succeeded but post-ask get_conversation_id "
                         "failed. Answer (%d chars, may be truncated): %r",
                         len(posted.answer or ""),
                         (posted.answer or "")[:500],
                     )
+                    confirmed_readback_failure(exc)
                     raise
                 if resolved_conversation_id is None:
                     if posted.answer:
@@ -357,11 +424,12 @@ class ChatAPI(LoopBoundPrimitive, ABC):
                             len(posted.answer),
                             posted.answer[:500],
                         )
-                    raise ChatError(
-                        "Server did not register a conversation for this ask "
-                        "(hPTbtc returned no id). The response may have been "
-                        "empty, or the API shape may have changed. Please file "
-                        "an issue at https://github.com/teng-lin/notebooklm-py/issues."
+                    raise confirmed_readback_failure(
+                        ChatError(
+                            "Server returned an answer but its conversation id could not be "
+                            "resolved. The turn was recorded; inspect conversation "
+                            "history before trying again."
+                        )
                     )
 
             assert resolved_conversation_id is not None
@@ -488,10 +556,11 @@ class ChatAPI(LoopBoundPrimitive, ABC):
             caller already holding the stream has consumed its final frame.
         """
         self._loop_guard.assert_bound_loop()
-        resolved_id = conversation_id or await self.get_conversation_id(notebook_id)
-        if resolved_id is None:
-            return ChatSessionStatus(generating=False)
-        return await self._get_session_status(notebook_id, resolved_id)
+        async with self._operation_scope("chat.session_status"):
+            resolved_id = conversation_id or await self.get_conversation_id(notebook_id)
+            if resolved_id is None:
+                return ChatSessionStatus(generating=False)
+            return await self._get_session_status(notebook_id, resolved_id)
 
     async def cancel(
         self,
@@ -515,11 +584,12 @@ class ChatAPI(LoopBoundPrimitive, ABC):
             or cancel its local task after this method succeeds.
         """
         self._loop_guard.assert_bound_loop()
-        resolved_id = conversation_id or await self.get_conversation_id(notebook_id)
-        if resolved_id is None:
+        async with self._operation_scope("chat.cancel"):
+            resolved_id = conversation_id or await self.get_conversation_id(notebook_id)
+            if resolved_id is None:
+                return None
+            await self._cancel_generation(notebook_id, resolved_id)
             return None
-        await self._cancel_generation(notebook_id, resolved_id)
-        return None
 
     async def delete_conversation(self, notebook_id: str, conversation_id: str) -> None:
         """Delete a conversation from the server.
@@ -677,9 +747,11 @@ class ChatAPI(LoopBoundPrimitive, ABC):
         limit: int = 100,
         conversation_id: str | None = None,
     ) -> list[tuple[str, str]]:
-        """Return decoded question/answer history."""
+        """Return decoded question/answer history.
 
-    @abstractmethod
+        For positive limits, empty means no conversation or no turns; fetch failures raise.
+        """
+
     async def configure(
         self,
         notebook_id: str,
@@ -687,11 +759,78 @@ class ChatAPI(LoopBoundPrimitive, ABC):
         response_length: ChatResponseLength | None = None,
         custom_prompt: str | None = None,
     ) -> None:
-        """Persist chat configuration."""
+        """Configure chat persona and response settings for a notebook.
+
+        Writes the WHOLE chat-settings block with no server-side merge: an
+        omitted ``goal`` / ``response_length`` resets that field to its default.
+        This is the low-level primitive — for a partial, merge-preserving update
+        (CLI ``configure`` / MCP ``chat_configure``) go through
+        ``_app.chat.execute_configure``, which reads :meth:`get_settings` first.
+
+        Args:
+            notebook_id: The notebook ID.
+            goal: Chat persona/goal (ChatGoal enum: DEFAULT, CUSTOM, LEARNING_GUIDE).
+            response_length: Response verbosity (ChatResponseLength enum).
+            custom_prompt: Custom instructions (required if goal is CUSTOM).
+
+        Raises:
+            ValidationError: If goal is CUSTOM but custom_prompt is not provided.
+        """
+        if self._configure_attempt_log_policy == "before_validation":
+            logger.debug("Configuring chat for notebook %s", notebook_id)
+        resolved_goal = ChatGoal.DEFAULT if goal is None else goal
+        resolved_length = ChatResponseLength.DEFAULT if response_length is None else response_length
+        if resolved_goal == ChatGoal.CUSTOM and not custom_prompt:
+            raise ValidationError("custom_prompt is required when goal is CUSTOM")
+        active_prompt = custom_prompt if resolved_goal == ChatGoal.CUSTOM else None
+        await self._send_configure(
+            notebook_id,
+            resolved_goal,
+            resolved_length,
+            active_prompt,
+        )
+
+    async def get_settings(self, notebook_id: str) -> ChatSettings:
+        """Read the notebook's current chat configuration.
+
+        Decodes the chat-settings block from ``GET_NOTEBOOK`` so a *partial*
+        ``configure`` can merge (read-modify-write) instead of clobbering the
+        fields it doesn't touch — the server stores the whole block with no
+        merge (see :meth:`configure`). A notebook that has never been configured
+        reads back as ``DEFAULT``/``DEFAULT`` with no persona.
+
+        Args:
+            notebook_id: The notebook ID.
+
+        Returns:
+            The current :class:`ChatSettings` (goal, response length, persona).
+
+        Raises:
+            UnknownRPCMethodError: if the GET_NOTEBOOK chat-settings block has
+                drifted from the expected shape — raised rather than silently
+                defaulting, which on the merge path would clobber a field the
+                caller meant to preserve (the #1751 footgun).
+        """
+        settings = await self._read_settings(notebook_id)
+        return ChatSettings(
+            goal=settings.goal,
+            response_length=settings.response_length,
+            custom_prompt=settings.custom_prompt,
+        )
 
     @abstractmethod
-    async def get_settings(self, notebook_id: str) -> ChatSettings:
-        """Return decoded chat settings."""
+    async def _send_configure(
+        self,
+        notebook_id: str,
+        goal: ChatGoal,
+        response_length: ChatResponseLength,
+        custom_prompt: str | None,
+    ) -> None:
+        """Send one backend-specific whole-settings mutation."""
+
+    @abstractmethod
+    async def _read_settings(self, notebook_id: str) -> _ChatSettingsRead:
+        """Read and validate backend chat settings into a neutral carrier."""
 
     @abstractmethod
     async def _list_turn_roles(
@@ -699,8 +838,8 @@ class ChatAPI(LoopBoundPrimitive, ABC):
         notebook_id: str,
         conversation_id: str,
         limit: int,
-    ) -> list[object]:
-        """Return one decoded role value per backend turn row."""
+    ) -> _TurnRoleSnapshot:
+        """Return decoded roles plus backend-specific exhaustion evidence."""
 
     @abstractmethod
     async def _stream_answer(

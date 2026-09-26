@@ -1,5 +1,6 @@
 use super::{
     fast_statsig_user::{FastUserCustomMap, FastUserData},
+    prepared_user::OwnedPreparedUser,
     user_data::{UserData, UserDataMap},
 };
 use crate::{DynamicValue, StatsigUser};
@@ -16,6 +17,7 @@ const TAG: &str = "StatsigUserLoggable";
 pub enum StatsigUserLoggableData {
     Public(Arc<UserData>),
     Fast(Arc<FastUserData>),
+    Prepared(OwnedPreparedUser),
 }
 
 impl Default for StatsigUserLoggableData {
@@ -60,6 +62,18 @@ impl StatsigUserLoggable {
         }
     }
 
+    pub(crate) fn new_prepared(
+        user: OwnedPreparedUser,
+        environment: Option<UserDataMap>,
+        global_custom: Option<HashMap<String, DynamicValue>>,
+    ) -> Self {
+        Self {
+            data: StatsigUserLoggableData::Prepared(user),
+            environment,
+            global_custom,
+        }
+    }
+
     pub(crate) fn create_exposure_dedupe_user_hash(&self, unit_id_type: Option<&str>) -> u64 {
         match &self.data {
             StatsigUserLoggableData::Public(data) => {
@@ -67,6 +81,9 @@ impl StatsigUserLoggable {
             }
             StatsigUserLoggableData::Fast(data) => {
                 data.create_exposure_dedupe_user_hash(unit_id_type)
+            }
+            StatsigUserLoggableData::Prepared(user) => {
+                user.create_exposure_dedupe_user_hash(unit_id_type)
             }
         }
     }
@@ -98,6 +115,31 @@ impl Serialize for StatsigUserLoggable {
             }
             StatsigUserLoggableData::Fast(data) => {
                 serialize_fast_user_data(&mut state, data, &self.global_custom)?;
+            }
+            StatsigUserLoggableData::Prepared(user) => {
+                serialize_data_field(&mut state, "userID", &user.input.user_id)?;
+                serialize_data_field(&mut state, "customIDs", &user.custom_ids())?;
+                for (serialized, field) in [
+                    ("email", "email"),
+                    ("ip", "ip"),
+                    ("userAgent", "useragent"),
+                    ("country", "country"),
+                    ("locale", "locale"),
+                    ("appVersion", "appversion"),
+                ] {
+                    serialize_data_field(&mut state, serialized, &user.get_primary_value(field))?;
+                }
+                let custom = user.base.as_ref().and_then(|base| base.custom.as_ref());
+                if custom.is_some() || user.input.custom.is_some() || self.global_custom.is_some() {
+                    state.serialize_field(
+                        "custom",
+                        &MergedFastCustomFields {
+                            custom,
+                            overlay: user.input.custom.as_ref(),
+                            global_custom: self.global_custom.as_ref(),
+                        },
+                    )?;
+                }
             }
         }
 
@@ -196,14 +238,21 @@ where
     S: SerializeStruct,
 {
     serialize_data_field(state, "userID", &data.user_id)?;
+    serialize_fast_metadata(state, data)?;
+    serialize_fast_custom_field(state, &data.custom, global_custom)
+}
+
+fn serialize_fast_metadata<S>(state: &mut S, data: &FastUserData) -> Result<(), S::Error>
+where
+    S: SerializeStruct,
+{
     serialize_data_field(state, "customIDs", &data.custom_ids)?;
     serialize_data_field(state, "email", &data.email)?;
     serialize_data_field(state, "ip", &data.ip)?;
     serialize_data_field(state, "userAgent", &data.user_agent)?;
     serialize_data_field(state, "country", &data.country)?;
     serialize_data_field(state, "locale", &data.locale)?;
-    serialize_data_field(state, "appVersion", &data.app_version)?;
-    serialize_fast_custom_field(state, &data.custom, global_custom)
+    serialize_data_field(state, "appVersion", &data.app_version)
 }
 
 fn serialize_fast_custom_field<S>(
@@ -222,6 +271,7 @@ where
         "custom",
         &MergedFastCustomFields {
             custom: custom.as_ref(),
+            overlay: None,
             global_custom: global_custom.as_ref(),
         },
     )
@@ -234,6 +284,7 @@ struct MergedCustomFields<'a> {
 
 struct MergedFastCustomFields<'a> {
     custom: Option<&'a FastUserCustomMap>,
+    overlay: Option<&'a FastUserCustomMap>,
     global_custom: Option<&'a HashMap<String, DynamicValue>>,
 }
 
@@ -290,6 +341,12 @@ impl Serialize for MergedCustomFields<'_> {
 }
 
 impl MergedFastCustomFields<'_> {
+    fn get(&self, key: &str) -> Option<&super::user_value::UserValue> {
+        self.overlay
+            .and_then(|overlay| overlay.get(key))
+            .or_else(|| self.custom.and_then(|custom| custom.get(key)))
+    }
+
     fn serialized_len(&self) -> usize {
         let global_len = self.global_custom.map_or(0, HashMap::len);
         let custom_only_len = self.custom.map_or(0, |custom| {
@@ -298,12 +355,22 @@ impl MergedFastCustomFields<'_> {
                 .filter(|key| {
                     !self
                         .global_custom
-                        .is_some_and(|global_custom| global_custom.contains_key(*key))
+                        .is_some_and(|global| global.contains_key(*key))
                 })
                 .count()
         });
-
-        global_len + custom_only_len
+        let overlay_only_len = self.overlay.map_or(0, |overlay| {
+            overlay
+                .keys()
+                .filter(|key| {
+                    !self
+                        .global_custom
+                        .is_some_and(|global| global.contains_key(*key))
+                        && !self.custom.is_some_and(|custom| custom.contains_key(*key))
+                })
+                .count()
+        });
+        global_len + custom_only_len + overlay_only_len
     }
 }
 
@@ -313,30 +380,42 @@ impl Serialize for MergedFastCustomFields<'_> {
         S: serde::Serializer,
     {
         let mut map = serializer.serialize_map(Some(self.serialized_len()))?;
-
         if let Some(global_custom) = self.global_custom {
             for (key, global_value) in global_custom {
-                if let Some(value) = self.custom.and_then(|custom| custom.get(key)) {
+                if let Some(value) = self.get(key) {
                     map.serialize_entry(key, value)?;
                 } else {
                     map.serialize_entry(key, global_value)?;
                 }
             }
         }
-
         if let Some(custom) = self.custom {
-            for (key, value) in custom {
+            for (key, base_value) in custom {
                 if self
                     .global_custom
-                    .is_some_and(|global_custom| global_custom.contains_key(key))
+                    .is_some_and(|global| global.contains_key(key))
                 {
                     continue;
                 }
-
+                let value = self
+                    .overlay
+                    .and_then(|overlay| overlay.get(key))
+                    .unwrap_or(base_value);
                 map.serialize_entry(key, value)?;
             }
         }
-
+        if let Some(overlay) = self.overlay {
+            for (key, value) in overlay {
+                if self
+                    .global_custom
+                    .is_some_and(|global| global.contains_key(key))
+                    || self.custom.is_some_and(|custom| custom.contains_key(key))
+                {
+                    continue;
+                }
+                map.serialize_entry(key, value)?;
+            }
+        }
         map.end()
     }
 }

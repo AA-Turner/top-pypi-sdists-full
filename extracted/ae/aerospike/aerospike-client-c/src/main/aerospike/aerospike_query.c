@@ -391,7 +391,7 @@ as_query_parse_records_async(as_event_command* cmd)
 		if (msg->info3 & AS_MSG_INFO3_LAST) {
 			if (msg->result_code != AEROSPIKE_OK) {
 				// The server returned a fatal error.
-				as_error_set_message(&err, msg->result_code, as_error_string(msg->result_code));
+				as_command_parse_error(&err, cmd->node, msg, p);
 				as_event_response_error(cmd, &err);
 				return true;
 			}
@@ -412,14 +412,14 @@ as_query_parse_records_async(as_event_command* cmd)
 		}
 
 		if (msg->result_code != AEROSPIKE_OK) {
-			// Background scans return AEROSPIKE_ERR_RECORD_NOT_FOUND
+			// Background queries return AEROSPIKE_ERR_RECORD_NOT_FOUND
 			// when the set does not exist on the target node.
 			if (msg->result_code == AEROSPIKE_ERR_RECORD_NOT_FOUND) {
 				// Non-fatal error.
 				as_event_query_complete(cmd);
 				return true;
 			}
-			as_error_set_message(&err, msg->result_code, as_error_string(msg->result_code));
+			as_command_parse_error(&err, cmd->node, msg, p);
 			as_event_response_error(cmd, &err);
 			return true;
 		}
@@ -528,7 +528,7 @@ as_query_parse_records(as_error* err, as_command* cmd, as_node* node, uint8_t* b
 		if (msg->info3 & AS_MSG_INFO3_LAST) {
 			if (msg->result_code != AEROSPIKE_OK) {
 				// The server returned a fatal error.
-				return as_error_set_message(err, msg->result_code, as_error_string(msg->result_code));
+				return as_command_parse_error(err, node, msg, p);
 			}
 			return AEROSPIKE_NO_MORE_RECORDS;
 		}
@@ -546,13 +546,13 @@ as_query_parse_records(as_error* err, as_command* cmd, as_node* node, uint8_t* b
 		}
 
 		if (msg->result_code != AEROSPIKE_OK) {
-			// Background scans return AEROSPIKE_ERR_RECORD_NOT_FOUND
+			// Background queries return AEROSPIKE_ERR_RECORD_NOT_FOUND
 			// when the set does not exist on the target node.
 			if (msg->result_code == AEROSPIKE_ERR_RECORD_NOT_FOUND) {
 				// Non-fatal error.
 				return AEROSPIKE_NO_MORE_RECORDS;
 			}
-			return as_error_set_message(err, msg->result_code, as_error_string(msg->result_code));
+			return as_command_parse_error(err, node, msg, p);
 		}
 
 		status = as_query_parse_record(&p, msg, task, err);
@@ -665,6 +665,12 @@ as_query_write_range_integer(uint8_t* p, int64_t begin, int64_t end)
 	return p;
 }
 
+static inline bool
+as_query_is_integer_dtype(as_index_datatype dtype)
+{
+	return dtype == AS_INDEX_NUMERIC || dtype == AS_INDEX_INTEGER;
+}
+
 static as_status
 as_query_command_size(
 	const as_policy_base* base_policy, const as_policy_query* query_policy, const as_query* query,
@@ -743,6 +749,7 @@ as_query_command_size(
 						break;
 
 					case AS_INDEX_NUMERIC:
+					case AS_INDEX_INTEGER:
 						filter_size += sizeof(int64_t) * 2;
 						break;
 
@@ -756,7 +763,7 @@ as_query_command_size(
 				break;
 
 			case AS_PREDICATE_RANGE:
-				if (pred->dtype == AS_INDEX_NUMERIC) {
+				if (as_query_is_integer_dtype(pred->dtype)) {
 					filter_size += sizeof(int64_t) * 2;
 				}
 				else if (pred->dtype == AS_INDEX_GEO2DSPHERE) {
@@ -1017,7 +1024,8 @@ as_query_command_init(
 						break;
 					}
 
-					case AS_INDEX_NUMERIC: {
+					case AS_INDEX_NUMERIC:
+					case AS_INDEX_INTEGER: {
 						p = as_query_write_range_integer(p, pred->value.integer, pred->value.integer);
 						break;
 					}
@@ -1034,7 +1042,7 @@ as_query_command_init(
 				break;
 
 			case AS_PREDICATE_RANGE:
-				if (pred->dtype == AS_INDEX_NUMERIC) {
+				if (as_query_is_integer_dtype(pred->dtype)) {
 					p = as_query_write_range_integer(p, pred->value.integer_range.min, pred->value.integer_range.max);
 				}
 				else if (pred->dtype == AS_INDEX_GEO2DSPHERE) {
@@ -2033,6 +2041,8 @@ as_policy_query_merge(aerospike* as, const as_policy_query* src, as_policy_query
 			cfg->base.max_retries : src->base.max_retries;
 		mrg->base.sleep_between_retries = as_field_is_set(bitmap, AS_QUERY_SLEEP_BETWEEN_RETRIES)?
 			cfg->base.sleep_between_retries : src->base.sleep_between_retries;
+		mrg->base.error_detail_verbosity = as_field_is_set(bitmap, AS_QUERY_ERROR_DETAIL)?
+			cfg->base.error_detail_verbosity : src->base.error_detail_verbosity;
 		mrg->info_timeout = as_field_is_set(bitmap, AS_QUERY_INFO_TIMEOUT)?
 			cfg->info_timeout : src->info_timeout;
 		mrg->replica = as_field_is_set(bitmap, AS_QUERY_REPLICA)?
@@ -2509,7 +2519,9 @@ aerospike_query_partitions_async(
 }
 
 const as_policy_write*
-as_policy_write_merge(aerospike* as, const as_policy_write* src, as_policy_write* mrg);
+as_policy_write_merge(
+	aerospike* as, const as_policy_write* src, as_policy_write* mrg, as_policy_key* pkey
+	);
 
 as_status
 aerospike_query_background(
@@ -2519,11 +2531,17 @@ aerospike_query_background(
 	as_error_reset(err);
 	
 	as_policy_write merged;
-	policy = as_policy_write_merge(as, policy, &merged);
+	as_policy_key pkey;
+	policy = as_policy_write_merge(as, policy, &merged, &pkey);
 
 	if (! (query->apply.function[0] || query->ops)) {
 		return as_error_set_message(err, AEROSPIKE_ERR_PARAM,
 			"Background function or ops is required");
+	}
+
+	if (query->ops && query->apply.function[0]) {
+		return as_error_set_message(err, AEROSPIKE_ERR_PARAM,
+			"Cannot combine query operations with aggregation");
 	}
 
 	if (query->ops && !as_operations_consists_of_all_writes(query->ops)) {

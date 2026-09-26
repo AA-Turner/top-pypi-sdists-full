@@ -41,6 +41,7 @@ class TestVersions:
             },
             assets={
                 "config": {
+                    "base_path": "/docs/",
                     "html_handling": "auto-trailing-slash",
                     "not_found_handling": "404-page",
                     "run_worker_first": True,
@@ -382,6 +383,7 @@ class TestAsyncVersions:
             },
             assets={
                 "config": {
+                    "base_path": "/docs/",
                     "html_handling": "auto-trailing-slash",
                     "not_found_handling": "404-page",
                     "run_worker_first": True,

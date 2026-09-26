@@ -25,6 +25,7 @@ from ..const import (
     BLU_TRV_IDENTIFIER,
     BLU_TRV_MODEL_ID,
     BLU_TRV_TIMEOUT,
+    BLU_TRV_UPDATE_FIRMWARE_TIMEOUT,
     CONNECT_ERRORS,
     DEVICE_INIT_TIMEOUT,
     DEVICE_IO_TIMEOUT,
@@ -32,7 +33,6 @@ from ..const import (
     FIRMWARE_PATTERN,
     GEN4,
     HTTP_CALL_TIMEOUT,
-    MODEL_BLU_GATEWAY_G3,
     NOTIFY_WS_CLOSED,
     VIRTUAL_COMPONENTS_MIN_FIRMWARE,
 )
@@ -404,6 +404,20 @@ class RpcDevice:
             "params": {"id": 0},
         }
         await self.call_rpc("BluTRV.Call", params=params, timeout=BLU_TRV_TIMEOUT)
+
+    async def blu_trv_update_firmware(self, trv_id: int) -> None:
+        """Update firmware for BLU TRV."""
+        await self.call_rpc(
+            "BluTrv.UpdateFirmware",
+            params={"id": trv_id},
+            timeout=BLU_TRV_UPDATE_FIRMWARE_TIMEOUT,
+        )
+
+    async def blu_trv_check_for_updates(self) -> str:
+        """Check for BLU TRV firmware updates."""
+        result = await self.call_rpc("BluTrv.CheckForUpdates")
+
+        return cast(str, result["fw_id"])
 
     async def boolean_set(self, id_: int, value: bool) -> None:
         """Set the value for the boolean component."""
@@ -1150,9 +1164,6 @@ class RpcDevice:
 
     async def _retrieve_blutrv_components(self, components: dict[str, Any]) -> None:
         """Retrieve BLU TRV components."""
-        if self.model != MODEL_BLU_GATEWAY_G3:
-            return
-
         if not self._config or not self._status:
             raise NotInitialized
 

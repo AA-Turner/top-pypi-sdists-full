@@ -78,6 +78,8 @@ class ListsResource(SyncAPIResource):
         Creates a new Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           name: Specify the list name.
 
           type: Specify the list type.
@@ -138,6 +140,8 @@ class ListsResource(SyncAPIResource):
         in the payload. A non empty list items will overwrite the existing list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           name: Specify the list name.
@@ -182,6 +186,10 @@ class ListsResource(SyncAPIResource):
         self,
         *,
         account_id: str,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: SequenceNotStr[str] | Omit = omit,
+        order_by: Literal["name", "created_at", "updated_at", "item_count"] | Omit = omit,
+        search: str | Omit = omit,
         type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID"]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -195,6 +203,49 @@ class ListsResource(SyncAPIResource):
         Fetch all Zero Trust lists for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
+          direction: Sort direction. Applies to the field named in `order_by`; when `order_by` is
+              omitted it applies to the default `created_at` ordering. When `direction` is
+              omitted the default is field-specific: explicitly choosing `created_at` or
+              `updated_at` defaults to descending (newest first); `name` and `item_count`
+              default to ascending; and the default `created_at` ordering used when `order_by`
+              is omitted is ascending (for backwards compatibility).
+
+              - `asc` — ascending.
+              - `desc` — descending.
+
+          filter: Filter the returned lists by one or more `field:value` pairs. Repeat the
+              parameter to apply multiple filters; they are combined with logical AND (a list
+              must satisfy every filter to be returned).
+
+              Supported fields and their matching behaviour:
+
+              - `name` — case-insensitive substring match on the list name.
+              - `id` — substring match on the list ID (UUID), with or without dashes.
+              - `type` — exact match on the list type. Supersedes the legacy `type` query
+                parameter when both are supplied. Must be one of the valid type values.
+              - `item_count` — exact integer match on the number of items in the list.
+
+              Each entry must match one of the per-field patterns below: the field must be one
+              of `name`, `id`, `type`, or `item_count`; `name`/`id` accept any value, `type`
+              is restricted to the valid list type values, and `item_count` must be a
+              non-negative integer.
+
+          order_by: Field to sort the returned lists by. When omitted, results are ordered by
+              `created_at` in ascending order (i.e. creation order) for backwards
+              compatibility. Supported values:
+
+              - `name` — sort alphabetically by list name.
+              - `created_at` — sort by creation time; defaults to descending unless
+                `direction` is set.
+              - `updated_at` — sort by last-modified time; defaults to descending unless
+                `direction` is set.
+              - `item_count` — sort by number of items in the list.
+
+          search: Case-insensitive substring match on the list name or description. When combined
+              with `filter`, both must match (logical AND).
+
           type: Specify the list type.
 
           extra_headers: Send extra headers
@@ -215,7 +266,16 @@ class ListsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"type": type}, list_list_params.ListListParams),
+                query=maybe_transform(
+                    {
+                        "direction": direction,
+                        "filter": filter,
+                        "order_by": order_by,
+                        "search": search,
+                        "type": type,
+                    },
+                    list_list_params.ListListParams,
+                ),
             ),
             model=GatewayList,
         )
@@ -236,6 +296,8 @@ class ListsResource(SyncAPIResource):
         Deletes a Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
@@ -280,6 +342,8 @@ class ListsResource(SyncAPIResource):
         Appends or removes an item from a configured Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           append: Add items to the list.
@@ -333,6 +397,8 @@ class ListsResource(SyncAPIResource):
         Fetch a single Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
@@ -403,6 +469,8 @@ class AsyncListsResource(AsyncAPIResource):
         Creates a new Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           name: Specify the list name.
 
           type: Specify the list type.
@@ -463,6 +531,8 @@ class AsyncListsResource(AsyncAPIResource):
         in the payload. A non empty list items will overwrite the existing list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           name: Specify the list name.
@@ -507,6 +577,10 @@ class AsyncListsResource(AsyncAPIResource):
         self,
         *,
         account_id: str,
+        direction: Literal["asc", "desc"] | Omit = omit,
+        filter: SequenceNotStr[str] | Omit = omit,
+        order_by: Literal["name", "created_at", "updated_at", "item_count"] | Omit = omit,
+        search: str | Omit = omit,
         type: Literal["SERIAL", "URL", "DOMAIN", "EMAIL", "IP", "CATEGORY", "LOCATION", "DEVICE", "AAGUID"]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -520,6 +594,49 @@ class AsyncListsResource(AsyncAPIResource):
         Fetch all Zero Trust lists for an account.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
+          direction: Sort direction. Applies to the field named in `order_by`; when `order_by` is
+              omitted it applies to the default `created_at` ordering. When `direction` is
+              omitted the default is field-specific: explicitly choosing `created_at` or
+              `updated_at` defaults to descending (newest first); `name` and `item_count`
+              default to ascending; and the default `created_at` ordering used when `order_by`
+              is omitted is ascending (for backwards compatibility).
+
+              - `asc` — ascending.
+              - `desc` — descending.
+
+          filter: Filter the returned lists by one or more `field:value` pairs. Repeat the
+              parameter to apply multiple filters; they are combined with logical AND (a list
+              must satisfy every filter to be returned).
+
+              Supported fields and their matching behaviour:
+
+              - `name` — case-insensitive substring match on the list name.
+              - `id` — substring match on the list ID (UUID), with or without dashes.
+              - `type` — exact match on the list type. Supersedes the legacy `type` query
+                parameter when both are supplied. Must be one of the valid type values.
+              - `item_count` — exact integer match on the number of items in the list.
+
+              Each entry must match one of the per-field patterns below: the field must be one
+              of `name`, `id`, `type`, or `item_count`; `name`/`id` accept any value, `type`
+              is restricted to the valid list type values, and `item_count` must be a
+              non-negative integer.
+
+          order_by: Field to sort the returned lists by. When omitted, results are ordered by
+              `created_at` in ascending order (i.e. creation order) for backwards
+              compatibility. Supported values:
+
+              - `name` — sort alphabetically by list name.
+              - `created_at` — sort by creation time; defaults to descending unless
+                `direction` is set.
+              - `updated_at` — sort by last-modified time; defaults to descending unless
+                `direction` is set.
+              - `item_count` — sort by number of items in the list.
+
+          search: Case-insensitive substring match on the list name or description. When combined
+              with `filter`, both must match (logical AND).
+
           type: Specify the list type.
 
           extra_headers: Send extra headers
@@ -540,7 +657,16 @@ class AsyncListsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"type": type}, list_list_params.ListListParams),
+                query=maybe_transform(
+                    {
+                        "direction": direction,
+                        "filter": filter,
+                        "order_by": order_by,
+                        "search": search,
+                        "type": type,
+                    },
+                    list_list_params.ListListParams,
+                ),
             ),
             model=GatewayList,
         )
@@ -561,6 +687,8 @@ class AsyncListsResource(AsyncAPIResource):
         Deletes a Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers
@@ -605,6 +733,8 @@ class AsyncListsResource(AsyncAPIResource):
         Appends or removes an item from a configured Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           append: Add items to the list.
@@ -658,6 +788,8 @@ class AsyncListsResource(AsyncAPIResource):
         Fetch a single Zero Trust list.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           list_id: Identify the API resource with a UUID.
 
           extra_headers: Send extra headers

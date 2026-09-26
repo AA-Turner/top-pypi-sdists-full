@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.72.1"
+  version: "1.96.1"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -14,6 +14,10 @@ info:
 
     Errors: every 4xx/5xx response is application/json with a machine-readable
     'code' and a human-readable 'error' message (see the ErrorResponse schema).
+
+    Request ids: responses carry an X-Request-Id header with the id we log the
+    request under. Quote it when reporting a problem. A valid x-request-id you
+    send is reused as that id.
   termsOfService: https://zernio.com/tos
   contact:
     name: Zernio Support
@@ -207,6 +211,8 @@ x-documentation:
     - `whatsapp.number.released` - A number was released and is no longer usable (terminal); carries a `reason`
     - `verification.approved` - A managed-OTP verification was approved (the user submitted the correct code)
     - `verification.failed` - A managed-OTP verification was exhausted after too many wrong code attempts
+    - `sms.registration.action_required` - An SMS registration (10DLC or toll-free) is waiting on you: we need answers to some points (before submission, or to fix a carrier rejection), a sole-prop brand needs the code texted to its mobile, or the toll-free carrier asked for more information. Branch on `reason`; `message` says what to do
+    - `sms.registration.status_updated` - An SMS registration changed status: changes_requested, requested, pending (with the carriers), approved (ready to send), rejected (we handle the fix) or deactivated
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
     Every delivery carries `X-Zernio-Event` (the event name) and `X-Zernio-Event-Id` (the payload's `id`, a UUID generated once when the event is emitted). That id is identical on every subscription that receives the event, on every automatic retry and on a redelivery via `POST /v1/webhooks/logs/redeliver`, so it is the key to dedupe on. Payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header when the subscription has a secret. Legacy `X-Late-*` copies of these three headers are still sent and will be removed in a future major version.
@@ -478,10 +484,10 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated, webhook.test.
       Headers: every delivery carries X-Zernio-Event (event name) and X-Zernio-Event-Id (the payload `id`, a UUID minted once per event and identical across every subscribed endpoint, every automatic retry and every redelivery, so dedupe on it). Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported. Legacy X-Late-Event, X-Late-Event-Id and X-Late-Signature duplicates are still sent and will be removed in a future major version.
 
-      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.* and verification.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
+      Resource groups. Every event belongs to one group: post.* to publishing, message.*, reaction.*, conversation.*, call.* and whatsapp.automatic_event to messages, comment.* and review.* to engagement, lead.* to contacts, ad.* to ads, account.*, whatsapp.template.* and whatsapp.account.* to accounts, analytics.* to analytics, whatsapp.number.*, verification.* and sms.registration.* to telephony, webhook.test to webhooks. Two independent controls use that mapping. (1) A restricted (zrk_) API key can only subscribe to, test-fire, redeliver, or read delivery logs for events in the groups it holds, so it can never create a subscription broader than itself. (2) Each subscription carries its own `disabledResourceGroups` denylist: events in a disabled group are dropped before delivery to that endpoint, on live delivery and on every replay path, no matter which key or session created the subscription. Changing that denylist applies to every event emitted after the change; events already queued when it landed can still be delivered for up to five minutes after they were enqueued, because the delivery worker trusts a five-minute enqueue-time snapshot before re-checking. Absent or empty on a subscription means it receives everything it subscribes to, which is the behavior of every subscription created before the field existed.
 
       Profile and account filters. A subscription can also carry `profileIds`, an allowlist of profiles, and `accountIds`, an allowlist of connected accounts with the same semantics keyed on the account; each non-empty list narrows delivery and a subscription with both must be satisfied on both. A scoped subscription is only sent events it can attribute to one of those profiles: the profile of the connected account behind the event, or for an aggregate `post.*` event the profile of every account the post targets (a post spanning two scoped endpoints' profiles reaches both). So an integrator can route the profile holding test accounts to a staging endpoint while a second subscription, scoped to the production profiles, keeps production traffic. Events that belong to no profile (`verification.*`, `phone_number.*`, and a legacy post whose accounts were deleted) reach only unscoped subscriptions. The filter runs when an event is emitted; redelivery replays a delivery already made to that endpoint and test fires ignore it. Absent or empty means every profile (or every account).
   - name: Webhook Events
@@ -946,6 +952,22 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    SmsRegistrationReviewRequest:
+      type: object
+      description: 'An open change request written as points. Answer each point with POST /v1/sms/registrations/{id}/respond: `answer` says what each point needs (text, a link, a hosted document, or a link or a document).'
+      properties:
+        id: { type: string, description: 'Changes with every request. Send it back as `requestId` when answering, so a reply to a replaced request is refused (409) instead of filed under the new points.' }
+        intro: { type: string, description: 'Context from the reviewer, e.g. what was already fixed on our side.' }
+        points:
+          type: array
+          items:
+            type: object
+            required: [id, title, detail, answer]
+            properties:
+              id: { type: string, description: 'Point id to send back in `answers[].pointId`.' }
+              title: { type: string }
+              detail: { type: string, description: 'What exactly is needed.' }
+              answer: { type: string, enum: [text, link, file, link_or_file] }
     MetaProductCatalog:
       type: object
       properties:
@@ -2143,7 +2165,41 @@ components:
             yours to reschedule; `platform` is the fleet-wide daily budget shared with
             every other customer, so only waiting for the reset clears it. The two
             scopes are separate axes from `quotaScope`, not the same pool named twice.
+
+            A failed Meta ad create (`POST /v1/ads/create`, `POST /v1/ads/boost`,
+            `POST /v1/ads/ctwa`) carries `stage`, `adAccountId` and `createdObjects`: where
+            it failed, on which ad account, and every object this request had already
+            created with what cleanup did to it. `left_behind` objects still exist on the
+            ad account (Meta refused the delete, typically on a held account), so delete
+            them yourself or reuse them. `unconfirmedWrite` is set when Meta answered a
+            create with a 5xx or dropped the connection and Zernio could not confirm
+            whether the object exists: check that parent before creating it again.
           properties:
+            stage:
+              type: string
+              enum: [media, campaign, adset, creative, ad, activation, other]
+              description: "Meta ad create failures only. The step that failed: `media` (image/video download or upload), `campaign`, `adset`, `creative`, `ad` (the ad POST itself, where Meta's code 31 / 3858385 hold and 100 / 1359188 payment rejections land), `activation` (switching the created objects on), or `other` (a read or check before any write)."
+            adAccountId:
+              type: string
+              description: 'Meta ad create failures only. The ad account the request wrote to (`act_...`).'
+            createdObjects:
+              type: array
+              description: 'Meta ad create failures only. Every object this request created before failing, in creation order. Objects you referenced (an existing campaign, ad set, creative or video) are never listed and never deleted.'
+              items:
+                type: object
+                properties:
+                  type: { type: string, enum: [campaign, adset, creative, ad, video, image] }
+                  id: { type: string, description: 'Meta object id; for `image` the image hash.' }
+                  cleanup:
+                    type: string
+                    enum: [deleted, left_behind, kept]
+                    description: "`deleted`: Zernio deleted it. `left_behind`: Meta refused the delete, so it still exists. `kept`: deliberately not deleted (image hashes are shared by every upload of the same file)."
+            unconfirmedWrite:
+              type: object
+              description: 'Meta ad create failures only, when Meta answered a create with a 5xx or dropped the connection and the object could not be looked up. Zernio did not retry it.'
+              properties:
+                type: { type: string, enum: [campaign, adset, creative, ad] }
+                parentId: { type: string, description: 'Where to look for it: the ad set for an ad, the campaign for an ad set, the ad account otherwise.' }
             quotaExhausted:
               type: boolean
               description: 'Google Ads 429 only. True when the upstream Google Ads quota is spent rather than a Zernio limit.'
@@ -3065,7 +3121,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -3232,6 +3288,8 @@ components:
                     type: string
                   error:
                     type: string
+                  platformError:
+                    $ref: '#/components/schemas/PostPlatformError'
             metadata:
               type: object
               additionalProperties: true
@@ -3294,6 +3352,7 @@ components:
                   platformPostId: { type: string }
                   publishedUrl: { type: string }
                   error: { type: string }
+                  platformError: { $ref: '#/components/schemas/PostPlatformError' }
             metadata:
               type: object
               additionalProperties: true
@@ -3367,6 +3426,102 @@ components:
           type: string
           format: date-time
           description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+    OwnedPhoneNumber:
+      type: object
+      description: 'A number you bought or ported. Null fields are omitted, except `socialAccountId` and `ownerAccountId`. Credentials stored for the number (such as the SIP digest password) are never returned; `sipAuthUsername` is the only SIP credential field exposed.'
+      properties:
+        _id: { type: string }
+        phoneNumber: { type: string }
+        country: { type: string }
+        numberType: { type: string, description: 'For example local, mobile, national or toll_free.' }
+        status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, verifying, active, suspended, releasing, released] }
+        profileId:
+          description: 'The profile the number belongs to: `{ _id, name }` when the profile exists, otherwise its id.'
+          oneOf:
+            - type: object
+              properties:
+                _id: { type: string }
+                name: { type: [string, "null"] }
+            - type: string
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        telnyxOrderId: { type: [string, "null"], description: Present once the number order has been placed (i.e. the requirement group was approved). Absent while still in identity review. }
+        telnyxAdvancedOrderId: { type: string, description: 'Present on a pre-order: the carrier request placed for a number with no stock yet.' }
+        registrantName: { type: [string, "null"], description: "For regulated numbers, who it's registered for (company or person), set from the submitted KYC." }
+        endUserFirstName: { type: [string, "null"] }
+        endUserLastName: { type: [string, "null"] }
+        regulatoryDeclineReason: { type: [string, "null"], description: Reviewer rejection reason when status is regulatory_declined. }
+        regulatoryReviewComment: { type: string, description: 'The latest reviewer comment on a regulated number still in review.' }
+        regulatoryInfoStatus: { type: string, description: '`action_required` when the reviewer is waiting on you.' }
+        onfidoVerificationUrl: { type: [string, "null"], description: "For regulated (Tier 3/4) numbers with an Onfido ID-verification step: the link to forward to the end user. Set once the order is placed; null otherwise. Poll this field after submitting KYC." }
+        verifyUrl: { type: [string, "null"], description: 'Stable redirect to the live Onfido session. Prefer it over `onfidoVerificationUrl`, since it always resolves to a fresh session.' }
+        onfidoOpened: { type: boolean, description: 'True once the verify link has been opened at least once.' }
+        metaPreverifiedId: { type: string }
+        metaVerificationStatus: { type: string, enum: [pending, code_requested, verified, expired] }
+        metaVerifiedAt: { type: string, format: date-time }
+        metaVerificationExpiresAt: { type: string, format: date-time }
+        socialAccountId: { type: [string, "null"], description: 'The WhatsApp account the number is linked to; null when WhatsApp is not connected.' }
+        ownerAccountId: { type: [string, "null"], description: 'The telephony account that owns Calls and SMS on the number.' }
+        sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
+        whatsAppRequested: { type: boolean, description: 'False for a standalone phone bought for Calls or SMS only.' }
+        smsRequested: { type: boolean }
+        provisionedAt: { type: string, format: date-time }
+        activatedAt: { type: string, format: date-time }
+        connectedAt: { type: string, format: date-time }
+        suspendedAt: { type: string, format: date-time }
+        releasedAt: { type: string, format: date-time }
+        signupError: { type: string, description: "Meta's Embedded Signup error from the last failed connect attempt (raw text, often localized)." }
+        signupErrorAt: { type: string, format: date-time }
+        signupErrorStep: { type: string }
+        monthlyCents: { type: integer, description: "What this number bills each month, in cents. Stamped when the number was bought, so an existing number keeps its price when the rate card changes." }
+        hostedByZernio: { type: boolean, description: "False for numbers you brought yourself (connected via Meta embedded signup). They live on your own carrier, so SMS/Calls can't be enabled on them." }
+        smsCapable: { type: boolean, description: 'Whether the number can send SMS. Absent while unknown.' }
+        mmsCapable: { type: boolean, description: 'Whether the number can send MMS. Absent while unknown.' }
+        domesticOnly: { type: boolean, description: 'True when the number can only text numbers in its own country. Absent while unknown.' }
+        smsRegistrationPending: { type: boolean, description: 'True while a 10DLC registration covering this number is in review.' }
+        smsSendApproved: { type: boolean, description: 'True when outbound SMS is unlocked: an approved 10DLC covers the number, or the number is outside the US.' }
+        smsBrandName: { type: [string, "null"], description: 'Brand of the 10DLC registration covering the number.' }
+        features:
+          type: object
+          properties:
+            calls: { type: boolean }
+            whatsapp: { type: boolean }
+            smsPending: { type: boolean }
+        callingEnabled: { type: boolean, description: 'Whether WhatsApp Business Calling is enabled on this number (manage via /v1/whatsapp/phone-numbers/{id}/calling).' }
+        forwardTo: { type: string, description: 'WhatsApp calling forward destination.' }
+        sipAuthUsername: { type: string, description: 'SIP digest username for a sip: forward destination. The password is never returned.' }
+        callerIdVerifiedAt: { type: string, format: date-time }
+        maxCallDurationSeconds: { type: integer }
+        recordingEnabled: { type: boolean }
+        transcriptionEnabled: { type: boolean }
+        transcriptionLanguage: { type: string, enum: [auto, en, es] }
+        callIconCountries: { type: array, items: { type: string } }
+        forwardCallerId: { type: string, enum: [business, caller] }
+        pstnVoiceEnabled: { type: boolean, description: 'Whether Calls (PSTN voice) is on.' }
+        pstnForwardTo: { type: string }
+        voicemailEnabled: { type: boolean }
+        voicemailGreeting: { type: string }
+        businessHoursEnabled: { type: boolean }
+        businessHoursTimezone: { type: string }
+        businessHours:
+          type: array
+          items:
+            type: object
+            properties:
+              day: { type: integer }
+              open: { type: string }
+              close: { type: string }
+        blockedCallers: { type: array, items: { type: string } }
+        ivrEnabled: { type: boolean }
+        ivrPrompt: { type: string }
+        ivrOptions:
+          type: array
+          items:
+            type: object
+            properties:
+              digit: { type: string }
+              forwardTo: { type: string }
+              label: { type: string }
     PhoneNumberStockWatch:
       type: object
       required: [id, country, countryName, numberType, createdAt]
@@ -5948,7 +6103,7 @@ components:
         publishedAt:
           type: string
           format: date-time
-          description: Timestamp when the post was published to this platform
+          description: "Timestamp when the post was published to this platform. YouTube uploads a scheduled public video up to 15 minutes early as private with YouTube's own release time, so its entry is published with this set to scheduledFor, the moment the video goes public."
         removedFromPlatformAt:
           type: [string, "null"]
           format: date-time
@@ -5986,6 +6141,30 @@ components:
           type: string
           enum: [user, platform, system]
           description: "Who caused the error: user (fix content/reconnect), platform (outage/API change), system (Zernio issue, rare)"
+        platformError:
+          $ref: '#/components/schemas/PostPlatformError'
+    PostPlatformError:
+      type: object
+      required: [message]
+      description: >-
+        The platform's own error for this target, so you can see what the
+        platform said (access tokens are redacted). Set when the last attempt
+        failed with an error the platform described (currently Instagram and
+        Facebook), and kept while an automatic retry of that failure is pending
+        or running; cleared when the target publishes or is retried manually.
+        errorMessage stays the human-readable summary; this block is for
+        diagnostics and support tickets. Instagram media processing failures
+        carry no code or subcode, only Meta's status text in message.
+      properties:
+        code:
+          type: integer
+          description: Meta error code, when Meta sent one.
+        subcode:
+          type: integer
+          description: Meta error_subcode, when Meta sent one.
+        message:
+          type: string
+          description: The platform's raw error message or media processing status text.
     Post:
       type: object
       properties:
@@ -8370,7 +8549,7 @@ components:
         comments: { type: integer, example: 0 }
         shares: { type: integer, example: 0 }
         saves: { type: integer, example: 0, description: 'Number of saves/bookmarks (Instagram, Pinterest, X)' }
-        clicks: { type: integer, example: 0 }
+        clicks: { type: integer, example: 0, description: 'Link clicks where the platform reports them. Always 0 on Facebook Page stories: Meta exposes no link-click metric for stories.' }
         views: { type: integer, example: 0 }
         follows: { type: [integer, "null"], example: 0, description: 'Instagram feed posts and stories only: organic accounts that started following from this post. Null on Instagram Reels and non-Reels video, where Meta does not expose this metric for the media. 0 for other platforms.' }
         igReelsAvgWatchTime: { type: integer, example: 0, description: 'Instagram Reels only: average watch time per play, in milliseconds. 0 for non-Reels media and other platforms.' }
@@ -8430,7 +8609,7 @@ components:
       properties:
         postId: { type: string }
         latePostId: { type: [string, "null"], description: 'Original Zernio post ID if scheduled via Zernio' }
-        status: { type: string, enum: [published, failed, partial], description: 'Overall post status. "partial" when some platforms published and others failed.' }
+        status: { type: string, enum: [published, failed, partial, scheduled, publishing, draft, cancelled], description: 'Overall post status. "partial" when some platforms published and others failed. While any platform is still pending or processing, the post''s own status is returned instead (usually scheduled or publishing), even if another platform already published.' }
         content: { type: string }
         scheduledFor: { type: string, format: date-time }
         publishedAt: { type: [string, "null"], format: date-time }
@@ -8445,11 +8624,11 @@ components:
         isExternal: { type: boolean }
         syncStatus: { type: string, enum: [synced, pending, partial, unavailable], description: 'Overall sync state across all platforms' }
         message: { type: [string, "null"], description: 'Human-readable status message for pending, partial, or failed states' }
-        thumbnailUrl: { type: [string, "null"], format: uri }
+        thumbnailUrl: { type: [string, "null"], format: uri, description: "Cover image URL. Facebook and Instagram covers whose Meta CDN link expired are re-read from Meta and served from Zernio storage, so that URL does not expire and can be cached." }
         mediaType: { type: [string, "null"], enum: [image, video, carousel, text] }
         mediaItems:
           type: array
-          description: All media items for this post. Carousel posts contain one entry per slide.
+          description: "All media items for this post. Carousel posts contain one entry per slide. Facebook and Instagram images and video covers whose Meta CDN links expired are re-read and served from Zernio storage (non-expiring). Facebook and Instagram video file URLs, and LinkedIn media URLs, stay the platform's signed links and are refreshed on read once they lapse."
           items:
             type: object
             properties:
@@ -8520,11 +8699,11 @@ components:
                   video created by an uploaded-asset (non-Spark) TikTok ad is posted to the profile
                   with a fresh organic id and cannot be detected: those still report as false.
               profileId: { type: [string, "null"] }
-              thumbnailUrl: { type: string, format: uri }
+              thumbnailUrl: { type: string, format: uri, description: "Cover image URL. Facebook and Instagram covers whose Meta CDN link expired are re-read from Meta and served from Zernio storage, so that URL does not expire and can be cached." }
               mediaType: { type: string, enum: [image, video, gif, document, carousel, text] }
               mediaItems:
                 type: array
-                description: All media items for this post. Carousel posts contain one entry per slide.
+                description: "All media items for this post. Carousel posts contain one entry per slide. Facebook and Instagram images and video covers whose Meta CDN links expired are re-read and served from Zernio storage (non-expiring). Facebook and Instagram video file URLs, and LinkedIn media URLs, stay the platform's signed links and are refreshed on read once they lapse."
                 items:
                   type: object
                   properties:
@@ -9726,24 +9905,28 @@ components:
         countries: { type: array, items: { type: string }, description: "ISO 3166-1 alpha-2 country codes (e.g. ['US'])." }
         regions:
           type: array
-          description: "Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region."
+          description: "Region/state targeting. `key` is the platform location ID from /v1/ads/targeting/search?dimension=geo&geoType=region. An entry may also be that id as a plain string (`\"20321\"` is `{ key: \"20321\" }`)."
           items:
-            type: object
-            required: [key]
-            properties:
-              key: { type: string }
-              name: { type: string }
+            oneOf:
+              - type: string
+              - type: object
+                required: [key]
+                properties:
+                  key: { type: string }
+                  name: { type: string }
         cities:
           type: array
-          description: "City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on platforms whose capability map allows city radius (Meta)."
+          description: "City targeting. Optional `radius` + `distanceUnit` extend beyond the city limits; both must be set together or both omitted. `radius` is only honoured on platforms whose capability map allows city radius (Meta). An entry may also be the city id as a plain string (`\"1006410\"` is `{ key: \"1006410\" }`)."
           items:
-            type: object
-            required: [key]
-            properties:
-              key: { type: string }
-              name: { type: string }
-              radius: { type: number, description: "Radius around the city. Requires distanceUnit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng), which allows a smaller radius." }
-              distanceUnit: { type: string, enum: [mile, kilometer], description: "Required if radius is set." }
+            oneOf:
+              - type: string
+              - type: object
+                required: [key]
+                properties:
+                  key: { type: string }
+                  name: { type: string }
+                  radius: { type: number, description: "Radius around the city. Requires distanceUnit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng), which allows a smaller radius." }
+                  distanceUnit: { type: string, enum: [mile, kilometer], description: "Required if radius is set." }
         zips:
           type: array
           description: "Postal/ZIP targeting. `key` is the platform's postal location ID (e.g. Meta `US:94304`). Supported on Meta, Google, TikTok, Pinterest, X."
@@ -10023,6 +10206,18 @@ components:
           $ref: '#/components/schemas/GoogleStructuredSnippet'
       description: "Supply fields for exactly one asset type per update. finalUrls may accompany sitelinkAsset. Shared asset edits affect every attachment using the asset."
 
+    GoogleLocationTargetingType:
+      type: string
+      enum: [presence, presence_or_interest]
+      description: |
+        Google only. Who a campaign's location targeting reaches (Google's
+        `campaign.geo_target_type_setting.positive_geo_target_type`).
+        `presence`: people in, or regularly in, the targeted locations.
+        `presence_or_interest`: also people searching for or showing interest in them.
+        Omitted leaves Google's default, `presence_or_interest`. Accepted on Search,
+        Display and Performance Max campaigns. Excluded locations always use presence
+        (Google refuses presence_or_interest for exclusions on these campaign types).
+      example: presence
     GooglePmaxAssetGroupInput:
       type: object
       additionalProperties: false
@@ -12720,6 +12915,84 @@ webhooks:
       responses:
         '200':
           description: Webhook received successfully
+  sms.registration.action_required:
+    post:
+      operationId: onSmsRegistrationActionRequired
+      summary: SMS registration action required event
+      description: |
+        Fired when an SMS registration starts waiting on its owner. `reason` says why:
+        `changes_requested` (we need answers to some points, before submission or to fix a
+        carrier rejection; `message` is the request, answer with
+        POST /v1/sms/registrations/{id}/respond), `otp_required` (a sole-proprietor brand needs
+        the code texted to its mobile, submit it with POST /v1/sms/registrations/{id}/verify-otp)
+        or `carrier_info_required` (the toll-free carrier asked for more information; the request
+        expires after 7 days). A carrier rejection alone does not fire it: we handle the fix, see
+        `sms.registration.status_updated`. Fires once per new request (not on follow-up messages)
+        and once per OTP or carrier request.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [sms.registration.action_required] }
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+                registration:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    type: { type: string, enum: [standard_10dlc, sole_prop_10dlc, toll_free] }
+                    displayName: { type: [string, "null"] }
+                    status: { type: string, description: 'Registration status when the event fired (changes_requested, pending or rejected).' }
+                    profileId: { type: string }
+                reason: { type: string, enum: [changes_requested, otp_required, carrier_info_required] }
+                message: { type: string, description: "What to do, in words: our request or the carrier's note. Absent for otp_required." }
+      responses:
+        '200':
+          description: Webhook received successfully
+  sms.registration.status_updated:
+    post:
+      operationId: onSmsRegistrationStatusUpdated
+      summary: SMS registration status updated event
+      description: |
+        Fired on every status change of an SMS registration: `changes_requested` (we need
+        answers, see `sms.registration.action_required`), `requested` (a new submission or
+        resubmit, or your answers are back in our review), `pending` (with the carriers, including after we fixed and resent a
+        rejection), `approved` (live: attach numbers and send), `rejected` (the carriers
+        declined it; `reason` is their words and we handle the fix) and `deactivated`.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [sms.registration.status_updated] }
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: 'UTC time at which Zernio generated this event (set once when the event payload is built, before delivery is queued). Retries and redeliveries keep the original value, so it reflects the event, not the delivery attempt.'
+                registration:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    type: { type: string, enum: [standard_10dlc, sole_prop_10dlc, toll_free] }
+                    displayName: { type: [string, "null"] }
+                    status: { type: string }
+                    profileId: { type: string }
+                status: { type: string, enum: [changes_requested, requested, pending, approved, rejected, deactivated] }
+                reason: { type: string, description: "The carriers' decline reason, on rejected." }
+      responses:
+        '200':
+          description: Webhook received successfully
   webhook.test:
     post:
       operationId: onWebhookTest
@@ -13012,6 +13285,8 @@ paths:
         Single post lookups may return 202 (sync pending) or 424 (all platforms failed). For follower stats, use /v1/accounts/follower-stats.
 
         LinkedIn personal accounts: Analytics are only available for posts published through Zernio. LinkedIn's API only returns metrics for posts authored by the authenticated user. Organization/company page analytics work for all posts.
+
+        Facebook Page stories: stories on a connected Page, published through Zernio or natively, are collected while they are live and returned like any other post (platformPostUrl points to the story). Their lifetime metrics refresh about hourly, with a final reading shortly before the story expires at 24 hours; after that the values stay at that last reading. Mapping: impressions = story impressions, reach = story reach, views = story media views, likes = story reactions, comments = story replies, shares = story shares. Meta exposes no link-click metric for stories, so clicks is always 0. Metrics for a story published through Zernio are available on its Zernio post ID.
       parameters:
         - name: postId
           in: query
@@ -13197,7 +13472,7 @@ paths:
                         isActive: true
                     hasAnalyticsAccess: true
         '202':
-          description: 'Analytics are being synced from the platform (single post lookup only). The response body matches AnalyticsSinglePostResponse with syncStatus "pending" and a message. Pending platforms whose account failed its last analytics sync carry that error in platformAnalytics[].errorMessage, and the message says so.'
+          description: 'Analytics are being synced from the platform, or the post has not finished publishing on every platform yet (single post lookup only). The response body matches AnalyticsSinglePostResponse with syncStatus "pending" and a message; while a platform has not published, status is the post''s own status (for example scheduled or publishing) and a post with one failed platform returns 202 rather than 424 until the others finish. Pending platforms whose account failed its last analytics sync carry that error in platformAnalytics[].errorMessage, and the message says so.'
           content:
             application/json:
               schema:
@@ -16849,6 +17124,15 @@ paths:
         '400': { description: Invalid query parameter }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429':
+          description: 'The billing backend is rate limiting reads (code `rate_limited`). Wait `Retry-After` seconds and retry. Before 1.81.0 this surfaced as a 500.'
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /v1/usage-stats:
     get:
       x-resource-group: "billing"
@@ -16948,6 +17232,15 @@ paths:
         '400': { description: Invalid query parameter }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429':
+          description: 'The billing backend is rate limiting reads (code `rate_limited`). Wait `Retry-After` seconds and retry. Before 1.81.0 this surfaced as a 500.'
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema: { type: integer }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /v1/usage/calls:
     get:
       x-resource-group: "billing"
@@ -17248,31 +17541,40 @@ paths:
 
         ## Idempotency
 
-        Two layers of duplicate-protection apply, so safe-to-retry callers (network blips, n8n / Zapier retries, etc.) don't accidentally double-post.
+        Three layers of duplicate-protection apply, so safe-to-retry callers (network blips, n8n / Zapier retries, etc.) don't accidentally double-post.
 
-        **1. Same-request idempotency (5-minute window).**
-        Pass an `x-request-id` header to mark a logical request. If a second request arrives with the same `x-request-id` while the first is in-flight (or within ~5 minutes of completion), we return **HTTP 200** with the original post in the `existingPost` field, and no new post is created.
+        **1. `Idempotency-Key` (recommended for retries, 24-hour window).**
+        Send an `Idempotency-Key` header (a UUID per logical post, up to 255 characters) and reuse it when you retry after a 5xx, a timeout or a dropped connection. A retry with the same key within 24 hours returns **HTTP 200** with the original post in the `post` field, and no new post is created. The match is on the key alone, not on the body: a retry returns the original post even if its body differs (for example a re-uploaded media URL). It covers drafts, and a post that was saved even though the original response was a 5xx or timed out.
+
+        If the first request is still being processed, the retry gets **HTTP 409** with `code: idempotency_conflict` and a `Retry-After` header; retry after that delay. If the first request failed without creating a post, the retry is processed as a new request. Keys are scoped to your user. Never reuse a key for a different post: that post would not be created, and the earlier one would be returned instead.
+
+        **2. `x-request-id` retry detection (24-hour window).**
+        If a request carries the same `x-request-id` as an earlier one AND collides with it on the content fingerprint below (same account, content and media URLs), we return **HTTP 200** with the original post in the `post` field (or **HTTP 202** with `postId` if the original is still being saved) instead of a 409. A request with the same `x-request-id` but different content is a new post. When both headers are sent, `Idempotency-Key` wins and `x-request-id` is ignored for matching.
 
         The official Zernio SDKs auto-generate a unique `x-request-id` per call. On a generic HTTP client (curl, n8n's HTTP node, Zapier, custom code), either:
 
-        - Set a unique `x-request-id` per logical call (recommended, UUIDv4 is fine)
+        - Set a unique `x-request-id` per logical call (UUIDv4 is fine)
         - Or omit the header, and we'll treat each request as new
 
-        **Common pitfall**: if your workflow tool uses a single execution-level request ID and reuses it across multiple HTTP nodes (e.g. one ID for the whole run, shared across 6 different platform calls), every call after the first will look like a retry of the first and return its post. Generate a fresh ID per node.
-
-        **2. Content-hash dedup (24-hour window).**
+        **3. Content-hash dedup (24-hour window).**
         Independently, we hash `(platform, accountId, content + media URLs)` and reject duplicates within 24 hours with **HTTP 409**. This catches genuine "same content posted twice to the same account" cases regardless of `x-request-id`. The response carries `error`, `accountId`, `platform`, and `existingPostId` so you can find the original.
 
         To intentionally re-post identical content within 24h, change something (the caption, the media, the account), because the dedup is keyed on the full content fingerprint.
 
-        Order: same-`x-request-id` retries (200) are checked first; if no idempotency match, the content-hash dedup (409) runs.
+        Order: an `Idempotency-Key` match (200) is checked first, then same-`x-request-id` retries (200), then the content-hash dedup (409).
       parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: |
+            Optional client-generated key (a UUID per logical post) that makes retries safe. Reuse it on every retry of the same post, especially after a 5xx or a timeout. A retry with the same key within 24 hours returns the original post (HTTP 200) whatever its body; while the original is still being processed it returns 409 `idempotency_conflict` with `Retry-After`. Longer than 255 characters returns 400. Takes precedence over `x-request-id`. See the operation description for the full contract.
         - name: x-request-id
           in: header
           required: false
           schema: { type: string, format: uuid }
           description: |
-            Optional client-generated request identifier for safe retry (idempotency). When two requests carry the same value, the second is treated as a retry of the first and returns the original post (HTTP 200) instead of creating a duplicate. Window is ~5 minutes from the first request. Generate a UUID per logical call. SDKs do this automatically; HTTP clients should set it themselves or omit it. See the operation description for the full idempotency contract.
+            Optional client-generated request identifier. A request with the same value as an earlier one within 24 hours that also matches its content fingerprint (same account, content and media URLs) returns the original post (HTTP 200) instead of a duplicate-content 409. It does not protect a retry whose body differs; use `Idempotency-Key` for that. SDKs set it automatically. See the operation description for the full idempotency contract.
       requestBody:
         required: true
         content:
@@ -17619,11 +17921,12 @@ paths:
       responses:
         '200':
           description: |
-            A dryRun preview (TikTok only): nothing was created. Deliberately carries no numeric
-            cap detail, only a per-account go/no-go and a reason.
+            Nothing was created. Either a dryRun preview (TikTok only), which deliberately carries no
+            numeric cap detail, only a per-account go/no-go and a reason; or a retry matched by
+            `Idempotency-Key` or `x-request-id`, which returns the original post
+            (`PostCreateResponse`, with `message: "Post already exists (idempotent retry)"`).
 
-            The schema is a union only so generated clients can type both success shapes of this
-            operation: a 200 is always the dry-run verdict, and a created post is always a 201.
+            A newly created post is always a 201.
           content:
             application/json:
               schema:
@@ -17789,7 +18092,9 @@ paths:
                   code: { type: string, enum: [ACCOUNT_DISCONNECTED, ACCOUNT_NOT_ENABLED_FOR_POSTING, PROFILE_OVER_LIMIT], description: Stable machine-readable cause. Absent for ownership failures. }
         '409':
           description: |
-            Duplicate content detected. Returned when the requested post matches an existing one on `(platform, accountId, content-hash)` within the last 24 hours, AND the request was NOT an `x-request-id` retry of an in-flight call. Distinct from same-`x-request-id` retries (which return HTTP 200 with the original post; see operation description for the idempotency contract).
+            Duplicate content detected. Returned when the requested post matches an existing one on `(platform, accountId, content-hash)` within the last 24 hours, AND the request was NOT an `x-request-id` retry. Distinct from same-`x-request-id` retries (which return HTTP 200 with the original post; see operation description for the idempotency contract).
+
+            Also returned with `code: idempotency_conflict` and a `Retry-After` header when a request with the same `Idempotency-Key` is still being processed. Retry after the delay to get the original post.
 
             Body fields:
             - `error`: human-readable message
@@ -18198,7 +18503,10 @@ paths:
       operationId: deletePost
       tags: [Posts]
       summary: Delete post
-      description: Delete a draft or scheduled post from Zernio. Published posts cannot be deleted; use the Unpublish endpoint instead. Upload quota is automatically refunded.
+      description: |
+        Delete a post from Zernio. Any status except `published` can be deleted: `draft`, `scheduled`, `publishing`, `failed`, `partial` and `cancelled`. Published posts cannot be deleted; use the Unpublish endpoint instead. Upload quota is automatically refunded for draft and scheduled posts.
+
+        Deleting a `publishing` or `partial` post is how you stop entries that are still pending, for example entries held on a disconnected account. It removes the whole post record from Zernio, including the entries that were already published, but it does not remove anything already live on a platform (use Unpublish for that first if needed). An entry that a worker has already started sending when you delete may still go out, or may fail because media uploaded to Zernio and not used by another post is deleted with the post. Analytics for entries already published are removed too. Deleting also frees the content for re-creation, so the same caption and media are no longer reported as a duplicate.
       parameters:
         - name: postId
           in: path
@@ -20560,8 +20868,53 @@ paths:
             Your custom redirect URL after connection completes. MUST be an absolute http(s) URL or a custom app scheme for mobile deeplinks (e.g. myapp://callback); a relative path is rejected with 400 INVALID_REDIRECT_URL. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
 
             On failure, the browser is sent to the same redirect_url with `error` and `platform` appended.
-            `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason` and
-            `dashboard_url` are conditional and must be treated as optional.
+            `error` and `platform` are always present. `error_message`, `is_user_fixable`, `reason`,
+            `dashboard_url`, `missing_scopes`, `error_reason` and the `platform_error*` params are
+            conditional and must be treated as optional. Your own query params are kept on every
+            redirect, but ours overwrite a param of yours with the same name. On an error redirect the
+            internal `headless`, `adsConnect` and `adsScope` markers we add during the flow are removed.
+
+            Correlation (every redirect from an OAuth callback, success and failure, and the
+            `redirect_url` returned by the selection endpoints such as POST /v1/connect/facebook/select-page):
+              - `request_id`: the id we log that request under. Quote it when reporting a problem.
+              - `stage`: where the flow ended. `authorize` = the platform's consent dialog returned an
+                error or denial instead of a code. `callback` = we processed the returned code (success,
+                a selection step, or a failure). `select_page` = the destination-selection endpoint
+                (page, account, organization, board, location, profile or phone number) completed it.
+
+            `oauth_denied` carries `error_message` and, when the platform sent them, its own values as
+            `platform_error` (e.g. `access_denied`), `platform_error_reason` (e.g. `user_denied`) and
+            `platform_error_description` (truncated to 500 characters). `is_user_fixable=true` is set when
+            the platform reported that the user cancelled or declined.
+
+            `no_facebook_pages` comes with `is_user_fixable=true`, an `error_message` telling the user to
+            click "Edit previous settings" in Meta's dialog and tick the Page (or create one), and, when
+            Meta's token debug answered, `error_reason`:
+              - `pages_permission_declined`: the user declined the pages_show_list permission.
+              - `no_pages_granted`: the permission was granted with no Page ticked. Meta reports a user who
+                manages no Page the same way, so this covers both.
+              - `granted_pages_not_listed`: Pages were ticked but Meta listed none the user can manage.
+
+            Headless Facebook success (`step=select_page`): `userProfile` is JSON that was
+            percent-encoded once before being set as a query param, so it is encoded twice on the wire.
+            After your framework decodes the query string once, run one more decodeURIComponent (or
+            equivalent) and then JSON.parse it. `tempToken` and `connect_token` are plain values.
+
+            `code_already_redeemed` means the same authorization code arrived more than once and an earlier
+            request already processed it (the code is never sent to the platform twice). It is not a
+            failure: check GET /v1/accounts or wait for the `account.connected` webhook.
+
+            `missing_google_permissions` (YouTube, Google Business and Google Ads) means the user unchecked one or more
+            permissions on Google's consent screen. It always comes with `is_user_fixable=true`. When Google
+            reported the granted scopes, `missing_scopes` is also present: a comma-separated list of the
+            requested Google scopes that were not granted. Ask the user to connect again and keep every
+            permission checked.
+
+            `no_youtube_channel` means Google authorized the account but it has no YouTube channel we can
+            connect. It always comes with `is_user_fixable=true` and an `error_message`. The usual causes: the
+            user picked their personal Google identity instead of the Brand Account in Google's account
+            chooser, they only have YouTube Studio access (not Brand Account owner or manager), or the
+            account has no channel yet.
 
             This list is NOT exhaustive and new values may be added at any time. Treat an unrecognized
             value as a generic failure rather than matching it exhaustively. Existing values are not
@@ -20571,7 +20924,8 @@ paths:
               oauth_denied, invalid_callback, invalid_state, unsupported_platform, connection_failed,
               internal_error, token_exchange_failed, byok_config_error, personal_account_not_supported,
               missing_google_permissions, missing_tiktok_permissions, platform_requires_destination,
-              reconnect_account_mismatch, instagram_login_method_mismatch, invalid_request
+              reconnect_account_mismatch, instagram_login_method_mismatch, invalid_request,
+              code_already_redeemed
 
             Access and limits:
               profile_not_found, invalid_profile_id, access_denied, account_limit_exceeded,
@@ -20580,7 +20934,7 @@ paths:
             Destination selection:
               no_facebook_pages, facebook_pages_error, no_google_locations, google_locations_error,
               google_permission_denied, no_snapchat_public_profiles, snapchat_profiles_error,
-              discord_no_guild, slack_no_team
+              no_youtube_channel, discord_no_guild, slack_no_team
 
             WhatsApp:
               whatsapp_error, one_whatsapp_per_profile, whatsapp_number_already_connected,
@@ -20603,8 +20957,8 @@ paths:
               shopify_auth_failed, shopify_config_error, shopify_invalid_state, shopify_invalid_hmac,
               shopify_invalid_shop, shopify_missing_scopes, shopify_callback_error
 
-            1. On this endpoint every upstream OAuth error is collapsed into `oauth_denied`. The
-            provider's own value (for example Meta's `access_denied`) is not forwarded. The dedicated
+            1. On this endpoint every upstream OAuth error is collapsed into `oauth_denied`, with the
+            provider's own values in the `platform_error*` params described above. The dedicated
             ads flows below are different: they use their own denial slugs and `google_ads_auth_failed`
             and `tiktok_ads_auth_failed` may carry the provider's raw error string in `error_message`.
 
@@ -20771,19 +21125,37 @@ paths:
         token. No posting account is created or required. This mode always returns an authUrl;
         it returns 503 when the server has no META_ADS_CONFIG_ID. Complete the dialog in a
         browser. The callback creates or reconnects only the metaads account, preserving its
-        ID, history and scopedAdAccountIds. Non-empty successful subscription results replace
-        subscribedAdAccountIds to remove stale grants; an empty result leaves routing unchanged. A reconnect must grant
-        every previously scoped ad account (or every previous grant for an unscoped connection).
-        Missing or unverifiable grants return 409 before changing the account.
+        ID and history. Non-empty successful subscription results replace
+        subscribedAdAccountIds to remove stale grants; an empty result leaves routing unchanged. A reconnect is
+        accepted when the new grant shares at least one ad account with the existing connection (its
+        scopedAdAccountIds plus the previous grant, or the ad accounts its old token can read when neither
+        is stored), so re-running the dialog can add, drop or swap ad accounts. A grant with zero overlap
+        is refused before changing the account and redirects with `error=invalid_field_value` and
+        `error_reason=reconnect_mismatch` (disconnect and connect again to switch); when the previous ad
+        accounts cannot be read at all, it redirects with `error=reconnect_required`. On an accepted
+        reconnect the scope is rebuilt from the new grant: `adAccountIds` passed on the re-auth become the
+        scope; otherwise a stored scope keeps its ad accounts that are still granted plus any granted for the
+        first time, and an unscoped connection follows the new grant.
 
         Pass `pageId` to select a granted Page for creatives and lead forms. API integrations
         otherwise reuse the previous Page or sole granted Page. Multiple Pages without a selection
         return 400 with available Page IDs for API integrations; restart with pageId.
         Dashboard session logins use the sole current grant automatically or open the existing
         Facebook Page picker for several grants, including reconnects. Selection completes
-        the Meta Ads connection. With no Pages granted the callback returns
-        400 with instructions to connect again and grant a Page.
+        the Meta Ads connection.
         Success redirects with connected=metaads, profileId and accountId.
+        Every failure after Meta's dialog redirects to redirect_url (or the dashboard) with
+        `error`, `platform=metaads`, `error_message`, `request_id` and `stage`, plus
+        `is_user_fixable` and `error_reason` when known. `error` is the API error code:
+        `invalid_field_value` with `error_reason` `no_pages_granted` (no Page ticked),
+        `page_not_granted` (pageId not in the grant), `ad_accounts_not_granted` or
+        `reconnect_mismatch` (the grant shares no ad account with the existing connection);
+        `reconnect_required`, `ads_addon_required`, `payment_required` and the profile gates of
+        GET /v1/connect/{platform}; `invalid_state` with `error_reason=state_expired` after the
+        30-minute window; `connection_failed` when Meta refuses the code (e.g. a replayed callback).
+        A denial in the dialog is `meta_ads_authorization_denied` with the `platform_error*` params.
+        Only a state that cannot be decrypted at all still answers 400 JSON, since it names no
+        redirect_url.
         Business login reports metadata.tokenType=system-user in GET /v1/accounts. An absent
         Meta expires_in leaves tokenExpiresAt absent; no personal-token re-exchange occurs.
         Subsequent classic requests can change the ad-account scope using the business token;
@@ -20816,8 +21188,22 @@ paths:
           - twitter (X Ads): accountId is REQUIRED. There's no ads-only mode, because tweets need to be authored by a real X user.
 
         **Standalone platforms (googleads).** Starts the Google Ads OAuth flow and creates a
-        standalone ads SocialAccount (googleads) with no parent. If the account already exists,
-        returns alreadyConnected: true.
+        standalone ads SocialAccount (googleads) with no parent. If the account already exists and
+        has at least one discovered Google Ads customer account, returns alreadyConnected: true.
+        When the existing connection has zero customer accounts (metadata.googleAdsCustomerIds is
+        empty) or is flagged needsReconnection, it returns an authUrl instead; completing it
+        reconnects the same account (same accountId) and re-runs ad account discovery. Discovery
+        includes the client accounts under every manager (MCC) the Google user can reach, and
+        includes Google Ads test accounts, which Google always reports with status CLOSED. When
+        discovery finds no usable customer account, the callback saves nothing and redirects with
+        `error=google_ads_no_ad_accounts`, `platform=googleads` and an `error_message` naming each
+        customer the Google user can reach and why it was left out (for example
+        CUSTOMER_NOT_ENABLED). Sign in with a Google user that has access to the ad account or to
+        its manager account. When the user unticks the Google Ads permission on Google's consent
+        screen, the callback saves nothing and redirects with `error=missing_google_permissions`,
+        `platform=googleads`, `is_user_fixable=true` and `missing_scopes`. An existing connection
+        whose token lacks that permission is flagged needsReconnection, and the health endpoints
+        report "Google Ads permission not granted"; this endpoint then returns an authUrl for it.
 
         Ads accounts appear as regular SocialAccount documents with ads platform values (e.g., metaads, tiktokads) in GET /v1/accounts.
       parameters:
@@ -20894,6 +21280,11 @@ paths:
             Set `force=true` to bypass that and always receivean `authUrl`.
             Completing the returned OAuth refreshes the stored token
             on the existing posting and ads accounts in place.
+            An `alreadyConnected` response re-runs ad discovery and webhook
+            subscriptions in the background at most once every 15 minutes per ads
+            account (always when the call changes the ad-account scope), so it is not
+            a sync trigger. To check the connection's health, read
+            GET /v1/ads/accounts?accountId=<ads account ID>.
         - name: adAccountId
           in: query
           schema: { type: string }
@@ -21461,9 +21852,12 @@ paths:
                 type: object
                 properties:
                   message: { type: string }
-                  redirect_url: 
+                  redirect_url:
                     type: string
-                    description: "Redirect URL when a custom redirect_url was provided or a business Page was selected."
+                    description: "Redirect URL when a custom redirect_url was provided or a business Page was selected. On an ads connect it also carries `adsAccountId`."
+                  adsAccountId:
+                    type: string
+                    description: "Ads connect only (the redirect_url carries adsConnect=true, as it does after GET /v1/connect/{platform}/ads). The metaads SocialAccount ID to use with the /v1/ads endpoints. `account.accountId` is the Facebook posting account. Absent when the ads account could not be created."
                   account:
                     type: object
                     properties:
@@ -21500,14 +21894,13 @@ paths:
             was initiated as a `force=true` token-recovery re-auth
             (`GET /v1/connect/{platform}/ads`), but the grant landed on a different
             Facebook user or page than the connected account. The existing account
-            is left untouched.
+            is left untouched. Returned in the standard error envelope with
+            `code: reconnect_account_mismatch` (the same value the OAuth redirect
+            uses in `error=`). Before 1.79.0 this body was `{error, code: RECONNECT_ACCOUNT_MISMATCH}`
+            without `type`.
           content:
             application/json:
-              schema:
-                type: object
-                properties:
-                  error: { type: string }
-                  code: { type: string, enum: [RECONNECT_ACCOUNT_MISMATCH] }
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '500':
           description: Failed to save Facebook connection
 
@@ -21619,7 +22012,10 @@ paths:
                   message: { type: string }
                   redirect_url:
                     type: string
-                    description: Redirect URL if a custom redirect_url was provided
+                    description: 'Redirect URL if a custom redirect_url was provided. On an ads connect it also carries `adsAccountId`.'
+                  adsAccountId:
+                    type: string
+                    description: 'Ads connect only (the redirect_url carries adsConnect=true, as it does after GET /v1/connect/{platform}/ads). The metaads SocialAccount ID to use with the /v1/ads endpoints. `account.accountId` is the Instagram posting account. Absent when the ads account could not be created.'
                   account:
                     type: object
                     properties:
@@ -29225,7 +29621,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -29382,7 +29778,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.platform.deleted, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, analytics.synced, message.received, conversation.started, conversation.control_changed, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, referral.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.template.category_updated, whatsapp.account.name_status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, phone_number.stock_available, verification.approved, verification.failed, sms.registration.action_required, sms.registration.status_updated]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -30165,7 +30561,7 @@ paths:
 
         Supported platforms: X, Bluesky, Reddit, WhatsApp, SMS, Slack, and iMessage. Other platforms return PLATFORM_NOT_SUPPORTED.
 
-        **iMessage.** Pass the recipient as participantId: a phone number in international format (+15551234567) or an iMessage email. Senders ordered through Zernio can message contacts who never wrote to them. The first message to such a contact must be a personal, plain-text note: no links, email addresses, phone numbers, prices, attachments or marketing. It is checked against those rules and reviewed for spam before sending; one that fails returns 400 with code `invalid_content` and nothing is sent. Each sender may open at most one new conversation every 15 minutes, and a new sender warms up: 2 new conversations per 24 hours on days 1-2 after activation, 5 on days 3-4, 10 on days 5-7, 20 on days 8-14, 30 on days 15-21 and 50 after that. Beyond that the request returns 429 with code `new_contact_limit` and a time to retry. The warm-up counts from when a sender ordered through Zernio went live; senders registered from your own provider account are not warmed up by Zernio. Until the contact replies, the opening is the only message the thread accepts: further sends return 409 `recipient_must_message_first`. Once the contact has written, the thread behaves like any other and is not limited. Recipients can report a first message as junk, and reports can get a sender blocked permanently, so keep the reply rate high (above roughly 30%). A sender registered with your own provider account may lack the add-on for new contacts; its sends to them return 409 `recipient_must_message_first`, and an opt-in link is the way in. A contact who opted out returns 409 `recipient_opted_out`.
+        **iMessage.** Pass the recipient as participantId: a phone number in international format (+15551234567) or an iMessage email. Senders ordered through Zernio can message contacts who never wrote to them. The first message to such a contact must be plain text from an identifiable person or business opening a conversation; a cold introduction, including a sales one, is fine ("Hi Mark, this is John from Pratt Media. I help local roofers get more leads. Would you be open to a quick chat?"). It may not contain links, email addresses, phone numbers, prices or attachments (the provider's own rule for opening messages). One that does returns 400 with code `invalid_content`, a message saying what was flagged, and nothing is sent. Each sender may open at most one new conversation every 15 minutes, and a new sender warms up: 2 new conversations per 24 hours on days 1-2 after activation, 5 on days 3-4, 10 on days 5-7, 20 on days 8-14, 30 on days 15-21 and 50 after that. Beyond that the request returns 429 with code `new_contact_limit` and a time to retry. The warm-up counts from when a sender ordered through Zernio went live; senders registered from your own provider account are not warmed up by Zernio. Until the contact replies, the thread accepts the opening and at most two follow-ups, at least 24 hours apart: a follow-up sooner returns 429 `new_contact_limit` with the time to retry, and a fourth message returns 409 `recipient_must_message_first`. The provider treats every message to a contact who has not replied as a new conversation, so follow-ups follow the same content rule and count toward the 15-minute spacing and the daily warm-up like an opening. Once the contact has written, the thread behaves like any other and is not limited. Recipients can report a first message as junk, and reports can get a sender blocked permanently, so keep the reply rate high (above roughly 30%). A sender registered with your own provider account may lack the add-on for new contacts; its sends to them return 409 `recipient_must_message_first`, and an opt-in link is the way in. A contact who opted out returns 409 `recipient_opted_out`.
 
         **Slack.** Pass a workspace member id as participantId (list them with GET /v1/accounts/{accountId}/slack-members). Zernio opens the DM channel with that member and sends the message; the thread then behaves like any other Slack conversation in the inbox. The member must belong to the connected workspace.
 
@@ -30479,7 +30875,7 @@ paths:
                       code: { type: string, enum: [account_not_found, PARTICIPANT_NOT_FOUND] }
                   - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '409':
-          description: 'iMessage only. The contact opted out of this sender (recipient_opted_out); or this contact has never written to the sender and either the sender lacks the add-on for new contacts or the opening message already went out and the contact has not replied yet (recipient_must_message_first).'
+          description: 'iMessage only. The contact opted out of this sender (recipient_opted_out); or this contact has never written to the sender and either the sender lacks the add-on for new contacts or three messages already went out and the contact has not replied (recipient_must_message_first).'
           content:
             application/json:
               schema:
@@ -31109,9 +31505,14 @@ paths:
         sender; a send inside that window returns `429` with code
         `new_contact_limit` and the time to retry. Replies to contacts who
         wrote within the last day are not paced. A thread opened with
-        `POST /v1/inbox/conversations` accepts no message after the opening
-        until the contact replies (`409 recipient_must_message_first`). Text
-        must be shorter than 10,000 characters.
+        `POST /v1/inbox/conversations` takes at most two follow-ups before
+        the contact replies, at least 24 hours apart (`429
+        new_contact_limit` sooner, `409 recipient_must_message_first` for a
+        fourth message). Each such follow-up counts as a new conversation:
+        no links, emails, phone numbers, prices or attachments (`400
+        invalid_content`), and it uses the sender's 15-minute spacing and
+        daily warm-up (`429 new_contact_limit`). Text must be shorter than
+        10,000 characters.
 
         WhatsApp template messages: to send an approved template into this
         conversation (required when the 24-hour customer-service window is
@@ -31826,10 +32227,17 @@ paths:
         '409': { $ref: '#/components/responses/IdempotencyKeyInFlight' }
         '422': { $ref: '#/components/responses/IdempotencyKeyReused' }
         '429':
-          description: Meta rejected the WhatsApp template-definition lookup. No message was sent.
+          description: 'Rate limited. Either the connected account''s upstream platform quota is exhausted (code rate_limited, see Retry-After; Reddit allows 1000 requests per 10 minutes per connected user), or Meta rejected the WhatsApp template-definition lookup (code platform_api_error). No message was sent.'
+          headers:
+            Retry-After:
+              description: 'Seconds until the upstream quota resets, when the platform reported it.'
+              schema: { type: integer }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
+              schema:
+                anyOf:
+                  - { $ref: '#/components/schemas/ErrorResponse' }
+                  - { $ref: '#/components/schemas/WhatsAppTemplateLookupError' }
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
         '502':
           description: The exact approved WhatsApp template definition is unavailable, or the platform returned an upstream failure. No WhatsApp template message is sent when definition lookup fails.
@@ -32775,10 +33183,17 @@ paths:
       description: |
         Fetch comments for a specific post. Requires accountId query parameter.
 
-        On Facebook, passing a COMMENT id as `postId` is also supported and returns that
-        comment's replies instead of the post's top-level comments. Instagram does not support
-        this and returns 400: its replies come nested in each comment's `replies` array, with no
-        separate paging. YouTube does not support it either, `postId` must be a video id.
+        Pass `commentId` (Facebook, Instagram, Reddit, TikTok) to fetch replies to a specific
+        comment instead of the post's top-level comments. Facebook, Instagram and TikTok return
+        the comment's replies, paged by `limit`/`cursor`; Reddit returns the focused comment
+        thread instead. On Facebook and Instagram the requested comment itself comes back in the
+        top-level `comment` field.
+
+        On Facebook, passing a COMMENT id as `postId` (instead of using `commentId`) is also
+        supported for backwards compatibility and returns that comment's replies the same way.
+        Prefer `commentId` for new integrations; it also works on Instagram, which rejects a
+        comment id passed as `postId`. YouTube does not support either form, `postId` must be a
+        video id.
 
         Responses are cached for up to 10 minutes, so a page may lag new comments by that
         window. Do not poll this endpoint for real-time updates: subscribe to the
@@ -32800,7 +33215,7 @@ paths:
         - name: postId
           in: path
           required: true
-          description: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies (not supported on Instagram).
+          description: Zernio post ID or platform-specific post ID. Zernio IDs are auto-resolved. LinkedIn third-party posts accept full activity URN or numeric ID. On Facebook, a comment ID is also accepted here and returns that comment's replies, kept for backwards compatibility; prefer the `commentId` query parameter, which also works on Instagram.
           schema: { type: string }
         - name: accountId
           in: query
@@ -32821,7 +33236,7 @@ paths:
         - name: commentId
           in: query
           schema: { type: string }
-          description: (Reddit and TikTok only) Get replies to a specific comment
+          description: '(Facebook, Instagram, Reddit and TikTok) Get replies to a specific comment. On Facebook and Instagram, the requested comment is returned in the top-level `comment` field and comments[] holds its replies.'
       responses:
         '200':
           description: Comments for the post
@@ -32862,7 +33277,7 @@ paths:
                           items: { type: object }
                         repliesHasMore:
                           type: boolean
-                          description: "Facebook only. True when replies[] (capped at 10) does not hold the comment's full reply thread; fetch the rest by passing the comment id as postId to GET /v1/inbox/comments/{postId}. Absent (not false) on every other platform, including Instagram, which has no equivalent signal."
+                          description: "Facebook only. True when replies[] (capped at 10) does not hold the comment's full reply thread; fetch the rest by passing the comment id as the `commentId` query parameter to GET /v1/inbox/comments/{postId} (or, for backwards compatibility, as `postId`). Absent (not false) on every other platform, including Instagram, which has no equivalent signal."
                         canReply: { type: boolean }
                         canDelete: { type: boolean }
                         canHide: { type: boolean, description: "Whether this comment can be hidden (Facebook, Instagram, Threads)" }
@@ -32897,6 +33312,12 @@ paths:
                       stickied: { type: boolean }
                       flairText: { type: [string, "null"], description: Link flair text if any }
                       isGallery: { type: boolean, description: True if the post is a Reddit gallery (multiple images) }
+                  comment:
+                    type: object
+                    description: |
+                      (Facebook and Instagram only) Present when `commentId` was passed: the requested
+                      comment itself, in the same shape as an entry in comments[]. comments[] then holds
+                      that comment's replies instead of the post's top-level comments.
                   pagination:
                     type: object
                     properties:
@@ -35923,7 +36344,9 @@ paths:
       tags: [Voice]
       summary: Hang up a live call
       description: |
-        Hangs up a live call on demand. Idempotent: ending a call that already
+        Hangs up a live call on demand, including an outbound call that is
+        still ringing and has not been answered yet (the callee stops ringing
+        immediately). Idempotent: ending a call that already
         ended (or never connected) returns success with the call's current
         status. Final duration/cost are written asynchronously when the hangup
         event lands, so the call doc may briefly still show its prior status.
@@ -36355,7 +36778,9 @@ paths:
       description: |
         Cancels the sender at the provider and deactivates its messaging
         account. Billing stops with the current month (no proration or
-        refunds, matching phone numbers).
+        refunds, matching phone numbers). A sender still being set up
+        (status ordering or activating) cannot be canceled; contact support
+        to change the order.
       tags: [iMessage]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -36373,6 +36798,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Sender not found }
+        '409': { description: 'The sender is still being set up and cannot be canceled yet (code: imessage_sender_setting_up)' }
 
   /v1/imessage/audience:
     get:
@@ -37206,6 +37632,17 @@ paths:
                         tfActionRequiredAt: { type: [string, "null"], format: date-time, description: 'Toll-free only: when the carrier requested changes ("Waiting For Customer"). The request must be resubmitted within 7 days of this timestamp or it expires.' }
                         phoneNumbers: { type: array, items: { type: string } }
                         awaitingOtp: { type: boolean, description: Sole-prop 10DLC only; the OTP step is still pending. }
+                        adminReviewNote: { type: [string, "null"], description: 'The open change request as text (status changes_requested).' }
+                        lastResponseAt: { type: [string, "null"], format: date-time, description: 'When you last answered a change request.' }
+                        previouslyRejected: { type: boolean, description: 'Rejected by the carriers at least once. A pending registration with this set is our fix, back with the carriers.' }
+                        lastRejectedAt: { type: [string, "null"], format: date-time, description: 'When the carriers last rejected it.' }
+                        rejectedBeforeSubmission: { type: boolean, description: 'Rejected in our review before anything was filed with the carriers (not a carrier rejection; nothing to fix or appeal).' }
+                        otpExpired: { type: boolean, description: 'Sole proprietor only: the verification code was never entered within 30 days. Start SMS setup again; it revives the same brand with no second brand fee.' }
+                        reviewRequest:
+                          description: 'The same change request as points, when the reviewer wrote it that way; null otherwise.'
+                          oneOf:
+                            - $ref: '#/components/schemas/SmsRegistrationReviewRequest'
+                            - type: "null"
                         trustScore: { type: [number, "null"], description: Carrier-assigned brand trust score; drives throughput. }
                         throughput:
                           type: object
@@ -37328,6 +37765,12 @@ paths:
                   declineReason: { type: [string, "null"] }
                   phoneNumbers: { type: array, items: { type: string } }
                   awaitingOtp: { type: boolean }
+                  adminReviewNote: { type: [string, "null"], description: 'The open change request as text (status changes_requested).' }
+                  reviewRequest:
+                    description: 'The same change request as points, when the reviewer wrote it that way; null otherwise.'
+                    oneOf:
+                      - $ref: '#/components/schemas/SmsRegistrationReviewRequest'
+                      - type: "null"
                   campaignContent:
                     type: object
                     description: |
@@ -37463,9 +37906,12 @@ paths:
       description: |
         Replies to a reviewer change request on a registration in
         `changes_requested` state: a note, hosted document URLs (from
-        `POST /v1/sms/opt-in-proof`), or both, sent together. The registration
+        `POST /v1/sms/opt-in-proof`), or both, sent together. When the request
+        was written as points (`reviewRequest` on the registration), send one
+        entry in `answers` per point. The registration
         returns to `requested` (back in review), and you do not need to resubmit the
-        whole registration. To change the submitted brand/campaign fields
+        whole registration. A `rejected` registration can also be answered when
+        we asked for changes to fix it (`reviewRequest` set); it stays `rejected`. To change the submitted brand/campaign fields
         themselves, resubmit via `POST /v1/sms/registrations` with
         `resubmitRequestId` instead.
       security:
@@ -37485,6 +37931,23 @@ paths:
                   maxItems: 5
                   items: { type: string }
                   description: 'Hosted document URLs returned by POST /v1/sms/opt-in-proof.'
+                requestId: { type: string, description: 'The `reviewRequest.id` you are answering. When it no longer matches the open request the reply is refused with 409.' }
+                answers:
+                  type: array
+                  maxItems: 20
+                  description: 'One answer per point of the open `reviewRequest`, each point at most once. Required (every point) when the request has points; a missing, repeated or unknown point is a 400 naming the point ids. At most 10 files per reply.'
+                  items:
+                    type: object
+                    required: [pointId]
+                    properties:
+                      pointId: { type: string }
+                      text: { type: string, maxLength: 2000, description: 'For `text` points (at least 3 characters).' }
+                      url: { type: string, format: uri, description: 'For `link` and `link_or_file` points.' }
+                      files:
+                        type: array
+                        maxItems: 5
+                        items: { type: string }
+                        description: 'Hosted document URLs from POST /v1/sms/opt-in-proof, for `file` and `link_or_file` points.'
       responses:
         '200':
           description: Reply recorded; the registration is back in review.
@@ -37493,11 +37956,11 @@ paths:
               schema:
                 type: object
                 properties:
-                  status: { type: string, enum: [requested] }
+                  status: { type: string, enum: [requested, rejected], description: 'requested = back in our review; rejected = a registration the carriers rejected, where we asked for these answers to fix it (it stays rejected while we do).' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Registration not found }
-        '409': { description: Registration is not waiting on changes }
+        '409': { description: 'The registration is not waiting on changes, or `requestId` is no longer the open request (reload it).' }
 
   /v1/sms/opt-in-proof:
     post:
@@ -38639,27 +39102,7 @@ paths:
                   numbers:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        _id: { type: string }
-                        phoneNumber: { type: string }
-                        country: { type: string }
-                        status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, verifying, active, suspended, releasing, released] }
-                        registrantName: { type: [string, "null"], description: "For regulated numbers, who it's registered for (company or person), set from the submitted KYC." }
-                        telnyxOrderId: { type: [string, "null"], description: Present once the number order has been placed (i.e. the requirement group was approved). Absent while still in identity review. }
-                        monthlyCents: { type: integer, description: "What this number bills each month, in cents. Stamped when the number was bought, so an existing number keeps its price when the rate card changes." }
-                        hostedByZernio: { type: boolean, description: "False for numbers you brought yourself (connected via Meta embedded signup). They live on your own carrier, so SMS/Calls can't be enabled on them." }
-                        sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
-                        profileId: { type: object }
-                        provisionedAt: { type: string, format: date-time }
-                        metaPreverifiedId: { type: string }
-                        metaVerificationStatus: { type: string }
-                        onfidoVerificationUrl: { type: [string, "null"], description: "For regulated (Tier 3/4) numbers with an Onfido ID-verification step: the link to forward to the end user. Set once the order is placed; null otherwise. Poll this field after submitting KYC." }
-                        endUserFirstName: { type: [string, "null"] }
-                        endUserLastName: { type: [string, "null"] }
-                        regulatoryDeclineReason: { type: [string, "null"], description: Reviewer rejection reason when status is regulatory_declined. }
-                        callingEnabled: { type: boolean, description: 'Whether WhatsApp Business Calling is enabled on this number (manage via /v1/whatsapp/phone-numbers/{id}/calling).' }
-                        createdAt: { type: string, format: date-time }
+                      $ref: '#/components/schemas/OwnedPhoneNumber'
                   connected:
                     type: array
                     description: |
@@ -38866,6 +39309,13 @@ paths:
                     number from another area, and later replacements stay in
                     this area too. Omit for any area. Get live options from
                     GET /v1/phone-numbers/availability (areaOptions).
+                claimId:
+                  type: string
+                  description: >
+                    Keyless calls only: a `claimId` from a keyless GET
+                    /v1/phone-numbers/available. The 401 then carries a
+                    `claimUrl` for that exact number. Ignored when an API key
+                    is sent.
                 phoneNumber:
                   type: string
                   pattern: '^\+[1-9]\d{6,14}$'
@@ -38968,7 +39418,26 @@ paths:
                       phoneNumber: { type: string }
                       profileId: { type: string, description: 'The profile the number was actually assigned to.' }
         '400': { description: "Plan limit reached, profileId required, or country not available" }
-        '401': { $ref: '#/components/responses/Unauthorized' }
+        '401':
+          description: >
+            Missing or invalid API key. A call with no key at all gets the
+            purchase back as a claim: `details.claimUrl` is a signup link that
+            opens the dashboard's confirm step for the requested `country`,
+            `numberType` and `areaCode` (or for the number behind `claimId`,
+            from a keyless GET /v1/phone-numbers/available). Hand it to the
+            person who will own the number.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  code: { type: string }
+                  details:
+                    type: object
+                    properties:
+                      claimId: { type: string }
+                      claimUrl: { type: string }
         '403': { description: A paid plan is required }
         '409':
           description: >
@@ -39007,6 +39476,49 @@ paths:
         '402': { description: 'Payment method required (usage-based billing account with no card on file). Response body carries code: PAYMENT_REQUIRED; add a card, then retry.' }
         '422': { description: 'International numbers require usage-based billing (legacy Stripe users are US-only). Response body code: USAGE_BILLING_REQUIRED.' }
 
+  /v1/phone-numbers/claims/{claimId}:
+    get:
+      x-resource-group: "telephony"
+      operationId: getPhoneNumberClaim
+      tags: [Phone Numbers]
+      summary: Resolve a number claim
+      description: |
+        Resolves a `claimId` from a keyless search or purchase into the
+        selection it carries (country, number type, area and exact number)
+        priced at today's rate. The dashboard calls it when a person lands
+        from a `claimUrl`. The number is not held, so buying it can still fail
+        with 409 PHONE_NUMBER_UNAVAILABLE.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: claimId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The claimed selection.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  country:
+                    type: object
+                    properties:
+                      code: { type: string }
+                      needsKyc: { type: boolean }
+                      monthlyCents: { type: integer }
+                      types: { type: array, items: { type: object } }
+                  type: { type: object, description: "The claimed number type, in the shape of `types[]` on GET /v1/phone-numbers/countries." }
+                  area:
+                    type: [object, "null"]
+                    properties:
+                      ndc: { type: string }
+                      name: { type: string }
+                      count: { type: integer }
+                  phoneNumber: { type: [string, "null"], description: "E.164, or null for an any-number claim." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "The claim expired (after 7 days), is invalid, or its country or type is no longer sold." }
+
   /v1/phone-numbers/countries:
     get:
       x-resource-group: "telephony"
@@ -39018,9 +39530,9 @@ paths:
         monthly price (cents), regulatory tier, whether it needs end-user KYC
         (Tier 3/4), and per-feature availability (PSTN calls, WhatsApp, SMS,
         and WhatsApp Business Calling outbound). Drives the country picker.
-        Tier-4 countries appear only when enabled.
-      security:
-        - bearerAuth: []
+        Tier-4 countries appear only when enabled. No API key needed: the
+        catalog is public so you can browse it before you have an account.
+      security: []
       responses:
         '200':
           description: Offerable countries, cheapest first.
@@ -39039,7 +39551,7 @@ paths:
                         monthlyCents: { type: integer, description: "Price a NEW number in this country costs per month, in cents, for the default (first) type. 1.5x the carrier's monthly cost, rounded up to a whole dollar, minimum $3." }
                         needsKyc: { type: boolean }
                         callsAvailable: { type: boolean, description: "Regular phone (PSTN) calling on the number, inbound + outbound. Available on every offerable country." }
-                        whatsappAvailable: { type: boolean, description: WhatsApp can be enabled on numbers from this country. }
+                        whatsappAvailable: { type: boolean, description: "WhatsApp can be enabled on at least one number type from this country; types[].whatsappAvailable says which." }
                         smsAvailable: { type: boolean, description: Whether this country's number type can do SMS. Use it to filter the picker when the buyer wants SMS (pair with `wantsSms` on purchase). }
                         outboundCallingAvailable: { type: boolean, description: "WhatsApp Business Calling (BIC) outbound availability, a Meta feature blocked in some countries. NOT the PSTN Calls feature (`callsAvailable`)." }
                         inStock: { type: boolean, description: "Live carrier-stock snapshot (refreshed every 6h + on availability checks): false when NO offered type currently has deliverable inventory, so a purchase would fail. Treat as advisory; the purchase itself re-checks." }
@@ -39059,13 +39571,12 @@ paths:
                               tier: { type: [integer, "null"], enum: [1, 2, 3, 4, null], description: "Null on a `fulfilment: request` type, whose document tier is only known once its requirements are read." }
                               needsKyc: { type: boolean }
                               monthlyCents: { type: integer, description: "Price a NEW number of this type costs per month, in cents." }
-                              whatsappAvailable: { type: boolean, description: "Always false for toll_free (WhatsApp does not reliably register toll-free numbers)." }
+                              whatsappAvailable: { type: boolean, description: "False for toll_free (WhatsApp does not reliably register toll-free numbers) and for pairs Meta refuses, such as Chilean local (+56 2)." }
                               smsAvailable: { type: boolean }
                               callsAvailable: { type: boolean }
                               inStock: { type: boolean }
                               fulfilment: { type: string, enum: [instant, request], description: "`request`: the carrier stocks this type nowhere and only sources it to order, so it is always a pre-order." }
                               preOrderable: { type: boolean, description: "Out of stock but orderable anyway. Submit KYC as usual (POST /v1/phone-numbers/kyc): we buy regular stock the moment it returns, otherwise the carrier sources the number. Usually 2 to 4 weeks, never guaranteed. Only document tiers (3/4) qualify, and nothing is billed until the number is active." }
-        '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/phone-numbers/available:
     get:
@@ -39081,10 +39592,19 @@ paths:
         can also text (SMS support is per-number, not per-country). Numbers a
         purchase would refuse are left out, and any result's `phoneNumber` can
         be bought exactly by passing it to POST /v1/phone-numbers/purchase.
+
+        Works without an API key. Keyless calls get up to 12 results with the
+        middle digits masked (`maskedNumber`), each with a `claimId` and a
+        `claimUrl`: a signup link that lands a person on the dashboard's
+        confirm step with that number picked, so an agent can search for a
+        user and hand them one link. Keyless calls are rate limited per IP and
+        results are cached for a few minutes. With an API key you get full
+        numbers and no claim fields.
       security:
+        - {}
         - bearerAuth: []
       parameters:
-        - { name: country, in: query, required: false, schema: { type: string, default: US } }
+        - { name: country, in: query, required: false, schema: { type: string, default: US }, description: "ISO code, or `auto` on the keyless shape to search the caller's own country (from their IP) near their city, falling back to US." }
         - { name: numberType, in: query, required: false, description: "Number type; defaults to the country's WhatsApp-safe type (the same name as on purchase, availability and kyc)", schema: { type: string, enum: [local, mobile, national, toll_free] } }
         - { name: areaCode, in: query, required: false, description: "Area code or national dialing code the number must start with, e.g. 415 or 91", schema: { type: string } }
         - { name: type, in: query, required: false, deprecated: true, description: "Alias of numberType, kept for existing callers", schema: { type: string } }
@@ -39093,6 +39613,7 @@ paths:
         - { name: contains, in: query, required: false, description: Pattern to match within the number, schema: { type: string } }
         - { name: sms, in: query, required: false, schema: { type: boolean }, description: "true narrows the pool to SMS-capable numbers. Each result still carries its full `features` list for per-number capability badging." }
         - { name: limit, in: query, required: false, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: masked, in: query, required: false, schema: { type: boolean }, description: "true returns the keyless shape (masked numbers with claimId and claimUrl) even when you send an API key, e.g. to hand a user a signup link for a number." }
       responses:
         '200':
           description: Available numbers.
@@ -39113,8 +39634,17 @@ paths:
                         features: { type: array, items: { type: string }, description: "Provider capability list for this number (e.g. voice, sms, mms)." }
                         locality: { type: string, description: "Town or rate center the number belongs to, as the carrier names it (e.g. WACO)." }
                         bestEffort: { type: boolean, description: "true when the carrier added this number because too few matched your filters, so it may be outside the requested prefix or locality." }
+                        maskedNumber: { type: string, description: "Keyless calls only, in place of `phoneNumber`: the number with its middle digits masked, e.g. +44 20 •••• 0123." }
+                        numberType: { type: string, description: "Keyless calls only. Without a `numberType` filter a keyless search mixes every type the country sells, so each result names its own." }
+                        claimId: { type: string, description: "Keyless calls only. Opaque, expires after 7 days. Pass it as `claimId` on a keyless POST /v1/phone-numbers/purchase." }
+                        claimUrl: { type: string, description: "Keyless calls only. Signup link that opens the dashboard's confirm step for this number. The number is not held: if it is gone by then, the buyer picks another in the same area." }
+                  masked: { type: boolean, description: "true on keyless calls." }
+                  near: { type: [string, "null"], description: "With `country=auto`: the caller's city the results were narrowed to, or null when there was no stock there." }
+                  claimId: { type: string, description: "Keyless calls only: a claim for any number matching this search's country, type and area." }
+                  claimUrl: { type: string, description: "Keyless calls only: signup link for any number matching this search." }
         '400': { description: "Country not offerable, numberType outside the four offered, or a query parameter this endpoint does not know (the message lists the accepted ones; nothing is silently ignored)." }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: "Keyless rate limit reached. Retry later or send an API key." }
 
   /v1/phone-numbers/availability:
     get:
@@ -39132,7 +39662,12 @@ paths:
           - `addressConstraint: country` → any in-country address works.
           - `addressConstraint: none` → field-only / instant country, no address.
         Call this before starting the KYC form for regulated countries.
+
+        Without an API key it answers from cache only and returns just
+        `country`, `numberType` and `areaOptions`, for building an area
+        picker before signup.
       security:
+        - {}
         - bearerAuth: []
       parameters:
         - { name: country, in: query, required: true, schema: { type: string }, description: ISO-2 country code. }
@@ -39243,27 +39778,7 @@ paths:
                   numbers:
                     type: array
                     items:
-                      type: object
-                      properties:
-                        _id: { type: string }
-                        phoneNumber: { type: string }
-                        country: { type: string }
-                        status: { type: string, enum: [pending_payment, pending_regulatory, regulatory_declined, provisioning, verifying, active, suspended, releasing, released] }
-                        registrantName: { type: [string, "null"], description: "For regulated numbers, who it's registered for (company or person), set from the submitted KYC." }
-                        telnyxOrderId: { type: [string, "null"], description: Present once the number order has been placed (i.e. the requirement group was approved). Absent while still in identity review. }
-                        monthlyCents: { type: integer, description: "What this number bills each month, in cents. Stamped when the number was bought, so an existing number keeps its price when the rate card changes." }
-                        hostedByZernio: { type: boolean, description: "False for numbers you brought yourself (connected via Meta embedded signup). They live on your own carrier, so SMS/Calls can't be enabled on them." }
-                        sipTrunkId: { type: [string, "null"], description: 'SIP trunk the number is attached to; null when not trunked. While attached, enabling Calls or WhatsApp calling, requesting WhatsApp verification, and releasing the number all return 409.' }
-                        profileId: { type: object }
-                        provisionedAt: { type: string, format: date-time }
-                        metaPreverifiedId: { type: string }
-                        metaVerificationStatus: { type: string }
-                        onfidoVerificationUrl: { type: [string, "null"], description: "For regulated (Tier 3/4) numbers with an Onfido ID-verification step: the link to forward to the end user. Set once the order is placed; null otherwise. Poll this field after submitting KYC." }
-                        endUserFirstName: { type: [string, "null"] }
-                        endUserLastName: { type: [string, "null"] }
-                        regulatoryDeclineReason: { type: [string, "null"], description: Reviewer rejection reason when status is regulatory_declined. }
-                        callingEnabled: { type: boolean, description: 'Whether WhatsApp Business Calling is enabled on this number (manage via /v1/whatsapp/phone-numbers/{id}/calling).' }
-                        createdAt: { type: string, format: date-time }
+                      $ref: '#/components/schemas/OwnedPhoneNumber'
                   connected:
                     type: array
                     description: |
@@ -40164,11 +40679,23 @@ paths:
       tags: [Phone Numbers]
       summary: Check portability
       description: |
-        Pre-flight portability check: whether each number can be ported in and
-        whether it qualifies for FastPort, BEFORE the user commits to a port
-        order (LOA, invoice, service address). Read-only; creates no order and
-        bills nothing.
+        Pre-flight portability check: whether each number can be ported in,
+        whether it qualifies for FastPort, and its current carrier and line
+        type where the carrier lookup knows them, BEFORE the user commits to a
+        port order (LOA, invoice, service address). Read-only; creates no
+        order and bills nothing.
+
+        Works without an API key for one number per request. Keyless calls
+        are what the checker at https://zernio.com/port-your-number makes:
+        they must come from that page (a browser bot check rejects scripted
+        callers with 401), are limited per IP (3 a minute, 10 a day) and by a
+        shared daily budget (429 once spent), because each check runs a paid
+        carrier lookup. Each portable keyless result carries a `claimId` and
+        a `claimUrl`: a signup link that opens the dashboard's port form with
+        the number filled in. Send an API key to check up to 50 numbers
+        without those limits.
       security:
+        - {}
         - bearerAuth: []
       requestBody:
         required: true
@@ -40183,7 +40710,10 @@ paths:
                   minItems: 1
                   maxItems: 50
                   items: { type: string }
-                  description: "E.164 numbers to check, e.g. +13035550000."
+                  description: "E.164 numbers to check, e.g. +13035550000. At most one without an API key."
+                claimLinks:
+                  type: boolean
+                  description: "true adds `claimId` and `claimUrl` to portable results even when you send an API key, e.g. to hand a user a signup link that opens the port form with their number."
       responses:
         '200':
           description: Per-number portability.
@@ -40200,11 +40730,47 @@ paths:
                         phoneNumber: { type: string }
                         portable: { type: boolean }
                         fastPortable: { type: boolean, description: Qualifies for the carrier's accelerated FastPort lane. }
-                        lineType: { type: [string, "null"], description: "Line type when known (mobile, landline, voip…). A US/CA mobile number requires the transfer PIN at submit." }
+                        messagingCapable: { type: [boolean, "null"], description: "Whether texting can be enabled on the number once ported; null when the carrier does not say." }
+                        lineType: { type: [string, "null"], description: "Line type when known (mobile, landline, voip, toll-free, unknown). US/CA portable numbers only. A US/CA mobile number requires the transfer PIN at submit." }
+                        carrierName: { type: [string, "null"], description: "The number's current carrier, when the lookup knows it. US/CA portable numbers only." }
                         countryCode: { type: [string, "null"], description: "ISO country of the number. Pass it to GET /v1/phone-numbers/port-in/requirements for international numbers." }
-                        phoneNumberType: { type: [string, "null"], description: "Carrier number-type classification (local, mobile, national, toll_free…), the numberType for the requirements endpoint." }
+                        phoneNumberType: { type: [string, "null"], description: "Carrier number-type classification (local, mobile, national, toll_free...), the numberType for the requirements endpoint." }
                         notPortableReason: { type: [string, "null"], description: Carrier reason when not portable; null when portable. }
+                        claimId: { type: string, description: "Keyless calls and claimLinks=true only, on portable results. Resolve it with GET /v1/phone-numbers/port-in/claims/{claimId}. Expires after 7 days." }
+                        claimUrl: { type: string, description: "Keyless calls and claimLinks=true only, on portable results. A signup link that lands on the dashboard's port form with this number filled in." }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '429':
+          description: "Keyless calls only. The per-IP limit or the shared daily budget is spent; `Retry-After` says when to try again. Send an API key to skip both."
+
+  /v1/phone-numbers/port-in/claims/{claimId}:
+    get:
+      x-resource-group: "telephony"
+      operationId: getPhoneNumberPortClaim
+      tags: [Phone Numbers]
+      summary: Resolve a port claim
+      description: |
+        Resolves a `claimId` from a keyless portability check into the number
+        it carries. The dashboard calls it when a person lands from a port
+        `claimUrl`, to open the port form with that number filled in. It does
+        not start a port.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: claimId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The claimed number.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phoneNumber: { type: string, description: E.164. }
+                  countryCode: { type: [string, "null"], description: ISO country of the number. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "The claim expired (after 7 days) or is invalid." }
 
   /v1/phone-numbers/port-in/documents:
     post:
@@ -46311,6 +46877,9 @@ paths:
                 budgetAmount: { type: number, description: "Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType." }
                 budgetType: { type: string, enum: [daily, lifetime] }
                 status: { type: string, enum: [ACTIVE, PAUSED], default: PAUSED }
+                locationTargetingType:
+                  allOf: [{ $ref: '#/components/schemas/GoogleLocationTargetingType' }]
+                  description: "Google only (400 elsewhere). Written on the new campaign."
                 bidStrategy:
                   type: string
                   enum: [LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS]
@@ -47141,6 +47710,10 @@ paths:
                         code: { type: string, description: "Google's language code (ISO 639-1, plus variants such as `zh_CN`). Empty when the campaign's language_constant id is not in Zernio's checked-in table." }
                         id: { type: string, description: "Google's languageConstants/{id} numeric id." }
                         name: { type: string }
+                  locationTargetingType:
+                    type: [string, "null"]
+                    enum: [presence, presence_or_interest, null]
+                    description: "Who the location targeting reaches, see GoogleLocationTargetingType. Null when Google reports a legacy value (SEARCH_INTEREST) this API does not set."
                   cachedAt: { type: [string, "null"], format: date-time, description: "When this targeting was fetched from Google. Null when it was never served from cache." }
                   stale: { type: boolean, description: "True when Google's daily API quota was exhausted and this is the last successful fetch, not a live read." }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -47158,7 +47731,7 @@ paths:
       description: |
         Google Ads compliance row M.10: geo and language targeting set at
         creation must stay editable afterwards. Send at least one of `devices`,
-        `locations`, `languages`; each provided field REPLACES that field's
+        `locations`, `languages`, `locationTargetingType`; each provided field REPLACES that field's
         existing criteria on the campaign (a full set, not a delta). Fields left
         out of the body are untouched. Google only; every other platform returns
         501.
@@ -47180,6 +47753,11 @@ paths:
 
         `languages` is an array of Google's language codes (ISO 639-1, plus variants
         such as `zh_CN`); an unknown code returns 400.
+
+        `locationTargetingType` switches who the location targeting reaches:
+        `presence` (people in or regularly in the locations) or `presence_or_interest`
+        (also people searching for or interested in them). Example:
+        `{ "platform": "google", "targeting": { "locationTargetingType": "presence" } }`.
 
         The response includes the refreshed `devices`/`locations`/`languages` state
         read back from Google after the edit, and invalidates the cached copy
@@ -47223,17 +47801,18 @@ paths:
                             countries: { type: array, items: { type: string } }
                             regions:
                               type: array
-                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                              items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] }
                             cities:
                               type: array
-                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                              items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] }
                             zips:
                               type: array
-                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                              items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] }
                             metros:
                               type: array
-                              items: { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }
+                              items: { oneOf: [{ type: string, description: 'The geo target constant id alone.' }, { type: object, required: [key], properties: { key: { type: string }, name: { type: string } } }] }
                     languages: { type: array, items: { type: string }, description: "Google's language codes (ISO 639-1, plus variants such as `zh_CN`), e.g. [\"en\", \"de\"]." }
+                    locationTargetingType: { $ref: '#/components/schemas/GoogleLocationTargetingType' }
       responses:
         '200':
           description: Targeting updated
@@ -47243,7 +47822,11 @@ paths:
                 type: object
                 properties:
                   campaignId: { type: string }
-                  updated: { type: array, items: { type: string, enum: [devices, locations, languages] }, description: "Which targeting fields were applied." }
+                  updated: { type: array, items: { type: string, enum: [devices, locations, languages, locationTargetingType] }, description: "Which targeting fields were applied." }
+                  locationTargetingType:
+                    type: [string, "null"]
+                    enum: [presence, presence_or_interest, null]
+                    description: "The value read back from Google after the edit."
                   devices:
                     type: array
                     items:
@@ -48225,8 +48808,18 @@ paths:
                   type: object
                   description: |
                     Meta + TikTok (demographics/interests), Google (keyword and device
-                    bid adjustment edits only), and LinkedIn (countries or regions required).
+                    bid adjustment edits only), and LinkedIn (locations, B2B facets, audiences).
                     Pinterest / X return 501.
+
+                    On Meta, TikTok and LinkedIn this is a partial update: every targeting setting
+                    you do not send is preserved (on Meta: Advantage+ audience, placements, custom
+                    audiences, exclusions, interests, languages; on TikTok: languages, interest
+                    keywords, devices, behaviours; on LinkedIn: skills, member traits, interface
+                    locales, and any facet set in Campaign Manager). A field you send replaces its
+                    platform counterpart, and an empty or null value (for example `audienceInclude: []`,
+                    `industries: []` or `gender: "all"`) clears only that field. Any location field
+                    (countries, regions, cities, zips, ...) replaces the whole included location set;
+                    an update with no location keeps the current locations.
                   properties:
                     keywords:
                       type: array
@@ -48366,7 +48959,7 @@ paths:
         '429': { description: "Meta admits one write per 30 seconds to a metered object, ad creatives above all. Zernio waits out two of those windows and replays the call before surfacing this, so it only appears when the object is being edited faster than that. Retry in 30 seconds." }
         '422': { description: "The ad has no campaign or ad group on the platform yet, the Google targeting edit asks for something that is create-only (`locations.customLocations`), or a creative field the ad's channel cannot carry: assetGroup on a non-Performance-Max ad, a Google Display field on a Search ad, a pinnedField on a Display headline, or any Google-only field on another platform. A Google creative edit that cannot reach Google at all (the ad has no `platformAdId`, or its ad account cannot be loaded) also returns 422 rather than a 200 that changed nothing." }
         '501': { description: "targeting or creative not supported on the platform (supported on Meta, TikTok, and LinkedIn)" }
-        '502': { description: "Meta accepted the request then failed to produce the media (upload session, chunk transfer, processing timeout, or a response with no image hash). Inspect `platformError.reason`." }
+        '502': { description: "Meta accepted the request then failed to produce the media (upload session, chunk transfer, processing timeout, or a response with no image hash). Inspect `platformError.reason`. Also returned with code `platform_api_error` when a Meta or LinkedIn targeting update cannot read the current targeting: nothing is written, so retry the request." }
     delete:
       x-resource-group: "ads"
       operationId: deleteAd
@@ -53568,19 +54161,33 @@ paths:
                         timezoneName: { type: string, description: "IANA timezone of the ad account (Meta only). Drives daily-budget reset and Insights day boundaries." }
                         timezoneOffsetHoursUtc: { type: number, description: "Signed UTC offset in hours, reflecting current DST (Meta only)." }
                         minimumDailyBudget: { type: number, description: "Meta only. Minimum daily budget for the account, in the account currency's major units. This is the impressions-billed minimum; other billing events have higher minimums. Absent when the connected token cannot read it." }
-                        fundingSource: { type: string, description: "Meta only. Meta's `funding_source` ID for the ad account, forwarded unchanged. ABSENT when this connection's token cannot see billing on the account, which is not the same as the account having no payment method: never read the missing key as `no payment method configured`." }
+                        fundingSource: { type: string, description: "Meta only. Meta's `funding_source` ID for the ad account, forwarded unchanged. ABSENT both when this connection's token cannot see billing and when the account has no payment method; read `billingStatus` to tell the two apart." }
                         fundingSourceDetails:
                           type: object
                           description: |
                             Meta only. Meta's `funding_source_details` object, forwarded unchanged.
-                            ABSENT under exactly the same condition as `fundingSource`: this
-                            connection's token cannot see billing on the ad account. It is never
-                            sent as null or as an empty object, so treat the missing key as
-                            'unknown', never as 'no payment method configured'.
+                            ABSENT under exactly the same conditions as `fundingSource`, never sent
+                            as null or as an empty object. Read `billingStatus` for what the
+                            absence means.
                           properties:
                             id: { type: string, description: "Meta's ID for the funding instrument. Matches `fundingSource`." }
                             displayString: { type: string, description: "Meta's own human-readable label for the funding instrument, e.g. 'Available Balance (EUR)' or a masked card. Meta composes this string; do not parse it." }
                             type: { type: integer, description: "Meta's raw numeric funding-source type, forwarded unchanged. Meta publishes no mapping from these numbers to payment-method kinds, so none is documented here and none should be inferred." }
+                        billingStatus:
+                          type: string
+                          enum: [ok, missing, unknown]
+                          description: |
+                            Meta only. Whether the ad account has a payment method, derived as follows:
+                            - `missing` when `accountStatus` is `3` (UNSETTLED) or `9` (IN_GRACE_PERIOD),
+                              when `disableReason` is `3` (RISK_PAYMENT), or when the connected person
+                              has the MANAGE task on the account (admin, who always sees billing) and
+                              Meta returns no funding source. Ad creation on such an account fails at
+                              the ad step with Meta code 100 / subcode 1359188: add a payment method in
+                              Meta's Billing & payments center.
+                            - `ok` when Meta returns a funding source. This is presence, not validity:
+                              Meta can still refuse the card or balance at ad creation.
+                            - `unknown` when the connected person is not an admin of the account, or
+                              the token cannot read the billing fields.
                         selectable: { type: boolean, description: "Meta and X only. Whether the account can create/run ads now. Absent (treat as true) on other platforms." }
                         unusableReason: { type: [string, "null"], description: "Meta and X only. Human-readable reason when selectable is false; null when selectable." }
                   cachedAt: { type: [string, "null"], format: date-time, description: "Google only. When this list was fetched from Google. Null when it was never served from cache, or on other platforms." }
@@ -53896,6 +54503,9 @@ paths:
                           id: { type: string }
                           name: { type: string }
                     advantage_audience: { type: integer, enum: [0, 1], description: "Meta only. 0 = disabled (default), 1 = enabled." }
+                locationTargetingType:
+                  allOf: [{ $ref: '#/components/schemas/GoogleLocationTargetingType' }]
+                  description: "Google only (400 elsewhere). Written on the campaign the boost creates."
                 rawTargeting:
                   type: object
                   additionalProperties: true
@@ -54562,25 +55172,30 @@ paths:
                 cities:
                   type: array
                   description: |
-                    City-level geo targeting (Meta and TikTok). Each city is targeted by the platform's opaque `key` (the city ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. Optional `radius` + `distance_unit` (Meta only) extend the targeting beyond the city limits (e.g. radius 25 km around the city center). Both must be set together, or both omitted (Meta defaults to ~16 km when omitted).
+                    City-level geo targeting (Meta, Google and TikTok). An entry is either `{ key }` or the key alone as a plain string (`["1006410"]`). Each city is targeted by the platform's opaque `key` (the city ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. Optional `radius` + `distance_unit` (Meta only) extend the targeting beyond the city limits (e.g. radius 25 km around the city center). Both must be set together, or both omitted (Meta defaults to ~16 km when omitted).
 
                     On Meta, cannot overlap with the same country in `countries` (Meta returns a "locations overlap" error). Either drop the country or scope it to a different country. On TikTok, keys are numeric location ids and can be sent without `countries`.
                   items:
-                    type: object
-                    required: [key]
-                    properties:
-                      key: { type: string, description: "Meta city ID, from /v1/ads/targeting/search results." }
-                      radius: { type: number, description: "Optional radius around the city. Must be set together with distance_unit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng)." }
-                      distance_unit: { type: string, enum: [mile, kilometer], description: "Unit for radius. Required if radius is set." }
+                    oneOf:
+                      - type: string
+                        description: "The city id alone, e.g. \"1006410\" (same as { key: \"1006410\" })."
+                      - type: object
+                        required: [key]
+                        properties:
+                          key: { type: string, description: "City id from /v1/ads/targeting/search results (Meta city key, Google geo target constant id, TikTok location id)." }
+                          radius: { type: number, description: "Optional radius around the city. Must be set together with distance_unit. Meta enforces a minimum city radius (~17 km / 10 mi); smaller values resolve to a 0-size audience and the ad fails at launch. For a tighter catchment use customLocations (lat/lng)." }
+                          distance_unit: { type: string, enum: [mile, kilometer], description: "Unit for radius. Required if radius is set." }
                 regions:
                   type: array
                   description: |
-                    Region-level (state/province) geo targeting (Meta and TikTok). Each region is targeted by the platform's opaque `key` (the region ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`.
+                    Region-level (state/province) geo targeting (Meta, Google and TikTok). Each region is targeted by the platform's opaque `key` (the region ID) which can be looked up via `GET /v1/ads/targeting/search?dimension=geo&q=<name>&countryCode=<ISO>`. An entry may also be the key alone as a plain string.
                   items:
-                    type: object
-                    required: [key]
-                    properties:
-                      key: { type: string, description: "Platform region ID, from /v1/ads/targeting/search results." }
+                    oneOf:
+                      - type: string
+                      - type: object
+                        required: [key]
+                        properties:
+                          key: { type: string, description: "Platform region ID, from /v1/ads/targeting/search results." }
                 ageMin: { type: integer, minimum: 13, maximum: 65 }
                 ageMax: { type: integer, minimum: 13, maximum: 65 }
                 interests:
@@ -54596,20 +55211,24 @@ paths:
                   type: array
                   description: "Postal/ZIP geo targeting. `key` is the platform's postal location ID from /v1/ads/targeting/search?dimension=geo&geoType=zip. Supported on Meta, Google, TikTok, Pinterest, X."
                   items:
-                    type: object
-                    required: [key]
-                    properties:
-                      key: { type: string }
-                      name: { type: string }
+                    oneOf:
+                      - type: string
+                      - type: object
+                        required: [key]
+                        properties:
+                          key: { type: string }
+                          name: { type: string }
                 metros:
                   type: array
                   description: "DMA / metro-area geo targeting (Meta and TikTok). `key` is the platform's metro ID from /v1/ads/targeting/search?dimension=geo&geoType=metro (TikTok metros appear as type `metro`, e.g. the New York DMA)."
                   items:
-                    type: object
-                    required: [key]
-                    properties:
-                      key: { type: string }
-                      name: { type: string }
+                    oneOf:
+                      - type: string
+                      - type: object
+                        required: [key]
+                        properties:
+                          key: { type: string }
+                          name: { type: string }
                 customLocations:
                   type: array
                   description: "Point-radius (lat/lng) geo targeting. Meta only (custom_locations). Rejected on platforms without radius support."
@@ -55040,6 +55659,9 @@ paths:
                                 items: { type: string, enum: [mobile, desktop] }
                 audienceId: { type: string, description: Custom audience ID for targeting }
                 campaignType: { type: string, enum: [display, search, pmax], default: display, description: "Google only. Performance Max requires assetGroup and is always created PAUSED." }
+                locationTargetingType:
+                  allOf: [{ $ref: '#/components/schemas/GoogleLocationTargetingType' }]
+                  description: "Google only (400 elsewhere). Set on the new campaign; a request that joins an existing campaign (`existingCampaignId` or `adSetId`) returns 400, change that campaign with PUT /v1/ads/campaigns/{campaignId}/targeting instead. `presence` reaches only people in or regularly in the targeted locations."
                 assetGroup:
                   $ref: '#/components/schemas/GooglePmaxAssetGroupInput'
                 keywords: { type: array, maxItems: 1000, items: { $ref: '#/components/schemas/KeywordEntry' }, description: "Google Search only. Keywords on the new ad group; entries are strings (BROAD) or { text, matchType }. Editable later via PUT /v1/ads/{adId} targeting.keywords." }
@@ -55324,6 +55946,23 @@ paths:
                 promotedObject:
                   $ref: '#/components/schemas/AdPromotedObject'
             examples:
+              googleSearchPresenceOnly:
+                summary: "Google Search campaign that reaches only people located in Lyon."
+                value:
+                  accountId: '69ce75d483e990e1c01ccfe4'
+                  adAccountId: '9122445560'
+                  name: 'Lyon plumbing'
+                  goal: traffic
+                  campaignType: search
+                  budgetAmount: 5
+                  budgetType: daily
+                  status: PAUSED
+                  headline: 'Plumber in Lyon'
+                  body: 'Same-day repairs across Lyon.'
+                  linkUrl: 'https://example.com'
+                  keywords: ['plombier lyon']
+                  cities: ['1006410']
+                  locationTargetingType: presence
               performanceMax:
                 summary: "Paused Performance Max campaign."
                 value:
@@ -55451,7 +56090,10 @@ paths:
             forwarded verbatim from Meta may not. On the `creatives[]` shape a
             missing poster also carries `creativeIndex` and `videoUrl` to
             identify the entry. An upstream 4xx status is forwarded instead
-            of 502.
+            of 502. On Meta, `details` names the failing `stage`, the
+            `adAccountId` and every created object with its cleanup result
+            (see `ErrorResponse.details`); an `unconfirmedWrite` there means
+            Meta did not confirm a create and Zernio did not retry it.
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
 
   /v1/ads/leads:

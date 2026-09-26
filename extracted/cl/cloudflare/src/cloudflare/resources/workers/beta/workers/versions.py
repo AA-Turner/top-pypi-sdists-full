@@ -76,7 +76,7 @@ class VersionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Version:
         """
-        Create a new version.
+        Create a new version for a Worker.
 
         Args:
           account_id: Identifier.
@@ -272,7 +272,7 @@ class VersionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VersionDeleteResponse:
         """
-        Delete a version.
+        Delete a Worker version.
 
         Args:
           account_id: Identifier.
@@ -324,7 +324,7 @@ class VersionsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Version:
         """
-        Get details about a specific version.
+        Get details about a specific Worker version.
 
         Args:
           account_id: Identifier.
@@ -420,7 +420,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Version:
         """
-        Create a new version.
+        Create a new version for a Worker.
 
         Args:
           account_id: Identifier.
@@ -616,7 +616,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VersionDeleteResponse:
         """
-        Delete a version.
+        Delete a Worker version.
 
         Args:
           account_id: Identifier.
@@ -668,7 +668,7 @@ class AsyncVersionsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Version:
         """
-        Get details about a specific version.
+        Get details about a specific Worker version.
 
         Args:
           account_id: Identifier.

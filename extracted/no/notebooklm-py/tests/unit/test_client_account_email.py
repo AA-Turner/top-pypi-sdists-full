@@ -4,7 +4,7 @@ Identity resolution has three sources, the first two network-free: the in-memory
 :class:`AuthTokens`, the persisted profile metadata, and (opt-in) a single live
 ``WIZ_global_data`` probe of the active ``authuser`` page. The probe is exercised
 through pytest-httpx by installing a real ``httpx.AsyncClient`` on the kernel (the
-seam ``client._collaborators.kernel.get_http_client()`` reads) so mocked page GETs
+seam ``client._web_runtime.kernel.get_http_client()`` reads) so mocked page GETs
 are intercepted without opening a live session. The WIZ HTML shape mirrors
 ``tests/unit/test_auth_account.py``.
 """
@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -40,6 +39,11 @@ def _make_auth(
     cookie_jar: httpx.Cookies | None = None,
 ) -> AuthTokens:
     """Build minimal AuthTokens with the identity fields under test."""
+    if cookie_jar is None:
+        cookie_jar = httpx.Cookies()
+        cookie_jar.set("SID", "x", domain=".google.com", path="/")
+        cookie_jar.set("__Secure-1PSIDTS", "y", domain=".google.com", path="/")
+        cookie_jar.set("HSID", "z", domain=".google.com", path="/")
     return AuthTokens(
         cookies={"SID": "x", "__Secure-1PSIDTS": "y", "HSID": "z"},
         csrf_token="csrf",
@@ -59,14 +63,14 @@ def _install_probe_client(client: NotebookLMClient) -> httpx.AsyncClient:
     (a followed 302 lands on a 200 signin page), not just the ``status != 200`` guard.
     """
     http_client = httpx.AsyncClient(cookies=client.auth.cookie_jar, follow_redirects=True)
-    install_http_client_for_test(client._collaborators.kernel, http_client)
+    install_http_client_for_test(client._web_runtime.kernel, http_client)
     return http_client
 
 
 async def _open_probe_client(client: NotebookLMClient) -> httpx.AsyncClient:
     """Open through the root lifecycle, then install the pytest-httpx client."""
     await client.__aenter__()
-    kernel = client._collaborators.kernel
+    kernel = client._web_runtime.kernel
     original = kernel.get_http_client()
     await original.aclose()
     return _install_probe_client(client)
@@ -128,7 +132,7 @@ async def test_pre_open_persisted_email_uses_kernel_seed_not_public_shadow(
     divergent_shadow = httpx.Cookies()
     divergent_shadow.set("SID", "shadow", domain=".google.com", path="/")
     divergent_shadow.set("__Secure-1PSIDTS", "shadow-ts", domain=".google.com", path="/")
-    client.auth.replace_cookie_jar(divergent_shadow)
+    client.auth._sync_cookie_jar(divergent_shadow)
 
     assert await client.get_account_email(live_fallback=False) == "kernel@example.com"
     assert httpx_mock.get_requests() == []
@@ -144,13 +148,13 @@ async def test_post_close_persisted_email_uses_retained_kernel_jar(
     write_account_metadata(storage, authuser=0, email="closed@example.com")
     client = NotebookLMClient(_make_auth(storage_path=storage))
     http_client = _install_probe_client(client)
-    await client._collaborators.kernel.aclose()
+    await client._web_runtime.kernel.aclose()
     assert http_client.is_closed
 
     divergent_shadow = httpx.Cookies()
     divergent_shadow.set("SID", "shadow", domain=".google.com", path="/")
     divergent_shadow.set("__Secure-1PSIDTS", "shadow-ts", domain=".google.com", path="/")
-    client.auth.replace_cookie_jar(divergent_shadow)
+    client.auth._sync_cookie_jar(divergent_shadow)
 
     assert await client.get_account_email(live_fallback=False) == "closed@example.com"
     assert httpx_mock.get_requests() == []
@@ -237,7 +241,7 @@ async def test_old_live_probe_cannot_publish_after_forced_close_reopen(monkeypat
 
     await client.close(drain=False)
     await client.__aenter__()
-    new_http_client = client._collaborators.kernel.get_http_client()
+    new_http_client = client._web_runtime.kernel.get_http_client()
     release_probe.set()
     try:
         with pytest.raises(RuntimeError, match="resource generation is retired"):
@@ -290,27 +294,33 @@ async def test_probe_login_redirect_returns_none(httpx_mock: HTTPXMock) -> None:
         await client.close(drain=False)
 
 
-async def test_inline_auth_probe_hit_does_not_persist(httpx_mock: HTTPXMock, monkeypatch) -> None:
+async def test_inline_auth_probe_hit_does_not_persist() -> None:
     """Inline auth (``storage_path=None``): probe hit is returned but never persisted."""
-    httpx_mock.add_response(
-        url=_PROBE_URL, content=_wiz_html_with_email("dave@example.com").encode()
-    )
-    write_spy = MagicMock()
-    monkeypatch.setattr(
-        account_email_module,
-        "_write_account_metadata_if_document_unchanged",
-        write_spy,
-    )
+    auth = _make_auth()
+    thread_calls = 0
 
-    client = NotebookLMClient(_make_auth())  # storage_path is None
-    await _open_probe_client(client)
-    try:
-        assert await client.get_account_email() == "dave@example.com"
-    finally:
-        await client.close(drain=False)
+    async def probe(_client, _authuser):  # type: ignore[no-untyped-def]
+        return "dave@example.com"
+
+    async def to_thread(*_args, **_kwargs):  # type: ignore[no-untyped-def]
+        nonlocal thread_calls
+        thread_calls += 1
+        raise AssertionError("inline auth has no persistence destination")
+
+    email, cached, key = await account_email_module.resolve_account_email(
+        auth=auth,
+        cached_email=None,
+        cached_key=None,
+        live_fallback=True,
+        get_cookies=lambda: auth.cookie_jar,
+        get_http_client=lambda: object(),  # type: ignore[return-value]
+        probe=probe,
+        to_thread=to_thread,
+    )
 
     # No path → nothing to persist to; the write branch must be skipped.
-    write_spy.assert_not_called()
+    assert (email, cached, key) == ("dave@example.com", "dave@example.com", (0, 0, None))
+    assert thread_calls == 0
 
 
 async def test_get_account_authuser_returns_auth_index() -> None:
@@ -597,30 +607,35 @@ async def test_matching_legacy_profile_email_remains_network_free(tmp_path) -> N
 @pytest.mark.parametrize("corruption", [b"\xff", b"[]"])
 async def test_post_probe_storage_corruption_does_not_escape(
     tmp_path,
-    monkeypatch,
-    httpx_mock: HTTPXMock,
     corruption: bytes,
 ) -> None:
     storage = tmp_path / "storage_state.json"
     _write_storage_state(storage)
-    httpx_mock.add_response(
-        url=_PROBE_URL,
-        content=_wiz_html_with_email("live@example.com").encode(),
-    )
-    original = account_email_module._write_account_metadata_if_document_unchanged
+    live = httpx.Cookies()
+    live.set("SID", "x", domain=".google.com", path="/")
+    live.set("__Secure-1PSIDTS", "y", domain=".google.com", path="/")
+    auth = _make_auth(storage_path=storage, cookie_jar=live)
+    thread_calls = 0
 
-    def corrupt_then_write(path, **kwargs):  # type: ignore[no-untyped-def]
-        path.write_bytes(corruption)
-        return original(path, **kwargs)
+    async def probe(_client, _authuser):  # type: ignore[no-untyped-def]
+        return "live@example.com"
 
-    monkeypatch.setattr(
-        account_email_module,
-        "_write_account_metadata_if_document_unchanged",
-        corrupt_then_write,
+    async def corrupt_then_run(function, *args, **kwargs):  # type: ignore[no-untyped-def]
+        nonlocal thread_calls
+        thread_calls += 1
+        storage.write_bytes(corruption)
+        return function(*args, **kwargs)
+
+    email, cached, key = await account_email_module.resolve_account_email(
+        auth=auth,
+        cached_email=None,
+        cached_key=None,
+        live_fallback=True,
+        get_cookies=lambda: auth.cookie_jar,
+        get_http_client=lambda: object(),  # type: ignore[return-value]
+        probe=probe,
+        to_thread=corrupt_then_run,
     )
-    client = NotebookLMClient(_make_auth(storage_path=storage))
-    await _open_probe_client(client)
-    try:
-        assert await client.get_account_email() == "live@example.com"
-    finally:
-        await client.close(drain=False)
+
+    assert (email, cached, key) == ("live@example.com", "live@example.com", (0, 0, None))
+    assert thread_calls == 1

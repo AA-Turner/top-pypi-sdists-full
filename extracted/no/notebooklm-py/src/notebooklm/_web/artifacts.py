@@ -6,17 +6,26 @@ Quizzes, Flashcards, Infographics, Slide Decks, Data Tables, and Mind Maps.
 """
 
 import builtins
+import contextlib
 import logging
 import reprlib
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .._artifact import polling as _artifact_polling
-from .._artifact import validation as _artifact_validation
+from .._artifact.creation_normalized import NormalizedArtifactCreationRequest
+from .._artifact.download_selection import PreparedDownloadCache
 from .._artifact.downloads import AssetDownloadService
-from .._artifacts import ArtifactsAPI
-from .._idempotency import mark_unconfirmed
+from .._artifacts import ArtifactsAPI, _ArtifactCopyResult
+from .._idempotency import call_unconfirmed_on_transport_loss, unresolved_commit_error
 from .._notebook_metadata import NotebookSourceIdProvider
+from .._request_policy import RequestPolicyOwner, request_scoped
+from .._types.artifact_download import (
+    ArtifactDownloadListing,
+    ArtifactDownloadRequest,
+    ArtifactDownloadSelection,
+)
 from .._types.enums import (
     ArtifactTypeCode,
     ExportType,
@@ -24,17 +33,17 @@ from .._types.enums import (
 from .._types.research import MindMapResult
 from ..exceptions import (
     ArtifactNotFoundError,
-    DecodingError,
     NetworkError,
     RateLimitError,
     RPCError,
     ServerError,
-    ValidationError,
 )
 from ..rpc import RPCMethod
 from ..types import (
     Artifact,
+    ArtifactCreationCapability,
     ArtifactCustomizationChoices,
+    ArtifactListing,
     ArtifactType,
     CopiedArtifact,
     CustomizationChoice,
@@ -53,17 +62,28 @@ from .params.artifacts import (
     build_customization_choices_params,
     build_suggest_reports_params,
 )
+from .params.creation import encode_creation
 from .rows import artifacts as _artifact_rows
 from .rows.customization import unwrap_customization_choices
 from .rows.transfers import CopiedArtifactRow, unwrap_mapping_rows
 
 if TYPE_CHECKING:
-    from .._runtime.call_supervisor import CallSupervisor
+    from .._runtime.call_supervisor import CallSupervisor, OperationLease
 
 logger = logging.getLogger("notebooklm._artifacts")
 
 
-class WebArtifactsAPI(ArtifactsAPI):
+@dataclass(frozen=True)
+class _PreparedWebDownload:
+    """Private rows retained for one opaque prepared selection."""
+
+    artifacts_data: builtins.list[Any]
+    mind_maps: builtins.list[Any] | None
+    artifacts: builtins.list[Artifact]
+    is_note_backed_mind_map: bool
+
+
+class WebArtifactsAPI(RequestPolicyOwner, ArtifactsAPI):
     """Operations on NotebookLM artifacts (studio content).
 
     Artifacts are AI-generated content: Audio/Video Overviews, Reports,
@@ -79,6 +99,12 @@ class WebArtifactsAPI(ArtifactsAPI):
             await client.artifacts.rename(notebook_id, artifact_id, "New Title")
     """
 
+    def _operation_scope(
+        self, label: str
+    ) -> contextlib.AbstractAsyncContextManager["OperationLease"]:
+        """Return the backend's scope for one multi-call workflow."""
+        return self._supervisor.operation_scope(label)
+
     def __init__(
         self,
         *,
@@ -88,6 +114,7 @@ class WebArtifactsAPI(ArtifactsAPI):
         mind_maps: NoteBackedMindMapService,
         note_service: NoteService,
         storage_path: Path | None = None,
+        asset_downloads: AssetDownloadService | None = None,
     ) -> None:
         """Initialize the artifacts API.
 
@@ -107,12 +134,13 @@ class WebArtifactsAPI(ArtifactsAPI):
             note_service: Backend note-row primitives — owns the ``create_note``
                 call site that the generation service's ``generate_mind_map``
                 uses to persist generated mind maps.
-            storage_path: Path to storage state file for loading download cookies.
+            storage_path: Standalone helper compatibility cookie source.
+            asset_downloads: Selected Web asset lifecycle and live-cookie owner.
         """
         super().__init__(
             supervisor=supervisor,
             notebooks=notebooks,
-            asset_downloads=AssetDownloadService(storage_path=storage_path),
+            asset_downloads=asset_downloads or AssetDownloadService(storage_path=storage_path),
         )
         self._rpc = rpc
         self._mind_maps = mind_maps
@@ -122,6 +150,7 @@ class WebArtifactsAPI(ArtifactsAPI):
             rpc=self._rpc,
             listing=self._listing,
             mind_maps=self._mind_maps,
+            asset_downloads=self._asset_downloads,
             download_to_path=self._download_to_path,
             download_urls_batch=self._download_urls_batch,
             format_interactive_content=self._format_interactive_content,
@@ -131,17 +160,24 @@ class WebArtifactsAPI(ArtifactsAPI):
             notebooks=self._notebooks,
             note_service=self._note_service,
         )
+        self._prepared_downloads: PreparedDownloadCache[_PreparedWebDownload] = (
+            PreparedDownloadCache()
+        )
+
+    @request_scoped
+    def _resolve_language(self, language: str | None) -> str:
+        return super()._resolve_language(language)
 
     async def _send_create_artifact(
         self,
-        notebook_id: str,
-        family: str,
-        source_ids: builtins.list[str],
-        **options: Any,
+        request: NormalizedArtifactCreationRequest,
     ) -> GenerationStatus:
-        """Dispatch a validated creation request to the web generation service."""
-        generate = getattr(self._generation, f"generate_{family}")
-        return await generate(notebook_id, source_ids=source_ids, **options)
+        params, label = encode_creation(request)
+        return await self._generation._call_generate(
+            request.notebook_id,
+            params,
+            null_result_artifact_type=label,
+        )
 
     # =========================================================================
     # List/Get Operations
@@ -158,19 +194,36 @@ class WebArtifactsAPI(ArtifactsAPI):
         ``ArtifactType.MIND_MAP``. Pass ``artifact_type`` to filter (e.g.
         ``ArtifactType.MIND_MAP`` for mind maps only).
         """
+        listing = await self.list_with_status(notebook_id, artifact_type)
+        return list(listing.items)
+
+    async def list_with_status(
+        self, notebook_id: str, artifact_type: ArtifactType | None = None
+    ) -> ArtifactListing:
+        """List artifacts together with aggregate-read completeness evidence.
+
+        Primary Studio failures and all decoding failures raise directly.
+        A transient secondary backing failure returns the successfully decoded
+        items with ``is_complete=False`` and a bounded component diagnostic.
+        """
         logger.debug("Listing artifacts in notebook %s", notebook_id)
-        return await self._listing.list_artifacts(
-            notebook_id,
-            artifact_type,
-            list_raw=self._list_raw,
-            list_mind_maps=self._list_mind_maps,
-        )
+        async with self._operation_scope("artifacts.list"):
+            (
+                listing,
+                _raw_studio_rows,
+                _mind_map_rows,
+            ) = await self._listing.list_artifacts_with_status_and_raw(
+                notebook_id,
+                artifact_type,
+                list_raw=self._list_raw,
+                list_mind_maps=self._list_mind_maps,
+            )
+        return listing
 
     async def _list_for_download(
         self, notebook_id: str, artifact_type: ArtifactType | None = None
     ) -> tuple[builtins.list[Artifact], builtins.list[Any], builtins.list[Any] | None]:
-        """List artifacts + the raw rows fetched to build them — same RPC set as
-        :meth:`list`. Internal seam for the ``_app`` download executor (#1488)."""
+        """List artifacts + raw rows for the legacy download-prefetch seam."""
         return await self._listing.list_artifacts_with_raw(
             notebook_id,
             artifact_type,
@@ -178,14 +231,26 @@ class WebArtifactsAPI(ArtifactsAPI):
             list_mind_maps=self._list_mind_maps,
         )
 
-    async def get_prompt(self, notebook_id: str, artifact_id: str) -> str | None:
+    async def get_prompt(
+        self,
+        notebook_id: str,
+        artifact_id: str,
+        *,
+        require_complete: bool = False,
+    ) -> str | None:
         """Get the free-text prompt an artifact was generated from (any studio type).
 
         Returns ``None`` when the artifact stores no prompt (e.g. a note-backed
         mind map); raises :class:`ArtifactNotFoundError` for an unknown id.
+        ``require_complete=True`` prevents a failed aggregate backing from
+        being projected as absence. Web's direct prompt read is already strict;
+        Android uses :meth:`lookup` for this explicit path.
 
         .. versionadded:: 0.8.0
         """
+        # This decoder already reads Studio directly and propagates the exact
+        # note-backed lookup failure on a Studio miss. ``require_complete`` is
+        # therefore an additive cross-backend spelling, not a Web preflight.
         return await self._listing.get_prompt(notebook_id, artifact_id, list_raw=self._list_raw, list_mind_maps=self._list_mind_maps)  # fmt: skip
 
     # =========================================================================
@@ -234,18 +299,162 @@ class WebArtifactsAPI(ArtifactsAPI):
         ``mind_map`` (parsed structure, or ``None`` on an empty response) and
         ``note_id`` (the persisted note id, or ``None``).
         """
-        return await self._generation.generate_mind_map(
-            notebook_id,
-            source_ids=source_ids,
-            language=language,
-            instructions=instructions,
-        )
+        async with self._operation_scope("artifacts.generate_mind_map"):
+            return await self._generation.generate_mind_map(
+                notebook_id,
+                source_ids=source_ids,
+                language=language,
+                instructions=instructions,
+            )
 
     # =========================================================================
     # Download Operations
     # =========================================================================
 
-    async def download_audio(
+    async def prepare_downloads(self, request: ArtifactDownloadRequest) -> ArtifactDownloadListing:
+        """Prepare completed candidates without exposing backend caches.
+
+        Validate the representation before I/O. Every returned selection is
+        bound to this backend instance, notebook, and current client generation.
+        Partial results retain typed failure evidence; they do not prove absence.
+        """
+        # Validate before reading either aggregate backing, including the empty
+        # listing case where ``PreparedDownloadCache.prepare`` would not run.
+        self._prepared_downloads.validate_request(request)
+        async with self._operation_scope("artifacts.prepare_downloads") as lease:
+            (
+                listing,
+                artifacts_data,
+                mind_maps,
+            ) = await self._listing.list_artifacts_with_status_and_raw(
+                request.notebook_id,
+                request.kind,
+                list_raw=self._list_raw,
+                list_mind_maps=self._list_mind_maps,
+            )
+            selections: list[ArtifactDownloadSelection] = []
+            for artifact in listing.items:
+                if artifact.kind is not request.kind or not artifact.is_completed:
+                    continue
+                selections.append(
+                    self._prepared_downloads.prepare(
+                        request,
+                        artifact,
+                        _PreparedWebDownload(
+                            artifacts_data=artifacts_data,
+                            mind_maps=mind_maps,
+                            artifacts=list(listing.items),
+                            is_note_backed_mind_map=(
+                                artifact.kind is ArtifactType.MIND_MAP
+                                and artifact._artifact_type == ArtifactTypeCode.MIND_MAP.value
+                            ),
+                        ),
+                        epoch=lease.epoch,
+                    )
+                )
+            return ArtifactDownloadListing(
+                selections=tuple(selections),
+                is_complete=listing.is_complete,
+                failures=listing.failures,
+            )
+
+    async def download(self, selection: ArtifactDownloadSelection, output_path: str) -> str:
+        """Download an owned prepared identity within its admitted generation."""
+        snapshot: _PreparedWebDownload | None = None
+        request: ArtifactDownloadRequest | None = None
+        mind_maps: builtins.list[Any] | None = None
+        try:
+            async with self._operation_scope("artifacts.download") as lease:
+                snapshot = self._prepared_downloads.require(selection, epoch=lease.epoch)
+                request = ArtifactDownloadRequest(
+                    selection.notebook_id,
+                    selection.kind,
+                    selection.representation,
+                )
+                # An interactive Studio mind map remains usable when its optional
+                # notes aggregate failed. ``[]`` means this prepared selection has
+                # no note-backed match and deliberately avoids retrying that RPC.
+                mind_maps = snapshot.mind_maps if snapshot.mind_maps is not None else []
+                return await self._download_with_legacy_prefetch(
+                    request,
+                    output_path,
+                    selection.artifact_id,
+                    artifacts_data=snapshot.artifacts_data,
+                    mind_maps=mind_maps,
+                    artifacts=snapshot.artifacts,
+                )
+        finally:
+            del self, snapshot, request, mind_maps
+
+    async def _download_with_legacy_prefetch(
+        self,
+        request: ArtifactDownloadRequest,
+        output_path: str,
+        artifact_id: str | None,
+        *,
+        artifacts_data: builtins.list[Any] | None = None,
+        mind_maps: builtins.list[Any] | None = None,
+        artifacts: builtins.list[Artifact] | None = None,
+    ) -> str:
+        """Dispatch compatibility rows through the existing typed backend methods."""
+        try:
+            if request.kind is ArtifactType.AUDIO:
+                return await self._download_audio_legacy(
+                    request.notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+                )
+            if request.kind is ArtifactType.VIDEO:
+                return await self._download_video_legacy(
+                    request.notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+                )
+            if request.kind is ArtifactType.INFOGRAPHIC:
+                return await self._download_infographic_legacy(
+                    request.notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+                )
+            if request.kind is ArtifactType.SLIDE_DECK:
+                return await self._download_slide_deck_legacy(
+                    request.notebook_id,
+                    output_path,
+                    artifact_id,
+                    "pdf" if request.output_format is None else request.output_format,
+                    artifacts_data=artifacts_data,
+                )
+            if request.kind is ArtifactType.REPORT:
+                return await self._download_report_legacy(
+                    request.notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+                )
+            if request.kind is ArtifactType.MIND_MAP:
+                return await self._download_mind_map_legacy(
+                    request.notebook_id,
+                    output_path,
+                    artifact_id,
+                    mind_maps=mind_maps,
+                    artifacts_data=artifacts_data,
+                )
+            if request.kind is ArtifactType.DATA_TABLE:
+                return await self._download_data_table_legacy(
+                    request.notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+                )
+            if request.kind is ArtifactType.QUIZ:
+                return await self._download_quiz_legacy(
+                    request.notebook_id,
+                    output_path,
+                    artifact_id,
+                    "json" if request.output_format is None else request.output_format,
+                    artifacts=artifacts,
+                )
+            if request.kind is ArtifactType.FLASHCARDS:
+                return await self._download_flashcards_legacy(
+                    request.notebook_id,
+                    output_path,
+                    artifact_id,
+                    "json" if request.output_format is None else request.output_format,
+                    artifacts=artifacts,
+                )
+            raise AssertionError(f"unsupported prepared artifact kind: {request.kind!r}")
+        finally:
+            del self, request, artifacts_data, mind_maps, artifacts
+
+    async def _download_audio_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -254,11 +463,12 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download an Audio Overview to a file."""
-        return await self._downloads.download_audio(
-            notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
-        )
+        async with self._operation_scope("artifacts.download_audio"):
+            return await self._downloads.download_audio(
+                notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+            )
 
-    async def download_video(
+    async def _download_video_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -267,11 +477,12 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download a Video Overview to a file."""
-        return await self._downloads.download_video(
-            notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
-        )
+        async with self._operation_scope("artifacts.download_video"):
+            return await self._downloads.download_video(
+                notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+            )
 
-    async def download_infographic(
+    async def _download_infographic_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -280,11 +491,12 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download an Infographic to a file."""
-        return await self._downloads.download_infographic(
-            notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
-        )
+        async with self._operation_scope("artifacts.download_infographic"):
+            return await self._downloads.download_infographic(
+                notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+            )
 
-    async def download_slide_deck(
+    async def _download_slide_deck_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -294,9 +506,10 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download a slide deck as PDF or PPTX."""
-        return await self._downloads.download_slide_deck(
-            notebook_id, output_path, artifact_id, output_format, artifacts_data=artifacts_data
-        )
+        async with self._operation_scope("artifacts.download_slide_deck"):
+            return await self._downloads.download_slide_deck(
+                notebook_id, output_path, artifact_id, output_format, artifacts_data=artifacts_data
+            )
 
     async def _download_interactive_artifact(
         self,
@@ -313,7 +526,7 @@ class WebArtifactsAPI(ArtifactsAPI):
             notebook_id, output_path, artifact_id, output_format, artifact_type, artifacts=artifacts
         )
 
-    async def download_report(
+    async def _download_report_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -322,11 +535,12 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download a report artifact as markdown."""
-        return await self._downloads.download_report(
-            notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
-        )
+        async with self._operation_scope("artifacts.download_report"):
+            return await self._downloads.download_report(
+                notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+            )
 
-    async def download_mind_map(
+    async def _download_mind_map_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -336,15 +550,16 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download a mind map as JSON."""
-        return await self._downloads.download_mind_map(
-            notebook_id,
-            output_path,
-            artifact_id,
-            mind_maps=mind_maps,
-            artifacts_data=artifacts_data,
-        )
+        async with self._operation_scope("artifacts.download_mind_map"):
+            return await self._downloads.download_mind_map(
+                notebook_id,
+                output_path,
+                artifact_id,
+                mind_maps=mind_maps,
+                artifacts_data=artifacts_data,
+            )
 
-    async def download_data_table(
+    async def _download_data_table_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -353,11 +568,12 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts_data: builtins.list[Any] | None = None,
     ) -> str:
         """Download a data table as CSV."""
-        return await self._downloads.download_data_table(
-            notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
-        )
+        async with self._operation_scope("artifacts.download_data_table"):
+            return await self._downloads.download_data_table(
+                notebook_id, output_path, artifact_id, artifacts_data=artifacts_data
+            )
 
-    async def download_quiz(
+    async def _download_quiz_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -367,11 +583,12 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts: builtins.list[Artifact] | None = None,
     ) -> str:
         """Download quiz questions."""
-        return await self._download_interactive_artifact(
-            notebook_id, output_path, artifact_id, output_format, "quiz", artifacts=artifacts
-        )
+        async with self._operation_scope("artifacts.download_quiz"):
+            return await self._download_interactive_artifact(
+                notebook_id, output_path, artifact_id, output_format, "quiz", artifacts=artifacts
+            )
 
-    async def download_flashcards(
+    async def _download_flashcards_legacy(
         self,
         notebook_id: str,
         output_path: str,
@@ -381,9 +598,15 @@ class WebArtifactsAPI(ArtifactsAPI):
         artifacts: builtins.list[Artifact] | None = None,
     ) -> str:
         """Download flashcard deck."""
-        return await self._download_interactive_artifact(
-            notebook_id, output_path, artifact_id, output_format, "flashcards", artifacts=artifacts
-        )
+        async with self._operation_scope("artifacts.download_flashcards"):
+            return await self._download_interactive_artifact(
+                notebook_id,
+                output_path,
+                artifact_id,
+                output_format,
+                "flashcards",
+                artifacts=artifacts,
+            )
 
     # =========================================================================
     # Management Operations
@@ -442,85 +665,54 @@ class WebArtifactsAPI(ArtifactsAPI):
             :class:`ArtifactNotFoundError` instead of silently returning
             ``None`` (#1362).
         """
-        params = [[artifact_id, new_title], [["title"]]]
-        await self._rpc.rpc_call(
-            RPCMethod.RENAME_ARTIFACT,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-            # #2290: a status-tagged null is a server rejection, not an empty success.
-            raise_on_null_status=True,
-        )
-        # Resolve via studio artifacts only — never public ``get()`` (#1247) nor
-        # the merged listing (a note-backed mind-map id no-ops on RENAME_ARTIFACT
-        # — use ``mind_maps.rename``). v0.8.0 (#1362): the lookup runs on
-        # ``False`` too so a missing target is detected, but ``False`` still
-        # returns ``None`` on success.
-        artifact = await self._listing.get_studio_only(
-            notebook_id, artifact_id, list_raw=self._list_raw
-        )
-        if artifact is None:
-            raise ArtifactNotFoundError(artifact_id, method_id=RPCMethod.RENAME_ARTIFACT.value)
-        return None if not return_object else artifact
+        async with self._operation_scope("artifacts.rename"):
+            params = [[artifact_id, new_title], [["title"]]]
+            await self._rpc.rpc_call(
+                RPCMethod.RENAME_ARTIFACT,
+                params,
+                source_path=f"/notebook/{notebook_id}",
+                allow_null=True,
+                # #2290: a status-tagged null is a server rejection, not an empty success.
+                raise_on_null_status=True,
+            )
+            # Resolve via studio artifacts only — never public ``get()`` (#1247) nor
+            # the merged listing (a note-backed mind-map id no-ops on RENAME_ARTIFACT
+            # — use ``mind_maps.rename``). v0.8.0 (#1362): the lookup runs on
+            # ``False`` too so a missing target is detected, but ``False`` still
+            # returns ``None`` on success.
+            artifact = await self._listing.get_studio_only(
+                notebook_id, artifact_id, list_raw=self._list_raw
+            )
+            if artifact is None:
+                raise ArtifactNotFoundError(artifact_id, method_id=RPCMethod.RENAME_ARTIFACT.value)
+            return None if not return_object else artifact
 
     # =========================================================================
     # Export Operations
     # =========================================================================
 
-    async def export_report(
+    async def _send_export(
         self,
         notebook_id: str,
-        artifact_id: str,
-        title: str = "Export",
-        export_type: ExportType = ExportType.DOCS,
-    ) -> Any:
-        """Export a report to Google Docs (``export_type`` selects DOCS/SHEETS)."""
-        params = [None, artifact_id, None, title, int(export_type)]
-        return await self._rpc.rpc_call(
-            RPCMethod.EXPORT_ARTIFACT,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-            # #2290: a status-tagged null is a server rejection, not an empty success.
-            raise_on_null_status=True,
-        )
-
-    async def export_data_table(
-        self,
-        notebook_id: str,
-        artifact_id: str,
-        title: str = "Export",
-    ) -> Any:
-        """Export a data table to Google Sheets."""
-        params = [None, artifact_id, None, title, int(ExportType.SHEETS)]
-        return await self._rpc.rpc_call(
-            RPCMethod.EXPORT_ARTIFACT,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-            # #2290: a status-tagged null is a server rejection, not an empty success.
-            raise_on_null_status=True,
-        )
-
-    async def export(
-        self,
-        notebook_id: str,
-        artifact_id: str | None = None,
-        title: str = "Export",
-        export_type: ExportType = ExportType.DOCS,
+        artifact_id: str | None,
+        title: str,
+        export_type: ExportType,
         *,
-        content: str | None = None,
+        content: str | None,
     ) -> Any:
-        """Export any artifact to Drive; exactly one of ``artifact_id=``/``content=`` (``export_type`` picks Docs/Sheets)."""
-        _artifact_validation.check_exactly_one_export_target(artifact_id, content)
+        """Send one ``EXPORT_ARTIFACT`` request through the Web frontend."""
         params = [None, artifact_id, content, title, int(export_type)]
-        return await self._rpc.rpc_call(
-            RPCMethod.EXPORT_ARTIFACT,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-            # #2290: a status-tagged null is a server rejection, not an empty success.
-            raise_on_null_status=True,
+        return await call_unconfirmed_on_transport_loss(
+            lambda: self._rpc.rpc_call(
+                RPCMethod.EXPORT_ARTIFACT,
+                params,
+                source_path=f"/notebook/{notebook_id}",
+                allow_null=True,
+                # #2290: a status-tagged null is a server rejection, not an empty success.
+                raise_on_null_status=True,
+            ),
+            method=RPCMethod.EXPORT_ARTIFACT,
+            what="the artifact or content export",
         )
 
     # =========================================================================
@@ -561,34 +753,13 @@ class WebArtifactsAPI(ArtifactsAPI):
             if row.is_well_formed
         ]
 
-    async def copy(
+    async def _send_copy(
         self,
         notebook_id: str,
         artifact_ids: builtins.list[str],
         target_notebook_id: str,
-    ) -> builtins.list[CopiedArtifact]:
-        """Copy Studio artifacts into another notebook (``CopyArtifactsAsync``).
-
-        Returns one :class:`~notebooklm.types.CopiedArtifact` per copied
-        artifact, pairing the original id with the full new row (verified live
-        by re-listing the target). Raises
-        ``ArtifactNotFoundError`` when none of the requested ids were copied —
-        the server answers unknown ids with an empty mapping rather than
-        ``NOT_FOUND``. A partial result is returned with a warning because the
-        copies it names have already committed.
-
-        The sync twin ``CopyArtifacts`` (``zVGIdd``) accepts any ids, copies
-        nothing and reports success; it is deliberately not modelled (#2283).
-
-        .. versionadded:: 0.9.0
-        """
-        if not artifact_ids:
-            raise ValidationError("artifact_ids must not be empty")
-        if any(not artifact_id for artifact_id in artifact_ids):
-            raise ValidationError("artifact_ids must not contain empty entries")
-        if not target_notebook_id:
-            raise ValidationError("target_notebook_id must not be empty")
-
+    ) -> _ArtifactCopyResult:
+        """Send ``CopyArtifactsAsync`` and decode its committed mappings."""
         try:
             result = await self._rpc.rpc_call(
                 RPCMethod.COPY_ARTIFACTS,
@@ -600,14 +771,17 @@ class WebArtifactsAPI(ArtifactsAPI):
             )
         except (NetworkError, RateLimitError, ServerError) as exc:
             rpc_code = exc.rpc_code if isinstance(exc, RPCError) else None
-            raise mark_unconfirmed(
+            raise unresolved_commit_error(
+                RPCMethod.COPY_ARTIFACTS,
+                "CopyArtifactsAsync",
                 RPCError(
                     "UNRESOLVED — CopyArtifactsAsync may have committed before its "
                     "response was lost. Do not blindly retry; list the target notebook's "
                     "artifacts and reconcile first.",
                     method_id=RPCMethod.COPY_ARTIFACTS.value,
                     rpc_code=rpc_code,
-                )
+                ),
+                preserve_exception=True,
             ) from exc
 
         rows = unwrap_mapping_rows(
@@ -621,7 +795,7 @@ class WebArtifactsAPI(ArtifactsAPI):
         for raw in rows:
             row = CopiedArtifactRow(raw)
             artifact = (
-                Artifact.from_api_response(row.artifact_row)
+                _artifact_rows.decode_artifact(Artifact, row.artifact_row)
                 if row.is_well_formed and row.artifact_row is not None
                 else None
             )
@@ -634,45 +808,17 @@ class WebArtifactsAPI(ArtifactsAPI):
                 continue
             copied.append(CopiedArtifact(original_id=row.original_id, artifact=artifact))
 
-        if not copied:
-            if malformed:
-                raise DecodingError(
-                    "CopyArtifactsAsync returned only malformed mapping entries",
-                    raw_response=reprlib.repr(rows),
-                    method_id=RPCMethod.COPY_ARTIFACTS.value,
-                )
-            raise ArtifactNotFoundError(
-                ", ".join(artifact_ids), method_id=RPCMethod.COPY_ARTIFACTS.value
-            )
-        missing = set(artifact_ids) - {item.original_id for item in copied}
-        if missing:
-            logger.warning(
-                "CopyArtifactsAsync copied %d of %d artifact(s) into %s; not copied: %s",
-                len(copied),
-                len(artifact_ids),
-                target_notebook_id,
-                ", ".join(sorted(missing)),
-            )
-        return copied
+        return _ArtifactCopyResult(
+            copied,
+            RPCMethod.COPY_ARTIFACTS.value,
+            malformed_count=malformed,
+            raw_response=reprlib.repr(rows) if malformed else None,
+        )
 
-    async def get_customization_choices(
+    async def _read_customization_choices(
         self, notebook_id: str | None = None
     ) -> ArtifactCustomizationChoices:
-        """Return the Studio "Customize" option tables (``GetArtifactCustomizationChoices``).
-
-        Account-level: the server returns the same ~3.3 KB table for an empty
-        request, a bogus notebook id and every artifact type (live, both front
-        doors, 2026-09-01), so ``notebook_id`` is optional and only fills the
-        request's ``project_id`` slot. Audio / video / slide-deck rows carry the wire codes
-        of :class:`~notebooklm.types.AudioFormat`,
-        :class:`~notebooklm.types.VideoFormat` and
-        :class:`~notebooklm.types.SlideDeckFormat`; report presets carry the
-        full generation directive each preset expands to. This is an
-        availability table rather than an exhaustive enum manifest; dedicated
-        options such as cinematic video may be omitted.
-
-        .. versionadded:: 0.9.0
-        """
+        """Read and decode the Web customization table."""
         # ``allow_null=False``: the server always serves the table, so a null
         # (status-bearing or not) is drift / rejection, never "no choices".
         result = await self._rpc.rpc_call(
@@ -824,3 +970,23 @@ class WebArtifactsAPI(ArtifactsAPI):
             return _artifact_rows.ArtifactRow(art).is_media_ready(artifact_type)
         except (IndexError, TypeError):
             return artifact_type not in _artifact_rows.ArtifactRow._MEDIA_ARTIFACT_TYPES
+
+    @property
+    def creation_capabilities(self) -> tuple[ArtifactCreationCapability, ...]:
+        capabilities = tuple(
+            ArtifactCreationCapability(
+                cap.family,
+                cap.supported_options,
+                ("concept_explanation report format is not supported by Web",),
+            )
+            if cap.family == "report"
+            else cap
+            for cap in super().creation_capabilities
+        )
+        return capabilities + (
+            ArtifactCreationCapability(
+                "interactive_mind_map",
+                ("instructions",),
+                ("language is not encoded by the Web interactive mind-map protocol",),
+            ),
+        )

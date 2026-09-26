@@ -10,6 +10,8 @@ pub mod numeric_check;
 pub mod types;
 pub mod unique;
 
+#[cfg(feature = "jsonb")]
+pub mod jsonb;
 #[cfg(feature = "magnus")]
 mod magnus;
 #[cfg(feature = "pyo3")]
@@ -18,15 +20,21 @@ mod pyo3;
 mod serde_json;
 mod serde_number;
 
+#[cfg(feature = "jsonb")]
+pub use jsonb::{Jsonb, JsonbNode};
 #[cfg(feature = "magnus")]
 pub use magnus::{
     child as magnus_child, invalidate_members_cache as magnus_invalidate_members_cache,
-    is_object as magnus_is_object, probe_root as magnus_probe_root,
+    is_object as magnus_is_object, object_values as magnus_object_values,
+    probe_root as magnus_probe_root, string_node as magnus_string_node,
     take_pending_error as magnus_take_pending_error, Magnus, PendingError,
     PendingErrorScope as MagnusPendingErrorScope, RbNode,
 };
 #[cfg(feature = "pyo3")]
-pub use pyo3::{probe_root, take_pending_error, PendingErrorScope, Pyo3};
+pub use pyo3::{
+    narrow_array, narrow_object, object_values, probe_root, take_pending_error, PendingErrorScope,
+    Pyo3,
+};
 #[cfg(feature = "serde_json")]
 pub use serde_json::SerdeJson;
 

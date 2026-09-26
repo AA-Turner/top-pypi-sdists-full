@@ -36,8 +36,6 @@ from tests._guardrails._ast_reach_in import (
     _call_keyword_value,
     _facade_construction_lines,
     _module_function_body,
-    _owned_attr_assignment,
-    _owned_attr_name,
     _RuntimeImportVisitor,
 )
 from tests._helpers.client_factory import build_client_shell_for_tests
@@ -63,7 +61,7 @@ def test_compose_client_internals_exposes_constructor_di_seams() -> None:
 
     Stage B1 PR 2 of the post-refactoring plan moved the composition
     root out of ``NotebookLMClient.__init__`` into
-    ``notebooklm._runtime.init.compose_client_internals``. The seams live
+    ``notebooklm._web.transport.init.compose_client_internals``. The seams live
     on the helper (and on the canonical test builder
     ``build_client_shell_for_tests``), NOT on ``NotebookLMClient.__init__``
     (which preserves the production surface).
@@ -77,7 +75,7 @@ def test_compose_client_internals_exposes_constructor_di_seams() -> None:
     """
     import inspect
 
-    from notebooklm._runtime.init import compose_client_internals
+    from notebooklm._web.transport.init import compose_client_internals
 
     sig = inspect.signature(compose_client_internals)
     for name in ("decode_response", "sleep", "is_auth_error", "async_client_factory"):
@@ -100,7 +98,7 @@ def test_session_wires_seam_attributes_for_executor_and_chain() -> None:
     The ``RpcExecutor`` resolves ``decode_response`` / ``is_auth_error`` /
     ``sleep`` through closures over ``ClientSeams`` etc., so that
     tests which rebind ``client._seams.decode_response = stub`` after
-    ``NotebookLMClient.__init__`` (which binds ``client._rpc_executor`` through
+    ``NotebookLMClient.__init__`` (which binds ``client._web_runtime.executor`` through
     ``compose_client_internals`` during assembly) still take effect. This test
     pins both halves: constructor-injected callables
     reach the executor, AND post-construction rebinds also take effect.
@@ -133,7 +131,7 @@ def test_session_wires_seam_attributes_for_executor_and_chain() -> None:
     assert core._seams.sleep is custom_sleep
     assert core._seams.is_auth_error is custom_is_auth_error
 
-    executor = core._rpc_executor
+    executor = core._web_runtime.executor
     # Constructor-injected callables propagate through the closure.
     assert executor._decode_response() == ["custom"]
     assert executor._is_auth_error(object()) is True
@@ -258,19 +256,23 @@ def test_notebooks_api_has_no_hidden_sources_api_runtime_dependency() -> None:
 def test_client_constructs_sources_before_notebooks_and_injects_sources_api() -> None:
     """Client wiring must avoid hidden SourcesAPI construction inside NotebooksAPI.
 
-    The wiring lives in :func:`notebooklm._client_assembly._assemble_client`
-    (the single construction seam ``NotebookLMClient.__init__`` and the
-    canonical test factory both run), where the client instance is bound to
-    the ``client`` parameter — hence the ``owner="client"`` matchers.
+    The wiring lives in :func:`notebooklm._web.assembly.assemble_web_backend`
+    (the typed builder selected by both production and the canonical test
+    factory). It wires local values and returns them as a complete graph.
     """
-    assembly_tree = ast.parse((SRC_ROOT / "_client_assembly.py").read_text(encoding="utf-8"))
-    assembly_body = _module_function_body(assembly_tree, "_assemble_client")
-    sources_index, sources_assignment = _owned_attr_assignment(
-        assembly_body, "sources", owner="client"
-    )
-    notebooks_index, notebook_assignment = _owned_attr_assignment(
-        assembly_body, "notebooks", owner="client"
-    )
+    assembly_tree = ast.parse((SRC_ROOT / "_web" / "assembly.py").read_text(encoding="utf-8"))
+    assembly_body = _module_function_body(assembly_tree, "_assemble_web_backend")
+
+    def local_assignment(name: str) -> tuple[int, ast.Assign]:
+        for index, statement in enumerate(assembly_body):
+            if isinstance(statement, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == name for target in statement.targets
+            ):
+                return index, statement
+        raise AssertionError(f"local {name} assignment not found")
+
+    sources_index, sources_assignment = local_assignment("sources")
+    notebooks_index, notebook_assignment = local_assignment("notebooks")
 
     assert sources_index < notebooks_index
 
@@ -285,10 +287,9 @@ def test_client_constructs_sources_before_notebooks_and_injects_sources_api() ->
     assert isinstance(notebooks_call.func, ast.Name)
     assert notebooks_call.func.id == "WebNotebooksAPI"
 
-    assert (
-        _owned_attr_name(_call_keyword_value(notebooks_call, "sources_api"), owner="client")
-        == "sources"
-    )
+    source_input = _call_keyword_value(notebooks_call, "sources_api")
+    assert isinstance(source_input, ast.Name)
+    assert source_input.id == "sources"
 
 
 @pytest.fixture
@@ -337,6 +338,7 @@ def test_artifacts_rejects_legacy_notes_api_kwarg(mock_auth: AuthTokens) -> None
 
     core = MagicMock()
     notes = WebNotesAPI(
+        supervisor=make_fake_core(),
         notes=MagicMock(spec=NoteService),
         mind_maps=MagicMock(spec=NoteBackedMindMapService),
     )
@@ -373,6 +375,7 @@ def test_artifacts_before_notes_construction_order(mock_auth: AuthTokens) -> Non
 
     def _make_notes() -> WebNotesAPI:
         return WebNotesAPI(
+            supervisor=make_fake_core(),
             notes=MagicMock(spec=NoteService),
             mind_maps=MagicMock(spec=NoteBackedMindMapService),
         )

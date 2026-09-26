@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: uvicorn
-Version: 0.53.0
+Version: 0.54.0
 Summary: The lightning-fast ASGI server.
 Project-URL: Changelog, https://uvicorn.dev/release-notes
 Project-URL: Funding, https://github.com/sponsors/Kludex

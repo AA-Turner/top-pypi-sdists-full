@@ -288,26 +288,27 @@ impl<'a> EvaluatorValueRef<'a> {
         }
     }
 
-    pub(crate) fn any_array_entry(
+    pub(crate) fn any_array_string(
         self,
-        mut predicate: impl FnMut(&str, usize, &str) -> bool,
+        lowercase: bool,
+        mut predicate: impl FnMut(&str) -> bool,
     ) -> bool {
         match self {
             Self::Owned(value) => value.array_value.as_ref().is_some_and(|array| {
-                array.iter().any(|(lowercase, (index, original))| {
-                    predicate(lowercase.as_str(), *index, original.as_str())
+                array.iter().any(|(lowered, (_, original))| {
+                    predicate(if lowercase {
+                        lowered.as_str()
+                    } else {
+                        original.as_str()
+                    })
                 })
             }),
             Self::Mmap(value, _) => value.array_value.as_ref().is_some_and(|array| {
-                array.iter().any(|(lowercase, entry)| {
-                    let Some(lowercase) = InternedStore::get_mmap_string(lowercase.to_native())
-                    else {
-                        return false;
-                    };
-                    let Some(original) = InternedStore::get_mmap_string(entry.1.to_native()) else {
-                        return false;
-                    };
-                    predicate(lowercase, entry.0.to_native() as usize, original)
+                array.iter().any(|(lowered, entry)| {
+                    // Both references are validated on load; resolve only the
+                    // spelling required by this comparison.
+                    let hash = if lowercase { lowered } else { &entry.1 };
+                    InternedStore::get_mmap_string(hash.to_native()).is_some_and(&mut predicate)
                 })
             }),
         }

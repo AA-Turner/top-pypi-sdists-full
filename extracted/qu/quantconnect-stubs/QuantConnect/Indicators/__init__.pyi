@@ -661,7 +661,7 @@ class LeastSquaresMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantCon
         Initializes a new instance of the LeastSquaresMovingAverage class.
         
         :param name: The name of this indicator
-        :param period: The number of data points to hold in the window
+        :param period: The number of data points to hold in the window, must be greater than one
         """
         ...
 
@@ -670,7 +670,7 @@ class LeastSquaresMovingAverage(QuantConnect.Indicators.WindowIndicator[QuantCon
         """
         Initializes a new instance of the LeastSquaresMovingAverage class.
         
-        :param period: The number of data points to hold in the window.
+        :param period: The number of data points to hold in the window, must be greater than one.
         """
         ...
 
@@ -6954,7 +6954,7 @@ class RegressionChannel(QuantConnect.Indicators.Indicator, QuantConnect.Indicato
         Initializes a new instance of the RegressionChannel class.
         
         :param name: The name of this indicator
-        :param period: The number of data points to hold in the window
+        :param period: The number of data points to hold in the window, must be greater than one
         :param k: The number of standard deviations specifying the distance between the linear regression and upper or lower channel lines
         """
         ...
@@ -6964,7 +6964,7 @@ class RegressionChannel(QuantConnect.Indicators.Indicator, QuantConnect.Indicato
         """
         Initializes a new instance of the LeastSquaresMovingAverage class.
         
-        :param period: The number of data points to hold in the window.
+        :param period: The number of data points to hold in the window, must be greater than one.
         :param k: The number of standard deviations specifying the distance between the linear regression and upper or lower channel lines
         """
         ...

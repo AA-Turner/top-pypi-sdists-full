@@ -11,7 +11,7 @@ License: MIT (see LICENSE file)
 """
 
 __author__ = "Marcel Hellkamp"
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 __license__ = "MIT"
 __all__ = [
     "MultipartError",
@@ -733,8 +733,10 @@ class PushMultipartParser:
         if line[0] in b" \t":  # Multi-line header value
             if not self._segment_headerlist or self.strict:
                 raise StrictParserError("Unexpected segment header continuation")
+            if line.isspace():
+                raise StrictParserError("Empty segment header continuation")
             prev = ": ".join(self._segment_headerlist.pop())
-            line = prev.encode(self.header_charset) + b" " + line.strip()
+            line = prev.encode(self.header_charset) + b" " + line[1:]
 
         # Enforce header limits
         if len(line) > self.max_header_size:
@@ -753,7 +755,7 @@ class PushMultipartParser:
             name = name.strip().title()
             if name not in _KNOWN_HEADERS and not _re_hname.fullmatch(name):
                 raise ParserError("Invalid segment header name")
-        value = value.strip()
+        value = value.lstrip(" \t")
 
         if name == "Content-Length":
             if self._segment_limit >= 0:
@@ -1264,7 +1266,9 @@ def parse_form_data(
             if not boundary:
                 raise ParserError("Missing boundary for multipart/form-data")
 
-            for part in MultipartParser(stream, boundary, content_length, **kwargs):
+            for part in MultipartParser(
+                stream, boundary, content_length, strict=strict, **kwargs
+            ):
                 if part.filename or not part.is_buffered():
                     files.append(part.name, part)
                 else:  # TODO: Big form-fields go into the files dict. Really?

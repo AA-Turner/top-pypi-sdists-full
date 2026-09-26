@@ -80,7 +80,7 @@ class ContentResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
-        Put script content without touching config or metadata.
+        Replace Worker script content without touching config or metadata.
 
         Args:
           account_id: Identifier.
@@ -162,7 +162,7 @@ class ContentResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> BinaryAPIResponse:
         """
-        Fetch script content only.
+        Fetch Worker script content only.
 
         Args:
           account_id: Identifier.
@@ -232,7 +232,7 @@ class AsyncContentResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
-        Put script content without touching config or metadata.
+        Replace Worker script content without touching config or metadata.
 
         Args:
           account_id: Identifier.
@@ -314,7 +314,7 @@ class AsyncContentResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncBinaryAPIResponse:
         """
-        Fetch script content only.
+        Fetch Worker script content only.
 
         Args:
           account_id: Identifier.

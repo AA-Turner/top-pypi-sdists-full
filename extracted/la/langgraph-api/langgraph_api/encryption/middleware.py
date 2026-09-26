@@ -502,6 +502,8 @@ async def decrypt_response(
     obj: Mapping[str, Any],
     model_type: ModelType,
     fields: list[str],
+    *,
+    plaintext_from_core: bool,
 ) -> dict[str, Any]:
     """Decrypt specified fields in a response object (from database).
 
@@ -522,10 +524,14 @@ async def decrypt_response(
         obj: Single mapping from database (fields may be bytes or already-parsed dicts, not mutated)
         model_type: Type identifier passed to EncryptionContext.model (e.g., "run", "cron", "thread")
         fields: List of field names to decrypt (e.g., ["metadata", "kwargs"])
+        plaintext_from_core: Return core-decrypted fields unchanged.
 
     Returns:
         Original object if encryption disabled, otherwise new dict with decrypted fields
     """
+    if plaintext_from_core:
+        return obj
+
     encryption_instance = get_encryption()
     if encryption_instance is None:
         # Even without encryption, the error field is stored as bytes (bytea column)
@@ -550,6 +556,8 @@ async def decrypt_responses(
     objects: Sequence[Mapping[str, Any]],
     model_type: ModelType,
     fields: list[str],
+    *,
+    plaintext_from_core: bool,
 ) -> list[dict[str, Any]]:
     """Decrypt specified fields in multiple response objects (from database).
 
@@ -570,10 +578,14 @@ async def decrypt_responses(
         objects: Sequence of mappings from database (fields may be bytes or already-parsed dicts, not mutated)
         model_type: Type identifier passed to EncryptionContext.model (e.g., "run", "cron", "thread")
         fields: List of field names to decrypt (e.g., ["metadata", "kwargs"])
+        plaintext_from_core: Return core-decrypted fields unchanged.
 
     Returns:
         Original sequence if encryption disabled, otherwise new list with decrypted fields
     """
+    if plaintext_from_core:
+        return objects
+
     encryption_instance = get_encryption()
     if encryption_instance is None:
         # Even without encryption, the error field is stored as bytes (bytea column)
@@ -697,7 +709,7 @@ async def encrypt_request(
     model_type: ModelType,
     fields: list[str],
     *,
-    plaintext_for_core: bool = False,
+    plaintext_for_core: bool,
 ) -> dict[str, Any]:
     """Encrypt specified fields in request data before passing to ops layer (in parallel).
 
@@ -717,8 +729,7 @@ async def encrypt_request(
         data: Request data mapping to encrypt (not mutated)
         model_type: Type identifier passed to EncryptionContext.model (e.g., "run", "cron", "thread")
         fields: List of field names to encrypt (e.g., ["metadata", "kwargs"])
-        plaintext_for_core: Return plaintext for Go encryption after verifying no field
-            requires Python's nested-subfield traversal.
+        plaintext_for_core: Return plaintext for Go encryption.
 
     Returns:
         Original data if encryption disabled, otherwise new dict with encrypted fields
@@ -731,16 +742,6 @@ async def encrypt_request(
         )
     """
     if plaintext_for_core:
-        nested_fields = [
-            field
-            for field in fields
-            if (model_type, field) in NESTED_ENCRYPTED_SUBFIELDS
-        ]
-        if nested_fields:
-            raise RuntimeError(
-                f"Go encryption cannot handle nested encrypted fields: "
-                f"{model_type}.{', '.join(nested_fields)}"
-            )
         return data
 
     encryption_instance = get_encryption()

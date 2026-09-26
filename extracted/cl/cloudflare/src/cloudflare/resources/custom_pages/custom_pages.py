@@ -87,10 +87,10 @@ class CustomPagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CustomPageUpdateResponse]:
         """
-        Updates the configuration of an existing custom page.
+        Updates the configuration for a custom page type.
 
         Args:
-          identifier: Error Page Types
+          identifier: Custom page type.
 
           state: The custom page state.
 
@@ -159,7 +159,7 @@ class CustomPagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[CustomPageListResponse]:
         """
-        Fetches all the custom pages.
+        Lists all custom page configurations for an account or zone.
 
         Args:
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
@@ -224,10 +224,10 @@ class CustomPagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CustomPageGetResponse]:
         """
-        Fetches the details of a custom page.
+        Returns the configuration for a custom page type.
 
         Args:
-          identifier: Error Page Types
+          identifier: Custom page type.
 
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
 
@@ -324,10 +324,10 @@ class AsyncCustomPagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CustomPageUpdateResponse]:
         """
-        Updates the configuration of an existing custom page.
+        Updates the configuration for a custom page type.
 
         Args:
-          identifier: Error Page Types
+          identifier: Custom page type.
 
           state: The custom page state.
 
@@ -396,7 +396,7 @@ class AsyncCustomPagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CustomPageListResponse, AsyncSinglePage[CustomPageListResponse]]:
         """
-        Fetches all the custom pages.
+        Lists all custom page configurations for an account or zone.
 
         Args:
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
@@ -461,10 +461,10 @@ class AsyncCustomPagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[CustomPageGetResponse]:
         """
-        Fetches the details of a custom page.
+        Returns the configuration for a custom page type.
 
         Args:
-          identifier: Error Page Types
+          identifier: Custom page type.
 
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
 

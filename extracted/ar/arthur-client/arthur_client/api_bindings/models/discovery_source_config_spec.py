@@ -18,13 +18,13 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
 
 class DiscoverySourceConfigSpec(BaseModel):
     """
-    One discovery source config, materialized into a scan job at dispatch.  The scheduler snapshots the config into the job rather than handing the engine an ID to resolve, so a job describes the work it was created for even after the config is edited or deleted, and so a run stays reproducible: the query text here is the query that ran.  Credentials are deliberately absent. The engine fetches those live from the Platform over an authenticated API at execution time (D-05) - a job payload is persisted, logged and listed, and a secret has no business in one.
+    One discovery source config, materialized into a scan job at dispatch.  The scheduler snapshots the config into the job rather than handing the engine an ID to resolve, so a job describes the work it was created for even after the config is edited or deleted, and so a run stays reproducible: the query text here is the query that ran.  Credentials are deliberately absent. The engine fetches those live from the Platform over an authenticated API at execution time (D-05) - a job payload is persisted, logged and listed, and a secret has no business in one. The source's non-sensitive fields - where to connect, not how to authenticate - are snapshotted with the config, because an engine cannot read the discovery source itself: that takes an organization-level role, and an engine's account is bound to its workspace.
     """ # noqa: E501
     discovery_source_id: StrictStr = Field(description="ID of the discovery source the config belongs to.")
     name: StrictStr = Field(description="Name of the config, for logs and run reporting.")
@@ -32,7 +32,8 @@ class DiscoverySourceConfigSpec(BaseModel):
     query: StrictStr = Field(description="Query text in the vendor's native language, stored and sent verbatim.")
     query_language: StrictStr = Field(description="Language the query text is written in.")
     lookback_window_seconds: StrictInt = Field(description="The config's lookback window, in seconds. lookback_hours carries the same window rounded up to whole hours for the engine's window API.")
-    __properties: ClassVar[List[str]] = ["discovery_source_id", "name", "vendor", "query", "query_language", "lookback_window_seconds"]
+    source_fields: Optional[Dict[str, StrictStr]] = None
+    __properties: ClassVar[List[str]] = ["discovery_source_id", "name", "vendor", "query", "query_language", "lookback_window_seconds", "source_fields"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -73,6 +74,11 @@ class DiscoverySourceConfigSpec(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if source_fields (nullable) is None
+        # and model_fields_set contains the field
+        if self.source_fields is None and "source_fields" in self.model_fields_set:
+            _dict['source_fields'] = None
+
         return _dict
 
     @classmethod
@@ -90,7 +96,8 @@ class DiscoverySourceConfigSpec(BaseModel):
             "vendor": obj.get("vendor"),
             "query": obj.get("query"),
             "query_language": obj.get("query_language"),
-            "lookback_window_seconds": obj.get("lookback_window_seconds")
+            "lookback_window_seconds": obj.get("lookback_window_seconds"),
+            "source_fields": obj.get("source_fields")
         })
         return _obj
 

@@ -3,10 +3,11 @@ use crate::interned_values::{
     InternedStore,
     interned_store::{MmapProjectId, preload_mmap_v2_multi_for_test, write_mmap_v2_for_test},
 };
-use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
+use crate::observability::observability_client_adapter::MetricType;
+use crate::observability::ops_stats::{OPS_STATS, OpsStatsEvent, OpsStatsForInstance};
 use crate::specs_response::{
     proto_specs::{
-        ProtobufHydrationContext, ProtobufUpdate, deserialize_protobuf,
+        ProtobufHydrationContext, ProtobufUpdate, SpecsFieldChecksums, deserialize_protobuf,
         deserialize_protobuf_for_store_with_hydration,
     },
     proto_stream_reader::ProtoStreamReader,
@@ -121,9 +122,9 @@ async fn streaming_protobuf_charges_discovered_bytes_and_preserves_concurrent_mm
         MAX_IN_FLIGHT_HYDRATION_BYTES
     );
 
-    first.finish(true);
+    first.finish(Ok(()));
     for session in concurrent_scopes {
-        session.finish(true);
+        session.finish(Ok(()));
     }
     assert_eq!(
         budget.bytes.available_permits(),
@@ -376,7 +377,7 @@ async fn rejects_oversized_response_at_network_boundary() {
         }
     });
     let mut data = ResponseData::from_bytes(serde_json::to_vec(&payload).unwrap());
-    let hydrator = test_hydrator("oversized-network-response");
+    let (hydrator, mut events) = observed_hydrator();
 
     let result = hydrate_from_mock_source(&hydrator, &mut data, &server).await;
 
@@ -386,6 +387,7 @@ async fn rejects_oversized_response_at_network_boundary() {
             if message.starts_with("Dynamic config hydration failure: download_failed:")
                 && message.contains("Response exceeded maximum allowed bytes")
     ));
+    assert_hydration_results(&mut events, &[("failure", "download_failed")]);
 }
 
 #[tokio::test]
@@ -434,7 +436,7 @@ async fn returns_on_first_download_failure_without_waiting_for_siblings() {
         }
     });
     let mut data = ResponseData::from_bytes(serde_json::to_vec(&payload).unwrap());
-    let hydrator = test_hydrator("fail-fast-downloads");
+    let (hydrator, mut events) = observed_hydrator();
 
     let result = timeout(
         Duration::from_millis(1_500),
@@ -448,6 +450,7 @@ async fn returns_on_first_download_failure_without_waiting_for_siblings() {
         Err(StatsigErr::CustomError(message))
             if message.starts_with("Dynamic config hydration failure: checksum_mismatch:")
     ));
+    assert_hydration_results(&mut events, &[("failure", "checksum_mismatch")]);
 }
 
 #[tokio::test]
@@ -500,6 +503,93 @@ async fn no_metadata_json_does_not_log_hydration_outcome() {
     assert!(hydrator.in_flight.get().is_none());
     assert_eq!(budget.bytes.available_permits(), 0);
     drop(exhausted);
+}
+
+#[tokio::test]
+async fn malformed_json_default_and_rule_metadata_log_one_scoped_failure() {
+    for (config, reason) in [
+        (
+            serde_json::json!({"defaultValue": {}, "remoteConfigMetadata": null, "rules": []}),
+            "invalid_default_metadata",
+        ),
+        (
+            serde_json::json!({"defaultValue": {}, "rules": [{"returnValue": {}, "remoteConfigMetadata": null}]}),
+            "invalid_metadata",
+        ),
+    ] {
+        let (hydrator, mut events) = observed_hydrator();
+        let mut data = ResponseData::from_bytes(
+            serde_json::to_vec(&serde_json::json!({"dynamic_configs": {"config": config}}))
+                .unwrap(),
+        );
+
+        let result = hydrator
+            .hydrate_response(
+                &mut data,
+                "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+            )
+            .await;
+
+        assert!(result.is_err());
+        assert_hydration_results(&mut events, &[("failure", reason)]);
+    }
+}
+
+#[tokio::test]
+async fn json_parse_failures_and_unrelated_metadata_keys_do_not_log_scoped_results() {
+    for (bytes, expect_error) in [
+        (br#"{"dynamic_configs":{},"remoteConfigMetadata":{},"broken":"#.as_slice(), true),
+        (br#"{"dynamic_configs":{},"remoteConfigMetadata":{}}"#.as_slice(), false),
+        (
+            br#"{"dynamic_configs":{"inline":{"defaultValue":{"remoteConfigMetadata":{}},"rules":[]}}}"#.as_slice(),
+            false,
+        ),
+    ] {
+        let (hydrator, mut events) = observed_hydrator();
+        let mut data = ResponseData::from_bytes(bytes.to_vec());
+
+        let result = hydrator
+            .hydrate_response(
+                &mut data,
+                "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+            )
+            .await;
+
+        assert_eq!(result.is_err(), expect_error);
+        assert_hydration_results(&mut events, &[]);
+    }
+}
+
+#[tokio::test]
+async fn cancelling_json_after_metadata_discovery_logs_one_aborted_result() {
+    let (mut hydrator, mut events) = observed_hydrator();
+    let budget = Arc::new(ResponseHydrationBudget::new(1));
+    let exhausted = budget.reserve(1).await.unwrap();
+    hydrator.response_budget = Arc::clone(&budget);
+    let sha = "a".repeat(64);
+    let payload = serde_json::json!({
+        "dynamic_configs": {
+            "config": {
+                "defaultValue": {"value": format!("{DOWNLOAD_PATH_PREFIX}{sha}")},
+                "remoteConfigMetadata": valid_json_metadata(&sha, 1),
+                "rules": []
+            }
+        }
+    });
+    let mut data = ResponseData::from_bytes(serde_json::to_vec(&payload).unwrap());
+    let mut hydration = Box::pin(hydrator.hydrate_response(
+        &mut data,
+        "https://statsigcdn.openai.com/v2/download_config_specs/key.json",
+    ));
+
+    assert!(futures::poll!(hydration.as_mut()).is_pending());
+    assert_hydration_results(&mut events, &[]);
+    drop(hydration);
+
+    assert_hydration_results(&mut events, &[("aborted", "cancelled")]);
+    assert_eq!(budget.bytes.available_permits(), 0);
+    drop(exhausted);
+    assert_eq!(budget.bytes.available_permits(), 1);
 }
 
 #[tokio::test]
@@ -639,7 +729,7 @@ async fn rejects_markerless_remote_metadata_without_downloading() {
     ])
     .unwrap();
     let mut data = protobuf_response_data(bytes);
-    let hydrator = test_hydrator("markerless-remote-metadata");
+    let (hydrator, mut events) = observed_hydrator();
 
     hydrate_from_mock_source(&hydrator, &mut data, &server)
         .await
@@ -675,6 +765,7 @@ async fn rejects_markerless_remote_metadata_without_downloading() {
                 && message.contains("before hydration")
     ));
     assert!(next_specs.dynamic_configs.is_empty());
+    assert_hydration_results(&mut events, &[("failure", "invalid_metadata_marker")]);
 }
 
 #[tokio::test]
@@ -878,7 +969,7 @@ async fn hydrates_json_default_and_duplicate_rule_with_one_download() {
         }
     });
     let mut data = ResponseData::from_bytes(serde_json::to_vec(&payload).unwrap());
-    let hydrator = test_hydrator("json-success");
+    let (hydrator, mut events) = observed_hydrator();
 
     hydrate_from_mock_source(&hydrator, &mut data, &server)
         .await
@@ -903,6 +994,7 @@ async fn hydrates_json_default_and_duplicate_rule_with_one_download() {
             .get("remoteConfigMetadata")
             .is_none()
     );
+    assert_hydration_results(&mut events, &[("success", "none")]);
 }
 
 #[tokio::test]
@@ -1147,7 +1239,7 @@ async fn streaming_protobuf_keeps_its_response_reservation_after_download_comple
         MAX_IN_FLIGHT_HYDRATION_BYTES
     );
 
-    session.finish(true);
+    session.finish(Ok(()));
     assert_eq!(
         budget.bytes.available_permits(),
         MAX_IN_FLIGHT_HYDRATION_BYTES
@@ -1195,7 +1287,7 @@ async fn streaming_protobuf_grows_beyond_its_in_flight_hydration_budget() {
     assert_eq!(raw_return_value_bytes(&hydrated.default_value), body);
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
 
-    session.finish(true);
+    session.finish(Ok(()));
     assert_eq!(budget.bytes.available_permits(), capacity);
     assert!(hydrator.in_flight_downloads().is_empty());
     server.verify().await;
@@ -1234,7 +1326,7 @@ fn streaming_protobuf_accepts_snapshots_larger_than_the_process_hydration_window
         body.as_slice()
     );
 
-    session.finish(true);
+    session.finish(Ok(()));
     assert_eq!(
         budget.bytes.available_permits(),
         MAX_IN_FLIGHT_HYDRATION_BYTES
@@ -1298,11 +1390,11 @@ async fn streaming_protobuf_scopes_share_downloads_under_separate_response_reser
     );
     assert!(hydrator.in_flight_downloads().is_empty());
 
-    first.finish(true);
+    first.finish(Ok(()));
     assert_eq!(budget.bytes.available_permits(), body.len());
-    second.finish(true);
-    third.finish(true);
-    fourth.finish(true);
+    second.finish(Ok(()));
+    third.finish(Ok(()));
+    fourth.finish(Ok(()));
     assert_eq!(budget.bytes.available_permits(), body.len() * scope_count);
     server.verify().await;
 }
@@ -1373,12 +1465,12 @@ async fn streaming_protobuf_growth_uses_cancellation_safe_deadlock_free_expansio
 
     let mut waiting = Box::pin(second.download_registered_references());
     assert!(futures::poll!(waiting.as_mut()).is_pending());
-    first.finish(true);
+    first.finish(Ok(()));
     waiting.await.unwrap();
     assert_eq!(budget.bytes.available_permits(), first_body.len());
     assert_eq!(budget.expansion.available_permits(), first_body.len());
 
-    second.finish(true);
+    second.finish(Ok(()));
     drop(occupied);
     assert_eq!(
         budget.bytes.available_permits(),
@@ -1714,33 +1806,41 @@ async fn does_not_retain_remote_values_across_responses() {
 
 #[tokio::test]
 async fn failed_json_hydration_does_not_modify_candidate() {
-    let server = MockServer::start().await;
-    let body = br#"{"large":"value"}"#;
-    let sha = "a".repeat(64);
-    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
-    mount_json_blob(&server, &download_path, body, 1).await;
+    for silent in [false, true] {
+        let server = MockServer::start().await;
+        let body = br#"{"large":"value"}"#;
+        let sha = "a".repeat(64);
+        let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+        mount_json_blob(&server, &download_path, body, 1).await;
 
-    let payload = serde_json::json!({
-        "dynamic_configs": {
-            "large_config": {
-                "defaultValue": format!("{}{download_path}", server.uri()),
-                "remoteConfigMetadata": valid_json_metadata(&sha, body.len()),
-                "rules": []
+        let payload = serde_json::json!({
+            "dynamic_configs": {
+                "large_config": {
+                    "defaultValue": format!("{}{download_path}", server.uri()),
+                    "remoteConfigMetadata": valid_json_metadata(&sha, body.len()),
+                    "rules": []
+                }
             }
-        }
-    });
-    let original = serde_json::to_vec(&payload).unwrap();
-    let mut data = ResponseData::from_bytes(original.clone());
-    let hydrator = test_hydrator("json-failure");
+        });
+        let original = serde_json::to_vec(&payload).unwrap();
+        let mut data = ResponseData::from_bytes(original.clone());
+        let options = crate::StatsigOptions::default().suppress_diagnostic_output(silent);
+        let adapter = crate::StatsigHttpSpecsAdapter::new("json-failure", Some(&options), None);
 
-    let result = hydrate_from_mock_source(&hydrator, &mut data, &server).await;
+        let result = adapter
+            .hydrate_response_data(
+                &mut data,
+                &format!("{}/v2/download_config_specs/key.json", server.uri()),
+            )
+            .await;
 
-    assert!(matches!(
-        result,
-        Err(StatsigErr::CustomError(message))
-            if message.starts_with("Dynamic config hydration failure: checksum_mismatch:")
-    ));
-    assert_eq!(data.read_to_bytes().unwrap(), original);
+        assert!(matches!(
+            result,
+            Err(StatsigErr::CustomError(message))
+                if message.starts_with("Dynamic config hydration failure: checksum_mismatch:")
+        ));
+        assert_eq!(data.read_to_bytes().unwrap(), original);
+    }
 }
 
 #[tokio::test]
@@ -1776,7 +1876,7 @@ async fn hydrates_protobuf_default_and_rule_values() {
     let bytes = serialize_protobuf_envelopes(&envelopes).unwrap();
     let original_bytes = bytes.clone();
     let (mut data, bytes_read) = counting_protobuf_response_data(bytes);
-    let hydrator = test_hydrator("proto-success");
+    let (hydrator, mut events) = observed_hydrator();
 
     hydrate_from_mock_source(&hydrator, &mut data, &server)
         .await
@@ -1806,6 +1906,190 @@ async fn hydrates_protobuf_default_and_rule_values() {
         body.as_slice()
     );
     assert_eq!(bytes_read.load(Ordering::SeqCst), original_stream_reads);
+    assert_hydration_results(&mut events, &[("success", "none")]);
+}
+
+#[tokio::test]
+async fn protobuf_default_and_rule_metadata_failures_log_one_scoped_result() {
+    let source_url = "https://statsigcdn.openai.com/v2/download_config_specs/key.json";
+    for integrated in [false, true] {
+        for rule_metadata in [false, true] {
+            let placeholder = raw_return_value(
+                serde_json::to_vec(&format!("{DOWNLOAD_PATH_PREFIX}{}", "a".repeat(64))).unwrap(),
+            );
+            let metadata = protobuf_metadata("not-a-sha", 1);
+            let mut spec = pb::Spec {
+                entity: pb::EntityType::EntityDynamicConfig as i32,
+                ..Default::default()
+            };
+            if rule_metadata {
+                spec.rules.push(pb::Rule {
+                    return_value: Some(placeholder),
+                    remote_config_metadata: Some(metadata),
+                    ..Default::default()
+                });
+            } else {
+                spec.default_value = Some(placeholder);
+                spec.remote_config_metadata = Some(metadata);
+            }
+            let bytes = serialize_protobuf_envelopes(&[
+                protobuf_top_level_envelope(Some(true)),
+                pb::SpecsEnvelope {
+                    kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
+                    name: "invalid_config".to_string(),
+                    checksum: "1".to_string(),
+                    data: Some(spec.encode_to_vec()),
+                },
+                protobuf_done_envelope(),
+            ])
+            .unwrap();
+            let (hydrator, mut events) = observed_hydrator();
+            let mut data = protobuf_response_data(bytes);
+
+            let result = if integrated {
+                hydrate_protobuf_for_store(&hydrator, &mut data, source_url).await
+            } else {
+                hydrator.hydrate_response(&mut data, source_url).await
+            };
+
+            assert!(
+                matches!(result, Err(StatsigErr::CustomError(message)) if message.starts_with(
+                    "Dynamic config hydration failure: invalid_sha256:"
+                ))
+            );
+            assert_hydration_results(&mut events, &[("failure", "invalid_sha256")]);
+        }
+    }
+}
+
+#[test]
+fn hydration_result_distinguishes_download_body_failure_from_unrelated_parser_failure() {
+    for (during_download, outcome, reason) in [
+        (true, "failure", "body_read_failed"),
+        (false, "aborted", "response_processing_failed"),
+    ] {
+        let (hydrator, mut events) = observed_hydrator();
+        let error = StatsigErr::SerializationError("synthetic read failure".to_string());
+        {
+            let mut result = HydrationResult::new(&hydrator);
+            result.mark_remote_metadata();
+            if during_download {
+                result.record_download_error(&error);
+            }
+            result.finish(Err(&error));
+            result.finish(Err(&error));
+        }
+
+        assert_hydration_results(&mut events, &[(outcome, reason)]);
+    }
+}
+
+#[tokio::test]
+async fn protobuf_malformed_spec_with_valid_metadata_does_not_log_scoped_hydration_result() {
+    let sha = "a".repeat(64);
+    let spec = pb::Spec {
+        entity: pb::EntityType::EntityDynamicConfig as i32,
+        default_value: Some(raw_return_value(
+            serde_json::to_vec(&format!("{DOWNLOAD_PATH_PREFIX}{sha}")).unwrap(),
+        )),
+        remote_config_metadata: Some(protobuf_metadata(sha, 1)),
+        ..Default::default()
+    };
+    let mut malformed_spec = spec.encode_to_vec();
+    // Field 1 is salt: valid protobuf framing, but invalid UTF-8 in an unrelated field.
+    malformed_spec.extend_from_slice(&[0x0a, 0x01, 0xff]);
+    assert!(protobuf_spec_has_remote_metadata(&malformed_spec).unwrap());
+    assert!(pb::Spec::decode(malformed_spec.as_slice()).is_err());
+    let bytes = serialize_protobuf_envelopes(&[
+        protobuf_top_level_envelope(Some(true)),
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
+            name: "malformed_config".to_string(),
+            checksum: "1".to_string(),
+            data: Some(malformed_spec),
+        },
+        protobuf_done_envelope(),
+    ])
+    .unwrap();
+    let source_url = "https://statsigcdn.openai.com/v2/download_config_specs/key.json";
+
+    for integrated in [false, true] {
+        let (hydrator, mut events) = observed_hydrator();
+        let mut data = protobuf_response_data(bytes.clone());
+        let result = if integrated {
+            hydrate_protobuf_for_store(&hydrator, &mut data, source_url).await
+        } else {
+            hydrator.hydrate_response(&mut data, source_url).await
+        };
+
+        assert!(matches!(
+            result,
+            Err(StatsigErr::ProtobufParseError(tag, _)) if tag == "proto::RemoteConfigMetadata"
+        ));
+        assert_hydration_results(&mut events, &[]);
+    }
+}
+
+#[tokio::test]
+async fn protobuf_parser_error_is_aborted_only_after_remote_metadata_discovery() {
+    let server = MockServer::start().await;
+    let body = br#"{"large":"value"}"#;
+    let sha = lowercase_hex(&Sha256::digest(body));
+    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+    Mock::given(method("GET"))
+        .and(path(download_path.clone()))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("content-type", "application/json")
+                .set_body_bytes(body),
+        )
+        .mount(&server)
+        .await;
+
+    for remote in [false, true] {
+        let spec = pb::Spec {
+            entity: pb::EntityType::EntityDynamicConfig as i32,
+            default_value: Some(raw_return_value(if remote {
+                serde_json::to_vec(&download_path).unwrap()
+            } else {
+                b"{}".to_vec()
+            })),
+            remote_config_metadata: remote.then(|| protobuf_metadata(sha.clone(), body.len())),
+            ..Default::default()
+        };
+        let bytes = serialize_protobuf_envelopes(&[
+            protobuf_top_level_envelope(Some(remote)),
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
+                name: "first_config".to_string(),
+                checksum: "1".to_string(),
+                data: Some(spec.encode_to_vec()),
+            },
+            pb::SpecsEnvelope {
+                kind: pb::SpecsEnvelopeKind::Unknown as i32,
+                ..Default::default()
+            },
+            protobuf_done_envelope(),
+        ])
+        .unwrap();
+        let (hydrator, mut events) = observed_hydrator();
+        let mut data = protobuf_response_data(bytes);
+        let source_url = format!("{}/v2/download_config_specs/key.json", server.uri());
+
+        let result = hydrate_protobuf_for_store(&hydrator, &mut data, &source_url).await;
+
+        assert!(matches!(
+            result,
+            Err(StatsigErr::ProtobufParseError(tag, message))
+                if tag == "proto::SpecsEnvelope" && message == "Unknown envelope kind"
+        ));
+        let expected = if remote {
+            vec![("aborted", "response_processing_failed")]
+        } else {
+            vec![]
+        };
+        assert_hydration_results(&mut events, &expected);
+    }
 }
 
 #[tokio::test]
@@ -1837,7 +2121,7 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
         pb::SpecsEnvelope {
             kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
             name: "large_config".to_string(),
-            checksum: "config-checksum".to_string(),
+            checksum: "11".to_string(),
             data: Some(
                 pb::Spec {
                     salt: "salt".to_string(),
@@ -1853,7 +2137,7 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
         pb::SpecsEnvelope {
             kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
             name: "second_config".to_string(),
-            checksum: "second-config-checksum".to_string(),
+            checksum: "17".to_string(),
             data: Some(
                 pb::Spec {
                     salt: "second-salt".to_string(),
@@ -1871,7 +2155,7 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
     .unwrap();
     let compressed_len = bytes.len();
     let (mut data, bytes_read) = counting_protobuf_response_data(bytes);
-    let hydrator = test_hydrator("single-pass-store-parser");
+    let (hydrator, mut events) = observed_hydrator();
     let current_specs = SpecsResponseFull::default();
     let mut next_specs = SpecsResponseFull::default();
 
@@ -1894,7 +2178,15 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
     .await
     .unwrap();
 
-    assert_eq!(update, ProtobufUpdate::Materialized { is_delta: false });
+    let expected_checksums = SpecsFieldChecksums::from_specs(&next_specs);
+    assert_ne!(expected_checksums, SpecsFieldChecksums::default());
+    assert_eq!(
+        update,
+        ProtobufUpdate::Materialized {
+            is_delta: false,
+            field_checksums: expected_checksums,
+        }
+    );
     assert!(data.get_prepared_protobuf_stream().is_none());
     assert!(
         bytes_read.load(Ordering::SeqCst) <= compressed_len,
@@ -1909,6 +2201,7 @@ async fn store_parser_hydrates_protobuf_once_and_reuses_values_within_update() {
         next_json["dynamic_configs"]["second_config"]["defaultValue"]["large"],
         serde_json::json!("single-pass")
     );
+    assert_hydration_results(&mut events, &[("success", "none")]);
 }
 
 #[tokio::test]
@@ -1968,7 +2261,13 @@ async fn store_parser_reuses_non_remote_dynamic_configs_with_or_without_sidecar_
             .await
             .unwrap();
 
-        assert_eq!(update, ProtobufUpdate::Materialized { is_delta: false });
+        assert!(matches!(
+            update,
+            ProtobufUpdate::Materialized {
+                is_delta: false,
+                ..
+            }
+        ));
         assert_eq!(stats.total, 1);
         assert_eq!(stats.mmap, 0);
         assert!(hydrated_data_store_bytes.is_none());
@@ -1977,7 +2276,7 @@ async fn store_parser_reuses_non_remote_dynamic_configs_with_or_without_sidecar_
 
 #[tokio::test]
 async fn store_parser_rejects_true_marker_without_remote_metadata() {
-    let hydrator = test_hydrator("store-marker-without-metadata");
+    let (hydrator, mut events) = observed_hydrator();
     let current_specs = SpecsResponseFull::default();
 
     for (is_delta, capture_sidecar) in [(false, false), (true, true)] {
@@ -2016,6 +2315,7 @@ async fn store_parser_rejects_true_marker_without_remote_metadata() {
             "protobuf source was read more than once"
         );
     }
+    assert_hydration_results(&mut events, &[]);
 }
 
 #[tokio::test]
@@ -2641,7 +2941,13 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
     .expect("distinct config downloads should share the bounded fanout")
     .unwrap();
 
-    assert_eq!(update, ProtobufUpdate::Materialized { is_delta: false });
+    assert!(matches!(
+        update,
+        ProtobufUpdate::Materialized {
+            is_delta: false,
+            ..
+        }
+    ));
     let next_json = serde_json::to_value(&next_specs).unwrap();
     assert_eq!(
         next_json["dynamic_configs"]["first_config"]["defaultValue"]["large"],
@@ -2683,6 +2989,132 @@ async fn store_parser_downloads_remote_values_across_envelopes_concurrently() {
             .unwrap()
             .expect("sidecar should retain the dynamic config envelope");
         assert!(hydrated_spec.remote_config_metadata.is_none());
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn store_parser_flushes_remote_configs_before_checksums_and_deletions() {
+    let server = MockServer::start().await;
+    let body = br#"{"large":"control-barriers"}"#;
+    let sha = lowercase_hex(&Sha256::digest(body));
+    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+    mount_json_blob(&server, &download_path, body, 1).await;
+
+    let remote_config = |name: &str, checksum: &str| pb::SpecsEnvelope {
+        kind: pb::SpecsEnvelopeKind::DynamicConfig as i32,
+        name: name.to_string(),
+        checksum: checksum.to_string(),
+        data: Some(
+            pb::Spec {
+                salt: format!("{name}-salt"),
+                enabled: true,
+                entity: pb::EntityType::EntityDynamicConfig as i32,
+                default_value: Some(raw_return_value(
+                    serde_json::to_vec(&format!("{}{download_path}", server.uri())).unwrap(),
+                )),
+                remote_config_metadata: Some(protobuf_metadata(sha.clone(), body.len())),
+                ..Default::default()
+            }
+            .encode_to_vec(),
+        ),
+    };
+    let checksums = pb::SpecsEnvelope {
+        kind: pb::SpecsEnvelopeKind::Checksums as i32,
+        data: Some(
+            pb::RulesetsChecksums {
+                field_checksums: HashMap::from([
+                    ("dynamic_configs".to_string(), 11),
+                    ("feature_gates".to_string(), 0),
+                    ("layer_configs".to_string(), 0),
+                    ("condition_map".to_string(), 0),
+                    ("param_stores".to_string(), 0),
+                ]),
+            }
+            .encode_to_vec(),
+        ),
+        ..Default::default()
+    };
+    let envelopes = [
+        protobuf_top_level_envelope(Some(true)),
+        remote_config("kept_config", "11"),
+        // This checksum must include the preceding queued config.
+        checksums.clone(),
+        remote_config("deleted_config", "17"),
+        // This deletion must run after the second config is published.
+        pb::SpecsEnvelope {
+            kind: pb::SpecsEnvelopeKind::Deletions as i32,
+            data: Some(
+                pb::RulesetsResponseDeletions {
+                    dynamic_configs: vec!["deleted_config".to_string()],
+                    ..Default::default()
+                }
+                .encode_to_vec(),
+            ),
+            ..Default::default()
+        },
+        checksums,
+        protobuf_done_envelope(),
+    ];
+    let mut data = protobuf_response_data(serialize_protobuf_envelopes(&envelopes).unwrap());
+    let hydrator = test_hydrator("control-barriers-store-parser");
+    let current_specs = SpecsResponseFull::default();
+    let mut next_specs = SpecsResponseFull::default();
+
+    let (update, decode_stats, hydrated_data_store_bytes) =
+        deserialize_protobuf_for_store_with_hydration(
+            &OpsStatsForInstance::new(),
+            &current_specs,
+            Default::default(),
+            &mut next_specs,
+            &mut data,
+            ProtobufHydrationContext {
+                hydrator: &hydrator,
+                source_url: &format!("{}/v2/download_config_specs/key.json", server.uri()),
+                mmap_project_id: MmapProjectId::for_sdk_key("control-barriers-store-parser"),
+                capture_hydrated_data_store_bytes: true,
+                preserve_session_update_mode: false,
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(next_specs.dynamic_configs.len(), 1);
+    let next_json = serde_json::to_value(&next_specs).unwrap();
+    assert_eq!(
+        next_json["dynamic_configs"]["kept_config"]["defaultValue"]["large"],
+        serde_json::json!("control-barriers")
+    );
+    assert!(next_json["dynamic_configs"].get("deleted_config").is_none());
+    assert_eq!(
+        update,
+        ProtobufUpdate::Materialized {
+            is_delta: false,
+            field_checksums: SpecsFieldChecksums::from_specs(&next_specs),
+        }
+    );
+    assert_eq!(decode_stats.total, 1);
+    assert_eq!(decode_stats.mmap, 0);
+
+    let mut sidecar_data = protobuf_response_data(hydrated_data_store_bytes.unwrap());
+    let sidecar_envelopes = parse_protobuf_envelopes(&mut sidecar_data).unwrap();
+    assert_eq!(
+        sidecar_envelopes
+            .iter()
+            .map(|envelope| (envelope.kind, envelope.name.as_str()))
+            .collect::<Vec<_>>(),
+        envelopes
+            .iter()
+            .map(|envelope| (envelope.kind, envelope.name.as_str()))
+            .collect::<Vec<_>>()
+    );
+    for index in [2, 4, 5, 6] {
+        assert_eq!(sidecar_envelopes[index], envelopes[index]);
+    }
+    for index in [1, 3] {
+        let spec = pb::Spec::decode(sidecar_envelopes[index].data.as_deref().unwrap()).unwrap();
+        assert!(spec.remote_config_metadata.is_none());
+        assert_eq!(raw_return_value_bytes(&spec.default_value), body.as_slice());
     }
 }
 
@@ -2779,7 +3211,13 @@ async fn store_parser_keeps_download_window_full_behind_slow_blob() {
 
     let (result, ()) = tokio::join!(parse, final_request_started);
     let (update, _, _) = result.unwrap();
-    assert_eq!(update, ProtobufUpdate::Materialized { is_delta: false });
+    assert!(matches!(
+        update,
+        ProtobufUpdate::Materialized {
+            is_delta: false,
+            ..
+        }
+    ));
     let next_json = serde_json::to_value(&next_specs).unwrap();
     assert_eq!(
         next_json["dynamic_configs"][format!("window_config_{DOWNLOAD_CONCURRENCY}")]["defaultValue"]
@@ -2920,6 +3358,76 @@ async fn preserves_unrelated_protobuf_envelope_wire_bytes_during_hydration() {
         .find(|frame| decode_protobuf_envelope(frame).unwrap().name == "unrelated")
         .unwrap();
     assert_eq!(hydrated_unrelated_frame, &unrelated_frame);
+}
+
+fn observed_hydrator() -> (
+    RemoteConfigValueHydrator,
+    tokio::sync::broadcast::Receiver<OpsStatsEvent>,
+) {
+    let ops_stats = Arc::new(OpsStatsForInstance::new());
+    let events = ops_stats.subscribe_for_test();
+    let hydrator = RemoteConfigValueHydrator::new_with_ops_stats(
+        Arc::new(NetworkClient::new("secret-key", None, None)),
+        ops_stats,
+    );
+    (hydrator, events)
+}
+
+async fn hydrate_protobuf_for_store(
+    hydrator: &RemoteConfigValueHydrator,
+    data: &mut ResponseData,
+    source_url: &str,
+) -> Result<(), StatsigErr> {
+    let current_specs = SpecsResponseFull::default();
+    let mut next_specs = SpecsResponseFull::default();
+    let ops_stats = OpsStatsForInstance::new();
+    deserialize_protobuf_for_store_with_hydration(
+        &ops_stats,
+        &current_specs,
+        Default::default(),
+        &mut next_specs,
+        data,
+        ProtobufHydrationContext {
+            hydrator,
+            source_url,
+            mmap_project_id: MmapProjectId::for_sdk_key("hydration-result-metrics"),
+            capture_hydrated_data_store_bytes: false,
+            preserve_session_update_mode: false,
+        },
+    )
+    .await
+    .map(|_| ())
+}
+
+fn assert_hydration_results(
+    events: &mut tokio::sync::broadcast::Receiver<OpsStatsEvent>,
+    expected: &[(&str, &str)],
+) {
+    let mut results = Vec::new();
+    loop {
+        match events.try_recv() {
+            Ok(OpsStatsEvent::Observability(event))
+                if event.metric_name == "remote_config_hydration.result" =>
+            {
+                assert!(matches!(event.metric_type, MetricType::Increment));
+                assert_eq!(event.value, 1.0);
+                results.push(event.tags.unwrap_or_default());
+            }
+            Ok(_) => {}
+            Err(tokio::sync::broadcast::error::TryRecvError::Empty) => break,
+            Err(error) => panic!("hydration metric subscription failed: {error}"),
+        }
+    }
+    let expected = expected
+        .iter()
+        .map(|(outcome, reason)| {
+            HashMap::from([
+                ("outcome".to_string(), outcome.to_string()),
+                ("failure_reason".to_string(), reason.to_string()),
+            ])
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(results, expected);
 }
 
 fn test_hydrator(instance_id: &str) -> RemoteConfigValueHydrator {

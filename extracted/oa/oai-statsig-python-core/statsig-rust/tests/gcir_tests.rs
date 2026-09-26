@@ -14,8 +14,8 @@ use lazy_static::lazy_static;
 use serde_json::{Value, json};
 use statsig_rust::{
     ClientInitResponseOptions, EvaluationFixtureClient, EvaluationOperation, EvaluationResult,
-    HashAlgorithm, InitializeEvaluationResult, Statsig, StatsigOptions, StatsigUser,
-    StatsigUserBuilder,
+    FeatureGateEvaluationOptions, HashAlgorithm, InitializeEvaluationResult, Statsig,
+    StatsigOptions, StatsigUser, StatsigUserBuilder,
 };
 
 lazy_static! {
@@ -576,7 +576,7 @@ async fn test_experiment_group_gate_gcir_does_not_log_non_exposed_check() {
 }
 
 #[tokio::test]
-async fn test_experiment_group_gate_preserves_nested_experiment_exposure() {
+async fn test_experiment_group_targeting_does_not_expose_experiment() {
     let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
     let mut options = StatsigOptions::new();
     options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(
@@ -594,21 +594,69 @@ async fn test_experiment_group_gate_preserves_nested_experiment_exposure() {
         logging_adapter
             .no_diagnostics_logged_event_count
             .load(Ordering::SeqCst),
-        2
+        1
     );
-    let nested_experiment_exposure = logging_adapter.force_get_event_at(0);
+    let gate_exposure = logging_adapter.force_get_event_at(0);
+    assert_eq!(gate_exposure["eventName"], "statsig::gate_exposure");
     assert_eq!(
-        nested_experiment_exposure["eventName"],
-        "statsig::config_exposure"
+        gate_exposure["metadata"]["gate"],
+        "gate_targeted_by_experiment_group"
     );
-    assert_eq!(
-        nested_experiment_exposure["metadata"]["config"],
-        "experiment_group_source"
-    );
-    assert_eq!(
-        logging_adapter.force_get_event_at(1)["eventName"],
-        "statsig::gate_exposure"
-    );
+}
+
+#[tokio::test]
+async fn test_experiment_group_targeting_preserves_later_direct_exposure() {
+    for disable_exposure_logging in [false, true] {
+        let logging_adapter = Arc::new(MockEventLoggingAdapter::new());
+        let statsig = Statsig::new(
+            "secret-key",
+            Some(Arc::new(StatsigOptions {
+                specs_adapter: Some(Arc::new(MockSpecsAdapter::with_json_data(
+                    eval_proj_dcs_with_experiment_group_gate(),
+                ))),
+                event_logging_adapter: Some(logging_adapter.clone()),
+                ..StatsigOptions::default()
+            })),
+        );
+        statsig.initialize().await.unwrap();
+
+        assert!(
+            statsig
+                .get_feature_gate_with_options(
+                    &USER,
+                    "gate_targeted_by_experiment_group",
+                    FeatureGateEvaluationOptions {
+                        disable_exposure_logging
+                    },
+                )
+                .value
+        );
+        let experiment = statsig.get_experiment(&USER, "experiment_group_source");
+        assert_eq!(experiment.group_name.as_deref(), Some("Treatment"));
+
+        statsig.shutdown().await.unwrap();
+        let expected_count = if disable_exposure_logging { 1 } else { 2 };
+        let payloads = logging_adapter.logged_payloads.lock().unwrap();
+        let exposures: Vec<_> = payloads
+            .iter()
+            .flat_map(|payload| payload.events.as_array().unwrap())
+            .filter(|event| {
+                event["eventName"]
+                    .as_str()
+                    .is_some_and(|name| name.ends_with("_exposure"))
+            })
+            .collect();
+        assert_eq!(exposures.len(), expected_count);
+        let experiment_exposure = exposures[expected_count - 1];
+        assert_eq!(experiment_exposure["eventName"], "statsig::config_exposure");
+        assert_eq!(
+            experiment_exposure["metadata"]["config"],
+            "experiment_group_source"
+        );
+        if !disable_exposure_logging {
+            assert_eq!(exposures[0]["eventName"], "statsig::gate_exposure");
+        }
+    }
 }
 
 #[tokio::test]

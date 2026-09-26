@@ -8,7 +8,7 @@ from fable_library.util import to_iterator
 from .array_ import Array
 from .bases import EnumerableBase
 from .core import FSharpRef, int32
-from .map_util import get_item_from_dict, make_dict, try_get_value
+from .map_util import get_item_from_dict, make_dict, remove_from_dict, try_get_value
 from .option import erase
 from .protocols import ICollection, IEnumerable_1, IEnumerator, IEqualityComparer_1
 from .reflection import TypeInfo, class_type
@@ -325,7 +325,11 @@ def Dictionary__Remove_2B595[KEY, VALUE](this: Dictionary[KEY, VALUE], k: KEY) -
     match_value: tuple[bool, int, int] = Dictionary__TryFindIndex_2B595(this, k)
     match match_value:
         case [True, _, i_0] if i_0 > -1:
-            get_item_from_dict(this.hash_map, match_value[1]).pop(match_value[2])
+            h_1: int = match_value[1]
+            get_item_from_dict(this.hash_map, h_1).pop(match_value[2])
+            if len(get_item_from_dict(this.hash_map, h_1)) == 0:
+                ignore(remove_from_dict(this.hash_map, h_1))
+
             return True
 
         case _:

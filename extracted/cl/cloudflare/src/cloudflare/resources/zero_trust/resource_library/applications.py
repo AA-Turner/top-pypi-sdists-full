@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import Type, Optional, cast
+from typing_extensions import overload
 
 import httpx
 
 from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ...._utils import path_template, maybe_transform, async_maybe_transform
+from ...._utils import path_template, required_args, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -52,15 +53,16 @@ class ApplicationsResource(SyncAPIResource):
         """
         return ApplicationsResourceWithStreamingResponse(self)
 
+    @overload
     def create(
         self,
         *,
         account_id: str,
-        category_id: int,
-        human_id: str,
-        name: str,
-        hostnames: SequenceNotStr[str] | Omit = omit,
+        hostnames: SequenceNotStr[str],
+        category_id: int | Omit = omit,
+        human_id: str | Omit = omit,
         ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
         port_protocols: SequenceNotStr[str] | Omit = omit,
         support_domains: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -74,15 +76,17 @@ class ApplicationsResource(SyncAPIResource):
         Create a custom application for an account.
 
         Args:
+          hostnames: Hostnames matched by the application.
+
           category_id: Returns the category ID.
 
           human_id: Returns the human readable ID.
 
+          ip_subnets: IP subnets for this application. Custom application create and update requests
+              accept IPv4 prefix lengths /8 through /32 and IPv6 prefix lengths /32 through
+              /128.
+
           name: Returns the application name.
-
-          hostnames: Hostnames matched by the application.
-
-          ip_subnets: IP subnets matched by the application.
 
           port_protocols: Port and protocol pairs matched by the application.
 
@@ -96,17 +100,87 @@ class ApplicationsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        ...
+
+    @overload
+    def create(
+        self,
+        *,
+        account_id: str,
+        ip_subnets: SequenceNotStr[str],
+        category_id: int | Omit = omit,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        human_id: str | Omit = omit,
+        name: str | Omit = omit,
+        port_protocols: SequenceNotStr[str] | Omit = omit,
+        support_domains: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[ApplicationCreateResponse]:
+        """
+        Create a custom application for an account.
+
+        Args:
+          ip_subnets: IP subnets for this application. Custom application create and update requests
+              accept IPv4 prefix lengths /8 through /32 and IPv6 prefix lengths /32 through
+              /128.
+
+          category_id: Returns the category ID.
+
+          hostnames: Hostnames matched by the application.
+
+          human_id: Returns the human readable ID.
+
+          name: Returns the application name.
+
+          port_protocols: Port and protocol pairs matched by the application.
+
+          support_domains: Support domains matched by the application.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        ...
+
+    @required_args(["account_id", "hostnames"], ["account_id", "ip_subnets"])
+    def create(
+        self,
+        *,
+        account_id: str,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        category_id: int | Omit = omit,
+        human_id: str | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
+        port_protocols: SequenceNotStr[str] | Omit = omit,
+        support_domains: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[ApplicationCreateResponse]:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
             path_template("/accounts/{account_id}/resource-library/applications", account_id=account_id),
             body=maybe_transform(
                 {
+                    "hostnames": hostnames,
                     "category_id": category_id,
                     "human_id": human_id,
-                    "name": name,
-                    "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
+                    "name": name,
                     "port_protocols": port_protocols,
                     "support_domains": support_domains,
                 },
@@ -146,7 +220,9 @@ class ApplicationsResource(SyncAPIResource):
 
           hostnames: Hostnames matched by the application.
 
-          ip_subnets: IP subnets matched by the application.
+          ip_subnets: IP subnets for this application. Custom application create and update requests
+              accept IPv4 prefix lengths /8 through /32 and IPv6 prefix lengths /32 through
+              /128.
 
           port_protocols: Port and protocol pairs matched by the application.
 
@@ -394,15 +470,16 @@ class AsyncApplicationsResource(AsyncAPIResource):
         """
         return AsyncApplicationsResourceWithStreamingResponse(self)
 
+    @overload
     async def create(
         self,
         *,
         account_id: str,
-        category_id: int,
-        human_id: str,
-        name: str,
-        hostnames: SequenceNotStr[str] | Omit = omit,
+        hostnames: SequenceNotStr[str],
+        category_id: int | Omit = omit,
+        human_id: str | Omit = omit,
         ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
         port_protocols: SequenceNotStr[str] | Omit = omit,
         support_domains: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -416,15 +493,17 @@ class AsyncApplicationsResource(AsyncAPIResource):
         Create a custom application for an account.
 
         Args:
+          hostnames: Hostnames matched by the application.
+
           category_id: Returns the category ID.
 
           human_id: Returns the human readable ID.
 
+          ip_subnets: IP subnets for this application. Custom application create and update requests
+              accept IPv4 prefix lengths /8 through /32 and IPv6 prefix lengths /32 through
+              /128.
+
           name: Returns the application name.
-
-          hostnames: Hostnames matched by the application.
-
-          ip_subnets: IP subnets matched by the application.
 
           port_protocols: Port and protocol pairs matched by the application.
 
@@ -438,17 +517,87 @@ class AsyncApplicationsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        ...
+
+    @overload
+    async def create(
+        self,
+        *,
+        account_id: str,
+        ip_subnets: SequenceNotStr[str],
+        category_id: int | Omit = omit,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        human_id: str | Omit = omit,
+        name: str | Omit = omit,
+        port_protocols: SequenceNotStr[str] | Omit = omit,
+        support_domains: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[ApplicationCreateResponse]:
+        """
+        Create a custom application for an account.
+
+        Args:
+          ip_subnets: IP subnets for this application. Custom application create and update requests
+              accept IPv4 prefix lengths /8 through /32 and IPv6 prefix lengths /32 through
+              /128.
+
+          category_id: Returns the category ID.
+
+          hostnames: Hostnames matched by the application.
+
+          human_id: Returns the human readable ID.
+
+          name: Returns the application name.
+
+          port_protocols: Port and protocol pairs matched by the application.
+
+          support_domains: Support domains matched by the application.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        ...
+
+    @required_args(["account_id", "hostnames"], ["account_id", "ip_subnets"])
+    async def create(
+        self,
+        *,
+        account_id: str,
+        hostnames: SequenceNotStr[str] | Omit = omit,
+        category_id: int | Omit = omit,
+        human_id: str | Omit = omit,
+        ip_subnets: SequenceNotStr[str] | Omit = omit,
+        name: str | Omit = omit,
+        port_protocols: SequenceNotStr[str] | Omit = omit,
+        support_domains: SequenceNotStr[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Optional[ApplicationCreateResponse]:
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
             path_template("/accounts/{account_id}/resource-library/applications", account_id=account_id),
             body=await async_maybe_transform(
                 {
+                    "hostnames": hostnames,
                     "category_id": category_id,
                     "human_id": human_id,
-                    "name": name,
-                    "hostnames": hostnames,
                     "ip_subnets": ip_subnets,
+                    "name": name,
                     "port_protocols": port_protocols,
                     "support_domains": support_domains,
                 },
@@ -488,7 +637,9 @@ class AsyncApplicationsResource(AsyncAPIResource):
 
           hostnames: Hostnames matched by the application.
 
-          ip_subnets: IP subnets matched by the application.
+          ip_subnets: IP subnets for this application. Custom application create and update requests
+              accept IPv4 prefix lengths /8 through /32 and IPv6 prefix lengths /32 through
+              /128.
 
           port_protocols: Port and protocol pairs matched by the application.
 

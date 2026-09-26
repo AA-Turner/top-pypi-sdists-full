@@ -5,6 +5,7 @@ import pytest
 
 from statsig_python_core import (
     DataStore,
+    DataStoreBase,
     StatsigOptions,
     StatsigUser,
     Statsig,
@@ -156,6 +157,16 @@ class MockBytesDataStore(DataStore):
             print(message)
 
 
+class ReadOnlyBytesDataStore(MockBytesDataStore):
+    def is_read_only(self) -> bool:
+        return True
+
+
+class FailingReadOnlyBytesDataStore(MockBytesDataStore):
+    def is_read_only(self) -> bool:
+        raise RuntimeError("Unable to determine datastore role")
+
+
 @pytest.fixture
 def statsig_setup(httpserver: HTTPServer):
     data_store = MockDataStore(test_param="test_param")
@@ -181,8 +192,17 @@ def statsig_setup(httpserver: HTTPServer):
 
 
 @pytest.fixture
-def statsig_bytes_setup(httpserver: HTTPServer):
-    data_store = MockBytesDataStore(test_param="test_param")
+def statsig_bytes_setup(httpserver: HTTPServer, request):
+    mode = getattr(request, "param", "writable")
+    store_type = {
+        "writable": MockBytesDataStore,
+        "legacy": MockBytesDataStore,
+        "read_only": ReadOnlyBytesDataStore,
+        "error": FailingReadOnlyBytesDataStore,
+    }[mode]
+    data_store = store_type(test_param="test_param")
+    if mode == "legacy":
+        del data_store.is_read_only_fn
 
     httpserver.expect_request(
         "/v2/download_config_specs"
@@ -252,6 +272,7 @@ def test_data_store_usage_set(statsig_setup):
     assert json.loads(data_store.content_set) == updated_dcs_json_data
 
 
+@pytest.mark.parametrize("statsig_bytes_setup", ["writable", "legacy"], indirect=True)
 def test_data_store_usage_get_bytes(statsig_bytes_setup):
     statsig, data_store, user = statsig_bytes_setup
     statsig.initialize().wait()
@@ -273,6 +294,34 @@ def test_data_store_usage_get_bytes(statsig_bytes_setup):
     assert data_store.get_bytes_called_count >= 1
     assert data_store.get_called_count == 0
     assert data_store.set_bytes_called_count > 0
+
+
+@pytest.mark.parametrize("statsig_bytes_setup", ["read_only", "error"], indirect=True)
+def test_read_only_data_store_retains_bootstrap_and_network_updates(statsig_bytes_setup):
+    statsig, data_store, user = statsig_bytes_setup
+    statsig.initialize().wait()
+
+    gate = statsig.get_feature_gate(user, "test_public")
+    assert gate.value is True
+    assert gate.details.lcut == known_lcut
+    assert gate.details.reason == "Adapter(DataStore):Recognized"
+    assert data_store.get_bytes_called_count > 0
+
+    for _ in range(100):
+        gate = statsig.get_feature_gate(user, "test_public")
+        if gate.details.lcut == known_lcut + 10:
+            break
+        sleep(0.05)
+
+    assert gate.value is True
+    assert gate.details.lcut == known_lcut + 10
+    assert data_store.set_bytes_called_count == 0
+    assert data_store.set_called_count == 0
+
+
+def test_data_store_is_writable_by_default():
+    assert DataStoreBase().is_read_only() is False
+    assert DataStore().is_read_only() is False
 
 
 def test_data_store_usage_get_bytes_request_has_since_time_after_initial_poll(statsig_bytes_setup):

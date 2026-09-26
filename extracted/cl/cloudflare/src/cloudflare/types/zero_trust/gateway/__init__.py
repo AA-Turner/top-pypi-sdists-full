@@ -29,6 +29,7 @@ from .gateway_settings import GatewaySettings as GatewaySettings
 from .ip_network_param import IPNetworkParam as IPNetworkParam
 from .list_edit_params import ListEditParams as ListEditParams
 from .list_list_params import ListListParams as ListListParams
+from .rule_list_params import RuleListParams as RuleListParams
 from .doh_endpoint_param import DOHEndpointParam as DOHEndpointParam
 from .dot_endpoint_param import DOTEndpointParam as DOTEndpointParam
 from .ipv6_network_param import IPV6NetworkParam as IPV6NetworkParam
@@ -44,7 +45,9 @@ from .block_page_settings import BlockPageSettings as BlockPageSettings
 from .fips_settings_param import FipsSettingsParam as FipsSettingsParam
 from .ipv4_endpoint_param import IPV4EndpointParam as IPV4EndpointParam
 from .ipv6_endpoint_param import IPV6EndpointParam as IPV6EndpointParam
+from .pacfile_list_params import PacfileListParams as PacfileListParams
 from .list_create_response import ListCreateResponse as ListCreateResponse
+from .location_list_params import LocationListParams as LocationListParams
 from .pacfile_get_response import PacfileGetResponse as PacfileGetResponse
 from .activity_log_settings import ActivityLogSettings as ActivityLogSettings
 from .logging_update_params import LoggingUpdateParams as LoggingUpdateParams
@@ -70,8 +73,8 @@ from .configuration_edit_params import ConfigurationEditParams as ConfigurationE
 from .browser_isolation_settings import BrowserIsolationSettings as BrowserIsolationSettings
 from .configuration_get_response import ConfigurationGetResponse as ConfigurationGetResponse
 from .proxy_endpoint_edit_params import ProxyEndpointEditParams as ProxyEndpointEditParams
+from .proxy_endpoint_list_params import ProxyEndpointListParams as ProxyEndpointListParams
 from .activity_log_settings_param import ActivityLogSettingsParam as ActivityLogSettingsParam
-from .certificate_activate_params import CertificateActivateParams as CertificateActivateParams
 from .certificate_create_response import CertificateCreateResponse as CertificateCreateResponse
 from .certificate_delete_response import CertificateDeleteResponse as CertificateDeleteResponse
 from .configuration_edit_response import ConfigurationEditResponse as ConfigurationEditResponse
@@ -81,7 +84,6 @@ from .notification_settings_param import NotificationSettingsParam as Notificati
 from .body_scanning_settings_param import BodyScanningSettingsParam as BodyScanningSettingsParam
 from .proxy_endpoint_create_params import ProxyEndpointCreateParams as ProxyEndpointCreateParams
 from .certificate_activate_response import CertificateActivateResponse as CertificateActivateResponse
-from .certificate_deactivate_params import CertificateDeactivateParams as CertificateDeactivateParams
 from .configuration_update_response import ConfigurationUpdateResponse as ConfigurationUpdateResponse
 from .extended_email_matching_param import ExtendedEmailMatchingParam as ExtendedEmailMatchingParam
 from .dns_resolver_settings_v4_param import DNSResolverSettingsV4Param as DNSResolverSettingsV4Param

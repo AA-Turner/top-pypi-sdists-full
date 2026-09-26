@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiooui"
-version = "0.1.9"
+version = "0.1.11"
 description = "Async OUI lookups"
 authors = ["J. Nick Koston <nick@koston.org>"]
 license = "MIT"
@@ -22,20 +22,26 @@ packages = [
 "Changelog" = "https://github.com/bluetooth-devices/aiooui/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=7,<9"
-pytest-cov = ">=3,<7"
-pytest-asyncio = "^0.23.5"
+pytest = ">=7,<10"
+pytest-cov = ">=3,<8"
+pytest-asyncio = ">=0.23.5,<1.5.0"
 requests = "^2.31.0"
+pytest-codspeed = ">=5.0.3"
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:tool.poetry.version"]
 version_variables = [
     "src/aiooui/__init__.py:__version__",
 ]
-build_command = "pip install poetry && poetry build"
+# The release build downloads a fresh IEEE list before packaging. The package is
+# pure Python, so poetry must not run a build script (that would tag the wheel
+# with the platform, which PyPI rejects for a plain linux build).
+build_command = "pip install poetry requests aiohttp && python build_oui.py && poetry build"
+# semantic-release runs build_command with only this environment.
+build_command_env = ["AIOOUI_REQUIRE_REGENERATE=true"]
 
 [tool.semantic_release.changelog]
 exclude_commit_patterns = [
@@ -128,9 +134,5 @@ module = "tests.*"
 allow_untyped_defs = true
 
 [build-system]
-requires = ["setuptools>=65.4.1", "wheel", "poetry-core>=1.0.0", 'requests', 'aiohttp']
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.build]
-generate-setup-file = true
-script = "build_oui.py"

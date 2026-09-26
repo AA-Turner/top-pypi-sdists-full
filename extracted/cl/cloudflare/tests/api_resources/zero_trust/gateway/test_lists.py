@@ -163,6 +163,10 @@ class TestLists:
     def test_method_list_with_all_params(self, client: Cloudflare) -> None:
         list_ = client.zero_trust.gateway.lists.list(
             account_id="699d98642c564d2e855e9661899b7252",
+            direction="asc",
+            filter=["string"],
+            order_by="name",
+            search="search",
             type="SERIAL",
         )
         assert_matches_type(SyncSinglePage[GatewayList], list_, path=["response"])
@@ -505,6 +509,10 @@ class TestAsyncLists:
     async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
         list_ = await async_client.zero_trust.gateway.lists.list(
             account_id="699d98642c564d2e855e9661899b7252",
+            direction="asc",
+            filter=["string"],
+            order_by="name",
+            search="search",
             type="SERIAL",
         )
         assert_matches_type(AsyncSinglePage[GatewayList], list_, path=["response"])

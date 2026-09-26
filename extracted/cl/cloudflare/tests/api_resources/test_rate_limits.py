@@ -8,12 +8,6 @@ from typing import Any, cast
 import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
-from tests.utils import assert_matches_type
-from cloudflare.pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
-from cloudflare.types.rate_limits import (
-    RateLimit,
-    RateLimitDeleteResponse,
-)
 
 # pyright: reportDeprecated=false
 
@@ -35,7 +29,7 @@ class TestRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -70,7 +64,7 @@ class TestRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -87,7 +81,7 @@ class TestRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = response.parse()
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -104,7 +98,7 @@ class TestRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = response.parse()
-                assert_matches_type(RateLimit, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -128,7 +122,7 @@ class TestRateLimits:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(SyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_method_list_with_all_params(self, client: Cloudflare) -> None:
@@ -139,7 +133,7 @@ class TestRateLimits:
                 per_page=1,
             )
 
-        assert_matches_type(SyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
@@ -151,7 +145,7 @@ class TestRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = response.parse()
-        assert_matches_type(SyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_streaming_response_list(self, client: Cloudflare) -> None:
@@ -163,7 +157,7 @@ class TestRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = response.parse()
-                assert_matches_type(SyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -183,7 +177,7 @@ class TestRateLimits:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(RateLimitDeleteResponse, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
@@ -196,7 +190,7 @@ class TestRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = response.parse()
-        assert_matches_type(RateLimitDeleteResponse, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
@@ -209,7 +203,7 @@ class TestRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = response.parse()
-                assert_matches_type(RateLimitDeleteResponse, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -241,7 +235,7 @@ class TestRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -277,7 +271,7 @@ class TestRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -295,7 +289,7 @@ class TestRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = response.parse()
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -313,7 +307,7 @@ class TestRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = response.parse()
-                assert_matches_type(RateLimit, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -349,7 +343,7 @@ class TestRateLimits:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
@@ -362,7 +356,7 @@ class TestRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = response.parse()
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
@@ -375,7 +369,7 @@ class TestRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = response.parse()
-                assert_matches_type(RateLimit, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -412,7 +406,7 @@ class TestAsyncRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -447,7 +441,7 @@ class TestAsyncRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -464,7 +458,7 @@ class TestAsyncRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = await response.parse()
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -481,7 +475,7 @@ class TestAsyncRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = await response.parse()
-                assert_matches_type(RateLimit, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -505,7 +499,7 @@ class TestAsyncRateLimits:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(AsyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -516,7 +510,7 @@ class TestAsyncRateLimits:
                 per_page=1,
             )
 
-        assert_matches_type(AsyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -528,7 +522,7 @@ class TestAsyncRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = await response.parse()
-        assert_matches_type(AsyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -540,7 +534,7 @@ class TestAsyncRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = await response.parse()
-                assert_matches_type(AsyncV4PagePaginationArray[RateLimit], rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -560,7 +554,7 @@ class TestAsyncRateLimits:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(RateLimitDeleteResponse, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -573,7 +567,7 @@ class TestAsyncRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = await response.parse()
-        assert_matches_type(RateLimitDeleteResponse, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -586,7 +580,7 @@ class TestAsyncRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = await response.parse()
-                assert_matches_type(RateLimitDeleteResponse, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -618,7 +612,7 @@ class TestAsyncRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -654,7 +648,7 @@ class TestAsyncRateLimits:
                 threshold=60,
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -672,7 +666,7 @@ class TestAsyncRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = await response.parse()
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -690,7 +684,7 @@ class TestAsyncRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = await response.parse()
-                assert_matches_type(RateLimit, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -726,7 +720,7 @@ class TestAsyncRateLimits:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -739,7 +733,7 @@ class TestAsyncRateLimits:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         rate_limit = await response.parse()
-        assert_matches_type(RateLimit, rate_limit, path=["response"])
+        assert rate_limit is None
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -752,7 +746,7 @@ class TestAsyncRateLimits:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 rate_limit = await response.parse()
-                assert_matches_type(RateLimit, rate_limit, path=["response"])
+                assert rate_limit is None
 
         assert cast(Any, response.is_closed) is True
 

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-__lazy_modules__ = {"importlib.machinery", "importlib.util", "subprocess"}
-
-import importlib.abc
-import importlib.machinery
-import importlib.util
 import os
-import subprocess
 import sys
 
 # Import as little as possible, since every usage of Python imports this file.
+# A .pth file loads this module at every interpreter start, so the module level
+# holds only os and sys. Everything else is imported in the function that needs
+# it.
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    import importlib.machinery
+    from pathlib import Path
 
 DIR = os.path.abspath(os.path.dirname(__file__))
 MARKER = "SKBUILD_EDITABLE_SKIP"
@@ -94,6 +96,11 @@ class _SkbuildMultiplexedPath:
         from pathlib import Path
 
         self._paths = [Path(p) for p in paths if os.path.isdir(p)]
+
+    @property
+    def paths(self) -> list[Path]:
+        """The merged directories, in search order (python/importlib_resources#310)."""
+        return list(self._paths)
 
     @property
     def name(self) -> str:
@@ -209,15 +216,21 @@ class _ScikitBuildLoaderWrapper:
     ``rebuild()`` method that runs the same CMake build/install the import-time
     auto-rebuild uses. This lets a user trigger a rebuild explicitly via
     ``module.__loader__.rebuild()`` without enabling ``editable.rebuild``.
+
+    ``paths`` lists the package's search locations (its ``__path__`` entries, in
+    ``__path__`` order), so a package can locate the CMake install tree at
+    runtime; it is empty for a plain module.
     """
 
     def __init__(
         self,
         loader: object,
         finder: ScikitBuildRedirectingFinder | ScikitBuildInplaceFinder,
+        search_paths: list[str] | None = None,
     ) -> None:
         self._skbuild_loader = loader
         self._skbuild_finder = finder
+        self.paths: list[str] = list(search_paths or [])
 
     def __getattr__(self, name: str) -> object:
         return getattr(self._skbuild_loader, name)
@@ -241,11 +254,10 @@ class _ScikitBuildResourceLoaderWrapper(_ScikitBuildLoaderWrapper):
         finder: ScikitBuildRedirectingFinder,
         search_paths: list[str],
     ) -> None:
-        super().__init__(loader, finder)
-        self._skbuild_paths = search_paths
+        super().__init__(loader, finder, search_paths)
 
     def get_resource_reader(self, module_name: str) -> _ScikitBuildEditableReader:
-        return _ScikitBuildEditableReader(self._skbuild_paths)
+        return _ScikitBuildEditableReader(self.paths)
 
 
 class _ScikitBuildNamespaceLoader:
@@ -264,7 +276,7 @@ class _ScikitBuildNamespaceLoader:
     def __init__(
         self, search_paths: list[str], finder: ScikitBuildRedirectingFinder
     ) -> None:
-        self._skbuild_paths = search_paths
+        self.paths: list[str] = list(search_paths)
         self._skbuild_finder = finder
 
     def create_module(self, spec: object) -> object:
@@ -274,7 +286,7 @@ class _ScikitBuildNamespaceLoader:
         return None
 
     def get_resource_reader(self, module_name: str) -> _ScikitBuildEditableReader:
-        return _ScikitBuildEditableReader(self._skbuild_paths)
+        return _ScikitBuildEditableReader(self.paths)
 
     def rebuild(self) -> None:
         self._skbuild_finder.rebuild()
@@ -348,6 +360,8 @@ def _run_editable_rebuild(
             )
         raise RuntimeError(msg)
 
+    import subprocess
+
     env = os.environ.copy()
     # Protect against recursion
     if path in env.get(MARKER, "").split(os.pathsep):
@@ -401,7 +415,10 @@ def _run_editable_rebuild(
         lock.release()
 
 
-class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
+# The finders below are not subclasses of importlib.abc.MetaPathFinder: a meta
+# path finder only has to supply find_spec(), and importlib.abc pulls in typing
+# and more at every interpreter start.
+class ScikitBuildRedirectingFinder:
     def __init__(
         self,
         known_source_files: dict[str, str],
@@ -438,14 +455,18 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
         # covering importable modules and data/resource files alike (so
         # importlib.resources can navigate directories that hold only data).
         # Install-tree paths are relative and joined with this file's directory;
-        # source-tree paths are already absolute.
-        submodule_search_locations: dict[str, set[str]] = {}
+        # source-tree paths are already absolute. Each path is ranked (0 =
+        # install tree, 1 = source tree) so __path__ order is deterministic and
+        # install-first, matching find_spec's preference for known_wheel_files
+        # over known_source_files (#1565).
+        ranked_locations: dict[str, dict[str, int]] = {}
         for parent, parent_paths in known_directories.items():
-            locations = submodule_search_locations.setdefault(parent, set())
+            locations = ranked_locations.setdefault(parent, {})
             for parent_path in parent_paths:
-                if not os.path.isabs(parent_path):
-                    parent_path = os.path.join(self.dir, parent_path)  # noqa: PLW2901
-                locations.add(parent_path)
+                if os.path.isabs(parent_path):
+                    locations.setdefault(parent_path, 1)
+                else:
+                    locations.setdefault(os.path.join(self.dir, parent_path), 0)
         pkgs = list(known_packages)
         # Second pass: propagate build-tree paths from parent packages to
         # sub-packages.  This covers the case where a Python package (with
@@ -456,17 +477,17 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
         for pkg in sorted(pkgs, key=lambda p: p.count(".")):
             parent = ".".join(pkg.split(".")[:-1])
             last = pkg.split(".")[-1]
-            if not parent or parent not in submodule_search_locations:
+            if not parent or parent not in ranked_locations:
                 continue
-            for parent_path in sorted(submodule_search_locations[parent]):
+            for parent_path, rank in ranked_locations[parent].items():
                 sub_path = os.path.join(parent_path, last)
-                if (
-                    os.path.isdir(sub_path)
-                    and sub_path not in submodule_search_locations[pkg]
-                ):
-                    submodule_search_locations[pkg].add(sub_path)
+                if os.path.isdir(sub_path):
+                    ranked_locations.setdefault(pkg, {}).setdefault(sub_path, rank)
 
-        self.submodule_search_locations = submodule_search_locations
+        self.submodule_search_locations: dict[str, list[str]] = {
+            pkg: [p for _, p in sorted((rank, p) for p, rank in locations.items())]
+            for pkg, locations in ranked_locations.items()
+        }
         self.pkgs = frozenset(pkgs)
 
     def find_spec(
@@ -500,6 +521,9 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
         # A tracked package directory without an importable __init__ is a
         # namespace package.
         if submodule_search_locations is not None:
+            import importlib.machinery
+            import importlib.util
+
             # A PEP 420 namespace can be shared with other distributions, so
             # merge in the portions native resolution would find on sys.path
             native = importlib.machinery.PathFinder.find_spec(fullname, path)  # type: ignore[arg-type]
@@ -524,6 +548,9 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
         origin: str,
         submodule_search_locations: list[str] | None,
     ) -> importlib.machinery.ModuleSpec | None:
+        import importlib.machinery
+        import importlib.util
+
         is_pkg = origin.endswith(("__init__.py", "__init__.pyc"))
         # Resolve the loader through the standard sys.path_hooks machinery (PEP
         # 302) so instrumenting path hooks (e.g. beartype.claw) see redirected
@@ -555,10 +582,11 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
                 else None,
             )
         # Wrap the loader so it exposes a rebuild() hook (reachable as
-        # module.__loader__.rebuild()). Packages with more than one search
-        # location (e.g. a source tree and a CMake install tree) additionally get
-        # a resource reader so importlib.resources.files() can see resources from
-        # every location, not just origin's directory.
+        # module.__loader__.rebuild()) and the package's search locations as
+        # .paths. Packages with more than one search location (e.g. a source
+        # tree and a CMake install tree) additionally get a resource reader so
+        # importlib.resources.files() can see resources from every location, not
+        # just origin's directory.
         if spec is not None and spec.loader is not None:
             if (
                 is_pkg
@@ -569,7 +597,9 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
                     spec.loader, self, submodule_search_locations
                 )
             else:
-                spec.loader = _ScikitBuildLoaderWrapper(spec.loader, self)  # type: ignore[assignment]
+                spec.loader = _ScikitBuildLoaderWrapper(  # type: ignore[assignment]
+                    spec.loader, self, submodule_search_locations if is_pkg else None
+                )
         return spec
 
     def rebuild(self) -> None:
@@ -593,7 +623,7 @@ class ScikitBuildRedirectingFinder(importlib.abc.MetaPathFinder):
         )
 
 
-class ScikitBuildInplaceFinder(importlib.abc.MetaPathFinder):
+class ScikitBuildInplaceFinder:
     """
     Meta path finder for inplace editable installs.
 
@@ -633,6 +663,8 @@ class ScikitBuildInplaceFinder(importlib.abc.MetaPathFinder):
         if fullname.partition(".")[0] not in self.known_packages:
             return None
 
+        import importlib.machinery
+
         # Debounce to once per process, like the redirect finder: importing a
         # package resolves many submodules, but a single build covers them all.
         if self.rebuild_flag and not self.rebuilt:
@@ -648,7 +680,9 @@ class ScikitBuildInplaceFinder(importlib.abc.MetaPathFinder):
         # locations beyond our search paths.
         if spec is None or spec.loader is None:
             return None
-        spec.loader = _ScikitBuildLoaderWrapper(spec.loader, self)  # type: ignore[assignment]
+        spec.loader = _ScikitBuildLoaderWrapper(  # type: ignore[assignment]
+            spec.loader, self, spec.submodule_search_locations
+        )
         return spec
 
     def rebuild(self) -> None:

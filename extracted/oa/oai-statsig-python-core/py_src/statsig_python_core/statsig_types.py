@@ -1,6 +1,10 @@
 import json
 from typing import Any, Callable, Optional
 
+_FeatureGateParts = tuple[
+    bool, str, Optional[str], str, Optional[int], Optional[int], Optional[int]
+]
+
 
 def _log_error(tag: str, message: str):
     print(f"[Statsig::{tag}]: {message}")
@@ -96,6 +100,23 @@ class BaseEvaluation:
 
 class FeatureGate(BaseEvaluation):
     value: bool
+
+    @classmethod
+    def _from_parts(cls, name: str, parts: _FeatureGateParts) -> "FeatureGate":
+        """Build the public mutable result from trusted native fields."""
+        value, rule_id, id_type, reason, lcut, received_at, version = parts
+        details = EvaluationDetails.__new__(EvaluationDetails)
+        details.reason = reason or ""
+        details.lcut = lcut
+        details.received_at = received_at
+        details.version = version
+        gate = cls.__new__(cls)
+        gate.name = name
+        gate.rule_id = rule_id or ""
+        gate.id_type = id_type or ""
+        gate.details = details
+        gate.value = value
+        return gate
 
     def __init__(self, name: str, raw: dict):
         try:

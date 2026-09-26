@@ -15,6 +15,7 @@ import click
 from rich.table import Table
 
 from .._app.doctor import DoctorPaths, DoctorReport, run_checks
+from ..auth import check_headless_reauth_readiness
 from ..paths import (
     get_browser_profile_dir,
     get_config_path,
@@ -55,16 +56,14 @@ def _doctor_paths() -> DoctorPaths:
 def _headless_reauth_check() -> dict[str, str]:
     """Map the L3 readiness probe to the standard ``{status, detail}`` check shape.
 
-    The transport-neutral ``_app.doctor`` core must not import the private
-    ``_auth.headless_reauth`` runtime sibling (``_app`` boundary lint), so the
-    CLI adapter — which may — owns this credential-free, browser-free probe and
-    hands the neutral core a ready-made check row.
+    The transport-neutral ``_app.doctor`` core receives this credential-free,
+    browser-free probe as a ready-made check row from the CLI adapter.
 
     ``warn`` (never ``fail``) when L3 is unavailable: it is an optional, opt-in
     fallback, so a missing persistent profile or an absent ``browser`` extra is
-    not a broken install — only an unavailable enhancement. The
-    ``headless_reauth_readiness`` import is function-local so ``doctor`` never
-    forces a ``playwright`` import on the common path.
+    not a broken install — only an unavailable enhancement. The coarse auth
+    facade imports the browser implementation only when this
+    check runs and never imports Playwright merely to resolve the function.
 
     ``doctor`` is a read-only diagnostic, so resolving the browser-profile dir
     is wrapped: path resolution can raise ``ValueError`` / ``OSError``, and the
@@ -77,23 +76,21 @@ def _headless_reauth_check() -> dict[str, str]:
     doctor paths so root ``--storage`` and ``--profile`` select the same browser
     directory as runtime re-auth.
     """
-    from .._auth.headless_reauth import headless_reauth_readiness
-
     try:
         auth = AuthSource.from_click_context(click.get_current_context(silent=True))
         browser_profile = get_browser_profile_dir(
             profile=auth.profile,
             storage_path=auth.storage_override,
         )
-        readiness = headless_reauth_readiness(browser_profile=browser_profile)
+        available, detail = check_headless_reauth_readiness(browser_profile=browser_profile)
     except (ValueError, OSError, RuntimeError) as exc:
         return {
             "status": "warn",
             "detail": f"unavailable: could not resolve the browser profile ({type(exc).__name__})",
         }
     return {
-        "status": "pass" if readiness.available else "warn",
-        "detail": readiness.detail,
+        "status": "pass" if available else "warn",
+        "detail": detail,
     }
 
 
@@ -177,6 +174,13 @@ def _display_results(report: DoctorReport):
 
     console.print(table)
 
+    if checks.get("auth", {}).get("guidance") == "refresh_authentication":
+        console.print(
+            "[yellow]Re-run 'notebooklm login'; on Windows (Chrome 127+ App-Bound "
+            "Encryption) use '--browser-cookies firefox' or set up "
+            "'notebooklm login --master-token'.[/yellow]"
+        )
+
     if fixes_applied:
         console.print()
         for fix in fixes_applied:
@@ -201,14 +205,14 @@ def _display_results(report: DoctorReport):
             # missing __Secure-1PSIDTS, so real RPCs may still fail (#1753).
             # Printing the green "All checks passed." here would greenlight the
             # exact unusable state this check is meant to surface — render an
-            # auth-specific advisory instead (the Auth row carries the full
-            # Firefox / master-token remediation). The exit code stays 0: a warn
+            # auth-specific advisory instead (the guidance after the table carries
+            # the full Firefox / master-token remediation). The exit code stays 0: a warn
             # is not a hard failure, and the cookie can still be re-minted at
             # runtime. Other benign warns (optional headless re-auth, profile-dir
             # permissions) keep the green footer, unchanged.
             console.print(
                 "\n[yellow]Auth check raised a warning: the session may not be "
-                "usable. See the Auth row above for how to fix it.[/yellow]"
+                "usable. See the authentication guidance above for how to fix it.[/yellow]"
             )
         else:
             console.print("\n[green]All checks passed.[/green]")

@@ -15,6 +15,8 @@ from cloudflare.types.zero_trust.devices import (
     DeviceListResponse,
 )
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -37,6 +39,7 @@ class TestDevices:
             id=["string"],
             active_registrations="include",
             cursor="cursor",
+            has_registration_type="warp",
             include="include",
             last_seen_registration={"policy": "11ffb86f-3f0c-4306-b4a2-e62f872b166a"},
             last_seen_user={"email": "email"},
@@ -46,6 +49,7 @@ class TestDevices:
             seen_before="seen_before",
             sort_by="name",
             sort_order="asc",
+            tag=["environment:production", "fleet:warehouse"],
         )
         assert_matches_type(SyncCursorPagination[DeviceListResponse], device, path=["response"])
 
@@ -200,19 +204,22 @@ class TestDevices:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_method_revoke(self, client: Cloudflare) -> None:
-        device = client.zero_trust.devices.devices.revoke(
-            device_id="device_id",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            device = client.zero_trust.devices.devices.revoke(
+                device_id="device_id",
+                account_id="account_id",
+            )
+
         assert_matches_type(object, device, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_raw_response_revoke(self, client: Cloudflare) -> None:
-        response = client.zero_trust.devices.devices.with_raw_response.revoke(
-            device_id="device_id",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.zero_trust.devices.devices.with_raw_response.revoke(
+                device_id="device_id",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -222,32 +229,34 @@ class TestDevices:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_streaming_response_revoke(self, client: Cloudflare) -> None:
-        with client.zero_trust.devices.devices.with_streaming_response.revoke(
-            device_id="device_id",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.zero_trust.devices.devices.with_streaming_response.revoke(
+                device_id="device_id",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            device = response.parse()
-            assert_matches_type(object, device, path=["response"])
+                device = response.parse()
+                assert_matches_type(object, device, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_path_params_revoke(self, client: Cloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            client.zero_trust.devices.devices.with_raw_response.revoke(
-                device_id="device_id",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                client.zero_trust.devices.devices.with_raw_response.revoke(
+                    device_id="device_id",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `device_id` but received ''"):
-            client.zero_trust.devices.devices.with_raw_response.revoke(
-                device_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `device_id` but received ''"):
+                client.zero_trust.devices.devices.with_raw_response.revoke(
+                    device_id="",
+                    account_id="account_id",
+                )
 
 
 class TestAsyncDevices:
@@ -271,6 +280,7 @@ class TestAsyncDevices:
             id=["string"],
             active_registrations="include",
             cursor="cursor",
+            has_registration_type="warp",
             include="include",
             last_seen_registration={"policy": "11ffb86f-3f0c-4306-b4a2-e62f872b166a"},
             last_seen_user={"email": "email"},
@@ -280,6 +290,7 @@ class TestAsyncDevices:
             seen_before="seen_before",
             sort_by="name",
             sort_order="asc",
+            tag=["environment:production", "fleet:warehouse"],
         )
         assert_matches_type(AsyncCursorPagination[DeviceListResponse], device, path=["response"])
 
@@ -434,19 +445,22 @@ class TestAsyncDevices:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_method_revoke(self, async_client: AsyncCloudflare) -> None:
-        device = await async_client.zero_trust.devices.devices.revoke(
-            device_id="device_id",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            device = await async_client.zero_trust.devices.devices.revoke(
+                device_id="device_id",
+                account_id="account_id",
+            )
+
         assert_matches_type(object, device, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_raw_response_revoke(self, async_client: AsyncCloudflare) -> None:
-        response = await async_client.zero_trust.devices.devices.with_raw_response.revoke(
-            device_id="device_id",
-            account_id="account_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.zero_trust.devices.devices.with_raw_response.revoke(
+                device_id="device_id",
+                account_id="account_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -456,29 +470,31 @@ class TestAsyncDevices:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_streaming_response_revoke(self, async_client: AsyncCloudflare) -> None:
-        async with async_client.zero_trust.devices.devices.with_streaming_response.revoke(
-            device_id="device_id",
-            account_id="account_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.zero_trust.devices.devices.with_streaming_response.revoke(
+                device_id="device_id",
+                account_id="account_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            device = await response.parse()
-            assert_matches_type(object, device, path=["response"])
+                device = await response.parse()
+                assert_matches_type(object, device, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_path_params_revoke(self, async_client: AsyncCloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            await async_client.zero_trust.devices.devices.with_raw_response.revoke(
-                device_id="device_id",
-                account_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                await async_client.zero_trust.devices.devices.with_raw_response.revoke(
+                    device_id="device_id",
+                    account_id="",
+                )
 
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `device_id` but received ''"):
-            await async_client.zero_trust.devices.devices.with_raw_response.revoke(
-                device_id="",
-                account_id="account_id",
-            )
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `device_id` but received ''"):
+                await async_client.zero_trust.devices.devices.with_raw_response.revoke(
+                    device_id="",
+                    account_id="account_id",
+                )

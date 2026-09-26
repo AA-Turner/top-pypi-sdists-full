@@ -3526,6 +3526,15 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     @property
+    def order_factory(self) -> QuantConnect.Orders.OrderFactory:
+        """
+        Creates order requests to be submitted later through order(SubmitorderRequest), so they can be composed into contingent
+        orders before: orders which trigger other orders once filled (OTO), orders which cancel (OCO/OCA) or update (OUO) each other,
+        and any composition of them like brackets (OTOCO)
+        """
+        ...
+
+    @property
     def universe_manager(self) -> QuantConnect.Securities.UniverseManager:
         """Gets universe manager which holds universes keyed by their symbol"""
         ...
@@ -4340,6 +4349,23 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param resolution: The resolution.
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: The Balance Of Power indicator for the requested symbol.
+        """
+        ...
+
+    def bracket_order(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, take_profit_price: float, stop_loss_price: float, limit_price: typing.Optional[float] = None, asynchronous: bool = False, tag: str = ..., order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits a bracket order (OTOCO): an entry order which once filled triggers a take profit limit order and a stop loss order of the
+        opposite quantity, which are held until then. Once the take profit or the stop loss fills the other one is canceled.
+        
+        :param symbol: The symbol to trade
+        :param quantity: The quantity of the entry order
+        :param take_profit_price: The limit price of the take profit order
+        :param stop_loss_price: The stop price of the stop loss order
+        :param limit_price: The limit price of the entry order, if not provided the entry is a market order
+        :param asynchronous: Send the order asynchronously (false). Otherwise we'll block until the market entry order fills
+        :param tag: String tag for the orders (optional)
+        :param order_properties: The order properties to use. Defaults to default_order_properties
+        :returns: The tickets of the entry, take profit and stop loss orders, in that order.
         """
         ...
 
@@ -6222,6 +6248,15 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         ...
 
+    def one_cancels_other_order(self, orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits a set of orders where the first one to fill, even partially, cancels the rest (OCO/OCA)
+        
+        :param orders: The order requests, all the legs for combo orders, which can trigger other orders in turn
+        :returns: The tickets of all the submitted orders.
+        """
+        ...
+
     def on_end_of_algorithm(self) -> None:
         """End of algorithm run event handler. This method is called at the end of a backtest or live trading operation. Intended for closing out logs."""
         ...
@@ -6238,6 +6273,38 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         """
         Invoked at the end of every time step. This allows the algorithm
         to process events before advancing to the next time step.
+        """
+        ...
+
+    @overload
+    def one_triggers_other_order(self, parent: QuantConnect.Orders.SubmitOrderRequest, children: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits an order which once completely filled triggers others (OTO), they are held until then and canceled if the parent is canceled
+        
+        :param parent: The order request of the parent order
+        :param children: The order requests to trigger, all the legs for combo orders, independent of each other unless related
+        :returns: The tickets of all the submitted orders, the parent first.
+        """
+        ...
+
+    @overload
+    def one_triggers_other_order(self, parent: typing.List[QuantConnect.Orders.SubmitOrderRequest], children: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits a combo order which once all its legs fill triggers other orders (OTO), they are held until then and canceled if the parent is canceled
+        
+        :param parent: The order requests of the legs of the parent combo order
+        :param children: The order requests to trigger, all the legs for combo orders, independent of each other unless related
+        :returns: The tickets of all the submitted orders, the parent legs first.
+        """
+        ...
+
+    def one_updates_other_order(self, orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits a set of orders where a partial fill of one of them reduces the remaining quantity of the rest proportionally,
+        which are canceled once it completely fills (OUO)
+        
+        :param orders: The order requests, all the legs for combo orders, which can trigger other orders in turn
+        :returns: The tickets of all the submitted orders.
         """
         ...
 
@@ -6376,6 +6443,27 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         :param tag: Place a custom order property or tag (e.g. indicator data).
         :param order_properties: The order properties to use. Defaults to default_order_properties
         :returns: The order ticket instance.
+        """
+        ...
+
+    @overload
+    def order(self, order: QuantConnect.Orders.SubmitOrderRequest) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits the given order request, built through order_factory, along with the set of contingent orders composed on it
+        
+        :param order: The order request to submit, see order_factory
+        :returns: The tickets of all the submitted orders, parents before the orders they trigger, in the order they were composed.
+        """
+        ...
+
+    @overload
+    def order(self, orders: typing.List[QuantConnect.Orders.SubmitOrderRequest]) -> typing.List[QuantConnect.Orders.OrderTicket]:
+        """
+        Submits the given order requests, built through order_factory, along with the sets of contingent orders composed on them:
+        the legs of a combo order, orders which cancel or update each other, each of them possibly triggering other orders once filled
+        
+        :param orders: The order requests to submit, see order_factory
+        :returns: The tickets of all the submitted orders, parents first, in the order they were composed.
         """
         ...
 

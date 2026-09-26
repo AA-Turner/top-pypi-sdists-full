@@ -15,6 +15,8 @@ from ldclient.async_feature_store import AsyncInMemoryFeatureStore
 from ldclient.config import (
     DEFAULT_BASE_URI,
     DEFAULT_EVENTS_URI,
+    DEFAULT_INITIAL_RECONNECT_DELAY,
+    DEFAULT_POLL_INTERVAL,
     DEFAULT_STREAM_URI,
     GET_LATEST_FEATURES_PATH,
     STREAM_FLAGS_PATH,
@@ -149,11 +151,11 @@ class AsyncConfig(DataSourceBuilderConfig, PrivateAttributesConfig):
         flush_interval: float = 5,
         stream_uri: str = DEFAULT_STREAM_URI,
         stream: bool = True,
-        initial_reconnect_delay: float = 1,
+        initial_reconnect_delay: float = DEFAULT_INITIAL_RECONNECT_DELAY,
         defaults: dict = {},
         send_events: Optional[bool] = None,
         update_processor_class: Optional[Callable[['AsyncConfig', AsyncFeatureStore, AsyncEvent], AsyncUpdateProcessor]] = None,
-        poll_interval: float = 30,
+        poll_interval: float = DEFAULT_POLL_INTERVAL,
         use_ldd: bool = False,
         feature_store: Optional[AsyncFeatureStore] = None,
         feature_requester_class=None,
@@ -245,7 +247,7 @@ class AsyncConfig(DataSourceBuilderConfig, PrivateAttributesConfig):
         :param plugins: A list of plugins to be used with the SDK. Plugin support is currently experimental and subject to change.
         :param enable_event_compression: Whether or not to enable GZIP compression for outgoing events.
         :param omit_anonymous_contexts: Sets whether anonymous contexts should be omitted from index and identify events.
-        :param payload_filter_key: The payload filter is used to selectively limited the flags and segments delivered in the data source payload.
+        :param payload_filter_key: The payload filter is used to selectively limited the flags and segments delivered in the data source payload. Payload filtering is not supported with the FDv2 data system, so this has no effect on FDv2 requests.
         :param datasystem_config: Configuration for the upcoming enhanced data system design. This is experimental and should not be set without direction from LaunchDarkly support.
         """
         self.__sdk_key = validate_sdk_key_format(sdk_key, log)
@@ -256,7 +258,7 @@ class AsyncConfig(DataSourceBuilderConfig, PrivateAttributesConfig):
         self.__update_processor_class = update_processor_class
         self.__stream = stream
         self.__initial_reconnect_delay = initial_reconnect_delay
-        self.__poll_interval = max(poll_interval, 30.0)
+        self.__poll_interval = max(poll_interval, DEFAULT_POLL_INTERVAL)
         self.__use_ldd = use_ldd
         self.__feature_store = AsyncInMemoryFeatureStore() if not feature_store else feature_store
         self.__event_processor_class = event_processor_class
@@ -476,6 +478,9 @@ class AsyncConfig(DataSourceBuilderConfig, PrivateAttributesConfig):
        polling data sources. It will not affect TestData or FileData data
        sources, nor will it be applied to any data source provided through the
        {#data_source} config property.
+
+       Payload filtering is not supported with the FDv2 data system, so this
+       key has no effect on requests made by FDv2 data sources.
         """
         return self.__payload_filter_key
 

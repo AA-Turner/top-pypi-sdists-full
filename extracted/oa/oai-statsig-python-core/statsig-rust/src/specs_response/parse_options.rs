@@ -7,23 +7,41 @@ use std::cell::Cell;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct SpecsResponseParseOptions {
     preserve_session_update_mode: bool,
+    skip_unhydrated_dynamic_configs_for_preload: bool,
 }
 
 impl SpecsResponseParseOptions {
     pub const fn preserving_session_update_mode() -> Self {
         Self {
             preserve_session_update_mode: true,
+            skip_unhydrated_dynamic_configs_for_preload: false,
+        }
+    }
+
+    /// Only the raw-byte shared preloader may omit remote-backed dynamic
+    /// configs. Live SDK decoding still requires their values to be hydrated.
+    pub(crate) const fn for_shared_preload() -> Self {
+        Self {
+            preserve_session_update_mode: false,
+            skip_unhydrated_dynamic_configs_for_preload: true,
         }
     }
 
     pub(crate) const fn should_preserve_session_update_mode(self) -> bool {
         self.preserve_session_update_mode
     }
+
+    pub(crate) const fn should_skip_unhydrated_dynamic_configs_for_preload(self) -> bool {
+        self.skip_unhydrated_dynamic_configs_for_preload
+    }
 }
 
 thread_local! {
     static CURRENT_PARSE_OPTIONS: Cell<SpecsResponseParseOptions> =
-        const { Cell::new(SpecsResponseParseOptions { preserve_session_update_mode: false }) };
+        const { Cell::new(SpecsResponseParseOptions {
+            preserve_session_update_mode: false,
+            skip_unhydrated_dynamic_configs_for_preload: false,
+        }) };
 }
 
 struct ParseOptionsGuard {
@@ -49,6 +67,12 @@ pub(crate) fn should_preserve_session_update_mode() -> bool {
     CURRENT_PARSE_OPTIONS
         .with(Cell::get)
         .should_preserve_session_update_mode()
+}
+
+pub(crate) fn should_skip_unhydrated_dynamic_configs_for_preload() -> bool {
+    CURRENT_PARSE_OPTIONS
+        .with(Cell::get)
+        .should_skip_unhydrated_dynamic_configs_for_preload()
 }
 
 #[cfg(test)]

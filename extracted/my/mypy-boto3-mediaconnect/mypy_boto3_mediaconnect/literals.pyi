@@ -106,6 +106,7 @@ __all__ = (
     "StatusType",
     "TcsType",
     "ThumbnailStateType",
+    "TlsEncryptionTypeType",
     "WaiterName",
 )
 
@@ -226,7 +227,7 @@ RouterNetworkInterfaceStateType = Literal[
     "ACTIVE", "CREATING", "DELETING", "ERROR", "RECOVERING", "UPDATING"
 ]
 RouterNetworkInterfaceTypeType = Literal["PUBLIC", "VPC"]
-RouterOutputProtocolType = Literal["RIST", "RTP", "SRT_CALLER", "SRT_LISTENER"]
+RouterOutputProtocolType = Literal["RIST", "RTMP_PUSH", "RTP", "SRT_CALLER", "SRT_LISTENER"]
 RouterOutputRoutedStateType = Literal["ROUTED", "ROUTING", "UNROUTED"]
 RouterOutputStateType = Literal[
     "ACTIVE",
@@ -251,6 +252,7 @@ TcsType = Literal[
     "BT2100LINHLG", "BT2100LINPQ", "DENSITY", "HLG", "LINEAR", "PQ", "SDR", "ST2065-1", "ST428-1"
 ]
 ThumbnailStateType = Literal["DISABLED", "ENABLED"]
+TlsEncryptionTypeType = Literal["PUBLIC"]
 MediaConnectServiceName = Literal["mediaconnect"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -332,6 +334,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -406,6 +409,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -434,6 +438,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -528,6 +533,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

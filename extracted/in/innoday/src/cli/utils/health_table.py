@@ -23,7 +23,7 @@ from rich.table import Table
 
 
 def reach_mark(reachable: Optional[bool]) -> str:
-    """`✅` / `❌` / `—`, and the dash is not a failure.
+    """`✓` / `✗` / `—`, and the dash is not a failure.
 
     Three-valued throughout the health payload: `None` means nothing was proved
     -- probing was skipped, no credential is stored, the budget ran out --
@@ -31,8 +31,8 @@ def reach_mark(reachable: Optional[bool]) -> str:
     reports a working board as broken.
     """
     if reachable is None:
-        return "[dim]—[/dim]"
-    return "[green]✅[/green]" if reachable else "[red]❌[/red]"
+        return "[muted]—[/muted]"
+    return "[good]✓[/good]" if reachable else "[bad]✗[/bad]"
 
 
 def sync_age(seconds: Optional[int]) -> str:
@@ -43,7 +43,7 @@ def sync_age(seconds: Optional[int]) -> str:
     one synced weekly are both correct and this cannot tell which it is.
     """
     if seconds is None:
-        return "[yellow]never[/yellow]"
+        return "[warn]never[/warn]"
     if seconds < 3600:
         return f"{seconds // 60}m ago"
     if seconds < 86400:

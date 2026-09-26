@@ -15,7 +15,7 @@ from .outputs import (
     AsyncOutputsResourceWithStreamingResponse,
 )
 from ...._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
-from ...._utils import path_template, maybe_transform, async_maybe_transform
+from ...._utils import path_template, maybe_transform, strip_not_given, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
 from ...._response import (
@@ -67,6 +67,7 @@ class LiveInputsResource(SyncAPIResource):
         meta: object | Omit = omit,
         prefer_low_latency: bool | Omit = omit,
         recording: live_input_create_params.Recording | Omit = omit,
+        idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -112,6 +113,7 @@ class LiveInputsResource(SyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        extra_headers = {**strip_not_given({"Idempotency-Key": idempotency_key}), **(extra_headers or {})}
         return self._post(
             path_template("/accounts/{account_id}/stream/live_inputs", account_id=account_id),
             body=maybe_transform(
@@ -282,8 +284,8 @@ class LiveInputsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
-        Prevents a live input from being streamed to and makes the live input
-        inaccessible to any future API calls.
+        Permanently delete a live input, making it inaccessible and blocking current and
+        future broadcasts to it. Existing recordings will be retained.
 
         Args:
           account_id: Identifier.
@@ -402,6 +404,7 @@ class AsyncLiveInputsResource(AsyncAPIResource):
         meta: object | Omit = omit,
         prefer_low_latency: bool | Omit = omit,
         recording: live_input_create_params.Recording | Omit = omit,
+        idempotency_key: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -447,6 +450,7 @@ class AsyncLiveInputsResource(AsyncAPIResource):
         """
         if not account_id:
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
+        extra_headers = {**strip_not_given({"Idempotency-Key": idempotency_key}), **(extra_headers or {})}
         return await self._post(
             path_template("/accounts/{account_id}/stream/live_inputs", account_id=account_id),
             body=await async_maybe_transform(
@@ -619,8 +623,8 @@ class AsyncLiveInputsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
-        Prevents a live input from being streamed to and makes the live input
-        inaccessible to any future API calls.
+        Permanently delete a live input, making it inaccessible and blocking current and
+        future broadcasts to it. Existing recordings will be retained.
 
         Args:
           account_id: Identifier.

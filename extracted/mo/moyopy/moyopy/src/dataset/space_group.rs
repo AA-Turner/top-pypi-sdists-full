@@ -12,6 +12,10 @@ use crate::base::{PyMoyoError, PyOperations, PyStructure, PyUnimodularTransforma
 use crate::data::{PySetting, PyWyckoffPosition};
 
 /// A dataset containing symmetry information of the input crystal structure.
+///
+/// See the [returned-cell specification](https://spglib.github.io/moyo/standardization/#returned-cell-specification)
+/// for the geometry and symmetry of the standardized cells.
+/// Both the lattice and atomic positions are refined for either value of ``rotate_basis``.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[pyclass(name = "MoyoDataset", frozen, from_py_object)]
 #[pyo3(module = "moyopy")]
@@ -32,8 +36,8 @@ impl PyMoyoDataset {
     /// setting : Setting | None
     ///     Preference for the setting of the space group.
     /// rotate_basis : bool
-    ///     Whether to rotate the basis vectors of the input cell to those of the standardized
-    ///     cell.
+    ///     Whether to apply the canonical Cartesian orientation to the refined lattice.
+    ///     Lattice and positions are refined for either value.
     #[new]
     #[pyo3(signature = (cell, *, symprec=1e-4, angle_tolerance=None, setting=None, rotate_basis=true))]
     pub fn new(
@@ -121,34 +125,35 @@ impl PyMoyoDataset {
     // ------------------------------------------------------------------------
     /// Standardized cell.
     ///
-    /// The input cell is related to the standardized cell by ``(std_linear, std_origin_shift)``
-    /// and ``std_rotation_matrix``:
+    /// The selected coordinate system, before lattice and position refinement, is
     ///
     /// ```text
-    /// std_cell.basis.T = std_rotation_matrix @ cell.basis.T @ std_linear
-    /// x_std = np.linalg.inv(std_linear) @ (x_input - std_origin_shift)
+    /// basis_selected = cell.basis.T @ std_linear
+    /// x_selected = np.linalg.inv(std_linear) @ (x_input - std_origin_shift)
     /// ```
     ///
-    /// ``std_rotation_matrix`` is a rigid rotation (orthogonal matrix) applied only to the
-    /// Cartesian lattice basis. It does not affect fractional coordinates.
+    /// Both the lattice and positions are then refined to the detected symmetry.
+    /// See the [returned-cell specification](https://spglib.github.io/moyo/standardization/#returned-cell-specification)
+    /// for refinement and Cartesian orientation.
     #[getter]
     pub fn std_cell(&self) -> PyStructure {
         self.0.std_cell.clone().into()
     }
 
-    /// Linear part of the transformation from the input cell to the standardized cell.
+    /// Linear part of the transformation from the input cell to ``std_cell``.
     #[getter]
     pub fn std_linear(&self) -> [[f64; 3]; 3] {
         self.0.std_linear_as_array()
     }
 
-    /// Origin shift of the transformation from the input cell to the standardized cell.
+    /// Origin shift of the transformation from the input cell to ``std_cell``.
     #[getter]
     pub fn std_origin_shift(&self) -> [f64; 3] {
         self.0.std_origin_shift_as_array()
     }
 
-    /// Rigid rotation (orthogonal matrix) applied to the lattice basis.
+    /// Proper Cartesian rotation applied after lattice refinement.
+    /// Identity when ``rotate_basis`` is false; it does not encode the lattice stretch.
     #[getter]
     pub fn std_rotation_matrix(&self) -> [[f64; 3]; 3] {
         self.0.std_rotation_matrix_as_array()
@@ -165,26 +170,20 @@ impl PyMoyoDataset {
     // ------------------------------------------------------------------------
     /// Primitive standardized cell.
     ///
-    /// Same transformation convention as the standardized cell:
-    ///
-    /// ```text
-    /// prim_std_cell.basis.T = std_rotation_matrix @ cell.basis.T @ prim_std_linear
-    /// x_prim_std = np.linalg.inv(prim_std_linear) @ (x_input - prim_std_origin_shift)
-    /// ```
+    /// Uses ``prim_std_linear`` and ``prim_std_origin_shift`` with the same
+    /// pre-refinement coordinate convention as ``std_cell``.
     #[getter]
     pub fn prim_std_cell(&self) -> PyStructure {
         self.0.prim_std_cell.clone().into()
     }
 
-    /// Linear part of the transformation from the input cell to the primitive standardized
-    /// cell.
+    /// Linear part of the transformation from the input cell to ``prim_std_cell``.
     #[getter]
     pub fn prim_std_linear(&self) -> [[f64; 3]; 3] {
         self.0.prim_std_linear_as_array()
     }
 
-    /// Origin shift of the transformation from the input cell to the primitive standardized
-    /// cell.
+    /// Origin shift of the transformation from the input cell to ``prim_std_cell``.
     #[getter]
     pub fn prim_std_origin_shift(&self) -> [f64; 3] {
         self.0.prim_std_origin_shift_as_array()

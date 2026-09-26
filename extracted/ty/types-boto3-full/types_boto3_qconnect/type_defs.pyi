@@ -68,6 +68,7 @@ from .literals import (
     ReferenceTypeType,
     RelevanceLevelType,
     RelevanceType,
+    RetrieveErrorCodeType,
     ReturnReasonType,
     SpanStatusType,
     SpanTypeType,
@@ -409,6 +410,7 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "ParsingConfigurationTypeDef",
     "ParsingPromptTypeDef",
+    "ProactiveRecommendationDataDetailsTypeDef",
     "PushADMMessageTemplateContentTypeDef",
     "PushAPNSMessageTemplateContentTypeDef",
     "PushBaiduMessageTemplateContentTypeDef",
@@ -449,6 +451,7 @@ __all__ = (
     "ResultDataTypeDef",
     "RetrievalConfigurationTypeDef",
     "RetrievalFilterConfigurationTypeDef",
+    "RetrieveErrorTypeDef",
     "RetrieveRequestTypeDef",
     "RetrieveResponseTypeDef",
     "RetrieveResultTypeDef",
@@ -570,6 +573,7 @@ __all__ = (
 
 class AIAgentConfigurationDataTypeDef(TypedDict):
     aiAgentId: str
+    enabled: NotRequired[bool]
 
 class CaseSummarizationAIAgentConfigurationTypeDef(TypedDict):
     caseSummarizationAIPromptId: NotRequired[str]
@@ -1009,6 +1013,9 @@ class NotesChunkDataDetailsTypeDef(TypedDict):
 
 class NotesDataDetailsTypeDef(TypedDict):
     completion: NotRequired[str]
+
+class ProactiveRecommendationDataDetailsTypeDef(TypedDict):
+    nextMessageToken: str
 
 class SuggestedMessageDataDetailsTypeDef(TypedDict):
     messageText: str
@@ -1484,6 +1491,11 @@ class RemoveAssistantAIAgentRequestTypeDef(TypedDict):
 
 class RemoveKnowledgeBaseTemplateUriRequestTypeDef(TypedDict):
     knowledgeBaseId: str
+
+class RetrieveErrorTypeDef(TypedDict):
+    associationId: str
+    code: RetrieveErrorCodeType
+    message: str
 
 class RetrieveResultTypeDef(TypedDict):
     associationId: str
@@ -2094,6 +2106,7 @@ class QuickResponseSearchExpressionTypeDef(TypedDict):
 
 class RetrieveResponseTypeDef(TypedDict):
     results: list[RetrieveResultTypeDef]
+    errors: list[RetrieveErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RuntimeSessionDataTypeDef(TypedDict):
@@ -2979,6 +2992,7 @@ class DataDetailsPaginatorTypeDef(TypedDict):
     suggestedMessageData: NotRequired[SuggestedMessageDataDetailsTypeDef]
     notesData: NotRequired[NotesDataDetailsTypeDef]
     notesChunkData: NotRequired[NotesChunkDataDetailsTypeDef]
+    proactiveRecommendationData: NotRequired[ProactiveRecommendationDataDetailsTypeDef]
 
 class DataDetailsTypeDef(TypedDict):
     contentData: NotRequired[ContentDataDetailsTypeDef]
@@ -2993,6 +3007,7 @@ class DataDetailsTypeDef(TypedDict):
     suggestedMessageData: NotRequired[SuggestedMessageDataDetailsTypeDef]
     notesData: NotRequired[NotesDataDetailsTypeDef]
     notesChunkData: NotRequired[NotesChunkDataDetailsTypeDef]
+    proactiveRecommendationData: NotRequired[ProactiveRecommendationDataDetailsTypeDef]
 
 class ExtendedMessageTemplateDataTypeDef(TypedDict):
     messageTemplateArn: str

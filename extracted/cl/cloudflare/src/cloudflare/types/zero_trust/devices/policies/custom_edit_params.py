@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from typing import Iterable, Optional
-from typing_extensions import Required, TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
 from ....._types import SequenceNotStr
 from ..split_tunnel_exclude_param import SplitTunnelExcludeParam
 from ..split_tunnel_include_param import SplitTunnelIncludeParam
 
-__all__ = ["CustomEditParams", "DNSSearchSuffix", "GlobalAcceleration", "ServiceModeV2", "VirtualNetworks"]
+__all__ = [
+    "CustomEditParams",
+    "BrowserExtensionConfig",
+    "DNSSearchSuffix",
+    "GlobalAcceleration",
+    "ServiceModeV2",
+    "VirtualNetworks",
+]
 
 
 class CustomEditParams(TypedDict, total=False):
@@ -30,8 +37,20 @@ class CustomEditParams(TypedDict, total=False):
     auto_connect: float
     """The amount of time in seconds to reconnect after having been disabled."""
 
+    browser_extension_config: Optional[BrowserExtensionConfig]
+    """Browser extension proxy settings.
+
+    Required when profile_type is browser_extension and invalid for WARP profiles.
+    """
+
     captive_portal: float
     """Turn on the captive portal after the specified amount of time."""
+
+    default: bool
+    """Whether the policy is the account default.
+
+    WARP group profiles cannot set this field.
+    """
 
     description: str
     """A description of the policy."""
@@ -133,8 +152,27 @@ class CustomEditParams(TypedDict, total=False):
     tunnel_protocol: str
     """Determines which tunnel protocol to use."""
 
+    uninstall_protection: bool
+    """Determines whether uninstalling the WARP client requires an override code.
+
+    (Windows only).
+    """
+
     virtual_networks: Optional[VirtualNetworks]
     """Virtual network access settings for the device."""
+
+
+class BrowserExtensionConfig(TypedDict, total=False):
+    """Browser extension proxy settings.
+
+    Required when profile_type is browser_extension and invalid for WARP profiles.
+    """
+
+    proxy_control: Required[Literal["unlocked", "locked"]]
+    """Whether the user may disable the browser extension proxy."""
+
+    proxy_enabled: Required[bool]
+    """Whether the browser extension proxy is active."""
 
 
 class DNSSearchSuffix(TypedDict, total=False):
@@ -167,6 +205,12 @@ class GlobalAcceleration(TypedDict, total=False):
     """IP:port entries for the WireGuard tunnel endpoints.
 
     Either wireguard_endpoints or masque_endpoints must be provided.
+    """
+
+    autoswitch: bool
+    """Automatically switch Global Acceleration regions based on device location.
+
+    Defaults to false when not provided.
     """
 
 

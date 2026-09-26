@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-__lazy_modules__ = {
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
-    "types",
-    "typing",
-}
+__lazy_modules__ = {"types", "typing"}
 
 import sys
-from typing import Any, Union
-
-from .._compat.typing import Annotated, get_args, get_origin
+from typing import Annotated, Any, Union, get_args, get_origin
 
 __all__ = [
+    "NoneType",
     "get_inner_type",
     "get_target_raw_type",
     "is_union_type",
@@ -24,13 +19,16 @@ def __dir__() -> list[str]:
     return __all__
 
 
+if sys.version_info >= (3, 10):
+    from types import NoneType
+else:
+    NoneType = type(None)
+
 # Runtime check for PEP 604 union syntax (A | B) support
 # types.UnionType only exists in Python 3.10+
 if sys.version_info >= (3, 10):
-    from types import NoneType
     from types import UnionType as _UnionType
 else:
-    NoneType = type(None)
 
     class _UnionType:
         pass

@@ -5,17 +5,22 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .._backoff import compute_backoff_delay
 from .._callbacks import maybe_await_callback
 from .._deadline import Monotonic, RuntimeDeadline, Sleep
+from .._deprecation import warn_registered_deprecation
 from .._polling_registry import PollRegistry
+from .._runtime.operation_context import detached_operation_context
 from .._types.artifacts import _status_from_code
 from .._types.enums import ArtifactStatus, ArtifactTypeCode, artifact_status_to_str
-from ..exceptions import ArtifactInProgressTimeoutError, ArtifactPendingTimeoutError
-from ..rpc import (
+from ..exceptions import (
+    ArtifactInProgressTimeoutError,
+    ArtifactPendingTimeoutError,
     NetworkError,
+    RateLimitError,
     RPCTimeoutError,
     ServerError,
 )
@@ -33,6 +38,14 @@ _IN_PROGRESS_STATUS = "in_progress"
 ListStudioCallback = Callable[[str, str], Awaitable[list[Artifact]]]
 PollStatusCallback = Callable[[str, str], Awaitable[GenerationStatus]]
 StatusChangeCallback = Callable[[GenerationStatus], object]
+
+
+@dataclass(frozen=True)
+class _PollKnobs:
+    initial_interval: float
+    max_interval: float
+    timeout: float
+
 
 _MEDIA_ARTIFACT_TYPE_CODES = frozenset(
     {
@@ -64,6 +77,7 @@ class ArtifactPollingService:
         self._poll_registry = poll_registry if poll_registry is not None else PollRegistry()
         self._sleep = sleep
         self._monotonic = monotonic
+        self._leader_knobs: dict[tuple[str, str], _PollKnobs] = {}
         self._supervisor.register_drain_hook("artifacts.polls", self.drain)
 
     @property
@@ -142,8 +156,6 @@ class ArtifactPollingService:
         initial_interval: float = 2.0,
         max_interval: float = 10.0,
         timeout: float = 300.0,
-        max_not_found: int = 5,
-        min_not_found_window: float = 10.0,
         poll_status: PollStatusCallback,
         on_status_change: StatusChangeCallback | None = None,
     ) -> GenerationStatus:
@@ -155,8 +167,6 @@ class ArtifactPollingService:
                 initial_interval=initial_interval,
                 max_interval=max_interval,
                 timeout=timeout,
-                max_not_found=max_not_found,
-                min_not_found_window=min_not_found_window,
                 poll_status=poll_status,
                 on_status_change=on_status_change,
             )
@@ -169,8 +179,6 @@ class ArtifactPollingService:
         initial_interval: float = 2.0,
         max_interval: float = 10.0,
         timeout: float = 300.0,
-        max_not_found: int = 5,
-        min_not_found_window: float = 10.0,
         poll_status: PollStatusCallback,
         on_status_change: StatusChangeCallback | None = None,
     ) -> GenerationStatus:
@@ -181,6 +189,11 @@ class ArtifactPollingService:
         self._supervisor.assert_bound_loop()
 
         key = (notebook_id, task_id)
+        follower_knobs = _PollKnobs(
+            initial_interval,
+            max_interval,
+            timeout,
+        )
 
         existing = self._poll_registry.get(key)
         if existing is not None:
@@ -190,6 +203,18 @@ class ArtifactPollingService:
             # ``asyncio.shield`` ensures that *this* caller's cancellation does
             # not propagate into the shared future; the leader's poll task
             # continues on behalf of every other follower.
+            leader_knobs = self._leader_knobs.get(key)
+            if leader_knobs is not None and follower_knobs != leader_knobs:
+                differing = [
+                    f"{name}={getattr(follower_knobs, name)!r} "
+                    f"(leader={getattr(leader_knobs, name)!r})"
+                    for name in _PollKnobs.__dataclass_fields__
+                    if getattr(follower_knobs, name) != getattr(leader_knobs, name)
+                ]
+                detail = "Ignored follower values: " + ", ".join(differing)
+                warn_registered_deprecation("artifact_poll_follower_options", detail=detail)
+            if on_status_change is not None:
+                warn_registered_deprecation("artifact_poll_follower_callback")
             shared_future, _poll_task = existing
             result = await asyncio.shield(shared_future)
             if on_status_change is not None:
@@ -216,28 +241,30 @@ class ArtifactPollingService:
 
         # Reserve the key before the admitted spawn await so a concurrent
         # follower attaches to this future instead of creating a second leader.
+        self._leader_knobs[key] = follower_knobs
         self._poll_registry.register(key, future, None)
 
         async def _leader() -> GenerationStatus:
-            return await self._run_poll_loop(
-                notebook_id,
-                task_id,
-                initial_interval=initial_interval,
-                max_interval=max_interval,
-                timeout=timeout,
-                max_not_found=max_not_found,
-                min_not_found_window=min_not_found_window,
-                poll_status=poll_status,
-                on_status_change=on_status_change,
-            )
+            with detached_operation_context():
+                return await self._run_poll_loop(
+                    notebook_id,
+                    task_id,
+                    initial_interval=initial_interval,
+                    max_interval=max_interval,
+                    timeout=timeout,
+                    poll_status=poll_status,
+                    on_status_change=on_status_change,
+                )
 
         try:
             poll_task = await self._supervisor.spawn_child(
                 f"artifact-poll-{notebook_id}-{task_id}",
                 _leader,
+                inherit_operation=False,
             )
         except BaseException:
             self._poll_registry.pop(key)
+            self._leader_knobs.pop(key, None)
             future.cancel()
             raise
         self._poll_registry.attach_task(key, poll_task)
@@ -247,6 +274,7 @@ class ArtifactPollingService:
             # arriving concurrently with completion either attaches to this
             # result or starts a fresh poll for a later generation.
             self._poll_registry.pop(key)
+            self._leader_knobs.pop(key, None)
             if future.done():
                 raise RuntimeError("BUG: future resolved before poll task done-callback")
             if task.cancelled():
@@ -276,8 +304,6 @@ class ArtifactPollingService:
         initial_interval: float,
         max_interval: float,
         timeout: float,
-        max_not_found: int,
-        min_not_found_window: float,
         poll_status: PollStatusCallback,
         on_status_change: StatusChangeCallback | None,
     ) -> GenerationStatus:
@@ -294,7 +320,7 @@ class ArtifactPollingService:
         while True:
             try:
                 status = await poll_status(notebook_id, task_id)
-            except (NetworkError, RPCTimeoutError, ServerError) as e:
+            except (NetworkError, RPCTimeoutError, ServerError, RateLimitError) as e:
                 # Transient — retry up to POLL_MAX_RETRIES times with
                 # exponential backoff capped at 8s. Also clamp by remaining
                 # timeout budget so retries never extend past the caller's
@@ -312,14 +338,15 @@ class ArtifactPollingService:
                 poll_retry_count += 1
                 # No jitter here: tests assert exact 2.0/4.0/8.0 sleeps and
                 # the remaining-timeout clamp owns thundering-herd avoidance.
-                backoff = deadline.clamp_sleep(
-                    compute_backoff_delay(
-                        poll_retry_count,
-                        base=1.0,
-                        cap=8.0,
-                        jitter_ratio=0.0,
-                    )
+                delay = compute_backoff_delay(
+                    poll_retry_count,
+                    base=1.0,
+                    cap=8.0,
+                    jitter_ratio=0.0,
                 )
+                if isinstance(e, RateLimitError) and e.retry_after is not None:
+                    delay = max(delay, e.retry_after)
+                backoff = deadline.clamp_sleep(delay)
                 logger.warning(
                     "wait_for_completion: transient %s on poll #%d, retrying in %.1fs",
                     e.__class__.__name__,
@@ -348,77 +375,22 @@ class ArtifactPollingService:
             if status.is_complete or status.is_failed:
                 return status
 
-            # Track the *current* run of consecutive "not found" responses. The
-            # API may remove quota-rejected artifacts from the list entirely
-            # instead of setting them to FAILED. A *sustained* absence is
-            # reported with a distinct ``"removed"`` status (see below) rather
-            # than ``"failed"`` so callers can tell a delisted artifact apart
-            # from one the server actually marked terminal-FAILED.
-            #
-            # The counter resets the moment the artifact reappears (see the
-            # ``else`` branch). This is what makes ``"removed"`` mean *stayed
-            # absent*: a transient/flapping omission — where the artifact keeps
-            # coming back and may still complete — never accumulates toward a
-            # spurious terminal ``"removed"`` (issue #1198).
+            # List absence is an observation, not a generation outcome (#2432).
+            # Track it only for diagnostics and keep the original task ID until
+            # completion, explicit failure, or the caller's deadline.
             if status.is_not_found:
                 consecutive_not_found += 1
                 now = deadline.now()
                 if first_not_found_time is None:
                     first_not_found_time = now
-                not_found_elapsed = now - first_not_found_time
-
-                # Two ways to declare a sustained absence terminal:
-                #  - time-gated: enough consecutive misses AND enough wall-clock
-                #    elapsed (avoids a fast burst of polls firing prematurely);
-                #  - window-independent: a long consecutive run (2x the
-                #    threshold) trips removal even when ``min_not_found_window``
-                #    has not yet elapsed.
-                consecutive_trigger = (
-                    consecutive_not_found >= max_not_found
-                    and not_found_elapsed >= min_not_found_window
+                logger.debug(
+                    "Artifact %s in notebook %s absent for %d polls (%.1fs); continuing wait",
+                    task_id,
+                    notebook_id,
+                    consecutive_not_found,
+                    now - first_not_found_time,
                 )
-                window_independent_trigger = consecutive_not_found >= max_not_found * 2
-
-                if consecutive_trigger or window_independent_trigger:
-                    trigger = (
-                        f"consecutive={consecutive_not_found}"
-                        if consecutive_trigger
-                        else f"consecutive={consecutive_not_found} (window-independent)"
-                    )
-                    logger.warning(
-                        "Artifact %s disappeared from list (%s not-found polls, "
-                        "%s) — treating as removed",
-                        task_id,
-                        trigger,
-                        f"elapsed={not_found_elapsed:.1f}s",
-                    )
-                    # Report removal with a distinct ``"removed"`` status, not
-                    # ``"failed"``. The artifact vanished from the listing
-                    # (commonly a daily-quota rejection, possibly a transient
-                    # omission) — that is not the same as the server marking it
-                    # terminal-FAILED, and conflating the two would mask a real
-                    # failure or fabricate one. The error text is retained so
-                    # exception-free callers still get an actionable message.
-                    removed_status = GenerationStatus(
-                        task_id=task_id,
-                        status=GenerationState.REMOVED,
-                        error=(
-                            "Generation incomplete: artifact was removed from the "
-                            "list by the server. This may indicate a daily "
-                            "quota/rate limit was exceeded, an invalid notebook "
-                            "ID, or a transient API issue. Try again later."
-                        ),
-                    )
-                    if on_status_change is not None and last_emitted_status != "removed":
-                        await maybe_await_callback(on_status_change, removed_status)
-                    return removed_status
             else:
-                # The artifact is back in the listing. Reset the not-found
-                # tracking so removal requires a single sustained absence run
-                # rather than cumulative absences spread across an otherwise-
-                # healthy poll (issue #1198). An artifact that keeps reappearing
-                # is not "removed"; it keeps polling until it completes or the
-                # timeout fires.
                 consecutive_not_found = 0
                 first_not_found_time = None
 

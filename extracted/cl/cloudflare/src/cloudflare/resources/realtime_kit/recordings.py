@@ -263,6 +263,8 @@ class RecordingsResource(SyncAPIResource):
         Args:
           account_id: The account identifier tag.
 
+          app_id: The app identifier tag.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -679,6 +681,8 @@ class AsyncRecordingsResource(AsyncAPIResource):
 
         Args:
           account_id: The account identifier tag.
+
+          app_id: The app identifier tag.
 
           extra_headers: Send extra headers
 

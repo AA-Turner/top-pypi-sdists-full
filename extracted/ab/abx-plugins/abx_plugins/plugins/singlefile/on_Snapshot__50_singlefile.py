@@ -11,7 +11,12 @@ from pathlib import Path
 
 import rich_click as click
 
-from abx_plugins.plugins.base.utils import load_config, emit_archive_result_record
+from abx_plugins.plugins.base.utils import (
+    load_config,
+    emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
+)
 
 
 PLUGIN_DIR = Path(__file__).resolve().parent.name
@@ -78,6 +83,14 @@ def main(url: str) -> None:
     config = load_config(CONFIG_PATH)
     if not config.SINGLEFILE_ENABLED:
         emit_archive_result_record("skipped", "SINGLEFILE_ENABLED=False")
+        raise SystemExit(0)
+
+    if has_staticfile_output():
+        emit_archive_result_record("noresults", "staticfile already handled")
+        raise SystemExit(0)
+
+    if is_non_html_document():
+        emit_archive_result_record("noresults", "Browser document is not HTML")
         raise SystemExit(0)
 
     try:

@@ -119,7 +119,6 @@ class SkipRuleParam(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: ExposedCredentialCheck
     """Configuration for exposed credential checking."""

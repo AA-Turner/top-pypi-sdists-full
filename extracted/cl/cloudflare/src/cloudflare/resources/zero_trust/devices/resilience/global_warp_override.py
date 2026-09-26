@@ -61,7 +61,7 @@ class GlobalWARPOverrideResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GlobalWARPOverrideCreateResponse]:
         """
-        Sets the Global WARP override state.
+        Sets the Global WARP disconnect state.
 
         Args:
           disconnect: Disconnects all devices on the account using Global WARP override.
@@ -112,7 +112,7 @@ class GlobalWARPOverrideResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GlobalWARPOverrideGetResponse]:
         """
-        Fetch the Global WARP override state.
+        Fetch the Global WARP disconnect state.
 
         Args:
           extra_headers: Send extra headers
@@ -172,7 +172,7 @@ class AsyncGlobalWARPOverrideResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GlobalWARPOverrideCreateResponse]:
         """
-        Sets the Global WARP override state.
+        Sets the Global WARP disconnect state.
 
         Args:
           disconnect: Disconnects all devices on the account using Global WARP override.
@@ -223,7 +223,7 @@ class AsyncGlobalWARPOverrideResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[GlobalWARPOverrideGetResponse]:
         """
-        Fetch the Global WARP override state.
+        Fetch the Global WARP disconnect state.
 
         Args:
           extra_headers: Send extra headers

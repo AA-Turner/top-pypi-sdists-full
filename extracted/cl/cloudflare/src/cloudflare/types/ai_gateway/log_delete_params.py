@@ -67,3 +67,4 @@ class Filter(TypedDict, total=False):
     operator: Required[Literal["eq", "neq", "contains", "lt", "gt"]]
 
     value: Required[SequenceNotStr[Union[Optional[str], float, bool]]]
+    """Filter values."""

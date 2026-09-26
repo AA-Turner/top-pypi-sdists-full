@@ -4,7 +4,6 @@ import argparse
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.table import Table
 
 from src.cli.client import APIError, InnoDayAPIClient
@@ -17,6 +16,7 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console
 from src.domain.project import RepositoryLayer
 
 
@@ -25,7 +25,7 @@ class RepositoryCommands:
 
     def __init__(self, config: CLIConfig):
         self.config = config
-        self.console = Console()
+        self.console = make_console()
 
     @staticmethod
     def setup_parser(parser: argparse.ArgumentParser) -> None:
@@ -168,7 +168,7 @@ class RepositoryCommands:
         try:
             return await repo_commands.handle_repositories_command(args)
         except Exception as e:
-            console = Console()
+            console = make_console()
             console.print(format_error(f"Repository command failed: {str(e)}"))
             return 1
 
@@ -498,9 +498,7 @@ class RepositoryCommands:
 
             if response.get("success"):
                 stats = response["statistics"]
-                self.console.print(
-                    format_success("✅ Issue sync completed successfully!")
-                )
+                self.console.print(format_success("Issue sync completed successfully!"))
 
                 # Display statistics
                 table = Table(title="Sync Statistics")
@@ -523,7 +521,7 @@ class RepositoryCommands:
                     for error in response["errors"]:
                         self.console.print(f"  • {error}")
             else:
-                self.console.print(format_error("❌ Issue sync failed"))
+                self.console.print(format_error("Issue sync failed"))
                 if response.get("errors"):
                     for error in response["errors"]:
                         self.console.print(format_error(f"  • {error}"))

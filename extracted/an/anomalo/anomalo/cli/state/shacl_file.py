@@ -230,7 +230,7 @@ class ShaclFileDriver:
         for rdf_prop, (config_key, value_type) in property_map.items():
             value = graph.value(config_uri, rdf_prop)
             if value is not None:
-                if value_type == bool:
+                if value_type is bool:
                     config[config_key] = value.toPython()
                 else:
                     str_value = str(value)

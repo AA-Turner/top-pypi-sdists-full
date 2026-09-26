@@ -31,6 +31,8 @@ from pathlib import Path, PurePosixPath
 from abx_plugins.plugins.base.utils import (
     load_config,
     emit_archive_result_record,
+    has_staticfile_output,
+    is_non_html_document,
     write_text_atomic,
     find_article_html_source,
     preserve_article_image_dimensions,
@@ -127,7 +129,7 @@ main {{ width: 100%; min-height: 100vh; margin: 0; padding: clamp(1.5rem, 4vw, 4
 article {{ width: min(100%, 72rem); margin: 0 auto; font: 1.15rem/1.72 Georgia, 'Times New Roman', serif }}
 article > :first-child {{ margin-top: 0 }}
 h2, h3, h4 {{ margin: 2em 0 .65em; line-height: 1.25 }} p, ul, ol, blockquote {{ margin: 0 0 1.25em }}
-a {{ color: #0369a1 }} img {{ max-width: 100%; vertical-align: middle }} svg, video {{ max-width: 100%; height: auto }}
+a {{ color: #0369a1 }} img {{ max-width: 100%; vertical-align: middle }} svg {{ max-width: 100% }} svg:not([height]), video {{ max-width: 100%; height: auto }}
 article > *, article section, article div, article figure {{ max-width: 100% !important }}
 article table {{ width: 100% !important; max-width: 100% !important; border-collapse: collapse }}
 article td, article th {{ max-width: 100%; vertical-align: top }}
@@ -146,6 +148,11 @@ def extract_readability(url: str, binary: str) -> tuple[str, str]:
 
     Returns: (success, output_path, error_message)
     """
+    if has_staticfile_output():
+        return "noresults", "staticfile already handled"
+    if is_non_html_document():
+        return "noresults", "Browser document is not HTML"
+
     config = load_config()
     timeout = config.READABILITY_TIMEOUT
     readability_args = config.READABILITY_ARGS

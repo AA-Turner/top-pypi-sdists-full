@@ -43,7 +43,7 @@ class AgentConfig:
             declarations still apply. Default False = today's behaviour
             (undeclared context flows), now a named, visible setting rather than
             an unexamined default. See
-            common-docs/systems/mandates/FEATURE.md § "Context Policy — and the
+            common-docs/systems/intelligence/mandates/STATE.md § "Context Policy — and the
             kill switch".
         output_schema: Declared structured-output envelope from the DB record
             (OpenAI ``response_format`` shape: ``{name, schema, strict}``).

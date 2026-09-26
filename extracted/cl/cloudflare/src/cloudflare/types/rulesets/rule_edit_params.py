@@ -2484,7 +2484,6 @@ class ScoreRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: ScoreRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -2630,7 +2629,6 @@ class ServeErrorRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: ServeErrorRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -2796,7 +2794,6 @@ class SetCacheControlRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: SetCacheControlRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -3358,7 +3355,6 @@ class SetCacheSettingsRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: SetCacheSettingsRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -3872,7 +3868,6 @@ class SetCacheTagsRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: SetCacheTagsRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -4081,7 +4076,6 @@ class SetConfigurationRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: SetConfigurationRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -4186,6 +4180,20 @@ class SetConfigurationRuleActionParameters(TypedDict, total=False):
 
     sxg: bool
     """Whether to enable Signed Exchanges (SXG)."""
+
+    webmcp_enabled: bool
+    """
+    Whether to serve the WebMCP bridge script, which exposes the page's tools to
+    browser AI agents.
+    """
+
+    webmcp_packs: SequenceNotStr[str]
+    """Bundled WebMCP tool packs to activate for matching requests.
+
+    An empty array disables all packs. Omitting this parameter leaves the pack
+    selection unchanged. Does not enable the WebMCP bridge itself. Non-empty
+    selections require the WebMCP Configuration Rules entitlement.
+    """
 
 
 class SetConfigurationRuleExposedCredentialCheck(TypedDict, total=False):
@@ -4308,7 +4316,6 @@ class SkipRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: SkipRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""
@@ -4484,7 +4491,6 @@ class TransformResponseHTMLRule(TypedDict, total=False):
     """An informative description of the rule."""
 
     enabled: bool
-    """Whether the rule should be executed."""
 
     exposed_credential_check: TransformResponseHTMLRuleExposedCredentialCheck
     """Configuration for exposed credential checking."""

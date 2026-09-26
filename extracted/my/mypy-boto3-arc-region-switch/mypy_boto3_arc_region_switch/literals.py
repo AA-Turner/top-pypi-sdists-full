@@ -52,6 +52,7 @@ __all__ = (
     "ListPlansPaginatorName",
     "ListRoute53HealthChecksInRegionPaginatorName",
     "ListRoute53HealthChecksPaginatorName",
+    "ListServiceQuotaWarningsPaginatorName",
     "NeptuneDefaultBehaviorType",
     "NeptuneUngracefulBehaviorType",
     "PaginatorName",
@@ -65,9 +66,11 @@ __all__ = (
     "Route53HealthCheckStatusType",
     "RoutingControlStateChangeType",
     "ServiceName",
+    "ServiceQuotaWarningStatusType",
     "StepStatusType",
     "UpdatePlanExecutionActionType",
     "UpdatePlanExecutionStepActionType",
+    "WaitELBTargetGroupHealthyType",
     "WaiterName",
     "WorkflowTargetActionType",
 )
@@ -165,6 +168,7 @@ ListPlansInRegionPaginatorName = Literal["list_plans_in_region"]
 ListPlansPaginatorName = Literal["list_plans"]
 ListRoute53HealthChecksInRegionPaginatorName = Literal["list_route53_health_checks_in_region"]
 ListRoute53HealthChecksPaginatorName = Literal["list_route53_health_checks"]
+ListServiceQuotaWarningsPaginatorName = Literal["list_service_quota_warnings"]
 NeptuneDefaultBehaviorType = Literal["failover", "switchoverOnly"]
 NeptuneUngracefulBehaviorType = Literal["failover"]
 PlanEvaluationStatusPassedWaiterName = Literal["plan_evaluation_status_passed"]
@@ -177,11 +181,19 @@ RegionToRunInType = Literal[
 ResourceWarningStatusType = Literal["active", "resolved"]
 Route53HealthCheckStatusType = Literal["healthy", "unhealthy", "unknown"]
 RoutingControlStateChangeType = Literal["Off", "On"]
+ServiceQuotaWarningStatusType = Literal[
+    "denied",
+    "insufficientPermissions",
+    "maxAccountRequestsExceeded",
+    "maxRegionSwitchRequestsExceeded",
+    "pending",
+]
 StepStatusType = Literal[
     "canceled", "completed", "failed", "notStarted", "pendingApproval", "running", "skipped"
 ]
 UpdatePlanExecutionActionType = Literal["pause", "resume", "switchToGraceful", "switchToUngraceful"]
 UpdatePlanExecutionStepActionType = Literal["skip", "switchToUngraceful"]
+WaitELBTargetGroupHealthyType = Literal["disabled", "enabled"]
 WorkflowTargetActionType = Literal["activate", "deactivate", "postRecovery"]
 ARCRegionswitchServiceName = Literal["arc-region-switch"]
 ServiceName = Literal[
@@ -264,6 +276,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -338,6 +351,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -366,6 +380,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -460,6 +475,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -627,5 +643,6 @@ PaginatorName = Literal[
     "list_plans_in_region",
     "list_route53_health_checks",
     "list_route53_health_checks_in_region",
+    "list_service_quota_warnings",
 ]
 WaiterName = Literal["plan_evaluation_status_passed", "plan_execution_completed"]

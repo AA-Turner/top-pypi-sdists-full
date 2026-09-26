@@ -192,7 +192,13 @@ def route_message_through_edge_groups(
 
         if isinstance(group, (SwitchCaseEdgeGroup, FanOutEdgeGroup)):
             if group.selection_func is not None:
-                selected = group.selection_func(message, group.target_executor_ids)
+                target_ids = group.target_executor_ids
+                selected = list(group.selection_func(message, list(target_ids)))
+                if not all(target_id in target_ids for target_id in selected):
+                    raise RuntimeError(
+                        f"Invalid selection result: {selected}. "
+                        f"Expected selections to be a subset of valid target executor IDs: {target_ids}."
+                    )
                 targets.extend(selected)
             else:
                 targets.extend(group.target_executor_ids)
@@ -889,13 +895,12 @@ def _prepare_all_tasks(
 
     for executor_id, messages_with_sources in pending_messages.items():
         executor = workflow.executors[executor_id]
-        is_agent = isinstance(executor, AgentExecutor)
-        is_subworkflow = isinstance(executor, WorkflowExecutor)
 
-        for message, source_executor_id in messages_with_sources:
-            if is_agent:
+        if isinstance(executor, AgentExecutor):
+            for message, source_executor_id in messages_with_sources:
                 agent_messages_by_executor[executor_id].append((executor_id, message, source_executor_id))
-            elif is_subworkflow:
+        elif isinstance(executor, WorkflowExecutor):
+            for message, source_executor_id in messages_with_sources:
                 # Derive a deterministic, globally-unique child instance id. The counter
                 # persists across supersteps, so two invocations of the same node (in the
                 # same or different supersteps, e.g. fan-out) never collide, and the ids
@@ -925,7 +930,8 @@ def _prepare_all_tasks(
                         child_instance_id=child_instance_id,
                     )
                 )
-            else:
+        else:
+            for message, source_executor_id in messages_with_sources:
                 logger.debug("Preparing activity task: %s", executor_id)
                 task = _prepare_activity_task(
                     ctx, executor_id, message, source_executor_id, shared_state, workflow.name, address
@@ -1262,4 +1268,4 @@ def run_workflow_orchestrator(
     # bubble nested progress; a top-level run returns the bare outputs list.
     if is_subworkflow:
         return {SUBWORKFLOW_RESULT_KEY: True, "outputs": workflow_outputs, "events": live_events}
-    return workflow_outputs  # ruff:ignore[return-in-generator]
+    return workflow_outputs  # noqa: B901

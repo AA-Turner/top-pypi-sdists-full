@@ -51,7 +51,11 @@ class BotManagementResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
@@ -59,6 +63,7 @@ class BotManagementResource(SyncAPIResource):
         enable_js: bool | Omit = omit,
         fight_mode: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -132,7 +137,16 @@ class BotManagementResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           bot_preference_sync_enabled: Enable Bot Preference Sync for this zone. When enabled, Cloudflare can serve
               robots.txt content derived from the zone's AI Search, AI User, and AI Training
@@ -154,6 +168,9 @@ class BotManagementResource(SyncAPIResource):
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
 
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -169,13 +186,18 @@ class BotManagementResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
         crawler_protection: Literal["enabled", "disabled"] | Omit = omit,
         enable_js: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         optimize_wordpress: bool | Omit = omit,
         sbfm_definitely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
         sbfm_static_resource_protection: bool | Omit = omit,
@@ -253,7 +275,16 @@ class BotManagementResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           bot_preference_sync_enabled: Enable Bot Preference Sync for this zone. When enabled, Cloudflare can serve
               robots.txt content derived from the zone's AI Search, AI User, and AI Training
@@ -272,6 +303,9 @@ class BotManagementResource(SyncAPIResource):
 
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
+
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
 
           optimize_wordpress: Whether to optimize Super Bot Fight Mode protections for Wordpress.
 
@@ -298,13 +332,18 @@ class BotManagementResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
         crawler_protection: Literal["enabled", "disabled"] | Omit = omit,
         enable_js: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         optimize_wordpress: bool | Omit = omit,
         sbfm_definitely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
         sbfm_likely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
@@ -383,7 +422,16 @@ class BotManagementResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           bot_preference_sync_enabled: Enable Bot Preference Sync for this zone. When enabled, Cloudflare can serve
               robots.txt content derived from the zone's AI Search, AI User, and AI Training
@@ -402,6 +450,9 @@ class BotManagementResource(SyncAPIResource):
 
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
+
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
 
           optimize_wordpress: Whether to optimize Super Bot Fight Mode protections for Wordpress.
 
@@ -430,7 +481,11 @@ class BotManagementResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         auto_update_model: bool | Omit = omit,
         bm_cookie_enabled: bool | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
@@ -439,6 +494,7 @@ class BotManagementResource(SyncAPIResource):
         crawler_protection: Literal["enabled", "disabled"] | Omit = omit,
         enable_js: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         suppress_session_score: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -513,7 +569,16 @@ class BotManagementResource(SyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           auto_update_model: Automatically update to the newest bot detection models created by Cloudflare as
               they are released.
@@ -540,6 +605,9 @@ class BotManagementResource(SyncAPIResource):
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
 
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
+
           suppress_session_score: Whether to disable tracking the highest bot score for a session in the Bot
               Management cookie.
 
@@ -558,7 +626,11 @@ class BotManagementResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
@@ -566,6 +638,7 @@ class BotManagementResource(SyncAPIResource):
         enable_js: bool | Omit = omit,
         fight_mode: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         optimize_wordpress: bool | Omit = omit,
         sbfm_definitely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
         sbfm_static_resource_protection: bool | Omit = omit,
@@ -589,7 +662,11 @@ class BotManagementResource(SyncAPIResource):
                 path_template("/zones/{zone_id}/bot_management", zone_id=zone_id),
                 body=maybe_transform(
                     {
+                        "ai_bots_migration_opt_out": ai_bots_migration_opt_out,
                         "ai_bots_protection": ai_bots_protection,
+                        "aisearch": aisearch,
+                        "ai_training": ai_training,
+                        "ai_user": ai_user,
                         "bot_preference_sync_enabled": bot_preference_sync_enabled,
                         "cf_robots_variant": cf_robots_variant,
                         "content_bots_protection": content_bots_protection,
@@ -597,6 +674,7 @@ class BotManagementResource(SyncAPIResource):
                         "enable_js": enable_js,
                         "fight_mode": fight_mode,
                         "is_robots_txt_managed": is_robots_txt_managed,
+                        "jsd_api_results_enabled": jsd_api_results_enabled,
                         "optimize_wordpress": optimize_wordpress,
                         "sbfm_definitely_automated": sbfm_definitely_automated,
                         "sbfm_static_resource_protection": sbfm_static_resource_protection,
@@ -691,7 +769,11 @@ class AsyncBotManagementResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
@@ -699,6 +781,7 @@ class AsyncBotManagementResource(AsyncAPIResource):
         enable_js: bool | Omit = omit,
         fight_mode: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -772,7 +855,16 @@ class AsyncBotManagementResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           bot_preference_sync_enabled: Enable Bot Preference Sync for this zone. When enabled, Cloudflare can serve
               robots.txt content derived from the zone's AI Search, AI User, and AI Training
@@ -794,6 +886,9 @@ class AsyncBotManagementResource(AsyncAPIResource):
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
 
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -809,13 +904,18 @@ class AsyncBotManagementResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
         crawler_protection: Literal["enabled", "disabled"] | Omit = omit,
         enable_js: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         optimize_wordpress: bool | Omit = omit,
         sbfm_definitely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
         sbfm_static_resource_protection: bool | Omit = omit,
@@ -893,7 +993,16 @@ class AsyncBotManagementResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           bot_preference_sync_enabled: Enable Bot Preference Sync for this zone. When enabled, Cloudflare can serve
               robots.txt content derived from the zone's AI Search, AI User, and AI Training
@@ -912,6 +1021,9 @@ class AsyncBotManagementResource(AsyncAPIResource):
 
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
+
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
 
           optimize_wordpress: Whether to optimize Super Bot Fight Mode protections for Wordpress.
 
@@ -938,13 +1050,18 @@ class AsyncBotManagementResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
         crawler_protection: Literal["enabled", "disabled"] | Omit = omit,
         enable_js: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         optimize_wordpress: bool | Omit = omit,
         sbfm_definitely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
         sbfm_likely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
@@ -1023,7 +1140,16 @@ class AsyncBotManagementResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           bot_preference_sync_enabled: Enable Bot Preference Sync for this zone. When enabled, Cloudflare can serve
               robots.txt content derived from the zone's AI Search, AI User, and AI Training
@@ -1042,6 +1168,9 @@ class AsyncBotManagementResource(AsyncAPIResource):
 
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
+
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
 
           optimize_wordpress: Whether to optimize Super Bot Fight Mode protections for Wordpress.
 
@@ -1070,7 +1199,11 @@ class AsyncBotManagementResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         auto_update_model: bool | Omit = omit,
         bm_cookie_enabled: bool | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
@@ -1079,6 +1212,7 @@ class AsyncBotManagementResource(AsyncAPIResource):
         crawler_protection: Literal["enabled", "disabled"] | Omit = omit,
         enable_js: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         suppress_session_score: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -1153,7 +1287,16 @@ class AsyncBotManagementResource(AsyncAPIResource):
         Args:
           zone_id: Identifier.
 
+          ai_bots_migration_opt_out: Temporary migration flag tracking zones opted out of AI bots managed-rule
+              updates.
+
           ai_bots_protection: Enable rule to block AI Scrapers and Crawlers.
+
+          aisearch: Configure robots.txt policy for AI search bots.
+
+          ai_training: Configure robots.txt policy for AI model training bots.
+
+          ai_user: Configure robots.txt policy for AI assistant and agent bots.
 
           auto_update_model: Automatically update to the newest bot detection models created by Cloudflare as
               they are released.
@@ -1180,6 +1323,9 @@ class AsyncBotManagementResource(AsyncAPIResource):
           is_robots_txt_managed: Enable cloudflare managed robots.txt. If an existing robots.txt is detected,
               then managed robots.txt will be prepended to the existing robots.txt.
 
+          jsd_api_results_enabled: Whether to use JavaScript Detection results submitted through the API for this
+              zone.
+
           suppress_session_score: Whether to disable tracking the highest bot score for a session in the Bot
               Management cookie.
 
@@ -1198,7 +1344,11 @@ class AsyncBotManagementResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
+        ai_bots_migration_opt_out: bool | Omit = omit,
         ai_bots_protection: Literal["block", "disabled", "only_on_ad_pages"] | Omit = omit,
+        aisearch: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_training: Literal["disabled", "disallow", "block", "only_on_ad_pages"] | Omit = omit,
+        ai_user: Literal["disabled", "block", "only_on_ad_pages"] | Omit = omit,
         bot_preference_sync_enabled: bool | Omit = omit,
         cf_robots_variant: Literal["off", "policy_only"] | Omit = omit,
         content_bots_protection: Literal["block", "disabled"] | Omit = omit,
@@ -1206,6 +1356,7 @@ class AsyncBotManagementResource(AsyncAPIResource):
         enable_js: bool | Omit = omit,
         fight_mode: bool | Omit = omit,
         is_robots_txt_managed: bool | Omit = omit,
+        jsd_api_results_enabled: bool | Omit = omit,
         optimize_wordpress: bool | Omit = omit,
         sbfm_definitely_automated: Literal["allow", "block", "managed_challenge"] | Omit = omit,
         sbfm_static_resource_protection: bool | Omit = omit,
@@ -1229,7 +1380,11 @@ class AsyncBotManagementResource(AsyncAPIResource):
                 path_template("/zones/{zone_id}/bot_management", zone_id=zone_id),
                 body=await async_maybe_transform(
                     {
+                        "ai_bots_migration_opt_out": ai_bots_migration_opt_out,
                         "ai_bots_protection": ai_bots_protection,
+                        "aisearch": aisearch,
+                        "ai_training": ai_training,
+                        "ai_user": ai_user,
                         "bot_preference_sync_enabled": bot_preference_sync_enabled,
                         "cf_robots_variant": cf_robots_variant,
                         "content_bots_protection": content_bots_protection,
@@ -1237,6 +1392,7 @@ class AsyncBotManagementResource(AsyncAPIResource):
                         "enable_js": enable_js,
                         "fight_mode": fight_mode,
                         "is_robots_txt_managed": is_robots_txt_managed,
+                        "jsd_api_results_enabled": jsd_api_results_enabled,
                         "optimize_wordpress": optimize_wordpress,
                         "sbfm_definitely_automated": sbfm_definitely_automated,
                         "sbfm_static_resource_protection": sbfm_static_resource_protection,

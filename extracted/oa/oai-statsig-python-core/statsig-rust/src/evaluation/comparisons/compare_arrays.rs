@@ -19,7 +19,7 @@ pub(crate) fn compare_arrays<'a>(
             .unwrap_or_default()
     }));
 
-    let short_circuit = target_value.any_array_entry(|_, _, item| match op {
+    let short_circuit = target_value.any_array_string(false, |item| match op {
         ConditionOperator::ArrayContainsAll => !value_set.contains(item),
         ConditionOperator::ArrayContainsAny => value_set.contains(item),
         ConditionOperator::ArrayContainsNone => value_set.contains(item),

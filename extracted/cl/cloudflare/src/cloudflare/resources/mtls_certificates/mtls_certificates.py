@@ -29,10 +29,8 @@ from .associations import (
 )
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.mtls_certificates import mtls_certificate_list_params, mtls_certificate_create_params
-from ...types.mtls_certificates.mtls_certificate_get_response import MTLSCertificateGetResponse
-from ...types.mtls_certificates.mtls_certificate_list_response import MTLSCertificateListResponse
+from ...types.mtls_certificates.mtls_certificate import MTLSCertificate
 from ...types.mtls_certificates.mtls_certificate_create_response import MTLSCertificateCreateResponse
-from ...types.mtls_certificates.mtls_certificate_delete_response import MTLSCertificateDeleteResponse
 
 __all__ = ["MTLSCertificatesResource", "AsyncMTLSCertificatesResource"]
 
@@ -136,7 +134,7 @@ class MTLSCertificatesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncSinglePage[MTLSCertificateListResponse]:
+    ) -> SyncSinglePage[MTLSCertificate]:
         """
         Lists all mTLS certificates uploaded to your account, such as Bring Your Own CA
         (BYO-CA) for mTLS. To list certificates issued by the Cloudflare managed CA, use
@@ -160,7 +158,7 @@ class MTLSCertificatesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
             path_template("/accounts/{account_id}/mtls_certificates", account_id=account_id),
-            page=SyncSinglePage[MTLSCertificateListResponse],
+            page=SyncSinglePage[MTLSCertificate],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -168,7 +166,7 @@ class MTLSCertificatesResource(SyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform({"type": type}, mtls_certificate_list_params.MTLSCertificateListParams),
             ),
-            model=MTLSCertificateListResponse,
+            model=MTLSCertificate,
         )
 
     def delete(
@@ -182,7 +180,7 @@ class MTLSCertificatesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[MTLSCertificateDeleteResponse]:
+    ) -> Optional[MTLSCertificate]:
         """
         Deletes the mTLS certificate unless the certificate is in use by one or more
         Cloudflare services.
@@ -217,9 +215,9 @@ class MTLSCertificatesResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[MTLSCertificateDeleteResponse]]._unwrapper,
+                post_parser=ResultWrapper[Optional[MTLSCertificate]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[MTLSCertificateDeleteResponse]], ResultWrapper[MTLSCertificateDeleteResponse]),
+            cast_to=cast(Type[Optional[MTLSCertificate]], ResultWrapper[MTLSCertificate]),
         )
 
     def get(
@@ -233,7 +231,7 @@ class MTLSCertificatesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[MTLSCertificateGetResponse]:
+    ) -> Optional[MTLSCertificate]:
         """Fetches a single mTLS certificate uploaded to your account.
 
         To get a certificate
@@ -270,9 +268,9 @@ class MTLSCertificatesResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[MTLSCertificateGetResponse]]._unwrapper,
+                post_parser=ResultWrapper[Optional[MTLSCertificate]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[MTLSCertificateGetResponse]], ResultWrapper[MTLSCertificateGetResponse]),
+            cast_to=cast(Type[Optional[MTLSCertificate]], ResultWrapper[MTLSCertificate]),
         )
 
 
@@ -375,7 +373,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[MTLSCertificateListResponse, AsyncSinglePage[MTLSCertificateListResponse]]:
+    ) -> AsyncPaginator[MTLSCertificate, AsyncSinglePage[MTLSCertificate]]:
         """
         Lists all mTLS certificates uploaded to your account, such as Bring Your Own CA
         (BYO-CA) for mTLS. To list certificates issued by the Cloudflare managed CA, use
@@ -399,7 +397,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._get_api_list(
             path_template("/accounts/{account_id}/mtls_certificates", account_id=account_id),
-            page=AsyncSinglePage[MTLSCertificateListResponse],
+            page=AsyncSinglePage[MTLSCertificate],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -407,7 +405,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
                 timeout=timeout,
                 query=maybe_transform({"type": type}, mtls_certificate_list_params.MTLSCertificateListParams),
             ),
-            model=MTLSCertificateListResponse,
+            model=MTLSCertificate,
         )
 
     async def delete(
@@ -421,7 +419,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[MTLSCertificateDeleteResponse]:
+    ) -> Optional[MTLSCertificate]:
         """
         Deletes the mTLS certificate unless the certificate is in use by one or more
         Cloudflare services.
@@ -456,9 +454,9 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[MTLSCertificateDeleteResponse]]._unwrapper,
+                post_parser=ResultWrapper[Optional[MTLSCertificate]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[MTLSCertificateDeleteResponse]], ResultWrapper[MTLSCertificateDeleteResponse]),
+            cast_to=cast(Type[Optional[MTLSCertificate]], ResultWrapper[MTLSCertificate]),
         )
 
     async def get(
@@ -472,7 +470,7 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[MTLSCertificateGetResponse]:
+    ) -> Optional[MTLSCertificate]:
         """Fetches a single mTLS certificate uploaded to your account.
 
         To get a certificate
@@ -509,9 +507,9 @@ class AsyncMTLSCertificatesResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[Optional[MTLSCertificateGetResponse]]._unwrapper,
+                post_parser=ResultWrapper[Optional[MTLSCertificate]]._unwrapper,
             ),
-            cast_to=cast(Type[Optional[MTLSCertificateGetResponse]], ResultWrapper[MTLSCertificateGetResponse]),
+            cast_to=cast(Type[Optional[MTLSCertificate]], ResultWrapper[MTLSCertificate]),
         )
 
 

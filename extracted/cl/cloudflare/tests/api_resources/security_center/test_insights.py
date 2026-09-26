@@ -45,6 +45,7 @@ class TestInsights:
             product_neq=["access", "dns"],
             severity=["low", "moderate"],
             severity_neq=["low", "moderate"],
+            source=["cloudflare"],
             subject=["example.com"],
             subject_neq=["example.com"],
         )
@@ -187,6 +188,7 @@ class TestAsyncInsights:
             product_neq=["access", "dns"],
             severity=["low", "moderate"],
             severity_neq=["low", "moderate"],
+            source=["cloudflare"],
             subject=["example.com"],
             subject_neq=["example.com"],
         )

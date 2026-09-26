@@ -1206,7 +1206,8 @@ async def test_kind_create_platform_kind_refused_for_non_admin(
     )
     assert not result.success
     assert result.error.error_type == "forbidden"
-    assert "admin-only" in result.error.message
+    assert "admin action" in result.error.message
+    assert "never from a normal chat" in result.error.message
     # Refusal is loud AND clean: nothing was written anywhere.
     assert _all_created_rows(created) == []
 

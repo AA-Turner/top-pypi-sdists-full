@@ -20,7 +20,6 @@ class TestForceAXFR:
     def test_method_create(self, client: Cloudflare) -> None:
         force_axfr = client.dns.zone_transfers.force_axfr.create(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, force_axfr, path=["response"])
 
@@ -28,7 +27,6 @@ class TestForceAXFR:
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.dns.zone_transfers.force_axfr.with_raw_response.create(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -40,7 +38,6 @@ class TestForceAXFR:
     def test_streaming_response_create(self, client: Cloudflare) -> None:
         with client.dns.zone_transfers.force_axfr.with_streaming_response.create(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -55,7 +52,6 @@ class TestForceAXFR:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             client.dns.zone_transfers.force_axfr.with_raw_response.create(
                 zone_id="",
-                body={},
             )
 
 
@@ -68,7 +64,6 @@ class TestAsyncForceAXFR:
     async def test_method_create(self, async_client: AsyncCloudflare) -> None:
         force_axfr = await async_client.dns.zone_transfers.force_axfr.create(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, force_axfr, path=["response"])
 
@@ -76,7 +71,6 @@ class TestAsyncForceAXFR:
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.dns.zone_transfers.force_axfr.with_raw_response.create(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -88,7 +82,6 @@ class TestAsyncForceAXFR:
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
         async with async_client.dns.zone_transfers.force_axfr.with_streaming_response.create(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -103,5 +96,4 @@ class TestAsyncForceAXFR:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             await async_client.dns.zone_transfers.force_axfr.with_raw_response.create(
                 zone_id="",
-                body={},
             )

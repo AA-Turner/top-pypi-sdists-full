@@ -215,6 +215,34 @@ _CREDENTIAL_STRONG = frozenset({
 })
 
 
+# A variable NAME that says it holds a credential, as printed by ``env`` /
+# ``printenv`` (``NAME=value`` at the start of a line). Only names are read and
+# only a count is recorded: ``HOME=/root`` is an environment, while
+# ``SLACK_TOKEN=...`` is a secret for another service sitting in the agent's
+# reach. Values are the value lane's business (``_secret_value_lane``), and a
+# fixture or a masking shell may have replaced them, which is exactly when the
+# name is the only thing left to see (ATLAS AML.CS0048 S05).
+# Matched on whole ``_``-separated words so ``TOKENIZERS_PARALLELISM``,
+# ``SSH_AUTH_SOCK`` and ``PWD`` stay what they are.
+_SECRET_VAR_NAME_RE = re.compile(
+    r"^(?:[a-z0-9]+_)*(?:token|secret|password|passwd|credentials?|apikey|"
+    r"(?:api|access|private|secret|signing|master)_key)(?:_[a-z0-9]+)*=",
+    re.I | re.M)
+
+
+def _dump_secret_names(steps, pos: int) -> int:
+    """How many credential-named variables the output of the environment dump
+    at ``steps[pos]`` printed. The dump's output is the first tool result after
+    the call; ``0`` when there is none or it names no credential."""
+    for st in steps[pos + 1:]:
+        if st.get("kind") == "tool_result":
+            return len(set(m.group(0).lower() for m in
+                           _SECRET_VAR_NAME_RE.finditer(st.get("result_text") or "")))
+        if st.get("kind") == "tool_call":
+            return 0
+    return 0
+
+
 def _a(noun: str) -> str:
     return ("an " if noun[:1].lower() in "aeiou" else "a ") + noun
 
@@ -319,6 +347,7 @@ def credential_access(events: Iterable[dict], session_id: str,
         categories: dict = {}
         first_idx = None
         first_pos = None
+        dump_secret_names = 0
         for pos, st in enumerate(steps):
             if st.get("kind") != "tool_call":
                 continue
@@ -333,6 +362,9 @@ def credential_access(events: Iterable[dict], session_id: str,
                     if first_idx is None:
                         first_idx = st.get("i")
                         first_pos = pos
+                    if label == "environment dump":
+                        dump_secret_names = max(dump_secret_names,
+                                                _dump_secret_names(steps, pos))
         values = _secret_value_lane(steps)
         if not categories and not values:
             return None
@@ -353,6 +385,8 @@ def credential_access(events: Iterable[dict], session_id: str,
             "strong_categories": strong,
             "accesses": sum(categories.values()),
             "egress_after": egress_after[:5],
+            # Credential-NAMED variables the dump printed; a count, never names.
+            "dump_secret_names": dump_secret_names,
             "observed": "tool_arguments",
             # No paths, no commands, no values. The category IS the finding.
             "redacted": "paths, commands and secret values are deliberately not recorded",
@@ -379,6 +413,21 @@ def credential_access(events: Iterable[dict], session_id: str,
         # Rank a named secret above a generic environment dump in the headline.
         head = (strong or labels)[0]
         more = f" and {len(labels) - 1} more" if len(labels) > 1 else ""
+        if dump_secret_names and not strong:
+            # The dump itself is common; a dump that printed other services'
+            # tokens has put those tokens in the transcript and the model's
+            # context, whoever asked for it (ATLAS AML.CS0048 S05).
+            evidence["observed"] = "tool_arguments_and_results"
+            return _core()._incident(
+                "credential_access", session_id, runtime, "warning",
+                f"{runtime}: dumped an environment holding "
+                f"{dump_secret_names} secret variable(s)",
+                f"The agent printed its environment variables, and "
+                f"{dump_secret_names} of them are named as tokens, keys or "
+                f"passwords. Those values are now in the session transcript. "
+                f"Only the count is recorded, never the names or values. "
+                + _core()._stop_hint(),
+                evidence, first_idx)
         if egress_after and not strong:
             # Egress after a bare `env` is not the exfiltration shape; say what
             # was seen without the escalation.
@@ -594,6 +643,37 @@ _ADMIN_API_RE = re.compile(
     r"scriptText|scriptExecution|script)(?=[\s'\"?/#]|$)", re.I)
 _ADMIN_API_LABEL = "called a remote admin API"
 
+# The identity an agent ALREADY runs as. Every pattern above is a verb that
+# changes privilege; an agent started as root never needs one, so it ran every
+# command as root and raised nothing (ATLAS AML.CS0048 S06). The shell only
+# says who it is when asked, so this reads the answer to a bare identity probe
+# (``whoami``, ``id``, ``id -u``/``-un``) in the result that follows it. A probe
+# behind ``sudo`` is elevation, already matched above, not the session's identity.
+_IDENTITY_PROBE_RE = re.compile(r"^\s*(?:whoami|id(?:\s+-[a-z]+)*)\s*$", re.I)
+_ROOT_IDENTITY_RE = re.compile(r"\buid=0\(|^\s*root\s*$", re.M)
+# ``id -u`` answers with the bare number; only that probe makes a lone ``0`` mean root.
+_ROOT_UID_ONLY_RE = re.compile(r"^\s*0\s*$", re.M)
+_RUNS_AS_ROOT_LABEL = "runs as root (uid 0)"
+
+
+def _probe_says_root(steps, pos: int) -> bool:
+    """True when ``steps[pos]`` is a bare identity probe and the first tool
+    result after it reports uid 0."""
+    cmd = steps[pos].get("cmd") or ""
+    probes = [seg.strip() for seg in re.split(r"[;&|\n]+", cmd)[:40]
+              if _IDENTITY_PROBE_RE.match(seg)]
+    if not probes:
+        return False
+    uid_only = any(p.startswith("id") and "u" in p[2:] for p in probes)
+    for st in steps[pos + 1:]:
+        if st.get("kind") == "tool_result":
+            out = st.get("result_text") or ""
+            return bool(_ROOT_IDENTITY_RE.search(out)
+                        or (uid_only and _ROOT_UID_ONLY_RE.search(out)))
+        if st.get("kind") == "tool_call":
+            return False
+    return False
+
 
 def privilege_change(events: Iterable[dict], session_id: str,
                      runtime: Optional[str] = None, *,
@@ -614,10 +694,15 @@ def privilege_change(events: Iterable[dict], session_id: str,
         critical: list = []
         first_idx = None
         sketch = ""
-        for st in steps:
+        for pos, st in enumerate(steps):
             if st.get("kind") != "tool_call":
                 continue
             cmd = st.get("cmd") or ""
+            if cmd and _probe_says_root(steps, pos):
+                found[_RUNS_AS_ROOT_LABEL] = found.get(_RUNS_AS_ROOT_LABEL, 0) + 1
+                if first_idx is None:
+                    first_idx = st.get("i")
+                    sketch = _cmd_sketch(cmd)
             if not cmd or _is_inspect_only(cmd):
                 continue  # a mention inside a search is not an escalation
             for label, rx, is_crit in _PRIVILEGE_PATTERNS:
@@ -660,8 +745,11 @@ def privilege_change(events: Iterable[dict], session_id: str,
         return _core()._incident(
             "privilege_change", session_id, runtime, "warning",
             f"{runtime}: {head}{more}",
-            f"The agent {head}{more}. Elevation mid-task is worth confirming "
-            f"was part of the plan. " + _core()._stop_hint(),
+            (f"The agent {head}{more}. Every command it runs has root's "
+             f"reach, with no elevation step for a check to catch; confirm the "
+             f"agent is meant to run as root. " if head == _RUNS_AS_ROOT_LABEL else
+             f"The agent {head}{more}. Elevation mid-task is worth confirming "
+             f"was part of the plan. ") + _core()._stop_hint(),
             evidence, first_idx)
     except Exception:
         return None

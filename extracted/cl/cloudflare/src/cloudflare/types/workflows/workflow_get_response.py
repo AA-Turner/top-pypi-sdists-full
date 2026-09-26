@@ -32,3 +32,6 @@ class WorkflowGetResponse(BaseModel):
     triggered_on: Optional[datetime] = None
 
     schedules: Optional[List[Schedule]] = None
+
+    script_deleted: Optional[bool] = None
+    """Whether the bound Worker was deleted, leaving this Workflow inactive."""

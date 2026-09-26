@@ -1088,13 +1088,22 @@ class UnifiedConfig:
         from matrx_ai.config.picklist_runtime import guard_unresolved_refs
 
         variables = guard_unresolved_refs(variables)
+        # Values are DATA: only placeholders the author wrote are slots, across
+        # every pass (config/template_substitution.py).
+        from matrx_ai.config.template_substitution import substitute_authored
+
+        system_template = ""
         if self.system_instruction is not None:
-            for var_name, var_value in variables.items():
-                self.system_instruction.base_instruction = (
-                    self.system_instruction.base_instruction.replace(
-                        f"{{{{{var_name}}}}}", str(var_value)
-                    )
-                )
+            system_template = getattr(self.system_instruction, "_authored_template", None)
+            if system_template is None:
+                system_template = self.system_instruction.base_instruction or ""
+                self.system_instruction._authored_template = system_template
+            self.system_instruction.base_instruction = substitute_authored(
+                self.system_instruction.base_instruction or "",
+                system_template,
+                variables,
+                str,
+            )
 
         # Replace in all messages
         self.messages.replace_variables(variables)
@@ -1109,7 +1118,9 @@ class UnifiedConfig:
         from matrx_ai.config.undeclared import note_unresolved, omission_sentence
 
         if self.system_instruction is not None:
-            note_unresolved(self.system_instruction.base_instruction or "")
+            note_unresolved(
+                self.system_instruction.base_instruction or "", template=system_template
+            )
         sentence = omission_sentence()
         if sentence and self.system_instruction is not None:
             existing = self.system_instruction.base_instruction or ""

@@ -6,13 +6,26 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .auth_mode_enum import AuthModeEnum
 from .storage_status_enum import StorageStatusEnum
 
 
 class AzureServicePrincipalExportStorageRequest(UncheckedBaseModel):
+    """
+    Mode-aware auth validation shared by import and export Azure SPI serializers.
+    """
+
     account_name: typing.Optional[str] = pydantic.Field(default=None)
     """
     Azure Blob account name
+    """
+
+    auth_mode: typing.Optional[AuthModeEnum] = pydantic.Field(default=None)
+    """
+    Authentication mode. service_principal uses a client secret. workload_identity uses constrained DefaultAzureCredential (workload identity + managed identity only). Defaults to service_principal.
+    
+    * `service_principal` - Service Principal
+    * `workload_identity` - Workload identity
     """
 
     can_delete_objects: typing.Optional[bool] = pydantic.Field(default=None)
@@ -22,12 +35,12 @@ class AzureServicePrincipalExportStorageRequest(UncheckedBaseModel):
 
     client_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Azure Blob Service Principal Client ID
+    For service_principal: Azure app registration client ID. For workload_identity: optional user-assigned managed identity client ID.
     """
 
     client_secret: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Azure Blob Service Principal Client Secret
+    Azure Blob Service Principal client secret. Required when auth_mode is service_principal (or omitted). Must be omitted when auth_mode is workload_identity.
     """
 
     container: typing.Optional[str] = pydantic.Field(default=None)
@@ -79,7 +92,7 @@ class AzureServicePrincipalExportStorageRequest(UncheckedBaseModel):
     synchronizable: typing.Optional[bool] = None
     tenant_id: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Azure Tenant ID
+    Azure Tenant ID. Required for service_principal; not used for workload_identity.
     """
 
     title: typing.Optional[str] = pydantic.Field(default=None)

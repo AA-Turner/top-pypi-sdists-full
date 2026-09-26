@@ -11,6 +11,7 @@ __all__ = ["ConfigurationEditParams"]
 
 class ConfigurationEditParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     settings: GatewayConfigurationSettingsParam
     """Specify account settings."""

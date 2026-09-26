@@ -23,7 +23,7 @@ class ReflectorRunner:
     def __init__(
         self,
         reflection_config: ReflectionConfig,
-        llm_call_fn: Callable[[str, list[dict], float, int], Coroutine[None, None, str]],
+        llm_call_fn: Callable[..., Coroutine[None, None, str]],
         count_tokens_fn: Callable[[str], int],
     ):
         self.reflection_config = reflection_config

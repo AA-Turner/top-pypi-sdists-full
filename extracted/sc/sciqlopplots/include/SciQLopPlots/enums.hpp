@@ -163,7 +163,15 @@ enum class ColorGradient
     Polar,
     Spectrum,
     Jet,
-    Hues
+    Hues,
+    // Appended: the values above are stable.
+    Viridis,
+    Cividis,
+    Magma,
+    Inferno,
+    Plasma,
+    Turbo,
+    Coolwarm
 };
 Q_DECLARE_METATYPE(ColorGradient);
 
@@ -206,3 +214,12 @@ enum class OverlayPosition
     Right
 };
 Q_DECLARE_METATYPE(OverlayPosition);
+
+//! Not an API: sets the kind shiboken gives the global enums above, see bindings.xml.
+namespace SciQLopEnumKindAnchor
+{
+enum class Kind
+{
+    Int
+};
+}

@@ -123,18 +123,25 @@ class Meta(BaseModel):
 
 class Summary0(BaseModel):
     bandwidth_download: str = FieldInfo(alias="bandwidthDownload")
+    """A numeric string."""
 
     bandwidth_upload: str = FieldInfo(alias="bandwidthUpload")
+    """A numeric string."""
 
     jitter_idle: str = FieldInfo(alias="jitterIdle")
+    """A numeric string."""
 
     jitter_loaded: str = FieldInfo(alias="jitterLoaded")
+    """A numeric string."""
 
     latency_idle: str = FieldInfo(alias="latencyIdle")
+    """A numeric string."""
 
     latency_loaded: str = FieldInfo(alias="latencyLoaded")
+    """A numeric string."""
 
     packet_loss: str = FieldInfo(alias="packetLoss")
+    """A numeric string."""
 
 
 class SpeedSummaryResponse(BaseModel):

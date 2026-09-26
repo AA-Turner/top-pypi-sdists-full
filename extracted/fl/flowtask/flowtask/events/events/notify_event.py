@@ -38,12 +38,13 @@ from ...conf import (
 from ...utils.functions import check_empty
 from .abstract import AbstractEvent
 from ...version import __version__
-from ...utils.msgraph_patch import patch_graph_host_os_header
+from ...utils.msgraph_patch import apply_msgraph_patches
 
 # This module imports the Teams provider eagerly (and therefore msgraph-core),
-# so sanitise the HostOs telemetry header at import time to avoid h11
-# "Illegal header value" errors on trailing-space kernel versions.
-patch_graph_host_os_header()
+# so patch msgraph at import time: sanitise the HostOs telemetry header (h11
+# "Illegal header value" on trailing-space kernel versions) and restore the
+# middleware pipeline under kiota-http >= 1.14.
+apply_msgraph_patches()
 
 
 class NotifyEvent(AbstractEvent):

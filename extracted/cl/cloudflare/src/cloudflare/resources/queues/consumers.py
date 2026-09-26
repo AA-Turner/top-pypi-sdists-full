@@ -65,7 +65,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Creates a new consumer for a Queue
+        Creates a consumer for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -101,7 +101,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Creates a new consumer for a Queue
+        Creates a consumer for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -188,7 +188,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Updates the consumer for a queue, or creates one if it does not exist.
+        Replaces a Queue consumer, or creates it if it does not exist.
 
         Args:
           account_id: A Resource identifier.
@@ -227,7 +227,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Updates the consumer for a queue, or creates one if it does not exist.
+        Replaces a Queue consumer, or creates it if it does not exist.
 
         Args:
           account_id: A Resource identifier.
@@ -316,7 +316,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[Consumer]:
         """
-        Returns the consumers for a Queue
+        Returns the consumers configured for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -360,7 +360,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConsumerDeleteResponse:
         """
-        Deletes the consumer for a queue.
+        Deletes a consumer from a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -410,7 +410,7 @@ class ConsumersResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Fetches the consumer for a queue by consumer id
+        Returns a Queue consumer by identifier.
 
         Args:
           account_id: A Resource identifier.
@@ -494,7 +494,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Creates a new consumer for a Queue
+        Creates a consumer for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -530,7 +530,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Creates a new consumer for a Queue
+        Creates a consumer for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -617,7 +617,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Updates the consumer for a queue, or creates one if it does not exist.
+        Replaces a Queue consumer, or creates it if it does not exist.
 
         Args:
           account_id: A Resource identifier.
@@ -656,7 +656,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Updates the consumer for a queue, or creates one if it does not exist.
+        Replaces a Queue consumer, or creates it if it does not exist.
 
         Args:
           account_id: A Resource identifier.
@@ -745,7 +745,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Consumer, AsyncSinglePage[Consumer]]:
         """
-        Returns the consumers for a Queue
+        Returns the consumers configured for a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -789,7 +789,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConsumerDeleteResponse:
         """
-        Deletes the consumer for a queue.
+        Deletes a consumer from a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -839,7 +839,7 @@ class AsyncConsumersResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Consumer]:
         """
-        Fetches the consumer for a queue by consumer id
+        Returns a Queue consumer by identifier.
 
         Args:
           account_id: A Resource identifier.

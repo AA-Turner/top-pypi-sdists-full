@@ -67,7 +67,7 @@ Source representations:
 When setting up your dataclasses, these types are handled:
 
 - ``str``: A string type, nothing special.
-- ``bool``: Supports bool in TOML, not handled in envvar/config (so only useful in a Union)
+- ``bool``: Supports bool in TOML; ``"0"``/``"false"``/``"off"``/``"no"``/``""`` are false in envvar/config forms.
 - Any callable (`Path`, `Version`): Passed the string input.
 - ``Optional[T]``: Treated like T. Default should be None, since no input format supports None's.
 - ``Union[str, ...]``: Supports other input types in TOML form (bool currently). Otherwise a string.
@@ -88,16 +88,14 @@ from __future__ import annotations
 __lazy_modules__ = {
     "dataclasses",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.builtins",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
     f"{(__spec__.parent or '').rsplit('.', 1)[0]}.utils.typing",
 }
 
 import dataclasses
 import os
-from typing import Any, Literal, Protocol, TypeVar
+from typing import Any, Literal, Protocol, TypeVar, get_args
 
-from .._compat.builtins import ExceptionGroup
-from .._compat.typing import get_args
+from .._compat.builtins import ExceptionGroup, add_note
 from ..utils.typing import (
     get_inner_type,
     get_target_raw_type,
@@ -273,6 +271,12 @@ def _dict_with_envvar(target: Any, /) -> Any:
     """
     if not isinstance(target, dict):
         return target
+    if "config-setting" in target:
+        # These are resolved from the raw pyproject dict by SettingsReader
+        # before source conversion; reaching here means a direct SourceChain
+        # user passed one through.
+        msg = "{config-setting = ...} values are only supported via SettingsReader"
+        raise TypeError(msg)
     env = target["env"]
     default = target.get("default", None)
     value = os.environ.get(env, default)
@@ -512,15 +516,23 @@ class ConfSource(Source):
     unrelated config keys.
     """
 
+    extra_keys: frozenset[str]
+    """
+    Raw keys accepted verbatim even though they are not model fields (the
+    project-declared ``tool.scikit-build.config-setting`` names).
+    """
+
     def __init__(
         self,
         *prefixes: str,
         settings: Mapping[str, str | list[str] | bool],
         verify: bool = True,
+        extra_keys: frozenset[str] = frozenset(),
     ) -> None:
         self.prefixes = prefixes
         self.settings = settings
         self.verify = verify
+        self.extra_keys = extra_keys
 
     def _get_name(self, *fields: str) -> list[str]:
         names = [field.replace("_", "-") for field in fields]
@@ -542,7 +554,7 @@ class ConfSource(Source):
         name = ".".join(names)
         if is_dict:
             d = {
-                k[len(name) + 1 :]: str(v)
+                k.removeprefix(f"{name}."): str(v)
                 for k, v in self.settings.items()
                 if k.startswith(f"{name}.")
             }
@@ -635,7 +647,10 @@ class ConfSource(Source):
     def unrecognized_options(self, options: object) -> Generator[str, None, None]:
         if not self.verify:
             return
+        extra_namespaces = {k.split(".", 1)[0] for k in self.extra_keys}
         for keystr in self.settings:
+            if keystr in self.extra_keys:
+                continue
             keys = keystr.replace("-", "_").split(".")[len(self.prefixes) :]
             try:
                 outer_option = _dig_fields(options, *keys[:-1])
@@ -645,6 +660,11 @@ class ConfSource(Source):
                 # non-dataclass), so anything nested under it is free-form and
                 # cannot be a dataclass field.
                 if _under_dict_field(options, keys[:-1]):
+                    continue
+                if keystr.split(".", 1)[0] in extra_namespaces:
+                    # Shares a namespace with a declared extra key: report the
+                    # full key so suggestions can offer the declared names.
+                    yield keystr
                     continue
                 yield ".".join(keystr.split(".")[:-1])
                 continue
@@ -670,6 +690,7 @@ class ConfSource(Source):
         for names in _nested_dataclass_to_names(target):
             dash_names = [name.replace("_", "-") for name in names]
             yield ".".join((*self.prefixes, *dash_names))
+        yield from self.extra_keys
 
 
 class TOMLSource(Source):
@@ -853,7 +874,7 @@ class SourceChain:
                     )
                 except Exception as e:  # noqa: BLE001
                     name = ".".join([*self.prefixes, *prefixes, field.name])
-                    e.__notes__ = [*getattr(e, "__notes__", []), f"Field: {name}"]  # type: ignore[attr-defined]
+                    add_note(e, f"Field: {name}")
                     errors.append(e)
                 continue
 
@@ -866,7 +887,7 @@ class SourceChain:
                         tmp = source.convert(simple, field.type)
                     except Exception as e:  # noqa: BLE001
                         name = ".".join([*self.prefixes, *prefixes, field.name])
-                        e.__notes__ = [*getattr(e, "__notes__", []), f"Field {name}"]  # type: ignore[attr-defined]
+                        add_note(e, f"Field {name}")
                         errors.append(e)
                         prep[field.name] = None
                         break
@@ -875,7 +896,7 @@ class SourceChain:
                         # Dict sources merge by precedence: later matching sources
                         # add missing keys without erasing higher-priority ones.
                         assert isinstance(tmp, dict), f"{field.name} must be a dict"
-                        prep[field.name] = {**tmp, **prep.get(field.name, {})}
+                        prep[field.name] = tmp | prep.get(field.name, {})
                         continue
 
                     prep[field.name] = tmp

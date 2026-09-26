@@ -104,6 +104,7 @@ class TestScriptAndVersionSettings:
                 "observability": {
                     "enabled": True,
                     "head_sampling_rate": 0.1,
+                    "issues": {"enabled": True},
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,
@@ -315,6 +316,7 @@ class TestAsyncScriptAndVersionSettings:
                 "observability": {
                     "enabled": True,
                     "head_sampling_rate": 0.1,
+                    "issues": {"enabled": True},
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,

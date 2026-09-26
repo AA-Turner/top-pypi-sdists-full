@@ -8,8 +8,6 @@ import argparse
 import copy
 from typing import Any, Dict, Optional
 
-from rich.console import Console
-
 from src.cli.config import DEFAULT_API_URL, CLIConfig, is_local_api_url
 from src.cli.utils.formatters import (
     format_error,
@@ -17,9 +15,14 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import (
+    make_console,
+    print_command_header,
+    print_rule,
+)
 from src.domain.board import BoardType
 
-console = Console()
+console = make_console()
 
 
 class ConfigCommands:
@@ -173,7 +176,7 @@ class ConfigCommands:
         try:
             # Check if already initialized
             if config.is_initialized() and not args.force:
-                console.print(format_success("✅ Already initialized!"))
+                console.print(format_success("Already initialized!"))
                 console.print()
 
                 # Fetch and display current setup info
@@ -226,11 +229,11 @@ class ConfigCommands:
                 # wrote nothing at all exited 0 (#619).
                 return await ConfigCommands._non_interactive_init(config, args)
 
-            # Show welcome banner for first-time setup (unless suppressed)
+            # The same three lines every command opens with. The panel this
+            # replaces carried a rocket in its title above a tagline that
+            # usually carried another one.
             if not getattr(args, "no_banner", False):
-                from src.cli.utils.banner import show_welcome_banner
-
-                show_welcome_banner(console, "InnoDay CLI")
+                print_command_header(args, config, "config init")
 
             # Run streamlined interactive setup
             succeeded = await ConfigCommands._streamlined_init(
@@ -544,9 +547,7 @@ class ConfigCommands:
         config.save()
 
         if config.get_cli_token():
-            console.print(
-                format_success("\n✅ Configuration initialized successfully!")
-            )
+            console.print(format_success("\nConfiguration initialized successfully!"))
             console.print(f"User: {args.name} ({args.email})")
         else:
             console.print(
@@ -606,7 +607,9 @@ class ConfigCommands:
 
         from src.cli.client import InnoDayAPIClient as APIClient
 
-        console.print("\n[bold cyan]─── InnoDay Profile Setup ───[/bold cyan]\n")
+        console.print()
+        print_rule("Profile setup", style="header")
+        console.print()
 
         # Step 1: Profile name
         default_profile = profile_name or config.get_current_profile() or "dev"
@@ -834,9 +837,9 @@ class ConfigCommands:
         config.save()
 
         if all_have_boards:
-            console.print(format_success(f"\n✅ Profile '{chosen_profile}' is ready!"))
+            console.print(format_success(f"\nProfile '{chosen_profile}' is ready!"))
             console.print("""
-[bold cyan]🚀 YOU ARE CLEARED FOR LAUNCH, COMMANDER.[/bold cyan]
+[header]YOU ARE CLEARED FOR LAUNCH, COMMANDER.[/header]
 
 Your InnoDay MCP is fuelled and on the pad. Here's your mission brief:
 
@@ -845,12 +848,10 @@ Your InnoDay MCP is fuelled and on the pad. Here's your mission brief:
   • [bold]Check the team[/bold]     → "what did the team ship this week?"
   • [bold]File a ticket[/bold]      → "create a ticket: fix the flaky sync on retries"
 
-The MCP handles the wiring — you just fly the mission. 🛸
+The MCP handles the wiring — you just fly the mission.
 """)
         else:
-            console.print(
-                format_success(f"\n✅ Profile '{chosen_profile}' configured.")
-            )
+            console.print(format_success(f"\nProfile '{chosen_profile}' configured."))
             console.print(
                 "\n[dim]Register remaining boards, then you're ready to sync and get summaries.[/dim]"
             )

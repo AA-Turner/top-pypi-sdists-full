@@ -6,6 +6,7 @@ use chrono::Utc;
 use super::{
     StatsigUserLoggable,
     fast_statsig_user::FastStatsigUser,
+    prepared_user::PreparedUser,
     user_data::UserDataMap,
     user_value::{UserValue, UserValueRef},
 };
@@ -41,6 +42,7 @@ pub struct StatsigUserInternal<'statsig, 'user> {
 pub(crate) enum InternalUserRef<'user> {
     Public(&'user StatsigUser),
     Fast(&'user FastStatsigUser),
+    Prepared(&'user PreparedUser),
 }
 
 static LAST_VERSION_CHECK: AtomicU64 = AtomicU64::new(0);
@@ -67,6 +69,16 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         }
     }
 
+    pub fn from_prepared_user(
+        user: &'user PreparedUser,
+        statsig_instance: Option<&'statsig Statsig>,
+    ) -> Self {
+        Self {
+            user_ref: InternalUserRef::Prepared(user),
+            statsig_instance,
+        }
+    }
+
     pub fn get_unit_id(&self, id_type: &DynamicString) -> Option<UserValueRef<'_>> {
         self.get_unit_id_ref(id_type.into())
     }
@@ -80,6 +92,9 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
                 .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
                 .map(UserValueRef::Dynamic),
             InternalUserRef::Fast(user) => user
+                .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
+                .map(UserValueRef::User),
+            InternalUserRef::Prepared(user) => user
                 .get_unit_id_by_name(id_type.value(), id_type.lowercased_value())
                 .map(UserValueRef::User),
         }
@@ -162,6 +177,9 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
             InternalUserRef::Fast(user) => {
                 StatsigUserLoggable::new_fast(&user.data, environment, global_custom)
             }
+            InternalUserRef::Prepared(user) => {
+                StatsigUserLoggable::new_prepared(user.to_owned(), environment, global_custom)
+            }
         }
     }
 
@@ -190,6 +208,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
                 user.data.create_exposure_dedupe_user_hash(unit_id_type)
             }
             InternalUserRef::Fast(user) => user.data.create_exposure_dedupe_user_hash(unit_id_type),
+            InternalUserRef::Prepared(user) => user.create_exposure_dedupe_user_hash(unit_id_type),
         }
     }
 
@@ -212,6 +231,11 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
             InternalUserRef::Fast(user) => {
                 user.data.user_id.as_ref().and_then(UserValue::string_value)
             }
+            InternalUserRef::Prepared(user) => user
+                .input
+                .user_id
+                .as_ref()
+                .and_then(UserValue::string_value),
         }
     }
 
@@ -248,6 +272,14 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
                         .collect()
                 })
                 .unwrap_or_default(),
+            InternalUserRef::Prepared(user) => user
+                .custom_ids()
+                .map(|ids| {
+                    ids.iter()
+                        .map(|(key, value)| (key.as_str(), value.string_value().unwrap_or("")))
+                        .collect()
+                })
+                .unwrap_or_default(),
         }
     }
 
@@ -258,6 +290,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
                 let materialized = user.to_public_user();
                 f(&materialized)
             }
+            InternalUserRef::Prepared(user) => f(&user.to_public_user()),
         }
     }
 
@@ -273,6 +306,9 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
                 "useragent" => user.data.user_agent.as_ref().map(UserValueRef::Dynamic),
                 _ => None,
             },
+            InternalUserRef::Prepared(user) => user
+                .get_primary_value(lowered_field)
+                .map(UserValueRef::User),
             InternalUserRef::Fast(user) => match lowered_field {
                 "userid" => user.data.user_id.as_ref().map(UserValueRef::User),
                 "email" => user.data.email.as_ref().map(UserValueRef::User),
@@ -306,6 +342,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
             InternalUserRef::Fast(user) => {
                 user.data.custom.as_ref()?.get(key).map(UserValueRef::User)
             }
+            InternalUserRef::Prepared(user) => user.get_custom_value(key).map(UserValueRef::User),
         }
     }
 
@@ -317,6 +354,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         match self.user_ref {
             InternalUserRef::Public(user) => user.data.private_attributes.as_ref(),
             InternalUserRef::Fast(user) => user.data.private_attributes.as_ref(),
+            InternalUserRef::Prepared(user) => user.base.as_ref()?.private_attributes.as_ref(),
         }
     }
 
@@ -324,6 +362,7 @@ impl<'statsig, 'user> StatsigUserInternal<'statsig, 'user> {
         match self.user_ref {
             InternalUserRef::Public(user) => user.data.statsig_environment.as_ref(),
             InternalUserRef::Fast(user) => user.data.statsig_environment.as_ref(),
+            InternalUserRef::Prepared(user) => user.base.as_ref()?.statsig_environment.as_ref(),
         }
     }
 }

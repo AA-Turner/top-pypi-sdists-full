@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing_extensions
-from typing import Type, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -18,9 +18,9 @@ from ...._response import (
     async_to_streamed_response_wrapper,
 )
 from ...._wrappers import ResultWrapper
-from ....pagination import SyncSinglePage, AsyncSinglePage
-from ...._base_client import AsyncPaginator, make_request_options
+from ...._base_client import make_request_options
 from ....types.zero_trust.devices.override_code_get_response import OverrideCodeGetResponse
+from ....types.zero_trust.devices.override_code_list_response import OverrideCodeListResponse
 
 __all__ = ["OverrideCodesResource", "AsyncOverrideCodesResource"]
 
@@ -57,7 +57,7 @@ class OverrideCodesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncSinglePage[object]:
+    ) -> Optional[OverrideCodeListResponse]:
         """Fetches a one-time use admin override code for a device.
 
         This relies on the
@@ -84,15 +84,18 @@ class OverrideCodesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not device_id:
             raise ValueError(f"Expected a non-empty value for `device_id` but received {device_id!r}")
-        return self._get_api_list(
+        return self._get(
             path_template(
                 "/accounts/{account_id}/devices/{device_id}/override_codes", account_id=account_id, device_id=device_id
             ),
-            page=SyncSinglePage[object],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[OverrideCodeListResponse]]._unwrapper,
             ),
-            model=object,
+            cast_to=cast(Type[Optional[OverrideCodeListResponse]], ResultWrapper[OverrideCodeListResponse]),
         )
 
     def get(
@@ -163,7 +166,7 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
         return AsyncOverrideCodesResourceWithStreamingResponse(self)
 
     @typing_extensions.deprecated("deprecated")
-    def list(
+    async def list(
         self,
         device_id: str,
         *,
@@ -174,7 +177,7 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[object, AsyncSinglePage[object]]:
+    ) -> Optional[OverrideCodeListResponse]:
         """Fetches a one-time use admin override code for a device.
 
         This relies on the
@@ -201,15 +204,18 @@ class AsyncOverrideCodesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         if not device_id:
             raise ValueError(f"Expected a non-empty value for `device_id` but received {device_id!r}")
-        return self._get_api_list(
+        return await self._get(
             path_template(
                 "/accounts/{account_id}/devices/{device_id}/override_codes", account_id=account_id, device_id=device_id
             ),
-            page=AsyncSinglePage[object],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[OverrideCodeListResponse]]._unwrapper,
             ),
-            model=object,
+            cast_to=cast(Type[Optional[OverrideCodeListResponse]], ResultWrapper[OverrideCodeListResponse]),
         )
 
     async def get(

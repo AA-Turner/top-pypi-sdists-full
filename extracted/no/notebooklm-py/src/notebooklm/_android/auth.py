@@ -6,20 +6,17 @@ import asyncio
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Protocol
 
 from .._auth.master_token_types import MasterToken
 from .._auth.mint_service import (
     MintedOAuthToken,
-    MintService,
     OAuthClientSpec,
     OAuthMintError,
     _require_gpsoauth,
 )
-from .._auth.profile_store import ProfileStore
 from .._loop_affinity import assert_bound_loop
-from .._loop_bound import LoopBoundPrimitive
+from .._loop_bound import EpochFenced
 from ..exceptions import AuthError, ConfigurationError, MissingDependencyError
 from .errors import sanitize_escaping_exception
 
@@ -56,11 +53,15 @@ _ANDROID_EXTRA_MESSAGE = (
 )
 
 
-class _ProfileReader(Protocol):
+class MasterTokenReader(Protocol):
+    """Narrow synchronous read capability supplied by composition."""
+
     def read_master_token(self) -> MasterToken | None: ...
 
 
-class _OAuthMinter(Protocol):
+class OAuthMinter(Protocol):
+    """Narrow Android bearer-mint capability supplied by composition."""
+
     async def mint_oauth(
         self,
         master_token: MasterToken,
@@ -68,7 +69,7 @@ class _OAuthMinter(Protocol):
     ) -> MintedOAuthToken: ...
 
 
-class _NoMasterTokenProfile:
+class _NoMasterTokenReader:
     """I/O-free reader for direct clients without a profile-backed path."""
 
     def read_master_token(self) -> None:
@@ -92,23 +93,27 @@ class _MintResult:
     cache_deadline: float | None
 
 
-class BearerProvider(LoopBoundPrimitive):
+class BearerProvider(EpochFenced):
     """Load a durable profile record and mint one shared short-lived bearer."""
 
     def __init__(
         self,
-        profile_store: ProfileStore | _ProfileReader,
-        mint_service: MintService | _OAuthMinter,
+        master_token_reader: MasterTokenReader,
+        oauth_minter: OAuthMinter,
         *,
         wall_clock: Callable[[], float] = time.time,
         monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._profile_store = profile_store
-        self._mint_service = mint_service
+        super().__init__(
+            _INACTIVE_MESSAGE,
+            initially_closing=True,
+            include_epoch_details=False,
+        )
+        self._master_token_reader = master_token_reader
+        self._oauth_minter = oauth_minter
         self._wall_clock = wall_clock
         self._monotonic = monotonic
         self._provider_epoch = 0
-        self._active_session_epoch: int | None = None
         self._master_token: MasterToken | None = None
         self._lock: asyncio.Lock | None = None
         self._mint_task: asyncio.Task[_MintResult] | None = None
@@ -140,7 +145,7 @@ class BearerProvider(LoopBoundPrimitive):
         self._lock = None
         self._mint_task = None
         self._mint_waiters = 0
-        self._active_session_epoch = None
+        self.fence()
         self._master_token = None
         self._cached = None
         self._cache_deadline = None
@@ -161,7 +166,8 @@ class BearerProvider(LoopBoundPrimitive):
 
     def _assert_active(self, expected_epoch: int) -> int:
         self._assert_loop()
-        if self._active_session_epoch != expected_epoch or self._master_token is None:
+        self.assert_epoch(expected_epoch)
+        if self._master_token is None:
             raise RuntimeError(_INACTIVE_MESSAGE)
         return self._provider_epoch
 
@@ -172,7 +178,7 @@ class BearerProvider(LoopBoundPrimitive):
             self._lock = lock
         return lock
 
-    async def activate(self, epoch: int) -> None:
+    async def activate_for_epoch(self, epoch: int) -> None:
         """Read and retain the typed durable credential without minting."""
 
         self._assert_loop()
@@ -185,12 +191,12 @@ class BearerProvider(LoopBoundPrimitive):
             raise MissingDependencyError(_ANDROID_EXTRA_MESSAGE)
         self._provider_epoch += 1
         provider_epoch = self._provider_epoch
-        self._active_session_epoch = epoch
+        self.activate(epoch)
         self._master_token = None
         self._cached = None
         self._cache_deadline = None
         try:
-            record = await asyncio.to_thread(self._profile_store.read_master_token)
+            record = await asyncio.to_thread(self._master_token_reader.read_master_token)
         except asyncio.CancelledError:
             raise
         except (KeyboardInterrupt, SystemExit):
@@ -198,7 +204,7 @@ class BearerProvider(LoopBoundPrimitive):
         except Exception:
             record = None
 
-        if self._provider_epoch != provider_epoch or self._active_session_epoch != epoch:
+        if self._provider_epoch != provider_epoch or self._closing or self._active_epoch != epoch:
             return
         if type(record) is not MasterToken:
             del record
@@ -246,33 +252,57 @@ class BearerProvider(LoopBoundPrimitive):
                 self._mint_task = task
             self._mint_waiters += 1
 
+        result: _MintResult | None = None
+        lock_acquired = False
         try:
             result = await asyncio.shield(task)
-        except BaseException:
-            self._settle_mint_waiter(task)
-            raise
-
-        try:
+            assert result is not None
             await lock.acquire()
-        except BaseException:
-            self._settle_mint_waiter(task)
-            del result
-            raise
-        try:
+            lock_acquired = True
             if (
                 self._provider_epoch != provider_epoch
-                or self._active_session_epoch != expected_epoch
+                or self._closing
+                or self._active_epoch != expected_epoch
                 or self._master_token is None
             ):
-                del result
                 raise RuntimeError(_INACTIVE_MESSAGE)
             if result.cache_deadline is not None and self._monotonic() < result.cache_deadline:
                 self._cached = result.credential
                 self._cache_deadline = result.cache_deadline
             return result.credential
         finally:
+            # Drop the bearer-owning mint result before an escaping exception
+            # can retain this frame through its traceback.
+            result = None
             self._settle_mint_waiter(task)
-            lock.release()
+            if lock_acquired:
+                lock.release()
+
+    async def refresh(self, expected_epoch: int) -> BearerCredential:
+        """Invalidate the cached bearer and mint/join one fresh credential."""
+
+        provider = self
+        failure: BaseException | None = None
+        result: BearerCredential | None = None
+        try:
+            result = await provider._refresh_impl(expected_epoch)
+        except BaseException as error:
+            failure = sanitize_escaping_exception(error)
+        finally:
+            del self, provider
+        if failure is not None:
+            raise failure
+        assert result is not None
+        return result
+
+    async def _refresh_impl(self, expected_epoch: int) -> BearerCredential:
+        """Credential-owning implementation for :meth:`refresh`."""
+
+        self._assert_active(expected_epoch)
+        cached = self._cached
+        if cached is not None:
+            self.invalidate(cached.generation)
+        return await self.get(expected_epoch)
 
     def _settle_mint_waiter(self, task: asyncio.Task[_MintResult]) -> None:
         if self._mint_task is task:
@@ -293,7 +323,7 @@ class BearerProvider(LoopBoundPrimitive):
         failure: Exception | None = None
         minted: MintedOAuthToken | None = None
         try:
-            minted = await self._mint_service.mint_oauth(record, NOTEBOOKLM_OAUTH_SPEC)
+            minted = await self._oauth_minter.mint_oauth(record, NOTEBOOKLM_OAUTH_SPEC)
         except MissingDependencyError:
             failure = MissingDependencyError(_ANDROID_EXTRA_MESSAGE)
         except OAuthMintError:
@@ -312,7 +342,7 @@ class BearerProvider(LoopBoundPrimitive):
             raise failure
         if not isinstance(minted, MintedOAuthToken) or not minted.token:
             raise AuthError(_MINT_FAILURE_MESSAGE)
-        if self._provider_epoch != provider_epoch or self._active_session_epoch is None:
+        if self._provider_epoch != provider_epoch or self._closing or self._active_epoch is None:
             del minted
             raise RuntimeError(_INACTIVE_MESSAGE)
 
@@ -349,7 +379,7 @@ class BearerProvider(LoopBoundPrimitive):
 
         self._assert_loop()
         self._provider_epoch += 1
-        self._active_session_epoch = None
+        self.fence()
         self._master_token = None
         self._cached = None
         self._cache_deadline = None
@@ -361,13 +391,19 @@ class BearerProvider(LoopBoundPrimitive):
             await asyncio.gather(task, return_exceptions=True)
 
 
-def _make_bearer_provider(storage_path: Path | None) -> BearerProvider:
-    """Assemble the concrete credential owners without reading the profile."""
+def _make_bearer_provider(
+    master_token_reader: MasterTokenReader,
+    oauth_minter: OAuthMinter,
+) -> BearerProvider:
+    """Bind explicit credential capabilities without reading or minting."""
 
-    profile_reader = (
-        ProfileStore(storage_path) if storage_path is not None else _NoMasterTokenProfile()
-    )
-    return BearerProvider(profile_reader, MintService())
+    return BearerProvider(master_token_reader, oauth_minter)
 
 
-__all__ = ["BearerCredential", "BearerProvider", "NOTEBOOKLM_OAUTH_SPEC"]
+__all__ = [
+    "BearerCredential",
+    "BearerProvider",
+    "MasterTokenReader",
+    "NOTEBOOKLM_OAUTH_SPEC",
+    "OAuthMinter",
+]

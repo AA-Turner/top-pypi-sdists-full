@@ -10,7 +10,10 @@ use crate::data_store_interface::{
 use crate::networking::{DEFAULT_CDN_SPECS_URL, NetworkClient, ResponseData, config_specs_url};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::specs_response::proto_compression::ProtoCompression;
-use crate::specs_response::proto_stream_reader::BUFFER_SIZE;
+use crate::specs_response::proto_stream_reader::{
+    BUFFER_SIZE, ProtobufSnapshotCursor, read_snapshot_cursor,
+};
+#[cfg(test)]
 use crate::specs_response::statsig_config_specs as pb;
 use crate::statsig_metadata::StatsigMetadata;
 use crate::{
@@ -21,15 +24,17 @@ use crate::{StatsigErr, StatsigOptions, StatsigRuntime};
 use async_trait::async_trait;
 use chrono::Utc;
 use parking_lot::RwLock;
+#[cfg(test)]
 use prost::Message;
 use std::collections::HashMap;
-use std::{io::Read, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::Notify;
 use tokio::time::{self, sleep};
 
 const TAG: &str = "StatsigDataStoreSpecsAdapter";
 
 pub struct StatsigDataStoreSpecsAdapter {
+    output_policy: crate::output_policy::OutputPolicy,
     data_store: Arc<dyn DataStoreTrait>,
     cache_keys: DataStoreCacheKeys,
     sync_interval: Duration,
@@ -49,22 +54,6 @@ struct CachedSpecs {
     has_updates: Option<bool>,
 }
 
-#[derive(Clone, PartialEq, prost::Message)]
-struct CachedSnapshotCursor {
-    #[prost(uint64, tag = "2")]
-    lcut: u64,
-    #[prost(string, tag = "5")]
-    checksum: String,
-}
-
-#[derive(Clone, PartialEq, prost::Message)]
-struct CachedSnapshotEnvelope {
-    #[prost(int32, tag = "1")]
-    kind: i32,
-    #[prost(bytes = "bytes", optional, tag = "4")]
-    data: Option<bytes::Bytes>,
-}
-
 impl StatsigDataStoreSpecsAdapter {
     pub fn new(
         sdk_key: &str,
@@ -73,6 +62,8 @@ impl StatsigDataStoreSpecsAdapter {
         options: Option<&StatsigOptions>,
         hydration_specs_url_override: Option<&str>,
     ) -> Self {
+        let output_policy = crate::output_policy::OutputPolicy::from_options(options);
+        let _output_scope = output_policy.enter();
         let default_options = StatsigOptions::default();
         let options_ref = options.unwrap_or(&default_options);
 
@@ -97,6 +88,7 @@ impl StatsigDataStoreSpecsAdapter {
             .as_ref()
             .is_some_and(|flags| flags.contains(ENABLE_DCS_ZSTD_DATASTORE_FLAG));
         StatsigDataStoreSpecsAdapter {
+            output_policy,
             data_store,
             cache_keys: DataStoreCacheKeys::from_selected_key(data_store_key),
             sync_interval: Duration::from_millis(u64::from(
@@ -123,33 +115,43 @@ impl SpecsAdapter for StatsigDataStoreSpecsAdapter {
         self: Arc<Self>,
         _statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
-        let sync_start_ms = Utc::now().timestamp_millis() as u64;
-        self.data_store.initialize().await?;
+        self.output_policy
+            .scope(async {
+                let sync_start_ms = Utc::now().timestamp_millis() as u64;
+                self.data_store.initialize().await?;
 
-        let update = self.load_cached_specs(None, None).await?;
-        if update.result.is_none() && update.has_updates != Some(false) {
-            return Err(StatsigErr::DataStoreFailure("Empty result".to_string()));
-        }
+                let update = self.load_cached_specs(None, None).await?;
+                if update.result.is_none() && update.has_updates != Some(false) {
+                    return Err(StatsigErr::DataStoreFailure("Empty result".to_string()));
+                }
 
-        let listener = {
-            let read_lock = read_lock_or_else!(self.listener, {
-                return Err(StatsigErr::UnstartedAdapter(
-                    "Failed to acquire read lock on listener".to_string(),
-                ));
-            });
+                let listener = {
+                    let read_lock = read_lock_or_else!(self.listener, {
+                        return Err(StatsigErr::UnstartedAdapter(
+                            "Failed to acquire read lock on listener".to_string(),
+                        ));
+                    });
 
-            match read_lock.as_ref() {
-                Some(listener) => listener.clone(),
-                None => return Err(StatsigErr::UnstartedAdapter("Listener not set".to_string())),
-            }
-        };
+                    match read_lock.as_ref() {
+                        Some(listener) => listener.clone(),
+                        None => {
+                            return Err(StatsigErr::UnstartedAdapter(
+                                "Listener not set".to_string(),
+                            ));
+                        }
+                    }
+                };
 
-        let (result, response_format) = self.send_specs_update_to_listener(&listener, update).await;
-        self.log_data_store_sync_result(sync_start_ms, &response_format, &result);
-        result
+                let (result, response_format) =
+                    self.send_specs_update_to_listener(&listener, update).await;
+                self.log_data_store_sync_result(sync_start_ms, &response_format, &result);
+                result
+            })
+            .await
     }
 
     fn initialize(&self, listener: Arc<dyn SpecsUpdateListener>) {
+        let _output_scope = self.output_policy.enter();
         let mut write_lock = write_lock_or_else!(self.listener, {
             log_e!(TAG, "Failed to acquire write lock on listener");
             return;
@@ -162,35 +164,39 @@ impl SpecsAdapter for StatsigDataStoreSpecsAdapter {
         self: Arc<Self>,
         statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
-        // Support polling updates function should be pretty cheap. But we have to make it async
-        let should_schedule = self
-            .data_store
-            .support_polling_updates_for(RequestPath::RulesetsV2)
-            .await;
-
-        if !should_schedule {
-            return Err(StatsigErr::SpecsAdapterSkipPoll(self.get_type_name()));
-        }
-
-        let weak_self = Arc::downgrade(&self);
-
-        statsig_runtime.spawn(
-            "data_store_specs_adapter",
-            move |rt_shutdown_notify| async move {
-                let strong_self = if let Some(strong_self) = weak_self.upgrade() {
-                    strong_self
-                } else {
-                    log_w!(TAG, "Failed to upgrade weak instance");
-                    return;
-                };
-
-                strong_self
-                    .execute_background_sync(&rt_shutdown_notify)
+        self.output_policy
+            .scope(async {
+                // Support polling updates function should be pretty cheap. But we have to make it async
+                let should_schedule = self
+                    .data_store
+                    .support_polling_updates_for(RequestPath::RulesetsV2)
                     .await;
-            },
-        )?;
 
-        Ok(())
+                if !should_schedule {
+                    return Err(StatsigErr::SpecsAdapterSkipPoll(self.get_type_name()));
+                }
+
+                let weak_self = Arc::downgrade(&self);
+
+                statsig_runtime.spawn(
+                    "data_store_specs_adapter",
+                    move |rt_shutdown_notify| async move {
+                        let strong_self = if let Some(strong_self) = weak_self.upgrade() {
+                            strong_self
+                        } else {
+                            log_w!(TAG, "Failed to upgrade weak instance");
+                            return;
+                        };
+
+                        strong_self
+                            .execute_background_sync(&rt_shutdown_notify)
+                            .await;
+                    },
+                )?;
+
+                Ok(())
+            })
+            .await
     }
 
     async fn shutdown(
@@ -198,10 +204,14 @@ impl SpecsAdapter for StatsigDataStoreSpecsAdapter {
         timeout: Duration,
         _statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
-        self.shutdown_notify.notify_one();
-        time::timeout(timeout, async { self.data_store.shutdown().await })
+        self.output_policy
+            .scope(async {
+                self.shutdown_notify.notify_one();
+                time::timeout(timeout, async { self.data_store.shutdown().await })
+                    .await
+                    .map_err(|e| StatsigErr::DataStoreFailure(format!("Failed to shutdown: {e}")))?
+            })
             .await
-            .map_err(|e| StatsigErr::DataStoreFailure(format!("Failed to shutdown: {e}")))?
     }
 
     fn get_type_name(&self) -> String {
@@ -633,51 +643,16 @@ fn select_newest_compressed_cache(
     })
 }
 
-fn cached_snapshot_cursor(candidate: &CachedSpecs) -> Option<CachedSnapshotCursor> {
+fn cached_snapshot_cursor(candidate: &CachedSpecs) -> Option<ProtobufSnapshotCursor> {
     let bytes = candidate.result.as_deref()?;
     match candidate.proto_compression? {
         ProtoCompression::Brotli => {
-            decode_cached_snapshot_cursor(brotli::Decompressor::new(bytes, BUFFER_SIZE))
+            read_snapshot_cursor(brotli::Decompressor::new(bytes, BUFFER_SIZE))
         }
         ProtoCompression::Zstd => {
-            decode_cached_snapshot_cursor(zstd::stream::read::Decoder::new(bytes).ok()?)
+            read_snapshot_cursor(zstd::stream::read::Decoder::new(bytes).ok()?)
         }
     }
-}
-
-fn decode_cached_snapshot_cursor(mut reader: impl Read) -> Option<CachedSnapshotCursor> {
-    let mut delimiter = [0_u8; 10];
-    let mut delimiter_len = 0;
-    loop {
-        reader
-            .read_exact(&mut delimiter[delimiter_len..delimiter_len + 1])
-            .ok()?;
-        delimiter_len += 1;
-        if delimiter[delimiter_len - 1] & 0x80 == 0 {
-            break;
-        }
-        if delimiter_len == delimiter.len() {
-            return None;
-        }
-    }
-
-    let envelope_len = prost::decode_length_delimiter(&delimiter[..delimiter_len]).ok()?;
-    let mut encoded_envelope = Vec::new();
-    reader
-        .take(u64::try_from(envelope_len).ok()?)
-        .read_to_end(&mut encoded_envelope)
-        .ok()?;
-    if encoded_envelope.len() != envelope_len {
-        return None;
-    }
-
-    let envelope = CachedSnapshotEnvelope::decode(bytes::Bytes::from(encoded_envelope)).ok()?;
-    if pb::SpecsEnvelopeKind::try_from(envelope.kind).ok()? != pb::SpecsEnvelopeKind::TopLevel {
-        return None;
-    }
-
-    let cursor = CachedSnapshotCursor::decode(envelope.data?).ok()?;
-    (cursor.lcut > 0).then_some(cursor)
 }
 
 #[cfg(test)]
@@ -1172,6 +1147,6 @@ mod tests {
         prost::encode_length_delimiter(1024, &mut envelope).unwrap();
         envelope.extend_from_slice(&[1, 2, 3]);
 
-        assert!(decode_cached_snapshot_cursor(envelope.as_slice()).is_none());
+        assert!(read_snapshot_cursor(envelope.as_slice()).is_none());
     }
 }

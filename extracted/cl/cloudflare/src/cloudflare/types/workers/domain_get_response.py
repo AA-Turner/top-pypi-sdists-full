@@ -1,7 +1,5 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
-
 from ..._models import BaseModel
 
 __all__ = ["DomainGetResponse"]
@@ -13,6 +11,9 @@ class DomainGetResponse(BaseModel):
 
     cert_id: str
     """ID of the TLS certificate issued for the domain."""
+
+    environment: str
+    """Worker environment associated with the domain."""
 
     hostname: str
     """Hostname of the domain.
@@ -32,6 +33,3 @@ class DomainGetResponse(BaseModel):
 
     zone_name: str
     """Name of the zone containing the domain hostname."""
-
-    environment: Optional[str] = None
-    """Worker environment associated with the domain."""

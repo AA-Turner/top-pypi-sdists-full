@@ -183,26 +183,32 @@ class TestMcpHttpFileRoutes:
 
     @pytest.mark.asyncio
     @pytest.mark.readonly
-    async def test_download_roundtrip(self, client, generation_notebook_id):
+    async def test_download_roundtrip(self, client, read_only_notebook_id):
         """artifact_download mints a download URL; a raw GET streams the bytes.
 
-        Reuses an EXISTING artifact on the generation notebook (no fresh
+        Reuses an existing artifact on the prepared reference copy (no fresh
         generation); skips cleanly when none is present.
         """
         async with inprocess_mcp_server(client, file_transfer=_file_transfer()) as im:
             async with im.mcp_client() as mcp:
-                listing = await mcp.call_tool("studio_list", {"notebook": generation_notebook_id})
+                listing = await mcp.call_tool("studio_list", {"notebook": read_only_notebook_id})
                 sc = listing.structured_content
                 assert sc is not None, "studio_list returned no structured content"
-                candidate = pick_downloadable_artifact(sc["items"])
+                candidate = pick_downloadable_artifact(
+                    sc["items"], backend=client.backends["artifacts"]
+                )
                 if candidate is None:
-                    pytest.skip("no existing downloadable artifact on the generation notebook")
+                    pytest.skip("no existing downloadable artifact on the reference notebook")
 
                 # A merged item's hyphenated ``type`` IS the studio_download key.
                 dl_type = candidate["type"]
                 result = await mcp.call_tool(
                     "studio_download",
-                    {"notebook": generation_notebook_id, "artifact_type": dl_type},
+                    {
+                        "notebook": read_only_notebook_id,
+                        "artifact_type": dl_type,
+                        "artifact_id": candidate["id"],
+                    },
                 )
             structured = result.structured_content
             assert structured["status"] == "download_ready"
@@ -210,6 +216,13 @@ class TestMcpHttpFileRoutes:
 
             async with im.raw_client() as raw:
                 resp = await raw.get(download_path)
+            if (
+                client.backends["artifacts"] == "android"
+                and dl_type == "slide-deck"
+                and resp.status_code == 409
+                and resp.text == "No completed slide-deck artifact is available yet."
+            ):
+                pytest.skip("Android hydration confirmed an inventory-only slide deck")
             assert resp.status_code == 200, resp.text
             assert len(resp.content) > 0
             assert "content-disposition" in {k.lower() for k in resp.headers}

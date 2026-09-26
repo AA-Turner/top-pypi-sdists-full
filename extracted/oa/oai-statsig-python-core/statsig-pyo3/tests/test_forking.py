@@ -5,6 +5,7 @@ from mock_scrapi import MockScrapi
 from pytest_httpserver import HTTPServer
 from utils import get_test_data_resource
 import os
+import sys
 from typing import Generator
 import multiprocessing
 import time
@@ -36,11 +37,16 @@ def test_forking(httpserver: HTTPServer):
     log_event_url = mock_scrapi.url_for_endpoint("/v1/log_event")
     id_lists_url = mock_scrapi.url_for_endpoint("/v1/get_id_lists")
 
-    command = f"python tests/fork_runner.py {specs_url} {log_event_url} {id_lists_url}"
+    command = [
+        sys.executable,
+        "tests/fork_runner.py",
+        specs_url,
+        log_event_url,
+        id_lists_url,
+    ]
     print("Running command: ", command)
     proc = subprocess.Popen(
         command,
-        shell=True,
         universal_newlines=True,
         env={**os.environ, "RUST_BACKTRACE": "full"},
     )

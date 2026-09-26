@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, cast
@@ -34,6 +34,7 @@ from notebooklm._android.proto.google.internal.labs.tailwind.orchestration.v1 im
 from notebooklm._android.proto.labs.language.tailwind.common.protos import common_pb2
 from notebooklm._android.proto.notebooklm.internal.android.wire.v1 import notebooks_pb2
 from notebooklm._android.session import AndroidSession
+from notebooklm._idempotency import bound_operation_journal_entries
 from notebooklm._notebooks import NotebooksAPI
 from notebooklm.exceptions import (
     DecodingError,
@@ -58,7 +59,17 @@ class SequenceTransport:
         self.scopes.append(label)
         yield _Lease()
 
+    async def spawn_child(
+        self,
+        label: str,
+        factory: Callable[[], Awaitable[Any]],
+    ) -> asyncio.Task[Any]:
+        """Declare unowned child scheduling for direct transport tests."""
+        return asyncio.create_task(factory(), name=label)
+
     async def unary(self, method: str, request: Any, **kwargs: Any) -> Any:
+        for entry in bound_operation_journal_entries():
+            entry.mark_dispatched()
         self.calls.append((method, request, kwargs))
         outcome = self.outcomes[method].pop(0)
         if isinstance(outcome, BaseException):
@@ -105,7 +116,7 @@ def _calls(transport: SequenceTransport, method: str) -> list[tuple[str, Any, di
 
 
 @pytest.mark.asyncio
-async def test_create_keeps_base_baseline_then_single_send_workflow() -> None:
+async def test_create_uses_single_send_without_a_baseline_read() -> None:
     transport = SequenceTransport(
         {
             LIST_RECENT_PROJECTS_METHOD: [
@@ -118,16 +129,12 @@ async def test_create_keeps_base_baseline_then_single_send_workflow() -> None:
     created = await _api(transport).create("Created")
 
     assert created.id == "new"
-    assert [method for method, _, _ in transport.calls] == [
-        LIST_RECENT_PROJECTS_METHOD,
-        CREATE_PROJECT_METHOD,
-    ]
-    _, request, kwargs = transport.calls[1]
+    assert [method for method, _, _ in transport.calls] == [CREATE_PROJECT_METHOD]
+    _, request, kwargs = transport.calls[0]
     assert request == exact_notebooks_pb2.CreateProjectRequest(name="Created")
     assert kwargs == {
         "replay_safe": False,
         "response_type": read_pb2.Project,
-        "expected_epoch": 7,
     }
 
 
@@ -161,10 +168,7 @@ async def test_create_malformed_success_is_unconfirmed_and_never_replayed() -> N
         await _api(transport).create("Created")
 
     assert getattr(raised.value, "unconfirmed", False) is True
-    assert [method for method, _request, _kwargs in transport.calls] == [
-        LIST_RECENT_PROJECTS_METHOD,
-        CREATE_PROJECT_METHOD,
-    ]
+    assert [method for method, _request, _kwargs in transport.calls] == [CREATE_PROJECT_METHOD]
 
 
 def test_created_chat_session_hints_are_bounded_and_refresh_recency() -> None:
@@ -184,27 +188,20 @@ def test_created_chat_session_hints_are_bounded_and_refresh_recency() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_transport_loss_uses_base_probe_without_replaying_send() -> None:
-    created = _project("created-by-first-send", "Created")
+async def test_create_transport_loss_is_unconfirmed_without_probe_or_replay() -> None:
+    error = ServerError("lost response", method_id=CREATE_PROJECT_METHOD, rpc_code=14)
     transport = SequenceTransport(
         {
-            LIST_RECENT_PROJECTS_METHOD: [
-                read_pb2.ListRecentlyViewedProjectsResponse(),
-                read_pb2.ListRecentlyViewedProjectsResponse(projects=[created]),
-            ],
-            CREATE_PROJECT_METHOD: [
-                ServerError("lost response", method_id=CREATE_PROJECT_METHOD, rpc_code=14)
-            ],
+            CREATE_PROJECT_METHOD: [error],
         }
     )
 
-    recovered = await _api(transport).create("Created")
+    with pytest.raises(ServerError) as raised:
+        await _api(transport).create("Created")
 
-    assert recovered.id == "created-by-first-send"
-    assert Counter(method for method, _, _ in transport.calls) == {
-        LIST_RECENT_PROJECTS_METHOD: 2,
-        CREATE_PROJECT_METHOD: 1,
-    }
+    assert raised.value is error
+    assert getattr(error, "unconfirmed", False) is True
+    assert Counter(method for method, _, _ in transport.calls) == {CREATE_PROJECT_METHOD: 1}
 
 
 @pytest.mark.asyncio
@@ -227,12 +224,12 @@ async def test_create_workflow_finishes_during_graceful_drain_in_one_epoch() -> 
     create_release.set()
 
     assert (await task).id == "new"
-    assert [kwargs["expected_epoch"] for _method, _request, kwargs in transport.calls] == [1, 1]
+    assert all("expected_epoch" not in kwargs for _method, _request, kwargs in transport.calls)
     await transport.supervisor.wait_for_idle(1, 0.1)
 
 
 @pytest.mark.asyncio
-async def test_create_probe_cannot_cross_forced_close_and_reopen() -> None:
+async def test_create_loss_does_not_read_across_forced_close_and_reopen() -> None:
     transport = SupervisedAndroidTransport()
     create_started = asyncio.Event()
     create_release = asyncio.Event()
@@ -250,14 +247,11 @@ async def test_create_probe_cannot_cross_forced_close_and_reopen() -> None:
     old_generation = await transport.force_close_and_reopen()
     create_release.set()
 
-    with pytest.raises(RPCError) as raised:
+    with pytest.raises(ServerError) as raised:
         await task
-    assert isinstance(raised.value.__cause__, RuntimeError)
-    assert "retired resource generation" in str(raised.value.__cause__)
-    assert [method for method, _request, _kwargs in transport.calls] == [
-        LIST_RECENT_PROJECTS_METHOD,
-        CREATE_PROJECT_METHOD,
-    ]
+    assert str(raised.value) == "lost"
+    assert getattr(raised.value, "unconfirmed", False) is True
+    assert [method for method, _request, _kwargs in transport.calls] == [CREATE_PROJECT_METHOD]
     assert old_generation.in_flight == 0
     assert transport.supervisor._current is not None
     assert transport.supervisor._current.epoch == 2
@@ -435,7 +429,9 @@ async def test_update_rejects_wrong_identity_or_stale_requested_properties(
 
 @pytest.mark.asyncio
 async def test_copy_validates_then_decodes_one_bare_project_response() -> None:
-    transport = SequenceTransport({COPY_PROJECT_METHOD: [_project("copy-1", "Copy")]})
+    transport = SequenceTransport(
+        {COPY_PROJECT_METHOD: [_project("copy-1", "Copy", chat_session_id="conversation-1")]}
+    )
     api = _api(transport)
 
     copied = await api.copy("source-1", "Copy")
@@ -448,6 +444,8 @@ async def test_copy_validates_then_decodes_one_bare_project_response() -> None:
     assert request.HasField("request_context")
     assert request.request_context.client_type != 0
     assert kwargs == {"replay_safe": False, "response_type": read_pb2.Project}
+    assert api._take_created_chat_session_id("copy-1") == "conversation-1"
+    assert api._take_created_chat_session_id("copy-1") is None
 
     for notebook_id, title in [("", "Copy"), ("source-1", ""), ("source-1", "  ")]:
         with pytest.raises(ValidationError):
@@ -486,13 +484,8 @@ async def test_copy_rejects_a_new_project_with_the_wrong_title() -> None:
 
 @pytest.mark.asyncio
 async def test_copy_lost_response_is_ambiguous_and_never_replayed() -> None:
-    transport = SequenceTransport(
-        {
-            COPY_PROJECT_METHOD: [
-                ServerError("lost response", method_id=COPY_PROJECT_METHOD, rpc_code=14)
-            ]
-        }
-    )
+    failure = ServerError("lost response", method_id=COPY_PROJECT_METHOD, rpc_code=14)
+    transport = SequenceTransport({COPY_PROJECT_METHOD: [failure]})
 
     with pytest.raises(RPCError, match="list notebooks.*manually") as caught:
         await _api(transport).copy("source-1", "Copy")
@@ -500,7 +493,9 @@ async def test_copy_lost_response_is_ambiguous_and_never_replayed() -> None:
     assert getattr(caught.value, "unconfirmed", False) is True
     assert caught.value.method_id == COPY_PROJECT_METHOD
     assert caught.value.rpc_code == 14
-    assert isinstance(caught.value.__cause__, ServerError)
+    assert caught.value is not failure
+    assert caught.value.__cause__ is None
+    assert caught.value.__suppress_context__ is True
     assert len(transport.calls) == 1
     assert transport.calls[0][2]["replay_safe"] is False
 
@@ -600,6 +595,7 @@ async def test_suggest_prompts_uses_all_sources_query_field_six_and_maps_rows() 
     assert kwargs == {
         "replay_safe": True,
         "response_type": exact_notebooks_pb2.GeneratePromptSuggestionsResponse,
+        "expected_epoch": 7,
     }
 
 

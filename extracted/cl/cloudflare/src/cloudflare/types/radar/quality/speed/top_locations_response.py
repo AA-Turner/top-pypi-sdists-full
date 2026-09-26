@@ -123,22 +123,28 @@ class Meta(BaseModel):
 
 class Top0(BaseModel):
     bandwidth_download: str = FieldInfo(alias="bandwidthDownload")
+    """A numeric string."""
 
     bandwidth_upload: str = FieldInfo(alias="bandwidthUpload")
+    """A numeric string."""
 
     client_country_alpha2: str = FieldInfo(alias="clientCountryAlpha2")
 
     client_country_name: str = FieldInfo(alias="clientCountryName")
 
     jitter_idle: str = FieldInfo(alias="jitterIdle")
+    """A numeric string."""
 
     jitter_loaded: str = FieldInfo(alias="jitterLoaded")
+    """A numeric string."""
 
     latency_idle: str = FieldInfo(alias="latencyIdle")
+    """A numeric string."""
 
     latency_loaded: str = FieldInfo(alias="latencyLoaded")
+    """A numeric string."""
 
-    num_tests: float = FieldInfo(alias="numTests")
+    num_tests: int = FieldInfo(alias="numTests")
 
     rank_power: float = FieldInfo(alias="rankPower")
 

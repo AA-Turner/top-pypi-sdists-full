@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing_extensions
+
 import httpx
 
 from .events import (
@@ -298,6 +300,7 @@ class DatasetsResource(SyncAPIResource):
             cast_to=DatasetGetResponse,
         )
 
+    @typing_extensions.deprecated("Use GET /events/datasets/{dataset_id}/events/{event_id}/raw before 2026-11-28.")
     def raw(
         self,
         event_id: str,
@@ -311,10 +314,9 @@ class DatasetsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetRawResponse:
-        """Retrieves the raw data associated with an event.
-
-        Searches across all shards in
-        the dataset.
+        """
+        Deprecated; use GET /events/datasets/{dataset_id}/events/{event_id}/raw.
+        Available through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -617,6 +619,7 @@ class AsyncDatasetsResource(AsyncAPIResource):
             cast_to=DatasetGetResponse,
         )
 
+    @typing_extensions.deprecated("Use GET /events/datasets/{dataset_id}/events/{event_id}/raw before 2026-11-28.")
     async def raw(
         self,
         event_id: str,
@@ -630,10 +633,9 @@ class AsyncDatasetsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> DatasetRawResponse:
-        """Retrieves the raw data associated with an event.
-
-        Searches across all shards in
-        the dataset.
+        """
+        Deprecated; use GET /events/datasets/{dataset_id}/events/{event_id}/raw.
+        Available through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -689,8 +691,10 @@ class DatasetsResourceWithRawResponse:
         self.get = to_raw_response_wrapper(
             datasets.get,
         )
-        self.raw = to_raw_response_wrapper(
-            datasets.raw,
+        self.raw = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                datasets.raw,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -717,8 +721,10 @@ class AsyncDatasetsResourceWithRawResponse:
         self.get = async_to_raw_response_wrapper(
             datasets.get,
         )
-        self.raw = async_to_raw_response_wrapper(
-            datasets.raw,
+        self.raw = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                datasets.raw,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -745,8 +751,10 @@ class DatasetsResourceWithStreamingResponse:
         self.get = to_streamed_response_wrapper(
             datasets.get,
         )
-        self.raw = to_streamed_response_wrapper(
-            datasets.raw,
+        self.raw = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                datasets.raw,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -773,8 +781,10 @@ class AsyncDatasetsResourceWithStreamingResponse:
         self.get = async_to_streamed_response_wrapper(
             datasets.get,
         )
-        self.raw = async_to_streamed_response_wrapper(
-            datasets.raw,
+        self.raw = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                datasets.raw,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property

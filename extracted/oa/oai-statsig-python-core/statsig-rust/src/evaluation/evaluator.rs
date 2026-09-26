@@ -753,12 +753,18 @@ fn evaluate_nested_gate<'a>(
     target_value: EvaluatorValueRef<'a>,
     is_fail_gate: bool,
 ) -> Result<(), StatsigErr> {
+    // Reuse the resolved mmap handle for memoization, evaluation, and exposures.
+    let resolved_name;
     let gate_name = match target_value.interned_string_value() {
-        Some(name) => name,
-        None => InternedString::empty_ref().into(),
+        Some(InternedStrRef::Owned(name)) => name,
+        Some(name @ InternedStrRef::Mmap(_)) => {
+            resolved_name = name.to_interned();
+            &resolved_name
+        }
+        None => InternedString::empty_ref(),
     };
 
-    match gate_name.get_from(&ctx.nested_gate_memo) {
+    match ctx.nested_gate_memo.get(gate_name) {
         Some((previous_bool, previous_rule_id, previous_secondary_exposures)) => {
             ctx.result.bool_value = *previous_bool;
             ctx.result.rule_id = previous_rule_id.clone();
@@ -775,8 +781,7 @@ fn evaluate_nested_gate<'a>(
 
             let parent_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
 
-            let gate_name_owned = gate_name.to_interned();
-            let recognition = Evaluator::evaluate_with_name(ctx, &gate_name_owned, &SpecType::Gate);
+            let recognition = Evaluator::evaluate_with_name(ctx, gate_name, &SpecType::Gate);
             ctx.nested_count = parent_nested_count;
 
             let recognition = match recognition {
@@ -801,7 +806,7 @@ fn evaluate_nested_gate<'a>(
 
             if !gate_name.as_str().is_empty() {
                 ctx.nested_gate_memo.insert(
-                    gate_name.to_interned(),
+                    gate_name.clone(),
                     (
                         ctx.result.bool_value,
                         ctx.result.rule_id.clone(),
@@ -823,13 +828,15 @@ fn evaluate_nested_gate<'a>(
     if !gate_name.as_str().starts_with("segment:") && !is_empty_rule_id {
         let res = &ctx.result;
         let expo = SecondaryExposure {
-            gate: gate_name.to_interned(),
+            gate: gate_name.clone(),
             gate_value: InternedString::from_bool(res.bool_value),
             rule_id: res.rule_id.clone().unwrap_or_default(),
         };
 
-        let nested_spec = gate_name
-            .get_from(&ctx.specs_data.feature_gates.0)
+        let nested_spec = ctx
+            .specs_data
+            .feature_gates
+            .get(gate_name)
             .map(|spec| spec.view());
         let uses_special_case_sampling_rate = nested_spec.is_some_and(|spec| {
             spec.entity().as_str() == "feature_gate"

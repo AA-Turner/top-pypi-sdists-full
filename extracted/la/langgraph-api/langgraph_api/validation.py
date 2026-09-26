@@ -30,6 +30,7 @@ RESERVED_CONFIGURABLE_KEYS = (
     "__otel_tracestate__",
     "__dd_trace_headers__",
     "__pregel_node_finished",
+    "__context_provided__",
 )
 RESERVED_METADATA_KEYS = (
     "thread_id",

@@ -1,5 +1,6 @@
 mod utils;
 
+use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::sync::Arc;
 
@@ -12,7 +13,10 @@ use sha2::{Digest, Sha256};
 use statsig_rust::{
     SpecAdapterConfig, SpecsAdapterType, SpecsSource, Statsig, StatsigErr, StatsigOptions,
     StatsigUser,
-    specs_response::statsig_config_specs::{self as pb, return_value},
+    specs_response::{
+        proto_stream_reader::BUFFER_SIZE,
+        statsig_config_specs::{self as pb, return_value},
+    },
 };
 use wiremock::matchers::{header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -455,17 +459,27 @@ async fn initialize_hydrates_cached_data_store_remote_value_before_evaluation() 
 
 #[tokio::test]
 async fn initialize_hydrates_cached_data_store_remote_protobuf_value_before_evaluation() {
+    assert_cached_remote_protobuf_hydration(false).await;
+}
+
+#[tokio::test]
+async fn initialize_hydrates_read_only_data_store_remote_protobuf_value_before_evaluation() {
+    assert_cached_remote_protobuf_hydration(true).await;
+}
+
+async fn assert_cached_remote_protobuf_hydration(read_only: bool) {
     let server = MockServer::start().await;
     let remote_value = br#"{"large":"proto-from-data-store"}"#;
     let sha = lowercase_hex(&Sha256::digest(remote_value));
     let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
     let cached_dcs = remote_protobuf_dcs(&server, &download_path, &sha, remote_value.len());
-    let data_store = Arc::new(MockDataStore::with_proto_cache(&cached_dcs));
+    let data_store =
+        Arc::new(MockDataStore::with_proto_cache(&cached_dcs).with_read_only(read_only));
 
     mount_remote_value(&server, &download_path, remote_value).await;
 
     let options = StatsigOptions {
-        data_store: Some(data_store),
+        data_store: Some(data_store.clone()),
         specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
         spec_adapters_config: Some(vec![data_store_adapter_config()]),
         disable_all_logging: Some(true),
@@ -487,22 +501,121 @@ async fn initialize_hydrates_cached_data_store_remote_protobuf_value_before_eval
     );
 
     statsig.shutdown().await.unwrap();
+    assert!(data_store.num_get_bytes_calls() > 0);
+    assert_eq!(data_store.num_set_bytes_calls(), 0);
+    assert_eq!(data_store.num_set_calls(), 0);
 }
 
 #[tokio::test]
 async fn network_hydration_writes_offline_ready_protobuf_to_data_store() {
-    let server = MockServer::start().await;
-    let remote_value = br#"{"large":"offline-from-data-store"}"#;
-    let sha = lowercase_hex(&Sha256::digest(remote_value));
-    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
-    let data_store = Arc::new(MockDataStore::new_with_byte_cache(false));
+    assert_network_hydration_data_store_behavior("statsig-br", ReadOnlyBehavior::Never).await;
+}
 
-    mount_remote_value(&server, &download_path, remote_value).await;
-    mount_protobuf_dcs(
+#[tokio::test]
+async fn network_hydration_writes_offline_ready_zstd_protobuf_to_data_store() {
+    assert_network_hydration_data_store_behavior("statsig-zstd", ReadOnlyBehavior::Never).await;
+}
+
+#[tokio::test]
+async fn network_hydration_skips_read_only_protobuf_data_store() {
+    assert_network_hydration_data_store_behavior("statsig-br", ReadOnlyBehavior::Always).await;
+}
+
+#[tokio::test]
+async fn network_hydration_skips_read_only_zstd_protobuf_data_store() {
+    assert_network_hydration_data_store_behavior("statsig-zstd", ReadOnlyBehavior::Always).await;
+}
+
+#[tokio::test]
+async fn network_hydration_skips_protobuf_cache_after_transient_read_only_result() {
+    assert_network_hydration_data_store_behavior("statsig-br", ReadOnlyBehavior::FirstCheck).await;
+}
+
+#[tokio::test]
+async fn network_hydration_skips_zstd_cache_after_transient_read_only_result() {
+    assert_network_hydration_data_store_behavior("statsig-zstd", ReadOnlyBehavior::FirstCheck)
+        .await;
+}
+
+#[tokio::test]
+async fn network_hydration_skips_cache_when_data_store_becomes_read_only() {
+    assert_network_hydration_data_store_behavior("statsig-br", ReadOnlyBehavior::AfterFirstCheck)
+        .await;
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ReadOnlyBehavior {
+    Never,
+    Always,
+    FirstCheck,
+    AfterFirstCheck,
+}
+
+async fn assert_network_hydration_data_store_behavior(
+    content_encoding: &'static str,
+    read_only: ReadOnlyBehavior,
+) {
+    let server = MockServer::start().await;
+    // Exercise writer buffering and decoder refills with several ordered frames,
+    // including both rewritten remote values and an untouched inline value.
+    let remote_json = json!({
+        "large": "offline-from-data-store",
+        "padding": "remote-value-".repeat(BUFFER_SIZE / 4),
+    });
+    let remote_value = serde_json::to_vec(&remote_json).unwrap();
+    let inline_json = json!({"inline": "inline-value-".repeat(BUFFER_SIZE / 4)});
+    let sha = lowercase_hex(&Sha256::digest(&remote_value));
+    let download_path = format!("{DOWNLOAD_PATH_PREFIX}{sha}");
+    let data_store = Arc::new(match read_only {
+        ReadOnlyBehavior::Never => MockDataStore::new_with_byte_cache(false),
+        ReadOnlyBehavior::Always => MockDataStore::new_with_byte_cache(false).with_read_only(true),
+        ReadOnlyBehavior::FirstCheck => {
+            MockDataStore::new_with_byte_cache(false).with_read_only_once()
+        }
+        ReadOnlyBehavior::AfterFirstCheck => {
+            MockDataStore::new_with_byte_cache(false).with_read_only_after_first_check()
+        }
+    });
+
+    let mut input_envelopes = decode_protobuf_envelopes(&remote_protobuf_dcs(
         &server,
-        remote_protobuf_dcs(&server, &download_path, &sha, remote_value.len()),
-    )
-    .await;
+        &download_path,
+        &sha,
+        remote_value.len(),
+    ));
+    let mut inline_envelope = input_envelopes[1].clone();
+    inline_envelope.name = "inline_config".to_string();
+    inline_envelope.checksum = "inline-checksum".to_string();
+    let mut inline_spec = pb::Spec::decode(inline_envelope.data.as_deref().unwrap()).unwrap();
+    inline_spec.remote_config_metadata = None;
+    inline_spec.default_value = Some(pb::ReturnValue {
+        value: Some(return_value::Value::RawValue(
+            serde_json::to_vec(&inline_json).unwrap(),
+        )),
+    });
+    inline_envelope.data = Some(inline_spec.encode_to_vec());
+    input_envelopes.insert(2, inline_envelope);
+    let mut second_remote = input_envelopes[1].clone();
+    second_remote.name = "second_remote_config".to_string();
+    second_remote.checksum = "second-config-checksum".to_string();
+    input_envelopes.insert(3, second_remote);
+
+    let mut input_bytes = Vec::new();
+    for envelope in &input_envelopes {
+        envelope.encode_length_delimited(&mut input_bytes).unwrap();
+    }
+    assert!(input_bytes.len() > BUFFER_SIZE * 2);
+    let compressed = match content_encoding {
+        "statsig-zstd" => zstd::stream::encode_all(input_bytes.as_slice(), 3).unwrap(),
+        "statsig-br" => {
+            let mut writer = brotli::CompressorWriter::new(Vec::new(), 4096, 1, 22);
+            writer.write_all(&input_bytes).unwrap();
+            writer.into_inner()
+        }
+        _ => unreachable!(),
+    };
+    mount_remote_value(&server, &download_path, &remote_value).await;
+    mount_protobuf_dcs_with_encoding(&server, compressed, content_encoding).await;
 
     let leader_options = StatsigOptions {
         data_store: Some(data_store.clone()),
@@ -512,6 +625,7 @@ async fn network_hydration_writes_offline_ready_protobuf_to_data_store() {
             network_http_adapter_config(format!("{}/v2/download_config_specs", server.uri())),
         ]),
         disable_all_logging: Some(true),
+        experimental_flags: Some(HashSet::from(["enable_dcs_zstd_datastore".to_string()])),
         ..StatsigOptions::new()
     };
     let leader = Statsig::new(SDK_KEY, Some(Arc::new(leader_options)));
@@ -519,13 +633,54 @@ async fn network_hydration_writes_offline_ready_protobuf_to_data_store() {
     let leader_details = leader.initialize_with_details().await.unwrap();
     assert!(leader_details.init_success);
     assert_eq!(leader_details.source, SpecsSource::Network);
-    assert_eventually!(|| data_store.stored_proto_bytes().is_some());
-    let stored_envelopes = decode_protobuf_envelopes(
-        data_store
-            .stored_proto_bytes()
-            .expect("leader should write statsig-br bytes")
-            .as_slice(),
-    );
+    for (name, expected) in [
+        ("large_config", &remote_json),
+        ("inline_config", &inline_json),
+        ("second_remote_config", &remote_json),
+    ] {
+        let config = leader.get_dynamic_config(&StatsigUser::with_user_id("a-user"), name);
+        assert_eq!(serde_json::to_value(&config.value).unwrap(), *expected);
+    }
+    assert!(data_store.num_get_bytes_calls() > 0);
+    if read_only != ReadOnlyBehavior::Never {
+        if read_only == ReadOnlyBehavior::FirstCheck {
+            assert_eq!(
+                data_store.num_read_only_calls(),
+                1,
+                "a later capability check must not permit writing uncaptured protobuf bytes",
+            );
+        } else if read_only == ReadOnlyBehavior::AfterFirstCheck {
+            assert_eq!(data_store.num_read_only_calls(), 2);
+        }
+        leader.shutdown().await.unwrap();
+        assert_eq!(data_store.num_set_bytes_calls(), 0);
+        assert_eq!(data_store.num_set_calls(), 0);
+        assert!(data_store.stored_proto_bytes().is_none());
+        assert!(data_store.stored_zstd_proto_bytes().is_none());
+        server.verify().await;
+        return;
+    }
+    let stored_bytes = || match content_encoding {
+        "statsig-zstd" => data_store.stored_zstd_proto_bytes(),
+        "statsig-br" => data_store.stored_proto_bytes(),
+        _ => unreachable!(),
+    };
+    assert_eventually!(|| stored_bytes().is_some());
+    let stored_bytes = stored_bytes().expect("leader should write bytes using the response codec");
+    let stored_envelopes = if content_encoding == "statsig-zstd" {
+        assert!(data_store.stored_proto_bytes().is_none());
+        let decompressed = zstd::stream::decode_all(stored_bytes.as_slice()).unwrap();
+        decode_uncompressed_protobuf_envelopes(&decompressed)
+    } else {
+        assert!(data_store.stored_zstd_proto_bytes().is_none());
+        decode_protobuf_envelopes(&stored_bytes)
+    };
+    assert_eq!(stored_envelopes.len(), input_envelopes.len());
+    for (stored, input) in stored_envelopes.iter().zip(&input_envelopes) {
+        assert_eq!(stored.kind, input.kind);
+        assert_eq!(stored.name, input.name);
+        assert_eq!(stored.checksum, input.checksum);
+    }
     let stored_top_level = stored_envelopes
         .iter()
         .find(|envelope| {
@@ -540,38 +695,28 @@ async fn network_hydration_writes_offline_ready_protobuf_to_data_store() {
         stored_top_level.may_have_remote_config_metadata,
         Some(false)
     );
-    let stored_spec = stored_envelopes
-        .iter()
-        .find(|envelope| envelope.name == "large_config")
-        .and_then(|envelope| envelope.data.as_deref())
-        .map(pb::Spec::decode)
-        .unwrap()
-        .unwrap();
-    assert!(stored_spec.remote_config_metadata.is_none());
-    assert_eq!(
-        stored_spec
-            .default_value
-            .as_ref()
-            .and_then(|value| value.value.as_ref())
-            .and_then(|value| match value {
-                return_value::Value::RawValue(bytes) => Some(bytes.as_slice()),
-                _ => None,
-            }),
-        Some(remote_value.as_ref())
-    );
-    assert_eq!(
-        leader
-            .get_dynamic_config(&StatsigUser::with_user_id("a-user"), "large_config")
-            .value
-            .get("large"),
-        Some(&json!("offline-from-data-store"))
-    );
+    let mut expected_top_level =
+        pb::SpecsTopLevel::decode(input_envelopes[0].data.as_deref().unwrap()).unwrap();
+    expected_top_level.may_have_remote_config_metadata = Some(false);
+    assert_eq!(stored_top_level, expected_top_level);
+    assert_eq!(stored_envelopes[2], input_envelopes[2]);
+    assert_eq!(stored_envelopes[4], input_envelopes[4]);
+    for index in [1, 3] {
+        let stored_spec =
+            pb::Spec::decode(stored_envelopes[index].data.as_deref().unwrap()).unwrap();
+        let mut expected_spec =
+            pb::Spec::decode(input_envelopes[index].data.as_deref().unwrap()).unwrap();
+        expected_spec.remote_config_metadata = None;
+        expected_spec.default_value = Some(pb::ReturnValue {
+            value: Some(return_value::Value::RawValue(remote_value.clone())),
+        });
+        assert_eq!(stored_spec, expected_spec);
+    }
     leader.shutdown().await.unwrap();
 
     server.verify().await;
     server.reset().await;
     Mock::given(method("GET"))
-        .and(path(download_path))
         .respond_with(ResponseTemplate::new(500))
         .expect(0)
         .mount(&server)
@@ -583,6 +728,7 @@ async fn network_hydration_writes_offline_ready_protobuf_to_data_store() {
             specs_url: Some(format!("{}/v2/download_config_specs", server.uri())),
             spec_adapters_config: Some(vec![data_store_adapter_config()]),
             disable_all_logging: Some(true),
+            experimental_flags: Some(HashSet::from(["enable_dcs_zstd_datastore".to_string()])),
             ..StatsigOptions::new()
         };
         let follower = Statsig::new(SDK_KEY, Some(Arc::new(follower_options)));
@@ -593,13 +739,14 @@ async fn network_hydration_writes_offline_ready_protobuf_to_data_store() {
             follower_details.source,
             SpecsSource::Adapter("DataStore".to_string())
         );
-        assert_eq!(
-            follower
-                .get_dynamic_config(&StatsigUser::with_user_id("a-user"), "large_config")
-                .value
-                .get("large"),
-            Some(&json!("offline-from-data-store"))
-        );
+        for (name, expected) in [
+            ("large_config", &remote_json),
+            ("inline_config", &inline_json),
+            ("second_remote_config", &remote_json),
+        ] {
+            let config = follower.get_dynamic_config(&StatsigUser::with_user_id("a-user"), name);
+            assert_eq!(serde_json::to_value(&config.value).unwrap(), *expected);
+        }
 
         follower.shutdown().await.unwrap();
     }
@@ -841,7 +988,10 @@ fn decode_protobuf_envelopes(bytes: &[u8]) -> Vec<pb::SpecsEnvelope> {
         .read_to_end(&mut decompressed)
         .unwrap();
 
-    let mut remaining = decompressed.as_slice();
+    decode_uncompressed_protobuf_envelopes(&decompressed)
+}
+
+fn decode_uncompressed_protobuf_envelopes(mut remaining: &[u8]) -> Vec<pb::SpecsEnvelope> {
     let mut envelopes = Vec::new();
     while !remaining.is_empty() {
         envelopes.push(pb::SpecsEnvelope::decode_length_delimited(&mut remaining).unwrap());
@@ -849,14 +999,14 @@ fn decode_protobuf_envelopes(bytes: &[u8]) -> Vec<pb::SpecsEnvelope> {
     envelopes
 }
 
-async fn mount_remote_value(server: &MockServer, download_path: &str, body: &'static [u8]) {
+async fn mount_remote_value(server: &MockServer, download_path: &str, body: &[u8]) {
     Mock::given(method("GET"))
         .and(path(download_path.to_string()))
         .and(header("statsig-api-key", SDK_KEY))
         .respond_with(
             ResponseTemplate::new(200)
                 .insert_header("content-type", "application/json")
-                .set_body_bytes(body),
+                .set_body_bytes(body.to_vec()),
         )
         .expect(1)
         .mount(server)

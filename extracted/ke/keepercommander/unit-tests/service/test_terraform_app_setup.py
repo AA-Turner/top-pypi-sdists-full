@@ -58,7 +58,8 @@ class TestTerraformAppSetupCommand(TestCase):
         self.assertIn('container_name: keeper-service-terraform', yaml_content)
         self.assertNotIn('container_name: keeper-service\n', yaml_content)
         self.assertIn(f'{TERRAFORM_DOCKER_ENV}:', yaml_content)
-        self.assertRegex(yaml_content, rf"{TERRAFORM_DOCKER_ENV}:\s*'?1'?")
+        # Now carries the record UID (so protected_records.py can pin it), not a bare '1' flag.
+        self.assertRegex(yaml_content, rf"{TERRAFORM_DOCKER_ENV}:\s*'?{setup_result.record_uid}'?")
 
     @mock.patch(
         'keepercommander.service.commands.terraform_app_setup.RuntimeServiceConfig'
@@ -74,6 +75,18 @@ class TestTerraformAppSetupCommand(TestCase):
         mock_runtime_config.return_value.validate_command_list.assert_called_once_with(
             TerraformSetupConstants.SERVICE_COMMANDS, params
         )
+
+    @mock.patch(
+        'keepercommander.service.commands.terraform_app_setup.RuntimeServiceConfig'
+    )
+    def test_commands_config_strips_commands_outside_terraform_allowlist(self, mock_runtime_config):
+        # Final result must not contain commands outside Terraform's own allowlist.
+        mock_runtime_config.return_value.validate_command_list.return_value = (
+            TerraformSetupConstants.SERVICE_COMMANDS + ',clipboard-copy'
+        )
+        cmd = TerraformAppSetupCommand()
+        result = cmd._get_commands_config(mock.Mock())
+        self.assertEqual(set(result.split(',')), set(TerraformSetupConstants.SERVICE_COMMANDS_LIST))
 
     @mock.patch(
         'keepercommander.service.commands.terraform_app_setup.RuntimeServiceConfig'

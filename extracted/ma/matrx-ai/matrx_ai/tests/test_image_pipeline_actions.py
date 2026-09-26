@@ -53,9 +53,39 @@ def test_concept_input_num_concepts_bounds():
         ConceptGenerateInput(topic="x", num_concepts=11)
 
 
-def test_concept_input_default_model():
+def test_concept_input_names_no_model_of_its_own():
+    """The step's model is its mandate Holder's — the node config carries none
+    unless a workflow author overrides it (2026-09-25)."""
     inp = ConceptGenerateInput(topic="x")
-    assert "sonnet" in inp.model.lower() or "claude" in inp.model.lower()
+    assert inp.model is None
+
+
+async def test_concept_step_runs_on_its_mandate_holder(monkeypatch):
+    """RED on the pre-2026-09-25 code (hard-coded sonnet + inline prompt)."""
+    from matrx_ai.graph_nodes import image_pipeline_actions as module
+    from matrx_ai.testing.holders import install_inline_holders
+
+    resolved = install_inline_holders(
+        monkeypatch,
+        {
+            module.IMAGE_CONCEPT_MANDATE: {
+                "model": "holder-model",
+                "messages": [{"role": "system", "content": "HOLDER CONCEPT RULES"}],
+            }
+        },
+    )
+    captured = {}
+
+    async def fake_structured(**kwargs):
+        captured.update(kwargs)
+        return ConceptGenerateOutput(concepts=[ImageConcept(name="A", description="d")])
+
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", fake_structured)
+    await module.image_concept_generate(None, ConceptGenerateInput(topic="cells"))  # type: ignore[arg-type]
+    assert resolved == [module.IMAGE_CONCEPT_MANDATE]
+    assert captured["model"] == "holder-model"
+    assert "HOLDER CONCEPT RULES" in captured["system"]
+    assert captured["metadata"]["mandate_key"] == module.IMAGE_CONCEPT_MANDATE
 
 
 def test_concept_output_holds_list():
@@ -158,8 +188,14 @@ async def test_qc_uses_multimodal_funnel_and_friendly_model(monkeypatch):
         captured.update(kwargs)
         return ImageQcVerdict(passed=True, confidence=0.95, reasoning="On brief.")
 
+    from matrx_ai.testing.holders import install_inline_holders
+
+    install_inline_holders(
+        monkeypatch,
+        {module.IMAGE_QC_JUDGE_MANDATE: {"model": "holder-model", "messages": [{"role": "system", "content": "QC"}]}},
+    )
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr(module, "llm_messages_to_pydantic", fake_structured)
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_messages_to_pydantic", fake_structured)
     inputs = ImageQcInput(
         image_b64="aGVsbG8=",
         image_mime_type="image/png",

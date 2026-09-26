@@ -27,6 +27,7 @@ from pipecat.frames.frames import (
     AggregatedTextFrame,
     AggregatedTextProgressFrame,
     AggregationType,
+    AudioRawFrame,
     BotStartedSpeakingFrame,
     BotStoppedSpeakingFrame,
     Frame,
@@ -90,12 +91,14 @@ class RTVIFunctionCallReportLevel(StrEnum):
         DISABLED: No events emitted for this function call.
         NONE: Events only with tool_call_id, no function name or metadata (most secure).
         NAME: Events with function name, no arguments or results.
+        ARGUMENTS: Events with function name and arguments, no results.
         FULL: Events with function name, arguments, and results.
     """
 
     DISABLED = "disabled"
     NONE = "none"
     NAME = "name"
+    ARGUMENTS = "arguments"
     FULL = "full"
 
 
@@ -165,6 +168,7 @@ class RTVIObserverParams:
                 - DISABLED: No events emitted for this function.
                 - NONE: Events with tool_call_id only (most secure when events needed).
                 - NAME: Adds function name to events.
+                - ARGUMENTS: Adds function name and arguments, no results.
                 - FULL: Adds function name, arguments, and results.
 
             Defaults to ``{"*": RTVIFunctionCallReportLevel.NONE}``.
@@ -232,7 +236,6 @@ class RTVIObserver(BaseObserver):
         self._params = params or RTVIObserverParams()
 
         self._ignored_sources: set[FrameProcessor] = set(self._params.ignored_sources)
-        self._frames_seen = set()
 
         self._bot_transcription = ""
         self._last_user_audio_level = 0
@@ -439,13 +442,20 @@ class RTVIObserver(BaseObserver):
         if frame.broadcast_sibling_id is not None and direction != FrameDirection.DOWNSTREAM:
             return
 
-        # If we have already seen this frame, let's skip it.
-        if frame.id in self._frames_seen:
+        # Audio frames are the bulk of what a pipeline pushes, and they are
+        # only handled when audio levels are reported.
+        if isinstance(frame, AudioRawFrame) and not (
+            self._params.user_audio_level_enabled or self._params.bot_audio_level_enabled
+        ):
             return
 
-        # This tells whether the frame is already processed. If false, we will try
-        # again the next time we see the frame.
-        mark_as_seen = True
+        # A frame is handled the first time it is pushed, except aggregated
+        # text, which is handled once it has gone through the output
+        # transport and has the right timing.
+        if not data.first_push and not isinstance(
+            frame, (AggregatedTextFrame, AggregatedTextProgressFrame)
+        ):
+            return
 
         if (
             isinstance(frame, (UserStartedSpeakingFrame, UserStoppedSpeakingFrame))
@@ -500,20 +510,12 @@ class RTVIObserver(BaseObserver):
         elif isinstance(frame, TTSStoppedFrame) and self._params.bot_tts_enabled:
             await self.send_rtvi_message(RTVI.BotTTSStoppedMessage())
         elif isinstance(frame, AggregatedTextProgressFrame):
-            if not isinstance(src, BaseOutputTransport):
-                # This check is to make sure we handle the frame when it has gone
-                # through the transport and has correct timing.
-                mark_as_seen = False
-            else:
+            if isinstance(src, BaseOutputTransport):
                 await self._handle_aggregated_progress(frame)
         elif isinstance(frame, AggregatedTextFrame) and (
             self._params.bot_output_enabled or self._params.bot_tts_enabled
         ):
-            if not isinstance(src, BaseOutputTransport):
-                # This check is to make sure we handle the frame when it has gone
-                # through the transport and has correct timing.
-                mark_as_seen = False
-            else:
+            if isinstance(src, BaseOutputTransport):
                 await self._handle_aggregated_llm_text(frame)
         elif isinstance(frame, MetricsFrame) and self._params.metrics_enabled:
             await self._handle_metrics(frame)
@@ -525,6 +527,7 @@ class RTVIObserver(BaseObserver):
                 msg_data = RTVI.LLMFunctionCallStartMessageData()
                 if report_level in (
                     RTVIFunctionCallReportLevel.NAME,
+                    RTVIFunctionCallReportLevel.ARGUMENTS,
                     RTVIFunctionCallReportLevel.FULL,
                 ):
                     msg_data.function_name = function_call.function_name
@@ -538,10 +541,14 @@ class RTVIObserver(BaseObserver):
                 )
                 if report_level in (
                     RTVIFunctionCallReportLevel.NAME,
+                    RTVIFunctionCallReportLevel.ARGUMENTS,
                     RTVIFunctionCallReportLevel.FULL,
                 ):
                     msg_data.function_name = frame.function_name
-                if report_level == RTVIFunctionCallReportLevel.FULL:
+                if report_level in (
+                    RTVIFunctionCallReportLevel.ARGUMENTS,
+                    RTVIFunctionCallReportLevel.FULL,
+                ):
                     msg_data.arguments = frame.arguments
                 message = RTVI.LLMFunctionCallInProgressMessage(data=msg_data)
                 await self.send_rtvi_message(message)
@@ -554,6 +561,7 @@ class RTVIObserver(BaseObserver):
                 )
                 if report_level in (
                     RTVIFunctionCallReportLevel.NAME,
+                    RTVIFunctionCallReportLevel.ARGUMENTS,
                     RTVIFunctionCallReportLevel.FULL,
                 ):
                     msg_data.function_name = frame.function_name
@@ -568,6 +576,7 @@ class RTVIObserver(BaseObserver):
                 )
                 if report_level in (
                     RTVIFunctionCallReportLevel.NAME,
+                    RTVIFunctionCallReportLevel.ARGUMENTS,
                     RTVIFunctionCallReportLevel.FULL,
                 ):
                     msg_data.function_name = frame.function_name
@@ -614,9 +623,6 @@ class RTVIObserver(BaseObserver):
                 message = RTVI.BotAudioLevelMessage(data=RTVI.AudioLevelMessageData(value=level))
                 await self.send_rtvi_message(message)
                 self._last_bot_audio_level = curr_time
-
-        if mark_as_seen:
-            self._frames_seen.add(frame.id)
 
     async def _handle_interruptions(self, frame: Frame):
         """Handle user speaking interruption frames."""

@@ -18,6 +18,14 @@ from .exports import (
     ExportsResourceWithStreamingResponse,
     AsyncExportsResourceWithStreamingResponse,
 )
+from .policies import (
+    PoliciesResource,
+    AsyncPoliciesResource,
+    PoliciesResourceWithRawResponse,
+    AsyncPoliciesResourceWithRawResponse,
+    PoliciesResourceWithStreamingResponse,
+    AsyncPoliciesResourceWithStreamingResponse,
+)
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
 from .findings.findings import (
@@ -78,6 +86,10 @@ class PostureResource(SyncAPIResource):
         return RemediationsResource(self._client)
 
     @cached_property
+    def policies(self) -> PoliciesResource:
+        return PoliciesResource(self._client)
+
+    @cached_property
     def webhooks(self) -> WebhooksResource:
         return WebhooksResource(self._client)
 
@@ -121,6 +133,10 @@ class AsyncPostureResource(AsyncAPIResource):
     @cached_property
     def remediations(self) -> AsyncRemediationsResource:
         return AsyncRemediationsResource(self._client)
+
+    @cached_property
+    def policies(self) -> AsyncPoliciesResource:
+        return AsyncPoliciesResource(self._client)
 
     @cached_property
     def webhooks(self) -> AsyncWebhooksResource:
@@ -171,6 +187,10 @@ class PostureResourceWithRawResponse:
         return RemediationsResourceWithRawResponse(self._posture.remediations)
 
     @cached_property
+    def policies(self) -> PoliciesResourceWithRawResponse:
+        return PoliciesResourceWithRawResponse(self._posture.policies)
+
+    @cached_property
     def webhooks(self) -> WebhooksResourceWithRawResponse:
         return WebhooksResourceWithRawResponse(self._posture.webhooks)
 
@@ -198,6 +218,10 @@ class AsyncPostureResourceWithRawResponse:
     @cached_property
     def remediations(self) -> AsyncRemediationsResourceWithRawResponse:
         return AsyncRemediationsResourceWithRawResponse(self._posture.remediations)
+
+    @cached_property
+    def policies(self) -> AsyncPoliciesResourceWithRawResponse:
+        return AsyncPoliciesResourceWithRawResponse(self._posture.policies)
 
     @cached_property
     def webhooks(self) -> AsyncWebhooksResourceWithRawResponse:
@@ -229,6 +253,10 @@ class PostureResourceWithStreamingResponse:
         return RemediationsResourceWithStreamingResponse(self._posture.remediations)
 
     @cached_property
+    def policies(self) -> PoliciesResourceWithStreamingResponse:
+        return PoliciesResourceWithStreamingResponse(self._posture.policies)
+
+    @cached_property
     def webhooks(self) -> WebhooksResourceWithStreamingResponse:
         return WebhooksResourceWithStreamingResponse(self._posture.webhooks)
 
@@ -256,6 +284,10 @@ class AsyncPostureResourceWithStreamingResponse:
     @cached_property
     def remediations(self) -> AsyncRemediationsResourceWithStreamingResponse:
         return AsyncRemediationsResourceWithStreamingResponse(self._posture.remediations)
+
+    @cached_property
+    def policies(self) -> AsyncPoliciesResourceWithStreamingResponse:
+        return AsyncPoliciesResourceWithStreamingResponse(self._posture.policies)
 
     @cached_property
     def webhooks(self) -> AsyncWebhooksResourceWithStreamingResponse:

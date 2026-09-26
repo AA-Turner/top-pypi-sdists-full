@@ -363,7 +363,34 @@ class ZonesMaxUpload(BaseModel):
     id: Literal["max_upload"]
     """identifier of the zone setting."""
 
-    value: Literal[100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 1000]
+    value: Literal[
+        100,
+        125,
+        150,
+        175,
+        200,
+        225,
+        250,
+        275,
+        300,
+        325,
+        350,
+        375,
+        400,
+        425,
+        450,
+        475,
+        500,
+        1000,
+        1500,
+        2000,
+        2500,
+        3000,
+        3500,
+        4000,
+        4500,
+        5000,
+    ]
     """Current value of the zone setting."""
 
     editable: Optional[Literal[True, False]] = None

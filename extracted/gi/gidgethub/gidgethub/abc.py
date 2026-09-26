@@ -1,10 +1,13 @@
 """Provide an abstract base class for easier requests."""
 
+from __future__ import annotations
+
 import abc
 import http
 import json
-from typing import Any, AsyncGenerator, Dict, Mapping, MutableMapping, Optional, Tuple
-from typing import Optional as Opt
+import time
+from collections.abc import AsyncGenerator, Mapping, MutableMapping
+from typing import Any
 
 from uritemplate import variable
 
@@ -13,61 +16,155 @@ from . import (
     GitHubBroken,
     GraphQLAuthorizationFailure,
     GraphQLException,
+    GraphQLResponseTypeError,
     HTTPException,
     QueryError,
-    GraphQLResponseTypeError,
+    sansio,
 )
-from . import sansio
-
 
 # Value represents etag, last-modified, data, and next page.
-CACHE_TYPE = MutableMapping[str, Tuple[Opt[str], Opt[str], Any, Opt[str]]]
+CACHE_TYPE = MutableMapping[str, tuple[str | None, str | None, Any, str | None]]
 
 JSON_CONTENT_TYPE = "application/json"
 UTF_8_CHARSET = "utf-8"
 JSON_UTF_8_CHARSET = f"{JSON_CONTENT_TYPE}; charset={UTF_8_CHARSET}"
 ITERABLE_KEY = "items"
+# GitHub limits app JWTs to 10 minutes. Use shorter durations and monotonic
+# elapsed time so clock adjustments do not delay a refresh. The expiration is
+# measured from the backdated issue time, so a JWT is usable for
+# _APP_JWT_EXPIRATION minus the backdating; refresh sooner than that.
+_APP_JWT_EXPIRATION = 9 * 60
+_APP_JWT_REFRESH_AFTER = 7 * 60
 
 
 class GitHubAPI(abc.ABC):
     """Provide an idiomatic API for making calls to GitHub's API."""
 
+    requester: str
+    oauth_token: str | None
+    app_id: str | None
+    private_key: str | bytes | None
+    _app_jwt: str | None
+    _app_jwt_refresh_at: float
+    _cache: CACHE_TYPE | None
+    base_url: str
+    rate_limit: sansio.RateLimit | None
+    requests_in_flight: int
+
     def __init__(
         self,
         requester: str,
         *,
-        oauth_token: Opt[str] = None,
-        cache: Opt[CACHE_TYPE] = None,
+        oauth_token: str | None = None,
+        app_id: str | None = None,
+        private_key: str | bytes | None = None,
+        cache: CACHE_TYPE | None = None,
         base_url: str = sansio.DOMAIN,
     ) -> None:
+        if oauth_token is not None and (app_id is not None or private_key is not None):
+            raise ValueError(
+                "oauth_token cannot be combined with app_id or private_key."
+            )
+        if (app_id is None) != (private_key is None):
+            raise ValueError("app_id and private_key must be provided together.")
+
         self.requester = requester
         self.oauth_token = oauth_token
+        self.app_id = app_id
+        self.private_key = private_key
+        self._app_jwt = None
+        self._app_jwt_refresh_at = 0.0
         self._cache = cache
-        self.rate_limit: Opt[sansio.RateLimit] = None
+        self.rate_limit: sansio.RateLimit | None = None
         self.base_url = base_url
+        self.requests_in_flight = 0
 
     @abc.abstractmethod
     async def _request(
         self, method: str, url: str, headers: Mapping[str, str], body: bytes = b""
-    ) -> Tuple[int, Mapping[str, str], bytes]:
+    ) -> tuple[int, Mapping[str, str], bytes]:
         """Make an HTTP request."""
 
     @abc.abstractmethod
     async def sleep(self, seconds: float) -> None:
         """Sleep for the specified number of seconds."""
 
+    async def manage_rate_limit(
+        self,
+        *,
+        method: str,
+        url: str,
+    ) -> None:
+        """Hook called before each HTTP request to allow custom rate-limit
+        or backpressure handling (e.g. sleeping until quota resets).
+
+        The default implementation is a no-op. Subclasses can override this
+        to implement custom strategies such as sleeping until
+        ``self.rate_limit.reset_datetime``, throttling based on
+        :attr:`requests_in_flight`, or anything else appropriate for their
+        use case. Since this is a :term:`coroutine` and not run in
+        parallel with other requests, :attr:`rate_limit` and
+        :attr:`requests_in_flight` can simply be read from ``self`` to get
+        the most up-to-date values at the time this hook runs.
+
+        Note that :attr:`requests_in_flight` is incremented before this
+        hook is called and decremented only once the underlying HTTP
+        request has completed (or raised an exception). As such, it counts
+        the request as "in flight" for the entire duration of this call,
+        including any time spent waiting inside ``manage_rate_limit()``
+        itself. If ``manage_rate_limit()`` itself raises an exception, the
+        request is considered to have failed and :attr:`requests_in_flight`
+        is decremented the same way, even though ``_request()`` is never
+        called in that case.
+        """
+
+    async def handle_rate_limit_error(
+        self,
+        *,
+        method: str,
+        url: str,
+        exception: HTTPException,
+        attempt: int,
+    ) -> bool:
+        """Hook called when a request fails with an :exc:`HTTPException`,
+        to allow custom reactive rate-limit handling (e.g. retrying after
+        a secondary rate limit or abuse-detection response).
+
+        The default implementation is a no-op which always returns
+        ``False``, so overriding it is entirely optional and existing
+        subclasses are unaffected.
+
+        *method* and *url* describe the request that failed. *exception*
+        is the raised :exc:`HTTPException` (e.g. inspect
+        ``exception.status_code`` and ``exception.headers``, the latter of
+        which may contain ``retry-after`` or ``x-ratelimit-reset``).
+        *attempt* is the 1-based count of attempts made so far for this
+        logical request, including the one that just failed.
+
+        Return ``True`` to have the request retried, or ``False`` (the
+        default) to let *exception* propagate unchanged. This coroutine is
+        responsible for performing any desired delay itself (e.g. via
+        :meth:`sleep`) before returning ``True``; :meth:`_make_request`
+        does not sleep on its own.
+
+        This hook is called for every failed attempt, including retries,
+        and it runs *before* :meth:`manage_rate_limit`'s next invocation
+        for the retried attempt.
+        """
+        return False
+
     async def _make_request(
         self,
         method: str,
         url: str,
-        url_vars: Optional[variable.VariableValueDict],
+        url_vars: Mapping[str, variable.VariableValue] | None,
         data: Any,
         accept: str,
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
         content_type: str = JSON_CONTENT_TYPE,
-        extra_headers: Optional[Dict[str, str]] = None,
-    ) -> Tuple[bytes, Opt[str], int]:
+        extra_headers: dict[str, str] | None = None,
+    ) -> tuple[bytes, str | None, int]:
         """Construct and make an HTTP request."""
         if oauth_token is not None and jwt is not None:
             raise ValueError("Cannot pass both oauth_token and jwt.")
@@ -81,13 +178,17 @@ class GitHubAPI(abc.ABC):
                 self.requester, accept=accept, oauth_token=oauth_token
             )
         else:
-            # fallback to using oauth_token
+            # fallback to using configured credentials
             request_headers = sansio.create_headers(
-                self.requester, accept=accept, oauth_token=self.oauth_token
+                self.requester,
+                accept=accept,
+                oauth_token=self.oauth_token,
+                jwt=self._get_app_jwt(),
             )
         if extra_headers is not None:
             request_headers.update(extra_headers)
         cached = cacheable = False
+        more: str | None = None
         # Can't use None as a "no body" sentinel as it's a legitimate JSON type.
         if data == b"":
             body = b""
@@ -114,27 +215,71 @@ class GitHubAPI(abc.ABC):
                 body = json.dumps(data).encode(UTF_8_CHARSET)
                 request_headers["content-type"] = JSON_UTF_8_CHARSET
             request_headers["content-length"] = str(len(body))
-        if self.rate_limit is not None:
-            self.rate_limit.remaining -= 1
-        response = await self._request(method, filled_url, request_headers, body)
-        if not (response[0] == 304 and cached):
-            data, self.rate_limit, more = sansio.decipher_response(*response)
-            has_cache_details = "etag" in response[1] or "last-modified" in response[1]
-            if self._cache is not None and cacheable and has_cache_details:
-                etag = response[1].get("etag")
-                last_modified = response[1].get("last-modified")
-                self._cache[filled_url] = etag, last_modified, data, more
-        return data, more, response[0]
+        attempt = 0
+        while True:
+            attempt += 1
+            if self.rate_limit is not None:
+                self.rate_limit.remaining -= 1
+            self.requests_in_flight += 1
+            try:
+                await self.manage_rate_limit(
+                    method=method,
+                    url=filled_url,
+                )
+                response = await self._request(
+                    method, filled_url, request_headers, body
+                )
+            finally:
+                self.requests_in_flight -= 1
+            try:
+                if not (response[0] == 304 and cached):
+                    data, self.rate_limit, more = sansio.decipher_response(*response)
+                    has_cache_details = (
+                        "etag" in response[1] or "last-modified" in response[1]
+                    )
+                    if self._cache is not None and cacheable and has_cache_details:
+                        etag = response[1].get("etag")
+                        last_modified = response[1].get("last-modified")
+                        self._cache[filled_url] = etag, last_modified, data, more
+                return data, more, response[0]
+            except HTTPException as exc:
+                should_retry = await self.handle_rate_limit_error(
+                    method=method,
+                    url=filled_url,
+                    exception=exc,
+                    attempt=attempt,
+                )
+                if not should_retry:
+                    raise
+
+    def _get_app_jwt(self) -> str | None:
+        """Return a cached app JWT, refreshing it before expiration if configured."""
+        if self.app_id is None or self.private_key is None:
+            return None
+
+        now = time.monotonic()
+        if self._app_jwt is None or now >= self._app_jwt_refresh_at:
+            # Import lazily to avoid a circular import with gidgethub.apps.
+            from .apps import get_jwt
+
+            self._app_jwt = get_jwt(
+                app_id=self.app_id,
+                private_key=self.private_key,
+                expiration=_APP_JWT_EXPIRATION,
+            )
+            self._app_jwt_refresh_at = now + _APP_JWT_REFRESH_AFTER
+
+        return self._app_jwt
 
     async def getitem(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> Any:
         """Send a GET request for a single item to the specified endpoint."""
 
@@ -153,11 +298,11 @@ class GitHubAPI(abc.ABC):
     async def getstatus(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
     ) -> int:
         """Send a GET request for a single item to the specifie endpoint and return its status code."""
 
@@ -173,16 +318,16 @@ class GitHubAPI(abc.ABC):
     async def getiter(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
-        iterable_key: Opt[str] = ITERABLE_KEY,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+        iterable_key: str | None = ITERABLE_KEY,
     ) -> AsyncGenerator[Any, None]:
         """Return an async iterable for all the items at a specified endpoint."""
-        current_url: Opt[str] = url
+        current_url: str | None = url
         while current_url:
             data, current_url, _ = await self._make_request(
                 "GET",
@@ -203,13 +348,13 @@ class GitHubAPI(abc.ABC):
     async def post(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         data: Any,
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
         content_type: str = JSON_CONTENT_TYPE,
     ) -> Any:
         data, _, _ = await self._make_request(
@@ -228,13 +373,13 @@ class GitHubAPI(abc.ABC):
     async def patch(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         data: Any,
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> Any:
         data, _, _ = await self._make_request(
             "PATCH",
@@ -251,13 +396,13 @@ class GitHubAPI(abc.ABC):
     async def put(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         data: Any = b"",
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> Any:
         data, _, _ = await self._make_request(
             "PUT",
@@ -274,13 +419,13 @@ class GitHubAPI(abc.ABC):
     async def delete(
         self,
         url: str,
-        url_vars: Optional[variable.VariableValueDict] = {},
+        url_vars: Mapping[str, variable.VariableValue] | None = {},
         *,
         data: Any = b"",
         accept: str = sansio.accept_format(),
-        jwt: Opt[str] = None,
-        oauth_token: Opt[str] = None,
-        extra_headers: Optional[Dict[str, str]] = None,
+        jwt: str | None = None,
+        oauth_token: str | None = None,
+        extra_headers: dict[str, str] | None = None,
     ) -> None:
         await self._make_request(
             "DELETE",
@@ -304,8 +449,13 @@ class GitHubAPI(abc.ABC):
 
         The *endpoint* argument specifies the endpoint URL to use. The
         *variables* kwargs-style argument collects all variables for the query.
+
+        GitHub does not report an error when variable names are misspelled:
+        missing variables are treated as ``null``, while extra variables are ignored.
+
+        Returns the value of the ``"data"`` key from the JSON response.
         """
-        payload: Dict[str, Any] = {"query": query}
+        payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
         request_data = json.dumps(payload).encode("utf-8")
@@ -330,7 +480,7 @@ class GitHubAPI(abc.ABC):
         type_, encoding = sansio._parse_content_type(resp_content_type)
         response_str = response_data.decode(encoding)
         if type_ == "application/json":
-            response: Dict[str, Any] = json.loads(response_str)
+            response: dict[str, Any] = json.loads(response_str)
         else:
             raise GraphQLResponseTypeError(resp_content_type, response_str)
 

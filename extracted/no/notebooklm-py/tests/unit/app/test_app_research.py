@@ -27,6 +27,7 @@ from notebooklm._app.research import (
     cancel_research,
     classify_research_task,
     discover_and_classify,
+    execute_research_import,
     execute_research_wait,
     poll_and_classify,
     poll_importable_research,
@@ -89,7 +90,8 @@ async def _resolve_passthrough(client: Any, nb_id: str, *, json_output: bool = F
 def test_validate_flags_cited_only_requires_import_all() -> None:
     with pytest.raises(ValidationError) as caught:
         validate_research_wait_flags(import_all=False, cited_only=True)
-    assert "--cited-only requires --import-all" in str(caught.value)
+    assert caught.value.reason == "cited_requires_import"
+    assert "--" not in str(caught.value)
 
 
 def test_validate_flags_cited_only_with_import_all_ok() -> None:
@@ -437,11 +439,11 @@ async def test_wait_timeout_outcome() -> None:
 async def test_wait_resolves_notebook_id_through_injected_resolver() -> None:
     client = _client(wait=_task(status=ResearchStatus.NO_RESEARCH))
     resolver = AsyncMock(return_value="nb_resolved")
-    plan = ResearchWaitPlan(notebook_id="nb_partial", timeout=300, interval=5, json_output=True)
+    plan = ResearchWaitPlan(notebook_id="nb_partial", timeout=300, interval=5)
 
     result = await execute_research_wait(plan, client=client, resolve_id=resolver)
 
-    resolver.assert_awaited_once_with(client, "nb_partial", json_output=True)
+    resolver.assert_awaited_once_with(client, "nb_partial")
     assert result.notebook_id == "nb_resolved"
 
 
@@ -498,12 +500,11 @@ async def test_wait_import_invoked_when_completed_with_sources_and_task_id() -> 
     assert awaited.args[2] == "task_1"
     assert awaited.kwargs["cited_only"] is False
     assert awaited.kwargs["max_elapsed"] == 300
-    # Text mode (json_output False) routes a status message rather than json_output.
-    assert awaited.kwargs["status_message"] == "Importing sources..."
+    assert "status_message" not in awaited.kwargs
     assert "json_output" not in awaited.kwargs
 
 
-async def test_wait_import_json_mode_passes_json_output_flag() -> None:
+async def test_wait_importer_receives_only_neutral_operation_inputs() -> None:
     completed = _task(
         status=ResearchStatus.COMPLETED,
         task_id="task_1",
@@ -511,9 +512,7 @@ async def test_wait_import_json_mode_passes_json_output_flag() -> None:
     )
     client = _client(wait=completed)
     importer = AsyncMock(return_value=MagicMock(imported=[], sources=[], cited_selection=None))
-    plan = ResearchWaitPlan(
-        notebook_id="nb_1", timeout=120, interval=5, import_all=True, json_output=True
-    )
+    plan = ResearchWaitPlan(notebook_id="nb_1", timeout=120, interval=5, import_all=True)
 
     await execute_research_wait(
         plan,
@@ -524,7 +523,7 @@ async def test_wait_import_json_mode_passes_json_output_flag() -> None:
 
     awaited = importer.await_args
     assert awaited is not None
-    assert awaited.kwargs["json_output"] is True
+    assert "json_output" not in awaited.kwargs
     assert "status_message" not in awaited.kwargs
 
 
@@ -667,6 +666,50 @@ async def test_import_research_sources_plain_list_return_has_empty_already_prese
     assert outcome.already_present == []
     _, kwargs = client.research.import_sources_with_verification.await_args
     assert kwargs == {"allow_duplicate": True}
+
+
+async def test_execute_research_import_oneshot_uses_import_sources() -> None:
+    client = _client(
+        poll=_task(
+            status=ResearchStatus.COMPLETED,
+            sources=[{"title": "S", "url": "http://example.com/1"}],
+        )
+    )
+    client.research.import_sources = AsyncMock(return_value=[{"id": "src_1", "title": "S"}])
+
+    execution = await execute_research_import(client, "nb_1", "run_1", oneshot=True)
+
+    assert execution.sources_found[0]["url"] == "http://example.com/1"
+    assert execution.imported == [{"id": "src_1", "title": "S"}]
+    client.research.import_sources.assert_awaited_once()
+    client.research.import_sources_with_verification.assert_not_called()
+
+
+async def test_execute_research_import_cited_only_then_max_sources() -> None:
+    client = _client(
+        poll=_task(
+            status=ResearchStatus.COMPLETED,
+            sources=[
+                {"title": "A", "url": "http://a"},
+                {"title": "B", "url": "http://b"},
+                {"title": "C", "url": "http://c"},
+            ],
+            report="See [A](http://a) and [B](http://b).",
+        )
+    )
+    client.research.import_sources_with_verification = AsyncMock(
+        return_value=[{"id": "src-a", "title": "A"}]
+    )
+
+    execution = await execute_research_import(
+        client, "nb_1", "run_1", cited_only=True, max_sources=1
+    )
+
+    imported_sources = client.research.import_sources_with_verification.await_args.args[2]
+    assert [src["url"] for src in imported_sources] == ["http://a"]
+    assert execution.sources_found[0]["url"] == "http://a"
+    assert len(execution.sources_selected) == 1
+    assert execution.cited_fallback is False
 
 
 # ===========================================================================

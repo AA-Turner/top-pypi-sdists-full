@@ -4293,6 +4293,7 @@ class ProduceActionOptions:
                             )
                         },
                         fleet=fleet,
+                        host_kernel=codebuild.HostKernel.LINUX_KERNEL_4,
                         privileged=False
                     ),
                     cache=cache,

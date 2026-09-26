@@ -291,6 +291,10 @@ class TestNamespaces:
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
                 },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
+                },
                 "query_rewrite": {
                     "enabled": True,
                     "model": "model",
@@ -464,6 +468,10 @@ class TestNamespaces:
                 "cache": {
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
+                },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
                 },
                 "query_rewrite": {
                     "enabled": True,
@@ -818,6 +826,10 @@ class TestAsyncNamespaces:
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
                 },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
+                },
                 "query_rewrite": {
                     "enabled": True,
                     "model": "model",
@@ -991,6 +1003,10 @@ class TestAsyncNamespaces:
                 "cache": {
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
+                },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
                 },
                 "query_rewrite": {
                     "enabled": True,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import typing_extensions
-from typing import Type, Union, Iterable, Optional, cast
+from typing import Dict, Type, Union, Iterable, Optional, cast
 from datetime import datetime
 from typing_extensions import Literal
 
@@ -64,6 +64,7 @@ class TargetsResource(SyncAPIResource):
         account_id: str,
         hostname: str,
         ip: target_create_params.IP,
+        tags: Optional[Dict[str, str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -83,6 +84,9 @@ class TargetsResource(SyncAPIResource):
 
           ip: The IPv4/IPv6 address that identifies where to reach a target
 
+          tags: Optional tags to associate with the target. Keys and values are user-defined
+              strings.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -99,6 +103,7 @@ class TargetsResource(SyncAPIResource):
                 {
                     "hostname": hostname,
                     "ip": ip,
+                    "tags": tags,
                 },
                 target_create_params.TargetCreateParams,
             ),
@@ -119,6 +124,7 @@ class TargetsResource(SyncAPIResource):
         account_id: str,
         hostname: str,
         ip: target_update_params.IP,
+        tags: Optional[Dict[str, str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -140,6 +146,9 @@ class TargetsResource(SyncAPIResource):
 
           ip: The IPv4/IPv6 address that identifies where to reach a target
 
+          tags: Optional tags to associate with the target. Keys and values are user-defined
+              strings.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -160,6 +169,7 @@ class TargetsResource(SyncAPIResource):
                 {
                     "hostname": hostname,
                     "ip": ip,
+                    "tags": tags,
                 },
                 target_update_params.TargetUpdateParams,
             ),
@@ -195,6 +205,7 @@ class TargetsResource(SyncAPIResource):
         order: Literal["hostname", "created_at"] | Omit = omit,
         page: int | Omit = omit,
         per_page: int | Omit = omit,
+        tag: SequenceNotStr[str] | Omit = omit,
         target_ids: SequenceNotStr[str] | Omit = omit,
         virtual_network_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -254,6 +265,11 @@ class TargetsResource(SyncAPIResource):
 
           per_page: Max amount of entries returned per page
 
+          tag:
+              Filter by tag key:value pairs. Multiple `tag` params are AND'd. Format:
+              `tag=key:value` (e.g., `tag=environment:production`). Key and value must both be
+              non-empty; `tag=:value` and `tag=key:` return 400.
+
           target_ids: Filters for targets that have any of the following UUIDs. Specify `target_ids`
               multiple times in query parameter to build list of candidates.
 
@@ -297,6 +313,7 @@ class TargetsResource(SyncAPIResource):
                         "order": order,
                         "page": page,
                         "per_page": per_page,
+                        "tag": tag,
                         "target_ids": target_ids,
                         "virtual_network_id": virtual_network_id,
                     },
@@ -538,6 +555,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         account_id: str,
         hostname: str,
         ip: target_create_params.IP,
+        tags: Optional[Dict[str, str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -557,6 +575,9 @@ class AsyncTargetsResource(AsyncAPIResource):
 
           ip: The IPv4/IPv6 address that identifies where to reach a target
 
+          tags: Optional tags to associate with the target. Keys and values are user-defined
+              strings.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -573,6 +594,7 @@ class AsyncTargetsResource(AsyncAPIResource):
                 {
                     "hostname": hostname,
                     "ip": ip,
+                    "tags": tags,
                 },
                 target_create_params.TargetCreateParams,
             ),
@@ -593,6 +615,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         account_id: str,
         hostname: str,
         ip: target_update_params.IP,
+        tags: Optional[Dict[str, str]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -614,6 +637,9 @@ class AsyncTargetsResource(AsyncAPIResource):
 
           ip: The IPv4/IPv6 address that identifies where to reach a target
 
+          tags: Optional tags to associate with the target. Keys and values are user-defined
+              strings.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -634,6 +660,7 @@ class AsyncTargetsResource(AsyncAPIResource):
                 {
                     "hostname": hostname,
                     "ip": ip,
+                    "tags": tags,
                 },
                 target_update_params.TargetUpdateParams,
             ),
@@ -669,6 +696,7 @@ class AsyncTargetsResource(AsyncAPIResource):
         order: Literal["hostname", "created_at"] | Omit = omit,
         page: int | Omit = omit,
         per_page: int | Omit = omit,
+        tag: SequenceNotStr[str] | Omit = omit,
         target_ids: SequenceNotStr[str] | Omit = omit,
         virtual_network_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -728,6 +756,11 @@ class AsyncTargetsResource(AsyncAPIResource):
 
           per_page: Max amount of entries returned per page
 
+          tag:
+              Filter by tag key:value pairs. Multiple `tag` params are AND'd. Format:
+              `tag=key:value` (e.g., `tag=environment:production`). Key and value must both be
+              non-empty; `tag=:value` and `tag=key:` return 400.
+
           target_ids: Filters for targets that have any of the following UUIDs. Specify `target_ids`
               multiple times in query parameter to build list of candidates.
 
@@ -771,6 +804,7 @@ class AsyncTargetsResource(AsyncAPIResource):
                         "order": order,
                         "page": page,
                         "per_page": per_page,
+                        "tag": tag,
                         "target_ids": target_ids,
                         "virtual_network_id": virtual_network_id,
                     },

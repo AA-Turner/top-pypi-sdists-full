@@ -12,4 +12,4 @@ class PurgeStartParams(TypedDict, total=False):
     """A Resource identifier."""
 
     delete_messages_permanently: bool
-    """Confimation that all messages will be deleted permanently."""
+    """Confirms that all messages will be permanently deleted."""

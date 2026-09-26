@@ -31,8 +31,9 @@ class LifecycleUpdateParams(TypedDict, total=False):
 
     rules: Iterable[Rule]
 
-    jurisdiction: Annotated[Literal["default", "eu", "us", "fedramp"], PropertyInfo(alias="cf-r2-jurisdiction")]
-    """Jurisdiction where objects in this bucket are guaranteed to be stored."""
+    cf_r2_jurisdiction: Annotated[
+        Literal["default", "eu", "us", "fedramp", "fedramp-high"], PropertyInfo(alias="cf-r2-jurisdiction")
+    ]
 
 
 class RuleConditions(TypedDict, total=False):

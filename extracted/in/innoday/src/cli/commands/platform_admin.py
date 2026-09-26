@@ -2,10 +2,9 @@
 
 import argparse
 
-from rich.console import Console
-
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import format_error, format_warning
+from src.cli.utils.presentation import make_console
 
 
 class PlatformAdminCommands:
@@ -13,7 +12,7 @@ class PlatformAdminCommands:
 
     def __init__(self, config: CLIConfig):
         self.config = config
-        self.console = Console()
+        self.console = make_console()
 
     @staticmethod
     def setup_parser(parser: argparse.ArgumentParser) -> None:
@@ -78,7 +77,7 @@ class PlatformAdminCommands:
         try:
             return await admin_commands.handle_platform_admin_command(args)
         except Exception as e:
-            console = Console()
+            console = make_console()
             console.print(format_error(f"Platform admin command failed: {str(e)}"))
             return 1
 

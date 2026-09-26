@@ -1,9 +1,14 @@
 """Wrapper that lets the OM Observer/Reflector call the unified AI client.
 
-Provides the ``llm_call_fn`` the OM system needs: ``(model, messages,
-temperature, max_tokens) -> str``. Bypasses ``execute_until_complete`` so
-no ``cx_request`` / ``cx_user_request`` side effects are written — memory
-LLM cost lives in ``cx_observational_memory_event`` only.
+Provides the ``llm_call_fn`` the OM system needs:
+``(mandate_key=, messages=, model=None) -> str``. Every call is HELD: the
+mandate (``memory.observer`` / ``memory.reflector``) resolves to its Holder,
+whose model, instructions and sampling are what run (2026-09-25,
+BYPASS-CENSUS row 33 — this used to run a code-chosen gemini-2.5-flash and
+prompts assembled in code). ``model`` is a run-scope override only when a
+caller explicitly named one. Bypasses ``execute_until_complete`` so no
+``cx_request`` / ``cx_user_request`` side effects are written — memory LLM
+cost lives in ``cx_observational_memory_event`` only.
 
 Fires a background task to write the event row (tokens, cost, duration)
 and emits a structured ``OMEvent`` through the request emitter so the UI
@@ -77,46 +82,18 @@ def _extract_response_text(response: Any) -> str:
     return ""
 
 
-def _split_system_from_messages(messages: list[dict[str, Any]]) -> tuple[Optional[str], list[dict[str, Any]]]:
-    """UnifiedConfig forbids system-role entries in ``messages``. Pull the
-    first system message out and return it separately."""
-    system_text: Optional[str] = None
-    remaining: list[dict[str, Any]] = []
-    for msg in messages:
-        role = msg.get("role")
-        if role == "system" and system_text is None:
-            content = msg.get("content")
-            if isinstance(content, str):
-                system_text = content
-            elif isinstance(content, list):
-                system_text = "".join(
-                    part.get("text", "") if isinstance(part, dict) else str(part)
-                    for part in content
-                )
-            else:
-                system_text = str(content or "")
-        else:
-            remaining.append(msg)
-    return system_text, remaining
-
-
 class MemoryLLMAdapter:
-    """Adapter exposing ``.call(model, messages, temperature, max_tokens)``.
+    """The Observer/Reflector ``llm_call_fn``: ``(mandate_key=, messages=, model=)``.
 
     Construct once per turn with a closed-over ``ctx`` and ``conversation_id``
-    so every event row carries the right user/request/conversation.
-
-    The ``event_type_hint`` lets the caller mark whether a given invocation
-    is an Observer or Reflector call. Defaults to ``observer`` because that's
-    the far more common path; the ReflectorRunner wraps its calls through
-    ``call_as`` to override.
+    so every event row carries the right user/request/conversation. The event
+    type follows the mandate (observer vs reflector).
     """
 
     def __init__(self, ctx: Any, conversation_id: str, memory_record_id: Optional[str] = None) -> None:
         self.ctx = ctx
         self.conversation_id = conversation_id
         self.memory_record_id = memory_record_id
-        self._default_event_type = "observer"
 
     def bind_record(self, memory_record_id: str) -> None:
         """Set the memory_record_id after the record is materialized — the
@@ -124,57 +101,63 @@ class MemoryLLMAdapter:
         wire the id back in once it's known."""
         self.memory_record_id = memory_record_id
 
-    async def __call__(self, model: str, messages: list[dict[str, Any]], temperature: float, max_tokens: int) -> str:
-        return await self._invoke(
-            model=model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            event_type=self._default_event_type,
-        )
-
-    async def call_as(
+    async def __call__(
         self,
-        event_type: str,
-        model: str,
+        *,
+        mandate_key: str,
         messages: list[dict[str, Any]],
-        temperature: float,
-        max_tokens: int,
+        model: Optional[str] = None,
+        variables: Optional[dict[str, Any]] = None,
     ) -> str:
+        from matrx_ai.code_call_mandate_keys import MEMORY_REFLECTOR_MANDATE
+
+        # The event type follows the mandate — before this, every Reflector
+        # call was recorded as an "observer" event (call_as was never used).
+        event_type = "reflector" if mandate_key == MEMORY_REFLECTOR_MANDATE else "observer"
         return await self._invoke(
+            mandate_key=mandate_key,
             model=model,
             messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            variables=variables,
             event_type=event_type,
         )
 
     async def _invoke(
         self,
-        model: str,
+        *,
+        mandate_key: str,
+        model: Optional[str],
         messages: list[dict[str, Any]],
-        temperature: float,
-        max_tokens: int,
+        variables: Optional[dict[str, Any]],
         event_type: str,
     ) -> str:
         # Deferred imports avoid pulling the full provider stack at module load
         # time (important because the memory package must remain usable even
         # when matrx_ai hasn't been configured yet, e.g. in unit tests).
-        from matrx_ai.config import UnifiedConfig
+        from matrx_ai.mandates import held_request_config, hold_code_call
         from matrx_ai.orchestrator.requests import AIMatrixRequest
-        from matrx_ai.providers.unified_client import UnifiedAIClient
 
-        system_text, body_messages = _split_system_from_messages(messages)
-
-        config = UnifiedConfig(
-            model=model,
-            messages=body_messages,
-            system_instruction=system_text,
-            stream=False,
-            temperature=temperature,
-            max_output_tokens=max_tokens,
-            store=False,
+        held = await hold_code_call(
+            mandate_key, consumer=f"memory.{event_type}", variables=variables
         )
+        # The Holder authors the user turn that frames the material and states
+        # the task; ``messages`` (a retry's exchange) follow it. A Holder that
+        # authors none is refused in words, never sent as an empty prompt.
+        held.authored_user()
+        # A run turn naming ``holder_text`` (the Observer's retry nudge) sends
+        # the Holder's own text for that variable — instruction text never
+        # typed in code (2026-09-25 residue pass).
+        turns = [
+            {"role": turn.get("role", "user"), "content": held.authored_text(turn["holder_text"])}
+            if "holder_text" in turn
+            else turn
+            for turn in messages
+        ]
+        config = held_request_config(held, extra_turns=turns)
+        if model:
+            config.model = model
+        config.store = False
+        model = config.model
         request = AIMatrixRequest(
             conversation_id=self.conversation_id,
             config=config,
@@ -255,6 +238,7 @@ class MemoryLLMAdapter:
                 )
             )
 
+        await held.finish(text_out, success=error_text is None, error=error_text)
         if error_text is not None:
             # Propagate so OM's internal error handling converts this to a log
             # entry without blowing up the main conversation turn.

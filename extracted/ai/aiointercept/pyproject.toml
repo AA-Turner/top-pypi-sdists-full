@@ -1,6 +1,6 @@
 [project]
 name = "aiointercept"
-version = "0.1.10"
+version = "0.1.11"
 description = "aiohttp mock library that routes requests through a real test server"
 authors = [
     {name = "Pablo Estevez",email = "pablo22estevez@gmail.com"}
@@ -11,7 +11,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["aiohttp", "mock", "testing", "pytest", "asyncio", "aioresponses"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
     "Framework :: aiohttp",
     "Framework :: Pytest",

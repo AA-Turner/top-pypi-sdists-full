@@ -1002,7 +1002,7 @@ class TestNothingReachesStdout:
 
         captured = capsys.readouterr()
         assert captured.out == ""
-        assert "Could not load config" in captured.err
+        assert "isn't valid JSON" in captured.err
 
     def test_the_stale_api_url_migration_goes_to_stderr(self, config_path, capsys):
         _write(

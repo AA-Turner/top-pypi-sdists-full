@@ -470,6 +470,8 @@ class TestIdentityProviders:
                 "client_id": "<your client id>",
                 "client_secret": "<your client secret>",
                 "email_claim_name": "custom_claim_name",
+                "prompt": "select_account",
+                "use_login_hint": True,
             },
             name="Widget Corps IDP",
             type="onetimepin",
@@ -986,6 +988,7 @@ class TestIdentityProviders:
                 "attributes": ["group", "department_code", "divison"],
                 "email_attribute_name": "Email",
                 "enable_encryption": True,
+                "force_authn": True,
                 "header_attributes": [
                     {
                         "attribute_name": "attribute_name",
@@ -1830,6 +1833,8 @@ class TestIdentityProviders:
                 "client_id": "<your client id>",
                 "client_secret": "<your client secret>",
                 "email_claim_name": "custom_claim_name",
+                "prompt": "select_account",
+                "use_login_hint": True,
             },
             name="Widget Corps IDP",
             type="onetimepin",
@@ -2436,6 +2441,7 @@ class TestIdentityProviders:
                 "attributes": ["group", "department_code", "divison"],
                 "email_attribute_name": "Email",
                 "enable_encryption": True,
+                "force_authn": True,
                 "header_attributes": [
                     {
                         "attribute_name": "attribute_name",
@@ -3467,6 +3473,8 @@ class TestAsyncIdentityProviders:
                 "client_id": "<your client id>",
                 "client_secret": "<your client secret>",
                 "email_claim_name": "custom_claim_name",
+                "prompt": "select_account",
+                "use_login_hint": True,
             },
             name="Widget Corps IDP",
             type="onetimepin",
@@ -3983,6 +3991,7 @@ class TestAsyncIdentityProviders:
                 "attributes": ["group", "department_code", "divison"],
                 "email_attribute_name": "Email",
                 "enable_encryption": True,
+                "force_authn": True,
                 "header_attributes": [
                     {
                         "attribute_name": "attribute_name",
@@ -4827,6 +4836,8 @@ class TestAsyncIdentityProviders:
                 "client_id": "<your client id>",
                 "client_secret": "<your client secret>",
                 "email_claim_name": "custom_claim_name",
+                "prompt": "select_account",
+                "use_login_hint": True,
             },
             name="Widget Corps IDP",
             type="onetimepin",
@@ -5433,6 +5444,7 @@ class TestAsyncIdentityProviders:
                 "attributes": ["group", "department_code", "divison"],
                 "email_attribute_name": "Email",
                 "enable_encryption": True,
+                "force_authn": True,
                 "header_attributes": [
                     {
                         "attribute_name": "attribute_name",

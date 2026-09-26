@@ -114,6 +114,7 @@ from .exporters.quiet_metrics import QuietMetricExporter
 from .exporters.remove_pending import RemovePendingSpansExporter
 from .exporters.test import TestExporter
 from .forwarding import OTLPForwardingManager
+from .http_transport import install_connection_policy
 from .integrations.executors import instrument_executors
 from .interactive import ask_or_default, ask_required, require_answer
 from .logs import ProxyLoggerProvider
@@ -1647,6 +1648,7 @@ class LogfireConfig(_LogfireConfigData):
 
     def _initialize_credentials_from_token(self, token: str) -> LogfireCredentials | None:
         session = requests.Session()
+        install_connection_policy(session)
         install_logfire_response_hook(session, self.advanced.server_response_hook)
         # This runs in the background `check_logfire_token` thread, where a warning would be
         # attributed to the thread rather than to the user's `configure()` call and so wouldn't
@@ -2040,23 +2042,30 @@ class LogfireCredentials:
             LogfireConfigError: If there was an error creating projects.
         """
         organizations: list[str] = [item['organization_name'] for item in client.get_user_organizations()]
+        if not organizations:
+            raise LogfireConfigError(
+                'No organizations are available for project creation. '
+                'Create or join an organization in Logfire, then try again.'
+            )
 
         if organization not in organizations:
             if len(organizations) > 1:
                 # Get user default organization
                 user_details = client.get_user_information()
-                user_default_organization_name: str | None = user_details.get('default_organization', {}).get(
-                    'organization_name'
+                user_default_organization: dict[str, str] | None = user_details.get('default_organization')
+                user_default_organization_name = (
+                    user_default_organization.get('organization_name') if user_default_organization else None
                 )
 
                 if default_organization and user_default_organization_name:
                     organization = user_default_organization_name
                 else:
-                    require_answer(
-                        'Several organizations are available and none was selected: ' + ', '.join(organizations),
-                        'logfire projects new PROJECT_NAME --org ORGANIZATION',
-                        'logfire projects new PROJECT_NAME --default-org',
-                    )
+                    question = 'Several organizations are available and none was selected: ' + ', '.join(organizations)
+                    org_remedy = 'logfire projects new PROJECT_NAME --org ORGANIZATION'
+                    if user_default_organization_name:
+                        require_answer(question, org_remedy, 'logfire projects new PROJECT_NAME --default-org')
+                    else:
+                        require_answer(question, org_remedy)
                     org_default = user_default_organization_name or organizations[0]
                     organization = ask_or_default(
                         lambda: Prompt.ask(

@@ -33,8 +33,10 @@ from __future__ import annotations
 
 import functools
 import logging
-import os
 from typing import Any, Dict, Final, List, Optional, Protocol, Sequence, Tuple
+
+from .attribute_specs import _attribute_specs_for
+from .legacy_agg_bridge import LEGACY_AGG_SHAPE_ENV, legacy_shape_agg_summary
 
 logger = logging.getLogger(__name__)
 
@@ -239,6 +241,10 @@ class EngineBackend:
         self._sessions: Dict[str, Any] = {}
         self._closed = False
         self._shim = _EngineProcessorShim(loaded.manifest.app.id)
+        # Classifier-chain attribute(s) (`vehicle_type`, `age`, ...) this app's pipeline
+        # declares, if any -- computed once here rather than per frame. See
+        # `_attribute_specs_for` for what's assumed about the producer's wire shape.
+        self._attribute_specs: Tuple[Any, ...] = _attribute_specs_for(loaded.manifest)
         # Zone geometry. Owned by `runtime/zone_source.py` rather than inlined here, because
         # "this camera has no zones" and "nobody answered" are different answers and only one of
         # them should be cached forever -- see that module's docstring.
@@ -439,7 +445,8 @@ class EngineBackend:
         those a substituted resolution is not a harmless scale factor, it is a wrong measurement.
         """
         return any(
-            getattr(stage, "PRIMITIVE", "") in _ABSOLUTE_PIXEL_PRIMITIVES for stage in self._loaded.manifest.pipeline
+            getattr(stage, "PRIMITIVE", "") in _ABSOLUTE_PIXEL_PRIMITIVES
+            for stage in self._loaded.manifest.pipeline
         )
 
     # -- zone geometry -----------------------------------------------------
@@ -460,7 +467,9 @@ class EngineBackend:
         deployment_id = _stream_value(
             stream_info, "app_deployment_id", "appDeploymentId", "deployment_id", "deploymentId"
         ) or _config_value(self._config, "deployment_id")
-        application_id = _stream_value(stream_info, "app_id", "appId", "application_id", "applicationId")
+        application_id = _stream_value(
+            stream_info, "app_id", "appId", "application_id", "applicationId"
+        )
 
         answer = self._zones.answer_for(
             camera_id,
@@ -546,6 +555,17 @@ class EngineBackend:
         config: Any = None,
         frame_ts: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
+        # Decode this app's classifier-chain attribute(s) onto each raw detection dict before
+        # anything else touches them. `attach_attributes` mutates in place and returns the same
+        # detections; `_boxes_to_unit_square` below shallow-copies each dict for its bbox
+        # rewrite, so a key set here survives that copy untouched. Skipped entirely -- no
+        # import, no walk -- for the common case of an app with no attribute_vote/
+        # attribute_count/attribute_band stage at all.
+        if self._attribute_specs:
+            from ..engine.intake.attributes import attach_attributes
+
+            attach_attributes(detections, specs=self._attribute_specs)
+
         # `config` is accepted for interface parity. A manifest app takes its configuration from
         # app.yaml, resolved once at routing time; a per-frame override has no meaning here and is
         # ignored rather than half-honoured. `input_bytes` is not inert -- it is one of the places
@@ -583,7 +603,7 @@ class EngineBackend:
         for camera_id, session in self._sessions.items():
             try:
                 session.flush()
-            except Exception:  # pragma: no cover - defensive; close must not raise
+            except Exception:  # noqa: BLE001 - close must not raise  # pragma: no cover - defensive
                 logger.warning(
                     "engine backend: flush failed for app %s camera %s",
                     self.app_id,
@@ -592,8 +612,17 @@ class EngineBackend:
                 )
         try:
             self._publisher.close()
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # noqa: BLE001 - close must not raise  # pragma: no cover - defensive
             logger.debug("engine backend: publisher close failed", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Classifier attributes
+# ---------------------------------------------------------------------------
+#
+# _attribute_specs_for / _ATTRIBUTE_STAGE_KINDS live in runtime/attribute_specs.py
+# (INC-2026-146 file-size cap -- fully self-contained, no shared state with the rest
+# of this module).
 
 
 # ---------------------------------------------------------------------------
@@ -675,7 +704,9 @@ def _as_points(raw: Any) -> Optional[List[Tuple[float, float]]]:
     return points or None
 
 
-_ABSOLUTE_PIXEL_PRIMITIVES: Final[frozenset] = frozenset({"keypoint_pose", "segmentation_area", "velocity_state"})
+_ABSOLUTE_PIXEL_PRIMITIVES: Final[frozenset] = frozenset(
+    {"keypoint_pose", "segmentation_area", "velocity_state"}
+)
 """Stages that turn ``FrameContext.require_resolution`` into a reported figure.
 
 Zone membership is scale-invariant, so a substituted resolution cannot change it. A distance, an
@@ -815,231 +846,10 @@ def normalize_zone_config(zone_config: Any) -> Optional[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# agg_summary shape bridge (PY-5)
+# agg_summary shape bridge (PY-5) -- moved to runtime/legacy_agg_bridge.py
+# (INC-2026-146 file-size cap). LEGACY_AGG_SHAPE_ENV / legacy_shape_agg_summary
+# re-exported above for the existing public import path.
 # ---------------------------------------------------------------------------
-
-LEGACY_AGG_SHAPE_ENV: Final[str] = "MATRICE_LEGACY_AGG_SUMMARY_SHAPE"
-"""Off switch for :func:`legacy_shape_agg_summary`. **Default on.**
-
-Read on every call rather than at import, deliberately: that makes ``docker restart`` with
-``MATRICE_LEGACY_AGG_SUMMARY_SHAPE=0`` a complete rollback of the shape change, with no rebuild and
-no redeploy. Accepts ``0`` / ``false`` / ``no`` / ``off`` (case-insensitive) to disable.
-"""
-
-#: The per-category count lists on a ``tracking_stats``. ``current_counts`` is deliberately absent
-#: -- it is recomputed from the merged detections instead. See :func:`_merge_tracking_stats`.
-_SUMMED_COUNT_KEYS: Final[Tuple[str, ...]] = (
-    "current_new_counts",
-    "total_counts",
-    "total_current_counts",
-)
-
-
-def _legacy_shape_enabled() -> bool:
-    raw = str(os.environ.get(LEGACY_AGG_SHAPE_ENV, "") or "").strip().lower()
-    return raw not in {"0", "false", "no", "off"}
-
-
-def _frame_key(stream_info: Dict[str, Any]) -> str:
-    """The legacy ``agg_summary`` key: this frame's number, as a string.
-
-    Legacy use cases key on ``str(frame_number)`` (e.g. ``people_counting.py:674``). The number is
-    in ``input_settings.start_frame``, which every worker builder sets; ``frame_id`` carries it as a
-    trailing ``_<n>`` when it does not. ``"current_frame"`` is the last resort -- one of the four
-    keys PY-5 records consumers already coping with, so it is a shape they have seen.
-    """
-    settings = stream_info.get("input_settings")
-    if isinstance(settings, dict):
-        for key in ("start_frame", "end_frame"):
-            value = settings.get(key)
-            if isinstance(value, int):
-                return str(value)
-            try:
-                if value is not None and str(value).strip():
-                    return str(int(str(value).strip()))
-            except (TypeError, ValueError):
-                pass
-
-    tail = str(stream_info.get("frame_id") or "").rsplit("_", 1)[-1]
-    if tail.isdigit():
-        return tail
-    return "current_frame"
-
-
-def _detection_key(detection: Any) -> Any:
-    """An identity for a detection, for dedupe when merging zones.
-
-    ``track_id`` when the app tracks, else the bbox corners plus the category. Needed because
-    ``overlap: all_match`` (``primitives/geometry.py`` ``OverlapPolicy``) counts one detection in
-    **every** zone containing it, so zone entries are not always a partition of the frame.
-    """
-    if not isinstance(detection, dict):
-        return id(detection)
-    track_id = detection.get("track_id")
-    if track_id is not None:
-        return ("track", track_id)
-    box = detection.get("bounding_box")
-    corners = tuple(box.get(c) for c in ("xmin", "ymin", "xmax", "ymax")) if isinstance(box, dict) else ()
-    return ("box", corners, detection.get("category"))
-
-
-def _sum_counts(count_lists: List[Any]) -> List[Dict[str, Any]]:
-    """Sum ``[{"category": c, "count": n}, ...]`` lists per category, order preserved."""
-    totals: Dict[str, int] = {}
-    for counts in count_lists:
-        if not isinstance(counts, (list, tuple)):
-            continue
-        for item in counts:
-            if not isinstance(item, dict):
-                continue
-            category = str(item.get("category", ""))
-            try:
-                totals[category] = totals.get(category, 0) + int(item.get("count", 0) or 0)
-            except (TypeError, ValueError):
-                continue
-    return [{"category": category, "count": count} for category, count in totals.items()]
-
-
-def _counts_from_detections(detections: List[Any]) -> List[Dict[str, Any]]:
-    """Per-category counts of ``detections``, order of first appearance preserved."""
-    totals: Dict[str, int] = {}
-    for detection in detections:
-        if not isinstance(detection, dict):
-            continue
-        category = str(detection.get("category", ""))
-        totals[category] = totals.get(category, 0) + 1
-    return [{"category": category, "count": count} for category, count in totals.items()]
-
-
-def _merge_tracking_stats(entries: Sequence[Tuple[str, Dict[str, Any]]]) -> Dict[str, Any]:
-    """One frame-level ``tracking_stats`` from the per-zone ones.
-
-    ``detections`` are concatenated and **deduped** by :func:`_detection_key`, and
-    ``current_counts`` is then recomputed from that deduped list rather than summed. This is the
-    one field that has to be derived rather than added: be-analytics resolves its ``total_count``
-    and ``category_total_count`` instant metrics from ``current_counts`` (**BE-16**), and under
-    ``overlap: all_match`` a sum would count one person standing in two zones twice.
-
-    The cumulative lists (``total_counts`` and friends) *are* summed, because a frame's detections
-    cannot reconstruct a running total. Under ``all_match`` those inherit the engine's own
-    documented ``sum(per_zone) >= occupancy`` behaviour -- the bridge does not invent a number the
-    engine was not already publishing.
-    """
-    merged: Dict[str, Any] = {}
-    seen: set = set()
-    detections: List[Any] = []
-    human_texts: List[str] = []
-
-    for _zone, stats in entries:
-        for detection in stats.get("detections") or []:
-            key = _detection_key(detection)
-            if key in seen:
-                continue
-            seen.add(key)
-            detections.append(detection)
-        text = str(stats.get("human_text") or "").strip()
-        if text and text not in human_texts:
-            human_texts.append(text)
-        # Timestamps are frame-level and identical across zones; first non-empty wins.
-        for key in ("input_timestamp", "reset_timestamp"):
-            if not merged.get(key) and stats.get(key):
-                merged[key] = stats[key]
-
-    merged["detections"] = detections
-    merged["current_counts"] = _counts_from_detections(detections)
-    for key in _SUMMED_COUNT_KEYS:
-        merged[key] = _sum_counts([stats.get(key) for _zone, stats in entries])
-    if human_texts:
-        merged["human_text"] = "; ".join(human_texts)
-    return merged
-
-
-def legacy_shape_agg_summary(
-    agg_summary: Optional[Dict[str, Any]],
-    stream_info: Dict[str, Any],
-) -> Optional[Dict[str, Any]]:
-    """Re-key a zone-keyed engine ``agg_summary`` into the legacy frame-keyed shape (PY-5).
-
-    The two shapes are a deliberate, documented divergence
-    (:class:`~matrice_analytics.engine.contract.schemas.FrameSummaryEntry`), and the engine's is the
-    better one -- it is the only form that works for a multi-zone app. But every consumer was built
-    against legacy, so this bridges rather than migrates:
-
-    ==========================  ==========================  ==================================
-    field                       legacy                      engine
-    ==========================  ==========================  ==================================
-    top-level key               frame number (``"45507"``)  zone (``"global"``, ``"inside"``)
-    ``human_text``              on the frame entry          inside ``tracking_stats``
-    ``zone_analysis``           on the frame entry          implicit in the zone keys
-    ==========================  ==========================  ==================================
-
-    So: the per-zone entries collapse into one frame entry, ``human_text`` is lifted back out,
-    ``zone_analysis`` is rebuilt from the zone keys (and mirrored inside ``tracking_stats``, which
-    is where legacy puts it too), and ``alerts`` / ``incidents`` / ``business_analytics`` are
-    merged. Nothing is dropped: the per-zone view survives in full under ``zone_analysis``.
-
-    Returns the input unchanged when the bridge is disabled, when there is nothing to convert, or
-    when the payload is already frame-keyed -- so it is idempotent and safe to call twice.
-    """
-    if not agg_summary or not isinstance(agg_summary, dict) or not _legacy_shape_enabled():
-        return agg_summary
-
-    # Already legacy-shaped: every key is a frame number. Converting again would nest a frame
-    # inside a frame, so a double call must be a no-op.
-    if all(str(key).isdigit() for key in agg_summary):
-        return agg_summary
-
-    entries: List[Tuple[str, Dict[str, Any]]] = [
-        (str(zone), entry) for zone, entry in agg_summary.items() if isinstance(entry, dict)
-    ]
-    if not entries:
-        return agg_summary
-
-    zone_analysis: Dict[str, Any] = {}
-    alerts: List[Any] = []
-    incidents: Dict[str, Any] = {}
-    business_analytics: Dict[str, Any] = {}
-    tracking_entries: List[Tuple[str, Dict[str, Any]]] = []
-
-    for zone, entry in entries:
-        stats = entry.get("tracking_stats")
-        stats = stats if isinstance(stats, dict) else {}
-        tracking_entries.append((zone, stats))
-
-        # The per-zone view, preserved. Legacy's `zone_analysis` is per-zone counts, and the
-        # `__global__` spelling is what a zoneless legacy app uses (`people_counting.py:465`).
-        zone_analysis[zone] = {
-            "current_counts": stats.get("current_counts") or [],
-            "total_counts": stats.get("total_counts") or [],
-            "human_text": stats.get("human_text") or "",
-        }
-
-        for alert in entry.get("alerts") or []:
-            alerts.append(alert)
-        for source, target in (
-            (entry.get("incidents"), incidents),
-            (entry.get("business_analytics"), business_analytics),
-        ):
-            if isinstance(source, dict):
-                for key, value in source.items():
-                    # First non-empty wins: a later zone must not blank a populated field.
-                    if key not in target or not target[key]:
-                        target[key] = value
-
-    tracking_stats = _merge_tracking_stats(tracking_entries)
-    human_text = tracking_stats.pop("human_text", "")
-    tracking_stats["zone_analysis"] = zone_analysis
-
-    return {
-        _frame_key(stream_info): {
-            "incidents": incidents,
-            "tracking_stats": tracking_stats,
-            "business_analytics": business_analytics,
-            "alerts": alerts,
-            "zone_analysis": zone_analysis,
-            "human_text": human_text,
-        }
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -1059,6 +869,74 @@ def source_dims_of(stream_info: Dict[str, Any]) -> Optional[Tuple[int, int]]:
         return int(width), int(height)
     except (TypeError, ValueError):
         return None
+
+
+def _decide_via_bundle_candidates(candidates: Tuple[Any, ...], app_ref: Optional[str]) -> Any:
+    """The routing :class:`~..engine.routing.RouteDecision` for a resolved app-bundle candidate list.
+
+    Split out of :func:`select_engine_backend` (INC-2026-147 complexity cap) -- this is the whole
+    "try each candidate, fall back or raise" branch, unchanged, just given a name of its own.
+    """
+    from ..engine.manifest.loader import redact_url
+    from ..engine.routing import route_app
+    from .app_bundle import AppBundleError
+
+    decision = None
+    failures: List[str] = []
+    for candidate in candidates:
+        try:
+            reference = candidate.resolve()
+            loader = _bundle_loader(trusted=bool(getattr(candidate, "trusted", False)))
+            attempt = route_app(reference, loader=loader)
+        except AppBundleError as exc:
+            failures.append(f"{candidate.via}: {exc}")
+            continue
+        except Exception as exc:  # noqa: BLE001 - every loader error is a candidate failure
+            failures.append(f"{candidate.via}: {type(exc).__name__}: {exc}")
+            continue
+        if attempt.use_new_engine:
+            logger.info("analytics routing: app bundle via %s -> engine", candidate.via)
+            decision = attempt
+            break
+        failures.append(f"{candidate.via} -> {redact_url(reference)}: {attempt.reason}")
+
+    if decision is not None:
+        return decision
+
+    listed = "\n".join(f"  - {line}" for line in failures)
+    asserted = [c for c in candidates if not getattr(c, "speculative", False)]
+    if not asserted:
+        # Every candidate was *inferred* from identity the deployment happened to carry -- nobody
+        # said this app has a bundle. It may simply mean the application version has none, which is
+        # the legacy answer, so this must not raise: that would take down every legacy app in the
+        # fleet the day be-inference starts forwarding the version.
+        #
+        # But it is a WARNING, not an INFO. An app whose manifest exists and whose operator expects
+        # the engine looks *identical* here to an app that has no bundle at all, and the
+        # consequences of the two differ completely: the engine app quietly runs on the legacy path
+        # with configuration authored for the manifest, which is how a
+        # `TypeError: DwellConfig.__init__() got an unexpected keyword argument 'method'` reaches a
+        # legacy dataclass at all. The candidate list below names every reference tried and why each
+        # failed; a 401/403/404 on the download route usually means `MATRICE_LICENSE_KEY` is not set
+        # in this container, which py_compute forwards only when the manager's own environment has
+        # it (`action_instance.py:731`).
+        logger.warning(
+            "analytics routing: no app bundle loaded for this version, so this app is running on "
+            "the LEGACY path. If it was expected to run on the analytics engine, one of the "
+            "candidates below is the reason -- a 401/403/404 on the download route usually means "
+            "MATRICE_LICENSE_KEY is missing from this container.\n%s",
+            listed,
+        )
+        return route_app(app_ref)
+
+    raise BackendError(
+        f"An app bundle was configured for this deployment but none of the {len(candidates)} "
+        f"reference(s) could be loaded, so this app would publish nothing. Refusing to fall back to "
+        f"the legacy path -- a legacy run for an app that has no legacy use case emits plausible "
+        f"zeros, and a plausible zero is indistinguishable from a quiet camera.\n{listed}\n"
+        f"Set $MATRICE_APPS_ROOT to a synced app folder to run offline, or "
+        f"$MATRICE_ANALYTICS_FLOW=old to choose the legacy path deliberately."
+    )
 
 
 def select_engine_backend(
@@ -1096,16 +974,17 @@ def select_engine_backend(
             loud. In ``auto`` a failure is a legacy decision, not an exception.
         BackendError: A bundle was configured and no candidate could be loaded.
     """
-    from ..engine.manifest.loader import redact_url
     from ..engine.routing import resolve_flow_mode, route_app
-    from .app_bundle import AppBundleError, resolve_app_bundle_refs
+    from .app_bundle import resolve_app_bundle_refs
 
     if resolve_flow_mode() == "old":
         # The off switch has to stay unconditional. A bundle reference is a statement about where
         # the app lives, not a request to override an operator who has turned the engine off.
         candidates: Tuple[Any, ...] = ()
     elif bundle_refs is None:
-        candidates = resolve_app_bundle_refs(post_processing_config, app_name=app_name, identity=identity)
+        candidates = resolve_app_bundle_refs(
+            post_processing_config, app_name=app_name, identity=identity
+        )
     else:
         candidates = tuple(bundle_refs)
 
@@ -1113,61 +992,7 @@ def select_engine_backend(
         # No bundle reference: the line this function has always run, unchanged.
         decision = route_app(app_ref)
     else:
-        decision = None
-        failures: List[str] = []
-        for candidate in candidates:
-            try:
-                reference = candidate.resolve()
-                loader = _bundle_loader(trusted=bool(getattr(candidate, "trusted", False)))
-                attempt = route_app(reference, loader=loader)
-            except AppBundleError as exc:
-                failures.append(f"{candidate.via}: {exc}")
-                continue
-            except Exception as exc:  # noqa: BLE001 - every loader error is a candidate failure
-                failures.append(f"{candidate.via}: {type(exc).__name__}: {exc}")
-                continue
-            if attempt.use_new_engine:
-                logger.info("analytics routing: app bundle via %s -> engine", candidate.via)
-                decision = attempt
-                break
-            failures.append(f"{candidate.via} -> {redact_url(reference)}: {attempt.reason}")
-
-        if decision is None:
-            listed = "\n".join(f"  - {line}" for line in failures)
-            asserted = [c for c in candidates if not getattr(c, "speculative", False)]
-            if not asserted:
-                # Every candidate was *inferred* from identity the deployment happened to carry --
-                # nobody said this app has a bundle. It may simply mean the application version has
-                # none, which is the legacy answer, so this must not raise: that would take down
-                # every legacy app in the fleet the day be-inference starts forwarding the version.
-                #
-                # But it is a WARNING, not an INFO. An app whose manifest exists and whose operator
-                # expects the engine looks *identical* here to an app that has no bundle at all, and
-                # the consequences of the two differ completely: the engine app quietly runs on the
-                # legacy path with configuration authored for the manifest, which is how a
-                # `TypeError: DwellConfig.__init__() got an unexpected keyword argument 'method'`
-                # reaches a legacy dataclass at all. The candidate list below names every reference
-                # tried and why each failed; a 401/403/404 on the download route usually means
-                # `MATRICE_LICENSE_KEY` is not set in this container, which py_compute forwards only
-                # when the manager's own environment has it (`action_instance.py:731`).
-                logger.warning(
-                    "analytics routing: no app bundle loaded for this version, so this app is "
-                    "running on the LEGACY path. If it was expected to run on the analytics engine, "
-                    "one of the candidates below is the reason -- a 401/403/404 on the download "
-                    "route usually means MATRICE_LICENSE_KEY is missing from this container.\n%s",
-                    listed,
-                )
-                decision = route_app(app_ref)
-            else:
-                raise BackendError(
-                    f"An app bundle was configured for this deployment but none of the "
-                    f"{len(candidates)} reference(s) could be loaded, so this app would publish "
-                    f"nothing. Refusing to fall back to the legacy path -- a legacy run for an app "
-                    f"that has no legacy use case emits plausible zeros, and a plausible zero is "
-                    f"indistinguishable from a quiet camera.\n{listed}\n"
-                    f"Set $MATRICE_APPS_ROOT to a synced app folder to run offline, or "
-                    f"$MATRICE_ANALYTICS_FLOW=old to choose the legacy path deliberately."
-                )
+        decision = _decide_via_bundle_candidates(candidates, app_ref)
 
     if not decision.use_new_engine:
         # INFO, at the same level as the engine decision below. At DEBUG -- what this was until
@@ -1207,7 +1032,12 @@ def _has_identity(stream_info: Dict[str, Any], key: str) -> bool:
     aliases = {
         "camera_name": ("camera_name", "cameraName", "name"),
         "app_id": ("app_id", "appId", "application_id", "applicationId"),
-        "app_deployment_id": ("app_deployment_id", "appDeploymentId", "deployment_id", "deploymentId"),
+        "app_deployment_id": (
+            "app_deployment_id",
+            "appDeploymentId",
+            "deployment_id",
+            "deploymentId",
+        ),
         "application_name": ("application_name", "applicationName"),
         "application_key_name": ("application_key_name", "applicationKeyName"),
         "application_version": ("application_version", "applicationVersion"),
@@ -1218,7 +1048,11 @@ def _has_identity(stream_info: Dict[str, Any], key: str) -> bool:
         "stream_resolution": ("stream_resolution", "streamResolution", "resolution"),
     }.get(key, (key,))
     containers = (stream_info, stream_info.get("camera_info"), stream_info.get("input_settings"))
-    return any(isinstance(container, dict) and container.get(alias) for container in containers for alias in aliases)
+    return any(
+        isinstance(container, dict) and container.get(alias)
+        for container in containers
+        for alias in aliases
+    )
 
 
 def _display_name(app_name: Optional[str]) -> Optional[str]:
@@ -1328,7 +1162,9 @@ def resolve_source_dims(
     )
 
 
-def _boxes_to_unit_square(detections: Any, stream_info: Dict[str, Any], input_bytes: Any = None) -> Any:
+def _boxes_to_unit_square(
+    detections: Any, stream_info: Dict[str, Any], input_bytes: Any = None
+) -> Any:
     """Put boxes in the unit square, which is the only space the engine accepts.
 
     The runner's contract with its callers is SOURCE-PIXEL detections (module docstring, "bbox
@@ -1384,7 +1220,9 @@ def require_engine_ready(
     if stream_info is None:
         return
 
-    if resolve_source_dims(stream_info, input_bytes) is None and not _boxes_look_normalised(detections):
+    if resolve_source_dims(stream_info, input_bytes) is None and not _boxes_look_normalised(
+        detections
+    ):
         raise BackendError(
             f"app {app_id!r} routes to the analytics engine, but this frame's dimensions cannot be "
             f"determined and its boxes are not already in the unit square. The engine requires "
@@ -1417,7 +1255,9 @@ def require_engine_ready(
     _require_geometry(stream_info, app_id, manifest=manifest, zone_answer=zone_answer)
 
 
-def _require_geometry(stream_info: Dict[str, Any], app_id: str, *, manifest: Any, zone_answer: Any) -> None:
+def _require_geometry(
+    stream_info: Dict[str, Any], app_id: str, *, manifest: Any, zone_answer: Any
+) -> None:
     """Refuse -- retryably -- a ``zones.required: true`` app whose camera has no geometry.
 
     This is the failure the readiness gate used to miss entirely. ``Session.__init__`` raises
@@ -1440,7 +1280,9 @@ def _require_geometry(stream_info: Dict[str, Any], app_id: str, *, manifest: Any
 
     detail = getattr(zone_answer, "reason", "") or "no geometry was returned for this camera"
     pointer = getattr(zone_answer, "stored_pointer", None)
-    deployment = _stream_value(stream_info, "app_deployment_id", "appDeploymentId", "deployment_id", "deploymentId")
+    deployment = _stream_value(
+        stream_info, "app_deployment_id", "appDeploymentId", "deployment_id", "deploymentId"
+    )
     raise BackendError(
         f"app {app_id!r} declares zones.required: true, and camera "
         f"{stream_info.get('camera_id')!r} has no zone geometry, so it can only ever publish "

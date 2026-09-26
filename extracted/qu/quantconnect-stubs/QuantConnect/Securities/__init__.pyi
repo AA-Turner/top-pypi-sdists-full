@@ -3767,6 +3767,14 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         """
         ...
 
+    def get_increment_contingent_order_set_id(self) -> int:
+        """
+        Get a new contingent order set id, and increment the internal counter.
+        
+        :returns: New unique int contingent order set id.
+        """
+        ...
+
     def get_increment_group_order_manager_id(self) -> int:
         """
         Get a new group order manager id, and increment the internal counter.

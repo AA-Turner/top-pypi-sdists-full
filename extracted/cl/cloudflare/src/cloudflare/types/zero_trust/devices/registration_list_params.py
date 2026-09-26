@@ -35,6 +35,9 @@ class RegistrationListParams(TypedDict, total=False):
 
     policy: Policy
 
+    registration_type: Literal["warp", "browser_extension"]
+    """Filter by registration client type."""
+
     search: str
     """Filter by registration details."""
 

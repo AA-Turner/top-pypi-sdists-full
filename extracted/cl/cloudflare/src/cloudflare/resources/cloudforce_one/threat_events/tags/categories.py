@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Iterable
 
 import httpx
@@ -139,6 +140,7 @@ class CategoriesResource(SyncAPIResource):
             cast_to=CategoryListResponse,
         )
 
+    @typing_extensions.deprecated("Use DELETE /events/tag-categories/{category_uuid} before 2026-11-28.")
     def delete(
         self,
         category_uuid: str,
@@ -151,8 +153,10 @@ class CategoriesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryDeleteResponse:
-        """
-        Deletes a Source-of-Truth tag category by UUID.
+        """Deprecated; use DELETE /events/tag-categories/{category_uuid}.
+
+        Available through
+        2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -183,6 +187,7 @@ class CategoriesResource(SyncAPIResource):
             cast_to=CategoryDeleteResponse,
         )
 
+    @typing_extensions.deprecated("Use PATCH /events/tag-categories/{category_uuid} before 2026-11-28.")
     def edit(
         self,
         category_uuid: str,
@@ -198,8 +203,10 @@ class CategoriesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryEditResponse:
-        """
-        Updates a Source-of-Truth tag category by UUID.
+        """Deprecated; use PATCH /events/tag-categories/{category_uuid}.
+
+        Available through
+        2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -351,6 +358,7 @@ class AsyncCategoriesResource(AsyncAPIResource):
             cast_to=CategoryListResponse,
         )
 
+    @typing_extensions.deprecated("Use DELETE /events/tag-categories/{category_uuid} before 2026-11-28.")
     async def delete(
         self,
         category_uuid: str,
@@ -363,8 +371,10 @@ class AsyncCategoriesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryDeleteResponse:
-        """
-        Deletes a Source-of-Truth tag category by UUID.
+        """Deprecated; use DELETE /events/tag-categories/{category_uuid}.
+
+        Available through
+        2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -395,6 +405,7 @@ class AsyncCategoriesResource(AsyncAPIResource):
             cast_to=CategoryDeleteResponse,
         )
 
+    @typing_extensions.deprecated("Use PATCH /events/tag-categories/{category_uuid} before 2026-11-28.")
     async def edit(
         self,
         category_uuid: str,
@@ -410,8 +421,10 @@ class AsyncCategoriesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryEditResponse:
-        """
-        Updates a Source-of-Truth tag category by UUID.
+        """Deprecated; use PATCH /events/tag-categories/{category_uuid}.
+
+        Available through
+        2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -464,11 +477,15 @@ class CategoriesResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             categories.list,
         )
-        self.delete = to_raw_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = to_raw_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -482,11 +499,15 @@ class AsyncCategoriesResourceWithRawResponse:
         self.list = async_to_raw_response_wrapper(
             categories.list,
         )
-        self.delete = async_to_raw_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = async_to_raw_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -500,11 +521,15 @@ class CategoriesResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             categories.list,
         )
-        self.delete = to_streamed_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = to_streamed_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -518,9 +543,13 @@ class AsyncCategoriesResourceWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             categories.list,
         )
-        self.delete = async_to_streamed_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = async_to_streamed_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )

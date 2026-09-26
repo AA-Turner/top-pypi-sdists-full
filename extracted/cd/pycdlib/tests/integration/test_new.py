@@ -1360,6 +1360,231 @@ def test_new_invalid_interchange():
         iso.new(interchange_level=0)
     assert(str(excinfo.value) == 'Invalid interchange level (must be between 1 and 4)')
 
+def test_new_invalid_log_block_size():
+    # Ecma-119 6.2.2 only allows 512, 1024, or 2048.
+    for bad in (999, 4096, 0, -1):
+        iso = pycdlib.PyCdlib()
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+            iso.new(log_block_size=bad)
+        assert(str(excinfo.value) == 'Invalid logical block size (must be 512, 1024, or 2048)')
+
+def _decode_pvd(data):
+    # Read the on-disk PVD (always at byte 16 * 2048) directly rather than
+    # through pycdlib, so a consistent-but-wrong layout is caught.
+    pvd = 16 * 2048
+    assert(data[pvd:pvd + 6] == b'\x01CD001')
+    log_block_size, = struct.unpack_from('<H', data, pvd + 128)
+    space_size, = struct.unpack_from('<I', data, pvd + 80)
+    root_extent, = struct.unpack_from('<I', data, pvd + 156 + 2)
+    root_len, = struct.unpack_from('<I', data, pvd + 156 + 10)
+    return log_block_size, space_size, root_extent, root_len
+
+def _raw_dir_names(data, log_block_size, extent, length):
+    # Walk a directory's records by hand and return (name, extent, size).
+    out = []
+    off = extent * log_block_size
+    end = off + length
+    while off < end:
+        rec_len = data[off]
+        if rec_len == 0:
+            off = (off // log_block_size + 1) * log_block_size
+            continue
+        ext, = struct.unpack_from('<I', data, off + 2)
+        size, = struct.unpack_from('<I', data, off + 10)
+        name_len = data[off + 32]
+        out.append((data[off + 33:off + 33 + name_len], ext, size))
+        off += rec_len
+    return out
+
+def _assert_dirs_sector_aligned(data, log_block_size):
+    # Ecma-119 6.8.1: every directory extent must start on a Logical Sector
+    # boundary.  Check the PVD tree, and the Joliet tree if present.
+    blocks_per_sector = 2048 // log_block_size
+
+    def walk(extent, length):
+        assert(extent % blocks_per_sector == 0)
+        off = extent * log_block_size
+        end = off + length
+        while off < end:
+            rec_len = data[off]
+            if rec_len == 0:
+                off = (off // log_block_size + 1) * log_block_size
+                continue
+            ext, = struct.unpack_from('<I', data, off + 2)
+            size, = struct.unpack_from('<I', data, off + 10)
+            flags = data[off + 25]
+            name_len = data[off + 32]
+            name = data[off + 33:off + 33 + name_len]
+            if flags & 2 and name not in (b'\x00', b'\x01'):
+                walk(ext, size)
+            off += rec_len
+
+    (disk_lbs, space_size, root_extent, root_len) = _decode_pvd(data)
+    walk(root_extent, root_len)
+    for sector in range(17, 24):
+        off = sector * 2048
+        if data[off] == 2 and data[off + 1:off + 6] == b'CD001':
+            joliet_root, = struct.unpack_from('<I', data, off + 156 + 2)
+            joliet_len, = struct.unpack_from('<I', data, off + 156 + 10)
+            walk(joliet_root, joliet_len)
+
+def test_new_log_block_size_round_trips():
+    for log_block_size in (512, 1024, 2048):
+        iso = pycdlib.PyCdlib()
+        iso.new(log_block_size=log_block_size, rock_ridge='1.09', joliet=3)
+        assert(iso.logical_block_size == log_block_size)
+        iso.add_fp(io.BytesIO(b'hello\n'), 6, '/FOO.;1', rr_name='foo', joliet_path='/foo')
+        iso.add_directory('/DIR1', rr_name='dir1', joliet_path='/dir1')
+        # Larger than any block size, so it spans multiple blocks.
+        iso.add_fp(io.BytesIO(b'x' * 5000), 5000, '/DIR1/BIG.;1', rr_name='big', joliet_path='/dir1/big')
+
+        out = io.BytesIO()
+        iso.write_fp(out)
+        iso.close()
+        data = out.getvalue()
+
+        # The Volume Space Size (in blocks) must cover exactly the image.
+        (disk_lbs, space_size, root_extent, root_len) = _decode_pvd(data)
+        assert(disk_lbs == log_block_size)
+        assert(space_size * log_block_size == len(data))
+
+        # Following extent locations by hand must land on the right data.
+        root = _raw_dir_names(data, log_block_size, root_extent, root_len)
+        assert([n for (n, e, s) in root] == [b'\x00', b'\x01', b'DIR1', b'FOO.;1'])
+        foo = [(e, s) for (n, e, s) in root if n == b'FOO.;1'][0]
+        assert(data[foo[0] * log_block_size:foo[0] * log_block_size + foo[1]] == b'hello\n')
+        dir1 = [(e, s) for (n, e, s) in root if n == b'DIR1'][0]
+        big = [(e, s) for (n, e, s) in _raw_dir_names(data, log_block_size, dir1[0], dir1[1]) if n == b'BIG.;1'][0]
+        assert(data[big[0] * log_block_size:big[0] * log_block_size + big[1]] == b'x' * 5000)
+        _assert_dirs_sector_aligned(data, log_block_size)
+
+        iso2 = pycdlib.PyCdlib()
+        iso2.open_fp(io.BytesIO(data))
+        assert(iso2.logical_block_size == log_block_size)
+        # The Version Volume Descriptor must still be found at other sizes.
+        assert(iso2.version_vd is not None)
+        for (path_kw, path) in (('iso_path', '/DIR1/BIG.;1'), ('rr_path', '/dir1/big'), ('joliet_path', '/dir1/big')):
+            got = io.BytesIO()
+            iso2.get_file_from_iso_fp(got, **{path_kw: path})
+            assert(got.getvalue() == b'x' * 5000)
+        got = io.BytesIO()
+        iso2.get_file_from_iso_fp(got, iso_path='/FOO.;1')
+        assert(got.getvalue() == b'hello\n')
+        assert(sorted(c.file_identifier() for c in iso2.list_children(iso_path='/')) == [b'.', b'..', b'DIR1', b'FOO.;1'])
+        iso2.close()
+
+def test_new_log_block_size_path_table_growth():
+    # Grow the path table past several block boundaries, then shrink it.
+    for log_block_size in (512, 1024, 2048):
+        iso = pycdlib.PyCdlib()
+        iso.new(log_block_size=log_block_size)
+        for i in range(150):
+            iso.add_directory('/DIRNM%03d' % (i))
+        iso.add_fp(io.BytesIO(b'z' * 3000), 3000, '/DIRNM077/F.;1')
+        for i in range(80, 150):
+            iso.rm_directory('/DIRNM%03d' % (i))
+
+        out = io.BytesIO()
+        iso.write_fp(out)
+        iso.close()
+        data = out.getvalue()
+
+        (disk_lbs, space_size, root_extent, root_len) = _decode_pvd(data)
+        assert(disk_lbs == log_block_size)
+        assert(space_size * log_block_size == len(data))
+
+        # Every entry must point at a directory ('dot' record first), and
+        # the M table must mirror the L one.
+        pvd = 16 * 2048
+        ptsize, = struct.unpack_from('<I', data, pvd + 132)
+        lpt, = struct.unpack_from('<I', data, pvd + 140)
+        mpt, = struct.unpack_from('>I', data, pvd + 148)
+        off = 0
+        count = 0
+        while off < ptsize:
+            name_len = data[lpt * log_block_size + off]
+            ext, = struct.unpack_from('<I', data, lpt * log_block_size + off + 2)
+            mext, = struct.unpack_from('>I', data, mpt * log_block_size + off + 2)
+            assert(ext == mext)
+            assert(data[ext * log_block_size + 33] == 0)
+            count += 1
+            off += 8 + name_len + (name_len & 1)
+        assert(count == 81)
+        _assert_dirs_sector_aligned(data, log_block_size)
+
+        iso2 = pycdlib.PyCdlib()
+        iso2.open_fp(io.BytesIO(data))
+        got = io.BytesIO()
+        iso2.get_file_from_iso_fp(got, iso_path='/DIRNM077/F.;1')
+        assert(got.getvalue() == b'z' * 3000)
+        iso2.close()
+
+def test_new_log_block_size_dir_alignment_with_ce_areas():
+    # Rock Ridge continuation areas are single blocks allocated between
+    # directories, so at small block sizes they push the next directory off
+    # a sector boundary.  Also cover removals, re-adds, and a reopen, which
+    # all make the alignment padding be recomputed.
+    longname = 'n' * 200
+    for log_block_size in (512, 1024, 2048):
+        iso = pycdlib.PyCdlib()
+        iso.new(log_block_size=log_block_size, rock_ridge='1.09', joliet=3)
+        for i in range(12):
+            iso.add_directory('/D%d' % (i), rr_name=longname + str(i), joliet_path='/d%d' % (i))
+            iso.add_fp(io.BytesIO(b'f'), 1, '/D%d/F.;1' % (i), rr_name=longname + 'f', joliet_path='/d%d/f' % (i))
+            iso.add_directory('/D%d/SUB' % (i), rr_name='sub' + longname, joliet_path='/d%d/sub' % (i))
+
+        out = io.BytesIO()
+        iso.write_fp(out)
+        data = out.getvalue()
+        (disk_lbs, space_size, root_extent, root_len) = _decode_pvd(data)
+        assert(space_size * log_block_size == len(data))
+        _assert_dirs_sector_aligned(data, log_block_size)
+
+        for i in range(6):
+            iso.rm_file('/D%d/F.;1' % (i), rr_name=longname + 'f', joliet_path='/d%d/f' % (i))
+            iso.rm_directory('/D%d/SUB' % (i), rr_name='sub' + longname, joliet_path='/d%d/sub' % (i))
+            iso.rm_directory('/D%d' % (i), rr_name=longname + str(i), joliet_path='/d%d' % (i))
+        iso.add_directory('/NEW', rr_name='new', joliet_path='/new')
+
+        out = io.BytesIO()
+        iso.write_fp(out)
+        iso.close()
+        data = out.getvalue()
+        (disk_lbs, space_size, root_extent, root_len) = _decode_pvd(data)
+        assert(space_size * log_block_size == len(data))
+        _assert_dirs_sector_aligned(data, log_block_size)
+
+        iso2 = pycdlib.PyCdlib()
+        iso2.open_fp(io.BytesIO(data))
+        iso2.add_directory('/X', rr_name='x', joliet_path='/x')
+        out = io.BytesIO()
+        iso2.write_fp(out)
+        data = out.getvalue()
+        (disk_lbs, space_size, root_extent, root_len) = _decode_pvd(data)
+        assert(space_size * log_block_size == len(data))
+        _assert_dirs_sector_aligned(data, log_block_size)
+        got = io.BytesIO()
+        iso2.get_file_from_iso_fp(got, rr_path='/' + longname + '7/' + longname + 'f')
+        assert(got.getvalue() == b'f')
+        iso2.close()
+
+def test_new_log_block_size_udf_rejected():
+    for log_block_size in (512, 1024):
+        iso = pycdlib.PyCdlib()
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+            iso.new(log_block_size=log_block_size, udf='2.60')
+        assert(str(excinfo.value) == 'UDF requires a logical block size of 2048')
+
+def test_new_log_block_size_eltorito_rejected():
+    for log_block_size in (512, 1024):
+        iso = pycdlib.PyCdlib()
+        iso.new(log_block_size=log_block_size)
+        iso.add_fp(io.BytesIO(b'boot\n'), 5, '/BOOT.;1')
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+            iso.add_eltorito('/BOOT.;1')
+        assert(str(excinfo.value) == 'El Torito requires a logical block size of 2048')
+        iso.close()
+
 def test_new_open_twice():
     # Create a new ISO.
     iso = pycdlib.PyCdlib()
@@ -2695,6 +2920,82 @@ def test_new_in_place_editor_rm_file_basic(tmpdir):
         iso2.get_file_from_iso_fp(buf, iso_path=path)
         assert buf.getvalue() == expected
     iso2.close()
+
+def test_new_in_place_editor_multi_extent_directory(tmpdir):
+    # Every other InPlaceEditor test operates on a directory that fits in a
+    # single extent, so the editor never exercises _rewrite_dir_record_extent's
+    # extent-transition and trailing-pad paths (the equivalent multi-extent
+    # tests all go through modify_file_in_place/rm_file instead).
+    #
+    # Build a root directory that genuinely spans two extents, then remove the
+    # first-sorting child so every later record shifts down -- which moves the
+    # byte at which the rewrite crosses into the second extent -- plus a child
+    # from the middle, and modify a child whose record lives in the second
+    # extent.  If the rewrite leaves stale bytes behind at either the extent
+    # transition or the tail, the re-parse below sees phantom records or fails.
+    iso_path = str(tmpdir.join('test.iso'))
+    names = ['F%03d' % i for i in range(60)]
+
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    for name in names:
+        iso.add_fp(io.BytesIO((name + '\n').encode()), 5, '/%s.;1' % name)
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    # Make the multi-extent precondition explicit rather than incidental.
+    probe = pycdlib.PyCdlib()
+    probe.open(iso_path)
+    assert probe.pvd.root_dir_record.data_length > 2048
+    probe.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        ed.rm_file('/F000.;1')
+        ed.rm_file('/F030.;1')
+        ed.modify_file(io.BytesIO(b'zzz\n'), 4, '/F059.;1')
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+    children = sorted(
+        ch.file_identifier()
+        for ch in iso2.pvd.root_dir_record.children
+        if ch.file_identifier() not in (b'.', b'..')
+    )
+    expected = sorted(('%s.;1' % name).encode()
+                      for name in names if name not in ('F000', 'F030'))
+    assert children == expected
+
+    # A record in the first extent, and the modified one in the second.
+    for path, contents in [('/F001.;1', b'F001\n'), ('/F059.;1', b'zzz\n')]:
+        buf = io.BytesIO()
+        iso2.get_file_from_iso_fp(buf, iso_path=path)
+        assert buf.getvalue() == contents
+    root_extent = iso2.pvd.root_dir_record.extent_location()
+    root_data_length = iso2.pvd.root_dir_record.data_length
+    iso2.close()
+
+    # Now check the on-disk bytes.  The assertions above are not enough on
+    # their own: if the rewrite omitted the pad at the extent transition,
+    # every later record would simply shift down by the width of the gap and
+    # pycdlib's own parser would still walk them, so the child list would
+    # come back correct.  Ecma-119 6.8.1.1 forbids a directory record from
+    # straddling an extent boundary, so assert that directly, along with the
+    # gap at the end of each extent being zero-filled.
+    with open(iso_path, 'rb') as f:
+        data = f.read()
+
+    lbs = 2048
+    for extent in range(root_data_length // lbs):
+        base = (root_extent + extent) * lbs
+        offset = 0
+        while offset < lbs and data[base + offset] != 0:
+            reclen = data[base + offset]
+            assert offset + reclen <= lbs, \
+                'directory record straddles the end of extent %d' % extent
+            offset += reclen
+        assert data[base + offset:base + lbs] == b'\x00' * (lbs - offset), \
+            'stale bytes after the last record in extent %d' % extent
 
 def test_new_in_place_editor_rm_file_joliet(tmpdir):
     # rm_file is Joliet-aware: removing a file removes its record from
@@ -6216,9 +6517,9 @@ def test_new_list_children_udf():
 
     full_path = None
     for child in iso.list_children(udf_path='/dir1'):
-        if child is not None:
-            if child.file_identifier() == b'boot':
-                break
+        assert(child is not None)
+        if child.file_identifier() == b'boot':
+            break
     else:
         assert(False)
 
@@ -7094,7 +7395,8 @@ def test_new_unicode_name_two_byte_udf_list_children():
 
     full_path = None
     for child in iso.list_children(udf_path='/'):
-        if child is not None and child.file_identifier() == b'\x00f\x1d\x14\x00o':
+        assert(child is not None)
+        if child.file_identifier() == b'\x00f\x1d\x14\x00o':
             full_path = iso.full_path_from_dirrecord(child)
             assert(full_path == '/fᴔo')
             break
@@ -8403,6 +8705,64 @@ def test_new_rr_empty_dir_get_record():
 
     iso.close()
 
+def test_new_rr_long_names_overflow_ce_block():
+    # Regression test for issue #177: enough files with long Rock Ridge names
+    # to overflow a single Rock Ridge Continuation Block.  Once the first
+    # block filled up, add_entry() returned -1 instead of None, which
+    # add_rr_ce_entry() accepted as a valid offset instead of allocating a
+    # second block.  The bogus -1 offset then failed on write.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+
+    for i in range(40):
+        rr_name = ('f%03d' % i) + 'x' * 200
+        iso.add_fp(io.BytesIO(b'hello\n'), 6, '/FILE%03d.;1' % i, rr_name=rr_name)
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+
+    iso.close()
+
+    # Make sure the result round-trips and the long names survived.
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(out)
+    for i in range(40):
+        rr_name = ('f%03d' % i) + 'x' * 200
+        rec = iso2.get_record(rr_path='/' + rr_name)
+        assert(rec.get_data_length() == 6)
+    iso2.close()
+
+def test_new_rr_symlink_chained_ce():
+    # A symlink whose target needs more continuation area than fits in a single
+    # logical block gets split across several areas, each linking to the next
+    # with a CE record.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+
+    # 4019 bytes, with every component well under NAME_MAX (255) and the whole
+    # target under PATH_MAX (4096), so this is a symlink that can really exist
+    # on a Unix filesystem.  Anything past roughly a 2040-byte target needs
+    # more than one 2048-byte block for its continuation area.
+    target = '/'.join(['c' * 200] * 20)
+    iso.add_symlink('/SYM.;1', 'sym', target)
+
+    rec = iso.get_record(rr_path='/sym')
+    assert(len(rec.rock_ridge.ce_areas) > 1)
+    for ce_area in rec.rock_ridge.ce_areas:
+        assert(ce_area.length <= 2048)
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    # Now make sure it reads back as the same symlink.
+    iso2 = pycdlib.PyCdlib()
+    iso2.open_fp(out)
+    rec2 = iso2.get_record(rr_path='/sym')
+    assert(len(rec2.rock_ridge.ce_areas) > 1)
+    assert(rec2.rock_ridge.symlink_path() == target.encode('utf-8'))
+    iso2.close()
+
 def test_new_isolevel4_deep_directory():
     iso = pycdlib.PyCdlib()
     iso.new(interchange_level=4)
@@ -8543,3 +8903,777 @@ def test_new_rm_eltorito_hidden_boot_catalog():
     do_a_test(iso2, check_nofiles)
 
     iso2.close()
+
+def test_new_get_file_from_iso_bad_blocksize():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk', blocksize='foo')
+    assert(str(excinfo.value) == 'blocksize must be an integer')
+
+    iso.close()
+
+def test_new_get_file_from_iso_bad_iso_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk', iso_path=1)
+    assert(str(excinfo.value) == 'iso_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_bad_rr_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk', rr_path=1)
+    assert(str(excinfo.value) == 'iso_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_bad_joliet_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk', joliet_path=1)
+    assert(str(excinfo.value) == 'iso_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_bad_udf_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk', udf_path=1)
+    assert(str(excinfo.value) == 'iso_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_unknown_keyword():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk', foo_path='/FOO.;1')
+    assert(str(excinfo.value) == 'Unknown keyword foo_path')
+
+    iso.close()
+
+def test_new_get_file_from_iso_no_paths():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso('junk')
+    assert(str(excinfo.value) == "Exactly one of 'iso_path', 'rr_path', 'joliet_path', or 'udf_path' must be passed")
+
+    iso.close()
+
+def test_new_get_file_from_iso_fp_bad_blocksize():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso_fp(io.BytesIO(), blocksize='foo')
+    assert(str(excinfo.value) == 'blocksize must be an integer')
+
+    iso.close()
+
+def test_new_get_file_from_iso_fp_bad_iso_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso_fp(io.BytesIO(), iso_path=1)
+    assert(str(excinfo.value) == 'iso_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_fp_bad_rr_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso_fp(io.BytesIO(), rr_path=1)
+    assert(str(excinfo.value) == 'rr_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_fp_bad_joliet_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso_fp(io.BytesIO(), joliet_path=1)
+    assert(str(excinfo.value) == 'joliet_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_from_iso_fp_bad_udf_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_from_iso_fp(io.BytesIO(), udf_path=1)
+    assert(str(excinfo.value) == 'udf_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_byte_extents_bad_rr_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_byte_extents(rr_path=1)
+    assert(str(excinfo.value) == 'rr_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_byte_extents_bad_joliet_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_byte_extents(joliet_path=1)
+    assert(str(excinfo.value) == 'joliet_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_byte_extents_bad_udf_path():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_byte_extents(udf_path=1)
+    assert(str(excinfo.value) == 'udf_path must be a string')
+
+    iso.close()
+
+def test_new_get_file_byte_extents_symlink():
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+
+    foostr = b'foo\n'
+    iso.add_fp(io.BytesIO(foostr), len(foostr), '/FOO.;1', rr_name='foo')
+    iso.add_symlink('/SYM.;1', 'sym', 'foo')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_byte_extents(rr_path='/sym')
+    assert(str(excinfo.value) == 'Symlinks have no data associated with them')
+
+    iso.close()
+
+def test_new_get_iso9660_facade_not_initialized():
+    iso = pycdlib.PyCdlib()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_iso9660_facade()
+    assert(str(excinfo.value) == 'This object is not initialized; call either open() or new() to create an ISO')
+
+def test_new_get_joliet_facade_not_initialized():
+    iso = pycdlib.PyCdlib()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_joliet_facade()
+    assert(str(excinfo.value) == 'This object is not initialized; call either open() or new() to create an ISO')
+
+def test_new_get_joliet_facade_not_joliet():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_joliet_facade()
+    assert(str(excinfo.value) == 'Can only get a Joliet facade for a Joliet ISO')
+
+    iso.close()
+
+def test_new_get_rock_ridge_facade_not_initialized():
+    iso = pycdlib.PyCdlib()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_rock_ridge_facade()
+    assert(str(excinfo.value) == 'This object is not initialized; call either open() or new() to create an ISO')
+
+def test_new_get_rock_ridge_facade_not_rock_ridge():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_rock_ridge_facade()
+    assert(str(excinfo.value) == 'Can only get a Rock Ridge facade for a Rock Ridge ISO')
+
+    iso.close()
+
+def test_new_get_udf_facade_not_initialized():
+    iso = pycdlib.PyCdlib()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_udf_facade()
+    assert(str(excinfo.value) == 'This object is not initialized; call either open() or new() to create an ISO')
+
+def test_new_get_udf_facade_not_udf():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_udf_facade()
+    assert(str(excinfo.value) == 'Can only get a UDF facade for a UDF ISO')
+
+    iso.close()
+
+def test_new_rr_add_directory_no_rr_name():
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_directory('/DIR1')
+    assert(str(excinfo.value) == 'A rock ridge name must be passed for a rock-ridge ISO')
+
+    iso.close()
+
+def test_new_joliet_add_directory_empty_joliet_path():
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_directory('/DIR1', joliet_path='')
+    assert(str(excinfo.value) == 'A Joliet path must be passed for a Joliet ISO')
+
+    iso.close()
+
+def test_new_add_file_creation_time_not_rr_or_udf(tmpdir):
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    testout = tmpdir.join('foo')
+    testout.write('foo\n')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_file(str(testout), '/FOO.;1', creation_time=1.0)
+    assert(str(excinfo.value) == 'creation_time can only be stored on a Rock Ridge iso_path or a udf_path')
+
+    iso.close()
+
+def test_new_add_hard_link_creation_time_not_rock_ridge():
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09', joliet=3)
+
+    foostr = b'foo\n'
+    iso.add_fp(io.BytesIO(foostr), len(foostr), '/FOO.;1', rr_name='foo', joliet_path='/foo')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.add_hard_link(iso_old_path='/FOO.;1', joliet_new_path='/bar', creation_time=1.0)
+    assert(str(excinfo.value) == 'creation_time can only be stored on a Rock Ridge iso_new_path')
+
+    iso.close()
+
+def test_new_udf_get_file_byte_extents_directory():
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_file_byte_extents(udf_path='/')
+    assert(str(excinfo.value) == 'Can only get extents for a file')
+
+    iso.close()
+
+def test_new_in_place_rm_file_not_initialized():
+    iso = pycdlib.PyCdlib()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        pycdlib.inplaceeditor._do_rm_file(iso, '/FOO.;1')
+    assert(str(excinfo.value) == 'This object is not initialized; call either open() or new() to create an ISO')
+
+def test_new_in_place_add_fp_not_initialized():
+    iso = pycdlib.PyCdlib()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        pycdlib.inplaceeditor._do_add_fp(iso, io.BytesIO(b'x'), 1, False, '/BAR.;1')
+    assert(str(excinfo.value) == 'This object is not initialized; call either open() or new() to create an ISO')
+
+def test_new_in_place_rm_file_read_only_iso(tmpdir):
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'old\n'), 4, '/FOO.;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    # open() uses a read-only mode, which in-place editing must refuse.
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        pycdlib.inplaceeditor._do_rm_file(iso2, '/FOO.;1')
+    assert(str(excinfo.value) == 'To modify a file in place, the original ISO must have been opened in a write mode (r+, w, or a)')
+
+    iso2.close()
+
+def test_new_in_place_add_fp_read_only_iso(tmpdir):
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'old\n'), 4, '/FOO.;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        pycdlib.inplaceeditor._do_add_fp(iso2, io.BytesIO(b'x'), 1, False, '/BAR.;1')
+    assert(str(excinfo.value) == 'To modify a file in place, the original ISO must have been opened in a write mode (r+, w, or a)')
+
+    iso2.close()
+
+def test_new_in_place_rm_file_eltorito_boot_catalog(tmpdir):
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'boot\n'), 5, '/BOOT.;1')
+    iso.add_eltorito('/BOOT.;1', '/BOOT.CAT;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+            ed.rm_file('/BOOT.CAT;1')
+        assert(str(excinfo.value) == 'Cannot remove a file that is the El Torito boot catalog; use PyCdlib.rm_eltorito + write_fp() to produce a new ISO instead')
+
+def test_new_in_place_add_fp_joliet_path_on_non_joliet(tmpdir):
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'a\n'), 2, '/A.;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+            ed.add_fp(io.BytesIO(b'b\n'), 2, '/B.;1', joliet_path='/b')
+        assert(str(excinfo.value) == 'Cannot use joliet_path on a non-Joliet ISO')
+
+def test_new_in_place_add_fp_explicit_file_mode(tmpdir):
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'a\n'), 2, '/A.;1', rr_name='a')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        ed.add_fp(io.BytesIO(b'b\n'), 2, '/B.;1', rr_name='b', file_mode=0o0100644)
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+    rec = iso2._find_rr_record(b'/b')
+    assert(rec.rock_ridge.get_file_mode() == 0o0100644)
+    iso2.close()
+
+def test_new_update_file_contents_udf_path_on_non_udf():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'a\n'), 2, '/A.;1')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.update_file_contents_fp(io.BytesIO(b'b\n'), 2, udf_path='/a')
+    assert(str(excinfo.value) == 'Cannot use udf_path on a non-UDF ISO')
+
+    iso.close()
+
+def test_new_update_file_contents_rr_path_on_non_rock_ridge():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'a\n'), 2, '/A.;1')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.update_file_contents_fp(io.BytesIO(b'b\n'), 2, rr_path='/a')
+    assert(str(excinfo.value) == 'Cannot use rr_path on a non-Rock-Ridge ISO')
+
+    iso.close()
+
+def test_new_update_file_contents_udf_directory():
+    iso = pycdlib.PyCdlib()
+    iso.new(udf='2.60')
+    iso.add_fp(io.BytesIO(b'a\n'), 2, '/A.;1', udf_path='/a')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.update_file_contents_fp(io.BytesIO(b'b\n'), 2, udf_path='/')
+    assert(str(excinfo.value) == 'Cannot update the contents of a directory or empty UDF entry')
+
+    iso.close()
+
+def test_new_write_progress_cb_wrong_arg_count():
+    iso = pycdlib.PyCdlib()
+    iso.new()
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.write_fp(io.BytesIO(), progress_cb=lambda done: None)
+    assert(str(excinfo.value) == 'The progress callback must take 2 or 3 arguments')
+
+    iso.close()
+
+def test_new_in_place_modify_eltorito_boot_catalog(tmpdir):
+    # The El Torito boot catalog's directory record deliberately has no
+    # Inode (the catalog is managed in memory), so an in-place modify of it
+    # is rejected rather than dereferencing None.
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'boot\n'), 5, '/BOOT.;1')
+    iso.add_eltorito('/BOOT.;1', '/BOOT.CAT;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInternalError) as excinfo:
+            ed.modify_file(io.BytesIO(b'x'*2048), 2048, '/BOOT.CAT;1')
+        assert(str(excinfo.value) == 'Child file found without inode')
+
+def test_new_in_place_add_fp_enhanced_vd(tmpdir):
+    # An interchange level 4 ISO carries an enhanced VD, whose sizes have to
+    # be copied from the PVD and written back out after an in-place add.
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new(interchange_level=4)
+    iso.add_fp(io.BytesIO(b'aaa\n'), 4, '/A.;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        ed.add_fp(io.BytesIO(b'bbb\n'), 4, '/B.;1')
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+    assert(iso2.enhanced_vd is not None)
+    assert(iso2.enhanced_vd.space_size == iso2.pvd.space_size)
+    buf = io.BytesIO()
+    iso2.get_file_from_iso_fp(buf, iso_path='/B.;1')
+    assert(buf.getvalue() == b'bbb\n')
+    iso2.close()
+
+def test_new_in_place_rm_file_enhanced_vd(tmpdir):
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new(interchange_level=4)
+    iso.add_fp(io.BytesIO(b'aaa\n'), 4, '/A.;1')
+    iso.add_fp(io.BytesIO(b'bbb\n'), 4, '/B.;1')
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    with pycdlib.InPlaceEditor(iso_path) as ed:
+        ed.rm_file('/A.;1')
+
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+    assert(iso2.enhanced_vd is not None)
+    assert(iso2.enhanced_vd.space_size == iso2.pvd.space_size)
+    names = [c.file_identifier() for c in iso2.pvd.root_directory_record().children]
+    assert(b'A.;1' not in names)
+    assert(b'B.;1' in names)
+    iso2.close()
+
+def test_new_in_place_add_fp_joliet_overflow_rolls_back(tmpdir):
+    # Joliet names are UTF-16BE, so the Joliet root directory extent fills up
+    # well before the ISO9660 one.  Twelve files with long Joliet names leaves
+    # the Joliet root with no room for a thirteenth, while the ISO9660 root
+    # still has plenty -- so the add succeeds on the ISO9660 side and then has
+    # to be rolled back when the Joliet side overflows.
+    iso_path = str(tmpdir.join('test.iso'))
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3)
+    for index in range(12):
+        iso.add_fp(io.BytesIO(b'x\n'), 2, '/FILE%04d.;1' % index,
+                   joliet_path='/' + ('j%03d' % index) + 'x'*58)
+    with open(iso_path, 'wb') as f:
+        iso.write_fp(f)
+    iso.close()
+
+    ed = pycdlib.InPlaceEditor(iso_path)
+    iso_root = ed._iso.pvd.root_directory_record()
+    joliet_root = ed._iso.joliet_vd.root_directory_record()
+    iso_children_before = len(iso_root.children)
+    joliet_children_before = len(joliet_root.children)
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        ed.add_fp(io.BytesIO(b'y\n'), 2, '/NEW.;1', joliet_path='/' + 'jnew' + 'y'*58)
+    assert(str(excinfo.value) == "Adding this file would overflow the Joliet parent directory's extent; use PyCdlib.add_fp + write_fp() to produce a new ISO instead")
+
+    # The ISO9660 side must have been rolled back, so the failure is atomic.
+    assert(len(iso_root.children) == iso_children_before)
+    assert(len(joliet_root.children) == joliet_children_before)
+    assert(not any(c.file_identifier() == b'NEW.;1' for c in iso_root.children))
+    ed._iso.close()
+
+    # And the on-disk ISO must still be intact.
+    iso2 = pycdlib.PyCdlib()
+    iso2.open(iso_path)
+    assert(len(iso2.pvd.root_directory_record().children) == iso_children_before)
+    iso2.close()
+
+def test_new_get_file_byte_extents_before_write():
+    # get_file_byte_extents() reports byte offsets derived from extent
+    # locations, which are only assigned during a reshuffle.  On an ISO built
+    # with new() and not yet written out, the call must still work (forcing
+    # the reshuffle itself) rather than reading an unassigned extent.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1')
+
+    extents = iso.get_file_byte_extents(iso_path='/FOO.;1')
+    assert(len(extents) == 1)
+
+    # The reported offset must match where the data actually lands on disk.
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    (offset, length) = extents[0]
+    assert(out.getvalue()[offset:offset+length] == b'foo\n')
+
+def test_new_get_file_byte_extents_joliet_before_write():
+    iso = pycdlib.PyCdlib()
+    iso.new(joliet=3)
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', joliet_path='/foo')
+
+    iso_extents = iso.get_file_byte_extents(iso_path='/FOO.;1')
+    joliet_extents = iso.get_file_byte_extents(joliet_path='/foo')
+    # Both names point at the same shared Inode, so the same bytes.
+    assert(iso_extents == joliet_extents)
+
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    (offset, length) = joliet_extents[0]
+    assert(out.getvalue()[offset:offset+length] == b'foo\n')
+
+def test_new_rr_find_record_missing_component():
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+
+    # 'aaa' sorts before 'foo', so the binary search lands on an existing
+    # entry that simply does not match.
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso._find_rr_record(b'/aaa')
+    assert(str(excinfo.value) == 'Could not find path')
+
+    iso.close()
+
+def test_new_rr_find_record_missing_component_sorts_last():
+    # A name that sorts after every entry in the directory leaves the binary
+    # search with index == len(children), so looking it up has to report
+    # 'Could not find path' rather than running off the end of the list.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+    iso.add_directory('/DIR1', rr_name='dir1')
+
+    for path in (b'/zzz', b'/dir1/zzz'):
+        with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+            iso._find_rr_record(path)
+        assert(str(excinfo.value) == 'Could not find path')
+
+    # The same through the public API that callers actually use.
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso.get_record(rr_path='/zzz')
+    assert(str(excinfo.value) == 'Could not find path')
+
+    # An entry sorting last is still findable.
+    assert(iso.get_record(rr_path='/foo').rock_ridge.name() == b'foo')
+
+    iso.close()
+
+def test_new_rr_find_record_component_is_not_a_directory():
+    # Walking '/foo/deeper' has to stop at 'foo', which is a file and so has
+    # no children to descend into.
+    iso = pycdlib.PyCdlib()
+    iso.new(rock_ridge='1.09')
+    iso.add_fp(io.BytesIO(b'foo\n'), 4, '/FOO.;1', rr_name='foo')
+
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidInput) as excinfo:
+        iso._find_rr_record(b'/foo/deeper')
+    assert(str(excinfo.value) == 'Could not find path')
+
+    iso.close()
+
+def test_new_get_file_byte_extents_zero_length_file():
+    # A zero-length file has an Inode but no data extents, so there are no
+    # byte ranges to report.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    iso.add_fp(io.BytesIO(b''), 0, '/EMPTY.;1')
+
+    assert(iso.get_file_byte_extents(iso_path='/EMPTY.;1') == [])
+
+    iso.close()
+
+
+def _build_multi_section_iso(num_sections, **kwargs):
+    # Build an ISO whose El Torito Boot Catalog holds num_sections sections,
+    # and return the bytes of the written ISO along with the catalog.
+    iso = pycdlib.PyCdlib()
+    iso.new(**kwargs)
+
+    rr_name = 'boot' if kwargs.get('rock_ridge') else None
+    joliet_path = '/boot' if kwargs.get('joliet') else None
+    udf_path = '/boot' if kwargs.get('udf') else None
+    iso.add_fp(io.BytesIO(b'boot\n'), 5, '/BOOT.;1', rr_name=rr_name,
+               joliet_path=joliet_path, udf_path=udf_path)
+
+    catalog_kwargs = {}
+    if kwargs.get('rock_ridge'):
+        catalog_kwargs['rr_bootcatname'] = 'boot.cat'
+    if kwargs.get('joliet'):
+        catalog_kwargs['joliet_bootcatfile'] = '/boot.cat'
+    if kwargs.get('udf'):
+        catalog_kwargs['udf_bootcatfile'] = '/boot.cat'
+    iso.add_eltorito('/BOOT.;1', '/BOOT.CAT;1', **catalog_kwargs)
+
+    for i_unused in range(0, num_sections):
+        iso.add_eltorito('/BOOT.;1')
+
+    catalog = iso.eltorito_boot_catalog
+    out = io.BytesIO()
+    iso.write_fp(out)
+    iso.close()
+
+    return out.getvalue(), catalog
+
+def test_new_eltorito_sections_past_one_sector():
+    # El Torito puts no limit on the number of sectors the Boot Catalog uses,
+    # so a catalog with more sections than fit in one sector grows to two and
+    # can be read back.
+    data, catalog = _build_multi_section_iso(40)
+
+    assert(catalog.record_length() == 2624)
+    for rec in catalog.dirrecords:
+        assert(rec.get_data_length() == 4096)
+
+    iso = pycdlib.PyCdlib()
+    iso.open_fp(io.BytesIO(data))
+
+    assert(len(iso.eltorito_boot_catalog.sections) == 40)
+    assert(len(iso.eltorito_boot_catalog.standalone_entries) == 0)
+    assert(iso.pvd.space_size * 2048 == len(data))
+
+    iso.close()
+
+def test_new_eltorito_sections_exactly_fill_a_sector():
+    # A catalog whose entries exactly fill a sector still needs room for the
+    # empty entry that terminates it, or the parser would run into whatever
+    # follows the catalog on the ISO.
+    data, catalog = _build_multi_section_iso(31)
+
+    assert(catalog.record_length() == 2048)
+    for rec in catalog.dirrecords:
+        assert(rec.get_data_length() == 4096)
+
+    iso = pycdlib.PyCdlib()
+    iso.open_fp(io.BytesIO(data))
+
+    assert(len(iso.eltorito_boot_catalog.sections) == 31)
+    assert(len(iso.eltorito_boot_catalog.standalone_entries) == 0)
+
+    iso.close()
+
+def test_new_eltorito_sections_past_one_sector_joliet_rr_udf():
+    # Every name the boot catalog is known by has to grow, not just the
+    # ISO9660 one.
+    data, catalog = _build_multi_section_iso(40, joliet=3, rock_ridge='1.09',
+                                             udf='2.60')
+
+    assert(len(catalog.dirrecords) == 3)
+    for rec in catalog.dirrecords:
+        assert(rec.get_data_length() == 4096)
+
+    iso = pycdlib.PyCdlib()
+    iso.open_fp(io.BytesIO(data))
+
+    assert(len(iso.eltorito_boot_catalog.sections) == 40)
+    assert(iso.pvd.space_size * 2048 == len(data))
+
+    iso.close()
+
+def _make_isohybrid_uefi_iso(tmpdir, name):
+    # Build a UEFI isohybrid ISO with pycdlib and write it out to a real file,
+    # returning its path.  These tests have to work on a file rather than a
+    # BytesIO: reading from a BytesIO does not allocate the read buffer up
+    # front, so the allocation peak would not reflect what a caller passing a
+    # filename would see.
+    iso = pycdlib.PyCdlib()
+    iso.new()
+    isolinuxstr = b'\x00'*0x40 + b'\xfb\xc0\x78\x70'
+    iso.add_fp(io.BytesIO(isolinuxstr), len(isolinuxstr), '/ISOLINUX.BIN;1')
+    efibootstr = b'a'
+    iso.add_fp(io.BytesIO(efibootstr), len(efibootstr), '/EFIBOOT.IMG;1')
+    iso.add_eltorito('/ISOLINUX.BIN;1', '/BOOT.CAT;1', boot_load_size=4,
+                     boot_info_table=True)
+    iso.add_eltorito('/EFIBOOT.IMG;1', efi=True)
+    iso.add_isohybrid(efi=True)
+
+    outfile = os.path.join(str(tmpdir), name)
+    with open(outfile, 'wb') as outfp:
+        iso.write_fp(outfp)
+    iso.close()
+
+    return outfile
+
+def _secondary_gpt_offset(path):
+    # The secondary GPT header lives at the backup LBA that the primary GPT
+    # header (at LBA 1) points to, which is at offset 32 of that header.
+    with open(path, 'rb') as fp:
+        fp.seek(512 + 32)
+        backup_lba, = struct.unpack('<Q', fp.read(8))
+    return backup_lba * 512
+
+# The two tests below are the isohybrid half of the unbounded-allocation tests;
+# the ones for the path table, directory records, and Rock Ridge continuation
+# areas live in test_parse.py, since those ISOs are built with genisoimage.
+def test_new_isohybrid_gpt_num_parts_larger_than_iso(tmpdir):
+    outfile = _make_isohybrid_uefi_iso(tmpdir, 'gptnumpartstoobig.iso')
+
+    # The number of GPT partition entries is at offset 80 of the GPT header,
+    # and the ISO is read backwards from current_lba (offset 24) for
+    # num_parts*128 bytes, so raise current_lba to keep that offset positive.
+    num_parts = 0x2000000
+    gpt_offset = _secondary_gpt_offset(outfile)
+    with open(outfile, 'r+b') as fp:
+        fp.seek(gpt_offset + 24)
+        fp.write(struct.pack('<Q', num_parts // 4))
+        fp.seek(gpt_offset + 80)
+        fp.write(struct.pack('<I', num_parts))
+
+    err, peak = open_measuring_peak(outfile)
+
+    assert(isinstance(err, pycdlib.pycdlibexception.PyCdlibInvalidISO))
+    assert(peak < MAX_ALLOWED_PEAK)
+
+def test_new_isohybrid_gpt_parts_before_start_of_iso(tmpdir):
+    # num_parts and current_lba both come off of the ISO, so an ISO can claim
+    # that the GPT partition entries start before the beginning of the ISO.
+    outfile = _make_isohybrid_uefi_iso(tmpdir, 'gptpartsnegative.iso')
+
+    gpt_offset = _secondary_gpt_offset(outfile)
+    with open(outfile, 'r+b') as fp:
+        fp.seek(gpt_offset + 80)
+        fp.write(struct.pack('<I', BOGUS_LENGTH))
+
+    iso = pycdlib.PyCdlib()
+    with pytest.raises(pycdlib.pycdlibexception.PyCdlibInvalidISO) as excinfo:
+        iso.open(outfile)
+    assert(str(excinfo.value) == 'Secondary GPT partition entries start before the start of the ISO')

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -57,7 +57,7 @@ class SettingsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingUpdateResponse:
+    ) -> Optional[SettingUpdateResponse]:
         """
         Replace zone-level Waiting Room settings.
 
@@ -89,9 +89,9 @@ class SettingsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SettingUpdateResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[SettingUpdateResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[SettingUpdateResponse], ResultWrapper[SettingUpdateResponse]),
+            cast_to=cast(Type[Optional[SettingUpdateResponse]], ResultWrapper[SettingUpdateResponse]),
         )
 
     def edit(
@@ -105,7 +105,7 @@ class SettingsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingEditResponse:
+    ) -> Optional[SettingEditResponse]:
         """
         Patch zone-level Waiting Room settings.
 
@@ -136,9 +136,9 @@ class SettingsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SettingEditResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[SettingEditResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[SettingEditResponse], ResultWrapper[SettingEditResponse]),
+            cast_to=cast(Type[Optional[SettingEditResponse]], ResultWrapper[SettingEditResponse]),
         )
 
     def get(
@@ -151,7 +151,7 @@ class SettingsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingGetResponse:
+    ) -> Optional[SettingGetResponse]:
         """
         Get zone-level Waiting Room settings.
 
@@ -175,9 +175,9 @@ class SettingsResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SettingGetResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[SettingGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[SettingGetResponse], ResultWrapper[SettingGetResponse]),
+            cast_to=cast(Type[Optional[SettingGetResponse]], ResultWrapper[SettingGetResponse]),
         )
 
 
@@ -212,7 +212,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingUpdateResponse:
+    ) -> Optional[SettingUpdateResponse]:
         """
         Replace zone-level Waiting Room settings.
 
@@ -244,9 +244,9 @@ class AsyncSettingsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SettingUpdateResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[SettingUpdateResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[SettingUpdateResponse], ResultWrapper[SettingUpdateResponse]),
+            cast_to=cast(Type[Optional[SettingUpdateResponse]], ResultWrapper[SettingUpdateResponse]),
         )
 
     async def edit(
@@ -260,7 +260,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingEditResponse:
+    ) -> Optional[SettingEditResponse]:
         """
         Patch zone-level Waiting Room settings.
 
@@ -291,9 +291,9 @@ class AsyncSettingsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SettingEditResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[SettingEditResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[SettingEditResponse], ResultWrapper[SettingEditResponse]),
+            cast_to=cast(Type[Optional[SettingEditResponse]], ResultWrapper[SettingEditResponse]),
         )
 
     async def get(
@@ -306,7 +306,7 @@ class AsyncSettingsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SettingGetResponse:
+    ) -> Optional[SettingGetResponse]:
         """
         Get zone-level Waiting Room settings.
 
@@ -330,9 +330,9 @@ class AsyncSettingsResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[SettingGetResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[SettingGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[SettingGetResponse], ResultWrapper[SettingGetResponse]),
+            cast_to=cast(Type[Optional[SettingGetResponse]], ResultWrapper[SettingGetResponse]),
         )
 
 

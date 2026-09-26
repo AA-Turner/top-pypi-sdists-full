@@ -52,6 +52,7 @@ const INCREMENTAL_DELTA_CURSOR_STATE: &str = "incremental";
 const DCS_ZSTD_ACCEPT_ENCODING: &str = "statsig-zstd, statsig-br, gzip, deflate, br";
 
 pub struct StatsigHttpSpecsAdapter {
+    output_policy: crate::output_policy::OutputPolicy,
     listener: RwLock<Option<Arc<dyn SpecsUpdateListener>>>,
     network: Arc<NetworkClient>,
     remote_config_value_hydrator: Arc<RemoteConfigValueHydrator>,
@@ -151,6 +152,8 @@ impl StatsigHttpSpecsAdapter {
         options: Option<&StatsigOptions>,
         override_url: Option<String>,
     ) -> Self {
+        let output_policy = crate::output_policy::OutputPolicy::from_options(options);
+        let _output_scope = output_policy.enter();
         let default_options = StatsigOptions::default();
         let options_ref = options.unwrap_or(&default_options);
 
@@ -196,6 +199,7 @@ impl StatsigHttpSpecsAdapter {
         ));
 
         Self {
+            output_policy,
             listener: RwLock::new(None),
             network: network.clone(),
             remote_config_value_hydrator: Arc::new(RemoteConfigValueHydrator::new_with_ops_stats(
@@ -221,6 +225,7 @@ impl StatsigHttpSpecsAdapter {
     }
 
     pub fn force_shutdown(&self) {
+        let _output_scope = self.output_policy.enter();
         self.shutdown_notify.notify_one();
     }
 
@@ -229,7 +234,11 @@ impl StatsigHttpSpecsAdapter {
         current_specs_info: SpecsInfo,
         trigger: SpecsSyncTrigger,
     ) -> Result<NetworkResponse, NetworkError> {
-        self.fetch_specs_from_network_with_proto_support(current_specs_info, trigger, true)
+        self.output_policy
+            .scope(async {
+                self.fetch_specs_from_network_with_proto_support(current_specs_info, trigger, true)
+                    .await
+            })
             .await
     }
 
@@ -262,12 +271,16 @@ impl StatsigHttpSpecsAdapter {
         current_specs_info: SpecsInfo,
         trigger: SpecsSyncTrigger,
     ) -> Result<NetworkResponse, StatsigErr> {
-        let mut response = self
-            .fetch_specs_from_network_with_proto_support(current_specs_info, trigger, false)
+        self.output_policy
+            .scope(async {
+                let mut response = self
+                    .fetch_specs_from_network_with_proto_support(current_specs_info, trigger, false)
+                    .await
+                    .map_err(StatsigErr::NetworkError)?;
+                self.hydrate_network_response(&mut response).await?;
+                Ok(response)
+            })
             .await
-            .map_err(StatsigErr::NetworkError)?;
-        self.hydrate_network_response(&mut response).await?;
-        Ok(response)
     }
 
     fn get_request_args(
@@ -414,32 +427,36 @@ impl StatsigHttpSpecsAdapter {
     }
 
     pub async fn run_background_sync(self: Arc<Self>) {
-        let specs_info = match self
-            .listener
-            .try_read_for(std::time::Duration::from_secs(5))
-        {
-            Some(lock) => match lock.as_ref() {
-                Some(listener) => listener.get_current_specs_info(),
-                None => SpecsInfo::empty(),
-            },
-            None => SpecsInfo::error(),
-        };
+        self.output_policy
+            .scope(async {
+                let specs_info = match self
+                    .listener
+                    .try_read_for(std::time::Duration::from_secs(5))
+                {
+                    Some(lock) => match lock.as_ref() {
+                        Some(listener) => listener.get_current_specs_info(),
+                        None => SpecsInfo::empty(),
+                    },
+                    None => SpecsInfo::error(),
+                };
 
-        self.ops_stats
-            .set_diagnostics_context(ContextType::ConfigSync);
-        if let Err(e) = self
-            .manually_sync_specs(specs_info, SpecsSyncTrigger::Background)
+                self.ops_stats
+                    .set_diagnostics_context(ContextType::ConfigSync);
+                if let Err(e) = self
+                    .manually_sync_specs(specs_info, SpecsSyncTrigger::Background)
+                    .await
+                {
+                    if let StatsigErr::NetworkError(NetworkError::DisableNetworkOn(_)) = e {
+                        return;
+                    }
+                    log_e!(TAG, "Background specs sync failed: {}", e);
+                }
+                self.ops_stats.enqueue_diagnostics_event(
+                    Some(KeyType::DownloadConfigSpecs),
+                    Some(ContextType::ConfigSync),
+                );
+            })
             .await
-        {
-            if let StatsigErr::NetworkError(NetworkError::DisableNetworkOn(_)) = e {
-                return;
-            }
-            log_e!(TAG, "Background specs sync failed: {}", e);
-        }
-        self.ops_stats.enqueue_diagnostics_event(
-            Some(KeyType::DownloadConfigSpecs),
-            Some(ContextType::ConfigSync),
-        );
     }
 
     async fn manually_sync_specs(
@@ -569,91 +586,101 @@ impl StatsigHttpSpecsAdapter {
         &self,
         response: Result<NetworkResponse, NetworkError>,
     ) -> Result<(), StatsigErr> {
-        let resp = response.map_err(StatsigErr::NetworkError)?;
-        let requested_deltas = resp.requested_deltas;
-        let hydration = SpecsUpdateHydration::new(
-            self.remote_config_value_hydrator.clone(),
-            self.hydration_source_url(&resp.request_url).to_string(),
-        );
-
-        let update = SpecsUpdate {
-            data: resp.data,
-            source: SpecsSource::Network,
-            received_at: Utc::now().timestamp_millis() as u64,
-            source_api: Some(resp.loggable_api),
-            has_updates: None,
-        };
-
-        self.ops_stats.add_marker(
-            Marker::new(
-                KeyType::DownloadConfigSpecs,
-                ActionType::Start,
-                Some(StepType::Process),
-            ),
-            None,
-        );
-
-        let listener = match self
-            .listener
-            .try_read_for(std::time::Duration::from_secs(5))
-        {
-            Some(lock) => match lock.as_ref() {
-                Some(listener) => Ok(listener.clone()),
-                None => Err(StatsigErr::UnstartedAdapter("Listener not set".to_string())),
-            },
-            None => {
-                let err =
-                    StatsigErr::LockFailure("Failed to acquire read lock on listener".to_string());
-                log_error_to_statsig_and_console!(&self.ops_stats, TAG, err.clone());
-                Err(err)
-            }
-        };
-        let result = match listener {
-            Ok(listener) => {
-                listener
-                    .did_receive_specs_update_async(update, Some(hydration))
-                    .await
-            }
-            Err(error) => Err(error),
-        };
-
-        if matches!(&result, Err(StatsigErr::ChecksumFailure(_))) {
-            let was_deltas_used = self.use_deltas_next_request.swap(false, Ordering::SeqCst);
-            if was_deltas_used {
-                log_d!(TAG, "Disabling delta requests after checksum failure");
-            }
-        } else if result.is_ok() && !requested_deltas && self.allow_dcs_deltas {
-            let was_deltas_used = self.use_deltas_next_request.swap(true, Ordering::SeqCst);
-            if !was_deltas_used {
-                log_d!(
-                    TAG,
-                    "Re-enabling delta requests after successful non-delta specs update"
+        self.output_policy
+            .scope(async {
+                let resp = response.map_err(StatsigErr::NetworkError)?;
+                let requested_deltas = resp.requested_deltas;
+                let hydration = SpecsUpdateHydration::new(
+                    self.remote_config_value_hydrator.clone(),
+                    self.hydration_source_url(&resp.request_url).to_string(),
                 );
-            }
-        }
 
-        self.ops_stats.add_marker(
-            Marker::new(
-                KeyType::DownloadConfigSpecs,
-                ActionType::End,
-                Some(StepType::Process),
-            )
-            .with_is_success(result.is_ok()),
-            None,
-        );
+                let update = SpecsUpdate {
+                    data: resp.data,
+                    source: SpecsSource::Network,
+                    received_at: Utc::now().timestamp_millis() as u64,
+                    source_api: Some(resp.loggable_api),
+                    has_updates: None,
+                };
 
-        result
+                self.ops_stats.add_marker(
+                    Marker::new(
+                        KeyType::DownloadConfigSpecs,
+                        ActionType::Start,
+                        Some(StepType::Process),
+                    ),
+                    None,
+                );
+
+                let listener = match self
+                    .listener
+                    .try_read_for(std::time::Duration::from_secs(5))
+                {
+                    Some(lock) => match lock.as_ref() {
+                        Some(listener) => Ok(listener.clone()),
+                        None => Err(StatsigErr::UnstartedAdapter("Listener not set".to_string())),
+                    },
+                    None => {
+                        let err = StatsigErr::LockFailure(
+                            "Failed to acquire read lock on listener".to_string(),
+                        );
+                        log_error_to_statsig_and_console!(&self.ops_stats, TAG, err.clone());
+                        Err(err)
+                    }
+                };
+                let result = match listener {
+                    Ok(listener) => {
+                        listener
+                            .did_receive_specs_update_async(update, Some(hydration))
+                            .await
+                    }
+                    Err(error) => Err(error),
+                };
+
+                if matches!(&result, Err(StatsigErr::ChecksumFailure(_))) {
+                    let was_deltas_used =
+                        self.use_deltas_next_request.swap(false, Ordering::SeqCst);
+                    if was_deltas_used {
+                        log_d!(TAG, "Disabling delta requests after checksum failure");
+                    }
+                } else if result.is_ok() && !requested_deltas && self.allow_dcs_deltas {
+                    let was_deltas_used = self.use_deltas_next_request.swap(true, Ordering::SeqCst);
+                    if !was_deltas_used {
+                        log_d!(
+                            TAG,
+                            "Re-enabling delta requests after successful non-delta specs update"
+                        );
+                    }
+                }
+
+                self.ops_stats.add_marker(
+                    Marker::new(
+                        KeyType::DownloadConfigSpecs,
+                        ActionType::End,
+                        Some(StepType::Process),
+                    )
+                    .with_is_success(result.is_ok()),
+                    None,
+                );
+
+                result
+            })
+            .await
     }
 
     pub(crate) async fn hydrate_network_response(
         &self,
         response: &mut NetworkResponse,
     ) -> Result<(), StatsigErr> {
-        self.remote_config_value_hydrator
-            .hydrate_response(
-                &mut response.data,
-                self.hydration_source_url(&response.request_url),
-            )
+        self.output_policy
+            .scope(async {
+                self.remote_config_value_hydrator
+                    .hydrate_response(
+                        &mut response.data,
+                        self.hydration_source_url(&response.request_url),
+                    )
+                    .await
+            })
             .await
     }
 
@@ -668,8 +695,12 @@ impl StatsigHttpSpecsAdapter {
         data: &mut ResponseData,
         source_url: &str,
     ) -> Result<(), StatsigErr> {
-        self.remote_config_value_hydrator
-            .hydrate_response(data, source_url)
+        self.output_policy
+            .scope(async {
+                self.remote_config_value_hydrator
+                    .hydrate_response(data, source_url)
+                    .await
+            })
             .await
     }
 
@@ -688,21 +719,26 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
         self: Arc<Self>,
         _statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
-        let specs_info = match self
-            .listener
-            .try_read_for(std::time::Duration::from_secs(5))
-        {
-            Some(lock) => match lock.as_ref() {
-                Some(listener) => listener.get_current_specs_info(),
-                None => SpecsInfo::empty(),
-            },
-            None => SpecsInfo::error(),
-        };
-        self.manually_sync_specs(specs_info, SpecsSyncTrigger::Initial)
+        self.output_policy
+            .scope(async {
+                let specs_info = match self
+                    .listener
+                    .try_read_for(std::time::Duration::from_secs(5))
+                {
+                    Some(lock) => match lock.as_ref() {
+                        Some(listener) => listener.get_current_specs_info(),
+                        None => SpecsInfo::empty(),
+                    },
+                    None => SpecsInfo::error(),
+                };
+                self.manually_sync_specs(specs_info, SpecsSyncTrigger::Initial)
+                    .await
+            })
             .await
     }
 
     fn initialize(&self, listener: Arc<dyn SpecsUpdateListener>) {
+        let _output_scope = self.output_policy.enter();
         match self
             .listener
             .try_write_for(std::time::Duration::from_secs(5))
@@ -718,6 +754,7 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
         self: Arc<Self>,
         statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
+        self.output_policy.scope(async {
         let weak_self: Weak<StatsigHttpSpecsAdapter> = Arc::downgrade(&self);
         let interval_duration = self.sync_interval_duration;
         let shutdown_notify = self.shutdown_notify.clone();
@@ -746,6 +783,7 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
         })?;
 
         Ok(())
+            }).await
     }
 
     async fn shutdown(
@@ -753,8 +791,12 @@ impl SpecsAdapter for StatsigHttpSpecsAdapter {
         _timeout: Duration,
         _statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
-        self.shutdown_notify.notify_one();
-        Ok(())
+        self.output_policy
+            .scope(async {
+                self.shutdown_notify.notify_one();
+                Ok(())
+            })
+            .await
     }
 
     fn get_type_name(&self) -> String {
@@ -1108,136 +1150,146 @@ mod tests {
 
     #[tokio::test]
     async fn test_disable_accept_deltas_after_checksum_failure() {
-        let options = StatsigOptions {
-            enable_dcs_deltas: Some(true),
-            ..StatsigOptions::default()
-        };
-        let adapter = StatsigHttpSpecsAdapter::new(
-            "secret-key",
-            Some(&options),
-            Some("https://example.com/v2/download_config_specs".to_string()),
-        );
-        let specs_info = SpecsInfo::empty();
+        for silent in [false, true] {
+            let options = StatsigOptions {
+                enable_dcs_deltas: Some(true),
+                ..StatsigOptions::default()
+            }
+            .suppress_diagnostic_output(silent);
+            let adapter = StatsigHttpSpecsAdapter::new(
+                "secret-key",
+                Some(&options),
+                Some("https://example.com/v2/download_config_specs".to_string()),
+            );
+            let specs_info = SpecsInfo::empty();
 
-        let request_before = adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual, true);
-        assert_eq!(
-            request_before
-                .query_params
-                .as_ref()
-                .and_then(|p| p.get("accept_deltas"))
-                .map(String::as_str),
-            Some("true")
-        );
-        assert_eq!(
-            request_before
-                .headers
-                .as_ref()
-                .and_then(|headers| headers.get("accept-encoding"))
-                .map(String::as_str),
-            Some(DCS_ZSTD_ACCEPT_ENCODING)
-        );
+            let request_before =
+                adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual, true);
+            assert_eq!(
+                request_before
+                    .query_params
+                    .as_ref()
+                    .and_then(|p| p.get("accept_deltas"))
+                    .map(String::as_str),
+                Some("true")
+            );
+            assert_eq!(
+                request_before
+                    .headers
+                    .as_ref()
+                    .and_then(|headers| headers.get("accept-encoding"))
+                    .map(String::as_str),
+                Some(DCS_ZSTD_ACCEPT_ENCODING)
+            );
 
-        let mut incremental_specs_info = SpecsInfo::empty();
-        incremental_specs_info.lcut = Some(1);
-        let incremental_request =
-            adapter.get_request_args(&incremental_specs_info, SpecsSyncTrigger::Manual, true);
-        assert_eq!(
-            incremental_request
-                .headers
-                .as_ref()
-                .and_then(|headers| headers.get("accept-encoding"))
-                .map(String::as_str),
-            Some(DCS_ZSTD_ACCEPT_ENCODING)
-        );
+            let mut incremental_specs_info = SpecsInfo::empty();
+            incremental_specs_info.lcut = Some(1);
+            let incremental_request =
+                adapter.get_request_args(&incremental_specs_info, SpecsSyncTrigger::Manual, true);
+            assert_eq!(
+                incremental_request
+                    .headers
+                    .as_ref()
+                    .and_then(|headers| headers.get("accept-encoding"))
+                    .map(String::as_str),
+                Some(DCS_ZSTD_ACCEPT_ENCODING)
+            );
 
-        adapter.initialize(Arc::new(ChecksumFailingListener));
-        let result = adapter
-            .process_spec_data(Ok(NetworkResponse {
-                data: ResponseData::from_bytes(b"{}".to_vec()),
-                loggable_api: "test-api".to_string(),
-                requested_deltas: true,
-                request_url: "https://example.com/v2/download_config_specs/key.json".to_string(),
-            }))
-            .await;
+            adapter.initialize(Arc::new(ChecksumFailingListener));
+            let result = adapter
+                .process_spec_data(Ok(NetworkResponse {
+                    data: ResponseData::from_bytes(b"{}".to_vec()),
+                    loggable_api: "test-api".to_string(),
+                    requested_deltas: true,
+                    request_url: "https://example.com/v2/download_config_specs/key.json"
+                        .to_string(),
+                }))
+                .await;
 
-        assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
+            assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
 
-        let request_after =
-            adapter.get_request_args(&incremental_specs_info, SpecsSyncTrigger::Manual, true);
-        assert!(
-            request_after
-                .query_params
-                .as_ref()
-                .is_none_or(|p| !p.contains_key("accept_deltas"))
-        );
-        assert_eq!(
-            request_after
-                .headers
-                .as_ref()
-                .and_then(|headers| headers.get("accept-encoding"))
-                .map(String::as_str),
-            Some(DCS_ZSTD_ACCEPT_ENCODING)
-        );
+            let request_after =
+                adapter.get_request_args(&incremental_specs_info, SpecsSyncTrigger::Manual, true);
+            assert!(
+                request_after
+                    .query_params
+                    .as_ref()
+                    .is_none_or(|p| !p.contains_key("accept_deltas"))
+            );
+            assert_eq!(
+                request_after
+                    .headers
+                    .as_ref()
+                    .and_then(|headers| headers.get("accept-encoding"))
+                    .map(String::as_str),
+                Some(DCS_ZSTD_ACCEPT_ENCODING)
+            );
+        }
     }
 
     #[tokio::test]
     async fn test_reenable_accept_deltas_after_successful_non_delta_update() {
-        let options = StatsigOptions {
-            enable_dcs_deltas: Some(true),
-            ..StatsigOptions::default()
-        };
-        let adapter = StatsigHttpSpecsAdapter::new(
-            "secret-key",
-            Some(&options),
-            Some("https://example.com/v2/download_config_specs".to_string()),
-        );
-        let specs_info = SpecsInfo::empty();
+        for silent in [false, true] {
+            let options = StatsigOptions {
+                enable_dcs_deltas: Some(true),
+                ..StatsigOptions::default()
+            }
+            .suppress_diagnostic_output(silent);
+            let adapter = StatsigHttpSpecsAdapter::new(
+                "secret-key",
+                Some(&options),
+                Some("https://example.com/v2/download_config_specs".to_string()),
+            );
+            let specs_info = SpecsInfo::empty();
 
-        adapter.initialize(Arc::new(ChecksumFailingThenSuccessListener {
-            calls: AtomicUsize::new(0),
-        }));
+            adapter.initialize(Arc::new(ChecksumFailingThenSuccessListener {
+                calls: AtomicUsize::new(0),
+            }));
 
-        let first_result = adapter
-            .process_spec_data(Ok(NetworkResponse {
-                data: ResponseData::from_bytes(b"{}".to_vec()),
-                loggable_api: "test-api".to_string(),
-                requested_deltas: true,
-                request_url: "https://example.com/v2/download_config_specs/key.json".to_string(),
-            }))
-            .await;
+            let first_result = adapter
+                .process_spec_data(Ok(NetworkResponse {
+                    data: ResponseData::from_bytes(b"{}".to_vec()),
+                    loggable_api: "test-api".to_string(),
+                    requested_deltas: true,
+                    request_url: "https://example.com/v2/download_config_specs/key.json"
+                        .to_string(),
+                }))
+                .await;
 
-        assert!(matches!(first_result, Err(StatsigErr::ChecksumFailure(_))));
+            assert!(matches!(first_result, Err(StatsigErr::ChecksumFailure(_))));
 
-        let request_after_failure =
-            adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual, true);
-        assert!(
-            request_after_failure
-                .query_params
-                .as_ref()
-                .is_none_or(|p| !p.contains_key("accept_deltas"))
-        );
+            let request_after_failure =
+                adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual, true);
+            assert!(
+                request_after_failure
+                    .query_params
+                    .as_ref()
+                    .is_none_or(|p| !p.contains_key("accept_deltas"))
+            );
 
-        let second_result = adapter
-            .process_spec_data(Ok(NetworkResponse {
-                data: ResponseData::from_bytes(b"{}".to_vec()),
-                loggable_api: "test-api".to_string(),
-                requested_deltas: false,
-                request_url: "https://example.com/v2/download_config_specs/key.json".to_string(),
-            }))
-            .await;
+            let second_result = adapter
+                .process_spec_data(Ok(NetworkResponse {
+                    data: ResponseData::from_bytes(b"{}".to_vec()),
+                    loggable_api: "test-api".to_string(),
+                    requested_deltas: false,
+                    request_url: "https://example.com/v2/download_config_specs/key.json"
+                        .to_string(),
+                }))
+                .await;
 
-        assert!(second_result.is_ok());
+            assert!(second_result.is_ok());
 
-        let request_after_success =
-            adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual, true);
-        assert_eq!(
-            request_after_success
-                .query_params
-                .as_ref()
-                .and_then(|p| p.get("accept_deltas"))
-                .map(String::as_str),
-            Some("true")
-        );
+            let request_after_success =
+                adapter.get_request_args(&specs_info, SpecsSyncTrigger::Manual, true);
+            assert_eq!(
+                request_after_success
+                    .query_params
+                    .as_ref()
+                    .and_then(|p| p.get("accept_deltas"))
+                    .map(String::as_str),
+                Some("true")
+            );
+        }
     }
 
     #[test]

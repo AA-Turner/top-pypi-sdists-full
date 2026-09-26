@@ -1,0 +1,145 @@
+name: Generate Release Notes
+description: Empty Aerospike release-notes template with section headings and changelog link for manual editing.
+
+inputs:
+  version:
+    description: Release version string (tag name when the tag exists)
+    required: true
+  target-sha:
+    description: Release target commit SHA (merge-base or tag target)
+    required: true
+  dry-run:
+    description: >
+      When true, preview release notes before the tag exists (draft banner + SHA
+      for internal git range). When false, require tag VERSION at TARGET_SHA.
+    required: false
+    default: 'false'
+  download-url:
+    description: Download page URL linked from the Release Date line
+    required: false
+    default: https://aerospike.com/download/client/c/
+  output-path:
+    description: Path to write release-notes.md
+    required: false
+    default: release-notes.md
+  repository-path:
+    description: >
+      Git working tree to read history from (use when the release target is
+      checked out to a subdirectory so local actions remain on the workflow commit).
+    required: false
+    default: .
+
+outputs:
+  prev-tag:
+    description: Previous git tag before this release
+    value: ${{ steps.generate.outputs.prev-tag }}
+  release-notes-path:
+    description: Path to the generated release notes file
+    value: ${{ steps.generate.outputs.release-notes-path }}
+
+runs:
+  using: composite
+  steps:
+    - id: generate
+      shell: bash
+      env:
+        VERSION:      ${{ inputs.version }}
+        TARGET_SHA:   ${{ inputs.target-sha }}
+        DRY_RUN:      ${{ inputs.dry-run }}
+        DOWNLOAD_URL: ${{ inputs.download-url }}
+        OUTPUT_PATH:  ${{ inputs.output-path }}
+        REPO_PATH:    ${{ inputs.repository-path }}
+      run: |
+        set -euo pipefail
+
+        git() { command git -C "$REPO_PATH" "$@"; }
+
+        # Writes an empty ### section — bullets filled in manually.
+        print_section() {
+          printf '### %s\n\n' "$1"
+        }
+
+        # Formats each non-merge commit as "* <description>. [TICKET]"
+        # Ticket is extracted from the subject and placed on the right.
+        commit_scaffold() {
+          git log "$1" --pretty=format:"%s" --no-merges \
+            | python3 "$GITHUB_ACTION_PATH/format_commits.py"
+        }
+
+        # ── Resolve release reference ────────────────────────────────────────────
+
+        using_tag=false
+        release_ref="$TARGET_SHA"
+
+        if [[ "$DRY_RUN" != "true" ]]; then
+          if ! git rev-parse -q --verify "refs/tags/${VERSION}" >/dev/null; then
+            echo "::error::Release tag ${VERSION} not found. push-tag must run before generating release notes."
+            exit 1
+          fi
+          tag_sha=$(git rev-parse "refs/tags/${VERSION}^{commit}")
+          if [[ "$tag_sha" != "$(git rev-parse "${TARGET_SHA}^{commit}")" ]]; then
+            echo "::error::Tag ${VERSION} points to ${tag_sha}, expected release target ${TARGET_SHA}."
+            exit 1
+          fi
+          using_tag=true
+          release_ref="$VERSION"
+        fi
+
+        # ── Resolve previous tag and commit range ────────────────────────────────
+
+        prev_tag=$(git describe --tags --abbrev=0 "${release_ref}^" 2>/dev/null || true)
+        if [[ -z "$prev_tag" ]]; then
+          echo "::error::No previous tag found before ${release_ref}. Cannot generate release notes."
+          exit 1
+        fi
+
+        range="${prev_tag}..${release_ref}"
+        commit_count=$(git rev-list --count "$range" --no-merges || true)
+        if [[ "$commit_count" -eq 0 ]]; then
+          echo "::error::No commits found between ${range}. Nothing to release."
+          exit 1
+        fi
+
+        if [[ "$using_tag" == "true" ]]; then
+          changelog_label="${prev_tag}...${VERSION}"
+        else
+          changelog_label="${prev_tag}...${TARGET_SHA:0:7}"
+        fi
+        changelog_link="[${changelog_label}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${changelog_label})"
+
+        # ── Write release notes ──────────────────────────────────────────────────
+
+        release_date=$(date -u +"%B %d, %Y" | sed 's/ 0/ /')
+
+        {
+          echo "Release Date: ${release_date} | [Download](${DOWNLOAD_URL})"
+          echo ""
+
+          if [[ "$using_tag" != "true" ]]; then
+            echo "> **Draft preview** — release target \`${TARGET_SHA}\` (tag \`${VERSION}\` not created yet). Add section bullets before publishing."
+            echo ""
+          fi
+
+          print_section "New Features"
+          print_section "Improvements"
+          print_section "Bug Fixes"
+          print_section "Maintenance"
+
+          echo "**Full Changelog**: ${changelog_link}"
+          echo ""
+          echo "---"
+          echo ""
+          echo "### Commits since \`${prev_tag}\` *(move into sections above, then delete this block)*"
+          echo ""
+          commit_scaffold "$range"
+
+        } > "$OUTPUT_PATH"
+
+        # ── Summary ──────────────────────────────────────────────────────────────
+
+        echo "Release notes scaffold written (${commit_count} commits in ${range}):"
+        [[ "$using_tag" == "true" ]] && echo "  Tag ${VERSION} validated at ${TARGET_SHA}"
+        cat "$OUTPUT_PATH"
+
+        echo "prev-tag=${prev_tag}"              >> "$GITHUB_OUTPUT"
+        echo "release-notes-path=${OUTPUT_PATH}" >> "$GITHUB_OUTPUT"

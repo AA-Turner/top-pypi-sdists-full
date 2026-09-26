@@ -30,6 +30,7 @@ class DataStore(DataStoreBase):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
+        self.is_read_only_fn = self.is_read_only
         self.initialize_fn = self.initialize
         self.shutdown_fn = self.shutdown
         self.get_fn = self.get

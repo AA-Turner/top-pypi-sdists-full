@@ -169,6 +169,7 @@ class AIGatewayResource(SyncAPIResource):
         rate_limiting_interval: Optional[int],
         rate_limiting_limit: Optional[int],
         authentication: bool | Omit = omit,
+        byok_only: bool | Omit = omit,
         log_management: Optional[int] | Omit = omit,
         log_management_strategy: Optional[Literal["STOP_INSERTING", "DELETE_OLDEST"]] | Omit = omit,
         logpush: bool | Omit = omit,
@@ -193,9 +194,12 @@ class AIGatewayResource(SyncAPIResource):
         Args:
           id: gateway id
 
+          byok_only: Requires customer-provided provider credentials and prevents fallback to Unified
+              Billing.
+
           retry_backoff: Backoff strategy for retry delays
 
-          retry_delay: Delay between retry attempts in milliseconds (0-5000)
+          retry_delay: Delay between retry attempts in milliseconds (0-60000)
 
           retry_max_attempts: Maximum number of retry attempts for failed requests (1-5)
 
@@ -225,6 +229,7 @@ class AIGatewayResource(SyncAPIResource):
                     "rate_limiting_interval": rate_limiting_interval,
                     "rate_limiting_limit": rate_limiting_limit,
                     "authentication": authentication,
+                    "byok_only": byok_only,
                     "log_management": log_management,
                     "log_management_strategy": log_management_strategy,
                     "logpush": logpush,
@@ -260,6 +265,7 @@ class AIGatewayResource(SyncAPIResource):
         rate_limiting_interval: Optional[int],
         rate_limiting_limit: Optional[int],
         authentication: bool | Omit = omit,
+        byok_only: bool | Omit = omit,
         dlp: ai_gateway_update_params.DLP | Omit = omit,
         guardrails: Optional[ai_gateway_update_params.Guardrails] | Omit = omit,
         log_classification: bool | Omit = omit,
@@ -290,9 +296,12 @@ class AIGatewayResource(SyncAPIResource):
         Args:
           id: gateway id
 
+          byok_only: Requires customer-provided provider credentials and prevents fallback to Unified
+              Billing.
+
           retry_backoff: Backoff strategy for retry delays
 
-          retry_delay: Delay between retry attempts in milliseconds (0-5000)
+          retry_delay: Delay between retry attempts in milliseconds (0-60000)
 
           retry_max_attempts: Maximum number of retry attempts for failed requests (1-5)
 
@@ -323,6 +332,7 @@ class AIGatewayResource(SyncAPIResource):
                     "rate_limiting_interval": rate_limiting_interval,
                     "rate_limiting_limit": rate_limiting_limit,
                     "authentication": authentication,
+                    "byok_only": byok_only,
                     "dlp": dlp,
                     "guardrails": guardrails,
                     "log_classification": log_classification,
@@ -555,6 +565,7 @@ class AsyncAIGatewayResource(AsyncAPIResource):
         rate_limiting_interval: Optional[int],
         rate_limiting_limit: Optional[int],
         authentication: bool | Omit = omit,
+        byok_only: bool | Omit = omit,
         log_management: Optional[int] | Omit = omit,
         log_management_strategy: Optional[Literal["STOP_INSERTING", "DELETE_OLDEST"]] | Omit = omit,
         logpush: bool | Omit = omit,
@@ -579,9 +590,12 @@ class AsyncAIGatewayResource(AsyncAPIResource):
         Args:
           id: gateway id
 
+          byok_only: Requires customer-provided provider credentials and prevents fallback to Unified
+              Billing.
+
           retry_backoff: Backoff strategy for retry delays
 
-          retry_delay: Delay between retry attempts in milliseconds (0-5000)
+          retry_delay: Delay between retry attempts in milliseconds (0-60000)
 
           retry_max_attempts: Maximum number of retry attempts for failed requests (1-5)
 
@@ -611,6 +625,7 @@ class AsyncAIGatewayResource(AsyncAPIResource):
                     "rate_limiting_interval": rate_limiting_interval,
                     "rate_limiting_limit": rate_limiting_limit,
                     "authentication": authentication,
+                    "byok_only": byok_only,
                     "log_management": log_management,
                     "log_management_strategy": log_management_strategy,
                     "logpush": logpush,
@@ -646,6 +661,7 @@ class AsyncAIGatewayResource(AsyncAPIResource):
         rate_limiting_interval: Optional[int],
         rate_limiting_limit: Optional[int],
         authentication: bool | Omit = omit,
+        byok_only: bool | Omit = omit,
         dlp: ai_gateway_update_params.DLP | Omit = omit,
         guardrails: Optional[ai_gateway_update_params.Guardrails] | Omit = omit,
         log_classification: bool | Omit = omit,
@@ -676,9 +692,12 @@ class AsyncAIGatewayResource(AsyncAPIResource):
         Args:
           id: gateway id
 
+          byok_only: Requires customer-provided provider credentials and prevents fallback to Unified
+              Billing.
+
           retry_backoff: Backoff strategy for retry delays
 
-          retry_delay: Delay between retry attempts in milliseconds (0-5000)
+          retry_delay: Delay between retry attempts in milliseconds (0-60000)
 
           retry_max_attempts: Maximum number of retry attempts for failed requests (1-5)
 
@@ -709,6 +728,7 @@ class AsyncAIGatewayResource(AsyncAPIResource):
                     "rate_limiting_interval": rate_limiting_interval,
                     "rate_limiting_limit": rate_limiting_limit,
                     "authentication": authentication,
+                    "byok_only": byok_only,
                     "dlp": dlp,
                     "guardrails": guardrails,
                     "log_classification": log_classification,

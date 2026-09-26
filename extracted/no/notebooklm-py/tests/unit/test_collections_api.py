@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections import deque
 from types import SimpleNamespace
 from typing import Any
@@ -9,13 +10,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from notebooklm._idempotency import bound_operation_journal_entries
 from notebooklm._web.collections import WebCollectionsAPI
 from notebooklm.exceptions import (
     CollectionError,
     CollectionNotFoundError,
     UnknownRPCMethodError,
 )
+from notebooklm.outcomes import CommitState, RecoveryAction
 from notebooklm.rpc import RPCMethod
+from tests._fixtures.fake_core import make_fake_core
 
 
 def _collection_tuple(
@@ -58,6 +62,8 @@ class FakeRpc:
         operation_variant: str | None = None,
         raise_on_null_status: bool = False,
     ) -> Any:
+        for journal_entry in bound_operation_journal_entries():
+            journal_entry.mark_dispatched()
         self.calls.append(
             SimpleNamespace(
                 method=method,
@@ -69,9 +75,10 @@ class FakeRpc:
             )
         )
         queue = self.sequences.get(method)
-        if queue:
-            return queue.popleft()
-        return self.responses.get(method)
+        outcome = queue.popleft() if queue else self.responses.get(method)
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
 
     def methods(self) -> list[RPCMethod]:
         return [c.method for c in self.calls]
@@ -85,7 +92,15 @@ def _api(
 ):
     rpc = FakeRpc(responses, sequences)
     list_notebooks = AsyncMock(return_value=notebooks or [])
-    return WebCollectionsAPI(rpc, list_notebooks=list_notebooks), rpc, list_notebooks
+    return (
+        WebCollectionsAPI(
+            rpc,
+            supervisor=make_fake_core(),
+            list_notebooks=list_notebooks,
+        ),
+        rpc,
+        list_notebooks,
+    )
 
 
 # -- read --------------------------------------------------------------------
@@ -133,7 +148,7 @@ async def test_get_raises_not_found_with_method_id() -> None:
 # -- create (re-list diff) ---------------------------------------------------
 
 
-async def test_create_returns_the_new_id_via_relist() -> None:
+async def test_create_reports_new_row_as_candidate_without_attribution() -> None:
     api, rpc, _ = _api(
         sequences={
             RPCMethod.LIST_LABELS: [
@@ -143,9 +158,10 @@ async def test_create_returns_the_new_id_via_relist() -> None:
         },
         responses={RPCMethod.CREATE_LABEL: None},
     )
-    new = await api.create("New")
-    assert new.id == "c2"
-    assert new.name == "New"
+    with pytest.raises(CollectionError) as raised:
+        await api.create("New")
+    assert raised.value.reconciliation_candidates == ("c2",)  # type: ignore[attr-defined]
+    assert getattr(raised.value, "unconfirmed", False) is True
     assert rpc.methods() == [RPCMethod.LIST_LABELS, RPCMethod.CREATE_LABEL, RPCMethod.LIST_LABELS]
     create_call = next(c for c in rpc.calls if c.method == RPCMethod.CREATE_LABEL)
     assert create_call.source_path == "/"
@@ -181,6 +197,86 @@ async def test_create_multiple_new_raises_collection_error() -> None:
         await api.create("X")
 
 
+async def test_collection_create_does_not_attribute_delayed_foreign_web_singleton() -> None:
+    """The caller's row is delayed while an external writer becomes visible first."""
+    foreign = _collection_tuple("External", "foreign-collection")
+    api, _, _ = _api(
+        sequences={RPCMethod.LIST_LABELS: [_list_env(), _list_env(foreign)]},
+        responses={RPCMethod.CREATE_LABEL: None},
+    )
+
+    with pytest.raises(CollectionError) as raised:
+        await api.create("Requested")
+
+    assert getattr(raised.value, "unconfirmed", False) is True
+
+
+async def test_collection_readback_cancellation_retains_confirmed_mutation_journal() -> None:
+    cancellation = asyncio.CancelledError("cancel collection readback")
+    api, _, _ = _api(
+        sequences={RPCMethod.LIST_LABELS: [_list_env(), cancellation]},
+        responses={RPCMethod.CREATE_LABEL: None},
+    )
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await api.create("Requested")
+
+    assert raised.value is cancellation
+    metadata = cancellation._operation_metadata  # type: ignore[attr-defined]
+    assert metadata.commit_state is CommitState.CONFIRMED
+    assert metadata.recovery_action is RecoveryAction.INSPECT_AND_RECONCILE
+    assert [entry.commit_state for entry in metadata.entries] == [
+        CommitState.CONFIRMED,
+        CommitState.UNKNOWN,
+    ]
+
+
+@pytest.mark.parametrize(
+    ("dispatched", "expected_state", "expected_recovery"),
+    [
+        (False, CommitState.NOT_SENT, RecoveryAction.RETRY),
+        (True, CommitState.UNKNOWN, RecoveryAction.INSPECT_AND_RECONCILE),
+    ],
+    ids=["pre-dispatch", "post-dispatch"],
+)
+async def test_collection_mutation_cancellation_retains_create_journal(
+    dispatched: bool,
+    expected_state: CommitState,
+    expected_recovery: RecoveryAction,
+) -> None:
+    cancellation = asyncio.CancelledError("cancel collection mutation")
+
+    async def rpc_call(method: RPCMethod, _params: list[Any], **kwargs: Any) -> Any:
+        if method is RPCMethod.LIST_LABELS:
+            return _list_env()
+        assert method is RPCMethod.CREATE_LABEL
+        (entry,) = bound_operation_journal_entries()
+        if dispatched:
+            entry.mark_dispatched()
+        raise cancellation
+
+    api = WebCollectionsAPI(
+        SimpleNamespace(rpc_call=rpc_call),
+        supervisor=make_fake_core(),
+        list_notebooks=AsyncMock(return_value=[]),
+    )
+
+    with pytest.raises(asyncio.CancelledError) as raised:
+        await api.create("Requested")
+
+    assert raised.value is cancellation
+    metadata = cancellation._operation_metadata  # type: ignore[attr-defined]
+    assert metadata.commit_state is expected_state
+    assert metadata.recovery_action is expected_recovery
+    assert [entry.commit_state for entry in metadata.entries] == [
+        expected_state,
+        CommitState.NOT_SENT,
+    ]
+    assert [attempt.commit_state for attempt in metadata.attempts] == (
+        [CommitState.UNKNOWN] if dispatched else []
+    )
+
+
 # -- rename ------------------------------------------------------------------
 
 
@@ -202,6 +298,24 @@ async def test_rename_missing_raises_even_when_not_returning_object() -> None:
     api, _, _ = _api({RPCMethod.LIST_LABELS: _list_env(), RPCMethod.UPDATE_LABEL: []})
     with pytest.raises(CollectionNotFoundError):
         await api.rename("missing", "X", return_object=False)
+
+
+async def test_rename_readback_miss_keeps_web_list_method_id() -> None:
+    api, rpc, _ = _api(
+        {RPCMethod.UPDATE_LABEL: []},
+        sequences={
+            RPCMethod.LIST_LABELS: [
+                _list_env(_collection_tuple("Old", "c1")),
+                _list_env(),
+            ]
+        },
+    )
+
+    with pytest.raises(CollectionNotFoundError) as caught:
+        await api.rename("c1", "New")
+
+    assert caught.value.method_id == RPCMethod.LIST_LABELS.value
+    assert rpc.methods() == [RPCMethod.LIST_LABELS, RPCMethod.UPDATE_LABEL, RPCMethod.LIST_LABELS]
 
 
 # -- add / remove notebooks --------------------------------------------------
@@ -317,7 +431,11 @@ async def test_add_notebooks_is_not_atomic_partial_failure_propagates() -> None:
             return None
 
     rpc = _RaiseOnSecondUpdate()
-    api = WebCollectionsAPI(rpc, list_notebooks=AsyncMock(return_value=[]))
+    api = WebCollectionsAPI(
+        rpc,
+        supervisor=make_fake_core(),
+        list_notebooks=AsyncMock(return_value=[]),
+    )
     with pytest.raises(RuntimeError):
         await api.add_notebooks("c1", ["a", "b", "c"])
     updates = [c for c in rpc.calls if c.method == RPCMethod.UPDATE_LABEL]
@@ -343,6 +461,14 @@ async def test_delete_empty_list_issues_no_rpc() -> None:
     api, rpc, _ = _api()
     assert await api.delete([]) is None
     assert rpc.calls == []
+
+
+async def test_delete_preserves_duplicate_ids_for_web_wire_compatibility() -> None:
+    api, rpc, _ = _api({RPCMethod.DELETE_LABEL: []})
+
+    await api.delete(["c1", "c1"])
+
+    assert rpc.calls[0].params[2] == ["c1", "c1"]
 
 
 # -- notebooks join ----------------------------------------------------------

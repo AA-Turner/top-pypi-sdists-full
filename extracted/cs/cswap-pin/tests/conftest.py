@@ -31,6 +31,7 @@ import json
 import re
 import pathlib
 import sys
+import warnings
 
 import pytest
 
@@ -442,7 +443,8 @@ def _session_ca(tmp_path_factory):
 
 @pytest.fixture(autouse=True)
 def _short_hop_budgets(monkeypatch):
-    """Shrink the egress-hop budgets for tests.
+    """Adjust the egress-hop budgets for tests: shrink three, raise the
+    connect budget.
 
     A hop that accepts and never answers costs `_HOP_REPLY_BUDGET_S` (6 s) per
     dial, and several tests point the walk at exactly that shape on purpose.
@@ -452,7 +454,18 @@ def _short_hop_budgets(monkeypatch):
     """
     from cswap_pin import proxy as _p
 
-    monkeypatch.setattr(_p, "_HOP_CONNECT_BUDGET_S", 0.3, raising=False)
+    # THE CONNECT BUDGET IS RAISED ABOVE PRODUCTION, NOT SHRUNK, and
+    # deliberately: 10s here vs. 2.0s (`_HOP_CONNECT_BUDGET_S` in proxy.py),
+    # five times over. Every dial here is to 127.0.0.1, which is refused or
+    # connected at once (a census found 180 runtime `_dial_chain` calls
+    # across test_proxy.py and test_proxy_server.py, none of which waits on
+    # its connect timeout), so only a stalled handshake ever reads this
+    # budget -- and 0.3s turned exactly that stall, on a loaded runner, into
+    # a false `egress REFUSED` in
+    # case_the_absolute_form_hold_releases_at_the_status_line. 10s matches
+    # what T1076/PR #31 gave `_probe_next_hop` for the same class of
+    # macOS-runner stall.
+    monkeypatch.setattr(_p, "_HOP_CONNECT_BUDGET_S", 10, raising=False)
     monkeypatch.setattr(_p, "_HOP_REPLY_BUDGET_S", 0.3, raising=False)
     # AND THE HEAL GRACE. The production value waits out a hop that is
     # restarting (~1s, measured); a test whose hop is deliberately dead pays it
@@ -795,6 +808,12 @@ PIN_STAMP = r"\] cswap-pin/" + _PIN_VER + r" pid=\d+ "
 #    separate tests reported.
 #  - THE FAILING CASE'S NAME AND TRACEBACK. Both are in the message, so a
 #    failure still points at one method in one file.
+#  - A SKIP IS NOT AN EARLY EXIT. `pytest.skip()` raises `Skipped`, which
+#    derives from `BaseException`, not `Exception` -- so it is caught on its
+#    own, separately, and the loop CONTINUES: every later case still runs,
+#    and a failure among them still gets raised. Only when every case in the
+#    run skipped does this itself skip, naming each one; a mix of skips and a
+#    clean pass surfaces the skips as a warning rather than going quiet.
 def run_cases(instance, request, tmp_path_factory, extra=None):
     """Run every `case_*` method of `instance`, isolated, reporting all failures.
 
@@ -823,6 +842,7 @@ def run_cases(instance, request, tmp_path_factory, extra=None):
         sys.modules[type(holders[0]).__module__], "case_fixtures", {}
     )
     failures = []
+    skipped = []
     for i, (instance, name, method) in enumerate(work):
         wants = [
             a
@@ -833,6 +853,15 @@ def run_cases(instance, request, tmp_path_factory, extra=None):
         # A per-case dir, not the shared one: two cases writing `pin-proxy/`
         # under one tmp_path would see each other's files.
         case_tmp = tmp_path_factory.mktemp(f"c{i}")
+        # THE HOP-TROUBLE STAMP, BEFORE TOO. The `finally` below only clears
+        # it AFTER a case, so a plain test outside this loop that pokes it
+        # directly and never restores it -- no `finally` of its own -- is
+        # still hot when THIS case starts, and the after-reset clears it only
+        # once this case has already run under the polluted value.
+        import cswap_pin.proxy as _pp
+
+        with _pp._hop_trouble_lock:
+            _pp._hop_trouble_at = 0.0
         try:
             # The autouse guards ran once for the DRIVER's tmp_path. Re-point
             # them at this case's dir, or a case's config writes land in the
@@ -851,7 +880,25 @@ def run_cases(instance, request, tmp_path_factory, extra=None):
                 pool[a] if a in pool else request.getfixturevalue(a) for a in wants
             ]
             method(*args)
-        except Exception:  # noqa: BLE001 — collect, do not stop the run
+        except pytest.skip.Exception as exc:
+            # `Skipped` DERIVES FROM `BaseException`, NOT `Exception` -- the
+            # `except Exception` below never caught it, so a `pytest.skip()`
+            # inside any case ended this loop right here: every later case
+            # never ran, and any failure already in `failures` was never
+            # raised, because the raw `Skipped` propagated out of this
+            # function on the spot instead. Recorded and CONTINUED instead,
+            # the same as a real failure two lines down.
+            skipped.append(f"{name}: {exc}")
+        except (pytest.fail.Exception, Exception):  # noqa: BLE001
+            # `Failed` -- what `pytest.fail()` raises -- derives from
+            # `BaseException`, not `Exception`, the same as `Skipped` above,
+            # so a plain `except Exception` never caught it either: a case
+            # that calls `pytest.fail()` directly ended the loop right here,
+            # the same way a `pytest.skip()` used to. Named in the tuple
+            # explicitly and collected, do not stop the run. `pytest.fail.
+            # Exception` (`Failed`) also catches `XFailed`, which subclasses
+            # it -- no case calls `pytest.xfail()` today, but one that did
+            # would be recorded here as a failure, not a skip.
             failures.append(f"--- {name} ---\n{traceback.format_exc()}")
         finally:
             mp.undo()
@@ -873,7 +920,30 @@ def run_cases(instance, request, tmp_path_factory, extra=None):
             # on a tunnel it did not own — two failures that read as
             # production defects and were neither.
             _pp._PUMP.reset_for_tests()
+            # AND THE HOP-TROUBLE STAMP. `_note_hop_trouble` fires on any
+            # real 5xx a case relays through `_relay_response(note_hop=True)`
+            # -- most of them about something else entirely -- and
+            # `_report_deaf_bridges` now reads it over a 300s WALL-CLOCK
+            # window (`_DEAF_WINDOW_S`), so one case's incidental 502 blinded
+            # every deaf-report case for the next several minutes of real
+            # test time. Same shape as `_DRAINING_DEPTH` above.
+            with _pp._hop_trouble_lock:
+                _pp._hop_trouble_at = 0.0
     if failures:
         raise AssertionError(
             f"{len(failures)} of {len(work)} cases failed:\n\n" + "\n".join(failures)
+        )
+    if skipped and len(skipped) == len(work):
+        # EVERY CASE SKIPPED. A pass here would read as "nothing to check",
+        # which is not what happened -- pytest's own `skip` is the honest
+        # report, naming every case so this reads nothing like the old bug's
+        # single, unlabelled `Skipped` escaping on the first case alone.
+        pytest.skip(f"all {len(work)} cases skipped:\n" + "\n".join(skipped))
+    if skipped:
+        # SOME SKIPPED, NONE FAILED: a real pass, not a failure -- but a
+        # skip silent enough to need no trace is exactly how this bug went
+        # unnoticed. `warnings.warn` is what pytest surfaces without turning
+        # a legitimate pass into one.
+        warnings.warn(
+            f"{len(skipped)} of {len(work)} cases skipped:\n" + "\n".join(skipped)
         )

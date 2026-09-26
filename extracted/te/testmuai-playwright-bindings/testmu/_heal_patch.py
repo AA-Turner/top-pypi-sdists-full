@@ -16,6 +16,7 @@ heal_fn contract:
     the original error). ``None`` and ``False`` are legitimate return values
     of Playwright methods, so only the sentinel means "not handled".
 """
+import asyncio
 import contextvars
 import functools
 import logging
@@ -28,6 +29,13 @@ _log = logging.getLogger("testmu")
 # Returned by a heal_fn that could not help. The wrapper re-raises the
 # original error on this value and returns anything else to the caller.
 _NOT_HANDLED = object()
+
+# A re-probe heal miss is retried: the target may simply not be rendered yet
+# when the single snapshot is taken (e.g. a popover still opening after the
+# previous click). Exponential backoff between attempts — 1s, then 2s — so a
+# genuinely absent element costs ~3s of waiting plus the extra heal calls.
+_REPROBE_MAX_ATTEMPTS = 3
+_REPROBE_BACKOFF_BASE_S = 1.0
 
 # Re-entry guard for the action engine. Set by _run_verb (imported from here
 # by the engine) for the duration of a heal-cascade call so the verb runners'
@@ -181,14 +189,23 @@ def _make_wrapper(name, original, heal_fn):
                     heal_desc = _resolve_var(heal_desc)
                 except Exception:
                     heal_desc = step.description
-            outcome = await heal_fn(
-                self.page, heal_desc, name, self, *args, _reprobe=True, **kwargs
-            )
-            if outcome is _NOT_HANDLED:
-                raise _TIMEOUT_EXCS[0](
-                    f"reprobe: could not re-locate {heal_desc!r} for {name}"
+            for attempt in range(1, _REPROBE_MAX_ATTEMPTS + 1):
+                outcome = await heal_fn(
+                    self.page, heal_desc, name, self, *args, _reprobe=True, **kwargs
                 )
-            return outcome
+                if outcome is not _NOT_HANDLED:
+                    if attempt > 1:
+                        _log.info("[heal] reprobe succeeded on attempt %d/%d",
+                                  attempt, _REPROBE_MAX_ATTEMPTS)
+                    return outcome
+                if attempt < _REPROBE_MAX_ATTEMPTS:
+                    delay = _REPROBE_BACKOFF_BASE_S * (2 ** (attempt - 1))
+                    _log.info("[heal] reprobe attempt %d/%d missed -> retry in %.1fs",
+                              attempt, _REPROBE_MAX_ATTEMPTS, delay)
+                    await asyncio.sleep(delay)
+            raise _TIMEOUT_EXCS[0](
+                f"reprobe: could not re-locate {heal_desc!r} for {name}"
+            )
 
         # Version-gated path — delegate the whole try → cascade → retry loop to the action
         # engine. Gated strictly on kane_version == "v3"; the default ("v4")

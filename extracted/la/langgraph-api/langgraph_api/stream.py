@@ -176,6 +176,8 @@ async def astream_state(
     context = kwargs.pop("context", None)
     config = cast("RunnableConfig", kwargs.pop("config"))
     configurable = config["configurable"]
+    # Remove the internal marker before the graph receives or persists the configuration.
+    context_provided_by_caller = configurable.pop("__context_provided__", False)
     stack = AsyncExitStack()
     graph = await stack.enter_async_context(
         get_graph(
@@ -191,11 +193,21 @@ async def astream_state(
         )
     )
 
-    # Filter context parameters based on context schema if available
-    if context and USE_RUNTIME_CONTEXT_API and not isinstance(graph, BaseRemotePregel):
+    # Filter context with the request's authentication context when the graph is remote.
+    if context and USE_RUNTIME_CONTEXT_API:
         try:
-            context_schema = graph.get_context_jsonschema()
-            context = await _filter_context_by_schema(context, context_schema)
+            context_schema = (
+                await graph.aget_context_jsonschema()
+                if isinstance(graph, BaseRemotePregel)
+                else graph.get_context_jsonschema()
+            )
+            filtered_context = await _filter_context_by_schema(context, context_schema)
+            # Remove dropped keys from the mirrored configurable only when the caller supplied context.
+            if context_provided_by_caller:
+                for dropped_key in context.keys() - filtered_context.keys():
+                    if configurable.get(dropped_key) == context[dropped_key]:
+                        configurable.pop(dropped_key, None)
+            context = filtered_context
         except Exception as e:
             await logger.adebug(
                 f"Failed to get context schema for filtering: {e}", exc_info=e

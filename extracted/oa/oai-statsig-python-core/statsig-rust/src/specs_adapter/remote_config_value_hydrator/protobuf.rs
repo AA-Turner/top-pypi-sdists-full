@@ -19,9 +19,10 @@ use crate::specs_response::statsig_config_specs::{self as pb, return_value};
 
 use super::{
     DOWNLOAD_CONCURRENCY, HYDRATION_TIMEOUT, HydrationFailureReason, HydrationOutcome,
-    RemoteConfigValueHydrator, RemoteConfigValueMetadata, RemoteConfigValueMetadataWire,
-    RemoteValueReference, TAG, add_raw_value_reference, hydrated_value, hydration_error,
-    insert_reference, total_timeout_error, validate_reference_limits,
+    HydrationResult, RemoteConfigValueHydrator, RemoteConfigValueMetadata,
+    RemoteConfigValueMetadataWire, RemoteValueReference, TAG, add_raw_value_reference,
+    hydrated_value, hydration_error, insert_reference, total_timeout_error,
+    validate_reference_limits,
 };
 
 const REMOTE_METADATA_MARKER_WITHOUT_METADATA_TAG: &str = "proto::RemoteConfigMetadata";
@@ -50,6 +51,7 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     hydrator: &'a RemoteConfigValueHydrator,
     source_url: &'a str,
     started_at: Instant,
+    result: HydrationResult<'a>,
     references: HashMap<String, RemoteValueReference>,
     // Keep verified bodies only until this update finishes. This preserves
     // same-response SHA deduplication without retaining worker-private blobs
@@ -131,6 +133,7 @@ pub(super) fn begin_session<'a>(
         hydrator,
         source_url,
         started_at: Instant::now(),
+        result: HydrationResult::new(hydrator),
         references: HashMap::new(),
         hydrated_values: HashMap::new(),
         in_flight_downloads: FuturesUnordered::new(),
@@ -147,12 +150,16 @@ pub(super) async fn hydrate_response(
     hydrator: &RemoteConfigValueHydrator,
     data: &mut ResponseData,
     source_url: &str,
+    result: &mut HydrationResult<'_>,
 ) -> Result<bool, StatsigErr> {
     // Parser compatibility callers still need a rewritten protobuf
     // stream. Text/byte-returning callers negotiate JSON instead; normal
     // adapter-to-SpecStore updates and mmap publishing bypass this path
     // and hydrate inside proto_specs' single compressed reader loop.
-    let Some(prepared) = hydrator.prepare_protobuf_stream(data, source_url).await? else {
+    let Some(prepared) = hydrator
+        .prepare_protobuf_stream(data, source_url, result)
+        .await?
+    else {
         data.rewind()?;
         return Ok(false);
     };
@@ -181,6 +188,7 @@ impl RemoteConfigValueHydrator {
         &self,
         data: &mut ResponseData,
         source_url: &str,
+        hydration_result: &mut HydrationResult<'_>,
     ) -> Result<Option<PreparedProtobufStream>, StatsigErr> {
         data.rewind()?;
         let result = async {
@@ -261,6 +269,7 @@ impl RemoteConfigValueHydrator {
                             source_url,
                             response_mode,
                             &mut references,
+                            hydration_result,
                         )?
                         .unwrap_or_else(|| PreparedProtobufEnvelope::Bytes(encoded.to_vec())),
                     pb::SpecsEnvelopeKind::TopLevel if !marked_top_level => {
@@ -291,7 +300,10 @@ impl RemoteConfigValueHydrator {
 
             let (reference_count, total_bytes) = validate_reference_limits(references.values())?;
             let response_budget = self.reserve_response_bytes(total_bytes).await?;
-            let hydrated = self.download_all(references.into_values()).await?;
+            let hydrated = self
+                .download_all(references.into_values())
+                .await
+                .inspect_err(|error| hydration_result.record_download_error(error))?;
             let mut prepared = Vec::new();
             for envelope in envelopes {
                 match envelope {
@@ -340,6 +352,7 @@ impl RemoteConfigValueHydrator {
         source_url: &str,
         response_mode: ProtobufResponseMode,
         references: &mut HashMap<String, RemoteValueReference>,
+        hydration_result: &mut HydrationResult<'_>,
     ) -> Result<Option<PreparedProtobufEnvelope>, StatsigErr> {
         let Some(spec_data) = tolerate_malformed_full_response(
             response_mode,
@@ -363,6 +376,7 @@ impl RemoteConfigValueHydrator {
         else {
             return Ok(None);
         };
+        hydration_result.mark_remote_metadata();
 
         collect_protobuf_spec_references(references, &spec, source_url)?;
         validate_reference_limits(references.values())?;
@@ -375,11 +389,16 @@ impl RemoteConfigValueHydrator {
 }
 
 impl ProtobufHydrationSession<'_> {
+    pub(crate) fn mark_remote_metadata(&mut self) {
+        self.result.mark_remote_metadata();
+    }
+
     /// Register one decoded dynamic config without awaiting network I/O. The
     /// parser can register a bounded run of envelopes first, so the session's
     /// download fanout spans configs instead of restarting for every envelope.
     pub(crate) fn register_spec_references(&mut self, spec: &pb::Spec) -> Result<(), StatsigErr> {
         self.saw_remote_metadata = true;
+        self.mark_remote_metadata();
 
         let mut references = HashMap::<String, RemoteValueReference>::new();
         collect_protobuf_spec_references(&mut references, spec, self.source_url)?;
@@ -554,7 +573,8 @@ impl ProtobufHydrationSession<'_> {
             .await
             .map_err(|_| total_timeout_error())?
             .expect("pending remote references must have an active download");
-        let (sha256, value) = download?;
+        let (sha256, value) =
+            download.inspect_err(|error| self.result.record_download_error(error))?;
         self.in_flight_sha256.remove(&sha256);
         self.hydrated_values.insert(sha256, value);
         Ok(())
@@ -582,11 +602,13 @@ impl ProtobufHydrationSession<'_> {
         &self.hydrated_values
     }
 
-    pub(crate) fn finish(self, succeeded: bool) {
+    pub(crate) fn finish(mut self, result: Result<(), &StatsigErr>) {
+        self.result.finish(result);
         if !self.saw_remote_metadata {
             return;
         }
 
+        let succeeded = result.is_ok();
         let outcome = if succeeded {
             HydrationOutcome::Success
         } else {

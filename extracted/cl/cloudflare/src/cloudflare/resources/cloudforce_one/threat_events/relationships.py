@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Union
 from typing_extensions import Literal
 
@@ -44,6 +45,7 @@ class RelationshipsResource(SyncAPIResource):
         """
         return RelationshipsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("Use GET /events/by-id/{event_id}/relationships before 2026-11-28.")
     def list(
         self,
         event_id: str,
@@ -64,10 +66,10 @@ class RelationshipsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RelationshipListResponse:
-        """
-        The `event_id` must be defined (to list existing events (and their IDs), use the
-        [`Filter and List Events`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/methods/list/)
-        endpoint). Also, must provide query parameters.
+        """Deprecated; use GET /events/by-id/{event_id}/relationships.
+
+        Available through
+        2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -147,6 +149,7 @@ class AsyncRelationshipsResource(AsyncAPIResource):
         """
         return AsyncRelationshipsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("Use GET /events/by-id/{event_id}/relationships before 2026-11-28.")
     async def list(
         self,
         event_id: str,
@@ -167,10 +170,10 @@ class AsyncRelationshipsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RelationshipListResponse:
-        """
-        The `event_id` must be defined (to list existing events (and their IDs), use the
-        [`Filter and List Events`](https://developers.cloudflare.com/api/resources/cloudforce_one/subresources/threat_events/methods/list/)
-        endpoint). Also, must provide query parameters.
+        """Deprecated; use GET /events/by-id/{event_id}/relationships.
+
+        Available through
+        2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -234,8 +237,10 @@ class RelationshipsResourceWithRawResponse:
     def __init__(self, relationships: RelationshipsResource) -> None:
         self._relationships = relationships
 
-        self.list = to_raw_response_wrapper(
-            relationships.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                relationships.list,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -243,8 +248,10 @@ class AsyncRelationshipsResourceWithRawResponse:
     def __init__(self, relationships: AsyncRelationshipsResource) -> None:
         self._relationships = relationships
 
-        self.list = async_to_raw_response_wrapper(
-            relationships.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                relationships.list,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -252,8 +259,10 @@ class RelationshipsResourceWithStreamingResponse:
     def __init__(self, relationships: RelationshipsResource) -> None:
         self._relationships = relationships
 
-        self.list = to_streamed_response_wrapper(
-            relationships.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                relationships.list,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -261,6 +270,8 @@ class AsyncRelationshipsResourceWithStreamingResponse:
     def __init__(self, relationships: AsyncRelationshipsResource) -> None:
         self._relationships = relationships
 
-        self.list = async_to_streamed_response_wrapper(
-            relationships.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                relationships.list,  # pyright: ignore[reportDeprecated],
+            )
         )

@@ -47,7 +47,7 @@ class ScopeParser:
         # quickly retrieve elements
         built_scopes: dict[tuple[str, bool], Scope] = {}
 
-        for name, optionality in list(scope_graph.breadth_first_walk())[::-1]:
+        for name, optionality in reversed(list(scope_graph.breadth_first_walk())):
             dependencies: tuple[Scope, ...] = tuple(
                 # the lookup in built_scopes here is safe because of the
                 # reversed BFS ordering

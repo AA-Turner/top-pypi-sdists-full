@@ -43,7 +43,7 @@ from pycdlib import utils
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import Any, BinaryIO, Callable, Deque, Dict, Generator, IO, List, Optional, Tuple, Union  # noqa: F401
+    from typing import Any, BinaryIO, Callable, Deque, Dict, Generator, IO, List, Optional, Set, Tuple, Union  # noqa: F401
 
 # There are a number of specific ways that numerical data is stored in the
 # ISO9660/Ecma-119 standard.  In the text these are reference by the section
@@ -59,6 +59,14 @@ if TYPE_CHECKING:
 # strips all allowed bytes from the input in a single C call; if anything is
 # left, the input contained a disallowed character.
 _ALLOWED_D1_BYTES = bytes(range(65, 91)) + bytes(range(48, 58)) + b'_'
+
+# Ecma-119 distinguishes the Logical Sector (6.1.2; 2048 bytes on all media
+# pycdlib deals with) from the Logical Block (6.2.2; 512, 1024, or 2048 bytes,
+# recorded in the PVD).  Extent locations count Logical Blocks, but volume
+# descriptors are placed in Logical Sectors, starting at sector 16 (6.2.1)
+# with one descriptor per sector.
+_LOGICAL_SECTOR_SIZE = 2048
+_VOLUME_DESCRIPTOR_SET_START_SECTOR = 16
 
 
 def _check_d1_characters(name):
@@ -259,25 +267,42 @@ def _interchange_level_from_directory(name):
     return interchange_level
 
 
-def _reassign_vd_dirrecord_extents(vd, current_extent):
-    # type: (headervd.PrimaryOrSupplementaryVD, int) -> Tuple[int, List[inode.Inode]]
+def _reassign_vd_dirrecord_extents(vd, current_extent, blocks_per_sector):
+    # type: (headervd.PrimaryOrSupplementaryVD, int, int) -> Tuple[int, List[inode.Inode], int]
     """
     An internal helper method for reassign_extents that assigns extents to
     directory records for the passed in Volume Descriptor.  The current
     extent is passed in, and this function returns the extent after the
     last one it assigned.
 
+    Ecma-119 6.8.1 requires every directory extent to start on a Logical
+    Sector boundary, so directories are aligned up when a block is smaller
+    than a sector; the padding blocks this adds are returned to the caller.
+
     Parameters:
      vd - The volume descriptor on which to operate.
      current_extent - The current extent before assigning extents to the
                       volume descriptor directory records.
+     blocks_per_sector - The number of Logical Blocks in a Logical Sector.
     Returns:
-     The current extent after assigning extents to the volume descriptor
-     directory records.
+     A tuple of the current extent after assigning extents to the volume
+     descriptor directory records, the list of file inodes found, and the
+     number of padding blocks inserted for directory alignment.
     """
     log_block_size = vd.logical_block_size()
+    padding = 0
+
+    def _align_to_sector(extent):
+        # type: (int) -> int
+        remainder = extent % blocks_per_sector
+        if remainder == 0:
+            return extent
+        return extent + (blocks_per_sector - remainder)
 
     root_dir_record = vd.root_directory_record()
+    aligned = _align_to_sector(current_extent)
+    padding += aligned - current_extent
+    current_extent = aligned
     root_dir_record.set_data_location(current_extent, 0)
     current_extent += utils.ceiling_div(root_dir_record.data_length,
                                         log_block_size)
@@ -344,6 +369,9 @@ def _reassign_vd_dirrecord_extents(vd, current_extent):
             continue
 
         if dir_record.is_dir():
+            aligned = _align_to_sector(current_extent)
+            padding += aligned - current_extent
+            current_extent = aligned
             dir_record.set_data_location(current_extent, current_extent)
             for child in dir_record.children:
                 if child.ptr is not None:
@@ -363,11 +391,12 @@ def _reassign_vd_dirrecord_extents(vd, current_extent):
                     file_list.append(dir_record.inode)
 
         if dir_record_rock_ridge is not None:
-            if dir_record_rock_ridge.dr_entries.ce_record is not None and dir_record_rock_ridge.ce_block is not None:
-                if dir_record_rock_ridge.ce_block.extent_location() < 0:
-                    dir_record_rock_ridge.ce_block.set_extent_location(current_extent)
-                    current_extent += 1
-                dir_record_rock_ridge.dr_entries.ce_record.update_extent(dir_record_rock_ridge.ce_block.extent_location())
+            if dir_record_rock_ridge.dr_entries.ce_record is not None and dir_record_rock_ridge.ce_areas:
+                for ce_area in dir_record_rock_ridge.ce_areas:
+                    if ce_area.block.extent_location() < 0:
+                        ce_area.block.set_extent_location(current_extent)
+                        current_extent += 1
+                dir_record_rock_ridge.dr_entries.ce_record.update_extent(dir_record_rock_ridge.ce_areas[0].extent_location())
             if dir_record_rock_ridge.cl_to_moved_dr is not None:
                 child_link_recs.append(dir_record)
 
@@ -380,7 +409,7 @@ def _reassign_vd_dirrecord_extents(vd, current_extent):
         if p.rock_ridge is not None:
             p.rock_ridge.parent_link_update_from_dirrecord()
 
-    return current_extent, file_list
+    return current_extent, file_list, padding
 
 
 def _check_path_depth(iso_path):
@@ -533,17 +562,16 @@ def _find_dr_record_by_name(vd, path, encoding):
 class PyCdlib:
     """The main class for manipulating ISOs."""
     __slots__ = ('_initialized', '_cdfp', 'pvds', 'svds', 'vdsts', 'brs', 'pvd',
-                 'rock_ridge', '_always_consistent', '_has_udf', 'joliet_vd',
-                 'eltorito_boot_catalog', 'isohybrid_mbr', '_managing_fp', 'xa',
-                 '_needs_reshuffle', '_rr_moved_record', '_rr_moved_name',
-                 '_rr_moved_rr_name', 'enhanced_vd', 'version_vd', 'inodes',
-                 'interchange_level', '_write_check_list', '_track_writes',
-                 'udf_beas', 'udf_nsr', 'udf_teas', 'udf_anchors',
-                 'udf_main_descs', 'udf_reserve_descs',
-                 'udf_logical_volume_integrity', 'udf_boots',
-                 'udf_logical_volume_integrity_terminator', 'udf_root',
-                 'udf_file_set', 'udf_file_set_terminator',
-                 'logical_block_size')
+                 'rock_ridge', '_always_consistent', '_has_udf', 'joliet_vd', 'eltorito_boot_catalog', 'isohybrid_mbr',
+                 '_managing_fp', 'xa', '_needs_reshuffle', '_rr_moved_record',
+                 '_rr_moved_name', '_rr_moved_rr_name', 'enhanced_vd',
+                 'version_vd', 'inodes', 'interchange_level',
+                 '_write_check_list', '_track_writes', 'udf_beas', 'udf_nsr',
+                 'udf_teas', 'udf_anchors', 'udf_main_descs',
+                 'udf_reserve_descs', 'udf_logical_volume_integrity',
+                 'udf_boots', 'udf_logical_volume_integrity_terminator',
+                 'udf_root', 'udf_file_set', 'udf_file_set_terminator',
+                 'logical_block_size', '_dir_alignment_blocks')
 
     def _initialize(self):
         # type: () -> None
@@ -596,6 +624,8 @@ class PyCdlib:
         # Default to a logical block size of 2048; this will be overridden by
         # the block size from the PVD or the detected block size during an open.
         self.logical_block_size = 2048
+        # Padding blocks the last reshuffle added for directory alignment.
+        self._dir_alignment_blocks = 0
         self.interchange_level = 1  # type: int
 
     def _parse_volume_descriptors(self):
@@ -608,26 +638,42 @@ class PyCdlib:
         Returns:
          Nothing.
         """
-        # Ecma-119, 6.2.1 says that the Volume Space is divided into a System
-        # Area and a Data Area, where the System Area is in logical sectors 0
-        # to 15, and whose contents is not specified by the standard.  Logical
-        # sectors are 2048 bytes in length, so we start at offset 16 * 2048.
-        self._cdfp.seek(16 * 2048)
+        # Ecma-119 6.2.1: the System Area is Logical Sectors 0 to 15, so the
+        # Volume Descriptor Set starts at sector 16.  Each descriptor is one
+        # sector.  Read the whole set first, up to the first sector that is
+        # not a descriptor, leaving the file positioned at that sector.
+        self._cdfp.seek(_VOLUME_DESCRIPTOR_SET_START_SECTOR * _LOGICAL_SECTOR_SIZE)
+        descriptors = []  # type: List[bytes]
         while True:
-            # All volume descriptors are exactly 2048 bytes long
-            curr_extent = self._cdfp.tell() // 2048
-            vd = self._cdfp.read(2048)
-            if len(vd) != 2048:
+            vd = self._cdfp.read(_LOGICAL_SECTOR_SIZE)
+            if len(vd) != _LOGICAL_SECTOR_SIZE:
                 raise pycdlibexception.PyCdlibInvalidISO('Failed to read entire volume descriptor')
             (desc_type, ident) = struct.unpack_from('=B5s', vd, 0)
             if desc_type not in (headervd.VOLUME_DESCRIPTOR_TYPE_PRIMARY,
                                  headervd.VOLUME_DESCRIPTOR_TYPE_SET_TERMINATOR,
                                  headervd.VOLUME_DESCRIPTOR_TYPE_BOOT_RECORD,
                                  headervd.VOLUME_DESCRIPTOR_TYPE_SUPPLEMENTARY) or ident not in (b'CD001', b'CDW02', b'BEA01', b'NSR02', b'NSR03', b'TEA01', b'BOOT2'):
-                # We read the next extent, and it wasn't a descriptor.  Abort
-                # the loop, remembering to back up the input file descriptor.
-                self._cdfp.seek(-2048, os.SEEK_CUR)
+                self._cdfp.seek(-_LOGICAL_SECTOR_SIZE, os.SEEK_CUR)
                 break
+            descriptors.append(vd)
+
+        # Descriptor extent locations are counted in Logical Blocks, so the
+        # block size has to be known before any descriptor is parsed.  It is
+        # carried in the PVD (Ecma-119 8.4.12: both-byte order 16-bit field at
+        # BP 129); if there is no PVD the check below reports that.
+        log_block_size = _LOGICAL_SECTOR_SIZE
+        for vd in descriptors:
+            (desc_type, ident) = struct.unpack_from('=B5s', vd, 0)
+            if desc_type == headervd.VOLUME_DESCRIPTOR_TYPE_PRIMARY and ident == b'CD001':
+                log_block_size, = struct.unpack_from('<H', vd, 128)
+                if log_block_size not in (512, 1024, 2048):
+                    raise pycdlibexception.PyCdlibInvalidISO('Invalid logical block size %d; must be 512, 1024, or 2048' % (log_block_size))
+                break
+        blocks_per_sector = _LOGICAL_SECTOR_SIZE // log_block_size
+
+        for (index, vd) in enumerate(descriptors):
+            curr_extent = (_VOLUME_DESCRIPTOR_SET_START_SECTOR + index) * blocks_per_sector
+            (desc_type, ident) = struct.unpack_from('=B5s', vd, 0)
             if desc_type == headervd.VOLUME_DESCRIPTOR_TYPE_PRIMARY:
                 pvd = headervd.PrimaryOrSupplementaryVD(headervd.VOLUME_DESCRIPTOR_TYPE_PRIMARY)
                 pvd.parse(vd, curr_extent)
@@ -772,9 +818,13 @@ class PyCdlib:
                 else:
                     hi = mid
             index = lo
-            tmpchild = thelist[index]
-            if index != len(thelist) and tmpchild.rock_ridge is not None and tmpchild.rock_ridge.name() == currpath:
-                child = thelist[index]
+            # The bisect leaves index == len(thelist) when currpath sorts after
+            # every entry, so the bounds check has to happen before the
+            # subscript (compare _find_dr_record_by_name, which does the same).
+            if index != len(thelist):
+                tmpchild = thelist[index]
+                if tmpchild.rock_ridge is not None and tmpchild.rock_ridge.name() == currpath:
+                    child = thelist[index]
 
             if child is None:
                 # We failed to find this component of the path, so break out of
@@ -1021,6 +1071,31 @@ class PyCdlib:
         self._cdfp.seek(old)
         return extent * 2048
 
+    def _read_clamped(self, length, iso_file_length):
+        # type: (int, int) -> bytes
+        """
+        An internal method to read data out of the ISO, clamping the length of
+        the read to the number of bytes that are actually left in the ISO.
+
+        Almost all of the lengths in ISO metadata are 32-bit values that come
+        straight off of the disk, so a corrupt or malicious ISO can claim that
+        a structure is up to 4 GB long.  Handing such a length to read() makes
+        Python allocate a buffer of that size up front, which means a tiny ISO
+        can force a multi-gigabyte allocation.  Clamping the length to what is
+        left in the ISO means the allocation can never be larger than the ISO
+        itself; callers are responsible for dealing with the short data that
+        comes back, since that means the ISO is corrupt.
+
+        Parameters:
+         length - The length that the ISO metadata claims the structure is.
+         iso_file_length - The total length of the ISO, as returned by
+                           _get_iso_size().
+        Returns:
+         The data read, which may be shorter than length if the ISO is corrupt.
+        """
+        remaining = max(0, iso_file_length - self._cdfp.tell())
+        return self._cdfp.read(min(length, remaining))
+
     def _walk_directories(self, vd, extent_to_ptr, extent_to_inode,
                           path_table_records):
         # type: (headervd.PrimaryOrSupplementaryVD, Dict[int, path_table_record.PathTableRecord], Dict[int, inode.Inode], List[path_table_record.PathTableRecord]) -> Tuple[int, int]
@@ -1063,7 +1138,7 @@ class PyCdlib:
             length = dir_record.get_data_length()
             offset = 0
             last_record = None  # type: Optional[dr.DirectoryRecord]
-            data = cdfp.read(length)
+            data = self._read_clamped(length, iso_file_length)
             while offset < length:
                 if offset > (len(data) - 1):
                     # The data we read off of the ISO was shorter than what we
@@ -1163,19 +1238,47 @@ class PyCdlib:
 
                 rr_ce = ''
                 if new_record.rock_ridge is not None and new_record.rock_ridge.dr_entries.ce_record is not None:
-                    ce_record = new_record.rock_ridge.dr_entries.ce_record
+                    ce_record = new_record.rock_ridge.dr_entries.ce_record  # type: Optional[rockridge.RRCERecord]
                     orig_pos = cdfp.tell()
-                    self._seek_to_extent(ce_record.bl_cont_area)
-                    cdfp.seek(ce_record.offset_cont_area, os.SEEK_CUR)
-                    con_block = cdfp.read(ce_record.len_cont_area)
-                    new_record.rock_ridge.parse(con_block, False,
-                                                new_record.rock_ridge.bytes_to_skip,
-                                                True, new_record.file_identifier())
+                    # A continuation area may itself end with a CE record
+                    # pointing at a further area, chaining as many times as
+                    # needed to hold the entries.  Follow the whole chain,
+                    # remembering where we have been so that an ISO whose CE
+                    # records form a cycle cannot spin us forever.
+                    seen_ce_areas = set()  # type: Set[Tuple[int, int, int]]
+                    num_ce_areas = 0
+                    while ce_record is not None:
+                        area = (ce_record.bl_cont_area,
+                                ce_record.offset_cont_area,
+                                ce_record.len_cont_area)
+                        if area in seen_ce_areas:
+                            raise pycdlibexception.PyCdlibInvalidISO('Rock Ridge Continuation Entries form a loop')
+                        seen_ce_areas.add(area)
+                        num_ce_areas += 1
+
+                        self._seek_to_extent(ce_record.bl_cont_area)
+                        cdfp.seek(ce_record.offset_cont_area, os.SEEK_CUR)
+                        con_block = self._read_clamped(ce_record.len_cont_area,
+                                                       iso_file_length)
+                        new_record.rock_ridge.parse(con_block, False,
+                                                    new_record.rock_ridge.bytes_to_skip,
+                                                    True, new_record.file_identifier())
+                        block = self.pvd.track_rr_ce_entry(ce_record.bl_cont_area,
+                                                           ce_record.offset_cont_area,
+                                                           ce_record.len_cont_area)
+                        new_record.rock_ridge.add_ce_area(block,
+                                                          ce_record.offset_cont_area,
+                                                          ce_record.len_cont_area)
+
+                        # Parsing an area stores any CE it contained in
+                        # ce_entries; take it as the next link and clear it so
+                        # the following area can carry one of its own, and so
+                        # that no stale link is left behind at the end.
+                        ce_entries = new_record.rock_ridge.ce_entries
+                        ce_record = ce_entries.ce_record if ce_entries is not None else None
+                        if ce_entries is not None:
+                            ce_entries.ce_record = None
                     cdfp.seek(orig_pos)
-                    block = self.pvd.track_rr_ce_entry(ce_record.bl_cont_area,
-                                                       ce_record.offset_cont_area,
-                                                       ce_record.len_cont_area)
-                    new_record.rock_ridge.update_ce_block(block)
 
                     rr_ce = new_record.rock_ridge.rr_version if new_record.rock_ridge else ''
                 # The PX record could be in the continuation blob, so
@@ -1274,7 +1377,9 @@ class PyCdlib:
         """
         self._seek_to_extent(extent)
         old = self._cdfp.tell()
-        data = self._cdfp.read(ptr_size)
+        data = self._read_clamped(ptr_size, self._get_iso_size())
+        if len(data) < ptr_size:
+            raise pycdlibexception.PyCdlibInvalidISO('Path table size exceeds the size of the ISO')
         offset = 0
         out = []
         extent_to_ptr = {}
@@ -1309,6 +1414,12 @@ class PyCdlib:
         if self.eltorito_boot_catalog is not None:
             raise pycdlibexception.PyCdlibInvalidISO('Only one El Torito boot record is allowed')
 
+        # El Torito counts the boot catalog pointer and load RBA in 2048-byte
+        # sectors, which only matches pycdlib's block-based extents when a
+        # block is a sector.
+        if self.logical_block_size != _LOGICAL_SECTOR_SIZE:
+            raise pycdlibexception.PyCdlibInvalidISO('El Torito requires a logical block size of 2048')
+
         # According to the El Torito specification, section 2.0, the El
         # Torito boot record must be at extent 17.
         if br.extent_location() != 17:
@@ -1325,11 +1436,22 @@ class PyCdlib:
                                                            br.boot_system_use[:4],
                                                            0)
 
+        # The El Torito specification, section 2.0, says that there is no limit
+        # to the number of sectors the Boot Catalog uses, and the Boot Record
+        # only points at the first one, so we hand the catalog a sector at a
+        # time until it tells us it has seen the end of itself.  Since the
+        # reads are clamped to the size of the ISO, a catalog that never ends
+        # runs out of ISO rather than running away.
         old = self._cdfp.tell()
-        self._seek_to_extent(eltorito_boot_catalog_extent)
-        data = self._cdfp.read(32)
-        while not self.eltorito_boot_catalog.parse(data):
-            data = self._cdfp.read(32)
+        iso_file_length = self._get_iso_size()
+        extent = eltorito_boot_catalog_extent
+        while not self.eltorito_boot_catalog.complete():
+            self._seek_to_extent(extent)
+            data = self._read_clamped(self.logical_block_size, iso_file_length)
+            if not data:
+                raise pycdlibexception.PyCdlibInvalidISO('El Torito Boot Catalog extends past the end of the ISO')
+            self.eltorito_boot_catalog.parse(data)
+            extent += 1
         self._cdfp.seek(old)
 
     def _udf_assign_extents(self, udf_files, current_extent):
@@ -1555,42 +1677,46 @@ class PyCdlib:
         Returns:
          Nothing.
         """
-        current_extent = 16
+        # Volume descriptors occupy whole Logical Sectors starting at sector
+        # 16, so convert the start and stride into logical blocks.
+        blocks_per_sector = _LOGICAL_SECTOR_SIZE // self.logical_block_size
+        current_extent = _VOLUME_DESCRIPTOR_SET_START_SECTOR * blocks_per_sector
+
         for pvd in self.pvds:
             pvd.set_extent_location(current_extent)
-            current_extent += 1
+            current_extent += blocks_per_sector
 
         for br in self.brs:
             br.set_extent_location(current_extent)
-            current_extent += 1
+            current_extent += blocks_per_sector
 
         for svd in self.svds:
             svd.set_extent_location(current_extent)
-            current_extent += 1
+            current_extent += blocks_per_sector
 
         for vdst in self.vdsts:
             vdst.set_extent_location(current_extent)
-            current_extent += 1
+            current_extent += blocks_per_sector
 
         if self._has_udf:
             for bea in self.udf_beas:
                 bea.set_extent_location(current_extent)
-                current_extent += 1
+                current_extent += blocks_per_sector
 
             for boot in self.udf_boots:
                 boot.set_extent_location(current_extent)
-                current_extent += 1
+                current_extent += blocks_per_sector
 
             self.udf_nsr.set_extent_location(current_extent)
-            current_extent += 1
+            current_extent += blocks_per_sector
 
             for tea in self.udf_teas:
                 tea.set_extent_location(current_extent)
-                current_extent += 1
+                current_extent += blocks_per_sector
 
         if self.version_vd is not None:
             self.version_vd.set_extent_location(current_extent)
-            current_extent += 1
+            current_extent += blocks_per_sector
 
         part_start = 0
 
@@ -1618,13 +1744,28 @@ class PyCdlib:
             current_extent += self.joliet_vd.path_table_num_extents
 
         self.pvd.clear_rr_ce_entries()
-        current_extent, pvd_files = _reassign_vd_dirrecord_extents(self.pvd,
-                                                                   current_extent)
+        current_extent, pvd_files, padding = _reassign_vd_dirrecord_extents(self.pvd,
+                                                                            current_extent,
+                                                                            blocks_per_sector)
 
         joliet_files = []  # type: List[inode.Inode]
         if self.joliet_vd is not None:
-            current_extent, joliet_files = _reassign_vd_dirrecord_extents(self.joliet_vd,
-                                                                          current_extent)
+            current_extent, joliet_files, joliet_padding = _reassign_vd_dirrecord_extents(self.joliet_vd,
+                                                                                          current_extent,
+                                                                                          blocks_per_sector)
+            padding += joliet_padding
+
+        # Directory alignment padding depends on the layout, so it is only
+        # known here; replace the previous layout's padding in the space size.
+        padding_delta = padding - self._dir_alignment_blocks
+        if padding_delta != 0:
+            for pvd in self.pvds:
+                pvd.space_size += padding_delta
+            if self.joliet_vd is not None:
+                self.joliet_vd.space_size += padding_delta
+            if self.enhanced_vd is not None:
+                self.enhanced_vd.space_size += padding_delta
+        self._dir_alignment_blocks = padding
 
         # The rock ridge 'ER' sector must be after all of the directory
         # entries but before the file contents.
@@ -2034,6 +2175,14 @@ class PyCdlib:
         for sec in self.eltorito_boot_catalog.sections:
             for entry in sec.section_entries:
                 entries_to_assign.append(entry)
+        # Standalone entries are section entries that the ISO failed to
+        # precede with a section header; the parser keeps them rather than
+        # dropping them (see EltoritoBootCatalog.parse).  They need an Inode
+        # just like any other entry -- _reshuffle_extents walks them and
+        # dereferences entry.inode, so leaving them unassigned makes any
+        # subsequent modification of such an ISO fail.
+        for entry in self.eltorito_boot_catalog.standalone_entries:
+            entries_to_assign.append(entry)
 
         for entry in entries_to_assign:
             entry_extent = entry.get_rba()
@@ -2293,8 +2442,16 @@ class PyCdlib:
                 self._cdfp.seek(tmp_isohybrid.primary_gpt.header.backup_lba * 512)
                 tmp_isohybrid.parse_secondary_gpt_header(self._cdfp.read(512))
 
-                self._cdfp.seek((tmp_isohybrid.secondary_gpt.header.current_lba * 512) - (tmp_isohybrid.secondary_gpt.header.num_parts * 128))
-                tmp_isohybrid.parse_secondary_gpt_partitions(self._cdfp.read(tmp_isohybrid.secondary_gpt.header.num_parts * 128))
+                num_parts_bytes = tmp_isohybrid.secondary_gpt.header.num_parts * 128
+                gpt_parts_offset = (tmp_isohybrid.secondary_gpt.header.current_lba * 512) - num_parts_bytes
+                if gpt_parts_offset < 0:
+                    # Both of the values this is computed from come off of the
+                    # ISO, so an ISO can claim that the partition entries start
+                    # before the beginning of the ISO.
+                    raise pycdlibexception.PyCdlibInvalidISO('Secondary GPT partition entries start before the start of the ISO')
+                self._cdfp.seek(gpt_parts_offset)
+                tmp_isohybrid.parse_secondary_gpt_partitions(self._read_clamped(num_parts_bytes,
+                                                                                self._get_iso_size()))
 
             # We only save the object if it turns out to be a valid IsoHybrid.
             self.isohybrid_mbr = tmp_isohybrid
@@ -2425,13 +2582,15 @@ class PyCdlib:
         # the VDST, or directly after the UDF recognition sequence (if this is
         # a UDF ISO).  Thus, we go looking for it at those places, and add it
         # if we find it there.
-        version_vd_extent = self.vdsts[0].extent_location() + 1
+        # It sits one Logical Sector (not one block) after that descriptor.
+        blocks_per_sector = _LOGICAL_SECTOR_SIZE // self.logical_block_size
+        version_vd_extent = self.vdsts[0].extent_location() + blocks_per_sector
         if self._has_udf:
-            version_vd_extent = self.udf_teas[0].extent_location() + 1
+            version_vd_extent = self.udf_teas[0].extent_location() + blocks_per_sector
 
         version_vd = headervd.VersionVolumeDescriptor()
         self._cdfp.seek(version_vd_extent * self.logical_block_size)
-        if version_vd.parse(self._cdfp.read(self.logical_block_size), version_vd_extent):
+        if version_vd.parse(self._cdfp.read(_LOGICAL_SECTOR_SIZE), version_vd_extent):
             self.version_vd = version_vd
 
         self._initialized = True
@@ -2787,12 +2946,35 @@ class PyCdlib:
 
                 if child.rock_ridge is not None:
                     if child.rock_ridge.dr_entries.ce_record is not None:
-                        # The child has a continue block, so write it out here.
-                        ce_rec = child.rock_ridge.dr_entries.ce_record
-                        outfp.seek(ce_rec.bl_cont_area * self.logical_block_size + ce_rec.offset_cont_area)
-                        rec = child.rock_ridge.record_ce_entries()
-                        self._outfp_write_with_check(outfp, rec)
-                        progress.call(len(rec))
+                        # The child has continuation areas, so write them out
+                        # here.  There is usually just the one, but where the
+                        # entries do not fit they are chained across several.
+                        ce_areas = child.rock_ridge.ce_areas
+                        if ce_areas:
+                            ce_rec = child.rock_ridge.dr_entries.ce_record
+                            for ce_area, rec in zip(ce_areas, child.rock_ridge.record_ce_areas()):
+                                extent = ce_area.extent_location()
+                                if extent < 0:
+                                    # Reshuffling deliberately skips the dot and
+                                    # dotdot records, so their Continuation
+                                    # Blocks never get an extent assigned and
+                                    # they keep the one they were parsed with.
+                                    # Their entries are small and always fit in
+                                    # a single area, so there is no chain here.
+                                    extent = ce_rec.bl_cont_area
+                                outfp.seek(extent * self.logical_block_size + ce_area.offset)
+                                self._outfp_write_with_check(outfp, rec)
+                                progress.call(len(rec))
+                        else:
+                            # The Rock Ridge 'ER' area of the root gets an
+                            # extent of its own rather than a slot in a
+                            # Continuation Block, so it has no area tracked
+                            # against it; it is always small enough for one.
+                            ce_rec = child.rock_ridge.dr_entries.ce_record
+                            outfp.seek(ce_rec.bl_cont_area * self.logical_block_size + ce_rec.offset_cont_area)
+                            rec = child.rock_ridge.record_ce_entries()
+                            self._outfp_write_with_check(outfp, rec)
+                            progress.call(len(rec))
 
                     if child.rock_ridge.child_link_record_exists():
                         continue
@@ -3076,12 +3258,25 @@ class PyCdlib:
          The number of additional bytes needed for this Rock Ridge CE entry.
         """
         if rec.rock_ridge is not None and rec.rock_ridge.dr_entries.ce_record is not None:
-            celen = rec.rock_ridge.dr_entries.ce_record.len_cont_area
-            added_block, block, offset = self.pvd.add_rr_ce_entry(celen)
-            rec.rock_ridge.update_ce_block(block)
-            rec.rock_ridge.dr_entries.ce_record.update_offset(offset)
-            if added_block:
-                return self.logical_block_size
+            # The entries may need more than one area to hold them, in which
+            # case each area but the last ends with a CE record linking to the
+            # next.  Allocate them all; they need not be adjacent, or even in
+            # the same Continuation Block.
+            rec.rock_ridge.clear_ce_areas()
+            num_bytes_to_add = 0
+            for celen in rec.rock_ridge.ce_area_lengths(self.logical_block_size):
+                added_block, block, offset = self.pvd.add_rr_ce_entry(celen)
+                rec.rock_ridge.add_ce_area(block, offset, celen)
+                if added_block:
+                    num_bytes_to_add += self.logical_block_size
+
+            # The CE record in the directory record describes the first area
+            # only; the rest are reached by following the chain.
+            first = rec.rock_ridge.ce_areas[0]
+            rec.rock_ridge.dr_entries.ce_record.update_offset(first.offset)
+            rec.rock_ridge.dr_entries.ce_record.update_len(first.length)
+
+            return num_bytes_to_add
 
         return 0
 
@@ -3697,6 +3892,8 @@ class PyCdlib:
             for sec in self.eltorito_boot_catalog.sections:
                 for entry in sec.section_entries:
                     eltorito_entries.add(id(entry.inode))
+            for entry in self.eltorito_boot_catalog.standalone_entries:
+                eltorito_entries.add(id(entry.inode))
 
             if id(ino) in eltorito_entries:
                 raise pycdlibexception.PyCdlibInvalidInput("Cannot remove a file that is referenced by El Torito; use 'rm_eltorito' to remove El Torito, or use 'rm_hard_link' to hide the entry")
@@ -3902,9 +4099,15 @@ class PyCdlib:
          vol_ident - The volume identification string to use on the new ISO.
          set_size - The size of the set of ISOs this ISO is a part of.
          seqnum - The sequence number of the set of this ISO.
-         log_block_size - The logical block size to use for the ISO.  While ISO9660
-                          technically supports sizes other than 2048 (the default),
-                          this almost certainly doesn't work.
+         log_block_size - The logical block size to use for the ISO.  Ecma-119
+                          allows 512, 1024, or 2048 (the default).  Sizes other
+                          than 2048 cannot be combined with UDF or El Torito,
+                          and most other ISO tools (though not the Linux
+                          kernel) only understand 2048.  Note that the Linux
+                          isofs driver refuses blocks smaller than its own
+                          'block=' mount option, which defaults to 1024, so a
+                          512-byte-block ISO must be mounted with
+                          '-o block=512'.
          vol_set_ident - The volume set identification string to use on the new ISO.
          pub_ident_str - The publisher identification string to use on the new ISO.
          preparer_ident_str - The preparer identification string to use on the new ISO.
@@ -3941,6 +4144,15 @@ class PyCdlib:
 
         if interchange_level < 1 or interchange_level > 4:
             raise pycdlibexception.PyCdlibInvalidInput('Invalid interchange level (must be between 1 and 4)')
+
+        # Ecma-119 6.2.2: a power of two from 512 up to the sector size.
+        if log_block_size not in (512, 1024, 2048):
+            raise pycdlibexception.PyCdlibInvalidInput('Invalid logical block size (must be 512, 1024, or 2048)')
+
+        # UDF anchors live at fixed sector numbers (256 and the last sector),
+        # which only matches block-based extents when a block is a sector.
+        if udf and log_block_size != _LOGICAL_SECTOR_SIZE:
+            raise pycdlibexception.PyCdlibInvalidInput('UDF requires a logical block size of 2048')
 
         if rock_ridge and rock_ridge not in ('1.09', '1.10', '1.12'):
             raise pycdlibexception.PyCdlibInvalidInput('Rock Ridge value must be None (no Rock Ridge), 1.09, 1.10, or 1.12')
@@ -4009,7 +4221,8 @@ class PyCdlib:
                                                             app_use_bytes, xa)
             self.svds.append(self.enhanced_vd)
 
-            num_bytes_to_add += self.enhanced_vd.logical_block_size()
+            # Volume descriptors occupy a whole Logical Sector.
+            num_bytes_to_add += _LOGICAL_SECTOR_SIZE
 
         if joliet is not None:
             self.joliet_vd = headervd.joliet_vd_factory(joliet, sys_ident_bytes,
@@ -4028,10 +4241,10 @@ class PyCdlib:
 
             # Now that we have added joliet, we need to add the new space to the
             # PVD for the VD itself.
-            num_bytes_to_add += self.joliet_vd.logical_block_size()
+            num_bytes_to_add += _LOGICAL_SECTOR_SIZE
 
         self.vdsts.append(headervd.vdst_factory())
-        num_bytes_to_add += self.logical_block_size
+        num_bytes_to_add += _LOGICAL_SECTOR_SIZE
 
         if udf:
             self._has_udf = True
@@ -4052,8 +4265,8 @@ class PyCdlib:
             num_bytes_to_add += 3 * self.logical_block_size
 
         # We always create an empty version volume descriptor.
-        self.version_vd = headervd.version_vd_factory(self.logical_block_size)
-        num_bytes_to_add += self.logical_block_size
+        self.version_vd = headervd.version_vd_factory(_LOGICAL_SECTOR_SIZE)
+        num_bytes_to_add += _LOGICAL_SECTOR_SIZE
 
         if udf:
             # We need to pad out to extent 32.  The padding should be the
@@ -4453,6 +4666,14 @@ class PyCdlib:
         if num_paths != 1:
             raise pycdlibexception.PyCdlibInvalidInput("Exactly one of 'iso_path', 'rr_path', 'joliet_path', or 'udf_path' must be passed")
 
+        # The byte offsets we are about to compute come from the extent
+        # locations, which are only assigned during a reshuffle.  On an ISO
+        # built with new() that has not been written out yet, no reshuffle has
+        # happened, so force one here rather than reporting offsets from
+        # unassigned extents.
+        if self._needs_reshuffle:
+            self._reshuffle_extents()
+
         extents = []  # type: List[Tuple[int, int]]
 
         if udf_path is not None:
@@ -4680,9 +4901,9 @@ class PyCdlib:
 
         self._finish_add(0, num_bytes_to_add)
 
-    def modify_file_in_place(self, fp, length, iso_path, rr_name=None,
-                             joliet_path=None, udf_path=None):
-        # type: (BinaryIO, int, str, Optional[str], Optional[str], Optional[str]) -> None
+    def modify_file_in_place(self, fp, length, iso_path=None, rr_name=None,  # pylint: disable=unused-argument
+                             joliet_path=None, udf_path=None, rr_path=None):
+        # type: (BinaryIO, int, Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]) -> None
         """
         Modify a file in place on the ISO.
 
@@ -4698,9 +4919,17 @@ class PyCdlib:
          fp - The file object to use for the contents of the new file.
          length - The length of the new data for the file.
          iso_path - The ISO9660 absolute path to the file destination on the ISO.
-         rr_name - The Rock Ridge name of the file destination on the ISO.
-         joliet_path - The Joliet absolute path to the file destination on the ISO.
-         udf_path - The UDF absolute path to the file destination on the ISO.
+         rr_name - Ignored.  Earlier versions accepted this parameter but
+                   never used it; pass rr_path to address a file via its
+                   Rock Ridge path.
+         joliet_path - The Joliet absolute path to the file destination on
+                       the ISO.  Ignored when iso_path is given, for
+                       backwards compatibility.
+         udf_path - The UDF absolute path to the file destination on the
+                    ISO.  Ignored when iso_path is given, for backwards
+                    compatibility.
+         rr_path - The Rock Ridge absolute path to the file destination on
+                   the ISO.  Only valid when iso_path is not given.
         Returns:
          Nothing.
         """
@@ -4708,12 +4937,21 @@ class PyCdlib:
             'PyCdlib.modify_file_in_place is deprecated; use '
             'pycdlib.InPlaceEditor (context manager) instead.',
             DeprecationWarning, stacklevel=2)
+
+        # Historically this method looked the file up by iso_path and
+        # silently ignored joliet_path and udf_path.  Preserve that so
+        # existing callers that pass several paths keep working; the
+        # strict "exactly one path" rule applies only when iso_path is
+        # absent (a new capability, so no compatibility concern).
+        if iso_path is not None:
+            joliet_path = None
+            udf_path = None
+
         # Local import to avoid a circular import at module load time:
         # inplaceeditor.py imports PyCdlib from this module.
         from pycdlib.inplaceeditor import _do_modify_file_in_place  # pylint: disable=import-outside-toplevel
-        _do_modify_file_in_place(self, fp, length, iso_path,
-                                 rr_name=rr_name,
-                                 joliet_path=joliet_path,
+        _do_modify_file_in_place(self, fp, length, iso_path=iso_path,
+                                 rr_path=rr_path, joliet_path=joliet_path,
                                  udf_path=udf_path)
 
     def _rewrite_dir_record_extent(self, parent):
@@ -4732,6 +4970,14 @@ class PyCdlib:
         padding to the end of the data block) does not fall off the
         rails on stale bytes from a previous on-disk layout.
 
+        Everything this function emits -- records, inter-extent padding,
+        and the trailing pad -- is one contiguous run of bytes starting
+        at the parent's first extent, so it is assembled in memory and
+        committed with a single seek and a single write.  Writing each
+        record individually costs a seek and a write per child, which
+        makes an in-place edit of a large directory dominated by
+        syscalls (a 4000-child directory took ~4000 of each per edit).
+
         Parameters:
          parent - The parent DirectoryRecord whose children should be
                   written out to disk.
@@ -4742,6 +4988,7 @@ class PyCdlib:
         first_extent = parent.extent_location()
         dir_extent = first_extent
         offset_in_extent = 0
+        parts = []  # type: List[bytes]
         for ch in parent.children:
             recstr = ch.record()
             if offset_in_extent + len(recstr) > lbs:
@@ -4749,12 +4996,10 @@ class PyCdlib:
                 # Zero-pad the rest of this extent before advancing,
                 # so any stale bytes from a prior on-disk layout are
                 # cleared.
-                self._cdfp.seek(dir_extent * lbs + offset_in_extent)
-                self._cdfp.write(b'\x00' * (lbs - offset_in_extent))
+                parts.append(b'\x00' * (lbs - offset_in_extent))
                 dir_extent += 1
                 offset_in_extent = 0
-            self._cdfp.seek(dir_extent * lbs + offset_in_extent)
-            self._cdfp.write(recstr)
+            parts.append(recstr)
             offset_in_extent += len(recstr)
 
         # Zero-pad from the end of the last record through the end of
@@ -4766,8 +5011,10 @@ class PyCdlib:
         last_byte = dir_extent * lbs + offset_in_extent
         end_byte = first_extent * lbs + parent.data_length
         if last_byte < end_byte:
-            self._cdfp.seek(last_byte)
-            self._cdfp.write(b'\x00' * (end_byte - last_byte))
+            parts.append(b'\x00' * (end_byte - last_byte))
+
+        self._cdfp.seek(first_extent * lbs)
+        self._cdfp.write(b''.join(parts))
 
     def _rewrite_subdir_dotdots(self, parent):
         # type: (dr.DirectoryRecord) -> None
@@ -5446,9 +5693,9 @@ class PyCdlib:
                 # child_link record because it is a 'fake' record that has no
                 # size.
 
-            if child.rock_ridge is not None and child.rock_ridge.dr_entries.ce_record is not None and child.rock_ridge.ce_block is not None:
-                child.rock_ridge.ce_block.remove_entry(child.rock_ridge.dr_entries.ce_record.offset_cont_area,
-                                                       child.rock_ridge.dr_entries.ce_record.len_cont_area)
+            if child.rock_ridge is not None and child.rock_ridge.dr_entries.ce_record is not None:
+                for ce_area in child.rock_ridge.ce_areas:
+                    ce_area.block.remove_entry(ce_area.offset, ce_area.length)
 
         if joliet_path is not None:
             num_bytes_to_remove += self._rm_joliet_dir(self._normalize_joliet_path(joliet_path))
@@ -5535,6 +5782,10 @@ class PyCdlib:
         if not self._initialized:
             raise pycdlibexception.PyCdlibInvalidInput('This object is not initialized; call either open() or new() to create an ISO')
 
+        # See _check_and_parse_eltorito for why this is 2048-only.
+        if self.logical_block_size != _LOGICAL_SECTOR_SIZE:
+            raise pycdlibexception.PyCdlibInvalidInput('El Torito requires a logical block size of 2048')
+
         # In order to add an El Torito boot, we need to do the following:
         # 1.  Find the boot file record (which must already exist).
         # 2.  Construct a BootRecord.
@@ -5597,6 +5848,21 @@ class PyCdlib:
                                                    sector_count, boot_load_seg,
                                                    media_name, system_type, efi,
                                                    bootable)
+
+            # El Torito puts no limit on the number of sectors the Boot Catalog
+            # uses, so the new section may have pushed the catalog past the
+            # space that was allocated for it.  Leave room for the empty entry
+            # that terminates the catalog as well; without it a catalog that
+            # exactly fills its last sector would run into whatever happens to
+            # follow it on the ISO.
+            catalog_length = self.eltorito_boot_catalog.record_length() + self.eltorito_boot_catalog.ENTRY_SIZE
+            new_length = utils.ceiling_div(catalog_length,
+                                           self.logical_block_size) * self.logical_block_size
+            old_length = self.eltorito_boot_catalog.dirrecords[0].get_data_length()
+            if new_length > old_length:
+                for rec in self.eltorito_boot_catalog.dirrecords:
+                    rec.set_data_length(new_length)
+                num_bytes_to_add += new_length - old_length
         else:
             # Step 2.
             br = headervd.BootRecord()
@@ -5605,7 +5871,7 @@ class PyCdlib:
             # On a UDF ISO, adding a new Boot Record doesn't actually increase
             # the size, since there are a bunch of gaps at the beginning.
             if not self._has_udf:
-                num_bytes_to_add += self.logical_block_size
+                num_bytes_to_add += _LOGICAL_SECTOR_SIZE
 
             # Step 3.
             self.eltorito_boot_catalog = eltorito.EltoritoBootCatalog(br)
@@ -5945,7 +6211,10 @@ class PyCdlib:
          joliet_path - The absolute Joliet path on the ISO to list the children for.
          udf_path - The absolute UDF path on the ISO to list the children for.
         Yields:
-         Children of this path.
+         Children of this path.  For iso_path, rr_path, and joliet_path these
+         are dr.DirectoryRecord objects, including the 'dot' and 'dotdot'
+         entries; for udf_path these are udf.UDFFileEntry objects, and the
+         UDF 'parent' entry (which has no File Entry) is omitted.
         Returns:
          Nothing.
         """
@@ -5970,6 +6239,11 @@ class PyCdlib:
                 raise pycdlibexception.PyCdlibInvalidInput('UDF File Entry is not a directory!')
 
             for fi_desc in udf_rec.fi_descs.values():
+                # The 'parent' File Identifier Descriptor (the UDF equivalent
+                # of '..') has no File Entry attached to it, so skip it rather
+                # than yielding None.
+                if fi_desc.is_parent():
+                    continue
                 yield fi_desc.file_entry
         else:
             use_rr = False

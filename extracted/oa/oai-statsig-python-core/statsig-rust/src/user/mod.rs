@@ -1,5 +1,7 @@
 pub mod fast_statsig_user;
 pub mod into_optional;
+pub mod prepared_user;
+pub mod random_user_id;
 pub mod statsig_user;
 pub mod statsig_user_builder;
 pub mod statsig_user_internal;

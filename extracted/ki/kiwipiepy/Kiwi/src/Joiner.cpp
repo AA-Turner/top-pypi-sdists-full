@@ -14,53 +14,6 @@ namespace kiwi
 		Joiner& Joiner::operator=(const Joiner&) = default;
 		Joiner& Joiner::operator=(Joiner&&) = default;
 
-		inline bool isSpaceInsertable(POSTag l, POSTag r, U16StringView rform)
-		{
-			if (l == r && (POSTag::sf <= l && l <= POSTag::sn)) return true;
-			if (r == POSTag::vcp) return false;
-			if (r == POSTag::xsa || r == POSTag::xsai || r == POSTag::xsv || r == POSTag::xsn) return isJClass(l);
-			if (l == POSTag::xpn || l == POSTag::so || l == POSTag::ss || l == POSTag::sw) return false;
-			if (l == POSTag::sn && r == POSTag::nnb) return false;
-			if (!(l == POSTag::sn || l == POSTag::sl)
-				&& (r == POSTag::sl || r == POSTag::sn)) return true;
-			if (l == POSTag::sn && r == POSTag::nr) return false;
-			if (l == POSTag::sso || l == POSTag::ssc) return false;
-			if (r == POSTag::sso) return true;
-			if ((isJClass(l) || isEClass(l)) && r == POSTag::ss) return true;
-			if (l == POSTag::z_siot && isNNClass(r)) return false;
-
-			if (r == POSTag::vx && rform.size() == 1 && (rform[0] == u'하' || rform[0] == u'지')) return false;
-
-			switch (r)
-			{
-			case POSTag::nng:
-			case POSTag::nnp:
-			case POSTag::nnb:
-			case POSTag::np:
-			case POSTag::nr:
-			case POSTag::mag:
-			case POSTag::maj:
-			case POSTag::mm:
-			case POSTag::ic:
-			case POSTag::vv:
-			case POSTag::va:
-			case POSTag::vx:
-			case POSTag::vcn:
-			case POSTag::xpn:
-			case POSTag::xr:
-			case POSTag::sw:
-			case POSTag::sh:
-			case POSTag::w_email:
-			case POSTag::w_hashtag:
-			case POSTag::w_url:
-			case POSTag::w_mention:
-				return true;
-			default:
-				return false;
-			}
-			return false;
-		}
-
 		inline char16_t getLastValidChr(const KString& str)
 		{
 			for (auto it = str.rbegin(); it != str.rend(); ++it)
@@ -79,6 +32,13 @@ namespace kiwi
 			return 0;
 		}
 
+		inline bool isNonContractableVerb(U16StringView form, POSTag tag)
+		{
+			return form.size() == 1 && 
+				(form[0] == u'기' || form[0] == u'비' || form[0] == u'이') &&
+				(tag == POSTag::vv || tag == POSTag::va || tag == POSTag::vx);
+		}
+
 		void Joiner::add(U16StringView form, POSTag tag, Space space)
 		{
 			KString normForm = normalizeHangul(form);
@@ -86,8 +46,7 @@ namespace kiwi
 			{
 				ranges.emplace_back(stack.size(), stack.size() + normForm.size());
 				stack += normForm;
-				lastTag = tag;
-				return;
+				goto epilogue;
 			}
 
 			if (space == Space::insert_space || (space == Space::none && isSpaceInsertable(clearIrregular(lastTag), clearIrregular(tag), form)))
@@ -149,15 +108,27 @@ namespace kiwi
 				{
 					cv = CondVowel::none;
 				}
-				auto r = cr->combineOneImpl({ stack.data() + activeStart, stack.size() - activeStart }, lastTag, normForm, tag, cv);
-				stack.erase(stack.begin() + activeStart, stack.end());
-				ranges.back().second = activeStart + get<1>(r);
-				ranges.emplace_back(activeStart + get<2>(r), activeStart + get<0>(r).size());
-				stack += get<0>(r);
-				activeStart += get<2>(r);
+
+				if (nonContractableVerb && isEClass(tag) && normForm[0] == u'어')
+				{
+					activeStart = stack.size();
+					ranges.emplace_back(stack.size(), stack.size() + normForm.size());
+					stack += normForm;
+				}
+				else
+				{
+					auto r = cr->combineOneImpl({ stack.data() + activeStart, stack.size() - activeStart }, lastTag, normForm, tag, cv);
+					stack.erase(stack.begin() + activeStart, stack.end());
+					ranges.back().second = activeStart + get<1>(r);
+					ranges.emplace_back(activeStart + get<2>(r), activeStart + get<0>(r).size());
+					stack += get<0>(r);
+					activeStart += get<2>(r);
+				}
 			}
+		epilogue:
 			anteLastTag = lastTag;
 			lastTag = tag;
+			nonContractableVerb = isNonContractableVerb(normForm, tag);
 		}
 
 		void Joiner::add(const u16string& form, POSTag tag, Space space)

@@ -240,6 +240,19 @@ impl DelayedExposureStore {
             }
         }
 
+        // Consumed and released tokens leave tombstones in the eviction queue.
+        // Compact only after enough insertions to amortize the scan, even when
+        // active entries never reach the eviction limit. Retain preserves FIFO
+        // order for the remaining live tokens without scanning on every release.
+        if inner.insertion_order.len() > self.max_tokens.saturating_mul(2) {
+            let DelayedExposureStoreInner {
+                entries,
+                insertion_order,
+                ..
+            } = &mut *inner;
+            insertion_order.retain(|token| entries.contains_key(token));
+        }
+
         log_d!(
             TAG,
             "created delayed exposure token; outstanding={}",
@@ -329,6 +342,165 @@ impl Default for DelayedExposureStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        EventLoggingAdapter, StatsigErr, StatsigOptions, StatsigRuntime,
+        event_logging::{
+            event_queue::queued_passthrough::EnqueuePassthroughOp, statsig_event::StatsigEvent,
+            statsig_event_internal::StatsigEventInternal,
+        },
+        log_event_payload::LogEventRequest,
+        user::StatsigUserLoggable,
+    };
+    use async_trait::async_trait;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    fn small_store() -> DelayedExposureStore {
+        DelayedExposureStore {
+            max_tokens: 4,
+            ..Default::default()
+        }
+    }
+
+    fn insert_layer(store: &DelayedExposureStore) -> String {
+        let layer = serde_json::from_value(serde_json::json!({
+            "name": "test_layer",
+            "details": { "reason": "Network:Recognized" },
+            "disableExposure": false,
+            "user": {},
+        }))
+        .unwrap();
+        store.insert_layer(layer)
+    }
+
+    #[derive(Default)]
+    struct CountingEventAdapter(AtomicU64);
+
+    #[async_trait]
+    impl EventLoggingAdapter for CountingEventAdapter {
+        async fn start(&self, _runtime: &Arc<StatsigRuntime>) -> Result<(), StatsigErr> {
+            Ok(())
+        }
+
+        async fn log_events(&self, request: LogEventRequest) -> Result<bool, StatsigErr> {
+            self.0.fetch_add(request.event_count, Ordering::Relaxed);
+            Ok(true)
+        }
+
+        async fn shutdown(&self) -> Result<(), StatsigErr> {
+            Ok(())
+        }
+
+        fn should_schedule_background_flush(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn released_token_churn_keeps_history_bounded() {
+        let store = small_store();
+        for _ in 0..100 {
+            let token = insert_layer(&store);
+            assert!(store.release(&token));
+            let inner = store.inner.lock();
+            assert!(inner.entries.is_empty());
+            assert!(inner.insertion_order.len() <= 2 * store.max_tokens);
+            assert_eq!(inner.evicted, 0);
+        }
+        assert_eq!(store.inner.lock().released, 100);
+    }
+
+    #[tokio::test]
+    async fn consumed_token_churn_keeps_history_bounded_and_logs_once() {
+        let store = small_store();
+        let adapter = Arc::new(CountingEventAdapter::default());
+        let logging_adapter: Arc<dyn EventLoggingAdapter> = adapter.clone();
+        let runtime = StatsigRuntime::get_runtime();
+        let logger = EventLogger::new(
+            "secret-delayed-exposure-test",
+            &Arc::new(StatsigOptions::default()),
+            &logging_adapter,
+            &runtime,
+        );
+
+        for _ in 0..100 {
+            let prepared = logger
+                .prepare_event(EnqueuePassthroughOp {
+                    event: StatsigEventInternal::new(
+                        0,
+                        StatsigUserLoggable::default(),
+                        StatsigEvent {
+                            event_name: "delayed_test_event".to_string(),
+                            value: None,
+                            metadata: None,
+                            statsig_metadata: None,
+                        },
+                        None,
+                    ),
+                })
+                .unwrap();
+            let token = store.insert_prepared(prepared);
+            assert!(store.log_delayed_exposure(&token, &logger));
+            assert!(!store.log_delayed_exposure(&token, &logger));
+            let inner = store.inner.lock();
+            assert!(inner.entries.is_empty());
+            assert!(inner.insertion_order.len() <= 2 * store.max_tokens);
+            assert_eq!(inner.evicted, 0);
+        }
+
+        logger.flush_all_pending_events().await.unwrap();
+        assert_eq!(adapter.0.load(Ordering::Relaxed), 100);
+        assert_eq!(store.inner.lock().consumed, 100);
+        runtime.shutdown();
+    }
+
+    #[test]
+    fn compaction_preserves_live_tokens_and_oldest_active_eviction() {
+        let store = small_store();
+        let oldest = insert_layer(&store);
+        let removed = insert_layer(&store);
+        let retained = insert_layer(&store);
+        assert!(store.release(&removed));
+
+        for _ in 0..100 {
+            let token = insert_layer(&store);
+            assert!(store.release(&token));
+            let inner = store.inner.lock();
+            assert!(inner.entries.contains_key(&oldest));
+            assert!(inner.entries.contains_key(&retained));
+            assert!(inner.insertion_order.len() <= 2 * store.max_tokens);
+        }
+
+        let third = insert_layer(&store);
+        let fourth = insert_layer(&store);
+        let fifth = insert_layer(&store);
+        let inner = store.inner.lock();
+        assert!(!inner.entries.contains_key(&oldest));
+        assert!(!inner.entries.contains_key(&removed));
+        assert_eq!(inner.entries.len(), store.max_tokens);
+        assert_eq!(inner.evicted, 1);
+        let live_order: Vec<_> = inner
+            .insertion_order
+            .iter()
+            .filter(|token| inner.entries.contains_key(*token))
+            .collect();
+        assert_eq!(live_order, vec![&retained, &third, &fourth, &fifth]);
+    }
+
+    #[test]
+    fn clear_drops_active_and_stale_history() {
+        let store = small_store();
+        let active = insert_layer(&store);
+        let released = insert_layer(&store);
+        assert!(store.release(&released));
+        store.clear();
+        {
+            let inner = store.inner.lock();
+            assert!(inner.entries.is_empty());
+            assert!(inner.insertion_order.is_empty());
+        }
+        assert!(!store.release(&active));
+        assert!(store.release(&insert_layer(&store)));
+    }
 
     #[test]
     fn empty_store_stats_are_zero() {

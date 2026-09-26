@@ -118,6 +118,7 @@ class FindingsResource(SyncAPIResource):
             "SALESFORCE",
             "SERVICENOW",
             "SLACK",
+            "ZOOM",
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -241,6 +242,7 @@ class FindingsResource(SyncAPIResource):
                 "SALESFORCE",
                 "SERVICENOW",
                 "SLACK",
+                "ZOOM",
             ]
         ]
         | Omit = omit,
@@ -601,6 +603,7 @@ class AsyncFindingsResource(AsyncAPIResource):
             "SALESFORCE",
             "SERVICENOW",
             "SLACK",
+            "ZOOM",
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -724,6 +727,7 @@ class AsyncFindingsResource(AsyncAPIResource):
                 "SALESFORCE",
                 "SERVICENOW",
                 "SLACK",
+                "ZOOM",
             ]
         ]
         | Omit = omit,

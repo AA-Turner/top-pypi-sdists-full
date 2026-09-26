@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+import platformdirs
 from platformdirs import windows
 from platformdirs.windows import (
     _KF_FLAG_DONT_VERIFY,
@@ -23,6 +24,8 @@ from platformdirs.windows import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from pytest_mock import MockerFixture
 
 _WIN_FOLDERS: dict[str, str] = {
@@ -118,8 +121,10 @@ def test_publicshare_dir_with_unavailable_home(monkeypatch: pytest.MonkeyPatch, 
     assert Windows().user_publicshare_dir == os.path.normpath(r"C:\Users\Shared")
 
 
-def test_publicshare_dir_fallback(monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture) -> None:
+@pytest.mark.parametrize("env", [pytest.param({}, id="unset"), pytest.param({"PUBLIC": ""}, id="empty")])
+def test_publicshare_dir_fallback(monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, env: dict[str, str]) -> None:
     monkeypatch.delenv("PUBLIC", raising=False)
+    mocker.patch.dict(os.environ, env)
     mocker.patch.object(Path, "expanduser", return_value=Path("C:/Users/Test"))
     assert Windows().user_publicshare_dir == os.path.normpath("C:/Users/Public")
 
@@ -134,6 +139,13 @@ def test_non_roaming_uses_local_appdata(mocker: MockerFixture) -> None:
     mock = mocker.patch("platformdirs.windows.get_win_folder", side_effect=lambda csidl: _WIN_FOLDERS[csidl])
     _result = Windows(appname="foo", roaming=False).user_data_dir
     mock.assert_called_with("CSIDL_LOCAL_APPDATA")
+
+
+@pytest.mark.parametrize("suffix", [pytest.param("dir", id="dir"), pytest.param("path", id="path")])
+def test_user_log_function_forwards_roaming(mocker: MockerFixture, suffix: str) -> None:
+    mocker.patch("platformdirs.PlatformDirs", Windows)
+    result = getattr(platformdirs, f"user_log_{suffix}")("foo", roaming=True)
+    assert Path(result) == Path(os.path.normpath(_WIN_FOLDERS["CSIDL_APPDATA"]), "foo", "foo", "Logs")
 
 
 def test_appauthor_false_skips_author() -> None:
@@ -190,10 +202,45 @@ def test_get_win_folder_from_env_vars_unknown() -> None:
         get_win_folder_from_env_vars("CSIDL_BOGUS")
 
 
-def test_get_win_folder_from_env_vars_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("env", [pytest.param({}, id="unset"), pytest.param({"APPDATA": ""}, id="empty")])
+def test_get_win_folder_from_env_vars_unset(
+    monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture, env: dict[str, str]
+) -> None:
     monkeypatch.delenv("APPDATA", raising=False)
+    mocker.patch.dict(os.environ, env)
     with pytest.raises(ValueError, match="Unset environment variable"):
         get_win_folder_from_env_vars("CSIDL_APPDATA")
+
+
+@pytest.mark.parametrize(
+    ("csidl_name", "env_var"),
+    [
+        pytest.param("CSIDL_PERSONAL", "USERPROFILE", id="documents"),
+        pytest.param("CSIDL_PROGRAMS", "APPDATA", id="programs"),
+    ],
+)
+def test_get_win_folder_from_env_vars_empty_base(
+    monkeypatch: pytest.MonkeyPatch, csidl_name: str, env_var: str
+) -> None:
+    monkeypatch.setenv(env_var, "")
+    with pytest.raises(KeyError, match=env_var):
+        get_win_folder_from_env_vars(csidl_name)
+
+
+@pytest.mark.parametrize(
+    ("all_users_profile", "expected_base"),
+    [
+        pytest.param(r"D:\ProgramData", r"D:\ProgramData", id="all_users_profile"),
+        pytest.param("", r"C:\ProgramData", id="default"),
+    ],
+)
+def test_get_win_folder_from_env_vars_common_programs_empty_programdata(
+    monkeypatch: pytest.MonkeyPatch, all_users_profile: str, expected_base: str
+) -> None:
+    monkeypatch.setenv("PROGRAMDATA", "")
+    monkeypatch.setenv("ALLUSERSPROFILE", all_users_profile)
+    expected = os.path.join(expected_base, "Microsoft", "Windows", "Start Menu", "Programs")  # ruff:ignore[os-path-join]
+    assert get_win_folder_from_env_vars("CSIDL_COMMON_PROGRAMS") == expected
 
 
 def test_get_win_folder_if_csidl_name_not_env_var_returns_none() -> None:
@@ -251,13 +298,10 @@ def test_get_win_folder_via_ctypes_passes_dont_verify_flag(mocker: MockerFixture
 
     mock_ole32 = MagicMock()
     mock_shell32 = MagicMock()
-    mock_kernel32 = MagicMock()
     mocker.patch.object(
         ctypes,
         "WinDLL",
-        MagicMock(
-            side_effect=lambda name: {"ole32": mock_ole32, "shell32": mock_shell32, "kernel32": mock_kernel32}[name],
-        ),
+        MagicMock(side_effect=lambda name: {"ole32": mock_ole32, "shell32": mock_shell32}[name]),
     )
 
     mocker.patch("ctypes.byref", side_effect=lambda x: x)
@@ -314,7 +358,7 @@ def test_get_win_folder_via_ctypes_builds_once(mocker: MockerFixture) -> None:
     finally:
         _cleanup_ctypes_mocks()
 
-    assert win_dll.call_count == 3  # ole32, shell32, kernel32 loaded once total, not once per call
+    assert win_dll.call_count == 2  # ole32 and shell32 loaded once total, not once per call
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="cannot force NULL from real SHGetKnownFolderPath")
@@ -323,13 +367,10 @@ def test_get_win_folder_via_ctypes_null_result(mocker: MockerFixture) -> None:
 
     mock_ole32 = MagicMock()
     mock_shell32 = MagicMock()
-    mock_kernel32 = MagicMock()
     mocker.patch.object(
         ctypes,
         "WinDLL",
-        MagicMock(
-            side_effect=lambda name: {"ole32": mock_ole32, "shell32": mock_shell32, "kernel32": mock_kernel32}[name],
-        ),
+        MagicMock(side_effect=lambda name: {"ole32": mock_ole32, "shell32": mock_shell32}[name]),
     )
 
     mocker.patch("ctypes.byref", side_effect=lambda x: x)
@@ -346,6 +387,43 @@ def test_get_win_folder_via_ctypes_null_result(mocker: MockerFixture) -> None:
             fresh_fn("CSIDL_LOCAL_APPDATA")
     finally:
         _cleanup_ctypes_mocks()
+
+
+def _short_name(_long: str, buf: ctypes.Array[ctypes.c_wchar], _size: int) -> int:
+    buf.value = r"C:\Users\UKASZ~1\AppData\Local"
+    return len(buf.value)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="needs a mocked GetShortPathNameW")
+@pytest.mark.parametrize(
+    "get_short_path_name",
+    [
+        pytest.param(_short_name, id="short_name_available"),
+        pytest.param(lambda _long, _buf, _size: 2048, id="short_name_exceeds_buffer"),
+    ],
+)
+def test_get_win_folder_via_ctypes_keeps_non_latin1_path(
+    mocker: MockerFixture, get_short_path_name: Callable[[str, ctypes.Array[ctypes.c_wchar], int], int]
+) -> None:
+    _setup_ctypes_mocks(mocker)
+    dlls = {
+        "ole32": MagicMock(),
+        "shell32": MagicMock(),
+        "kernel32": MagicMock(GetShortPathNameW=MagicMock(side_effect=get_short_path_name)),
+    }
+    mocker.patch.object(ctypes, "WinDLL", MagicMock(side_effect=dlls.__getitem__))
+    mocker.patch("ctypes.byref", side_effect=lambda x: x)
+    mocker.patch("ctypes.wintypes.LPWSTR", return_value=MagicMock(value=r"C:\Users\Łukasz\AppData\Local"))
+
+    try:
+        importlib.reload(windows)
+        from platformdirs.windows import get_win_folder_via_ctypes as fresh_fn  # ruff:ignore[import-outside-top-level]
+
+        result = fresh_fn("CSIDL_LOCAL_APPDATA")
+    finally:
+        _cleanup_ctypes_mocks()
+
+    assert result == r"C:\Users\Łukasz\AppData\Local"
 
 
 def test_get_win_folder_from_registry_unknown() -> None:
@@ -432,10 +510,36 @@ def test_get_win_folder_override(monkeypatch: pytest.MonkeyPatch, csidl_name: st
     assert get_win_folder(csidl_name) == override_path
 
 
-def test_get_win_folder_override_whitespace_only_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("   ", id="whitespace_only"),
+        pytest.param("appdata", id="relative"),
+        pytest.param(r"..\shared", id="parent_relative"),
+        pytest.param("D:", id="drive_only"),
+        pytest.param(r"D:appdata", id="drive_relative"),
+        pytest.param(r"\shared", id="rooted_without_drive"),
+    ],
+)
+def test_get_win_folder_override_ignored(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     monkeypatch.setattr("platformdirs.windows._resolve_win_folder", lambda csidl: _WIN_FOLDERS[csidl])
-    monkeypatch.setenv("WIN_PD_OVERRIDE_LOCAL_APPDATA", "   ")
+    monkeypatch.setenv("WIN_PD_OVERRIDE_LOCAL_APPDATA", value)
     assert get_win_folder("CSIDL_LOCAL_APPDATA") == _WIN_FOLDERS["CSIDL_LOCAL_APPDATA"]
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(r"X:\appdata", id="drive_backslash"),
+        pytest.param("X:/appdata", id="drive_slash"),
+        pytest.param(r"\\server\share", id="unc_share"),
+        pytest.param(r"\\server\share\appdata", id="unc_share_folder"),
+    ],
+)
+def test_get_win_folder_override_absolute(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    monkeypatch.setattr("platformdirs.windows._resolve_win_folder", lambda csidl: _WIN_FOLDERS[csidl])
+    monkeypatch.setenv("WIN_PD_OVERRIDE_LOCAL_APPDATA", value)
+    assert get_win_folder("CSIDL_LOCAL_APPDATA") == value
 
 
 def test_get_win_folder_override_not_set_falls_back(monkeypatch: pytest.MonkeyPatch) -> None:

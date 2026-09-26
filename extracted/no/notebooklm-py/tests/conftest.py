@@ -1,9 +1,9 @@
-"""Shared test fixtures."""
-
+import functools
 import importlib.util
 import json
 import os
 import re
+from pathlib import Path
 from urllib.parse import parse_qs
 
 import pytest
@@ -140,10 +140,10 @@ def _isolate_backend_preference(
 
 @pytest.fixture(autouse=True)
 def _reset_poke_state():
-    """Reset module-level rotation guards between tests.
+    """Reset process-owned auth lifecycle state between tests.
 
-    The ``notebooklm.auth`` rotation throttle keeps two pieces of module-global
-    state that persist across tests and would otherwise leak:
+    The process-default rotation owner keeps two pieces of state that persist
+    across tests and would otherwise leak:
 
     1. ``_LAST_POKE_ATTEMPT_MONOTONIC`` (``dict[Path | None, float]``) — keyed
        per-profile. Without clearing, the first test to poke any profile sets
@@ -165,32 +165,25 @@ def _reset_poke_state():
        test is asserting on (``tmp_path`` uniqueness makes real path collisions
        unlikely, but the drain makes the durable half deterministic).
     """
-    from notebooklm import auth as _auth
     from notebooklm._auth import cookie_policy as _cookie_policy
+    from notebooklm._auth import keepalive as _keepalive
     from notebooklm._auth.profile_migration import LegacyPromotionScheduler
 
     scheduler = LegacyPromotionScheduler.process_default()
 
-    # ``_LAST_POKE_ATTEMPT_MONOTONIC`` and ``_POKE_LOCKS_BY_LOOP`` are shared
-    # by identity across ``notebooklm.auth`` and ``notebooklm._auth.keepalive``
-    # (the auth-module re-export captures the same dict object). ``.clear()``
-    # mutates in place so reaching through either reference is equivalent.
-    #
-    # ``_SECONDARY_BINDING_WARNED`` lives on the cookie_policy seam since D1
-    # PR-2 retired the ``_AuthFacadeModule`` write-through. Reset on the
-    # owner directly; the auth-module re-export captured at import time was
-    # never the canonical store.
-    _auth._LAST_POKE_ATTEMPT_MONOTONIC.clear()
-    _auth._POKE_LOCKS_BY_LOOP.clear()
-    _cookie_policy._SECONDARY_BINDING_WARNED = False
+    # Rotation reset checks that no per-loop poke lock is still held.  The
+    # cookie-warning reset takes the same lock as the production claim path,
+    # so teardown cannot race an in-flight warning decision.
+    _keepalive._reset_poke_state_for_tests()
+    _cookie_policy._reset_secondary_binding_warning_for_tests()
     scheduler._reset_for_tests()
     yield
-    _auth._LAST_POKE_ATTEMPT_MONOTONIC.clear()
-    _auth._POKE_LOCKS_BY_LOOP.clear()
-    _cookie_policy._SECONDARY_BINDING_WARNED = False
-    # Join first, then clear — clearing while a worker is mid-write would let
-    # it land in the next test's world.
+    # Join first, then reset every process owner. Clearing any owner while a
+    # detached promotion is still alive would let that worker enter the next
+    # test's lifecycle after teardown had declared the process quiescent.
     scheduler.drain(30.0)
+    _keepalive._reset_poke_state_for_tests()
+    _cookie_policy._reset_secondary_binding_warning_for_tests()
     scheduler._reset_for_tests()
 
 
@@ -304,6 +297,15 @@ def pytest_addoption(parser):
             "pass exactly once; intended for the explicit browser CI lane."
         ),
     )
+    parser.addoption(
+        "--run-historical",
+        action="store_true",
+        default=False,
+        help=(
+            "Explicit opt-in to collect and run historical qualification tests. "
+            "Without this flag, tests in tests/qualification/historical/ are ignored."
+        ),
+    )
 
 
 @pytest.fixture
@@ -375,12 +377,66 @@ def pytest_configure(config):
         "code path via ``patch.dict('sys.modules', {'playwright': None})``. "
         "CI always installs the browser extra so marked tests run there.",
     )
+    config.addinivalue_line(
+        "markers",
+        "historical: historical qualification tests; explicit opt-in only via --run-historical",
+    )
+    config.addinivalue_line(
+        "markers",
+        "pr_contract: PR-critical contract and boundary checks required on PR lanes",
+    )
+    config.addinivalue_line(
+        "markers",
+        "compat_smoke: secondary-OS and platform compatibility smoke tests",
+    )
     # Disable Rich/Click formatting in tests to avoid ANSI escape codes in output
     # This ensures consistent test assertions regardless of -s flag
     # NO_COLOR disables colors, TERM=dumb disables all formatting (bold, etc.)
     # Force these values to ensure consistent behavior across all environments
     os.environ["NO_COLOR"] = "1"
     os.environ["TERM"] = "dumb"
+
+
+def pytest_ignore_collect(collection_path, config) -> bool | None:
+    """Ignore collection of historical qualification tests unless --run-historical is passed."""
+    if not config.getoption("--run-historical", default=False):
+        normalized = Path(collection_path).resolve().as_posix()
+        if "tests/qualification/historical" in normalized:
+            return True
+    return None
+
+
+@functools.lru_cache(maxsize=1)
+def _load_platform_manifest(rootpath: str) -> frozenset[str]:
+    manifest_path = Path(rootpath) / "tests" / "fixtures" / "ci-platform-selection.json"
+    if not manifest_path.is_file():
+        return frozenset()
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        return frozenset(data.get("paths", []))
+    except Exception:
+        return frozenset()
+
+
+@functools.lru_cache(maxsize=1)
+def _load_pr_contract_nodes(rootpath: str) -> frozenset[str]:
+    """Return ledger nodes that must enter the canonical PR contract lane.
+
+    The relevance ledger is the reviewed source of routing decisions.  Tests
+    may retain broad ``repo_lint`` module marks, so applying the effective
+    marker here prevents a ledger-only PR contract from disappearing from both
+    the routine selector and the explicit contract selector.
+    """
+    ledger_path = Path(rootpath) / "tests" / "fixtures" / "test_relevance_ledger.json"
+    try:
+        data = json.loads(ledger_path.read_text(encoding="utf-8"))
+        return frozenset(
+            entry["nodeid"]
+            for entry in data["entries"]
+            if entry.get("decision") == "pr_contract" and isinstance(entry.get("nodeid"), str)
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return frozenset()
 
 
 def pytest_collection_modifyitems(config, items):
@@ -391,6 +447,33 @@ def pytest_collection_modifyitems(config, items):
     raising ``ImportError`` at runtime. CI installs the extra, so this is a
     no-op there.
     """
+    if not config.getoption("--run-historical", default=False):
+        remaining = []
+        deselected = []
+        for item in items:
+            if item.get_closest_marker("historical"):
+                deselected.append(item)
+            else:
+                remaining.append(item)
+        if deselected:
+            config.hook.pytest_deselected(items=deselected)
+            items[:] = remaining
+
+    pr_contract_nodes = _load_pr_contract_nodes(str(config.rootpath))
+    for item in items:
+        nodeid = item.nodeid.split("[", 1)[0]
+        if nodeid in pr_contract_nodes and not item.get_closest_marker("pr_contract"):
+            item.add_marker(pytest.mark.pr_contract)
+        if item.get_closest_marker("pr_contract") and not item.get_closest_marker("repo_lint"):
+            item.add_marker(pytest.mark.repo_lint)
+
+    platform_paths = _load_platform_manifest(str(config.rootpath))
+    if platform_paths:
+        for item in items:
+            node_rel = item.nodeid.split("::")[0].replace("\\", "/")
+            if any(node_rel == p or node_rel.startswith(f"{p}/") for p in platform_paths):
+                item.add_marker(pytest.mark.compat_smoke)
+
     if _PLAYWRIGHT_INSTALLED:
         chromium_available = None
         for item in items:
@@ -688,58 +771,9 @@ def legacy_vcr_follow_up_probe(monkeypatch):
 
 
 @pytest.fixture
-def legacy_vcr_add_url_baseline(monkeypatch):
-    """Answer the pre-create source baseline omitted from legacy add_url cassettes.
-
-    ``sources.add_url`` snapshots the notebook's source ids before issuing the
-    create so its idempotency probe can tell a source it created from one that
-    was already there (#2204). Cassettes recorded before that change hold no
-    such ``GET_NOTEBOOK``. Without this fixture the read still *fires*: VCR
-    refuses it, the add swallows the failure, and the call proceeds with the
-    probe disabled — green, and silently not testing the thing it names. In a
-    cassette that also records later ``GET_NOTEBOOK``s the miss is worse, since
-    the baseline consumes a poll's response and desynchronises the journey.
-
-    Keep those recordings immutable and answer only the missing read. Every
-    consumer of this fixture replays a cassette whose create **succeeds**, so
-    the probe never runs and the returned value is never compared against
-    anything — ``[]`` is the neutral answer, not a claim about the notebook.
-    That invariant is enforced rather than trusted: a second call means the
-    probe fired, and the fixture fails the test instead of letting an invented
-    empty baseline license a match. Every other list still replays from the
-    cassette. The probe itself is covered against explicit request sequences in
-    ``tests/integration/test_sources_idempotency.py``, so nothing here is its
-    only coverage. Mirrors :func:`legacy_vcr_follow_up_probe`.
-    """
-    from notebooklm._web.sources.add import SourceAddService
-
-    original_add_url = SourceAddService.add_url
-
-    async def _add_url(self, notebook_id, url, *, list_sources, **kwargs):
-        calls = 0
-
-        async def _list_sources(nb_id: str):
-            nonlocal calls
-            calls += 1
-            if calls > 1:
-                raise AssertionError(
-                    "legacy_vcr_add_url_baseline: the idempotency probe fired, so this "
-                    "cassette's create did not succeed. The stubbed empty baseline would "
-                    "decide the probe's answer — record the probe's GET_NOTEBOOK instead "
-                    "of stubbing the baseline."
-                )
-            return []
-
-        result = await original_add_url(
-            self, notebook_id, url, list_sources=_list_sources, **kwargs
-        )
-        assert calls == 1, (
-            "legacy_vcr_add_url_baseline: add_url no longer captures a pre-create "
-            "baseline, so this fixture is stale — drop it."
-        )
-        return result
-
-    monkeypatch.setattr(SourceAddService, "add_url", _add_url)
+def legacy_vcr_add_url_baseline():
+    """Compatibility no-op for recordings made before URL creation became one-send."""
+    return None
 
 
 @pytest.fixture

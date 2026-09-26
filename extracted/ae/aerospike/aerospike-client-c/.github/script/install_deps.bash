@@ -1,0 +1,405 @@
+#!/usr/bin/env bash
+# Install build, test, docs and packaging dependencies for the Aerospike C
+# client on a bare distro base image — in one shot, per distro.
+#
+# This mirrors the aerospike-server repo's install_deps.bash pattern: a single
+# entry point that fully provisions the distro, with no build-vs-package
+# bifurcation. After this runs, `make all`, `make test`, `make docs` and
+# `make package` all work.
+#
+# Installed per distro:
+#   compiler + autotools : gcc, g++, make, autoconf, automake, libtool, m4
+#   link-time dev libs    : openssl(-devel), libyaml(-devel), zlib(-devel)
+#   one async event lib   : libev | libuv | libevent  (built from source,
+#                           versions mirror the repo's ./install_lib* scripts)
+#   docs (docs=true only) : doxygen (+ graphviz) — built from source where the
+#                           distro version is too old (Ubuntu) or absent
+#                           (RHEL / Amazon Linux); on RHEL flex+bison are built
+#                           from source (absent from all UBI repos)
+#   packaging             : zip + rpm-build (RHEL/AL) | dpkg-dev + fakeroot (deb)
+#
+# Lua is NOT installed: the client bundles it via the modules/lua submodule.
+#
+# Usage: install_deps.bash <distro> [event_lib] [valgrind=false] [docs=true]
+#
+#   distro:    ubuntu-22.04 | ubuntu-24.04 | ubuntu-26.04 | debian-12 | debian-13 |
+#              amazonlinux-2023 | rhel-8 | rhel-9 | rhel-10
+#   event_lib: libev (default) | libuv | libevent
+#   valgrind:  true | false (default)
+#   docs:      true (default) | false — skip doxygen/graphviz and their
+#              prerequisites (cmake, flex, bison); use false for build+test
+#              jobs that never run `make docs` or `make package`
+set -xeuo pipefail
+
+# Event-library versions — kept in sync with ./install_libev, ./install_libuv, ./install_libevent.
+LIBEV_VERSION="4.24"
+LIBUV_VERSION="1.15.0"
+LIBEVENT_VERSION="2.1.12-stable"
+
+# Doxygen built from source where the distro version is too old / missing.
+DOXYGEN_VERSION="1.12.0"
+
+SUDO=
+if [[ $(id -u) -ne 0 ]] && command -v sudo >/dev/null; then
+    SUDO=sudo
+fi
+
+# apt_update_arm64: runs apt-get update; on aarch64 switches ports.ubuntu.com to
+# mirrors.ocf.berkeley.edu (official US West Coast mirror) with azure.ports.ubuntu.com
+# as a fallback, working around unreachable Canonical UK servers from Azure westus3.
+apt_update_arm64() {
+    if [[ "$(uname -m)" != "aarch64" ]]; then
+        $SUDO apt-get update
+        return
+    fi
+
+    # Switch to OCF primary mirror
+    local changed=0
+    for f in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+        if [[ -f "$f" ]] && grep -q 'ports\.ubuntu\.com' "$f"; then
+            $SUDO sed -i 's|http://ports\.ubuntu\.com|http://mirrors.ocf.berkeley.edu|g' "$f"
+            changed=1
+        fi
+    done
+    [[ $changed -eq 1 ]] && echo "apt_update_arm64: using primary mirror mirrors.ocf.berkeley.edu"
+
+    if $SUDO apt-get update; then
+        return 0
+    fi
+
+    # Primary failed — fall back to azure.ports.ubuntu.com
+    echo "apt_update_arm64: primary mirror failed, falling back to azure.ports.ubuntu.com" >&2
+    for f in /etc/apt/sources.list /etc/apt/sources.list.d/ubuntu.sources; do
+        if [[ -f "$f" ]] && grep -q 'mirrors\.ocf\.berkeley\.edu' "$f"; then
+            $SUDO sed -i 's|http://mirrors\.ocf\.berkeley\.edu|http://azure.ports.ubuntu.com|g' "$f"
+        fi
+    done
+    $SUDO apt-get update
+}
+
+# apt_install <pkg>...: installs packages with per-file retries (Acquire::Retries=3,
+# 30 s timeout) and up to 3 outer retries with a fresh apt-get update between attempts.
+apt_install() {
+    local attempt=1
+    until $SUDO apt-get install -y --no-install-recommends \
+              -o Acquire::Retries=3 \
+              -o Acquire::http::Timeout=30 \
+              "$@"; do
+        if [[ $attempt -ge 3 ]]; then
+            echo "apt_install: failed after $attempt attempts — giving up" >&2
+            return 1
+        fi
+        echo "apt_install: attempt $attempt failed, retrying in 30 s..." >&2
+        sleep 30
+        $SUDO apt-get update
+        attempt=$((attempt + 1))
+    done
+}
+
+# Defaulted here so distro functions can reference it before main() sets it.
+INSTALL_DOCS=true
+
+# Compiler + autotools + link-time dev libs, common to a distro family.
+DEBIAN_DEPS='build-essential autoconf automake libtool make pkg-config git tar wget ca-certificates libssl-dev libyaml-dev zlib1g-dev'
+
+# `which`, `diffutils`, `file`, `findutils`, `gzip` are needed by autotools
+# configure scripts and by `tar xzf` on the minimal RHEL/AL images.
+EL_DEPS='gcc gcc-c++ make autoconf automake libtool m4 git tar wget which gzip diffutils file findutils openssl openssl-devel libyaml-devel'
+
+# Packaging deps (zip + distro packager).
+DEBIAN_PKG_DEPS='zip dpkg-dev fakeroot'
+EL_PKG_DEPS='zip rpm-build'
+
+# --- Per-distro install functions (full toolchain, single shot) ---------------------
+
+install_deps_ubuntu_2204() { install_ubuntu_common; }
+install_deps_ubuntu_2404() { install_ubuntu_common; }
+install_deps_ubuntu_2604() { install_ubuntu_common; }
+
+install_deps_debian_12() { install_debian_common; }
+install_deps_debian_13() { install_debian_common; }
+
+install_deps_amazonlinux_2023() {
+    local docs_pkgs=""
+    [[ "$INSTALL_DOCS" == "true" ]] && docs_pkgs="graphviz cmake flex bison python3"
+    # shellcheck disable=SC2086
+    $SUDO dnf install -y $EL_DEPS zlib-devel $EL_PKG_DEPS $docs_pkgs
+    $SUDO dnf clean all
+    if [[ "$INSTALL_DOCS" == "true" ]]; then build_doxygen; fi
+}
+
+install_deps_rhel_8() {
+    # ubi8-minimal: bison/flex are absent from all UBI 8 repos (BaseOS, AppStream,
+    # CodeReady Builder) → build both from source before doxygen.
+    local docs_pkgs=""
+    [[ "$INSTALL_DOCS" == "true" ]] && docs_pkgs="graphviz cmake python3"
+    # shellcheck disable=SC2086
+    microdnf install -y $EL_DEPS zlib-devel $EL_PKG_DEPS $docs_pkgs
+    microdnf clean all
+    if [[ "$INSTALL_DOCS" == "true" ]]; then
+        build_bison 3.4
+        build_flex 2.6.1
+        build_doxygen
+    fi
+}
+
+install_deps_rhel_9()  { install_el_minimal 3.7.4 2.6.4; }
+install_deps_rhel_10() { install_el_minimal 3.7.4 2.6.4; }
+
+# --- Family helpers -----------------------------------------------------------------
+
+# Debian apt ships a current-enough doxygen → no source build needed.
+install_debian_common() {
+    local docs_pkgs=""
+    [[ "$INSTALL_DOCS" == "true" ]] && docs_pkgs="doxygen graphviz"
+    apt_update_arm64
+    # shellcheck disable=SC2086
+    apt_install $DEBIAN_DEPS $DEBIAN_PKG_DEPS $docs_pkgs
+}
+
+# Ubuntu apt doxygen is too old → build from source (cmake/flex/bison).
+install_ubuntu_common() {
+    local docs_pkgs=""
+    [[ "$INSTALL_DOCS" == "true" ]] && docs_pkgs="graphviz cmake flex bison python3"
+    apt_update_arm64
+    # shellcheck disable=SC2086
+    apt_install $DEBIAN_DEPS $DEBIAN_PKG_DEPS $docs_pkgs
+    if [[ "$INSTALL_DOCS" == "true" ]]; then build_doxygen; fi
+}
+
+# ubi9/ubi10-minimal: zlib-devel is not in microdnf's default repos → pull via dnf.
+# bison/flex are absent from all UBI repos → built from source before doxygen.
+install_el_minimal() {
+    local bison_ver="$1" flex_ver="$2"
+    local docs_pkgs=""
+    [[ "$INSTALL_DOCS" == "true" ]] && docs_pkgs="graphviz cmake python3"
+    # shellcheck disable=SC2086
+    microdnf install -y $EL_DEPS $EL_PKG_DEPS $docs_pkgs
+    microdnf install -y dnf
+    $SUDO dnf install -y zlib-devel --setopt=install_weak_deps=False --nodocs
+    $SUDO dnf clean all
+    microdnf clean all
+    if [[ "$INSTALL_DOCS" == "true" ]]; then
+        build_bison "$bison_ver"
+        build_flex "$flex_ver"
+        build_doxygen
+    fi
+}
+
+run_ldconfig() {
+    if command -v ldconfig >/dev/null; then
+        $SUDO ldconfig
+    fi
+}
+
+# --- Event library (one of, from source) --------------------------------------------
+
+build_event_lib() {
+    local lib="$1"
+    case "$lib" in
+    libev)    build_libev ;;
+    libuv)    build_libuv ;;
+    libevent) build_libevent ;;
+    all)
+        build_libev
+        build_libuv
+        build_libevent
+        ;;
+    *)
+        echo "Unsupported event_lib: $lib (expected libev|libuv|libevent|all)" >&2
+        exit 1
+        ;;
+    esac
+    run_ldconfig
+}
+
+build_libev() {
+    local dir="libev-${LIBEV_VERSION}"
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    # libev is HTTP-only (no upstream HTTPS).
+    wget -q "http://dist.schmorp.de/libev/Attic/${dir}.tar.gz"
+    tar xzf "${dir}.tar.gz"
+    pushd "$dir" >/dev/null
+    ./configure -q
+    make -j"$(nproc)" CFLAGS=-w
+    $SUDO make install
+    popd >/dev/null
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+build_libuv() {
+    local dir="libuv-v${LIBUV_VERSION}"
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    wget -q "http://dist.libuv.org/dist/v${LIBUV_VERSION}/${dir}.tar.gz"
+    tar xzf "${dir}.tar.gz"
+    pushd "$dir" >/dev/null
+    sh autogen.sh
+    ./configure -q
+    make -j"$(nproc)" CFLAGS=-w
+    $SUDO make install
+    popd >/dev/null
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+build_libevent() {
+    local dir="libevent-${LIBEVENT_VERSION}"
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    wget -q "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}/${dir}.tar.gz"
+    tar xzf "${dir}.tar.gz"
+    pushd "$dir" >/dev/null
+    ./configure -q
+    make -j"$(nproc)" CFLAGS=-w
+    $SUDO make install
+    popd >/dev/null
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+# --- Docs toolchain (built from source where packaged version is unusable) ----------
+
+build_doxygen() {
+    local dir="doxygen-${DOXYGEN_VERSION}"
+    local tag="Release_${DOXYGEN_VERSION//./_}"
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    wget -q "https://github.com/doxygen/doxygen/releases/download/${tag}/${dir}.src.tar.gz"
+    tar xzf "${dir}.src.tar.gz"
+    cmake -S "$dir" -B "$dir/build" -G "Unix Makefiles"
+    cmake --build "$dir/build" -j"$(nproc)"
+    $SUDO cmake --install "$dir/build"
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+# bison/flex are absent from all UBI repos → built from source on all RHEL variants.
+build_bison() {
+    local ver="$1"
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    # ftpmirror.gnu.org routes to the nearest healthy GNU mirror;
+    # ftp.gnu.org (single origin) is unreliable from ARM64 CI runners.
+    wget -q "https://ftpmirror.gnu.org/bison/bison-${ver}.tar.gz"
+    tar xzf "bison-${ver}.tar.gz"
+    pushd "bison-${ver}" >/dev/null
+    ./configure --prefix=/usr/local
+    make MAKEINFO=true
+    $SUDO make install
+    popd >/dev/null
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+build_flex() {
+    local ver="$1"
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    wget -q "https://github.com/westes/flex/releases/download/v${ver}/flex-${ver}.tar.gz"
+    tar xzf "flex-${ver}.tar.gz"
+    pushd "flex-${ver}" >/dev/null
+    ./configure --prefix=/usr/local
+    make -j"$(nproc)"
+    $SUDO make install
+    popd >/dev/null
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+build_valgrind() {
+    local version=3.25.1
+    local src
+    src="$(mktemp -d)"
+    pushd "$src" >/dev/null
+    wget -q "https://sourceware.org/pub/valgrind/valgrind-${version}.tar.bz2"
+    tar -xjf "valgrind-${version}.tar.bz2"
+    pushd "valgrind-${version}" >/dev/null
+    ./configure --prefix=/usr
+    make -j"$(nproc)"
+    $SUDO make install
+    popd >/dev/null
+    popd >/dev/null
+    rm -rf "$src"
+}
+
+# install_valgrind: builds from source on RHEL (no usable package); uses the distro package elsewhere.
+install_valgrind() {
+    local distro="$1"
+
+    if command -v valgrind &>/dev/null; then
+        echo "valgrind already installed ($(valgrind --version)) – skipping"
+        return 0
+    fi
+
+    case "$distro" in
+    rhel-*)
+        build_valgrind
+        ;;
+    *)
+        if command -v apt-get &>/dev/null; then
+            apt_install valgrind
+        elif command -v dnf &>/dev/null; then
+            $SUDO dnf install -y valgrind
+        elif command -v microdnf &>/dev/null; then
+            microdnf install -y valgrind
+        elif command -v yum &>/dev/null; then
+            $SUDO yum install -y valgrind
+        else
+            echo "No supported package manager found to install valgrind" >&2
+            exit 1
+        fi
+        ;;
+    esac
+}
+
+# --- Main ---------------------------------------------------------------------------
+
+main() {
+    if [[ $# -lt 1 || $# -gt 4 ]]; then
+        echo "Usage: install_deps.bash <distro> [event_lib] [valgrind=false] [docs=true]" >&2
+        exit 1
+    fi
+
+    local distro="$1"
+    local event_lib="${2:-sync}"
+    local valgrind="${3:-false}"
+    INSTALL_DOCS="${4:-true}"
+    export DEBIAN_FRONTEND=noninteractive
+
+    case "$distro" in
+    ubuntu-22.04)     install_deps_ubuntu_2204 ;;
+    ubuntu-24.04)     install_deps_ubuntu_2404 ;;
+    ubuntu-26.04)     install_deps_ubuntu_2604 ;;
+    debian-12)        install_deps_debian_12 ;;
+    debian-13)        install_deps_debian_13 ;;
+    amazonlinux-2023) install_deps_amazonlinux_2023 ;;
+    rhel-8)           install_deps_rhel_8 ;;
+    rhel-9)           install_deps_rhel_9 ;;
+    rhel-10)          install_deps_rhel_10 ;;
+    *)
+        echo "Unsupported distro: $distro" >&2
+        exit 1
+        ;;
+    esac
+
+    if [[ "$event_lib" != "sync" ]]; then
+        build_event_lib "$event_lib"
+    fi
+
+    if [[ "$valgrind" == "true" ]]; then
+        install_valgrind "$distro"
+    fi
+
+    echo "Dependencies installed for $distro (event_lib=$event_lib, valgrind=$valgrind, docs=$INSTALL_DOCS)."
+}
+
+main "$@"

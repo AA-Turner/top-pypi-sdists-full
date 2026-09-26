@@ -24,6 +24,7 @@ struct TaskId {
 }
 
 pub struct StatsigRuntime {
+    output_policy: crate::output_policy::OutputPolicy,
     spawned_tasks: Arc<Mutex<HashMap<TaskId, JoinHandle<()>>>>,
     shutdown_notify: Arc<Notify>,
     is_shutdown: Arc<AtomicBool>,
@@ -63,6 +64,7 @@ impl StatsigRuntime {
             sdk_runtime_thread_count.is_some() || runtime_thread_start_callback.is_some();
 
         Arc::new(StatsigRuntime {
+            output_policy: crate::output_policy::OutputPolicy::current(),
             spawned_tasks: Arc::new(Mutex::new(HashMap::new())),
             shutdown_notify: Arc::new(Notify::new()),
             is_shutdown: Arc::new(AtomicBool::new(false)),
@@ -129,6 +131,7 @@ impl StatsigRuntime {
     }
 
     pub fn shutdown(&self) {
+        let _output_scope = self.output_policy.enter();
         self.shutdown_notify.notify_waiters();
 
         match self.spawned_tasks.try_lock_for(Duration::from_secs(5)) {
@@ -152,10 +155,13 @@ impl StatsigRuntime {
         let shutdown_notify = self.shutdown_notify.clone();
         let spawned_tasks = self.spawned_tasks.clone();
         let is_shutdown = self.is_shutdown.clone();
+        // Capture the scheduling client's policy before crossing the task boundary. The
+        // wrapper also scopes cancellation cleanup; a shared instance ID cannot supply it.
+        let output_policy = crate::output_policy::OutputPolicy::current();
 
         log_d!(TAG, "Spawning task {}", tag);
 
-        let handle = self.get_handle()?.spawn(async move {
+        let handle = self.get_handle()?.spawn(output_policy.scope(async move {
             if is_shutdown.load(std::sync::atomic::Ordering::Relaxed) {
                 return;
             }
@@ -164,7 +170,7 @@ impl StatsigRuntime {
             log_d!(TAG, "Executing task {}.{}", tag_string, task_id);
             task(shutdown_notify).await;
             remove_join_handle_with_id(spawned_tasks, tag_string, &task_id);
-        });
+        }));
 
         Ok(self.insert_join_handle(tag, handle))
     }

@@ -11,8 +11,10 @@ from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
 from cloudflare.pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from cloudflare.types.cache import (
-    OriginCloudRegion,
+    OriginCloudRegionGetResponse,
+    OriginCloudRegionListResponse,
     OriginCloudRegionDeleteResponse,
+    OriginCloudRegionUpdateResponse,
     OriginCloudRegionBulkDeleteResponse,
     OriginCloudRegionBulkUpdateResponse,
     OriginCloudRegionSupportedRegionsResponse,
@@ -34,7 +36,7 @@ class TestOriginCloudRegions:
             region="us-east-1",
             vendor="aws",
         )
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionUpdateResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism -- route not in spec")
     @parametrize
@@ -50,7 +52,7 @@ class TestOriginCloudRegions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         origin_cloud_region = response.parse()
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionUpdateResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism -- route not in spec")
     @parametrize
@@ -66,7 +68,7 @@ class TestOriginCloudRegions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             origin_cloud_region = response.parse()
-            assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+            assert_matches_type(Optional[OriginCloudRegionUpdateResponse], origin_cloud_region, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -97,7 +99,9 @@ class TestOriginCloudRegions:
         origin_cloud_region = client.cache.origin_cloud_regions.list(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(SyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(
+            SyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+        )
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -107,7 +111,9 @@ class TestOriginCloudRegions:
             page=1,
             per_page=1,
         )
-        assert_matches_type(SyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(
+            SyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+        )
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -119,7 +125,9 @@ class TestOriginCloudRegions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         origin_cloud_region = response.parse()
-        assert_matches_type(SyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(
+            SyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+        )
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -131,7 +139,9 @@ class TestOriginCloudRegions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             origin_cloud_region = response.parse()
-            assert_matches_type(SyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+            assert_matches_type(
+                SyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -334,7 +344,7 @@ class TestOriginCloudRegions:
             origin_ip="192.0.2.1",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionGetResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -347,7 +357,7 @@ class TestOriginCloudRegions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         origin_cloud_region = response.parse()
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionGetResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -360,7 +370,7 @@ class TestOriginCloudRegions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             origin_cloud_region = response.parse()
-            assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+            assert_matches_type(Optional[OriginCloudRegionGetResponse], origin_cloud_region, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -439,7 +449,7 @@ class TestAsyncOriginCloudRegions:
             region="us-east-1",
             vendor="aws",
         )
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionUpdateResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism -- route not in spec")
     @parametrize
@@ -455,7 +465,7 @@ class TestAsyncOriginCloudRegions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         origin_cloud_region = await response.parse()
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionUpdateResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism -- route not in spec")
     @parametrize
@@ -471,7 +481,7 @@ class TestAsyncOriginCloudRegions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             origin_cloud_region = await response.parse()
-            assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+            assert_matches_type(Optional[OriginCloudRegionUpdateResponse], origin_cloud_region, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -502,7 +512,9 @@ class TestAsyncOriginCloudRegions:
         origin_cloud_region = await async_client.cache.origin_cloud_regions.list(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(AsyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(
+            AsyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+        )
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -512,7 +524,9 @@ class TestAsyncOriginCloudRegions:
             page=1,
             per_page=1,
         )
-        assert_matches_type(AsyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(
+            AsyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+        )
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -524,7 +538,9 @@ class TestAsyncOriginCloudRegions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         origin_cloud_region = await response.parse()
-        assert_matches_type(AsyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(
+            AsyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+        )
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -536,7 +552,9 @@ class TestAsyncOriginCloudRegions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             origin_cloud_region = await response.parse()
-            assert_matches_type(AsyncV4PagePaginationArray[OriginCloudRegion], origin_cloud_region, path=["response"])
+            assert_matches_type(
+                AsyncV4PagePaginationArray[OriginCloudRegionListResponse], origin_cloud_region, path=["response"]
+            )
 
         assert cast(Any, response.is_closed) is True
 
@@ -739,7 +757,7 @@ class TestAsyncOriginCloudRegions:
             origin_ip="192.0.2.1",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionGetResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -752,7 +770,7 @@ class TestAsyncOriginCloudRegions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         origin_cloud_region = await response.parse()
-        assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+        assert_matches_type(Optional[OriginCloudRegionGetResponse], origin_cloud_region, path=["response"])
 
     @pytest.mark.skip(reason="HTTP 404 error from prism")
     @parametrize
@@ -765,7 +783,7 @@ class TestAsyncOriginCloudRegions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             origin_cloud_region = await response.parse()
-            assert_matches_type(Optional[OriginCloudRegion], origin_cloud_region, path=["response"])
+            assert_matches_type(Optional[OriginCloudRegionGetResponse], origin_cloud_region, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

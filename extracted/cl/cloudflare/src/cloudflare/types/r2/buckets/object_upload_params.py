@@ -16,8 +16,9 @@ class ObjectUploadParams(TypedDict, total=False):
     bucket_name: Required[str]
     """Name of the bucket."""
 
-    jurisdiction: Annotated[Literal["default", "eu", "us", "fedramp"], PropertyInfo(alias="cf-r2-jurisdiction")]
-    """Jurisdiction where objects in this bucket are guaranteed to be stored."""
+    cf_r2_jurisdiction: Annotated[
+        Literal["default", "eu", "us", "fedramp", "fedramp-high"], PropertyInfo(alias="cf-r2-jurisdiction")
+    ]
 
     cf_r2_storage_class: Annotated[Literal["Standard", "InfrequentAccess"], PropertyInfo(alias="cf-r2-storage-class")]
     """Storage class for newly uploaded objects, unless specified otherwise."""

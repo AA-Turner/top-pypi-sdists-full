@@ -32,10 +32,6 @@ class ConnectorCreateParams(TypedDict, total=False):
 
     notes: str
 
-    primary: bool
-
-    site_id: str
-
     timezone: str
 
 

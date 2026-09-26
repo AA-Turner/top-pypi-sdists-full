@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: semhash
-Version: 0.4.1
+Version: 0.4.2
 Summary: Fast Multimodal Semantic Deduplication & Filtering
-Author-email: Thomas van Dongen <thomas123@live.nl>, Stéphan Tulkens <stephantul@gmail.com>
+Author-email: Thomas van Dongen <thomasvdongen@proton.me>, Stéphan Tulkens <stephantul@gmail.com>
 License: MIT License
         
         Copyright (c) 2024 The Minish Lab

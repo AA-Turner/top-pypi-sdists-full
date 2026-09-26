@@ -83,8 +83,8 @@ class FlagsResource(SyncAPIResource):
     ) -> FlagCreateResponse:
         """Creates a flag.
 
-        Returns 409 if the key already exists. `type` is inferred from
-        variation values and may be omitted.
+        Returns 409 if the key already exists. `type` is always inferred
+        from variation values; legacy request-side values are ignored.
 
         Args:
           account_id: Cloudflare account ID.
@@ -105,8 +105,8 @@ class FlagsResource(SyncAPIResource):
           variations: Map of variation name to value. All values share the same type (boolean, string,
               number, or JSON object/array), and each serialized value stays within 10KB.
 
-          type: Value type of the flag's variations. The API infers this from the variation
-              values on write, so you can omit it in requests.
+          type: Deprecated compatibility field. Omit it; the API ignores this value and infers
+              the type from the flag's variations.
 
           extra_headers: Send extra headers
 
@@ -190,8 +190,8 @@ class FlagsResource(SyncAPIResource):
           variations: Map of variation name to value. All values share the same type (boolean, string,
               number, or JSON object/array), and each serialized value stays within 10KB.
 
-          type: Value type of the flag's variations. The API infers this from the variation
-              values on write, so you can omit it in requests.
+          type: Deprecated compatibility field. Omit it; the API ignores this value and infers
+              the type from the flag's variations.
 
           extra_headers: Send extra headers
 
@@ -451,8 +451,8 @@ class AsyncFlagsResource(AsyncAPIResource):
     ) -> FlagCreateResponse:
         """Creates a flag.
 
-        Returns 409 if the key already exists. `type` is inferred from
-        variation values and may be omitted.
+        Returns 409 if the key already exists. `type` is always inferred
+        from variation values; legacy request-side values are ignored.
 
         Args:
           account_id: Cloudflare account ID.
@@ -473,8 +473,8 @@ class AsyncFlagsResource(AsyncAPIResource):
           variations: Map of variation name to value. All values share the same type (boolean, string,
               number, or JSON object/array), and each serialized value stays within 10KB.
 
-          type: Value type of the flag's variations. The API infers this from the variation
-              values on write, so you can omit it in requests.
+          type: Deprecated compatibility field. Omit it; the API ignores this value and infers
+              the type from the flag's variations.
 
           extra_headers: Send extra headers
 
@@ -558,8 +558,8 @@ class AsyncFlagsResource(AsyncAPIResource):
           variations: Map of variation name to value. All values share the same type (boolean, string,
               number, or JSON object/array), and each serialized value stays within 10KB.
 
-          type: Value type of the flag's variations. The API infers this from the variation
-              values on write, so you can omit it in requests.
+          type: Deprecated compatibility field. Omit it; the API ignores this value and infers
+              the type from the flag's variations.
 
           extra_headers: Send extra headers
 

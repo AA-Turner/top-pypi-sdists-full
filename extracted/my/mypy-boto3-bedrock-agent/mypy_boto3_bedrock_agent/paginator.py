@@ -26,6 +26,7 @@ Usage::
         ListKnowledgeBaseDocumentsPaginator,
         ListKnowledgeBasesPaginator,
         ListPromptsPaginator,
+        ListVpcConfigurationsPaginator,
     )
 
     session = Session()
@@ -45,6 +46,7 @@ Usage::
     list_knowledge_base_documents_paginator: ListKnowledgeBaseDocumentsPaginator = client.get_paginator("list_knowledge_base_documents")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_prompts_paginator: ListPromptsPaginator = client.get_paginator("list_prompts")
+    list_vpc_configurations_paginator: ListVpcConfigurationsPaginator = client.get_paginator("list_vpc_configurations")
     ```
 """
 
@@ -84,6 +86,8 @@ from .type_defs import (
     ListKnowledgeBasesResponseTypeDef,
     ListPromptsRequestPaginateTypeDef,
     ListPromptsResponseTypeDef,
+    ListVpcConfigurationsRequestPaginateTypeDef,
+    ListVpcConfigurationsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -107,6 +111,7 @@ __all__ = (
     "ListKnowledgeBaseDocumentsPaginator",
     "ListKnowledgeBasesPaginator",
     "ListPromptsPaginator",
+    "ListVpcConfigurationsPaginator",
 )
 
 
@@ -401,4 +406,25 @@ class ListPromptsPaginator(_ListPromptsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListPrompts.html#AgentsforBedrock.Paginator.ListPrompts.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listpromptspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListVpcConfigurationsPaginatorBase = Paginator[ListVpcConfigurationsResponseTypeDef]
+else:
+    _ListVpcConfigurationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListVpcConfigurationsPaginator(_ListVpcConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListVpcConfigurations.html#AgentsforBedrock.Paginator.ListVpcConfigurations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listvpcconfigurationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListVpcConfigurationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListVpcConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent/paginator/ListVpcConfigurations.html#AgentsforBedrock.Paginator.ListVpcConfigurations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agent/paginators/#listvpcconfigurationspaginator)
         """

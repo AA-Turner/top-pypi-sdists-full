@@ -16,12 +16,6 @@ class UsageGetAccountUsageV2ResponseItem(BaseModel):
     A single cost and usage record for a metered product within a specific charge period, aligned with the FinOps FOCUS v1.3 specification.
     """
 
-    billing_account_id: str = FieldInfo(alias="BillingAccountId")
-    """Public identifier of the Cloudflare account (account tag)."""
-
-    billing_account_name: str = FieldInfo(alias="BillingAccountName")
-    """Display name of the Cloudflare account."""
-
     charge_category: Literal["Usage"] = FieldInfo(alias="ChargeCategory")
     """
     Highest-level classification of a charge based on the nature of how it gets
@@ -67,17 +61,23 @@ class UsageGetAccountUsageV2ResponseItem(BaseModel):
     Cloudflare extension; replaces FOCUS SkuId.
     """
 
-    x_billable_metric_name: str = FieldInfo(alias="x_BillableMetricName")
-    """The display name of the billable metric.
-
-    Cloudflare extension; replaces FOCUS SkuMeter.
-    """
-
     billed_cost: Optional[float] = FieldInfo(alias="BilledCost", default=None)
     """
     A charge serving as the basis for invoicing, inclusive of all reduced rates and
     discounts while excluding the amortization of upfront charges (one-time or
     recurring).
+    """
+
+    billing_account_id: Optional[str] = FieldInfo(alias="BillingAccountId", default=None)
+    """Public identifier of the Cloudflare account (account tag).
+
+    Omitted when account is not part of the requested grouping.
+    """
+
+    billing_account_name: Optional[str] = FieldInfo(alias="BillingAccountName", default=None)
+    """Display name of the Cloudflare account.
+
+    Omitted when account is not part of the requested grouping.
     """
 
     billing_currency: Optional[str] = FieldInfo(alias="BillingCurrency", default=None)
@@ -163,6 +163,12 @@ class UsageGetAccountUsageV2ResponseItem(BaseModel):
 
     Omitted when `GroupBy` is not provided. Missing keys are omitted, and key-only
     tags are returned as boolean `true`. All other tag values are strings.
+    """
+
+    x_billable_metric_name: Optional[str] = FieldInfo(alias="x_BillableMetricName", default=None)
+    """The display name of the billable metric.
+
+    Cloudflare extension; replaces FOCUS SkuMeter.
     """
 
     x_product_category_name: Optional[str] = FieldInfo(alias="x_ProductCategoryName", default=None)

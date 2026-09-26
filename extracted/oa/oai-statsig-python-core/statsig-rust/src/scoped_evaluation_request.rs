@@ -10,7 +10,7 @@ use crate::evaluation::evaluation_types::LayerEvaluation;
 use crate::hashing::HashUtil;
 use crate::id_lists_adapter::{IdList, IdListMetadata};
 use crate::interned_string::InternedString;
-use crate::scoped_id_list_membership_service::ScopedIdListMembershipService;
+use crate::scoped_id_list_membership_service::{MembershipResults, ScopedIdListMembershipService};
 use crate::scoped_snapshot_registry::EvaluationEngine;
 use crate::snapshot_evaluation_session::{
     SnapshotConfigEvaluation, SnapshotEvaluationSession, SnapshotGateEvaluation,
@@ -270,7 +270,6 @@ impl ScopedEvaluationRequest {
         tenant_key: &str,
     ) {
         let user = StatsigUserInternal::new(&self.user, None);
-        let hashing = HashUtil::new();
         let mapping = self
             .pinned
             .data
@@ -280,12 +279,11 @@ impl ScopedEvaluationRequest {
                 let unit = user
                     .get_unit_id(&condition.id_type)
                     .and_then(|value| value.string_value())?;
-                let lookup = hashing.sha256(unit).chars().take(8).collect::<String>();
-                Some((condition.name.clone(), lookup))
+                Some((condition.name.clone(), unit.to_string()))
             })
             .collect::<HashMap<_, _>>();
-        let memberships = service.resolve(tenant_key, mapping).await;
-        let id_lists = materialize_id_list_memberships(memberships.as_ref());
+        let memberships = service.resolve(tenant_key, mapping.clone()).await;
+        let id_lists = materialize_id_list_memberships(memberships.as_ref(), &mapping);
         let mut pinned = self.pinned.data.as_ref().clone();
         pinned.id_lists = Arc::new(id_lists);
         self.pinned.data = Arc::new(pinned);
@@ -728,18 +726,25 @@ impl ScopedEvaluationRequest {
     }
 }
 
-fn materialize_id_list_memberships(memberships: &HashSet<String>) -> HashMap<String, IdList> {
+fn materialize_id_list_memberships(
+    memberships: &MembershipResults,
+    mapping: &HashMap<String, String>,
+) -> HashMap<String, IdList> {
+    let hashing = HashUtil::new();
     let mut lookup_ids: HashMap<&str, Arc<HashSet<String>>> = HashMap::new();
 
-    memberships
+    mapping
         .iter()
-        .filter_map(|membership| {
-            let (name, lookup) = membership.rsplit_once('|')?;
-            let ids = Arc::clone(
-                lookup_ids
-                    .entry(lookup)
-                    .or_insert_with(|| Arc::new(HashSet::from([lookup.to_string()]))),
-            );
+        .filter_map(|(name, lookup)| {
+            // Match the requested pair without splitting raw IDs that may contain '|'.
+            if !memberships.contains(&format!("{name}|{lookup}")) {
+                return None;
+            }
+            let ids = Arc::clone(lookup_ids.entry(lookup.as_str()).or_insert_with(|| {
+                // The membership server returns raw IDs; the evaluator uses hashes.
+                let hash = hashing.sha256(lookup).chars().take(8).collect::<String>();
+                Arc::new(HashSet::from([hash]))
+            }));
             let name = name.to_string();
 
             Some((
@@ -883,15 +888,24 @@ mod tests {
 
     #[test]
     fn materialized_memberships_share_identical_lookups_without_mixing_units() {
-        let memberships = HashSet::from([
+        let memberships = [
             "employees|abcdefgh".to_string(),
             "testers|abcdefgh".to_string(),
             "nested|list|abcdefgh".to_string(),
             "accounts|12345678".to_string(),
             "malformed-membership".to_string(),
-        ]);
+        ]
+        .into_iter()
+        .collect::<crate::scoped_id_list_membership_service::MembershipResults>();
 
-        let id_lists = materialize_id_list_memberships(&memberships);
+        let mapping = HashMap::from([
+            ("employees".to_string(), "abcdefgh".to_string()),
+            ("testers".to_string(), "abcdefgh".to_string()),
+            ("nested|list".to_string(), "abcdefgh".to_string()),
+            ("accounts".to_string(), "12345678".to_string()),
+            ("missing".to_string(), "abcdefgh".to_string()),
+        ]);
+        let id_lists = materialize_id_list_memberships(&memberships, &mapping);
 
         assert_eq!(id_lists.len(), 4);
         assert!(Arc::ptr_eq(
@@ -906,10 +920,34 @@ mod tests {
             &id_lists["employees"].ids,
             &id_lists["accounts"].ids
         ));
-        assert!(id_lists["employees"].ids.contains("abcdefgh"));
-        assert!(!id_lists["employees"].ids.contains("12345678"));
-        assert!(id_lists["accounts"].ids.contains("12345678"));
-        assert!(!id_lists["accounts"].ids.contains("abcdefgh"));
+        // SHA-256/base64 prefixes, not raw IDs, are stored for local evaluation.
+        assert_eq!(
+            *id_lists["employees"].ids,
+            HashSet::from(["nFbMUbN0".to_string()])
+        );
+        assert_eq!(
+            *id_lists["accounts"].ids,
+            HashSet::from(["73l8gRjw".to_string()])
+        );
+    }
+
+    #[test]
+    fn materialized_memberships_preserve_raw_id_case_and_delimiters() {
+        let mapping = HashMap::from([
+            ("members".to_string(), "User|AbC".to_string()),
+            ("nonmembers".to_string(), "user|abc".to_string()),
+        ]);
+        let memberships = ["members|User|AbC".to_string()]
+            .into_iter()
+            .collect::<crate::scoped_id_list_membership_service::MembershipResults>();
+        let id_lists = materialize_id_list_memberships(&memberships, &mapping);
+        let hashing = crate::hashing::HashUtil::new();
+        let expected: String = hashing.sha256("User|AbC").chars().take(8).collect();
+        let lowercased: String = hashing.sha256("user|abc").chars().take(8).collect();
+
+        assert_eq!(id_lists.len(), 1);
+        assert!(id_lists["members"].ids.contains(&expected));
+        assert!(!id_lists["members"].ids.contains(&lowercased));
     }
 
     #[tokio::test]

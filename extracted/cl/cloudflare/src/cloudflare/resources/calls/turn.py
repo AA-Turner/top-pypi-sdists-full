@@ -62,7 +62,7 @@ class TURNResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNCreateResponse]:
         """
-        Creates a new Cloudflare Calls TURN key.
+        Creates a new Realtime TURN key.
 
         Args:
           account_id: The account identifier tag.
@@ -106,7 +106,7 @@ class TURNResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNUpdateResponse]:
         """
-        Edit details for a single TURN key.
+        Updates details for a single TURN key.
 
         Args:
           account_id: The account identifier tag.
@@ -152,7 +152,7 @@ class TURNResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[TURNListResponse]:
         """
-        Lists all TURN keys in the Cloudflare account
+        Lists all TURN keys in the Cloudflare account.
 
         Args:
           account_id: The account identifier tag.
@@ -189,7 +189,7 @@ class TURNResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNDeleteResponse]:
         """
-        Deletes a TURN key from Cloudflare Calls
+        Deletes a Realtime TURN key.
 
         Args:
           account_id: The account identifier tag.
@@ -298,7 +298,7 @@ class AsyncTURNResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNCreateResponse]:
         """
-        Creates a new Cloudflare Calls TURN key.
+        Creates a new Realtime TURN key.
 
         Args:
           account_id: The account identifier tag.
@@ -342,7 +342,7 @@ class AsyncTURNResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNUpdateResponse]:
         """
-        Edit details for a single TURN key.
+        Updates details for a single TURN key.
 
         Args:
           account_id: The account identifier tag.
@@ -388,7 +388,7 @@ class AsyncTURNResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[TURNListResponse, AsyncSinglePage[TURNListResponse]]:
         """
-        Lists all TURN keys in the Cloudflare account
+        Lists all TURN keys in the Cloudflare account.
 
         Args:
           account_id: The account identifier tag.
@@ -425,7 +425,7 @@ class AsyncTURNResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[TURNDeleteResponse]:
         """
-        Deletes a TURN key from Cloudflare Calls
+        Deletes a Realtime TURN key.
 
         Args:
           account_id: The account identifier tag.

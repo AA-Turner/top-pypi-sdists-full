@@ -1,4 +1,5 @@
 import os
+from enum import StrEnum
 from os import environ, getenv
 from typing import TYPE_CHECKING, Annotated, Literal, TypeVar, cast
 
@@ -205,6 +206,9 @@ LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES = env(
     "LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES", cast=int, default=300 * 1024 * 1024
 )
 LSD_PUBLISH_QUEUE_SIZE = env("LSD_PUBLISH_QUEUE_SIZE", cast=int, default=512)
+LSD_CACHE_PACKAGES_DISTRIBUTIONS = env(
+    "LSD_CACHE_PACKAGES_DISTRIBUTIONS", cast=bool, default=True
+)
 # Per-run protocol v2 event buffer size. Each ``EventStreamingSession``
 # retains at most this many normalized protocol events for
 # reconnecting clients to replay via the body ``since`` cursor.
@@ -253,14 +257,18 @@ MCP_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_mcp")
 A2A_ENABLED = HTTP_CONFIG is None or not HTTP_CONFIG.get("disable_a2a")
 
 
-def _parse_allowed_tool_call_results(value: str) -> frozenset[str]:
+def _parse_tool_names(value: str) -> frozenset[str]:
     return frozenset(name.strip() for name in value.split(",") if name.strip())
 
 
 A2A_ALLOWED_TOOL_CALL_RESULTS = env(
     "A2A_ALLOWED_TOOL_CALL_RESULTS",
-    cast=_parse_allowed_tool_call_results,
+    cast=_parse_tool_names,
     default=None,
+)
+A2A_A2UI_ENABLED = env("A2A_A2UI_ENABLED", cast=bool, default=False)
+A2A_A2UI_TOOL_CALL_RESULTS = env(
+    "A2A_A2UI_TOOL_CALL_RESULTS", cast=_parse_tool_names, default=""
 )
 WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
 # Not in public docs: populated by langgraph.json config, not set as env var directly
@@ -395,6 +403,35 @@ if THREAD_TTL is None and CHECKPOINTER_CONFIG is not None:
     THREAD_TTL = CHECKPOINTER_CONFIG.get("ttl")
 
 N_JOBS_PER_WORKER = env("N_JOBS_PER_WORKER", cast=int, default=10)
+
+
+class DispatchMode(StrEnum):
+    """How background runs are dispatched.
+
+    single-process: Python queue loop in the API process (default).
+    multi-process: Go queue worker claims runs and dispatches to Python runners.
+    """
+
+    SINGLE_PROCESS = "single-process"
+    MULTI_PROCESS = "multi-process"
+
+
+def _parse_dispatch_mode(value: str) -> DispatchMode:
+    try:
+        return DispatchMode(value)
+    except ValueError:
+        allowed = ", ".join(repr(mode.value) for mode in DispatchMode)
+        raise ValueError(
+            f"Invalid DISPATCH_MODE={value!r}; expected one of: {allowed}"
+        ) from None
+
+
+# Not in public docs: infrastructure dispatch mode
+DISPATCH_MODE: DispatchMode = env(
+    "DISPATCH_MODE",
+    cast=_parse_dispatch_mode,
+    default=DispatchMode.SINGLE_PROCESS,
+)
 BG_JOB_TIMEOUT_SECS = env("BG_JOB_TIMEOUT_SECS", cast=float, default=86400)
 STREAM_PUBLISH_RETRY_MAX_DURATION_SECS = env(
     "LSD_STREAM_PUBLISH_RETRY_MAX_DURATION_SECS",
@@ -686,6 +723,7 @@ __all__ = [
     "DATA_PLANE_JWT_SECRET",
     "DATA_PLANE_ORG_ID",
     "DB_MIGRATION_BY_CORE_API",
+    "DISPATCH_MODE",
     "EXPOSE_INTERNAL_METRICS_PROMETHEUS",
     "FF_CRONS_ENABLED",
     "FF_LOG_DROPPED_EVENTS",
@@ -766,6 +804,7 @@ __all__ = [
     "AuthConfig",
     "CheckpointerConfig",
     "CorsConfig",
+    "DispatchMode",
     "HttpConfig",
     "SerdeConfig",
     "StoreConfig",

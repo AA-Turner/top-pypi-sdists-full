@@ -51,15 +51,13 @@ class SpeechScriptContent:
         if not variables:
             return False
         from matrx_ai.config.prompt_values import prompt_safe_value
-
-        rendered = {name: prompt_safe_value(value) for name, value in variables.items()}
+        from matrx_ai.config.template_substitution import substitute_authored
 
         def fill(value: Any) -> Any:
             if not isinstance(value, str):
                 return value
-            for name, replacement in rendered.items():
-                value = value.replace(f"{{{{{name}}}}}", replacement)
-            return value
+            # One pass: a value's own braces are data, never re-filled.
+            return substitute_authored(value, value, variables, prompt_safe_value)
 
         self.turns = [
             {key: (fill(val) if key in ("text", "direction", "voice", "speaker") else val)

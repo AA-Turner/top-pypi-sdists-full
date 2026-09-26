@@ -69,7 +69,7 @@ def start_ioc(database=None, macros='', dbs=None, extra_dbd_load=(), extra_dso_l
     if dbs is None:
         dbs = []
     if database is not None:
-        dbs += [(database, macros)]
+        dbs = dbs + [(database, macros)]
 
     def out(msg, *args):
         sys.stderr.write(msg%args)

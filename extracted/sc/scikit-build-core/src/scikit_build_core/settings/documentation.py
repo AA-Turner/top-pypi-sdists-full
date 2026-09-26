@@ -2,7 +2,6 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "ast",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat.typing",
     "inspect",
     "packaging",
     "packaging.specifiers",
@@ -10,6 +9,7 @@ __lazy_modules__ = {
     "pathlib",
     "textwrap",
     "typing",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.utils.typing",
 }
 
 import ast
@@ -18,12 +18,13 @@ import inspect
 import textwrap
 import typing
 from pathlib import Path
+from typing import Annotated, get_args, get_origin
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 from .. import __version__
-from .._compat.typing import Annotated, get_args, get_origin
+from ..utils.typing import NoneType
 
 TYPE_CHECKING = False
 
@@ -39,8 +40,6 @@ def __dir__() -> list[str]:
 
 
 version_display = ".".join(__version__.split(".")[:2])
-
-NoneType = type(None)
 
 
 def _get_value(value: ast.expr) -> str:
@@ -64,6 +63,30 @@ def pull_docs(dc: type[object]) -> dict[str, str]:
     }
 
 
+def _flat_expressible(field_type: typing.Any) -> bool:
+    """
+    Whether a field can be set through a flat source (``config-settings`` or a
+    ``SKBUILD_*`` environment variable).
+
+    Both sources reject arrays of tables (handled separately via the ``[]`` name
+    marker) and can't round-trip nested mappings (e.g. a dict of dicts), so no
+    flat key is advertised for those. Dicts of scalars (including
+    ``cmake.define``) and lists of scalars are fine.
+    """
+    origin = get_origin(field_type)
+    if origin is Annotated:
+        return _flat_expressible(get_args(field_type)[0])
+    if origin is typing.Union:
+        return all(
+            _flat_expressible(arg)
+            for arg in get_args(field_type)
+            if arg is not NoneType
+        )
+    if origin is dict:
+        return get_origin(get_args(field_type)[1]) not in (dict, list)
+    return True
+
+
 @dataclasses.dataclass(frozen=True)
 class DCDoc:
     name: str
@@ -75,13 +98,22 @@ class DCDoc:
     override_only: bool = False
     choices: tuple[str, ...] = ()
 
+    def flat_expressible(self) -> bool:
+        """
+        Whether the option can be set via ``config-settings`` or an env var.
+
+        Arrays of tables (``generate[]``) and nested mappings can only be set in
+        ``pyproject.toml``, so the flat forms are skipped for them.
+        """
+        return "[]" not in self.name and _flat_expressible(self.field.type)
+
 
 def sanitize_default_field(text: str) -> str:
     return text.replace("'", '"').replace("True", "true").replace("False", "false")
 
 
 def is_optional(field: type) -> bool:
-    return get_origin(field) is typing.Union and type(None) in get_args(field)
+    return get_origin(field) is typing.Union and NoneType in get_args(field)
 
 
 def get_display_type(field_type: type | str) -> str:
@@ -170,7 +202,7 @@ def mk_docs(dc: type[object], prefix: str = "") -> Generator[DCDoc, None, None]:
 
         yield DCDoc(
             name=f"{prefix}{field.name}".replace("_", "-"),
-            type=field.metadata.get("display_type", get_display_type(field.type)),
+            type=get_display_type(field.type),
             default=sanitize_default_field(default),
             docs=docs[field.name],
             field=field,

@@ -345,7 +345,7 @@ class DurableAIAgentWorker:
 
             dt_ctx = DurableTaskWorkflowContext(context)
             outputs = yield from run_workflow_orchestrator(dt_ctx, captured_workflow, initial_message, shared_state)
-            return outputs  # ruff:ignore[return-in-generator]
+            return outputs  # noqa: B901
 
         workflow_orchestrator.__name__ = orchestrator_name
         workflow_orchestrator.__qualname__ = orchestrator_name

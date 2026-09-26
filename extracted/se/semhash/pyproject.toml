@@ -1,7 +1,7 @@
 [project]
 name = "semhash"
 description = "Fast Multimodal Semantic Deduplication & Filtering"
-authors = [{name = "Thomas van Dongen", email = "thomas123@live.nl"}, { name = "Stéphan Tulkens", email = "stephantul@gmail.com"}]
+authors = [{name = "Thomas van Dongen", email = "thomasvdongen@proton.me"}, { name = "Stéphan Tulkens", email = "stephantul@gmail.com"}]
 readme = { file = "README.md", content-type = "text/markdown" }
 dynamic = ["version"]
 license = { file = "LICENSE" }
@@ -95,8 +95,14 @@ ignore_missing_imports = true
 packages = ["semhash"]
 license-files = []
 
+[tool.setuptools.package-data]
+semhash = ["py.typed"]
+
 [tool.setuptools_scm]
 # can be empty if no extra settings are needed, presence enables setuptools_scm
 
 [tool.setuptools.dynamic]
 version = {attr = "semhash.version.__version__"}
+
+[tool.uv]
+exclude-newer = "1 week"

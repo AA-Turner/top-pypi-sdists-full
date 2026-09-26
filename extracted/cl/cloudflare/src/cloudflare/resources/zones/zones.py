@@ -67,6 +67,14 @@ from ..._response import (
 )
 from ..._wrappers import ResultWrapper
 from ...pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
+from .entitlements import (
+    EntitlementsResource,
+    AsyncEntitlementsResource,
+    EntitlementsResourceWithRawResponse,
+    AsyncEntitlementsResourceWithRawResponse,
+    EntitlementsResourceWithStreamingResponse,
+    AsyncEntitlementsResourceWithStreamingResponse,
+)
 from .environments import (
     EnvironmentsResource,
     AsyncEnvironmentsResource,
@@ -111,6 +119,14 @@ from .transformations_c2pa import (
     TransformationsC2paResourceWithStreamingResponse,
     AsyncTransformationsC2paResourceWithStreamingResponse,
 )
+from .observability.observability import (
+    ObservabilityResource,
+    AsyncObservabilityResource,
+    ObservabilityResourceWithRawResponse,
+    AsyncObservabilityResourceWithRawResponse,
+    ObservabilityResourceWithStreamingResponse,
+    AsyncObservabilityResourceWithStreamingResponse,
+)
 from .transformations_allowed_origins import (
     TransformationsAllowedOriginsResource,
     AsyncTransformationsAllowedOriginsResource,
@@ -128,6 +144,10 @@ class ZonesResource(SyncAPIResource):
     @cached_property
     def activation_check(self) -> ActivationCheckResource:
         return ActivationCheckResource(self._client)
+
+    @cached_property
+    def observability(self) -> ObservabilityResource:
+        return ObservabilityResource(self._client)
 
     @cached_property
     def settings(self) -> SettingsResource:
@@ -168,6 +188,10 @@ class ZonesResource(SyncAPIResource):
     @cached_property
     def rate_plans(self) -> RatePlansResource:
         return RatePlansResource(self._client)
+
+    @cached_property
+    def entitlements(self) -> EntitlementsResource:
+        return EntitlementsResource(self._client)
 
     @cached_property
     def ct(self) -> CTResource:
@@ -485,6 +509,10 @@ class AsyncZonesResource(AsyncAPIResource):
         return AsyncActivationCheckResource(self._client)
 
     @cached_property
+    def observability(self) -> AsyncObservabilityResource:
+        return AsyncObservabilityResource(self._client)
+
+    @cached_property
     def settings(self) -> AsyncSettingsResource:
         return AsyncSettingsResource(self._client)
 
@@ -523,6 +551,10 @@ class AsyncZonesResource(AsyncAPIResource):
     @cached_property
     def rate_plans(self) -> AsyncRatePlansResource:
         return AsyncRatePlansResource(self._client)
+
+    @cached_property
+    def entitlements(self) -> AsyncEntitlementsResource:
+        return AsyncEntitlementsResource(self._client)
 
     @cached_property
     def ct(self) -> AsyncCTResource:
@@ -859,6 +891,10 @@ class ZonesResourceWithRawResponse:
         return ActivationCheckResourceWithRawResponse(self._zones.activation_check)
 
     @cached_property
+    def observability(self) -> ObservabilityResourceWithRawResponse:
+        return ObservabilityResourceWithRawResponse(self._zones.observability)
+
+    @cached_property
     def settings(self) -> SettingsResourceWithRawResponse:
         return SettingsResourceWithRawResponse(self._zones.settings)
 
@@ -899,6 +935,10 @@ class ZonesResourceWithRawResponse:
         return RatePlansResourceWithRawResponse(self._zones.rate_plans)
 
     @cached_property
+    def entitlements(self) -> EntitlementsResourceWithRawResponse:
+        return EntitlementsResourceWithRawResponse(self._zones.entitlements)
+
+    @cached_property
     def ct(self) -> CTResourceWithRawResponse:
         return CTResourceWithRawResponse(self._zones.ct)
 
@@ -926,6 +966,10 @@ class AsyncZonesResourceWithRawResponse:
     @cached_property
     def activation_check(self) -> AsyncActivationCheckResourceWithRawResponse:
         return AsyncActivationCheckResourceWithRawResponse(self._zones.activation_check)
+
+    @cached_property
+    def observability(self) -> AsyncObservabilityResourceWithRawResponse:
+        return AsyncObservabilityResourceWithRawResponse(self._zones.observability)
 
     @cached_property
     def settings(self) -> AsyncSettingsResourceWithRawResponse:
@@ -968,6 +1012,10 @@ class AsyncZonesResourceWithRawResponse:
         return AsyncRatePlansResourceWithRawResponse(self._zones.rate_plans)
 
     @cached_property
+    def entitlements(self) -> AsyncEntitlementsResourceWithRawResponse:
+        return AsyncEntitlementsResourceWithRawResponse(self._zones.entitlements)
+
+    @cached_property
     def ct(self) -> AsyncCTResourceWithRawResponse:
         return AsyncCTResourceWithRawResponse(self._zones.ct)
 
@@ -995,6 +1043,10 @@ class ZonesResourceWithStreamingResponse:
     @cached_property
     def activation_check(self) -> ActivationCheckResourceWithStreamingResponse:
         return ActivationCheckResourceWithStreamingResponse(self._zones.activation_check)
+
+    @cached_property
+    def observability(self) -> ObservabilityResourceWithStreamingResponse:
+        return ObservabilityResourceWithStreamingResponse(self._zones.observability)
 
     @cached_property
     def settings(self) -> SettingsResourceWithStreamingResponse:
@@ -1037,6 +1089,10 @@ class ZonesResourceWithStreamingResponse:
         return RatePlansResourceWithStreamingResponse(self._zones.rate_plans)
 
     @cached_property
+    def entitlements(self) -> EntitlementsResourceWithStreamingResponse:
+        return EntitlementsResourceWithStreamingResponse(self._zones.entitlements)
+
+    @cached_property
     def ct(self) -> CTResourceWithStreamingResponse:
         return CTResourceWithStreamingResponse(self._zones.ct)
 
@@ -1064,6 +1120,10 @@ class AsyncZonesResourceWithStreamingResponse:
     @cached_property
     def activation_check(self) -> AsyncActivationCheckResourceWithStreamingResponse:
         return AsyncActivationCheckResourceWithStreamingResponse(self._zones.activation_check)
+
+    @cached_property
+    def observability(self) -> AsyncObservabilityResourceWithStreamingResponse:
+        return AsyncObservabilityResourceWithStreamingResponse(self._zones.observability)
 
     @cached_property
     def settings(self) -> AsyncSettingsResourceWithStreamingResponse:
@@ -1106,6 +1166,10 @@ class AsyncZonesResourceWithStreamingResponse:
     @cached_property
     def rate_plans(self) -> AsyncRatePlansResourceWithStreamingResponse:
         return AsyncRatePlansResourceWithStreamingResponse(self._zones.rate_plans)
+
+    @cached_property
+    def entitlements(self) -> AsyncEntitlementsResourceWithStreamingResponse:
+        return AsyncEntitlementsResourceWithStreamingResponse(self._zones.entitlements)
 
     @cached_property
     def ct(self) -> AsyncCTResourceWithStreamingResponse:

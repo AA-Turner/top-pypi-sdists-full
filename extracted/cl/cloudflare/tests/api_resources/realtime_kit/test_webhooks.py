@@ -28,7 +28,7 @@ class TestWebhooks:
     @parametrize
     def test_method_create_webhook(self, client: Cloudflare) -> None:
         webhook = client.realtime_kit.webhooks.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -50,7 +50,7 @@ class TestWebhooks:
     @parametrize
     def test_method_create_webhook_with_all_params(self, client: Cloudflare) -> None:
         webhook = client.realtime_kit.webhooks.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -73,7 +73,7 @@ class TestWebhooks:
     @parametrize
     def test_raw_response_create_webhook(self, client: Cloudflare) -> None:
         response = client.realtime_kit.webhooks.with_raw_response.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -99,7 +99,7 @@ class TestWebhooks:
     @parametrize
     def test_streaming_response_create_webhook(self, client: Cloudflare) -> None:
         with client.realtime_kit.webhooks.with_streaming_response.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -128,7 +128,7 @@ class TestWebhooks:
     def test_path_params_create_webhook(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.webhooks.with_raw_response.create_webhook(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
                 events=[
                     "meeting.started",
@@ -170,7 +170,7 @@ class TestWebhooks:
         webhook = client.realtime_kit.webhooks.delete_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(WebhookDeleteWebhookResponse, webhook, path=["response"])
 
@@ -180,7 +180,7 @@ class TestWebhooks:
         response = client.realtime_kit.webhooks.with_raw_response.delete_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -194,7 +194,7 @@ class TestWebhooks:
         with client.realtime_kit.webhooks.with_streaming_response.delete_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -211,7 +211,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.delete_webhook(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -225,7 +225,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.delete_webhook(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -234,7 +234,7 @@ class TestWebhooks:
         webhook = client.realtime_kit.webhooks.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(WebhookEditWebhookResponse, webhook, path=["response"])
 
@@ -244,7 +244,7 @@ class TestWebhooks:
         webhook = client.realtime_kit.webhooks.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             enabled=True,
             events=["meeting.started"],
             name="name",
@@ -258,7 +258,7 @@ class TestWebhooks:
         response = client.realtime_kit.webhooks.with_raw_response.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -272,7 +272,7 @@ class TestWebhooks:
         with client.realtime_kit.webhooks.with_streaming_response.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -289,7 +289,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.edit_webhook(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -303,7 +303,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.edit_webhook(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -312,7 +312,7 @@ class TestWebhooks:
         webhook = client.realtime_kit.webhooks.get_webhook_by_id(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(WebhookGetWebhookByIDResponse, webhook, path=["response"])
 
@@ -322,7 +322,7 @@ class TestWebhooks:
         response = client.realtime_kit.webhooks.with_raw_response.get_webhook_by_id(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -336,7 +336,7 @@ class TestWebhooks:
         with client.realtime_kit.webhooks.with_streaming_response.get_webhook_by_id(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -353,7 +353,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.get_webhook_by_id(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -367,14 +367,14 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.get_webhook_by_id(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
     @parametrize
     def test_method_get_webhooks(self, client: Cloudflare) -> None:
         webhook = client.realtime_kit.webhooks.get_webhooks(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(WebhookGetWebhooksResponse, webhook, path=["response"])
@@ -383,7 +383,7 @@ class TestWebhooks:
     @parametrize
     def test_raw_response_get_webhooks(self, client: Cloudflare) -> None:
         response = client.realtime_kit.webhooks.with_raw_response.get_webhooks(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -396,7 +396,7 @@ class TestWebhooks:
     @parametrize
     def test_streaming_response_get_webhooks(self, client: Cloudflare) -> None:
         with client.realtime_kit.webhooks.with_streaming_response.get_webhooks(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -412,7 +412,7 @@ class TestWebhooks:
     def test_path_params_get_webhooks(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.webhooks.with_raw_response.get_webhooks(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -428,7 +428,7 @@ class TestWebhooks:
         webhook = client.realtime_kit.webhooks.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -451,7 +451,7 @@ class TestWebhooks:
         webhook = client.realtime_kit.webhooks.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -475,7 +475,7 @@ class TestWebhooks:
         response = client.realtime_kit.webhooks.with_raw_response.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -502,7 +502,7 @@ class TestWebhooks:
         with client.realtime_kit.webhooks.with_streaming_response.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -532,7 +532,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.replace_webhook(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 events=[
                     "meeting.started",
                     "meeting.ended",
@@ -572,7 +572,7 @@ class TestWebhooks:
             client.realtime_kit.webhooks.with_raw_response.replace_webhook(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 events=[
                     "meeting.started",
                     "meeting.ended",
@@ -598,7 +598,7 @@ class TestAsyncWebhooks:
     @parametrize
     async def test_method_create_webhook(self, async_client: AsyncCloudflare) -> None:
         webhook = await async_client.realtime_kit.webhooks.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -620,7 +620,7 @@ class TestAsyncWebhooks:
     @parametrize
     async def test_method_create_webhook_with_all_params(self, async_client: AsyncCloudflare) -> None:
         webhook = await async_client.realtime_kit.webhooks.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -643,7 +643,7 @@ class TestAsyncWebhooks:
     @parametrize
     async def test_raw_response_create_webhook(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.webhooks.with_raw_response.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -669,7 +669,7 @@ class TestAsyncWebhooks:
     @parametrize
     async def test_streaming_response_create_webhook(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.webhooks.with_streaming_response.create_webhook(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             events=[
                 "meeting.started",
@@ -698,7 +698,7 @@ class TestAsyncWebhooks:
     async def test_path_params_create_webhook(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.webhooks.with_raw_response.create_webhook(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
                 events=[
                     "meeting.started",
@@ -740,7 +740,7 @@ class TestAsyncWebhooks:
         webhook = await async_client.realtime_kit.webhooks.delete_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(WebhookDeleteWebhookResponse, webhook, path=["response"])
 
@@ -750,7 +750,7 @@ class TestAsyncWebhooks:
         response = await async_client.realtime_kit.webhooks.with_raw_response.delete_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -764,7 +764,7 @@ class TestAsyncWebhooks:
         async with async_client.realtime_kit.webhooks.with_streaming_response.delete_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -781,7 +781,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.delete_webhook(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -795,7 +795,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.delete_webhook(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -804,7 +804,7 @@ class TestAsyncWebhooks:
         webhook = await async_client.realtime_kit.webhooks.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(WebhookEditWebhookResponse, webhook, path=["response"])
 
@@ -814,7 +814,7 @@ class TestAsyncWebhooks:
         webhook = await async_client.realtime_kit.webhooks.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             enabled=True,
             events=["meeting.started"],
             name="name",
@@ -828,7 +828,7 @@ class TestAsyncWebhooks:
         response = await async_client.realtime_kit.webhooks.with_raw_response.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -842,7 +842,7 @@ class TestAsyncWebhooks:
         async with async_client.realtime_kit.webhooks.with_streaming_response.edit_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -859,7 +859,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.edit_webhook(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -873,7 +873,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.edit_webhook(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
@@ -882,7 +882,7 @@ class TestAsyncWebhooks:
         webhook = await async_client.realtime_kit.webhooks.get_webhook_by_id(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
         assert_matches_type(WebhookGetWebhookByIDResponse, webhook, path=["response"])
 
@@ -892,7 +892,7 @@ class TestAsyncWebhooks:
         response = await async_client.realtime_kit.webhooks.with_raw_response.get_webhook_by_id(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         )
 
         assert response.is_closed is True
@@ -906,7 +906,7 @@ class TestAsyncWebhooks:
         async with async_client.realtime_kit.webhooks.with_streaming_response.get_webhook_by_id(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -923,7 +923,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.get_webhook_by_id(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `app_id` but received ''"):
@@ -937,14 +937,14 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.get_webhook_by_id(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             )
 
     @pytest.mark.skip(reason="TODO: auth not handled well")
     @parametrize
     async def test_method_get_webhooks(self, async_client: AsyncCloudflare) -> None:
         webhook = await async_client.realtime_kit.webhooks.get_webhooks(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(WebhookGetWebhooksResponse, webhook, path=["response"])
@@ -953,7 +953,7 @@ class TestAsyncWebhooks:
     @parametrize
     async def test_raw_response_get_webhooks(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.webhooks.with_raw_response.get_webhooks(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -966,7 +966,7 @@ class TestAsyncWebhooks:
     @parametrize
     async def test_streaming_response_get_webhooks(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.webhooks.with_streaming_response.get_webhooks(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -982,7 +982,7 @@ class TestAsyncWebhooks:
     async def test_path_params_get_webhooks(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.webhooks.with_raw_response.get_webhooks(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -998,7 +998,7 @@ class TestAsyncWebhooks:
         webhook = await async_client.realtime_kit.webhooks.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -1021,7 +1021,7 @@ class TestAsyncWebhooks:
         webhook = await async_client.realtime_kit.webhooks.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -1045,7 +1045,7 @@ class TestAsyncWebhooks:
         response = await async_client.realtime_kit.webhooks.with_raw_response.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -1072,7 +1072,7 @@ class TestAsyncWebhooks:
         async with async_client.realtime_kit.webhooks.with_streaming_response.replace_webhook(
             webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             events=[
                 "meeting.started",
                 "meeting.ended",
@@ -1102,7 +1102,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.replace_webhook(
                 webhook_id="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 account_id="",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 events=[
                     "meeting.started",
                     "meeting.ended",
@@ -1142,7 +1142,7 @@ class TestAsyncWebhooks:
             await async_client.realtime_kit.webhooks.with_raw_response.replace_webhook(
                 webhook_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 events=[
                     "meeting.started",
                     "meeting.ended",

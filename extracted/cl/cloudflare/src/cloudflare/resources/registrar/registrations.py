@@ -85,6 +85,17 @@ class RegistrationsResource(SyncAPIResource):
         - Use `POST /domain-check` immediately before calling this endpoint to confirm
           real-time availability and pricing.
 
+        ### Supported extensions
+
+        This API supports programmatic registration for all extensions supported by the
+        dashboard experience, with the following exceptions:
+
+        `giving`, `mom`, `inc`, `lol`, `sh`, `link`, `cc`, `new`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        listed above can be registered at
+        `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
         ### Express mode
 
         The only required field is `domain_name`. If `contacts` is omitted, the system
@@ -132,10 +143,6 @@ class RegistrationsResource(SyncAPIResource):
           acknowledgements: Provides user acknowledgements for a specific extension or premium registration
               flow. The extension registration schema from the extension discovery endpoint
               identifies the required keys.
-
-          acknowledgements: User acknowledgements required by a specific extension or premium registration
-              flow. The expected keys are described by the extension registration schema
-              returned by the extension discovery endpoint.
 
           auto_renew: Enable or disable automatic renewal. Defaults to `false` if omitted. Setting
               this field to `true` is an explicit opt-in authorizing Cloudflare to charge the
@@ -479,6 +486,17 @@ class AsyncRegistrationsResource(AsyncAPIResource):
         - Use `POST /domain-check` immediately before calling this endpoint to confirm
           real-time availability and pricing.
 
+        ### Supported extensions
+
+        This API supports programmatic registration for all extensions supported by the
+        dashboard experience, with the following exceptions:
+
+        `giving`, `mom`, `inc`, `lol`, `sh`, `link`, `cc`, `new`
+
+        Cloudflare Registrar supports 400+ extensions in the dashboard. Extensions
+        listed above can be registered at
+        `https://dash.cloudflare.com/{account_id}/domains/registrations`.
+
         ### Express mode
 
         The only required field is `domain_name`. If `contacts` is omitted, the system
@@ -526,10 +544,6 @@ class AsyncRegistrationsResource(AsyncAPIResource):
           acknowledgements: Provides user acknowledgements for a specific extension or premium registration
               flow. The extension registration schema from the extension discovery endpoint
               identifies the required keys.
-
-          acknowledgements: User acknowledgements required by a specific extension or premium registration
-              flow. The expected keys are described by the extension registration schema
-              returned by the extension discovery endpoint.
 
           auto_renew: Enable or disable automatic renewal. Defaults to `false` if omitted. Setting
               this field to `true` is an explicit opt-in authorizing Cloudflare to charge the

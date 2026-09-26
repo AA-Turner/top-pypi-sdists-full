@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from matrice_analytics.engine.primitives.base import (
     REGISTRY,
+    AttributeRef,
     Clock,
     CustomPrimitive,
     FrameClock,
@@ -48,6 +49,7 @@ __all__ = [
     "CustomPrimitive",
     "conformance_problems",
     # what a primitive sees
+    "AttributeRef",
     "FrameContext",
     "Keypoint",
     "MaskRef",
@@ -85,6 +87,9 @@ __all__ = [
 # each module, so adding a primitive is one line here and nothing else.
 #
 # Import for side effects (registration); the classes are re-exported below.
+from matrice_analytics.engine.primitives.attribute_band import AttributeBand
+from matrice_analytics.engine.primitives.attribute_count import AttributeCount
+from matrice_analytics.engine.primitives.attribute_vote import AttributeVote
 from matrice_analytics.engine.primitives.detect import Detect
 from matrice_analytics.engine.primitives.dwell import Dwell
 from matrice_analytics.engine.primitives.incident_quantise import IncidentQuantise
@@ -99,6 +104,9 @@ from matrice_analytics.engine.primitives.velocity_state import VelocityState
 from matrice_analytics.engine.primitives.zone_occupancy import ZoneOccupancy
 
 __all__ += [
+    "AttributeBand",
+    "AttributeCount",
+    "AttributeVote",
     "Detect",
     "Dwell",
     "IncidentQuantise",

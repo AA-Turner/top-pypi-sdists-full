@@ -33,6 +33,14 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._wrappers import ResultWrapper
+from .transfer_in import (
+    TransferInResource,
+    AsyncTransferInResource,
+    TransferInResourceWithRawResponse,
+    AsyncTransferInResourceWithRawResponse,
+    TransferInResourceWithStreamingResponse,
+    AsyncTransferInResourceWithStreamingResponse,
+)
 from .registrations import (
     RegistrationsResource,
     AsyncRegistrationsResource,
@@ -51,6 +59,14 @@ from .update_status import (
 )
 from ..._base_client import make_request_options
 from ...types.registrar import registrar_check_params, registrar_search_params
+from .transfer_in_status import (
+    TransferInStatusResource,
+    AsyncTransferInStatusResource,
+    TransferInStatusResourceWithRawResponse,
+    AsyncTransferInStatusResourceWithRawResponse,
+    TransferInStatusResourceWithStreamingResponse,
+    AsyncTransferInStatusResourceWithStreamingResponse,
+)
 from .registration_status import (
     RegistrationStatusResource,
     AsyncRegistrationStatusResource,
@@ -180,6 +196,14 @@ class RegistrarResource(SyncAPIResource):
     @cached_property
     def extensions(self) -> ExtensionsResource:
         return ExtensionsResource(self._client)
+
+    @cached_property
+    def transfer_in(self) -> TransferInResource:
+        return TransferInResource(self._client)
+
+    @cached_property
+    def transfer_in_status(self) -> TransferInStatusResource:
+        return TransferInStatusResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> RegistrarResourceWithRawResponse:
@@ -508,6 +532,14 @@ class AsyncRegistrarResource(AsyncAPIResource):
         return AsyncExtensionsResource(self._client)
 
     @cached_property
+    def transfer_in(self) -> AsyncTransferInResource:
+        return AsyncTransferInResource(self._client)
+
+    @cached_property
+    def transfer_in_status(self) -> AsyncTransferInStatusResource:
+        return AsyncTransferInStatusResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> AsyncRegistrarResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -748,6 +780,14 @@ class RegistrarResourceWithRawResponse:
     def extensions(self) -> ExtensionsResourceWithRawResponse:
         return ExtensionsResourceWithRawResponse(self._registrar.extensions)
 
+    @cached_property
+    def transfer_in(self) -> TransferInResourceWithRawResponse:
+        return TransferInResourceWithRawResponse(self._registrar.transfer_in)
+
+    @cached_property
+    def transfer_in_status(self) -> TransferInStatusResourceWithRawResponse:
+        return TransferInStatusResourceWithRawResponse(self._registrar.transfer_in_status)
+
 
 class AsyncRegistrarResourceWithRawResponse:
     def __init__(self, registrar: AsyncRegistrarResource) -> None:
@@ -779,6 +819,14 @@ class AsyncRegistrarResourceWithRawResponse:
     @cached_property
     def extensions(self) -> AsyncExtensionsResourceWithRawResponse:
         return AsyncExtensionsResourceWithRawResponse(self._registrar.extensions)
+
+    @cached_property
+    def transfer_in(self) -> AsyncTransferInResourceWithRawResponse:
+        return AsyncTransferInResourceWithRawResponse(self._registrar.transfer_in)
+
+    @cached_property
+    def transfer_in_status(self) -> AsyncTransferInStatusResourceWithRawResponse:
+        return AsyncTransferInStatusResourceWithRawResponse(self._registrar.transfer_in_status)
 
 
 class RegistrarResourceWithStreamingResponse:
@@ -812,6 +860,14 @@ class RegistrarResourceWithStreamingResponse:
     def extensions(self) -> ExtensionsResourceWithStreamingResponse:
         return ExtensionsResourceWithStreamingResponse(self._registrar.extensions)
 
+    @cached_property
+    def transfer_in(self) -> TransferInResourceWithStreamingResponse:
+        return TransferInResourceWithStreamingResponse(self._registrar.transfer_in)
+
+    @cached_property
+    def transfer_in_status(self) -> TransferInStatusResourceWithStreamingResponse:
+        return TransferInStatusResourceWithStreamingResponse(self._registrar.transfer_in_status)
+
 
 class AsyncRegistrarResourceWithStreamingResponse:
     def __init__(self, registrar: AsyncRegistrarResource) -> None:
@@ -843,3 +899,11 @@ class AsyncRegistrarResourceWithStreamingResponse:
     @cached_property
     def extensions(self) -> AsyncExtensionsResourceWithStreamingResponse:
         return AsyncExtensionsResourceWithStreamingResponse(self._registrar.extensions)
+
+    @cached_property
+    def transfer_in(self) -> AsyncTransferInResourceWithStreamingResponse:
+        return AsyncTransferInResourceWithStreamingResponse(self._registrar.transfer_in)
+
+    @cached_property
+    def transfer_in_status(self) -> AsyncTransferInStatusResourceWithStreamingResponse:
+        return AsyncTransferInStatusResourceWithStreamingResponse(self._registrar.transfer_in_status)

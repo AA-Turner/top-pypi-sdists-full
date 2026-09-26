@@ -1,35 +1,23 @@
 import asyncio
 import time
 import uuid
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
 import structlog
 from langgraph.errors import GraphRecursionError
-from langgraph.pregel.debug import CheckpointPayload, TaskResultPayload
+from langgraph.pregel.debug import CheckpointPayload
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
-import langgraph_api.logging as lg_logging
-from langgraph_api.auth.custom import SimpleUser, normalize_user
-from langgraph_api.config import (
-    BG_JOB_MAX_RETRIES,
-    BG_JOB_TIMEOUT_SECS,
-    USE_CUSTOM_CHECKPOINTER,
-)
+from langgraph_api.config import BG_JOB_MAX_RETRIES, BG_JOB_TIMEOUT_SECS
 from langgraph_api.encryption.context import set_encryption_context
 from langgraph_api.encryption.middleware import (
     decrypt_response,
     extract_blob_encryption_context,
 )
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
-from langgraph_api.feature_flags import (
-    IS_POSTGRES_OR_GRPC_BACKEND,
-    PREFER_GRPC_CHECKPOINTER,
-)
-from langgraph_api.graph import restore_dd_trace_context
+from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
 from langgraph_api.metrics_otlp import (
@@ -44,33 +32,24 @@ from langgraph_api.metrics_otlp import (
     LATENCY_RUN_EXECUTION,
     get_otlp_metrics_reporter,
 )
-from langgraph_api.otel_context import restore_otel_trace_context
 from langgraph_api.schema import RUN_KWARGS_ENCRYPTION_SUBFIELDS, Run, StreamMode
-from langgraph_api.state import state_snapshot_to_thread_state
-from langgraph_api.stream import AnyStream, astream_state, consume
-from langgraph_api.utils import with_user
+from langgraph_api.stream import AnyStream, consume
+from langgraph_api.worker_runtime import (
+    ALL_RETRIABLE_EXCEPTIONS,
+    RunCheckpointTracker,
+    cleanup_custom_checkpointer_for_run,
+    fetch_missing_checkpoint,
+    set_run_logging_context,
+    stream_run,
+)
 from langgraph_runtime.database import connect
-from langgraph_runtime.retry import RETRIABLE_EXCEPTIONS
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Runs, Threads
-    from langgraph_api.grpc.ops.runs import GrpcRetryableException
-
-    GRPC_RETRIABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
-        GrpcRetryableException,
-    )
 else:
     from langgraph_runtime.ops import Runs, Threads
 
-    GRPC_RETRIABLE_EXCEPTIONS = ()
-
 logger = structlog.stdlib.get_logger(__name__)
-
-ALL_RETRIABLE_EXCEPTIONS = (
-    asyncio.CancelledError,
-    *RETRIABLE_EXCEPTIONS,
-    *GRPC_RETRIABLE_EXCEPTIONS,
-)
 
 
 class WorkerResult(TypedDict):
@@ -81,33 +60,6 @@ class WorkerResult(TypedDict):
     webhook: str | None
     run_started_at: str
     run_ended_at: str | None
-
-
-@asynccontextmanager
-async def set_auth_ctx_for_run(
-    run_kwargs: dict, user_id: str | None = None
-) -> AsyncGenerator[None, None]:
-    # user_id is a fallback.
-    try:
-        permissions = (
-            run_kwargs["config"]["configurable"].get("langgraph_auth_permissions") or []
-        )
-        user = run_kwargs["config"]["configurable"].get("langgraph_auth_user")
-        if not user:
-            user = SimpleUser(user_id) if user_id is not None else None
-        else:
-            user = normalize_user(user)
-        # Reapply normalization to the kwargs
-        run_kwargs["config"]["configurable"]["langgraph_auth_user"] = user
-    except Exception:
-        logger.warning("Failed to extract user from run kwargs", exc_info=True)
-        user = SimpleUser(user_id) if user_id is not None else None
-        permissions = None
-    if user is not None:
-        async with with_user(user, permissions):
-            yield None
-    else:
-        yield None
 
 
 async def worker(
@@ -132,8 +84,13 @@ async def worker(
 
     # Decrypt kwargs fields FIRST, before any access to run["kwargs"]
     run["kwargs"] = await decrypt_response(
-        run["kwargs"], "run", RUN_KWARGS_ENCRYPTION_SUBFIELDS
+        run["kwargs"],
+        "run",
+        RUN_KWARGS_ENCRYPTION_SUBFIELDS,
+        plaintext_from_core=False,
     )
+    # Set context here so early logs / max-attempt failures still carry run/graph/request fields.
+    set_run_logging_context(run, attempt)
 
     checkpoint: CheckpointPayload | None = None
     exception: Exception | asyncio.CancelledError | None = None
@@ -165,16 +122,6 @@ async def worker(
     reporter.inc_counter(
         COUNTER_RUN_ATTEMPT_STARTED,
     )
-    lg_logging.set_logging_context(
-        {
-            "run_id": str(run_id),
-            "run_attempt": attempt,
-            "thread_id": thread_id,
-            "assistant_id": str(run.get("assistant_id")),
-            "graph_id": str(_get_graph_id(run)),
-            "request_id": str(_get_request_id(run)),
-        }
-    )
     run_stream_started_at_dt = datetime.now(UTC)
     await logger.ainfo(
         "Starting background run",
@@ -185,19 +132,6 @@ async def worker(
         temporary=temporary,
         resumable=resumable,
     )
-
-    def on_checkpoint(checkpoint_arg: CheckpointPayload | None):
-        nonlocal checkpoint
-        if checkpoint_arg is None:
-            logger.warning("Null checkpoint received")
-        checkpoint = checkpoint_arg
-
-    def on_task_result(task_result: TaskResultPayload):
-        if checkpoint is not None:
-            for task in checkpoint["tasks"]:
-                if task["id"] == task_result["id"]:
-                    task.update(task_result)
-                    break
 
     # Wrap the graph execution to separate user errors from server errors
     async def wrap_user_errors(
@@ -217,12 +151,11 @@ async def worker(
                     run_id=str(run_id),
                     thread_id=thread_id,
                 )
-            # TimeoutError is a special case where we rely on asyncio.wait_for to timeout runs
-            # Convert user TimeoutErrors to a custom class so we can distinguish and later convert back
             if isinstance(e, TimeoutError):
                 raise UserTimeout(e) from e
             raise
 
+    tracker = RunCheckpointTracker()
     async with Runs.enter(run_id, run["thread_id"], main_loop, resumable) as done:
         # attempt the run
         try:
@@ -246,33 +179,21 @@ async def worker(
                 )
 
                 raise RuntimeError(error_message)
-            configurable = run["kwargs"].get("config", {}).get("configurable", {})
-            async with set_auth_ctx_for_run(run["kwargs"]):
-                with (
-                    restore_otel_trace_context(
-                        configurable, run_id=str(run_id), thread_id=str(thread_id)
+            stream_modes: set[StreamMode] = set(run["kwargs"].get("stream_mode", []))
+            await asyncio.wait_for(
+                wrap_user_errors(
+                    stream_run(
+                        run,
+                        attempt,
+                        done,
+                        tracker=tracker,
                     ),
-                    restore_dd_trace_context(
-                        configurable, run_id=str(run_id), thread_id=str(thread_id)
-                    ),
-                ):
-                    if temporary:
-                        stream = astream_state(run, attempt, done)
-                    else:
-                        stream = astream_state(
-                            run,
-                            attempt,
-                            done,
-                            on_checkpoint=on_checkpoint,
-                            on_task_result=on_task_result,
-                        )
-                    stream_modes: set[StreamMode] = set(
-                        run["kwargs"].get("stream_mode", [])
-                    )
-                    await asyncio.wait_for(
-                        wrap_user_errors(stream, run_id, resumable, stream_modes),
-                        BG_JOB_TIMEOUT_SECS,
-                    )
+                    run_id,
+                    resumable,
+                    stream_modes,
+                ),
+                BG_JOB_TIMEOUT_SECS,
+            )
         except (Exception, asyncio.CancelledError) as ee:
             exception = ee
         except BaseException as eee:
@@ -284,6 +205,9 @@ async def worker(
             )
             raise
         finally:
+            # Tracker is mutated during streaming. Copy after wait_for so
+            # error/timeout paths still have the last checkpoint for webhooks.
+            checkpoint = tracker.checkpoint
             run_ended_at_dt = datetime.now(UTC)
             run_ended_at = run_ended_at_dt.isoformat()
 
@@ -321,23 +245,9 @@ async def worker(
                         run_id=str(run_id),
                         run_attempt=attempt,
                     )
-                    try:
-                        # Python checkpointer needs a real PG conn; gRPC checkpointer
-                        # does not. This only doubles up connections for inmem.
-                        async with connect(
-                            supports_core_api=PREFER_GRPC_CHECKPOINTER
-                        ) as conn:
-                            state_snapshot = await Threads.State.get(
-                                conn, run["kwargs"]["config"], subgraphs=False
-                            )
-                            checkpoint = state_snapshot_to_thread_state(state_snapshot)
-                    except Exception:
-                        await logger.aerror(
-                            "Failed to fetch missing checkpoint for webhook. Continuing...",
-                            exc_info=True,
-                            run_id=str(run_id),
-                            run_attempt=attempt,
-                        )
+                    checkpoint = await fetch_missing_checkpoint(
+                        run, checkpoint, temporary=temporary
+                    )
                 if not temporary:
                     await Threads.set_joint_status(
                         conn,
@@ -396,27 +306,8 @@ async def worker(
                         else:
                             raise
 
-                    # The Go layer deletes checkpoints from Postgres tables,
-                    # but custom checkpointers store data elsewhere (e.g. Redis).
                     # Clean up the custom checkpointer's data for this run.
-                    if USE_CUSTOM_CHECKPOINTER:
-                        try:
-                            from langgraph_api import (  # noqa: PLC0415
-                                _checkpointer as api_checkpointer,
-                            )
-
-                            checkpointer = await api_checkpointer.get_checkpointer()
-                            await checkpointer.adelete_for_runs([str(run_id)])
-                        except Exception:
-                            await logger.aerror(
-                                "Failed to clean up custom checkpointer "
-                                "data for rolled-back run. Thread state may "
-                                "reflect the rolled-back run until a new run "
-                                "completes.",
-                                exc_info=True,
-                                run_id=str(run_id),
-                                thread_id=thread_id,
-                            )
+                    await cleanup_custom_checkpointer_for_run(str(run_id))
 
                     checkpoint = None  # reset the checkpoint
             elif isinstance(exception, UserInterrupt):
@@ -522,18 +413,3 @@ async def worker(
 
 def ms(after: datetime, before: datetime) -> int:
     return int((after - before).total_seconds() * 1000)
-
-
-def _get_request_id(run: Run) -> str | None:
-    try:
-        return run["kwargs"]["config"]["configurable"]["langgraph_request_id"]
-    except Exception:
-        return None
-
-
-def _get_graph_id(run: Run) -> str | None:
-    try:
-        return run["kwargs"]["config"]["configurable"]["graph_id"]
-    except Exception:
-        logger.info(f"Failed to get graph_id from run {run['run_id']}")
-        return "Unknown"

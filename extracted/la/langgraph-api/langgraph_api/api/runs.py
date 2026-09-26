@@ -96,6 +96,22 @@ _StreamHandler = Any
 
 _RunResultFallback = Callable[[], Awaitable[bytes]]
 
+_INTERRUPT_KEY = "__interrupt__"
+_INTERRUPT_TOKEN = _INTERRUPT_KEY.encode()
+
+
+def _interrupts_in(chunk: bytes) -> list[Any]:
+    if _INTERRUPT_TOKEN not in chunk:
+        return []
+    try:
+        payload = orjson.loads(chunk)
+    except orjson.JSONDecodeError:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    interrupts = payload.get(_INTERRUPT_KEY)
+    return interrupts if isinstance(interrupts, list) else []
+
 
 def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
     async def fetch_thread_values() -> bytes:
@@ -104,14 +120,13 @@ def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
             try:
                 row = await anext(thread_iter)
                 # Decrypt thread fields (values, interrupts, error) if encryption is enabled
-                if IS_POSTGRES_OR_GRPC_BACKEND and not using_aes_encryption():
-                    thread = dict(row)
-                else:
-                    thread = await decrypt_response(
-                        dict(row),
-                        "thread",
-                        ["values", "interrupts", "error"],
-                    )
+                thread = await decrypt_response(
+                    dict(row),
+                    "thread",
+                    ["values", "interrupts", "error"],
+                    plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND
+                    and not using_aes_encryption(),
+                )
                 if row["status"] == "error":
                     return json_dumpb({"__error__": json_loads(thread["error"])})
                 if row["status"] == "interrupted":
@@ -123,7 +138,7 @@ def _thread_values_fallback(thread_id: UUID) -> _RunResultFallback:
                             if isinstance(interrupt_list, list):
                                 interrupts.extend(interrupt_list)
                         if interrupts:
-                            return json_dumpb({"__interrupt__": interrupts})
+                            return json_dumpb({_INTERRUPT_KEY: interrupts})
                     except Exception:
                         # No interrupt, but status is interrupted from a before/after block. Default back to values.
                         pass
@@ -160,11 +175,11 @@ def _merge_interrupts(chunks: list[bytes]) -> bytes:
             continue
         if not isinstance(payload, dict):
             continue
-        interrupt_list = payload.get("__interrupt__")
+        interrupt_list = payload.get(_INTERRUPT_KEY)
         if isinstance(interrupt_list, list):
             interrupts.extend(interrupt_list)
 
-    return orjson.dumps({"__interrupt__": interrupts})
+    return orjson.dumps({_INTERRUPT_KEY: interrupts})
 
 
 def _run_result_body(
@@ -193,11 +208,13 @@ def _run_result_body(
                 thread_id=thread_id,
                 ignore_404=ignore_404,
             ):
-                if mode == b"values" or (
-                    mode == b"updates" and b"__interrupt__" in chunk
-                ):
+                if mode == b"values":
                     vchunk = chunk
-                    if b"__interrupt__" in chunk:
+                    if _interrupts_in(chunk):
+                        interrupt_chunks.append(chunk)
+                elif mode == b"updates":
+                    if _interrupts_in(chunk):
+                        vchunk = chunk
                         interrupt_chunks.append(chunk)
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
@@ -265,8 +282,12 @@ async def create_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
+    run = await decrypt_response(
+        run,
+        "run",
+        RUN_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(
         run,
         headers={"Content-Location": f"/threads/{thread_id}/runs/{run['run_id']}"},
@@ -286,8 +307,12 @@ async def create_stateless_run(request: ApiRequest):
             request.headers,
             request_start_time=request.scope.get("request_start_time_ms"),
         )
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        run = await decrypt_response(run, "run", RUN_ENCRYPTION_FIELDS)
+    run = await decrypt_response(
+        run,
+        "run",
+        RUN_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(
         run,
         headers={"Content-Location": f"/runs/{run['run_id']}"},
@@ -312,8 +337,12 @@ async def create_stateless_run_batch(request: ApiRequest):
             for payload in batch_payload
         ]
         runs = await asyncio.gather(*coros)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        runs = await decrypt_responses(list(runs), "run", RUN_ENCRYPTION_FIELDS)
+    runs = await decrypt_responses(
+        list(runs),
+        "run",
+        RUN_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(runs)
 
 
@@ -547,8 +576,12 @@ async def list_runs(
 
     # Collect and decrypt runs
     runs_list = [run async for run in runs]
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        runs_list = await decrypt_responses(runs_list, "run", RUN_ENCRYPTION_FIELDS)
+    runs_list = await decrypt_responses(
+        runs_list,
+        "run",
+        RUN_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(runs_list)
 
 
@@ -573,8 +606,12 @@ async def get_run(request: ApiRequest):
     run_dict = await fetchone(run)
 
     # Decrypt run metadata and kwargs
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        run_dict = await decrypt_response(run_dict, "run", RUN_ENCRYPTION_FIELDS)
+    run_dict = await decrypt_response(
+        run_dict,
+        "run",
+        RUN_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(run_dict)
 
@@ -779,14 +816,12 @@ async def create_cron(request: ApiRequest):
         {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: enc_ctx} if enc_ctx else payload
     )
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload_for_encryption
-    else:
-        effective_payload = await encrypt_request(
-            payload_for_encryption,
-            "cron",
-            CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
-        )
+    effective_payload = await encrypt_request(
+        payload_for_encryption,
+        "cron",
+        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     enabled = payload.get("enabled", True)
 
@@ -805,8 +840,12 @@ async def create_cron(request: ApiRequest):
             timezone=timezone,
         )
     cron_dict = await fetchone(cron)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    cron_dict = await decrypt_response(
+        cron_dict,
+        "cron",
+        CRON_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(cron_dict)
 
@@ -830,14 +869,12 @@ async def create_thread_cron(request: ApiRequest):
         {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: enc_ctx} if enc_ctx else payload
     )
 
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload_for_encryption
-    else:
-        effective_payload = await encrypt_request(
-            payload_for_encryption,
-            "cron",
-            CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
-        )
+    effective_payload = await encrypt_request(
+        payload_for_encryption,
+        "cron",
+        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     async with connect() as conn:
         cron = await Crons.put(
@@ -852,8 +889,12 @@ async def create_thread_cron(request: ApiRequest):
             timezone=timezone,
         )
     cron_dict = await fetchone(cron)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    cron_dict = await decrypt_response(
+        cron_dict,
+        "cron",
+        CRON_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(cron_dict)
 
@@ -866,8 +907,12 @@ async def get_cron(request: ApiRequest) -> ApiResponse:
     async with connect() as conn:
         cron = await Crons.get(conn, cron_id)
     cron_dict = await fetchone(cron)
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    cron_dict = await decrypt_response(
+        cron_dict,
+        "cron",
+        CRON_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
     return ApiResponse(cron_dict)
 
 
@@ -886,14 +931,12 @@ async def patch_cron(request: ApiRequest):
         await validate_webhook_url_or_raise(str(webhook))
 
     # Encrypt payload subfields before storage
-    if IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption():
-        effective_payload = payload
-    else:
-        effective_payload = await encrypt_request(
-            payload,
-            "cron",
-            CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
-        )
+    effective_payload = await encrypt_request(
+        payload,
+        "cron",
+        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+        plaintext_for_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     # An explicit `end_time: null` clears the end time; an absent key leaves it unchanged.
     clear_end_time = "end_time" in payload and payload["end_time"] is None
@@ -913,8 +956,12 @@ async def patch_cron(request: ApiRequest):
         )
     cron_dict = await fetchone(cron)
 
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    cron_dict = await decrypt_response(
+        cron_dict,
+        "cron",
+        CRON_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(cron_dict)
 
@@ -966,8 +1013,12 @@ async def search_crons(request: ApiRequest):
         crons_iter, next_offset, offset
     )
 
-    if not IS_POSTGRES_OR_GRPC_BACKEND or using_aes_encryption():
-        crons = await decrypt_responses(crons, "cron", CRON_ENCRYPTION_FIELDS)
+    crons = await decrypt_responses(
+        crons,
+        "cron",
+        CRON_ENCRYPTION_FIELDS,
+        plaintext_from_core=IS_POSTGRES_OR_GRPC_BACKEND and using_custom_encryption(),
+    )
 
     return ApiResponse(crons, headers=response_headers)
 

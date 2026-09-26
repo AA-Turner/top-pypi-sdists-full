@@ -9,7 +9,7 @@ from .array_ import Array
 from .bases import EnumerableBase
 from .core import FSharpRef as FSharpRef_1
 from .core import int32
-from .map_util import get_item_from_dict, make_dict, try_get_value
+from .map_util import get_item_from_dict, make_dict, remove_from_dict, try_get_value
 from .option import Option, some
 from .protocols import IEnumerable_1, IEnumerator, IEqualityComparer_1
 from .reflection import TypeInfo, class_type
@@ -204,7 +204,11 @@ def HashSet__Remove_2B595[T](this: HashSet[T], k: T) -> bool:
     match_value: tuple[bool, int, int] = HashSet__TryFindIndex_2B595(this, k)
     match match_value:
         case [True, _, i_0] if i_0 > -1:
-            get_item_from_dict(this.hash_map, match_value[1]).pop(match_value[2])
+            h_1: int = match_value[1]
+            get_item_from_dict(this.hash_map, h_1).pop(match_value[2])
+            if len(get_item_from_dict(this.hash_map, h_1)) == 0:
+                ignore(remove_from_dict(this.hash_map, h_1))
+
             return True
 
         case _:

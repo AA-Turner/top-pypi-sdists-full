@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 
@@ -30,7 +30,7 @@ class TestWaitingRooms:
             new_users_per_minute=200,
             total_active_users=200,
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
@@ -66,7 +66,7 @@ class TestWaitingRooms:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
@@ -81,7 +81,7 @@ class TestWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_streaming_response_create(self, client: Cloudflare) -> None:
@@ -96,7 +96,7 @@ class TestWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -121,7 +121,7 @@ class TestWaitingRooms:
             new_users_per_minute=200,
             total_active_users=200,
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_method_update_with_all_params(self, client: Cloudflare) -> None:
@@ -158,7 +158,7 @@ class TestWaitingRooms:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_raw_response_update(self, client: Cloudflare) -> None:
@@ -174,7 +174,7 @@ class TestWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_streaming_response_update(self, client: Cloudflare) -> None:
@@ -190,7 +190,7 @@ class TestWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -289,7 +289,7 @@ class TestWaitingRooms:
             waiting_room_id="699d98642c564d2e855e9661899b7252",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(WaitingRoomDeleteResponse, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoomDeleteResponse], waiting_room, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
@@ -301,7 +301,7 @@ class TestWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = response.parse()
-        assert_matches_type(WaitingRoomDeleteResponse, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoomDeleteResponse], waiting_room, path=["response"])
 
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
@@ -313,7 +313,7 @@ class TestWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = response.parse()
-            assert_matches_type(WaitingRoomDeleteResponse, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoomDeleteResponse], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -341,7 +341,7 @@ class TestWaitingRooms:
             new_users_per_minute=200,
             total_active_users=200,
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_method_edit_with_all_params(self, client: Cloudflare) -> None:
@@ -378,7 +378,7 @@ class TestWaitingRooms:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_raw_response_edit(self, client: Cloudflare) -> None:
@@ -394,7 +394,7 @@ class TestWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_streaming_response_edit(self, client: Cloudflare) -> None:
@@ -410,7 +410,7 @@ class TestWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -442,7 +442,7 @@ class TestWaitingRooms:
             waiting_room_id="699d98642c564d2e855e9661899b7252",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
@@ -454,7 +454,7 @@ class TestWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
@@ -466,7 +466,7 @@ class TestWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -499,7 +499,7 @@ class TestAsyncWaitingRooms:
             new_users_per_minute=200,
             total_active_users=200,
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -535,7 +535,7 @@ class TestAsyncWaitingRooms:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
@@ -550,7 +550,7 @@ class TestAsyncWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = await response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncCloudflare) -> None:
@@ -565,7 +565,7 @@ class TestAsyncWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = await response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -590,7 +590,7 @@ class TestAsyncWaitingRooms:
             new_users_per_minute=200,
             total_active_users=200,
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -627,7 +627,7 @@ class TestAsyncWaitingRooms:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncCloudflare) -> None:
@@ -643,7 +643,7 @@ class TestAsyncWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = await response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncCloudflare) -> None:
@@ -659,7 +659,7 @@ class TestAsyncWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = await response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -758,7 +758,7 @@ class TestAsyncWaitingRooms:
             waiting_room_id="699d98642c564d2e855e9661899b7252",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(WaitingRoomDeleteResponse, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoomDeleteResponse], waiting_room, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -770,7 +770,7 @@ class TestAsyncWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = await response.parse()
-        assert_matches_type(WaitingRoomDeleteResponse, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoomDeleteResponse], waiting_room, path=["response"])
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -782,7 +782,7 @@ class TestAsyncWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = await response.parse()
-            assert_matches_type(WaitingRoomDeleteResponse, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoomDeleteResponse], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -810,7 +810,7 @@ class TestAsyncWaitingRooms:
             new_users_per_minute=200,
             total_active_users=200,
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_method_edit_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -847,7 +847,7 @@ class TestAsyncWaitingRooms:
             turnstile_action="log",
             turnstile_mode="off",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_raw_response_edit(self, async_client: AsyncCloudflare) -> None:
@@ -863,7 +863,7 @@ class TestAsyncWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = await response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_streaming_response_edit(self, async_client: AsyncCloudflare) -> None:
@@ -879,7 +879,7 @@ class TestAsyncWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = await response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -911,7 +911,7 @@ class TestAsyncWaitingRooms:
             waiting_room_id="699d98642c564d2e855e9661899b7252",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -923,7 +923,7 @@ class TestAsyncWaitingRooms:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         waiting_room = await response.parse()
-        assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+        assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -935,7 +935,7 @@ class TestAsyncWaitingRooms:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             waiting_room = await response.parse()
-            assert_matches_type(WaitingRoom, waiting_room, path=["response"])
+            assert_matches_type(Optional[WaitingRoom], waiting_room, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

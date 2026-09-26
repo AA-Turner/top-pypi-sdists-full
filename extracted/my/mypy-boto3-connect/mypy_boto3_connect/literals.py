@@ -591,6 +591,7 @@ HoursOfOperationDaysType = Literal[
 InboundMessageSourceTypeType = Literal["RAW"]
 InitiateAsType = Literal["COMPLETED", "CONNECTED_TO_USER"]
 InstanceAttributeTypeType = Literal[
+    "AUTO_MUTE_AGENT_ON_HOLD",
     "AUTO_RESOLVE_BEST_VOICES",
     "CONTACTFLOW_LOGS",
     "CONTACT_LENS",
@@ -1310,6 +1311,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -1384,6 +1386,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -1507,6 +1510,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

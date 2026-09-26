@@ -39,6 +39,7 @@ __all__ = (
     "EmotionNameType",
     "FaceAttributesType",
     "FaceSearchSortByType",
+    "FeedbackCodeType",
     "GenderTypeType",
     "KnownGenderTypeType",
     "LabelDetectionAggregateByType",
@@ -127,6 +128,15 @@ EmotionNameType = Literal[
 ]
 FaceAttributesType = Literal["ALL", "DEFAULT"]
 FaceSearchSortByType = Literal["INDEX", "TIMESTAMP"]
+FeedbackCodeType = Literal[
+    "EYES_CLOSED_DETECTED",
+    "FACE_NOT_ALIGNED",
+    "FACE_NOT_VISIBLE",
+    "FACE_OBSTRUCTION_DETECTED",
+    "HIGH_LIGHTING_DETECTED",
+    "LOW_LIGHTING_DETECTED",
+    "LOW_VIDEO_QUALITY_DETECTED",
+]
 GenderTypeType = Literal["Female", "Male"]
 KnownGenderTypeType = Literal["Female", "Male", "Nonbinary", "Unlisted"]
 LabelDetectionAggregateByType = Literal["SEGMENTS", "TIMESTAMPS"]

@@ -7,15 +7,21 @@ import inspect
 import json
 import threading
 import traceback
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from dataclasses import dataclass
+import warnings
 from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 from google.protobuf import empty_pb2
+from tests._fixtures.android_artifacts import (
+    FakeAssets,
+    FakeMindMaps,
+    FakeNotebooks,
+    _artifact,
+    _graph,
+    _supervisor,
+)
 from tests._helpers.android_supervisor import SupervisedAndroidTransport
 
 from notebooklm._android import artifact_outputs
@@ -44,10 +50,8 @@ from notebooklm._android.proto.google.internal.labs.tailwind.orchestration.v1 im
 from notebooklm._android.proto.notebooklm.internal.android.wire.v1 import artifacts_pb2 as wire_pb2
 from notebooklm._android.session import AndroidSession
 from notebooklm._artifacts import ArtifactsAPI
-from notebooklm._client_metrics import ClientMetrics
 from notebooklm._notebook_metadata import NotebookSourceIdProvider
 from notebooklm._runtime.call_supervisor import CallSupervisor
-from notebooklm._transport_drain import TransportDrainTracker
 from notebooklm._types.common import UnknownTypeWarning
 from notebooklm._types.enums import (
     ArtifactTypeCode,
@@ -79,104 +83,17 @@ from notebooklm.exceptions import (
     ServerError,
     ValidationError,
 )
-from notebooklm.types import Artifact, ArtifactType, MindMap, MindMapKind, Note
+from notebooklm.types import (
+    Artifact,
+    ArtifactListingComponent,
+    ArtifactLookupStatus,
+    ArtifactType,
+    MindMap,
+    MindMapKind,
+    Note,
+)
 
 _PROTO = artifacts_pb2
-
-
-@dataclass(frozen=True)
-class _Lease:
-    epoch: int = 7
-
-
-class FakeSession:
-    def __init__(self, responses: dict[str, Any] | None = None) -> None:
-        self.responses = responses or {}
-        self.calls: list[tuple[str, Any, dict[str, Any]]] = []
-        self.errors: dict[str, BaseException] = {}
-        self.scopes: list[str] = []
-
-    @asynccontextmanager
-    async def operation_scope(self, label: str, **kwargs: Any) -> AsyncIterator[_Lease]:
-        assert not kwargs
-        self.scopes.append(label)
-        yield _Lease()
-
-    async def unary(self, method: str, request: Any, **kwargs: Any) -> Any:
-        self.calls.append((method, request, kwargs))
-        error = self.errors.get(method)
-        if error is not None:
-            raise error
-        response = self.responses[method]
-        if isinstance(response, list):
-            return response.pop(0)
-        return response
-
-
-class FakeNotebooks:
-    def __init__(self, source_ids: list[str] | None = None) -> None:
-        self.source_ids = source_ids or ["source-1", "source-2"]
-        self.calls: list[str] = []
-
-    async def get_source_ids(self, notebook_id: str) -> list[str]:
-        self.calls.append(notebook_id)
-        return list(self.source_ids)
-
-
-class FakeMindMaps:
-    def __init__(self, artifacts: list[Artifact] | None = None) -> None:
-        self.artifacts = artifacts or []
-        self.mind_maps: list[MindMap] = []
-        self.calls: list[str] = []
-        self.error: BaseException | None = None
-
-    async def list_mind_map_artifacts(self, notebook_id: str) -> list[Artifact]:
-        self.calls.append(notebook_id)
-        if self.error is not None:
-            raise self.error
-        return list(self.artifacts)
-
-    async def list_note_backed_mind_maps(self, notebook_id: str) -> list[MindMap]:
-        self.calls.append(notebook_id)
-        if self.error is not None:
-            raise self.error
-        return list(self.mind_maps)
-
-
-class FakeAssets:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str]] = []
-        self.representation_calls: list[tuple[str, str, str]] = []
-        self.error: ArtifactDownloadError | None = None
-
-    async def download_url(self, url: str, output_path: str) -> str:
-        self.calls.append((url, output_path))
-        if self.error is not None:
-            raise self.error
-        return output_path
-
-    async def download_urls_batch(self, urls_and_paths: list[tuple[str, str]]) -> Any:
-        raise AssertionError(f"batch transfer not expected: {urls_and_paths!r}")
-
-    async def download_representation(
-        self,
-        url: str,
-        output_path: str,
-        *,
-        representation: str,
-    ) -> str:
-        self.representation_calls.append((url, output_path, representation))
-        if self.error is not None:
-            raise self.error
-        return output_path
-
-
-def _supervisor() -> CallSupervisor:
-    return CallSupervisor(
-        metrics=ClientMetrics(),
-        drain_tracker=TransportDrainTracker(),
-        max_concurrent_rpcs=2,
-    )
 
 
 async def _activate(supervisor: CallSupervisor, epoch: int = 1) -> None:
@@ -187,33 +104,6 @@ async def _activate(supervisor: CallSupervisor, epoch: int = 1) -> None:
     supervisor.start_accepting(epoch)
 
 
-def _artifact(
-    artifact_id: str,
-    *,
-    title: str = "Artifact",
-    type_code: int = _PROTO.ARTIFACT_TYPE_INFOGRAPHIC,
-    status: int = _PROTO.ARTIFACT_STATUS_READY,
-    variant: int = 0,
-    etag: str = "etag-1",
-    url: str | None = None,
-    source_ids: list[str] | None = None,
-) -> Any:
-    message = _PROTO.Artifact(
-        artifact_id=artifact_id,
-        title=title,
-        type=type_code,
-        status=status,
-        etag=etag,
-    )
-    if type_code == _PROTO.ARTIFACT_TYPE_APP:
-        message.app.generation_options.app_type = variant
-    if type_code == _PROTO.ARTIFACT_TYPE_INFOGRAPHIC and url is not None:
-        message.infographic.infographics.add(title=title).image.url = url
-    for source_id in source_ids or []:
-        message.sources.add().source_id.id = source_id
-    return message
-
-
 def _mind_map(artifact_id: str = "note-map") -> Artifact:
     return Artifact(
         id=artifact_id,
@@ -221,38 +111,6 @@ def _mind_map(artifact_id: str = "note-map") -> Artifact:
         _artifact_type=ArtifactTypeCode.MIND_MAP.value,
         status=_PROTO.ARTIFACT_STATUS_READY,
     )
-
-
-def _graph(
-    studio: list[Any] | None = None,
-) -> tuple[FakeSession, FakeNotebooks, FakeMindMaps, FakeAssets, AndroidArtifactsAPI]:
-    studio_rows = studio or []
-    get_response = _PROTO.GetArtifactResponse()
-    if studio_rows:
-        get_response.artifact.CopyFrom(studio_rows[-1])
-    session = FakeSession(
-        {
-            LIST_ARTIFACTS_METHOD: _PROTO.ListArtifactsResponse(artifacts=studio_rows),
-            GET_ARTIFACT_METHOD: get_response,
-            DELETE_ARTIFACT_METHOD: empty_pb2.Empty(),
-            DERIVE_ARTIFACT_METHOD: _PROTO.DeriveArtifactResponse(),
-            GENERATE_ARTIFACT_METHOD: _PROTO.GenerateArtifactResponse(),
-            EXPORT_TO_DRIVE_METHOD: _PROTO.ExportToDriveResponse(),
-            GENERATE_REPORT_SUGGESTIONS_METHOD: _PROTO.GenerateReportSuggestionsResponse(),
-        }
-    )
-    notebooks = FakeNotebooks()
-    mind_maps = FakeMindMaps()
-    assets = FakeAssets()
-
-    api = AndroidArtifactsAPI(
-        session=cast(AndroidSession, session),
-        supervisor=_supervisor(),
-        notebooks=cast(NotebookSourceIdProvider, notebooks),
-        mind_maps=mind_maps,
-        asset_downloads=cast(AndroidAssetDownloadService, assets),
-    )
-    return session, notebooks, mind_maps, assets, api
 
 
 def _supervised_graph(
@@ -360,6 +218,94 @@ async def test_transient_note_failure_returns_partial_studio_and_unknown_sentine
     assert note_state is None
     assert type(error).__name__ in caplog.text
     assert str(error) not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_list_status_and_lookup_preserve_partial_read_evidence() -> None:
+    _, _, mind_maps, _, api = _graph([_artifact("studio")])
+    mind_maps.error = RPCError("secret cookie: SID=do-not-retain", method_id="notes")
+
+    listing = await api.list_with_status("notebook-1")
+    found = await api.lookup("notebook-1", "studio")
+    unknown = await api.lookup("notebook-1", "absent")
+
+    assert [item.id for item in listing.items] == ["studio"]
+    assert not listing.is_complete
+    assert len(listing.failures) == 1
+    failure = listing.failures[0]
+    assert failure.component is ArtifactListingComponent.NOTE_BACKED_MIND_MAPS
+    assert failure.error_type == "RPCError"
+    assert "secret" not in failure.message.lower()
+    assert found.status is ArtifactLookupStatus.FOUND
+    assert found.artifact is not None and found.artifact.id == "studio"
+    assert found.failures == listing.failures
+    assert unknown.status is ArtifactLookupStatus.UNKNOWN
+    assert unknown.artifact is None
+
+
+@pytest.mark.asyncio
+async def test_complete_empty_lookup_is_missing_without_warning() -> None:
+    _, _, _, _, api = _graph()
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        lookup = await api.lookup("notebook-1", "absent")
+        assert await api.get_or_none("notebook-1", "absent") is None
+
+    assert lookup.status is ArtifactLookupStatus.MISSING
+    assert not [item for item in caught if item.category is DeprecationWarning]
+
+
+@pytest.mark.asyncio
+async def test_primary_failure_and_primary_schema_drift_raise_directly() -> None:
+    session, _, _, _, api = _graph()
+    primary = RPCError("primary unavailable", method_id=LIST_ARTIFACTS_METHOD)
+    session.errors[LIST_ARTIFACTS_METHOD] = primary
+    with pytest.raises(RPCError) as raised:
+        await api.list_with_status("notebook-1")
+    assert raised.value is primary
+
+    _, _, _, _, malformed_api = _graph([_artifact("")])
+    with pytest.raises(DecodingError, match="required artifact id"):
+        await malformed_api.list_with_status("notebook-1")
+
+
+@pytest.mark.asyncio
+async def test_android_strict_prompt_projects_unknown_as_rpc_error() -> None:
+    _, _, mind_maps, _, api = _graph()
+    mind_maps.error = RPCError("token=https://secret.invalid", method_id="notes")
+
+    with pytest.raises(RPCError, match="note_backed_mind_maps") as raised:
+        await api.get_prompt("notebook-1", "absent", require_complete=True)
+
+    assert raised.value.method_id == "artifacts.lookup"
+    assert "secret.invalid" not in str(raised.value)
+
+
+@pytest.mark.asyncio
+async def test_android_strict_prompt_returns_studio_hit_despite_note_outage() -> None:
+    _, _, mind_maps, _, api = _graph(
+        [_artifact("studio", type_code=_PROTO.ARTIFACT_TYPE_APP, variant=2)]
+    )
+    mind_maps.error = RPCError("temporary", method_id="notes")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert await api.get_prompt("notebook-1", "studio", require_complete=True) is None
+
+    assert not [item for item in caught if item.category is DeprecationWarning]
+
+
+@pytest.mark.asyncio
+async def test_android_legacy_prompt_warns_only_when_absence_is_ambiguous() -> None:
+    _, _, mind_maps, _, api = _graph()
+    mind_maps.error = RPCError("temporary", method_id="notes")
+
+    with (
+        pytest.warns(DeprecationWarning, match="require_complete=True"),
+        pytest.raises(ArtifactNotFoundError),
+    ):
+        await api.get_prompt("notebook-1", "absent")
 
 
 @pytest.mark.asyncio
@@ -508,7 +454,10 @@ async def test_get_artifact_identity_failure_drops_capability_response_from_fram
     assert error.__context__ is None
     assert secret not in str(error)
     for frame, _line in traceback.walk_tb(error.__traceback__):
-        if "/src/notebooklm/" not in frame.f_code.co_filename:
+        source_path = frame.f_code.co_filename.replace("\\", "/")
+        if (
+            "/notebooklm/" not in source_path and "/src/notebooklm/" not in source_path
+        ) or "/tests/" in source_path:
             continue
         assert secret not in repr(frame.f_locals)
         assert raw_response not in frame.f_locals.values()
@@ -562,7 +511,6 @@ async def test_generate_quiz_uses_exact_request_and_never_replays_mutation() -> 
     assert kwargs == {
         "replay_safe": False,
         "response_type": _PROTO.CreateArtifactResponse,
-        "expected_epoch": 7,
     }
     assert request.project_id == "notebook-1"
     assert request.artifact.type == _PROTO.ARTIFACT_TYPE_APP
@@ -680,7 +628,6 @@ async def test_generate_audio_uses_exact_duplicated_source_wire(
     assert kwargs == {
         "replay_safe": False,
         "response_type": _PROTO.CreateArtifactResponse,
-        "expected_epoch": 7,
     }
     assert request.project_id == "notebook-1"
     assert request.artifact.type == _PROTO.ARTIFACT_TYPE_AUDIO_OVERVIEW
@@ -829,7 +776,7 @@ async def test_create_artifact_lost_response_is_unconfirmed_and_never_replayed(
     assert getattr(caught.value, "unconfirmed", False) is True
     assert caught.value.method_id == CREATE_ARTIFACT_METHOD
     assert caught.value.rpc_code == getattr(error, "rpc_code", None)
-    assert caught.value.__cause__ is error
+    assert caught.value.__cause__ is None
     assert [call[0] for call in session.calls] == [CREATE_ARTIFACT_METHOD]
     assert session.calls[0][2]["replay_safe"] is False
 
@@ -858,7 +805,7 @@ async def test_generate_video_families_use_exact_mobile_options() -> None:
     method, request, kwargs = session.calls[0]
     assert method == CREATE_ARTIFACT_METHOD
     assert kwargs["replay_safe"] is False
-    assert kwargs["expected_epoch"] == 7
+    assert "expected_epoch" not in kwargs
     assert request.artifact.type == _PROTO.ARTIFACT_TYPE_EXPLAINER_VIDEO
     assert [row.source_id.id for row in request.artifact.sources] == ["source-1"]
     options = request.artifact.explainer_video.generation_options
@@ -908,6 +855,40 @@ async def test_cinematic_video_rejects_style_prompt_before_io() -> None:
 
     assert session.calls == []
     assert notebooks.calls == []
+
+
+@pytest.mark.asyncio
+async def test_video_style_prompt_requires_string_before_io() -> None:
+    session, notebooks, _, _, api = _graph()
+
+    with pytest.raises(ValidationError) as raised:
+        await api.generate_video(
+            "notebook-1",
+            video_style=VideoStyle.CUSTOM,
+            style_prompt=cast(Any, 7),
+        )
+
+    assert str(raised.value) == "style_prompt must be a string or None"
+    assert session.scopes == []
+    assert session.calls == []
+    assert notebooks.calls == []
+
+
+@pytest.mark.asyncio
+async def test_video_style_validation_precedes_closed_runtime_admission() -> None:
+    transport = SupervisedAndroidTransport()
+    await transport.supervisor.stop_accepting(1)
+    api = _supervised_graph(transport)
+
+    with pytest.raises(ValidationError, match="cinematic"):
+        await api.generate_video(
+            "notebook-1",
+            video_format=VideoFormat.CINEMATIC,
+            video_style=VideoStyle.CUSTOM,
+            style_prompt="Use hand-drawn diagrams",
+        )
+
+    assert transport.calls == []
 
 
 @pytest.mark.asyncio
@@ -1524,6 +1505,7 @@ async def test_export_to_drive_supports_artifact_and_literal_content_targets() -
     assert second[1].destination == ExportType.SHEETS.value
     assert session.calls[0][2]["replay_safe"] is True
     assert all(call[2]["replay_safe"] is False for call in session.calls[1:])
+    assert session.scopes == ["artifacts.export", "artifacts.export"]
 
 
 @pytest.mark.asyncio
@@ -1536,12 +1518,18 @@ async def test_export_data_table_forces_sheets_and_validates_target_before_io() 
     assert (await api.export_data_table("notebook-1", "table-1")).endswith("/sheet")
     assert session.calls[1][1].destination == ExportType.SHEETS.value
     session.calls.clear()
+    session.scopes.clear()
 
     with pytest.raises(ValidationError, match="exactly one"):
         await api.export("notebook-1")
     with pytest.raises(ValidationError, match="exactly one"):
         await api.export("notebook-1", "artifact-1", content="literal")
+    with pytest.raises(ValidationError, match="title must be a string"):
+        await api.export("notebook-1", "artifact-1", cast(Any, 42))
+    with pytest.raises(ValidationError, match="export_type must be an ExportType"):
+        await api.export("notebook-1", "artifact-1", export_type=cast(Any, 1))
     assert session.calls == []
+    assert session.scopes == []
 
 
 @pytest.mark.asyncio
@@ -1628,6 +1616,9 @@ async def test_download_report_decodes_live_apk_report_doc_and_writes_atomically
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore:Raw artifact download prefetch parameters are deprecated:DeprecationWarning"
+)
 async def test_exact_download_rejects_foreign_prefetched_artifact_before_global_read(
     tmp_path,
 ) -> None:
@@ -1785,6 +1776,9 @@ async def test_download_flashcards_formats_exact_templatized_app_data(tmp_path) 
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore:Raw artifact download prefetch parameters are deprecated:DeprecationWarning"
+)
 async def test_media_download_accepts_owned_android_protobuf_prefetch() -> None:
     raw = _artifact("audio", type_code=_PROTO.ARTIFACT_TYPE_AUDIO_OVERVIEW)
     raw.audio_overview.media_urls.add(
@@ -1893,6 +1887,9 @@ async def test_download_interactive_mind_map_writes_validated_json(tmp_path) -> 
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore:Raw artifact download prefetch parameters are deprecated:DeprecationWarning"
+)
 async def test_download_note_backed_mind_map_uses_typed_prefetch_without_rpc(tmp_path) -> None:
     session, _, _, _, api = _graph()
     output = tmp_path / "note-map.json"
@@ -1939,6 +1936,9 @@ async def test_download_note_backed_mind_map_self_fetches_without_prefetch(tmp_p
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore:Raw artifact download prefetch parameters are deprecated:DeprecationWarning"
+)
 async def test_download_note_backed_mind_map_holds_outer_scope_through_publication(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
@@ -2172,6 +2172,9 @@ async def test_generate_note_backed_mind_map_note_failure_does_not_repeat_genera
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore:Raw artifact download prefetch parameters are deprecated:DeprecationWarning"
+)
 async def test_infographic_prefetch_requires_notebook_ownership_proof() -> None:
     raw = _artifact("image", url="https://lh3.googleusercontent.com/image?cap=1")
     session, _, _, assets, api = _graph([raw])
@@ -2189,6 +2192,9 @@ async def test_infographic_prefetch_requires_notebook_ownership_proof() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore:Raw artifact download prefetch parameters are deprecated:DeprecationWarning"
+)
 @pytest.mark.parametrize(
     ("method_name", "type_code"),
     [
@@ -2289,10 +2295,45 @@ async def test_infographic_wraps_transfer_error_without_capability_or_cause() ->
     assert raised.value.__context__ is None
     assert secret_url not in str(raised.value)
     for frame, _line in traceback.walk_tb(raised.value.__traceback__):
-        if "/src/notebooklm/" not in frame.f_code.co_filename:
+        source_path = frame.f_code.co_filename.replace("\\", "/")
+        if (
+            "/notebooklm/" not in source_path and "/src/notebooklm/" not in source_path
+        ) or "/tests/" in source_path:
             continue
         assert secret_url not in repr(frame.f_locals)
         assert api not in frame.f_locals.values()
+
+
+@pytest.mark.asyncio
+async def test_infographic_preserves_auth_error_type_without_cause() -> None:
+    secret_url = "https://lh3.googleusercontent.com/object?secret=capability"
+    _, _, _, assets, api = _graph([_artifact("image-1", url=secret_url)])
+    assets.error = AuthError("authentication expired")
+
+    with pytest.raises(AuthError) as raised:
+        await api.download_infographic("notebook-1", "out.png")
+
+    assert raised.value is assets.error
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
+
+
+@pytest.mark.asyncio
+async def test_media_representation_preserves_auth_error_type_without_cause() -> None:
+    raw = _artifact("audio", type_code=_PROTO.ARTIFACT_TYPE_AUDIO_OVERVIEW)
+    raw.audio_overview.media_urls.add(
+        url="https://lh3.googleusercontent.com/audio?secret=capability",
+        type=_PROTO.MEDIA_STREAMING_TYPE_DOWNLOAD,
+    )
+    _, _, _, assets, api = _graph([raw])
+    assets.error = AuthError("authentication expired")
+
+    with pytest.raises(AuthError) as raised:
+        await api.download_audio("notebook-1", "audio.mp4")
+
+    assert raised.value is assets.error
+    assert raised.value.__cause__ is None
+    assert raised.value.__context__ is None
 
 
 @pytest.mark.asyncio
@@ -2498,6 +2539,11 @@ class _SupervisedMindMapLister:
             response_type=list,
         )
 
+    async def list_mind_map_artifacts_with_content(
+        self, notebook_id: str
+    ) -> tuple[list[Artifact], list[MindMap]]:
+        return await self.list_mind_map_artifacts(notebook_id), []
+
 
 @pytest.mark.asyncio
 async def test_aggregate_list_finishes_during_graceful_drain() -> None:
@@ -2566,6 +2612,41 @@ class _SupervisedNotebookSources:
         )
 
 
+class _PausedSupervisedNotebookSources:
+    def __init__(self, transport: SupervisedAndroidTransport) -> None:
+        self._transport = transport
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+
+    async def get_source_ids(self, notebook_id: str) -> list[str]:
+        self.started.set()
+        await self.release.wait()
+        return await self._transport.unary(
+            "notebooks.get_source_ids",
+            notebook_id,
+            replay_safe=True,
+            response_type=list,
+        )
+
+
+@pytest.mark.asyncio
+async def test_quiz_nested_source_read_rejects_a_retired_workflow_epoch() -> None:
+    transport = SupervisedAndroidTransport()
+    notebooks = _PausedSupervisedNotebookSources(transport)
+    transport.handlers["notebooks.get_source_ids"] = ["source-1"]
+    api = _supervised_graph(transport, notebooks=notebooks)
+    task = asyncio.create_task(api.generate_quiz("notebook-1"))
+    await notebooks.started.wait()
+
+    old_generation = await transport.force_close_and_reopen()
+    notebooks.release.set()
+
+    with pytest.raises(RuntimeError, match="retired resource generation"):
+        await task
+    assert transport.calls == []
+    assert old_generation.in_flight == 0
+
+
 @pytest.mark.asyncio
 async def test_quiz_source_resolution_and_mutation_finish_during_graceful_drain() -> None:
     transport = SupervisedAndroidTransport()
@@ -2593,7 +2674,7 @@ async def test_quiz_source_resolution_and_mutation_finish_during_graceful_drain(
         "notebooks.get_source_ids",
         CREATE_ARTIFACT_METHOD,
     ]
-    assert transport.calls[1][2]["expected_epoch"] == 1
+    assert "expected_epoch" not in transport.calls[1][2]
 
 
 @pytest.mark.asyncio
@@ -2623,7 +2704,7 @@ async def test_audio_source_resolution_and_mutation_finish_during_graceful_drain
         "notebooks.get_source_ids",
         CREATE_ARTIFACT_METHOD,
     ]
-    assert transport.calls[1][2]["expected_epoch"] == 1
+    assert "expected_epoch" not in transport.calls[1][2]
     await transport.supervisor.wait_for_idle(1, 0.1)
 
 
@@ -2788,3 +2869,79 @@ def test_artifact_source_uses_the_imported_exact_package_source_id() -> None:
         ),
     )
     assert request.artifact.sources[0].source_id.id == "source-1"
+
+
+# ===========================================================================
+# Input admission before any RPC is dispatched
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_audio_generation_requires_at_least_one_source() -> None:
+    session, _nb, _mm, _assets, api = _graph()
+
+    with pytest.raises(ValidationError, match="at least one source id"):
+        await api.generate_audio("notebook-1", source_ids=[])
+
+    assert session.calls == []
+
+
+@pytest.mark.asyncio
+async def test_audio_instructions_must_be_text() -> None:
+    session, _nb, _mm, _assets, api = _graph()
+
+    with pytest.raises(ValidationError, match="instructions must be a string or None"):
+        await api.generate_audio("notebook-1", source_ids=["s1"], instructions=7)
+
+    assert session.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "label"),
+    [
+        pytest.param("generate_video", "Video", id="video"),
+        pytest.param("generate_report", "Report", id="report"),
+    ],
+)
+async def test_a_supported_family_requires_at_least_one_source(method: str, label: str) -> None:
+    """An explicitly empty list is a caller error; ``None`` means "all sources"."""
+    session, _nb, _mm, _assets, api = _graph()
+
+    with pytest.raises(ValidationError, match=f"{label} generation requires at least one"):
+        await getattr(api, method)("notebook-1", source_ids=[])
+
+    assert session.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "output_format",
+    [pytest.param("docx", id="unsupported"), pytest.param("PDF", id="wrong-case")],
+)
+async def test_a_slide_deck_download_rejects_an_unknown_format(output_format: str) -> None:
+    session, _nb, _mm, _assets, api = _graph()
+
+    with pytest.raises(ValidationError, match="Must be 'pdf' or 'pptx'"):
+        await api.download_slide_deck("notebook-1", "deck.out", "slides", output_format)
+
+    assert session.calls == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "method",
+    [
+        pytest.param("download_quiz", id="quiz"),
+        pytest.param("download_flashcards", id="flashcards"),
+    ],
+)
+async def test_an_interactive_app_download_rejects_an_unknown_output_format(
+    method: str,
+) -> None:
+    session, _nb, _mm, _assets, api = _graph()
+
+    with pytest.raises(ValidationError, match="Use one of: json, markdown, html"):
+        await getattr(api, method)("notebook-1", "out.txt", "app-1", "pdf")
+
+    assert session.calls == []

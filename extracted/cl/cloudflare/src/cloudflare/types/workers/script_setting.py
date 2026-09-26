@@ -6,7 +6,14 @@ from typing_extensions import Literal
 from ..._models import BaseModel
 from .scripts.consumer_script import ConsumerScript
 
-__all__ = ["ScriptSetting", "Observability", "ObservabilityLogs", "ObservabilityTraces"]
+__all__ = ["ScriptSetting", "Observability", "ObservabilityIssues", "ObservabilityLogs", "ObservabilityTraces"]
+
+
+class ObservabilityIssues(BaseModel):
+    """Real-time Issues settings for the Worker."""
+
+    enabled: Optional[bool] = None
+    """Whether real-time Issues are enabled for the Worker."""
 
 
 class ObservabilityLogs(BaseModel):
@@ -68,6 +75,9 @@ class Observability(BaseModel):
 
     From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1.
     """
+
+    issues: Optional[ObservabilityIssues] = None
+    """Real-time Issues settings for the Worker."""
 
     logs: Optional[ObservabilityLogs] = None
     """Log settings for the Worker."""

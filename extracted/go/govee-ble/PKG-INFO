@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: govee-ble
-Version: 1.4.0
+Version: 1.5.1
 Summary: Manage Govee BLE devices
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: docs
 Requires-Dist: Sphinx (>=5,<9) ; extra == "docs"

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import platform
-import sys
 import textwrap
 from pathlib import Path
 
@@ -145,14 +144,17 @@ def test_install_dir(isolated, isolate):
 @pytest.mark.parametrize("package", ["simplest_c"], indirect=True)
 @pytest.mark.parametrize("isolate", {False}, indirect=True)
 @pytest.mark.usefixtures("package")
-def test_editable_rebuild_dir(isolated, isolate):
+@pytest.mark.parametrize("rebuild", [None, "false"])
+def test_editable_rebuild_dir(isolated, isolate, rebuild):
     # editable.rebuild-dir installs into a user-chosen tree (with the same
-    # template substitutions) and turns on rebuild-on-import by itself -- note
-    # editable.rebuild is left unset here.
+    # template substitutions) and turns on rebuild-on-import unless
+    # editable.rebuild is explicitly false.
     settings_overrides = {
         "build-dir": "build/{wheel_tag}",
         "editable.rebuild-dir": "rebuild_tree/{wheel_tag}",
     }
+    if rebuild is not None:
+        settings_overrides["editable.rebuild"] = rebuild
 
     isolated.install(
         "-v",
@@ -174,7 +176,7 @@ def test_editable_rebuild_dir(isolated, isolate):
     # rebuild-dir copy, which is refreshed in place on rebuild.
     assert not list((isolated.platlib / "simplest").glob("_module*"))
     out = isolated.execute("import simplest")
-    assert "Running cmake" in out
+    assert ("Running cmake" in out) == (rebuild is None)
     resolved = isolated.execute("import simplest._module as m; print(m.__file__)")
     assert resolved.splitlines()[-1] == str(c_module.resolve())
     assert str(isolated.platlib) not in resolved
@@ -200,6 +202,16 @@ def test_inplace_loader_rebuild(isolated, isolate):
 
     out = isolated.execute(
         "import simplest; simplest.__loader__.rebuild(); print('rebuilt')"
+    )
+    assert "Running cmake --build" in out
+    assert out.splitlines()[-1] == "rebuilt"
+
+    # The docs-recommended pattern: rebuild via find_spec before the first
+    # import, so the fresh extension is the one that gets loaded.
+    out = isolated.execute(
+        "import importlib.util;"
+        " importlib.util.find_spec('simplest').loader.rebuild();"
+        " import simplest; print('rebuilt')"
     )
     assert "Running cmake --build" in out
     assert out.splitlines()[-1] == "rebuilt"
@@ -233,6 +245,11 @@ def test_direct_import(editable, isolated):
             "import pkg; print(callable(getattr(pkg.__loader__, 'rebuild', None)))"
         )
         assert out.splitlines()[-1] == "True"
+        # The loader also lists the package's search locations (#1565).
+        out = isolated.execute(
+            "import pkg; print(pkg.__loader__.paths == list(pkg.__path__))"
+        )
+        assert out.splitlines()[-1] == "True"
 
 
 @pytest.mark.compile
@@ -241,9 +258,6 @@ def test_direct_import(editable, isolated):
 @pytest.mark.parametrize("package", ["importlib_editable"], indirect=True)
 @pytest.mark.usefixtures("package")
 def test_importlib_resources(editable, isolated):
-    if sys.version_info < (3, 9):
-        pytest.skip("importlib.resources.files is introduced in Python 3.9")
-
     # TODO: Investigate these failures
     if platform.system() == "Windows" and editable.mode == "inplace":
         pytest.xfail("Windows fails to import the top-level extension module")

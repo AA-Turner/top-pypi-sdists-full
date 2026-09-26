@@ -1,9 +1,12 @@
 """An async GitHub API library"""
 
-__version__ = "5.4.0"
+from __future__ import annotations
+
+__version__ = "6.0.0"
 
 import http
-from typing import Any, Optional
+from collections.abc import Mapping
+from typing import Any
 
 
 class GitHubException(Exception):
@@ -19,8 +22,17 @@ class ValidationFailure(GitHubException):
 class HTTPException(GitHubException):
     """A general exception to represent HTTP responses."""
 
-    def __init__(self, status_code: http.HTTPStatus, *args: Any) -> None:
+    status_code: http.HTTPStatus
+    headers: Mapping[str, str]
+
+    def __init__(
+        self,
+        status_code: http.HTTPStatus,
+        *args: Any,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         self.status_code = status_code
+        self.headers = headers or {}
         if args:
             super().__init__(*args)
         else:
@@ -43,23 +55,27 @@ class BadRequest(HTTPException):
 class BadRequestUnknownError(BadRequest):
     """A bad request whose response body is not JSON."""
 
-    def __init__(self, response: str) -> None:
+    response: str
+
+    def __init__(self, response: str, **kwargs: Any) -> None:
         self.response = response
-        super().__init__(http.HTTPStatus.UNPROCESSABLE_ENTITY)
+        super().__init__(http.HTTPStatus.UNPROCESSABLE_ENTITY, **kwargs)
 
 
 class RateLimitExceeded(BadRequest):
     """Request rejected due to the rate limit being exceeded."""
 
+    rate_limit: Any
+
     # Technically rate_limit is of type gidgethub.sansio.RateLimit, but a
     # circular import comes about if you try to properly declare it.
-    def __init__(self, rate_limit: Any, *args: Any) -> None:
+    def __init__(self, rate_limit: Any, *args: Any, **kwargs: Any) -> None:
         self.rate_limit = rate_limit
 
         if not args:
-            super().__init__(http.HTTPStatus.FORBIDDEN, "rate limit exceeded")
+            super().__init__(http.HTTPStatus.FORBIDDEN, "rate limit exceeded", **kwargs)
         else:
-            super().__init__(http.HTTPStatus.FORBIDDEN, *args)
+            super().__init__(http.HTTPStatus.FORBIDDEN, *args, **kwargs)
 
 
 class InvalidField(BadRequest):
@@ -69,10 +85,12 @@ class InvalidField(BadRequest):
     invalid are stored in the errors attribute.
     """
 
-    def __init__(self, errors: Any, *args: Any) -> None:
+    errors: Any
+
+    def __init__(self, errors: Any, *args: Any, **kwargs: Any) -> None:
         """Store the error details."""
         self.errors = errors
-        super().__init__(http.HTTPStatus.UNPROCESSABLE_ENTITY, *args)
+        super().__init__(http.HTTPStatus.UNPROCESSABLE_ENTITY, *args, **kwargs)
 
 
 class ValidationError(BadRequest):
@@ -82,10 +100,12 @@ class ValidationError(BadRequest):
     are stored in the *errors* attribute.
     """
 
-    def __init__(self, errors: Any, *args: Any) -> None:
+    errors: Any
+
+    def __init__(self, errors: Any, *args: Any, **kwargs: Any) -> None:
         """Store the error details."""
         self.errors = errors
-        super().__init__(http.HTTPStatus.UNPROCESSABLE_ENTITY, *args)
+        super().__init__(http.HTTPStatus.UNPROCESSABLE_ENTITY, *args, **kwargs)
 
 
 class GitHubBroken(HTTPException):
@@ -95,6 +115,8 @@ class GitHubBroken(HTTPException):
 class GraphQLException(GitHubException):
     """Base exception for the GraphQL v4 API."""
 
+    response: Any
+
     def __init__(self, message: str, response: Any) -> None:
         self.response = response
         super().__init__(message)
@@ -102,6 +124,8 @@ class GraphQLException(GitHubException):
 
 class BadGraphQLRequest(GraphQLException):
     """A 4XX HTTP response."""
+
+    status_code: http.HTTPStatus
 
     def __init__(self, status_code: http.HTTPStatus, response: Any) -> None:
         assert 399 < status_code < 500
@@ -126,7 +150,7 @@ class QueryError(GraphQLException):
 class GraphQLResponseTypeError(GraphQLException):
     """The GraphQL response has an unexpected content type."""
 
-    def __init__(self, content_type: Optional[str], response: Any) -> None:
+    def __init__(self, content_type: str | None, response: Any) -> None:
         super().__init__(
             f"Response had an unexpected content-type: '{content_type!r}'", response
         )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aegra-cli
-Version: 0.10.5
+Version: 0.10.6
 Summary: Aegra CLI - Manage your self-hosted agent deployments
 Author-email: Muhammad Ibrahim <mibrahim37612@gmail.com>
 License-Expression: Apache-2.0

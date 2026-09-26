@@ -1,36 +1,32 @@
 Metadata-Version: 2.4
 Name: kiwipiepy
-Version: 0.23.2
+Version: 0.24.0
 Summary: Kiwi, the Korean Tokenizer for Python
-Home-page: https://github.com/bab2min/kiwipiepy
-Author: bab2min
-Author-email: bab2min@gmail.com
-License: LGPL v3 License
+Author-email: bab2min <bab2min@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/bab2min/kiwipiepy
 Keywords: Korean morphological analysis
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Text Processing :: Linguistic
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: C++
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Requires-Dist: dataclasses; python_version < "3.7"
-Requires-Dist: kiwipiepy_model<0.24,>=0.23
-Requires-Dist: numpy<2; python_version < "3.9"
-Requires-Dist: numpy; python_version >= "3.9"
+License-File: NOTICE
+License-File: Kiwi/third_party/eigen/COPYING.MPL2
+License-File: Kiwi/third_party/cpp-btree/LICENSE
+License-File: Kiwi/third_party/streamvbyte/LICENSE
+License-File: Kiwi/third_party/cpuinfo/LICENSE
+License-File: Kiwi/third_party/mimalloc/LICENSE
+License-File: Kiwi/third_party/json/LICENSE.MIT
+Requires-Dist: kiwipiepy_model<0.25,>=0.24
+Requires-Dist: numpy
 Requires-Dist: tqdm
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 kiwipiepy
 ----------

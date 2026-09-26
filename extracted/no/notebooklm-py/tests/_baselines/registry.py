@@ -39,6 +39,9 @@ _TESTS_ROOT = Path(__file__).resolve().parents[1]
 _PROJECT_ROOT = _TESTS_ROOT.parent
 _FIXTURES_DIR = _TESTS_ROOT / "fixtures"
 _BASELINES_DIR = _FIXTURES_DIR / "baselines"
+_BROWSER_ROOT = _PROJECT_ROOT / "src" / "notebooklm" / "_browser"
+_AUTH_ROOT = _PROJECT_ROOT / "src" / "notebooklm" / "_auth"
+_AUTH_FACADE = _PROJECT_ROOT / "src" / "notebooklm" / "auth.py"
 
 # Audit source-of-truth for the allowlist ``extra_public_names`` (mirrors
 # ``scripts/audit_public_api_compat.py``). The collected public surface for a
@@ -93,11 +96,15 @@ UNGATED_PUBLIC_MODULES: tuple[str, ...] = (
     "notebooklm",
     "notebooklm.artifacts",
     "notebooklm.config",
+    "notebooklm.downloads",
     "notebooklm.exceptions",
     "notebooklm.io",
     "notebooklm.log",
     "notebooklm.migration",
+    "notebooklm.outcomes",
+    "notebooklm.options",
     "notebooklm.paths",
+    "notebooklm.raw",
     "notebooklm.research",
     "notebooklm.urls",
     "notebooklm.utils",
@@ -129,13 +136,89 @@ def _derive_cli_contract() -> dict[str, object]:
     return build_cli_contract()
 
 
+@lru_cache(maxsize=1)
 def _derive_auth_patch_sites() -> dict[str, object]:
-    """Stable path/line-free projection from the auth patch-site audit."""
+    """Stable full-joint projection from the auth patch-site audit."""
     from scripts.audit_auth_patch_sites import build_projection, collect_sites
 
     return build_projection(collect_sites(_TESTS_ROOT))
 
 
+@lru_cache(maxsize=1)
+def _derive_browser_patch_sites() -> dict[str, object]:
+    """Stable projection from patch sites into the browser package."""
+    from scripts.audit_auth_patch_sites import build_projection, collect_sites
+
+    return build_projection(
+        collect_sites(
+            _TESTS_ROOT,
+            _BROWSER_ROOT,
+            package_dotted="notebooklm._browser",
+        )
+    )
+
+
+@lru_cache(maxsize=1)
+def _derive_auth_facade_patch_sites() -> dict[str, object]:
+    """Public-auth facade substitution projection (relocation sentinel)."""
+    from scripts.audit_auth_patch_sites import build_projection, collect_sites
+
+    return build_projection(
+        collect_sites(
+            _TESTS_ROOT,
+            _AUTH_FACADE,
+            package_dotted="notebooklm.auth",
+        )
+    )
+
+
+@lru_cache(maxsize=1)
+def _derive_auth_family_patch_scorecard() -> dict[str, object]:
+    from scripts.audit_auth_patch_sites import build_family_scorecard
+
+    return build_family_scorecard(
+        [
+            _derive_auth_patch_sites(),
+            _derive_browser_patch_sites(),
+            _derive_auth_facade_patch_sites(),
+        ]
+    )
+
+
+def _patch_projection_growth(previous: object, current: object) -> list[str]:
+    from scripts.audit_auth_patch_sites import projection_growth
+
+    return projection_growth(previous, current)
+
+
+def _auth_family_growth(previous: object, current: object) -> list[str]:
+    from scripts.audit_auth_patch_sites import family_scorecard_growth
+
+    return family_scorecard_growth(previous, current)
+
+
+@lru_cache(maxsize=1)
+def _derive_auth_shared_mutations() -> dict[str, object]:
+    from scripts.audit_auth_shared_mutations import build_projection, collect_mutations
+
+    return build_projection(
+        collect_mutations(
+            _TESTS_ROOT,
+            {
+                "notebooklm._auth": _AUTH_ROOT,
+                "notebooklm._browser": _BROWSER_ROOT,
+            },
+        )
+    )
+
+
+def _auth_shared_mutation_growth(previous: object, current: object) -> list[str]:
+    from scripts.audit_auth_shared_mutations import projection_growth
+
+    return projection_growth(previous, current)
+
+
+@lru_cache(maxsize=1)
 def _derive_auth_import_graph() -> dict[str, object]:
     """Static direct-module import graph for ``notebooklm._auth``."""
     from scripts.audit_auth_import_graph import build_projection
@@ -143,6 +226,47 @@ def _derive_auth_import_graph() -> dict[str, object]:
     return build_projection()
 
 
+@lru_cache(maxsize=1)
+def _derive_browser_import_graph() -> dict[str, object]:
+    """Package-aware import projection for ``notebooklm._browser``."""
+    from scripts.audit_auth_import_graph import build_projection
+
+    return build_projection(
+        _BROWSER_ROOT,
+        package_prefix="notebooklm._browser",
+        include_external=True,
+    )
+
+
+@lru_cache(maxsize=1)
+def _derive_backend_runtime_coupling() -> dict[str, object]:
+    """Clean-interpreter public-entry and backend-stage coupling projection."""
+    from scripts.audit_backend_coupling import build_runtime_projection
+
+    return build_runtime_projection()
+
+
+def _backend_runtime_coupling_growth(previous: object, current: object) -> list[str]:
+    from scripts.audit_backend_coupling import runtime_projection_growth
+
+    return runtime_projection_growth(previous, current)
+
+
+@lru_cache(maxsize=1)
+def _derive_backend_static_coupling() -> dict[str, object]:
+    """Resolved authored-code cross-subsystem import projection."""
+    from scripts.audit_backend_coupling import build_static_projection
+
+    return build_static_projection()
+
+
+def _backend_static_coupling_growth(previous: object, current: object) -> list[str]:
+    from scripts.audit_backend_coupling import static_projection_growth
+
+    return static_projection_growth(previous, current)
+
+
+@lru_cache(maxsize=1)
 def _derive_module_size() -> dict[str, object]:
     """Current module-size budget, allowlist ceilings, and shrink locks."""
     from tests._baselines.module_size import derive_module_size
@@ -156,6 +280,7 @@ def _module_size_growth(previous: object, current: object) -> list[str]:
     return module_size_growth(previous, current)
 
 
+@lru_cache(maxsize=1)
 def _derive_storage_transaction_policy() -> dict[str, list[str]]:
     """Direct callers of each profile-transaction lock-failure policy."""
     from tests._baselines.storage_transaction_policy import derive_storage_transaction_policy
@@ -169,11 +294,26 @@ def _storage_transaction_policy_growth(previous: object, current: object) -> lis
     return storage_transaction_policy_growth(previous, current)
 
 
+@lru_cache(maxsize=1)
 def _derive_guardrail_inline_literals() -> dict[str, dict[str, int]]:
     """Large inline container literals still grandfathered in guardrail tests."""
     from tests._baselines.guardrail_literals import inventory_large_inline_literals
 
     return inventory_large_inline_literals()
+
+
+@lru_cache(maxsize=1)
+def _derive_backend_boundary() -> dict[str, list[dict[str, str]]]:
+    """Exact lazy public-type-to-Web compatibility-shim allowlist."""
+    from tests._baselines.backend_boundary import derive_backend_boundary
+
+    return derive_backend_boundary()
+
+
+def _backend_boundary_growth(previous: object, current: object) -> list[str]:
+    from tests._baselines.backend_boundary import backend_boundary_growth
+
+    return backend_boundary_growth(previous, current)
 
 
 def _guardrail_inline_literal_growth(previous: object, current: object) -> list[str]:
@@ -243,6 +383,32 @@ class Baseline:
 
 BASELINES: list[Baseline] = [
     Baseline(
+        name="backend_runtime_coupling",
+        path=_BASELINES_DIR / "backend_runtime_coupling.json",
+        derive=_derive_backend_runtime_coupling,
+        sort_keys=True,
+        growth_check=_backend_runtime_coupling_growth,
+        description=(
+            "Clean-interpreter exact module, object, network, profile, and lifecycle ratchets."
+        ),
+    ),
+    Baseline(
+        name="backend_static_coupling",
+        path=_BASELINES_DIR / "backend_static_coupling.json",
+        derive=_derive_backend_static_coupling,
+        sort_keys=True,
+        growth_check=_backend_static_coupling_growth,
+        description=("Resolved cross-subsystem imports with local, type-only, and dynamic edges."),
+    ),
+    Baseline(
+        name="backend_boundary",
+        path=_BASELINES_DIR / "backend_boundary.json",
+        derive=_derive_backend_boundary,
+        sort_keys=True,
+        growth_check=_backend_boundary_growth,
+        description="Lazy public-type-to-Web compatibility edges; shrink-only through v0.x.",
+    ),
+    Baseline(
         name="module_size",
         path=_BASELINES_DIR / "module_size.json",
         derive=_derive_module_size,
@@ -271,7 +437,40 @@ BASELINES: list[Baseline] = [
         path=_BASELINES_DIR / "auth_patch_sites.json",
         derive=_derive_auth_patch_sites,
         sort_keys=True,
-        description="Auth test patch sites aggregated by module, attribute, and idiom.",
+        growth_check=_patch_projection_growth,
+        description="Auth test patch sites with package/path/lexical-owner identity.",
+    ),
+    Baseline(
+        name="browser_patch_sites",
+        path=_BASELINES_DIR / "browser_patch_sites.json",
+        derive=_derive_browser_patch_sites,
+        sort_keys=True,
+        growth_check=_patch_projection_growth,
+        description="Browser test patch sites with package/path/lexical-owner identity.",
+    ),
+    Baseline(
+        name="auth_facade_patch_sites",
+        path=_BASELINES_DIR / "auth_facade_patch_sites.json",
+        derive=_derive_auth_facade_patch_sites,
+        sort_keys=True,
+        growth_check=_patch_projection_growth,
+        description="Public auth facade substitutions; a no-growth relocation sentinel.",
+    ),
+    Baseline(
+        name="auth_family_patch_scorecard",
+        path=_BASELINES_DIR / "auth_family_patch_scorecard.json",
+        derive=_derive_auth_family_patch_scorecard,
+        sort_keys=True,
+        growth_check=_auth_family_growth,
+        description="Combined auth/browser/facade scorecard retaining package identity.",
+    ),
+    Baseline(
+        name="auth_shared_mutations",
+        path=_BASELINES_DIR / "auth_shared_mutations.json",
+        derive=_derive_auth_shared_mutations,
+        sort_keys=True,
+        growth_check=_auth_shared_mutation_growth,
+        description="Auth/browser shared-owner mutations with lexical ownership.",
     ),
     Baseline(
         name="auth_import_graph",
@@ -279,6 +478,13 @@ BASELINES: list[Baseline] = [
         derive=_derive_auth_import_graph,
         sort_keys=True,
         description="Static direct-module import graph for notebooklm._auth.",
+    ),
+    Baseline(
+        name="browser_import_graph",
+        path=_BASELINES_DIR / "browser_import_graph.json",
+        derive=_derive_browser_import_graph,
+        sort_keys=True,
+        description="Static package-aware import graph for notebooklm._browser.",
     ),
     Baseline(
         name="types_all",

@@ -61,7 +61,7 @@ class SubdomainResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainCreateResponse:
         """
-        Enable or disable the Worker on the workers.dev subdomain.
+        Enable or disable a Worker script on the workers.dev subdomain.
 
         Args:
           account_id: Identifier.
@@ -121,7 +121,7 @@ class SubdomainResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainDeleteResponse:
         """
-        Disable all workers.dev subdomains for a Worker.
+        Disable all workers.dev subdomains for a Worker script.
 
         Args:
           account_id: Identifier.
@@ -169,7 +169,7 @@ class SubdomainResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainGetResponse:
         """
-        Get if the Worker is available on the workers.dev subdomain.
+        Get whether a Worker script is available on the workers.dev subdomain.
 
         Args:
           account_id: Identifier.
@@ -240,7 +240,7 @@ class AsyncSubdomainResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainCreateResponse:
         """
-        Enable or disable the Worker on the workers.dev subdomain.
+        Enable or disable a Worker script on the workers.dev subdomain.
 
         Args:
           account_id: Identifier.
@@ -300,7 +300,7 @@ class AsyncSubdomainResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainDeleteResponse:
         """
-        Disable all workers.dev subdomains for a Worker.
+        Disable all workers.dev subdomains for a Worker script.
 
         Args:
           account_id: Identifier.
@@ -348,7 +348,7 @@ class AsyncSubdomainResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SubdomainGetResponse:
         """
-        Get if the Worker is available on the workers.dev subdomain.
+        Get whether a Worker script is available on the workers.dev subdomain.
 
         Args:
           account_id: Identifier.

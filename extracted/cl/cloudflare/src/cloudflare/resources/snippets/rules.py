@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Type, Iterable, cast
+from typing import Iterable
 
 import httpx
 
 from ..._types import Body, Query, Headers, NotGiven, not_given
-from ..._utils import path_template, maybe_transform, async_maybe_transform
+from ..._utils import path_template, maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import (
@@ -16,9 +16,13 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ..._wrappers import ResultWrapper
-from ..._base_client import make_request_options
+from ...pagination import SyncSinglePage, AsyncSinglePage
+from ..._base_client import AsyncPaginator, make_request_options
 from ...types.snippets import rule_update_params
+from ...types.snippets.rule_get_response import RuleGetResponse
+from ...types.snippets.rule_list_response import RuleListResponse
+from ...types.snippets.rule_delete_response import RuleDeleteResponse
+from ...types.snippets.rule_update_response import RuleUpdateResponse
 
 __all__ = ["RulesResource", "AsyncRulesResource"]
 
@@ -54,7 +58,7 @@ class RulesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> SyncSinglePage[RuleUpdateResponse]:
         """
         Updates all snippet rules belonging to the zone.
 
@@ -73,17 +77,15 @@ class RulesResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._put(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=SyncSinglePage[RuleUpdateResponse],
             body=maybe_transform({"rules": rules}, rule_update_params.RuleUpdateParams),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleUpdateResponse,
+            method="put",
         )
 
     def list(
@@ -96,7 +98,7 @@ class RulesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> SyncSinglePage[RuleListResponse]:
         """
         Fetches all snippet rules belonging to the zone.
 
@@ -113,16 +115,13 @@ class RulesResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=SyncSinglePage[RuleListResponse],
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleListResponse,
         )
 
     def delete(
@@ -135,7 +134,7 @@ class RulesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> SyncSinglePage[RuleDeleteResponse]:
         """
         Deletes all snippet rules belonging to the zone.
 
@@ -152,16 +151,14 @@ class RulesResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._delete(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=SyncSinglePage[RuleDeleteResponse],
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleDeleteResponse,
+            method="delete",
         )
 
     def get(
@@ -174,7 +171,7 @@ class RulesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> SyncSinglePage[RuleGetResponse]:
         """
         Fetches all snippet rules belonging to the zone.
 
@@ -191,16 +188,13 @@ class RulesResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=SyncSinglePage[RuleGetResponse],
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleGetResponse,
         )
 
 
@@ -224,7 +218,7 @@ class AsyncRulesResource(AsyncAPIResource):
         """
         return AsyncRulesResourceWithStreamingResponse(self)
 
-    async def update(
+    def update(
         self,
         *,
         zone_id: str,
@@ -235,7 +229,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> AsyncPaginator[RuleUpdateResponse, AsyncSinglePage[RuleUpdateResponse]]:
         """
         Updates all snippet rules belonging to the zone.
 
@@ -254,20 +248,18 @@ class AsyncRulesResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return await self._put(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
-            body=await async_maybe_transform({"rules": rules}, rule_update_params.RuleUpdateParams),
+            page=AsyncSinglePage[RuleUpdateResponse],
+            body=maybe_transform({"rules": rules}, rule_update_params.RuleUpdateParams),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleUpdateResponse,
+            method="put",
         )
 
-    async def list(
+    def list(
         self,
         *,
         zone_id: str,
@@ -277,7 +269,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> AsyncPaginator[RuleListResponse, AsyncSinglePage[RuleListResponse]]:
         """
         Fetches all snippet rules belonging to the zone.
 
@@ -294,19 +286,16 @@ class AsyncRulesResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return await self._get(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=AsyncSinglePage[RuleListResponse],
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleListResponse,
         )
 
-    async def delete(
+    def delete(
         self,
         *,
         zone_id: str,
@@ -316,7 +305,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> AsyncPaginator[RuleDeleteResponse, AsyncSinglePage[RuleDeleteResponse]]:
         """
         Deletes all snippet rules belonging to the zone.
 
@@ -333,19 +322,17 @@ class AsyncRulesResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return await self._delete(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=AsyncSinglePage[RuleDeleteResponse],
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleDeleteResponse,
+            method="delete",
         )
 
-    async def get(
+    def get(
         self,
         *,
         zone_id: str,
@@ -355,7 +342,7 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> AsyncPaginator[RuleGetResponse, AsyncSinglePage[RuleGetResponse]]:
         """
         Fetches all snippet rules belonging to the zone.
 
@@ -372,16 +359,13 @@ class AsyncRulesResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return await self._get(
+        return self._get_api_list(
             path_template("/zones/{zone_id}/snippets/snippet_rules", zone_id=zone_id),
+            page=AsyncSinglePage[RuleGetResponse],
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[object]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[object], ResultWrapper[object]),
+            model=RuleGetResponse,
         )
 
 

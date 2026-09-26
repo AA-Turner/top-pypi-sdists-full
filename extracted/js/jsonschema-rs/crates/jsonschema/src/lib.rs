@@ -5,6 +5,8 @@
 //!
 //! - 📚 Support for popular JSON Schema drafts
 //! - 🔧 Custom keywords and format validators
+//! - ⚡ [Compile-time validators](#compile-time-validator-macro), also for
+//!   [Python](#python-extension-modules) and [Ruby](#ruby-extension-modules) extension modules
 //! - 🌐 Blocking & non-blocking remote reference fetching (network/file)
 //! - 🎨 Structured Output v1 reports (flag/list/hierarchical)
 //! - ✨ Meta-schema validation for schema documents
@@ -167,6 +169,10 @@
 //! which documents its behavior and defaults:
 //!
 //! - schema source (exactly one required): `path = "..."` (file) or `schema = r#"..."#` (inline)
+//! - `backend = SerdeJson|Pyo3|Magnus` (default: `SerdeJson`), the representation the generated
+//!   validator reads; `Pyo3` needs the `pyo3` feature (see
+//!   [Python Extension Modules](#python-extension-modules)) and `Magnus` the `magnus` feature (see
+//!   [Ruby Extension Modules](#ruby-extension-modules))
 //! - `draft = Draft202012` (or another variant) -> [`ValidationOptions::with_draft`]
 //! - `base_uri = "..."` -> [`ValidationOptions::with_base_uri`]
 //! - `resources = { "<uri>" => { schema = r#"..."# } | { path = "..." } }`
@@ -179,6 +185,63 @@
 //! - `content_encodings = { "name" => { check = ..., convert = ... } }` -> [`ValidationOptions::with_content_encoding`]
 //! - `pattern_options = { ... }` -> [`PatternOptions`]
 //! - `email_options = { ... }` -> [`EmailOptions`]
+//! - `methods = { is_valid = true, validate = false, iter_errors = false }`, which methods to
+//!   generate (all default to `true`; at least one must stay enabled)
+//!
+//! ## Python Extension Modules
+//!
+//! With `backend = Pyo3`, the generated validator reads Python objects in place, for extension
+//! modules that know their schemas at build time. The methods take `&Bound<'_, PyAny>` and return
+//! `PyResult<...>`, which is an error when the instance holds a value with no JSON counterpart,
+//! such as a `set`:
+//!
+//! ```ignore
+//! use pyo3::prelude::*;
+//!
+//! #[jsonschema::validator(path = "event.json", backend = Pyo3)]
+//! struct Event;
+//!
+//! #[pyfunction]
+//! fn is_valid_event(instance: &Bound<'_, PyAny>) -> PyResult<bool> {
+//!     Event::is_valid(instance)
+//! }
+//! ```
+//!
+//! A `keywords` factory for this backend returns `Box<dyn for<'i> Keyword<'i, json::Pyo3>>`. A
+//! complete extension with its build and test commands lives in
+//! [`examples/pyo3-extension`](https://github.com/Stranger6667/jsonschema/tree/master/examples/pyo3-extension).
+//!
+//! Building the extension with `PyO3`'s `abi3` features limits it to the stable Python API, where
+//! list and tuple elements are read through function calls; a build per Python version reads them
+//! in place, which is faster on array-heavy instances.
+//!
+//! ## Ruby Extension Modules
+//!
+//! With `backend = Magnus`, the generated validator reads Ruby objects in place, for extension
+//! modules that know their schemas at build time. The methods take `&magnus::Value` and return
+//! `Result<..., magnus::Error>`, which is an error when the instance holds a value with no JSON
+//! counterpart, such as a `Regexp`. They must run on a thread holding the GVL, as any Ruby call:
+//!
+//! ```ignore
+//! use magnus::{function, Error, Ruby, Value};
+//!
+//! #[jsonschema::validator(path = "event.json", backend = Magnus)]
+//! struct Event;
+//!
+//! fn valid_event(instance: Value) -> Result<bool, Error> {
+//!     Event::is_valid(&instance)
+//! }
+//!
+//! #[magnus::init]
+//! fn init(ruby: &Ruby) -> Result<(), Error> {
+//!     ruby.define_global_function("valid_event?", function!(valid_event, 1));
+//!     Ok(())
+//! }
+//! ```
+//!
+//! A `keywords` factory for this backend returns `Box<dyn for<'i> Keyword<'i, json::Magnus>>`. A
+//! complete extension with its build and test commands lives in
+//! [`examples/magnus-extension`](https://github.com/Stranger6667/jsonschema/tree/master/examples/magnus-extension).
 //!
 //! ## Limitations
 //!
@@ -1033,6 +1096,20 @@ pub(crate) use jsonschema_value::{
 /// `serde_json::Value`; only instances use the custom representation. [`SerdeJson`] is the
 /// built-in representation behind [`validator_for`] and the crate-level convenience functions.
 ///
+/// Enable the `jsonb` feature for `json::Jsonb`, which reads a Postgres `jsonb` value in
+/// place. It takes the container bytes without the varlena header, so detoast first:
+///
+/// ```rust,ignore
+/// let detoasted = unsafe { pgrx::pg_sys::pg_detoast_datum_packed(datum.cast_mut_ptr()) };
+/// let bytes = unsafe { pgrx::varlena_to_byte_slice(detoasted) };
+/// validator.is_valid(Jsonb::root(bytes))
+/// ```
+///
+/// The slice lives until the memory context resets. The bytes are in the server's native byte
+/// order, and keys and strings are read as UTF-8. An error's instance is built on first access;
+/// past 128 levels of nesting it holds `null` there and
+/// `json::jsonb::take_pending_error` returns the error.
+///
 /// The accessors are infallible, so the representation must be total over JSON: reject nodes
 /// with no JSON meaning (tags, foreign objects) before validation, or track them on a side
 /// channel of the representation.
@@ -1250,13 +1327,19 @@ pub mod json {
     pub use jsonschema_value::{
         cmp, unique, Array, Json, JsonNumber, Node, NodeIdentity, Object, SerdeJson,
     };
+    #[cfg(feature = "jsonb")]
+    pub use jsonschema_value::{jsonb, Jsonb, JsonbNode};
     #[cfg(feature = "magnus")]
     pub use jsonschema_value::{
-        magnus_child, magnus_invalidate_members_cache, magnus_is_object, magnus_probe_root,
-        magnus_take_pending_error, Magnus, MagnusPendingErrorScope, PendingError, RbNode,
+        magnus_child, magnus_invalidate_members_cache, magnus_is_object, magnus_object_values,
+        magnus_probe_root, magnus_string_node, magnus_take_pending_error, Magnus,
+        MagnusPendingErrorScope, PendingError, RbNode,
     };
     #[cfg(feature = "pyo3")]
-    pub use jsonschema_value::{probe_root, take_pending_error, PendingErrorScope, Pyo3};
+    pub use jsonschema_value::{
+        narrow_array, narrow_object, object_values, probe_root, take_pending_error,
+        PendingErrorScope, Pyo3,
+    };
 }
 mod http;
 mod keywords;
@@ -1796,6 +1879,55 @@ pub mod meta {
     };
 
     pub use validator_handle::MetaValidator;
+
+    /// Meta-schema validators that read a schema held as a Python object.
+    ///
+    /// The bundled drafts are compiled in, so a schema already in Python form is checked without
+    /// being converted to [`serde_json::Value`]. A `$schema` outside them is reached through
+    /// [`is_valid_for`] / [`validate_for`] instead.
+    ///
+    /// Needs the `macros` feature; without it, use [`is_valid_for`] / [`validate_for`] with
+    /// [`json::Pyo3`](crate::json::Pyo3).
+    #[cfg(all(feature = "macros", feature = "pyo3", not(target_family = "wasm")))]
+    pub mod pyo3 {
+        use crate::Draft;
+        use ::pyo3::{types::PyAny, Borrowed};
+
+        pub use crate::meta_codegen::pyo3::{is_valid_fn, validate_fn, IsValidFn, ValidateFn};
+
+        /// The draft whose meta-schema `schema` names in `$schema`.
+        ///
+        /// `Draft::Unknown` means a URI outside the bundled drafts, which the functions above
+        /// cannot answer for.
+        #[must_use]
+        pub fn draft_of(schema: Borrowed<'_, '_, PyAny>) -> Draft {
+            super::meta_cache::<crate::json::Pyo3>().draft_of(&schema)
+        }
+    }
+
+    /// Meta-schema validators that read a schema held as a Ruby object.
+    ///
+    /// The bundled drafts are compiled in, so a schema already in Ruby form is checked without
+    /// being converted to [`serde_json::Value`]. A `$schema` outside them is reached through
+    /// [`is_valid_for`] / [`validate_for`] instead.
+    ///
+    /// Needs the `macros` feature; without it, use [`is_valid_for`] / [`validate_for`] with
+    /// [`json::Magnus`](crate::json::Magnus).
+    #[cfg(all(feature = "macros", feature = "magnus", not(target_family = "wasm")))]
+    pub mod magnus {
+        use crate::{json::RbNode, Draft};
+
+        pub use crate::meta_codegen::magnus::{is_valid_fn, validate_fn, IsValidFn, ValidateFn};
+
+        /// The draft whose meta-schema `schema` names in `$schema`.
+        ///
+        /// `Draft::Unknown` means a URI outside the bundled drafts, which the functions above
+        /// cannot answer for.
+        #[must_use]
+        pub fn draft_of(schema: RbNode<'_>) -> Draft {
+            super::meta_cache::<crate::json::Magnus>().draft_of(&schema)
+        }
+    }
 
     /// Create a meta-validation options builder.
     ///
@@ -3342,6 +3474,54 @@ pub mod draft202012 {
 #[cfg(feature = "macros")]
 #[doc(hidden)]
 pub mod __private {
+    #[cfg(feature = "pyo3")]
+    pub mod pyo3 {
+        pub use pyo3::{intern, types::PyString, Borrowed, Bound, PyAny, PyResult};
+    }
+
+    // Wraps a `backend = Pyo3` validator, so a build without the feature reports that alone.
+    #[cfg(feature = "pyo3")]
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __pyo3_backend {
+        ($($generated:tt)*) => { $($generated)* };
+    }
+
+    #[cfg(not(feature = "pyo3"))]
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __pyo3_backend {
+        ($($generated:tt)*) => {
+            ::core::compile_error!("`backend = Pyo3` needs the `pyo3` feature of `jsonschema`");
+        };
+    }
+
+    pub use crate::__pyo3_backend as pyo3_backend;
+
+    #[cfg(feature = "magnus")]
+    pub mod magnus {
+        pub use ::magnus::{rb_sys::AsRawValue, Error, Value};
+    }
+
+    // Wraps a `backend = Magnus` validator, so a build without the feature reports that alone.
+    #[cfg(feature = "magnus")]
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __magnus_backend {
+        ($($generated:tt)*) => { $($generated)* };
+    }
+
+    #[cfg(not(feature = "magnus"))]
+    #[doc(hidden)]
+    #[macro_export]
+    macro_rules! __magnus_backend {
+        ($($generated:tt)*) => {
+            ::core::compile_error!("`backend = Magnus` needs the `magnus` feature of `jsonschema`");
+        };
+    }
+
+    pub use crate::__magnus_backend as magnus_backend;
+
     pub use ::serde_json;
 
     pub mod fancy_regex {
@@ -3358,7 +3538,10 @@ pub mod __private {
         pub use crate::cmp::{equal, equal_numbers};
     }
     pub mod custom {
-        use crate::paths::Location;
+        use crate::{
+            json::{Json, Node},
+            paths::Location,
+        };
 
         #[must_use]
         pub fn location(pointer: &str) -> Location {
@@ -3366,17 +3549,17 @@ pub mod __private {
         }
 
         /// Run a custom keyword and fill in error context exactly like the runtime validator's `CustomKeyword` wrapper.
-        pub fn validate<'i>(
-            keyword: &dyn crate::Keyword<'i>,
-            instance: &'i serde_json::Value,
+        pub fn validate<'i, F: Json>(
+            keyword: &dyn crate::Keyword<'i, F>,
+            instance: &F::Node<'i>,
             instance_path: Location,
             schema_path: &str,
             keyword_name: &str,
         ) -> Option<crate::ValidationError<'i>> {
-            match keyword.validate(instance) {
+            match keyword.validate(instance.clone()) {
                 Ok(()) => None,
                 Err(error) => Some(error.with_generated_context(
-                    instance,
+                    instance.to_value(),
                     instance_path,
                     Location::from_escaped(schema_path),
                     keyword_name,
@@ -3385,17 +3568,22 @@ pub mod __private {
         }
 
         /// Run a custom keyword's `iter_errors`, filling in context exactly like [`validate`] does.
-        pub fn collect_errors<'i>(
-            keyword: &dyn crate::Keyword<'i>,
-            instance: &'i serde_json::Value,
+        pub fn collect_errors<'i, F: Json>(
+            keyword: &dyn crate::Keyword<'i, F>,
+            instance: &F::Node<'i>,
             instance_path: &Location,
             schema_path: &str,
             keyword_name: &str,
             errors: &mut Vec<crate::ValidationError<'i>>,
         ) {
-            for error in keyword.iter_errors(instance) {
+            let mut found = keyword.iter_errors(instance.clone()).peekable();
+            if found.peek().is_none() {
+                return;
+            }
+            let value = instance.to_value();
+            for error in found {
                 errors.push(error.with_generated_context(
-                    instance,
+                    value.clone(),
                     instance_path.clone(),
                     Location::from_escaped(schema_path),
                     keyword_name,

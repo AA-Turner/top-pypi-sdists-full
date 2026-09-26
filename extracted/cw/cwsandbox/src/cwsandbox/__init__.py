@@ -6,14 +6,13 @@
 
 from __future__ import annotations
 
-__version__ = "1.14.3"
+__version__ = "1.16.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
-# Import cleanup module to install atexit and signal handlers
-from cwsandbox import _cleanup as _cleanup  # noqa: F401
 from cwsandbox._auth import AuthConfig, AuthHeaders, AuthProvider, AuthStrategy, set_auth_mode
+from cwsandbox._cleanup import disable_signal_handlers
 from cwsandbox._defaults import SandboxDefaults
 from cwsandbox._discovery import (
     Runner,
@@ -35,6 +34,7 @@ from cwsandbox._types import (
     Endpoint,
     EndpointAuth,
     EndpointKind,
+    EndpointShareToken,
     FileSystemSnapshot,
     FileSystemSnapshotBucketConfig,
     FileSystemSnapshotBucketMode,
@@ -334,6 +334,7 @@ __all__ = [
     "Endpoint",
     "EndpointAuth",
     "EndpointKind",
+    "EndpointShareToken",
     "FieldViolation",
     "FileSystemSnapshot",
     "FileSystemSnapshotBucketConfig",
@@ -372,6 +373,7 @@ __all__ = [
     "ServiceVisibility",
     "StorageMedium",
     "set_auth_mode",
+    "disable_signal_handlers",
     "Sandbox",
     "SandboxCommandTimeoutError",
     "SandboxDefaults",

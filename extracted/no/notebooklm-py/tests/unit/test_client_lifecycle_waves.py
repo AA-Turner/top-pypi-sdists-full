@@ -8,10 +8,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
+from notebooklm._artifact.polling import ArtifactPollingService
 from notebooklm._client_metrics import ClientMetrics
-from notebooklm._runtime.call_supervisor import CallSupervisor
+from notebooklm._runtime.call_supervisor import AdmissionState, CallSupervisor
 from notebooklm._runtime.lifecycle import ClientLifecycle, _ResourceState
-from notebooklm._transport_drain import TransportDrainTracker
+from notebooklm.types import GenerationState, GenerationStatus
 
 
 def _assert_republished_cancel_message(error: asyncio.CancelledError, expected: str) -> None:
@@ -29,11 +30,15 @@ class _Supervisor:
     events: list[str] = field(default_factory=list)
     wait_gate: asyncio.Event | None = None
     stop_error: BaseException | None = None
+    stop_errors: list[BaseException] = field(default_factory=list)
     wait_error: BaseException | None = None
     hook_errors: list[BaseException] = field(default_factory=list)
     start_error: BaseException | None = None
     closing_error: BaseException | None = None
     mark_error: BaseException | None = None
+
+    def assert_shutdown_allowed(self, action: str) -> None:
+        del action
 
     def set_bound_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self.events.append("bind")
@@ -51,6 +56,10 @@ class _Supervisor:
 
     async def stop_accepting(self, epoch: int) -> None:
         self.events.append(f"drain:{epoch}")
+        # ``stop_errors`` fails a bounded number of calls; ``close()`` also
+        # calls this, so a persistent ``stop_error`` would break teardown too.
+        if self.stop_errors:
+            raise self.stop_errors.pop(0)
         if self.stop_error is not None:
             raise self.stop_error
 
@@ -136,6 +145,16 @@ def _lifecycle(
     )
 
 
+def _real_lifecycle(*transports: _Transport) -> tuple[ClientLifecycle, CallSupervisor]:
+    supervisor = CallSupervisor(metrics=ClientMetrics(), max_concurrent_rpcs=None)
+    lifecycle = ClientLifecycle(
+        supervisor=supervisor,
+        transports=transports,
+        loop_participants=(supervisor,),
+    )
+    return lifecycle, supervisor
+
+
 async def _wait_for_event(events: list[str], prefix: str) -> None:
     """Yield until a lifecycle phase records ``prefix`` or fail deterministically."""
     for _ in range(100):
@@ -143,6 +162,28 @@ async def _wait_for_event(events: list[str], prefix: str) -> None:
             return
         await asyncio.sleep(0)
     raise AssertionError(f"lifecycle event {prefix!r} was not observed: {events!r}")
+
+
+async def _wait_for_admission_state(
+    supervisor: CallSupervisor,
+    expected: AdmissionState,
+) -> None:
+    for _ in range(100):
+        generation = supervisor._current
+        if generation is not None and generation.state is expected:
+            return
+        await asyncio.sleep(0)
+    raise AssertionError(f"admission state {expected.value!r} was not observed")
+
+
+async def _invoke_shutdown(lifecycle: ClientLifecycle, action: str) -> None:
+    if action == "drain":
+        await lifecycle.drain()
+    elif action == "graceful-close":
+        await lifecycle.close(drain=True)
+    else:
+        assert action == "forced-close"
+        await lifecycle.close(drain=False)
 
 
 @pytest.mark.asyncio
@@ -195,6 +236,7 @@ async def test_open_failure_rolls_back_every_transport_and_preserves_original() 
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_open_commit_failure_rolls_back_releases_joiners_and_allows_reopen() -> None:
     events: list[str] = []
     gate = asyncio.Event()
@@ -242,6 +284,7 @@ async def test_open_commit_failure_rolls_back_releases_joiners_and_allows_reopen
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_first_cancel_during_failed_open_waits_for_rollback_and_wins() -> None:
     events: list[str] = []
     rollback_gate = asyncio.Event()
@@ -274,6 +317,7 @@ async def test_first_cancel_during_failed_open_waits_for_rollback_and_wins() -> 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("recancel", [False, True])
+@pytest.mark.refactor_qualification
 async def test_process_exit_from_failed_open_beats_cancellation_during_rollback(
     recancel: bool,
 ) -> None:
@@ -314,6 +358,7 @@ async def test_process_exit_from_failed_open_beats_cancellation_during_rollback(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_recancel_during_failed_open_detaches_rollback_with_first_cancel() -> None:
     events: list[str] = []
     rollback_gate = asyncio.Event()
@@ -348,6 +393,7 @@ async def test_recancel_during_failed_open_detaches_rollback_with_first_cancel()
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_cancel_immediately_after_prepare_before_commit_rolls_back() -> None:
     events: list[str] = []
     rollback_gate = asyncio.Event()
@@ -379,6 +425,7 @@ async def test_cancel_immediately_after_prepare_before_commit_rolls_back() -> No
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("waiter_action", ["close", "drain"])
+@pytest.mark.refactor_qualification
 async def test_failed_open_is_re_raised_to_close_and_drain_waiters(waiter_action: str) -> None:
     events: list[str] = []
     gate = asyncio.Event()
@@ -426,6 +473,7 @@ async def test_cancelling_non_owner_open_does_not_abort_owner() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_open_joiner_retries_after_owner_cancellation_rollback() -> None:
     events: list[str] = []
     gate = asyncio.Event()
@@ -456,6 +504,7 @@ async def test_open_joiner_retries_after_owner_cancellation_rollback() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_open_owner_recancellation_leaves_retained_rollback_running() -> None:
     events: list[str] = []
     open_gate = asyncio.Event()
@@ -490,6 +539,7 @@ async def test_open_owner_recancellation_leaves_retained_rollback_running() -> N
 @pytest.mark.parametrize(
     "closing_error", [RuntimeError("closing failed"), asyncio.CancelledError()]
 )
+@pytest.mark.refactor_qualification
 async def test_begin_closing_failure_restores_non_stranded_resource_state(
     closing_error: BaseException,
 ) -> None:
@@ -510,6 +560,7 @@ async def test_begin_closing_failure_restores_non_stranded_resource_state(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_graceful_prephase_cancellation_releases_joiners_and_allows_retry() -> None:
     events: list[str] = []
     gate = asyncio.Event()
@@ -548,6 +599,7 @@ async def test_graceful_prephase_cancellation_releases_joiners_and_allows_retry(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_rollback_process_exit_beats_original_open_failure() -> None:
     from notebooklm._runtime.lifecycle import _capture, _OpenOutcome, _OpenWave
 
@@ -570,6 +622,7 @@ async def test_rollback_process_exit_beats_original_open_failure() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_manual_drain_keeps_resources_open_and_close_waves_coalesce() -> None:
     events: list[str] = []
     supervisor = _Supervisor(events=events)
@@ -592,6 +645,7 @@ async def test_manual_drain_keeps_resources_open_and_close_waves_coalesce() -> N
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_drain_racing_opening_waits_for_commit_then_drains_generation() -> None:
     events: list[str] = []
     open_gate = asyncio.Event()
@@ -622,6 +676,7 @@ async def test_drain_racing_opening_waits_for_commit_then_drains_generation() ->
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_drain_racing_manual_drain_waits_on_same_open_generation() -> None:
     events: list[str] = []
     idle_gate = asyncio.Event()
@@ -649,6 +704,7 @@ async def test_drain_racing_manual_drain_waits_on_same_open_generation() -> None
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_drain_racing_closing_joins_close_wave_without_redraining() -> None:
     events: list[str] = []
     prepare_gate = asyncio.Event()
@@ -681,6 +737,7 @@ async def test_drain_racing_closing_joins_close_wave_without_redraining() -> Non
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("close_finishes_before_drain_resumes", [False, True])
+@pytest.mark.refactor_qualification
 async def test_drain_that_snapshotted_open_joins_or_observes_racing_close(
     close_finishes_before_drain_resumes: bool,
 ) -> None:
@@ -689,7 +746,6 @@ async def test_drain_that_snapshotted_open_joins_or_observes_racing_close(
     transport = _Transport("web", events, prepare_gate=prepare_gate)
     supervisor = CallSupervisor(
         metrics=ClientMetrics(),
-        drain_tracker=TransportDrainTracker(),
         max_concurrent_rpcs=None,
     )
     lifecycle = ClientLifecycle(
@@ -731,6 +787,7 @@ async def test_drain_that_snapshotted_open_joins_or_observes_racing_close(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_resource_state_and_is_open_transitions_cover_every_phase() -> None:
     events: list[str] = []
     open_gate = asyncio.Event()
@@ -769,6 +826,7 @@ async def test_resource_state_and_is_open_transitions_cover_every_phase() -> Non
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_second_close_waiter_cancellation_aborts_hung_first_graceful_prephase() -> None:
     events: list[str] = []
     idle_gate = asyncio.Event()
@@ -796,6 +854,7 @@ async def test_second_close_waiter_cancellation_aborts_hung_first_graceful_preph
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_invalid_graceful_timeout_precedes_hooks_and_forced_close_ignores_it() -> None:
     events: list[str] = []
     lifecycle = _lifecycle(_Supervisor(events=events), _Transport("web", events))
@@ -820,6 +879,7 @@ async def test_invalid_graceful_timeout_precedes_hooks_and_forced_close_ignores_
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_drain_timeout_precedes_ordered_transport_failures() -> None:
     events: list[str] = []
     timeout = TimeoutError("idle timed out")
@@ -842,6 +902,7 @@ async def test_drain_timeout_precedes_ordered_transport_failures() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_process_exit_precedes_graceful_timeout_and_teardown_failures() -> None:
     events: list[str] = []
     timeout = TimeoutError("idle timed out")
@@ -869,6 +930,7 @@ async def test_process_exit_precedes_graceful_timeout_and_teardown_failures() ->
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_close_phase_process_exit_waits_for_siblings_and_marks_closed() -> None:
     events: list[str] = []
     process_exit = KeyboardInterrupt("shutdown")
@@ -893,6 +955,7 @@ async def test_close_phase_process_exit_waits_for_siblings_and_marks_closed() ->
 @pytest.mark.asyncio
 @pytest.mark.parametrize("phase", ["stop_accepting", "pre_drain_hook", "wait_for_idle"])
 @pytest.mark.parametrize("exit_type", [KeyboardInterrupt, SystemExit])
+@pytest.mark.refactor_qualification
 async def test_graceful_prephase_process_exit_finishes_every_close_phase(
     phase: str,
     exit_type: type[BaseException],
@@ -930,6 +993,7 @@ async def test_graceful_prephase_process_exit_finishes_every_close_phase(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_observed_retained_process_exit_is_not_forwarded_to_loop_handler() -> None:
     events: list[str] = []
     process_exit = SystemExit("observed exit")
@@ -954,6 +1018,7 @@ async def test_observed_retained_process_exit_is_not_forwarded_to_loop_handler()
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_detached_retained_process_exit_is_forwarded_to_loop_handler_once() -> None:
     events: list[str] = []
     prepare_gate = asyncio.Event()
@@ -997,6 +1062,7 @@ async def test_detached_retained_process_exit_is_forwarded_to_loop_handler_once(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_observer_suppresses_handler_after_another_waiter_detaches() -> None:
     events: list[str] = []
     prepare_gate = asyncio.Event()
@@ -1037,6 +1103,7 @@ async def test_observer_suppresses_handler_after_another_waiter_detaches() -> No
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_eager_task_factory_never_runs_wave_code_under_state_lock() -> None:
     events: list[str] = []
     supervisor = _Supervisor(events=events)
@@ -1091,6 +1158,7 @@ async def test_cancelled_close_aborts_hung_graceful_wait_but_finishes_teardown()
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_close_recancellation_leaves_retained_teardown_running() -> None:
     events: list[str] = []
     prepare_gate = asyncio.Event()
@@ -1138,6 +1206,7 @@ async def test_close_reopen_allocates_a_new_resource_epoch() -> None:
 
 @pytest.mark.parametrize("resource_state", ["open", "opening", "closing"])
 @pytest.mark.parametrize("action", ["open", "drain", "close"])
+@pytest.mark.refactor_qualification
 def test_foreign_loop_public_lifecycle_calls_are_rejected(
     resource_state: str,
     action: str,
@@ -1191,6 +1260,7 @@ def test_foreign_loop_public_lifecycle_calls_are_rejected(
 
 
 @pytest.mark.asyncio
+@pytest.mark.refactor_qualification
 async def test_closed_noops_and_timeout_validation_are_resource_independent() -> None:
     lifecycle = _lifecycle(_Supervisor(), _Transport("web", []))
 
@@ -1204,6 +1274,7 @@ async def test_closed_noops_and_timeout_validation_are_resource_independent() ->
 
 
 @pytest.mark.parametrize("waiter_action", ["close", "drain"])
+@pytest.mark.refactor_qualification
 def test_same_new_loop_waiter_can_join_cross_loop_reopen(waiter_action: str) -> None:
     events: list[str] = []
     lifecycle = _lifecycle(_Supervisor(events=events), _Transport("web", events))
@@ -1227,3 +1298,307 @@ def test_same_new_loop_waiter_can_join_cross_loop_reopen(waiter_action: str) -> 
     asyncio.run(second_generation())
 
     assert not lifecycle.is_open()
+
+
+# ===========================================================================
+# drain(): admission fencing without closing resources
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_draining_a_closed_lifecycle_is_a_no_op() -> None:
+    events: list[str] = []
+    supervisor = _Supervisor(events=events)
+    lifecycle = _lifecycle(supervisor, _Transport("t", events))
+
+    await lifecycle.drain()
+
+    assert events == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_drain_rejects_a_negative_timeout() -> None:
+    events: list[str] = []
+    lifecycle = _lifecycle(_Supervisor(events=events), _Transport("t", events))
+
+    with pytest.raises(ValueError, match="timeout must be >= 0 or None"):
+        await lifecycle.drain(timeout=-1.0)
+
+    assert events == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_drain_stops_admission_and_waits_for_idle() -> None:
+    events: list[str] = []
+    supervisor = _Supervisor(events=events)
+    lifecycle = _lifecycle(supervisor, _Transport("t", events))
+    await lifecycle.open()
+    events.clear()
+
+    await lifecycle.drain(timeout=5.0)
+
+    assert events == ["drain:1", "idle:1:5.0"]
+    # Resources stay open: drain fences admission only, it does not close.
+    assert lifecycle._state is _ResourceState.OPEN
+    assert not any(event.startswith("close:") for event in events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_a_drain_racing_a_close_joins_that_close_instead_of_failing() -> None:
+    """``stop_accepting`` raises once ``close()`` has claimed the epoch."""
+    events: list[str] = []
+    supervisor = _Supervisor(events=events)
+    close_gate = asyncio.Event()
+    transport = _Transport("t", events, close_gate=close_gate)
+    lifecycle = _lifecycle(supervisor, transport)
+    await lifecycle.open()
+
+    close_task = asyncio.create_task(lifecycle.close())
+    await _wait_for_event(events, "close:t")
+    # The epoch now belongs to the close wave, so a drain's ``stop_accepting``
+    # is the call that must be suppressed — not a real fault.
+    supervisor.stop_errors.append(RuntimeError("generation is not current"))
+
+    drain_task = asyncio.create_task(lifecycle.drain())
+    close_gate.set()
+    await asyncio.gather(drain_task, close_task)
+
+    assert lifecycle._state is _ResourceState.CLOSED
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_an_unrelated_supervisor_failure_during_drain_propagates() -> None:
+    """Only the close race is suppressed — a real fault must stay loud."""
+    events: list[str] = []
+    supervisor = _Supervisor(events=events)
+    supervisor.stop_errors.append(RuntimeError("supervisor is broken"))
+    lifecycle = _lifecycle(supervisor, _Transport("t", events))
+    await lifecycle.open()
+
+    with pytest.raises(RuntimeError, match="supervisor is broken"):
+        await lifecycle.drain()
+
+    await lifecycle.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_a_drain_that_times_out_waiting_for_idle_propagates() -> None:
+    events: list[str] = []
+    supervisor = _Supervisor(events=events)
+    supervisor.wait_error = TimeoutError("still busy")
+    lifecycle = _lifecycle(supervisor, _Transport("t", events))
+    await lifecycle.open()
+
+    with pytest.raises(TimeoutError):
+        await lifecycle.drain(timeout=0.0)
+
+    supervisor.wait_error = None
+    await lifecycle.close()
+
+
+# ===========================================================================
+# open(): state guards
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_reopening_an_open_lifecycle_is_a_no_op() -> None:
+    events: list[str] = []
+    lifecycle = _lifecycle(_Supervisor(events=events), _Transport("t", events))
+    await lifecycle.open()
+    events.clear()
+
+    await lifecycle.open()
+
+    assert events == []
+    await lifecycle.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_opening_while_closing_is_refused() -> None:
+    events: list[str] = []
+    close_gate = asyncio.Event()
+    transport = _Transport("t", events, close_gate=close_gate)
+    lifecycle = _lifecycle(_Supervisor(events=events), transport)
+    await lifecycle.open()
+
+    close_task = asyncio.create_task(lifecycle.close())
+    await _wait_for_event(events, "close:t")
+
+    with pytest.raises(RuntimeError, match="closing; wait for close"):
+        await lifecycle.open()
+
+    close_gate.set()
+    await close_task
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_an_admission_rollback_failure_does_not_mask_the_open_failure() -> None:
+    """A failed open rolls back; a rollback fault must not replace the cause."""
+    events: list[str] = []
+    supervisor = _Supervisor(events=events)
+    supervisor.mark_error = RuntimeError("rollback refused")
+    transport = _Transport("t", events, open_error=RuntimeError("transport open failed"))
+    lifecycle = _lifecycle(supervisor, transport)
+
+    with pytest.raises(RuntimeError, match="transport open failed"):
+        await lifecycle.open()
+
+    assert lifecycle._state is _ResourceState.CLOSED
+
+
+# ===========================================================================
+# admitted callers cannot initiate or join their own shutdown
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("action", ["drain", "graceful-close", "forced-close"])
+@pytest.mark.parametrize("active_wave", ["none", "graceful", "forced"])
+@pytest.mark.refactor_qualification
+async def test_admitted_shutdown_fails_before_state_or_close_wave_changes(
+    action: str,
+    active_wave: str,
+) -> None:
+    """Cover every self-shutdown cell, including both graceful entrypoints."""
+    events: list[str] = []
+    prepare_gate = asyncio.Event() if active_wave == "forced" else None
+    transport = _Transport("web", events, prepare_gate=prepare_gate)
+    lifecycle, supervisor = _real_lifecycle(transport)
+    await lifecycle.open()
+
+    closing: asyncio.Task[None] | None = None
+    async with supervisor.operation_scope("admitted caller"):
+        if active_wave == "graceful":
+            # This task intentionally inherits the caller's ContextVars. It has
+            # no entry in the generation depth map and may therefore own the
+            # graceful wave while the admitted caller keeps it waiting.
+            closing = asyncio.create_task(lifecycle.close(drain=True))
+            await _wait_for_admission_state(supervisor, AdmissionState.DRAINING)
+        elif active_wave == "forced":
+            closing = asyncio.create_task(lifecycle.close(drain=False))
+            await _wait_for_event(events, "prepare:web")
+
+        state_before = lifecycle._state
+        wave_before = lifecycle._close_wave
+        generation = supervisor._current
+        assert generation is not None
+        admission_before = generation.state
+
+        # Keep shutdown in the admitted task. Python 3.10/3.11 ``wait_for``
+        # would wrap this coroutine in an independent, unadmitted Task.
+        with pytest.raises(RuntimeError, match=f"Cannot {action.split('-')[-1]}"):
+            await _invoke_shutdown(lifecycle, action)
+
+        assert lifecycle._state is state_before
+        assert lifecycle._close_wave is wave_before
+        assert generation.state is admission_before
+        if closing is not None:
+            await asyncio.sleep(0)
+            assert not closing.done()
+
+        if active_wave == "forced":
+            assert prepare_gate is not None
+            prepare_gate.set()
+            assert closing is not None
+            await closing
+
+    if active_wave == "graceful":
+        assert closing is not None
+        await closing
+    elif active_wave == "none":
+        await lifecycle.close(drain=False)
+
+    assert lifecycle._state is _ResourceState.CLOSED
+    assert supervisor._retired == {}
+
+
+@pytest.mark.asyncio
+async def test_registered_child_self_close_fails_fast_without_leaking_admission() -> None:
+    lifecycle, supervisor = _real_lifecycle()
+    await lifecycle.open()
+
+    async def child() -> str:
+        with pytest.raises(RuntimeError, match="Cannot close"):
+            await lifecycle.close(drain=False)
+        return "settled"
+
+    async with supervisor.operation_scope("parent"):
+        task = await supervisor.spawn_child("registered-child", child)
+        assert await task == "settled"
+
+    generation = supervisor._current
+    assert generation is not None
+    assert generation.in_flight == 0
+    assert not generation.depths
+    await lifecycle.close(drain=False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.refactor_qualification
+async def test_retired_generation_owner_cannot_close_reopened_generation() -> None:
+    lifecycle, supervisor = _real_lifecycle()
+    await lifecycle.open()
+
+    async with supervisor.operation_scope("old generation") as old_lease:
+        # Forced shutdown from an independent task retires the still-admitted
+        # generation. A copied ContextVar does not confer admission on it.
+        await asyncio.create_task(lifecycle.close(drain=False))
+        assert old_lease.epoch in supervisor._retired
+
+        await lifecycle.open()
+        reopened_epoch = lifecycle._epoch
+        assert reopened_epoch > old_lease.epoch
+        with pytest.raises(RuntimeError, match="Cannot close"):
+            await lifecycle.close(drain=False)
+        assert lifecycle.is_open()
+        assert lifecycle._epoch == reopened_epoch
+
+    assert old_lease.epoch not in supervisor._retired
+    await lifecycle.close(drain=False)
+
+
+@pytest.mark.asyncio
+async def test_poll_callback_self_close_fails_fast_and_poll_settles_once() -> None:
+    lifecycle, supervisor = _real_lifecycle()
+    polling = ArtifactPollingService(supervisor=supervisor)
+    await lifecycle.open()
+    callback_errors: list[RuntimeError] = []
+
+    async def poll_status(_notebook_id: str, task_id: str) -> GenerationStatus:
+        return GenerationStatus(task_id=task_id, status=GenerationState.COMPLETED)
+
+    async def close_from_callback(_status: GenerationStatus) -> None:
+        with pytest.raises(RuntimeError, match="Cannot close") as raised:
+            await lifecycle.close(drain=False)
+        callback_errors.append(raised.value)
+
+    result = await polling.wait_for_completion(
+        "notebook",
+        "task",
+        initial_interval=0,
+        poll_status=poll_status,
+        on_status_change=close_from_callback,
+    )
+
+    assert result.status == GenerationState.COMPLETED
+    assert len(callback_errors) == 1
+    await asyncio.sleep(0)
+    assert polling.poll_registry.active_tasks() == []
+    generation = supervisor._current
+    assert generation is not None
+    assert generation.in_flight == 0
+    assert not generation.depths
+
+    await lifecycle.close(drain=False)
+    assert lifecycle._state is _ResourceState.CLOSED
+    assert supervisor._settlement_tasks == set()

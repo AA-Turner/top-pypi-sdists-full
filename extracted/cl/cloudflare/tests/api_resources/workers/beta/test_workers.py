@@ -40,6 +40,7 @@ class TestWorkers:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 1,
+                "issues": {"enabled": True},
                 "logs": {
                     "destinations": ["string"],
                     "enabled": True,
@@ -55,6 +56,40 @@ class TestWorkers:
                     "persist": True,
                     "propagation_policy": "authenticated",
                 },
+            },
+            previews_base_config={
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
+                "env": {"MY_ENV_VAR": {"type": "plain_text"}},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
+                "logpush": True,
+                "observability": {
+                    "enabled": True,
+                    "head_sampling_rate": 1,
+                    "issues": {"enabled": True},
+                    "logs": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "invocation_logs": True,
+                        "persist": True,
+                    },
+                    "redact_query_string": True,
+                    "traces": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "persist": True,
+                        "propagation_policy": "authenticated",
+                    },
+                },
+                "placement": {"mode": "smart"},
+                "tail_consumers": [{"name": "my-tail-consumer"}],
             },
             subdomain={
                 "enabled": True,
@@ -123,6 +158,7 @@ class TestWorkers:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 1,
+                "issues": {"enabled": True},
                 "logs": {
                     "destinations": ["string"],
                     "enabled": True,
@@ -138,6 +174,40 @@ class TestWorkers:
                     "persist": True,
                     "propagation_policy": "authenticated",
                 },
+            },
+            previews_base_config={
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
+                "env": {"MY_ENV_VAR": {"type": "plain_text"}},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
+                "logpush": True,
+                "observability": {
+                    "enabled": True,
+                    "head_sampling_rate": 1,
+                    "issues": {"enabled": True},
+                    "logs": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "invocation_logs": True,
+                        "persist": True,
+                    },
+                    "redact_query_string": True,
+                    "traces": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "persist": True,
+                        "propagation_policy": "authenticated",
+                    },
+                },
+                "placement": {"mode": "smart"},
+                "tail_consumers": [{"name": "my-tail-consumer"}],
             },
             subdomain={
                 "enabled": True,
@@ -253,6 +323,15 @@ class TestWorkers:
         assert_matches_type(WorkerDeleteResponse, worker, path=["response"])
 
     @parametrize
+    def test_method_delete_with_all_params(self, client: Cloudflare) -> None:
+        worker = client.workers.beta.workers.delete(
+            worker_id="worker_id",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            force=True,
+        )
+        assert_matches_type(WorkerDeleteResponse, worker, path=["response"])
+
+    @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
         response = client.workers.beta.workers.with_raw_response.delete(
             worker_id="worker_id",
@@ -316,6 +395,7 @@ class TestWorkers:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 1,
+                "issues": {"enabled": True},
                 "logs": {
                     "destinations": ["string"],
                     "enabled": True,
@@ -338,6 +418,40 @@ class TestWorkers:
             },
             tags=["my-team", "my-public-api"],
             tail_consumers=[{"name": "my-tail-consumer"}],
+            previews_base_config={
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
+                "env": {"MY_ENV_VAR": {"type": "plain_text"}},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
+                "logpush": True,
+                "observability": {
+                    "enabled": True,
+                    "head_sampling_rate": 1,
+                    "issues": {"enabled": True},
+                    "logs": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "invocation_logs": True,
+                        "persist": True,
+                    },
+                    "redact_query_string": True,
+                    "traces": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "persist": True,
+                        "propagation_policy": "authenticated",
+                    },
+                },
+                "placement": {"mode": "smart"},
+                "tail_consumers": [{"name": "my-tail-consumer"}],
+            },
         )
         assert_matches_type(Worker, worker, path=["response"])
 
@@ -478,6 +592,7 @@ class TestAsyncWorkers:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 1,
+                "issues": {"enabled": True},
                 "logs": {
                     "destinations": ["string"],
                     "enabled": True,
@@ -493,6 +608,40 @@ class TestAsyncWorkers:
                     "persist": True,
                     "propagation_policy": "authenticated",
                 },
+            },
+            previews_base_config={
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
+                "env": {"MY_ENV_VAR": {"type": "plain_text"}},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
+                "logpush": True,
+                "observability": {
+                    "enabled": True,
+                    "head_sampling_rate": 1,
+                    "issues": {"enabled": True},
+                    "logs": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "invocation_logs": True,
+                        "persist": True,
+                    },
+                    "redact_query_string": True,
+                    "traces": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "persist": True,
+                        "propagation_policy": "authenticated",
+                    },
+                },
+                "placement": {"mode": "smart"},
+                "tail_consumers": [{"name": "my-tail-consumer"}],
             },
             subdomain={
                 "enabled": True,
@@ -561,6 +710,7 @@ class TestAsyncWorkers:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 1,
+                "issues": {"enabled": True},
                 "logs": {
                     "destinations": ["string"],
                     "enabled": True,
@@ -576,6 +726,40 @@ class TestAsyncWorkers:
                     "persist": True,
                     "propagation_policy": "authenticated",
                 },
+            },
+            previews_base_config={
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
+                "env": {"MY_ENV_VAR": {"type": "plain_text"}},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
+                "logpush": True,
+                "observability": {
+                    "enabled": True,
+                    "head_sampling_rate": 1,
+                    "issues": {"enabled": True},
+                    "logs": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "invocation_logs": True,
+                        "persist": True,
+                    },
+                    "redact_query_string": True,
+                    "traces": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "persist": True,
+                        "propagation_policy": "authenticated",
+                    },
+                },
+                "placement": {"mode": "smart"},
+                "tail_consumers": [{"name": "my-tail-consumer"}],
             },
             subdomain={
                 "enabled": True,
@@ -691,6 +875,15 @@ class TestAsyncWorkers:
         assert_matches_type(WorkerDeleteResponse, worker, path=["response"])
 
     @parametrize
+    async def test_method_delete_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        worker = await async_client.workers.beta.workers.delete(
+            worker_id="worker_id",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            force=True,
+        )
+        assert_matches_type(WorkerDeleteResponse, worker, path=["response"])
+
+    @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.workers.beta.workers.with_raw_response.delete(
             worker_id="worker_id",
@@ -754,6 +947,7 @@ class TestAsyncWorkers:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 1,
+                "issues": {"enabled": True},
                 "logs": {
                     "destinations": ["string"],
                     "enabled": True,
@@ -776,6 +970,40 @@ class TestAsyncWorkers:
             },
             tags=["my-team", "my-public-api"],
             tail_consumers=[{"name": "my-tail-consumer"}],
+            previews_base_config={
+                "cache_options": {
+                    "enabled": True,
+                    "cross_version_cache": True,
+                },
+                "env": {"MY_ENV_VAR": {"type": "plain_text"}},
+                "limits": {
+                    "cpu_ms": 50,
+                    "subrequests": 1000,
+                },
+                "logpush": True,
+                "observability": {
+                    "enabled": True,
+                    "head_sampling_rate": 1,
+                    "issues": {"enabled": True},
+                    "logs": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "invocation_logs": True,
+                        "persist": True,
+                    },
+                    "redact_query_string": True,
+                    "traces": {
+                        "destinations": ["string"],
+                        "enabled": True,
+                        "head_sampling_rate": 1,
+                        "persist": True,
+                        "propagation_policy": "authenticated",
+                    },
+                },
+                "placement": {"mode": "smart"},
+                "tail_consumers": [{"name": "my-tail-consumer"}],
+            },
         )
         assert_matches_type(Worker, worker, path=["response"])
 

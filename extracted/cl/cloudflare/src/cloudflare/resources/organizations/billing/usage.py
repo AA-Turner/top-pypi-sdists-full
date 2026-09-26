@@ -74,6 +74,9 @@ class UsageResource(SyncAPIResource):
         When `from` and `to` are omitted, defaults to the start of the current month
         through today. The maximum date range is 31 days.
 
+        An organization with no accounts, or an organization ID that does not exist,
+        returns a successful response with an empty result set rather than an error.
+
         Args:
           organization_id: Represents a Cloudflare resource identifier tag.
 
@@ -164,6 +167,9 @@ class AsyncUsageResource(AsyncAPIResource):
 
         When `from` and `to` are omitted, defaults to the start of the current month
         through today. The maximum date range is 31 days.
+
+        An organization with no accounts, or an organization ID that does not exist,
+        returns a successful response with an empty result set rather than an error.
 
         Args:
           organization_id: Represents a Cloudflare resource identifier tag.

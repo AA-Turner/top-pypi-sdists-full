@@ -60,6 +60,22 @@ def resolve_value(outputs: Any[str, Any], source: str) -> Any:
     ...
 
 # Classes
+class AttributeRef:
+    # One decoded second-stage attribute on one detection, e.g. ``vehicle_type: ambulance``.
+    #
+    #     A named pair rather than two parallel fields, because the two travel together and the
+    #     confidence is what a ``min_confidence`` gate reads. Written by
+    #     :func:`matrice_analytics.engine.intake.attributes.attach_attributes` (upstream of the
+    #     engine entirely -- the classifier is chained *before* the detector's output ever reaches
+    #     :meth:`Session.process_frame`, per ``vehicle_type_classification.py:1-20``) and read here
+    #     by nothing but ``attribute_count`` / ``attribute_vote`` / ``attribute_band``.
+    #
+    #     :attr:`label` is always a resolved string, never a bare class index -- an index that does
+    #     not resolve through the producer's label map is dropped rather than published, the same
+    #     choice :class:`Keypoint`'s missing confidence channel makes for the opposite reason: a
+    #     dashboard legend reading ``817`` is worse than an absent row.
+
+    ...
 class Clock:
     # The engine's only source of "now".
     #
@@ -276,9 +292,11 @@ class PipelineDetection:
         """
         Attach pipeline fields to a wire detection.
         
-                ``mask`` and ``keypoints`` are keyword-only and default to "absent" because the wire
-                :class:`~matrice_analytics.engine.contract.schemas.Detection` cannot carry them --
-                they come from the raw producer dict, which ``runtime/session.py`` parses.
+                ``mask``, ``keypoints`` and ``attributes`` are keyword-only and default to "absent"
+                because the wire :class:`~matrice_analytics.engine.contract.schemas.Detection`
+                cannot carry them -- they come from the raw producer dict, which
+                ``runtime/session.py`` parses (``attributes`` by way of
+                ``intake/attributes.attach_attributes`` running first).
         """
         ...
 

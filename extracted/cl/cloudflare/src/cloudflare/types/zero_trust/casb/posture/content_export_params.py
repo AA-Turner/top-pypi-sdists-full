@@ -54,6 +54,7 @@ class ContentExportParams(TypedDict, total=False):
             "SALESFORCE",
             "SERVICENOW",
             "SLACK",
+            "ZOOM",
         ]
     ]
     """Filter by vendor types."""

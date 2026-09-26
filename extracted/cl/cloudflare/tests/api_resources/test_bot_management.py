@@ -31,7 +31,11 @@ class TestBotManagement:
     def test_method_update_with_all_params_overload_1(self, client: Cloudflare) -> None:
         bot_management = client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             bot_preference_sync_enabled=True,
             cf_robots_variant="policy_only",
             content_bots_protection="disabled",
@@ -39,6 +43,7 @@ class TestBotManagement:
             enable_js=True,
             fight_mode=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
         )
         assert_matches_type(Optional[BotManagementUpdateResponse], bot_management, path=["response"])
 
@@ -84,13 +89,18 @@ class TestBotManagement:
     def test_method_update_with_all_params_overload_2(self, client: Cloudflare) -> None:
         bot_management = client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             bot_preference_sync_enabled=True,
             cf_robots_variant="policy_only",
             content_bots_protection="disabled",
             crawler_protection="enabled",
             enable_js=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
             optimize_wordpress=True,
             sbfm_definitely_automated="allow",
             sbfm_static_resource_protection=True,
@@ -140,13 +150,18 @@ class TestBotManagement:
     def test_method_update_with_all_params_overload_3(self, client: Cloudflare) -> None:
         bot_management = client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             bot_preference_sync_enabled=True,
             cf_robots_variant="policy_only",
             content_bots_protection="disabled",
             crawler_protection="enabled",
             enable_js=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
             optimize_wordpress=True,
             sbfm_definitely_automated="allow",
             sbfm_likely_automated="allow",
@@ -197,7 +212,11 @@ class TestBotManagement:
     def test_method_update_with_all_params_overload_4(self, client: Cloudflare) -> None:
         bot_management = client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             auto_update_model=True,
             bm_cookie_enabled=True,
             bot_preference_sync_enabled=True,
@@ -206,6 +225,7 @@ class TestBotManagement:
             crawler_protection="enabled",
             enable_js=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
             suppress_session_score=False,
         )
         assert_matches_type(Optional[BotManagementUpdateResponse], bot_management, path=["response"])
@@ -296,7 +316,11 @@ class TestAsyncBotManagement:
     async def test_method_update_with_all_params_overload_1(self, async_client: AsyncCloudflare) -> None:
         bot_management = await async_client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             bot_preference_sync_enabled=True,
             cf_robots_variant="policy_only",
             content_bots_protection="disabled",
@@ -304,6 +328,7 @@ class TestAsyncBotManagement:
             enable_js=True,
             fight_mode=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
         )
         assert_matches_type(Optional[BotManagementUpdateResponse], bot_management, path=["response"])
 
@@ -349,13 +374,18 @@ class TestAsyncBotManagement:
     async def test_method_update_with_all_params_overload_2(self, async_client: AsyncCloudflare) -> None:
         bot_management = await async_client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             bot_preference_sync_enabled=True,
             cf_robots_variant="policy_only",
             content_bots_protection="disabled",
             crawler_protection="enabled",
             enable_js=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
             optimize_wordpress=True,
             sbfm_definitely_automated="allow",
             sbfm_static_resource_protection=True,
@@ -405,13 +435,18 @@ class TestAsyncBotManagement:
     async def test_method_update_with_all_params_overload_3(self, async_client: AsyncCloudflare) -> None:
         bot_management = await async_client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             bot_preference_sync_enabled=True,
             cf_robots_variant="policy_only",
             content_bots_protection="disabled",
             crawler_protection="enabled",
             enable_js=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
             optimize_wordpress=True,
             sbfm_definitely_automated="allow",
             sbfm_likely_automated="allow",
@@ -462,7 +497,11 @@ class TestAsyncBotManagement:
     async def test_method_update_with_all_params_overload_4(self, async_client: AsyncCloudflare) -> None:
         bot_management = await async_client.bot_management.update(
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
+            ai_bots_migration_opt_out=False,
             ai_bots_protection="block",
+            aisearch="block",
+            ai_training="disallow",
+            ai_user="only_on_ad_pages",
             auto_update_model=True,
             bm_cookie_enabled=True,
             bot_preference_sync_enabled=True,
@@ -471,6 +510,7 @@ class TestAsyncBotManagement:
             crawler_protection="enabled",
             enable_js=True,
             is_robots_txt_managed=False,
+            jsd_api_results_enabled=True,
             suppress_session_score=False,
         )
         assert_matches_type(Optional[BotManagementUpdateResponse], bot_management, path=["response"])

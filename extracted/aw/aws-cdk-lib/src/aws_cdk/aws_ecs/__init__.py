@@ -50775,9 +50775,9 @@ class TagParameterContainerImage(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_ecs.TagParameterContainerImage",
 ):
-    '''A special type of ``ContainerImage`` that uses an ECR repository for the image, but a CloudFormation Parameter for the tag of the image in that repository.
+    '''A special type of ``ContainerImage`` that uses an ECR repository for the image, but a CloudFormation Parameter for the tag or digest of the image in that repository.
 
-    This allows providing this tag through the Parameter at deploy time,
+    This allows providing this tag or digest through the Parameter at deploy time,
     for example in a CodePipeline that pushes a new tag of the image to the repository during a build step,
     and then provides that new tag through the CloudFormation Parameter in the deploy step.
 
@@ -50949,14 +50949,22 @@ class TagParameterContainerImage(
         )
     '''
 
-    def __init__(self, repository: "_aws_ecr_7549cade.IRepository") -> None:
+    def __init__(
+        self,
+        repository: "_aws_ecr_7549cade.IRepository",
+        *,
+        is_image_digest: typing.Optional[builtins.bool] = None,
+    ) -> None:
         '''
         :param repository: -
+        :param is_image_digest: Whether the CloudFormation Parameter holds an image digest (``sha256:...``) rather than a tag. When ``true``, the separator between the repository URI and the parameter value is ``@`` instead of ``:``, producing ``ACCOUNT.dkr.ecr.REGION.amazonaws.com/REPO@sha256:...``. Use this when your pipeline passes a digest rather than a mutable tag. Default: false
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e07f0e2fd7289c7b66f46128663a02c9d0b88c0caee13b623551639c83620474)
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
-        jsii.create(self.__class__, self, [repository])
+        props = TagParameterContainerImageProps(is_image_digest=is_image_digest)
+
+        jsii.create(self.__class__, self, [repository, props])
 
     @jsii.member(jsii_name="bind")
     def bind(
@@ -50978,14 +50986,74 @@ class TagParameterContainerImage(
     @builtins.property
     @jsii.member(jsii_name="tagParameterName")
     def tag_parameter_name(self) -> builtins.str:
-        '''Returns the name of the CloudFormation Parameter that represents the tag of the image in the ECR repository.'''
+        '''Returns the name of the CloudFormation Parameter that represents the tag or digest of the image in the ECR repository.'''
         return typing.cast(builtins.str, jsii.get(self, "tagParameterName"))
 
     @builtins.property
     @jsii.member(jsii_name="tagParameterValue")
     def tag_parameter_value(self) -> builtins.str:
-        '''Returns the value of the CloudFormation Parameter that represents the tag of the image in the ECR repository.'''
+        '''Returns the value of the CloudFormation Parameter that represents the tag or digest of the image in the ECR repository.'''
         return typing.cast(builtins.str, jsii.get(self, "tagParameterValue"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.TagParameterContainerImageProps",
+    jsii_struct_bases=[],
+    name_mapping={"is_image_digest": "isImageDigest"},
+)
+class TagParameterContainerImageProps:
+    def __init__(
+        self,
+        *,
+        is_image_digest: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Properties for ``TagParameterContainerImage``.
+
+        :param is_image_digest: Whether the CloudFormation Parameter holds an image digest (``sha256:...``) rather than a tag. When ``true``, the separator between the repository URI and the parameter value is ``@`` instead of ``:``, producing ``ACCOUNT.dkr.ecr.REGION.amazonaws.com/REPO@sha256:...``. Use this when your pipeline passes a digest rather than a mutable tag. Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
+            
+            tag_parameter_container_image_props = ecs.TagParameterContainerImageProps(
+                is_image_digest=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__070eff6990b228e8ed6527deefc990b6badb011646aa594e0415866bc545313e)
+            check_type(argname="argument is_image_digest", value=is_image_digest, expected_type=type_hints["is_image_digest"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if is_image_digest is not None:
+            self._values["is_image_digest"] = is_image_digest
+
+    @builtins.property
+    def is_image_digest(self) -> typing.Optional[builtins.bool]:
+        '''Whether the CloudFormation Parameter holds an image digest (``sha256:...``) rather than a tag.
+
+        When ``true``, the separator between the repository URI and the parameter value is ``@``
+        instead of ``:``, producing ``ACCOUNT.dkr.ecr.REGION.amazonaws.com/REPO@sha256:...``.
+
+        Use this when your pipeline passes a digest rather than a mutable tag.
+
+        :default: false
+        '''
+        result = self._values.get("is_image_digest")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TagParameterContainerImageProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(ITaskDefinition)
@@ -57697,6 +57765,7 @@ __all__ = [
     "SyslogLogDriverProps",
     "SystemControl",
     "TagParameterContainerImage",
+    "TagParameterContainerImageProps",
     "TaskDefinition",
     "TaskDefinitionAttributes",
     "TaskDefinitionProps",
@@ -62429,6 +62498,8 @@ def _typecheckingstub__1caa6e2e11d29767500773bdf5dc7b206c60c8e02473e4ea53f8d9840
 
 def _typecheckingstub__e07f0e2fd7289c7b66f46128663a02c9d0b88c0caee13b623551639c83620474(
     repository: _aws_ecr_7549cade.IRepository,
+    *,
+    is_image_digest: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -62436,6 +62507,13 @@ def _typecheckingstub__e07f0e2fd7289c7b66f46128663a02c9d0b88c0caee13b623551639c8
 def _typecheckingstub__22fe94ee5b6fc485bcd5df5198737b4c9502f567378277f365985a159f20301d(
     scope: _constructs_77d1e7e8.Construct,
     container_definition: ContainerDefinition,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__070eff6990b228e8ed6527deefc990b6badb011646aa594e0415866bc545313e(
+    *,
+    is_image_digest: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,31 +1,25 @@
-"""Conversation labeler — INTENTIONALLY OUTSIDE the canonical agent system.
+"""Conversation labeler — title, description and keywords for every conversation.
 
-╔══════════════════════════════════════════════════════════════════════════╗
-║  DO NOT "migrate" THIS TO NamedAgent / run_agent / the agents table.       ║
-║  This is a DELIBERATE, PERMANENT exception — not a defect, not tech debt,  ║
-║  not a convergence gap. It will NEVER join THE ONE.                        ║
-╚══════════════════════════════════════════════════════════════════════════╝
+Held by two mandates (2026-09-25, BYPASS-CENSUS aidream section): a plain chat is
+labeled by ``conversation.label_chat``; a conversation an agent started is labeled
+by ``conversation.label_agent_run``, whose prompt tells it to weigh the user's
+variables over the agent's fixed template. Each call runs on its Holder's model,
+prompt and settings — including the JSON response format and reasoning effort — so
+a change to the mandate (a rebind, a model swap, a prompt edit) takes effect with
+no deploy.
 
-Why it is deliberately excluded (decided by Arman, 2026-06-07):
+This used to be a deliberate exception (Arman, 2026-06-07): a direct ``AsyncGroq``
+call with an inline prompt, to keep a per-request background job cheap. Arman's
+2026-09-25 law supersedes it — nothing works around the mandate system. The call
+stays as light as it was: one turn, no tools, not streamed, not persisted as a
+conversation (``run_held_call``). The day-one Holders are the old prompt verbatim
+on the same model (``openai/gpt-oss-20b`` served by Groq, reasoning effort low,
+JSON object mode, 2048 output tokens).
 
-- It fires on **every single request** to label/summarize the conversation. It
-  is hot-path background metadata, not a user-facing agent call. Routing it
-  through the full agent stack (context fork, DB agent load, tool merge,
-  emitter wiring, persistence barriers, validation) would add per-request
-  overhead and failure surface for zero benefit.
-- It must stay maximally simple and isolated: one direct `AsyncGroq` call to a
-  tiny fast model (`llama-3.1-8b-instant`) with an inline prompt. No shared
-  state, no agent registry, no version pinning, nothing that could couple a
-  per-request convenience to the heavier agent pipeline.
-
-Consequences for future agents/humans reading this file:
-
-- This module never had a spec file and never
-  should be. Its absence from the agent registry is correct.
-- It does **not** belong in FOUND_DEFECTS.md. If you find a note flagging it as
-  a non-canonical call site to migrate, delete that note — it is wrong.
-- The inline prompt + bespoke prompt-assembly below is the intended design.
-  Improve it in place if needed; do not relocate it into the central caller.
+What stays in code is DATA bounding, never instructions: the character caps below
+keep an untrusted 227K-character agent definition from blowing the provider's
+per-minute token admission (regression tests in
+``tests/test_conversation_labeler_provider.py``).
 """
 
 from __future__ import annotations
@@ -33,14 +27,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from groq import AsyncGroq
 from matrx_utils import vcprint
 from pydantic import BaseModel, Field
 
-LABELER_MODEL = "openai/gpt-oss-20b"
-# gpt-oss spends part of this budget on reasoning before emitting the JSON
-# document. 650 can expire before the first complete object on long inputs.
-LABELER_MAX_TOKENS = 2048
 # This call is shared background metadata work. Agent definitions and variable
 # values can be hundreds of thousands of characters, but a label needs only a
 # compact identifying sample. Keep the complete request comfortably below the
@@ -58,129 +47,39 @@ class ConversationLabelResult(BaseModel):
     keywords: list[str] = Field(default_factory=list)
 
 
-CONVERSATION_LABEL_SYSTEM_PROMPT = """You specialize in analyzing chat conversations and extracting structured metadata for labeling.
-
-Your task is to generate a JSON object with three fields:
-
-1. **label** — A short, distinctive title for this conversation (max ~8 words). This title will appear in a small sidebar, so brevity is critical. The label must differentiate THIS conversation from the user's recent conversations listed below. Do NOT reuse titles or phrasings from recent conversations. Look for the specific nuance that makes this conversation unique compared to others.
-
-2. **description** — A concise summary of the conversation covering the key topics, user intent, and assistant contributions.
-
-3. **keywords** — Up to 15 searchable keywords. Prioritize the user's intent and query topics, then include assistant-side topics. Include broader inferred topics beyond exact words used. Avoid repetitive or overlapping keywords since search uses partial matching.
-
-### CRITICAL LABELING RULES:
-
-- Your PRIMARY goal is to make the label easily distinguishable from all recent conversation titles listed below. When a user scans their sidebar, they need to instantly tell conversations apart.
-- Do NOT name the conversation generically for what it is in isolation. Instead, find the specific detail or angle that sets it apart from recent conversations.
-- If recent conversations cover the same broad topic, zoom into the SPECIFIC sub-topic, question, or variable that makes this one different.
-- Keep labels SHORT — they must fit in a small sidebar. Avoid filler words.
-
-{{recent_conversations_section}}
-
-{{agent_context_section}}
-
-Your response must be ONLY a valid JSON object. No other text, comments, or markdown fences.
-
-Example:
-{"label": "Country Size Comparison Table", "description": "User asked for a table of the world's biggest countries...", "keywords": ["countries", "geography", "world map", "table", "area"]}"""
+#: What a variable reads when there is nothing to put in it. Values, not prompt.
+NONE_VALUE = "None"
+NOT_AVAILABLE = "N/A"
+NONE_PROVIDED = "None provided"
 
 
-RECENT_CONVERSATIONS_TEMPLATE = """### Recent Conversation Titles (AVOID duplicating these):
-{{recent_titles}}
-
-Look at the titles above. Your new label MUST be noticeably different from ALL of them. If the topic overlaps, find the specific angle or detail that differentiates this conversation."""
-
-
-NO_RECENT_CONVERSATIONS = """### Recent Conversation Titles:
-No recent conversations found. Generate the most descriptive and unique label you can."""
-
-
-AGENT_CONTEXT_TEMPLATE = """### Important Context — Agent-Initiated Conversation:
-This conversation was started by an AI agent (not a free-form user chat). The agent has a standard template/prompt that is mostly identical across all invocations. The ONLY things that change between invocations are the user-provided variables and optional user prompt.
-
-**Agent Name:** {{agent_name}}
-**Agent Description:** {{agent_description}}
-
-**User-Provided Variables:**
-{{user_variables}}
-
-**User Prompt (if any):**
-{{user_prompt}}
-
-CRITICAL: When labeling agent conversations, you MUST heavily favor the user's variable values and user prompt over the agent's template content. The template is the same every time — the variables are what make each invocation unique. Base your label primarily on the specific values the user provided."""
+def _chat_variables(conversation_content: str, recent_titles: str) -> dict[str, str]:
+    return {
+        "conversation_content": conversation_content,
+        "recent_titles": _trim_content(recent_titles, RECENT_TITLES_MAX_CHARS)
+        if recent_titles and recent_titles.strip()
+        else NONE_VALUE,
+    }
 
 
-NO_AGENT_CONTEXT = ""
-
-
-def _build_user_message_for_chat(
-    conversation_content: str,
-) -> str:
-    return f"""Generate the structured label information for this conversation:
-
-==========
-
-{conversation_content}
-
-==========
-
-Respond with a JSON object containing "label", "description", and "keywords"."""
-
-
-def _build_recent_section(recent_titles: str) -> str:
-    if not recent_titles or not recent_titles.strip():
-        return NO_RECENT_CONVERSATIONS
-    return RECENT_CONVERSATIONS_TEMPLATE.replace(
-        "{{recent_titles}}", _trim_content(recent_titles, RECENT_TITLES_MAX_CHARS)
-    )
-
-
-def _build_agent_section(
+def _agent_variables(
     agent_name: str,
     agent_description: str,
     user_variables: str,
     user_prompt: str,
-) -> str:
-    if not agent_name:
-        return NO_AGENT_CONTEXT
-    section = AGENT_CONTEXT_TEMPLATE
-    section = section.replace(
-        "{{agent_name}}", _trim_content(agent_name, AGENT_NAME_MAX_CHARS)
-    )
-    section = section.replace(
-        "{{agent_description}}",
-        _trim_content(agent_description, AGENT_DESCRIPTION_MAX_CHARS)
+) -> dict[str, str]:
+    return {
+        "agent_name": _trim_content(agent_name, AGENT_NAME_MAX_CHARS),
+        "agent_description": _trim_content(agent_description, AGENT_DESCRIPTION_MAX_CHARS)
         if agent_description
-        else "N/A",
-    )
-    section = section.replace(
-        "{{user_variables}}",
-        _trim_content(user_variables, USER_VARIABLES_MAX_CHARS)
+        else NOT_AVAILABLE,
+        "user_variables": _trim_content(user_variables, USER_VARIABLES_MAX_CHARS)
         if user_variables
-        else "None provided",
-    )
-    section = section.replace(
-        "{{user_prompt}}",
-        _trim_content(user_prompt, USER_PROMPT_MAX_CHARS)
+        else NONE_PROVIDED,
+        "user_prompt": _trim_content(user_prompt, USER_PROMPT_MAX_CHARS)
         if user_prompt
-        else "None provided",
-    )
-    return section
-
-
-def _build_system_prompt(
-    recent_titles: str,
-    agent_name: str,
-    agent_description: str,
-    user_variables: str,
-    user_prompt: str,
-) -> str:
-    prompt = CONVERSATION_LABEL_SYSTEM_PROMPT
-    recent_section = _build_recent_section(recent_titles)
-    agent_section = _build_agent_section(agent_name, agent_description, user_variables, user_prompt)
-    prompt = prompt.replace("{{recent_conversations_section}}", recent_section)
-    prompt = prompt.replace("{{agent_context_section}}", agent_section)
-    return prompt
+        else NONE_PROVIDED,
+    }
 
 
 def _trim_content(content: str, max_chars: int = 5000) -> str:
@@ -228,8 +127,9 @@ class LabelResult(BaseModel):
 async def _capture_labeler_failure(
     exc: BaseException,
     *,
-    system_prompt: str,
-    user_message: str,
+    mandate_key: str,
+    model: str | None,
+    variables: dict[str, str],
 ) -> None:
     """Capture a paid labeler failure without persisting conversation text."""
     try:
@@ -248,16 +148,8 @@ async def _capture_labeler_failure(
             route=getattr(ctx, "route", None) if ctx else None,
             error_type=type(exc).__name__,
             error_text=str(exc),
-            payload={
-                "model": LABELER_MODEL,
-                "max_tokens": LABELER_MAX_TOKENS,
-                "temperature": 0.6,
-                "response_format": {"type": "json_object"},
-            },
-            context={
-                "system_prompt_chars": len(system_prompt),
-                "user_message_chars": len(user_message),
-            },
+            payload={"mandate_key": mandate_key, "model": model},
+            context={name: len(value) for name, value in variables.items()},
         )
     except Exception as capture_exc:
         vcprint(
@@ -266,39 +158,26 @@ async def _capture_labeler_failure(
         )
 
 
-async def _call_groq_direct(system_prompt: str, user_message: str) -> LabelResult:
-    from matrx_ai.providers.keys import resolve_api_key
+async def _run_labeler(mandate_key: str, variables: dict[str, str]) -> LabelResult:
+    """One held labeler call: the Holder's model, prompt and settings, nothing else."""
+    from matrx_ai.mandates import hold_code_call, run_held_call
 
+    model: str | None = None
     try:
-        client = AsyncGroq(api_key=resolve_api_key("GROQ_API_KEY"))
-        response = await client.chat.completions.create(
-            model=LABELER_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message},
-            ],
-            max_tokens=LABELER_MAX_TOKENS,
-            temperature=0.6,
-            reasoning_effort="low",
-            response_format={"type": "json_object"},
-            stream=False,
+        held = await hold_code_call(
+            mandate_key, consumer="conversation.labeler", variables=variables
         )
-        output = response.choices[0].message.content or ""
-        return LabelResult(success=True, output=output)
+        model = held.model
+        result = await run_held_call(held, store=False)
+        return LabelResult(success=True, output=result.final_text or "")
     except asyncio.CancelledError as exc:
         await _capture_labeler_failure(
-            exc,
-            system_prompt=system_prompt,
-            user_message=user_message,
+            exc, mandate_key=mandate_key, model=model, variables=variables
         )
         raise
     except Exception as e:
-        await _capture_labeler_failure(
-            e,
-            system_prompt=system_prompt,
-            user_message=user_message,
-        )
-        vcprint(f"[ConversationLabeler] Groq call failed: {e}", color="red")
+        await _capture_labeler_failure(e, mandate_key=mandate_key, model=model, variables=variables)
+        vcprint(f"[ConversationLabeler] {mandate_key} call failed: {e}", color="red")
         return LabelResult(success=False, output="", error=str(e))
 
 
@@ -306,15 +185,11 @@ async def label_chat_conversation(
     conversation_content: str,
     recent_titles: str,
 ) -> LabelResult:
-    system_prompt = _build_system_prompt(
-        recent_titles=recent_titles,
-        agent_name="",
-        agent_description="",
-        user_variables="",
-        user_prompt="",
+    from matrx_ai.code_call_mandate_keys import CONVERSATION_LABEL_CHAT_MANDATE
+
+    return await _run_labeler(
+        CONVERSATION_LABEL_CHAT_MANDATE, _chat_variables(conversation_content, recent_titles)
     )
-    user_message = _build_user_message_for_chat(conversation_content)
-    return await _call_groq_direct(system_prompt, user_message)
 
 
 async def label_agent_conversation(
@@ -325,12 +200,14 @@ async def label_agent_conversation(
     user_variables: str,
     user_prompt: str,
 ) -> LabelResult:
-    system_prompt = _build_system_prompt(
-        recent_titles=recent_titles,
-        agent_name=agent_name,
-        agent_description=agent_description,
-        user_variables=user_variables,
-        user_prompt=user_prompt,
+    from matrx_ai.code_call_mandate_keys import CONVERSATION_LABEL_AGENT_RUN_MANDATE
+
+    if not agent_name:
+        return await label_chat_conversation(conversation_content, recent_titles)
+    return await _run_labeler(
+        CONVERSATION_LABEL_AGENT_RUN_MANDATE,
+        {
+            **_chat_variables(conversation_content, recent_titles),
+            **_agent_variables(agent_name, agent_description, user_variables, user_prompt),
+        },
     )
-    user_message = _build_user_message_for_chat(conversation_content)
-    return await _call_groq_direct(system_prompt, user_message)

@@ -124,6 +124,7 @@ async def prepare_for_send(
     policy: TrimPolicy | None = None,
     user_input: Any = None,
     config_overrides: Any = None,
+    organization_id: str | None = None,
 ) -> SendPrep:
     """THE entry point. Shape ``config`` for the provider and audit what happened.
 
@@ -138,7 +139,12 @@ async def prepare_for_send(
             source of the system-date pin and of ``cache_state``.
         cache_state: explicit cache state override. When omitted the module
             resolves it (memo + live-send overlay).
-        policy: trim policy override (tests); defaults to ``TrimPolicy()``.
+        policy: explicit trim policy (tests). When omitted the policy is the
+            ORGANIZATION's: resolved through the host's knob resolver
+            (``context_trim.set_trim_policy_resolver``; ``agents.context_trim``)
+            for ``organization_id`` — or, when that is not passed, the carried
+            AppContext's organization. No host resolver → the ruled defaults.
+        organization_id: the organization whose trim knobs apply.
         user_input / config_overrides: resolve-stage turn intent used to decide
             whether a completed structured contract may relax to text.
 
@@ -175,6 +181,9 @@ async def prepare_for_send(
         stage=stage,
     )
     prep.cache_state = effective_cache_state
+
+    if policy is None:
+        policy = await _resolve_org_trim_policy(prep, organization_id)
 
     _run_step(
         prep,
@@ -514,6 +523,37 @@ def _pin_system_date(config: Any, conversation_row: Any) -> None:
             return
     if len(anchor) == 10:
         si.date_anchor = anchor
+
+
+async def _resolve_org_trim_policy(prep: SendPrep, organization_id: str | None) -> TrimPolicy:
+    """The organization's trim policy (``agents.context_trim`` knobs via the host).
+
+    The organization is the one the caller passes, else the one the carried
+    AppContext holds — read, never rebuilt. A resolver failure is announced in
+    red by ``resolve_trim_policy`` and the audit carries the fallback source.
+    """
+    from matrx_ai.config.context_trim import resolve_trim_policy
+
+    org = organization_id
+    if org is None:
+        try:
+            from matrx_ai.context.app_context import try_get_app_context
+
+            ctx = try_get_app_context()
+            org = getattr(ctx, "organization_id", None) if ctx is not None else None
+        except Exception:  # noqa: BLE001 — no carried context is a legal standalone call
+            org = None
+    try:
+        policy = await resolve_trim_policy(str(org) if org else None)
+    except Exception as exc:  # noqa: BLE001 — a malformed resolver result, announced
+        vcprint(
+            f"[send_boundary/{prep.stage}] trim policy resolution failed for organization "
+            f"{org!r} ({type(exc).__name__}: {exc}); using the ruled defaults",
+            color="red",
+        )
+        return TrimPolicy(source="package_default:resolver_failed")
+    prep.steps.append("trim_policy")
+    return policy
 
 
 def _run_step(prep: SendPrep, name: str, fn: Any) -> None:

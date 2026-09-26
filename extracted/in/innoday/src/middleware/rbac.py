@@ -290,7 +290,9 @@ def is_platform_admin_request(request: Request, session: Session) -> bool:
     be used as the optional-user identity that `get_optional_user` was.
     """
     try:
-        user = resolve_user_from_request(request, session)
+        # Read-only: a peek from a public route must not stamp the token's
+        # last use or create a user row (PF-463).
+        user = resolve_user_from_request(request, session, record_use=False)
         return bool(user and user.is_platform_member)
     except UnverifiedEmailError:
         return False

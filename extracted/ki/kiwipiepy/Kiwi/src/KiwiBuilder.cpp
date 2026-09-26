@@ -5,6 +5,7 @@
 #include <kiwi/Kiwi.h>
 #include <kiwi/Utils.h>
 #include <kiwi/Dataset.h>
+#include <kiwi/BpeTokenizer.h>
 #include <kiwi/Knlm.h>
 #include "ArchAvailable.h"
 #include "KTrie.h"
@@ -761,7 +762,14 @@ void KiwiBuilder::_addCorpusTo(
 			return;
 		}
 
-		wids.emplace_back(getDefaultMorphemeId(POSTag::nng));
+		if (tag == POSTag::max) // NO_EOS
+		{
+			wids.emplace_back(0);
+		}
+		else
+		{
+			wids.emplace_back(getDefaultMorphemeId(POSTag::nng));
+		}
 	};
 
 	while (getline(is, line))
@@ -776,8 +784,15 @@ void KiwiBuilder::_addCorpusTo(
 			auto& o = splitOut && splitCnt >= 1 ? *splitOut : out;
 			o.emplace_back();
 			o.add_data(0);
-			o.insert_data(wids.begin(), wids.end());
-			o.add_data(1);
+			if (wids.back() != 0)
+			{
+				o.insert_data(wids.begin(), wids.end());
+				o.add_data(1);
+			}
+			else // No EOS
+			{
+				o.insert_data(wids.begin(), wids.end() - 1);
+			}
 			wids.clear();
 			splitCnt = std::fmod(splitCnt, 1.);
 			continue;
@@ -798,16 +813,29 @@ void KiwiBuilder::_addCorpusTo(
 				senseId = stol(s.begin(), s.end());
 				f = f.substr(0, spos);
 			}
-
-			auto t = toPOSTag(fields[i + 1]);
-			if (t == POSTag::max && !alreadyPrintError)
+			
+			POSTag t = POSTag::max;
+			if (i + 1 < fields.size())
 			{
-				cerr << "Unknown tag(" << utf16To8(fields[i + 1]) << ") at line " << numLine << " :\t" << line << endl;
-				alreadyPrintError = true;
+				t = toPOSTag(fields[i + 1]);
+				if (t == POSTag::max && !alreadyPrintError)
+				{
+					cerr << "Unknown tag(" << utf16To8(fields[i + 1]) << ") at line " << numLine << " :\t" << line << endl;
+					alreadyPrintError = true;
+				}
+
+				if (t == POSTag::z_siot || i == mergedIndex)
+				{
+					continue;
+				}
 			}
-
-			if (t == POSTag::z_siot || i == mergedIndex)
+			else if (f == u"NO_EOS")
 			{
+				t = POSTag::max;
+			}
+			else
+			{
+				cerr << "Missing tag at line " << numLine << " :\t" << line << endl;
 				continue;
 			}
 
@@ -844,6 +872,25 @@ void KiwiBuilder::_addCorpusTo(
 			
 			insertWord(f, t, senseId);
 		}
+	}
+
+	if (wids.size() > 1)
+	{
+		splitCnt += splitRatio;
+		auto& o = splitOut && splitCnt >= 1 ? *splitOut : out;
+		o.emplace_back();
+		o.add_data(0);
+		if (wids.back() != 0)
+		{
+			o.insert_data(wids.begin(), wids.end());
+			o.add_data(1);
+		}
+		else // No EOS
+		{
+			o.insert_data(wids.begin(), wids.end() - 1);
+		}
+		wids.clear();
+		splitCnt = std::fmod(splitCnt, 1.);
 	}
 }
 
@@ -2640,9 +2687,9 @@ Kiwi KiwiBuilder::build(const TypoTransformer& typos, float typoCostThreshold) c
 	return ret;
 }
 
-std::array<size_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> KiwiBuilder::getSpecialMorphs() const
+std::array<uint32_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> KiwiBuilder::getSpecialMorphs() const
 {
-	std::array<size_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> specialMorphIds = { {0,} };
+	std::array<uint32_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> specialMorphIds = { {0,} };
 	for (auto& m : morphemes)
 	{
 		if (forms[m.kform].form == u"'")
@@ -3084,6 +3131,29 @@ HSDataset KiwiBuilder::makeHSDataset(const vector<string>& inputPathes,
 			splitDataset->contextualMapper = dataset.contextualMapper;
 		}
 	}
+	return dataset;
+}
+
+GenerativeMADataset KiwiBuilder::makeGenerativeMADataset(
+	const BpeTokenizer& tokenizer,
+	const GenerativeMAOption& option,
+	size_t batchSize,
+	size_t maxSeqLength,
+	size_t numWorkers,
+	const TypoTransformer& typos
+) const
+{
+	if (!tokenizer.ready()) throw invalid_argument{ "`tokenizer` is not ready" };
+	if (!batchSize) throw invalid_argument{ "`batchSize` must be greater than 0" };
+	if (!maxSeqLength) throw invalid_argument{ "`maxSeqLength` must be greater than 0" };
+	if (!(0 <= option.typoProb && option.typoProb <= 1)) throw invalid_argument{ "`option.typoProb` must be in [0, 1]" };
+	if (option.typoProb > 0 && typos.empty()) throw invalid_argument{ "`typos` must not be empty when `option.typoProb` > 0" };
+	if (!(option.typoCostScale >= 0 && std::isfinite(option.typoCostScale))) throw invalid_argument{ "`option.typoCostScale` must be a non-negative finite number" };
+	if (!(0 <= option.spaceRemoveProb && option.spaceRemoveProb <= 1)) throw invalid_argument{ "`option.spaceRemoveProb` must be in [0, 1]" };
+	if (!(0 <= option.spaceInsertProb && option.spaceInsertProb <= 1)) throw invalid_argument{ "`option.spaceInsertProb` must be in [0, 1]" };
+
+	GenerativeMADataset dataset{ tokenizer, option, batchSize, maxSeqLength, numWorkers, typos };
+	dataset.kiwiInst = make_shared<Kiwi>(build());
 	return dataset;
 }
 

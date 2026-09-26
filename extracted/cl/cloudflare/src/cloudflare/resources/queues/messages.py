@@ -72,7 +72,8 @@ class MessagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessageAckResponse]:
         """
-        Acknowledge + Retry messages from a Queue
+        Acknowledges successfully processed Queue messages and retries messages that
+        were not processed successfully.
 
         Args:
           account_id: A Resource identifier.
@@ -127,7 +128,7 @@ class MessagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessageBulkPushResponse]:
         """
-        Push a batch of message to a Queue
+        Pushes a batch of messages to a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -184,8 +185,9 @@ class MessagesResource(SyncAPIResource):
     ) -> Optional[MessagePeekResponse]:
         """Peek messages from a Queue without leasing them.
 
-        Messages remain available for
-        subsequent peek or pull operations.
+        Each message includes a ref
+        that can be passed to the purge endpoint, and remains available for subsequent
+        peek or pull operations until it is purged.
 
         Args:
           account_id: A Resource identifier.
@@ -236,7 +238,7 @@ class MessagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePullResponse]:
         """
-        Pull a batch of messages from a Queue
+        Pulls a batch of messages from a Queue for an HTTP pull consumer.
 
         Args:
           account_id: A Resource identifier.
@@ -294,11 +296,9 @@ class MessagesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePurgeResponse]:
-        """Delete peeked messages from a Queue by their ref.
-
-        Purged messages aren't
-        considered delivered, they are instantly deleted from this queue and do not
-        affect metrics.
+        """
+        Delete messages from a Queue by using refs returned by the peek endpoint.
+        Purging messages does not count as delivery and does not affect metrics.
 
         Args:
           account_id: A Resource identifier.
@@ -349,7 +349,7 @@ class MessagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePushResponse]:
         """
-        Push a message to a Queue
+        Pushes a message to a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -386,7 +386,7 @@ class MessagesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePushResponse]:
         """
-        Push a message to a Queue
+        Pushes a message to a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -484,7 +484,8 @@ class AsyncMessagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessageAckResponse]:
         """
-        Acknowledge + Retry messages from a Queue
+        Acknowledges successfully processed Queue messages and retries messages that
+        were not processed successfully.
 
         Args:
           account_id: A Resource identifier.
@@ -539,7 +540,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessageBulkPushResponse]:
         """
-        Push a batch of message to a Queue
+        Pushes a batch of messages to a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -596,8 +597,9 @@ class AsyncMessagesResource(AsyncAPIResource):
     ) -> Optional[MessagePeekResponse]:
         """Peek messages from a Queue without leasing them.
 
-        Messages remain available for
-        subsequent peek or pull operations.
+        Each message includes a ref
+        that can be passed to the purge endpoint, and remains available for subsequent
+        peek or pull operations until it is purged.
 
         Args:
           account_id: A Resource identifier.
@@ -648,7 +650,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePullResponse]:
         """
-        Pull a batch of messages from a Queue
+        Pulls a batch of messages from a Queue for an HTTP pull consumer.
 
         Args:
           account_id: A Resource identifier.
@@ -706,11 +708,9 @@ class AsyncMessagesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePurgeResponse]:
-        """Delete peeked messages from a Queue by their ref.
-
-        Purged messages aren't
-        considered delivered, they are instantly deleted from this queue and do not
-        affect metrics.
+        """
+        Delete messages from a Queue by using refs returned by the peek endpoint.
+        Purging messages does not count as delivery and does not affect metrics.
 
         Args:
           account_id: A Resource identifier.
@@ -761,7 +761,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePushResponse]:
         """
-        Push a message to a Queue
+        Pushes a message to a Queue.
 
         Args:
           account_id: A Resource identifier.
@@ -798,7 +798,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[MessagePushResponse]:
         """
-        Push a message to a Queue
+        Pushes a message to a Queue.
 
         Args:
           account_id: A Resource identifier.

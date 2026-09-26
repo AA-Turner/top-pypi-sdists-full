@@ -106,19 +106,22 @@ class TextContent:
         "Hello ", not a system fault).
         """
         original_text = self.text
-        replaced_text = original_text
         # THE PROMPT DOOR (round-1 F4): every variable that becomes prompt
         # text passes through prompt_safe_value here — structured values get
         # kind markers stripped and render as canonical JSON (never Python
         # repr), scalars stay scalars. This is the choke point, so no caller
         # has to remember the law.
         from matrx_ai.config.prompt_values import prompt_safe_value
+        from matrx_ai.config.template_substitution import substitute_authored
 
-        for var_name, var_value in variables.items():
-            replaced_text = replaced_text.replace(
-                f"{{{{{var_name}}}}}",
-                prompt_safe_value(var_value),
-            )
+        # Values are DATA: only placeholders the author wrote are slots, across
+        # every pass (config/template_substitution.py). The first-seen text is
+        # the authored template for the life of this block.
+        template = getattr(self, "_authored_template", None)
+        if template is None:
+            template = original_text
+            self._authored_template = template
+        replaced_text = substitute_authored(original_text, template, variables, prompt_safe_value)
         self.text = replaced_text
         # AGT-N-7's first case: a placeholder nobody declared is still standing here,
         # verbatim, and used to reach the model with no warning anywhere in the chain.
@@ -129,7 +132,7 @@ class TextContent:
         # later pass. See matrx_ai/config/undeclared.py.
         from matrx_ai.config.undeclared import note_unresolved
 
-        note_unresolved(replaced_text)
+        note_unresolved(replaced_text, template=template)
         role = (self.metadata or {}).get("role")
         had_template = "{{" in original_text and "}}" in original_text
         if role and had_template and not replaced_text.strip():

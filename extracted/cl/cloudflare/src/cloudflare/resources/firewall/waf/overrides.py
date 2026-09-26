@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import typing_extensions
-from typing import Type, Optional, cast
 
 import httpx
 
-from ...._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ...._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
 from ...._utils import path_template, maybe_transform, async_maybe_transform
 from ...._compat import cached_property
 from ...._resource import SyncAPIResource, AsyncAPIResource
@@ -17,19 +16,15 @@ from ...._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ...._wrappers import ResultWrapper
-from ....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
-from ...._base_client import AsyncPaginator, make_request_options
+from ...._base_client import make_request_options
 from ....types.firewall.waf import (
     override_list_params,
     override_create_params,
     override_update_params,
 )
-from ....types.firewall.waf.override import Override
 from ....types.firewall.waf.override_url import OverrideURL
 from ....types.firewall.waf.waf_rule_param import WAFRuleParam
 from ....types.firewall.waf.rewrite_action_param import RewriteActionParam
-from ....types.firewall.waf.override_delete_response import OverrideDeleteResponse
 
 __all__ = ["OverridesResource", "AsyncOverridesResource"]
 
@@ -66,7 +61,7 @@ class OverridesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Override:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -91,17 +86,14 @@ class OverridesResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
             path_template("/zones/{zone_id}/firewall/waf/overrides", zone_id=zone_id),
             body=maybe_transform({"urls": urls}, override_create_params.OverrideCreateParams),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Override]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Override], ResultWrapper[Override]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -120,7 +112,7 @@ class OverridesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Override:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -160,6 +152,7 @@ class OverridesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not overrides_id:
             raise ValueError(f"Expected a non-empty value for `overrides_id` but received {overrides_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._put(
             path_template(
                 "/zones/{zone_id}/firewall/waf/overrides/{overrides_id}", zone_id=zone_id, overrides_id=overrides_id
@@ -174,13 +167,9 @@ class OverridesResource(SyncAPIResource):
                 override_update_params.OverrideUpdateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Override]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Override], ResultWrapper[Override]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -196,7 +185,7 @@ class OverridesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncV4PagePaginationArray[Override]:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -221,9 +210,9 @@ class OverridesResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get_api_list(
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
+        return self._get(
             path_template("/zones/{zone_id}/firewall/waf/overrides", zone_id=zone_id),
-            page=SyncV4PagePaginationArray[Override],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -237,7 +226,7 @@ class OverridesResource(SyncAPIResource):
                     override_list_params.OverrideListParams,
                 ),
             ),
-            model=Override,
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -252,7 +241,7 @@ class OverridesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[OverrideDeleteResponse]:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -277,18 +266,15 @@ class OverridesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not overrides_id:
             raise ValueError(f"Expected a non-empty value for `overrides_id` but received {overrides_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._delete(
             path_template(
                 "/zones/{zone_id}/firewall/waf/overrides/{overrides_id}", zone_id=zone_id, overrides_id=overrides_id
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Optional[OverrideDeleteResponse]]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Optional[OverrideDeleteResponse]], ResultWrapper[OverrideDeleteResponse]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -303,7 +289,7 @@ class OverridesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Override:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -328,18 +314,15 @@ class OverridesResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not overrides_id:
             raise ValueError(f"Expected a non-empty value for `overrides_id` but received {overrides_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._get(
             path_template(
                 "/zones/{zone_id}/firewall/waf/overrides/{overrides_id}", zone_id=zone_id, overrides_id=overrides_id
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Override]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Override], ResultWrapper[Override]),
+            cast_to=NoneType,
         )
 
 
@@ -375,7 +358,7 @@ class AsyncOverridesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Override:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -400,17 +383,14 @@ class AsyncOverridesResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
             path_template("/zones/{zone_id}/firewall/waf/overrides", zone_id=zone_id),
             body=await async_maybe_transform({"urls": urls}, override_create_params.OverrideCreateParams),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Override]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Override], ResultWrapper[Override]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -429,7 +409,7 @@ class AsyncOverridesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Override:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -469,6 +449,7 @@ class AsyncOverridesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not overrides_id:
             raise ValueError(f"Expected a non-empty value for `overrides_id` but received {overrides_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._put(
             path_template(
                 "/zones/{zone_id}/firewall/waf/overrides/{overrides_id}", zone_id=zone_id, overrides_id=overrides_id
@@ -483,17 +464,13 @@ class AsyncOverridesResource(AsyncAPIResource):
                 override_update_params.OverrideUpdateParams,
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Override]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Override], ResultWrapper[Override]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
-    def list(
+    async def list(
         self,
         *,
         zone_id: str,
@@ -505,7 +482,7 @@ class AsyncOverridesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[Override, AsyncV4PagePaginationArray[Override]]:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -530,15 +507,15 @@ class AsyncOverridesResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get_api_list(
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
+        return await self._get(
             path_template("/zones/{zone_id}/firewall/waf/overrides", zone_id=zone_id),
-            page=AsyncV4PagePaginationArray[Override],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform(
+                query=await async_maybe_transform(
                     {
                         "page": page,
                         "per_page": per_page,
@@ -546,7 +523,7 @@ class AsyncOverridesResource(AsyncAPIResource):
                     override_list_params.OverrideListParams,
                 ),
             ),
-            model=Override,
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -561,7 +538,7 @@ class AsyncOverridesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Optional[OverrideDeleteResponse]:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -586,18 +563,15 @@ class AsyncOverridesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not overrides_id:
             raise ValueError(f"Expected a non-empty value for `overrides_id` but received {overrides_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._delete(
             path_template(
                 "/zones/{zone_id}/firewall/waf/overrides/{overrides_id}", zone_id=zone_id, overrides_id=overrides_id
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Optional[OverrideDeleteResponse]]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Optional[OverrideDeleteResponse]], ResultWrapper[OverrideDeleteResponse]),
+            cast_to=NoneType,
         )
 
     @typing_extensions.deprecated("deprecated")
@@ -612,7 +586,7 @@ class AsyncOverridesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> Override:
+    ) -> None:
         """**This endpoint has been deprecated and returns 410 Gone.
 
         Please use the
@@ -637,18 +611,15 @@ class AsyncOverridesResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
         if not overrides_id:
             raise ValueError(f"Expected a non-empty value for `overrides_id` but received {overrides_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._get(
             path_template(
                 "/zones/{zone_id}/firewall/waf/overrides/{overrides_id}", zone_id=zone_id, overrides_id=overrides_id
             ),
             options=make_request_options(
-                extra_headers=extra_headers,
-                extra_query=extra_query,
-                extra_body=extra_body,
-                timeout=timeout,
-                post_parser=ResultWrapper[Override]._unwrapper,
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=cast(Type[Override], ResultWrapper[Override]),
+            cast_to=NoneType,
         )
 
 

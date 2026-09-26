@@ -372,6 +372,17 @@ class TestRules:
         assert_matches_type(SyncSinglePage[GatewayRule], rule, path=["response"])
 
     @parametrize
+    def test_method_list_with_all_params(self, client: Cloudflare) -> None:
+        rule = client.zero_trust.gateway.rules.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            direction="asc",
+            filter=["string"],
+            order_by="name",
+            search="search",
+        )
+        assert_matches_type(SyncSinglePage[GatewayRule], rule, path=["response"])
+
+    @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
         response = client.zero_trust.gateway.rules.with_raw_response.list(
             account_id="699d98642c564d2e855e9661899b7252",
@@ -937,6 +948,17 @@ class TestAsyncRules:
     async def test_method_list(self, async_client: AsyncCloudflare) -> None:
         rule = await async_client.zero_trust.gateway.rules.list(
             account_id="699d98642c564d2e855e9661899b7252",
+        )
+        assert_matches_type(AsyncSinglePage[GatewayRule], rule, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        rule = await async_client.zero_trust.gateway.rules.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            direction="asc",
+            filter=["string"],
+            order_by="name",
+            search="search",
         )
         assert_matches_type(AsyncSinglePage[GatewayRule], rule, path=["response"])
 

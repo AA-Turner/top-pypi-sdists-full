@@ -53,31 +53,22 @@ fn compare_strings_in_array_impl(
         };
     }
 
-    let value_str = value.string_value().unwrap_or_default();
-    let lowercased_value = value.lowercased_string_value().unwrap_or_default();
+    let left = if ignore_case {
+        value.lowercased_string_value().unwrap_or_default()
+    } else {
+        std::borrow::Cow::Borrowed(value.string_value().unwrap_or_default())
+    };
 
-    target_value.any_array_entry(|lowercase_str, _, current_str| {
-        let left = if ignore_case {
-            lowercased_value.as_ref()
-        } else {
-            value_str
-        };
-
-        let right = if ignore_case {
-            lowercase_str
-        } else {
-            current_str
-        };
-
+    target_value.any_array_string(ignore_case, |right| {
         match op {
             ConditionOperator::Any
             | ConditionOperator::NoneOf
             | ConditionOperator::AnyCaseSensitive
-            | ConditionOperator::NoneCaseSensitive => left == right,
+            | ConditionOperator::NoneCaseSensitive => left.as_ref() == right,
             ConditionOperator::StrStartsWithAny => left.starts_with(right),
             ConditionOperator::StrEndsWithAny => left.ends_with(right),
             ConditionOperator::StrContainsAny | ConditionOperator::StrContainsNone => {
-                contains_substring(left, right)
+                contains_substring(&left, right)
             }
             _ => false, // todo: unsupported?
         }

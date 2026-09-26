@@ -50,6 +50,8 @@ class LiveInputCreateParams(TypedDict, total=False):
     satisfied.
     """
 
+    idempotency_key: Annotated[str, PropertyInfo(alias="Idempotency-Key")]
+
 
 class Recording(TypedDict, total=False):
     """Records the input to a Cloudflare Stream video.

@@ -100,17 +100,24 @@ fn assert_dataset(
         epsilon = 1e-8
     );
 
-    // Check std_rotation_matrix and std_linear
+    // Refinement adds a symmetric positive stretch before the rigid rotation.
+    let stretch = dataset.std_rotation_matrix.transpose()
+        * dataset.std_cell.lattice.basis
+        * (cell.lattice.basis * dataset.std_linear)
+            .try_inverse()
+            .unwrap();
+    assert_relative_eq!(stretch, stretch.transpose(), epsilon = 1e-12);
+    assert!(stretch.symmetric_eigen().eigenvalues.min() > 0.0);
     assert_relative_eq!(
-        dataset.std_rotation_matrix * cell.lattice.basis * dataset.std_linear,
-        dataset.std_cell.lattice.basis,
-        epsilon = 1e-8
+        dataset.std_rotation_matrix.transpose() * dataset.std_rotation_matrix,
+        Matrix3::identity(),
+        epsilon = 1e-12
     );
-    // Check std_rotation_matrix and prim_std_linear
+    // The same stretch and rotation apply to the primitive cell.
     assert_relative_eq!(
-        dataset.std_rotation_matrix * cell.lattice.basis * dataset.prim_std_linear,
+        dataset.std_rotation_matrix * stretch * cell.lattice.basis * dataset.prim_std_linear,
         dataset.prim_std_cell.lattice.basis,
-        epsilon = 1e-8
+        epsilon = 1e-10
     );
     // TODO: std_origin_shift
     // TODO: prim_origin_shift
@@ -759,6 +766,77 @@ fn test_niggli_reduction_corner_cases() {
         let dataset = assert_dataset_with_default(&cell, symprec);
         assert_dataset_with_default(&dataset.std_cell, symprec);
         assert_dataset_with_default(&dataset.prim_std_cell, symprec);
+    }
+}
+
+#[rstest::rstest]
+#[case::monoclinic("AB_mC8_15_e_a.json")]
+#[case::triclinic("issue206.json")]
+#[test_log::test]
+fn test_standardization_coordinate_correspondence(#[case] filename: &str) {
+    let path = Path::new("tests/assets").join(filename);
+    let mut cell: Cell = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    // Exercise origin-shift composition as well as the basis selection.
+    for position in &mut cell.positions {
+        *position += vector![0.13, 0.17, 0.19];
+    }
+
+    let unrotated = MoyoDataset::new(
+        &cell,
+        1e-4,
+        AngleTolerance::default(),
+        Setting::default(),
+        false,
+    )
+    .unwrap();
+    let rotated = MoyoDataset::with_default(&cell, 1e-4).unwrap();
+    assert!(unrotated.prim_std_origin_shift.norm() > 1e-3);
+    assert_relative_eq!(unrotated.std_rotation_matrix, Matrix3::identity());
+    assert_relative_eq!(rotated.std_linear, unrotated.std_linear);
+    assert_relative_eq!(rotated.std_origin_shift, unrotated.std_origin_shift);
+    assert_relative_eq!(rotated.prim_std_linear, unrotated.prim_std_linear);
+    assert_relative_eq!(
+        rotated.prim_std_origin_shift,
+        unrotated.prim_std_origin_shift
+    );
+    assert_eq!(rotated.mapping_std_prim, unrotated.mapping_std_prim);
+    assert_eq!(rotated.wyckoffs, unrotated.wyckoffs);
+
+    for dataset in [&unrotated, &rotated] {
+        assert_relative_eq!(
+            dataset.std_cell.lattice.basis,
+            dataset.std_rotation_matrix * cell.lattice.basis * dataset.std_linear,
+            epsilon = 1e-8
+        );
+        assert_relative_eq!(
+            dataset.prim_std_cell.lattice.basis,
+            dataset.std_rotation_matrix * cell.lattice.basis * dataset.prim_std_linear,
+            epsilon = 1e-8
+        );
+        let prim_inverse = dataset.prim_std_linear.try_inverse().unwrap();
+        let conv_inverse = dataset.std_linear.try_inverse().unwrap();
+        for (i, position) in cell.positions.iter().enumerate() {
+            let j = dataset.mapping_std_prim[i];
+            assert_eq!(cell.numbers[i], dataset.prim_std_cell.numbers[j]);
+            let mut diff = prim_inverse * (position - dataset.prim_std_origin_shift)
+                - dataset.prim_std_cell.positions[j];
+            diff -= diff.map(|x| x.round());
+            assert_relative_eq!(diff, Vector3::zeros(), epsilon = 1e-7);
+
+            let conv_position = conv_inverse * (position - dataset.std_origin_shift);
+            assert!(
+                dataset
+                    .std_cell
+                    .positions
+                    .iter()
+                    .zip(&dataset.std_cell.numbers)
+                    .any(|(candidate, number)| {
+                        let mut diff = conv_position - candidate;
+                        diff -= diff.map(|x| x.round());
+                        *number == cell.numbers[i] && diff.abs().max() < 1e-7
+                    })
+            );
+        }
     }
 }
 

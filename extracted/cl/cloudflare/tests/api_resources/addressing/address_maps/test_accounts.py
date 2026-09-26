@@ -20,18 +20,18 @@ class TestAccounts:
     @parametrize
     def test_method_update(self, client: Cloudflare) -> None:
         account = client.addressing.address_maps.accounts.update(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
         assert_matches_type(AccountUpdateResponse, account, path=["response"])
 
     @parametrize
     def test_raw_response_update(self, client: Cloudflare) -> None:
         response = client.addressing.address_maps.accounts.with_raw_response.update(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
 
         assert response.is_closed is True
@@ -42,9 +42,9 @@ class TestAccounts:
     @parametrize
     def test_streaming_response_update(self, client: Cloudflare) -> None:
         with client.addressing.address_maps.accounts.with_streaming_response.update(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -58,31 +58,40 @@ class TestAccounts:
     def test_path_params_update(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.addressing.address_maps.accounts.with_raw_response.update(
-                address_map_id="055817b111884e0227e1be16a0be6ee0",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="",
-                body={},
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `address_map_id` but received ''"):
             client.addressing.address_maps.accounts.with_raw_response.update(
-                address_map_id="",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
-                body={},
+                address_map_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `member_account_id` but received ''"):
+            client.addressing.address_maps.accounts.with_raw_response.update(
+                member_account_id="",
+                account_id="258def64c72dae45f3e4c8516e2111f2",
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
     @parametrize
     def test_method_delete(self, client: Cloudflare) -> None:
         account = client.addressing.address_maps.accounts.delete(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
         assert_matches_type(AccountDeleteResponse, account, path=["response"])
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
         response = client.addressing.address_maps.accounts.with_raw_response.delete(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
 
         assert response.is_closed is True
@@ -93,8 +102,9 @@ class TestAccounts:
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
         with client.addressing.address_maps.accounts.with_streaming_response.delete(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -108,14 +118,23 @@ class TestAccounts:
     def test_path_params_delete(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.addressing.address_maps.accounts.with_raw_response.delete(
-                address_map_id="055817b111884e0227e1be16a0be6ee0",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="",
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `address_map_id` but received ''"):
             client.addressing.address_maps.accounts.with_raw_response.delete(
-                address_map_id="",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
+                address_map_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `member_account_id` but received ''"):
+            client.addressing.address_maps.accounts.with_raw_response.delete(
+                member_account_id="",
+                account_id="258def64c72dae45f3e4c8516e2111f2",
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
 
@@ -127,18 +146,18 @@ class TestAsyncAccounts:
     @parametrize
     async def test_method_update(self, async_client: AsyncCloudflare) -> None:
         account = await async_client.addressing.address_maps.accounts.update(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
         assert_matches_type(AccountUpdateResponse, account, path=["response"])
 
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.addressing.address_maps.accounts.with_raw_response.update(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
 
         assert response.is_closed is True
@@ -149,9 +168,9 @@ class TestAsyncAccounts:
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncCloudflare) -> None:
         async with async_client.addressing.address_maps.accounts.with_streaming_response.update(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
-            body={},
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -165,31 +184,40 @@ class TestAsyncAccounts:
     async def test_path_params_update(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.addressing.address_maps.accounts.with_raw_response.update(
-                address_map_id="055817b111884e0227e1be16a0be6ee0",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="",
-                body={},
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `address_map_id` but received ''"):
             await async_client.addressing.address_maps.accounts.with_raw_response.update(
-                address_map_id="",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
-                body={},
+                address_map_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `member_account_id` but received ''"):
+            await async_client.addressing.address_maps.accounts.with_raw_response.update(
+                member_account_id="",
+                account_id="258def64c72dae45f3e4c8516e2111f2",
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
     @parametrize
     async def test_method_delete(self, async_client: AsyncCloudflare) -> None:
         account = await async_client.addressing.address_maps.accounts.delete(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
         assert_matches_type(AccountDeleteResponse, account, path=["response"])
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.addressing.address_maps.accounts.with_raw_response.delete(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         )
 
         assert response.is_closed is True
@@ -200,8 +228,9 @@ class TestAsyncAccounts:
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
         async with async_client.addressing.address_maps.accounts.with_streaming_response.delete(
-            address_map_id="055817b111884e0227e1be16a0be6ee0",
+            member_account_id="258def64c72dae45f3e4c8516e2111f2",
             account_id="258def64c72dae45f3e4c8516e2111f2",
+            address_map_id="055817b111884e0227e1be16a0be6ee0",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -215,12 +244,21 @@ class TestAsyncAccounts:
     async def test_path_params_delete(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.addressing.address_maps.accounts.with_raw_response.delete(
-                address_map_id="055817b111884e0227e1be16a0be6ee0",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="",
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `address_map_id` but received ''"):
             await async_client.addressing.address_maps.accounts.with_raw_response.delete(
-                address_map_id="",
+                member_account_id="258def64c72dae45f3e4c8516e2111f2",
                 account_id="258def64c72dae45f3e4c8516e2111f2",
+                address_map_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `member_account_id` but received ''"):
+            await async_client.addressing.address_maps.accounts.with_raw_response.delete(
+                member_account_id="",
+                account_id="258def64c72dae45f3e4c8516e2111f2",
+                address_map_id="055817b111884e0227e1be16a0be6ee0",
             )

@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import pytest
 
 from cloudflare import Cloudflare, AsyncCloudflare
-from tests.utils import assert_matches_type
-from cloudflare.pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
-from cloudflare.types.firewall.waf import (
-    Override,
-    OverrideDeleteResponse,
-)
 
 # pyright: reportDeprecated=false
 
@@ -32,7 +26,7 @@ class TestOverrides:
                 urls=["shop.example.com/*"],
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -46,7 +40,7 @@ class TestOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = response.parse()
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -60,7 +54,7 @@ class TestOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = response.parse()
-                assert_matches_type(Override, override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -87,7 +81,7 @@ class TestOverrides:
                 urls=["shop.example.com/*"],
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -108,7 +102,7 @@ class TestOverrides:
                 urls=["shop.example.com/*"],
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -126,7 +120,7 @@ class TestOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = response.parse()
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -144,7 +138,7 @@ class TestOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = response.parse()
-                assert_matches_type(Override, override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -179,7 +173,7 @@ class TestOverrides:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(SyncV4PagePaginationArray[Override], override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_method_list_with_all_params(self, client: Cloudflare) -> None:
@@ -190,7 +184,7 @@ class TestOverrides:
                 per_page=5,
             )
 
-        assert_matches_type(SyncV4PagePaginationArray[Override], override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_raw_response_list(self, client: Cloudflare) -> None:
@@ -202,7 +196,7 @@ class TestOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = response.parse()
-        assert_matches_type(SyncV4PagePaginationArray[Override], override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_streaming_response_list(self, client: Cloudflare) -> None:
@@ -214,7 +208,7 @@ class TestOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = response.parse()
-                assert_matches_type(SyncV4PagePaginationArray[Override], override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -234,7 +228,7 @@ class TestOverrides:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(Optional[OverrideDeleteResponse], override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_raw_response_delete(self, client: Cloudflare) -> None:
@@ -247,7 +241,7 @@ class TestOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = response.parse()
-        assert_matches_type(Optional[OverrideDeleteResponse], override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_streaming_response_delete(self, client: Cloudflare) -> None:
@@ -260,7 +254,7 @@ class TestOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = response.parse()
-                assert_matches_type(Optional[OverrideDeleteResponse], override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -287,7 +281,7 @@ class TestOverrides:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
@@ -300,7 +294,7 @@ class TestOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = response.parse()
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
@@ -313,7 +307,7 @@ class TestOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = response.parse()
-                assert_matches_type(Override, override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -347,7 +341,7 @@ class TestAsyncOverrides:
                 urls=["shop.example.com/*"],
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -361,7 +355,7 @@ class TestAsyncOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = await response.parse()
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -375,7 +369,7 @@ class TestAsyncOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = await response.parse()
-                assert_matches_type(Override, override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -402,7 +396,7 @@ class TestAsyncOverrides:
                 urls=["shop.example.com/*"],
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -423,7 +417,7 @@ class TestAsyncOverrides:
                 urls=["shop.example.com/*"],
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -441,7 +435,7 @@ class TestAsyncOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = await response.parse()
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @pytest.mark.skip(reason="TODO: investigate broken test")
     @parametrize
@@ -459,7 +453,7 @@ class TestAsyncOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = await response.parse()
-                assert_matches_type(Override, override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -494,7 +488,7 @@ class TestAsyncOverrides:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(AsyncV4PagePaginationArray[Override], override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
@@ -505,7 +499,7 @@ class TestAsyncOverrides:
                 per_page=5,
             )
 
-        assert_matches_type(AsyncV4PagePaginationArray[Override], override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -517,7 +511,7 @@ class TestAsyncOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = await response.parse()
-        assert_matches_type(AsyncV4PagePaginationArray[Override], override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncCloudflare) -> None:
@@ -529,7 +523,7 @@ class TestAsyncOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = await response.parse()
-                assert_matches_type(AsyncV4PagePaginationArray[Override], override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -549,7 +543,7 @@ class TestAsyncOverrides:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(Optional[OverrideDeleteResponse], override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -562,7 +556,7 @@ class TestAsyncOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = await response.parse()
-        assert_matches_type(Optional[OverrideDeleteResponse], override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncCloudflare) -> None:
@@ -575,7 +569,7 @@ class TestAsyncOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = await response.parse()
-                assert_matches_type(Optional[OverrideDeleteResponse], override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 
@@ -602,7 +596,7 @@ class TestAsyncOverrides:
                 zone_id="023e105f4ecef8ad9ca31a8372d0c353",
             )
 
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -615,7 +609,7 @@ class TestAsyncOverrides:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         override = await response.parse()
-        assert_matches_type(Override, override, path=["response"])
+        assert override is None
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -628,7 +622,7 @@ class TestAsyncOverrides:
                 assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
                 override = await response.parse()
-                assert_matches_type(Override, override, path=["response"])
+                assert override is None
 
         assert cast(Any, response.is_closed) is True
 

@@ -3,7 +3,7 @@ import inspect
 import json
 import os
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 from weakref import ref
 
 from statsig_python_core import (
@@ -14,7 +14,9 @@ from statsig_python_core import (
     LayerEvaluationOptions,
     StatsigBasePy,
     StatsigOptions,
+    StatsigRandomUserID,
     StatsigUser,
+    StatsigUserContext,
     notify_python_fork,
     notify_python_shutdown,
 )
@@ -25,7 +27,10 @@ from .evaluation_cache import (
     _EvaluationCacheKeys,
     _get_evaluation_cache,
 )
-from .statsig_types import DynamicConfig, FeatureGate, Experiment, Layer
+from .statsig_types import DynamicConfig, Experiment, FeatureGate, Layer
+
+if TYPE_CHECKING:
+    from .statsig_python_core import AttributesDict, CustomIdsDict
 
 
 def handle_atexit():
@@ -49,6 +54,8 @@ def handle_fork():
 
 
 if hasattr(os, "register_at_fork"):
+    # Reset before forking so no Rust runtime workers are inherited by the
+    # child. notify_python_fork releases the GIL while teardown completes.
     os.register_at_fork(
         before=handle_fork,
     )
@@ -159,14 +166,141 @@ class Statsig(StatsigBasePy):
 
         return super()._INTERNAL_subscribe(event_name, emit)
 
+    def get_feature_gate_anonymous(
+        self,
+        name: str,
+        id_options: StatsigRandomUserID,
+        *,
+        context: Optional[StatsigUserContext] = None,
+        custom: Optional["AttributesDict"] = None,
+        custom_ids: Optional["CustomIdsDict"] = None,
+        ip: Optional[str] = None,
+        country: Optional[str] = None,
+        locale: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        options: Optional[FeatureGateEvaluationOptions] = None,
+    ) -> FeatureGate:
+        """Randomize userID; custom IDs and request fields override context."""
+        # The public API names these arguments; positional forwarding avoids
+        # repeating keyword-name searches at the private native boundary.
+        parts = super()._INTERNAL_get_feature_gate_anonymous_parts(
+            name,
+            id_options,
+            context,
+            custom,
+            custom_ids,
+            ip,
+            country,
+            locale,
+            user_agent,
+            options,
+        )
+        return FeatureGate._from_parts(name, parts)
+
+    def get_layer_anonymous(
+        self,
+        name: str,
+        id_options: StatsigRandomUserID,
+        *,
+        context: Optional[StatsigUserContext] = None,
+        custom: Optional["AttributesDict"] = None,
+        custom_ids: Optional["CustomIdsDict"] = None,
+        ip: Optional[str] = None,
+        country: Optional[str] = None,
+        locale: Optional[str] = None,
+        user_agent: Optional[str] = None,
+        options: Optional[LayerEvaluationOptions] = None,
+    ) -> Layer:
+        """Evaluate once; delayed parameter exposures retain that call's identity."""
+        cache, cache_keys = _get_cache_for_call(self)
+        raw = super()._INTERNAL_get_layer_anonymous(
+            name,
+            id_options,
+            context,
+            custom,
+            custom_ids,
+            ip,
+            country,
+            locale,
+            user_agent,
+            options,
+            cache_keys,
+        )
+        if cache is not None:
+            cache._consume_result(raw, cache_keys)
+        exposure = raw.get("__exposure") if isinstance(raw, dict) else None
+
+        def exposure_func(param: str):
+            if exposure is None:
+                return
+            return self._INTERNAL_log_layer_param_exposure(
+                exposure, param, self._get_layer_exposure_metadata(name)
+            )
+
+        return Layer(exposure_func, name, raw)
+
+    def get_feature_gate_with_context(
+        self,
+        context: Optional[StatsigUserContext],
+        name: str,
+        user_id: Optional[str] = None,
+        custom: Optional["AttributesDict"] = None,
+        options: Optional[FeatureGateEvaluationOptions] = None,
+    ) -> FeatureGate:
+        parts = super()._INTERNAL_get_feature_gate_with_context_parts(
+            context, name, user_id, custom, options
+        )
+        return FeatureGate._from_parts(name, parts)
+
+    def get_dynamic_config_with_context(
+        self,
+        context: Optional[StatsigUserContext],
+        name: str,
+        user_id: Optional[str] = None,
+        custom: Optional["AttributesDict"] = None,
+        options: Optional[DynamicConfigEvaluationOptions] = None,
+    ) -> DynamicConfig:
+        cache, cache_keys = _get_cache_for_call(self)
+        raw = super()._INTERNAL_get_dynamic_config_with_context(
+            context, name, user_id, custom, options, cache_keys
+        )
+        if cache is not None:
+            cache._consume_result(raw, cache_keys)
+        return DynamicConfig(name, raw)
+
+    def get_layer_with_context(
+        self,
+        context: Optional[StatsigUserContext],
+        name: str,
+        user_id: Optional[str] = None,
+        custom: Optional["AttributesDict"] = None,
+        options: Optional[LayerEvaluationOptions] = None,
+    ) -> Layer:
+        cache, cache_keys = _get_cache_for_call(self)
+        raw = super()._INTERNAL_get_layer_with_context(
+            context, name, user_id, custom, options, cache_keys
+        )
+        if cache is not None:
+            cache._consume_result(raw, cache_keys)
+        exposure = raw.get("__exposure") if isinstance(raw, dict) else None
+
+        def exposure_func(param: str):
+            if exposure is None:
+                return
+            return self._INTERNAL_log_layer_param_exposure(
+                exposure, param, self._get_layer_exposure_metadata(name)
+            )
+
+        return Layer(exposure_func, name, raw)
+
     def get_feature_gate(
         self,
         user: StatsigUser,
         name: str,
         options: Optional[FeatureGateEvaluationOptions] = None,
     ) -> FeatureGate:
-        raw = super()._INTERNAL_get_feature_gate(user, name, options)
-        return FeatureGate(name, raw)
+        parts = super()._INTERNAL_get_feature_gate_parts(user, name, options)
+        return FeatureGate._from_parts(name, parts)
 
     def get_dynamic_config(
         self,
@@ -289,7 +423,7 @@ class Statsig(StatsigBasePy):
                 if not self._is_exposure_callsite_module_ignored(module_name):
                     return (
                         Path(frame.f_code.co_filename).name,
-                        frame.f_code.co_qualname,
+                        getattr(frame.f_code, "co_qualname", frame.f_code.co_name),
                         frame.f_lineno,
                     )
                 frame = frame.f_back

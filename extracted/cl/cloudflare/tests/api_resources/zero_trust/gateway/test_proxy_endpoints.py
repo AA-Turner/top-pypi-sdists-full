@@ -10,7 +10,9 @@ import pytest
 from cloudflare import Cloudflare, AsyncCloudflare
 from tests.utils import assert_matches_type
 from cloudflare.pagination import SyncSinglePage, AsyncSinglePage
-from cloudflare.types.zero_trust.gateway import ProxyEndpoint
+from cloudflare.types.zero_trust.gateway import (
+    ProxyEndpoint,
+)
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -128,6 +130,17 @@ class TestProxyEndpoints:
     def test_method_list(self, client: Cloudflare) -> None:
         proxy_endpoint = client.zero_trust.gateway.proxy_endpoints.list(
             account_id="699d98642c564d2e855e9661899b7252",
+        )
+        assert_matches_type(SyncSinglePage[ProxyEndpoint], proxy_endpoint, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Cloudflare) -> None:
+        proxy_endpoint = client.zero_trust.gateway.proxy_endpoints.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            direction="asc",
+            filter=["string"],
+            order_by="name",
+            search="search",
         )
         assert_matches_type(SyncSinglePage[ProxyEndpoint], proxy_endpoint, path=["response"])
 
@@ -432,6 +445,17 @@ class TestAsyncProxyEndpoints:
     async def test_method_list(self, async_client: AsyncCloudflare) -> None:
         proxy_endpoint = await async_client.zero_trust.gateway.proxy_endpoints.list(
             account_id="699d98642c564d2e855e9661899b7252",
+        )
+        assert_matches_type(AsyncSinglePage[ProxyEndpoint], proxy_endpoint, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        proxy_endpoint = await async_client.zero_trust.gateway.proxy_endpoints.list(
+            account_id="699d98642c564d2e855e9661899b7252",
+            direction="asc",
+            filter=["string"],
+            order_by="name",
+            search="search",
         )
         assert_matches_type(AsyncSinglePage[ProxyEndpoint], proxy_endpoint, path=["response"])
 

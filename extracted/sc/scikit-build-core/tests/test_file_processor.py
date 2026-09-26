@@ -8,7 +8,10 @@ from typing import Literal
 
 import pytest
 
-from scikit_build_core.build._file_processor import each_unignored_file
+from scikit_build_core.build._file_processor import (
+    _git_config_value,
+    each_unignored_file,
+)
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -853,3 +856,161 @@ def test_nonexistent_patterns(
             Path("tests/tmp.py"),
         }
     assert exclude_result == expected
+
+
+def test_nested_gitignore_scan_scoped_to_starting_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The nested-.gitignore discovery walk must stay inside starting_path (plus
+    its ancestors). match_path only consults a nested ignore whose directory
+    is the walked directory or an ancestor of it, so sibling trees can never
+    contribute a match -- but they used to be traversed and parsed anyway,
+    once per package, which is very expensive for a project that keeps build
+    output or vendored dependencies next to its packages.
+    """
+    monkeypatch.chdir(tmp_path)
+
+    pkg = Path("pkg")
+    (pkg / "sub").mkdir(parents=True)
+    (pkg / "keep.py").write_text("content")
+    (pkg / "sub" / "keep.py").write_text("content")
+    (pkg / "sub" / "dropped.py").write_text("content")
+    (pkg / "sub" / ".gitignore").write_text("dropped.py\n")
+
+    # A sibling tree that is irrelevant to a walk of pkg/, carrying its own
+    # .gitignore so the old code would open and parse it.
+    sibling = Path("build") / "deep" / "deeper"
+    sibling.mkdir(parents=True)
+    (sibling / ".gitignore").write_text("keep.py\n")
+    (sibling / "artifact.o").write_text("content")
+
+    visited: list[str] = []
+    real_walk = os.walk
+
+    def tracking_walk(
+        top: str, *args: object, **kwargs: object
+    ) -> Generator[tuple[str, list[str], list[str]], None, None]:
+        for dirstr, dirs, filenames in real_walk(top, *args, **kwargs):  # type: ignore[arg-type]
+            visited.append(dirstr)
+            yield dirstr, dirs, filenames
+
+    monkeypatch.setattr(os, "walk", tracking_walk)
+
+    result = set(each_unignored_file(pkg, mode="default"))
+
+    # The nested .gitignore inside the package still applies.
+    assert result == {
+        pkg / "keep.py",
+        pkg / "sub" / "keep.py",
+        pkg / "sub" / ".gitignore",
+    }
+
+    # No traversal of the sibling tree, in either walk.
+    visited_paths = {Path(d) for d in visited}
+    assert Path("build") not in visited_paths
+    assert Path("build/deep") not in visited_paths
+
+
+@pytest.mark.parametrize("marker", ["git-dir", "git-file", "gitmodules"])
+def test_gitignore_stops_at_repository_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: Literal["default", "classic", "manual"],
+    marker: str,
+) -> None:
+    """
+    Like git, ignore rules from a superproject do not apply inside a
+    submodule, and a submodule's rules do not apply inside its own nested
+    submodules (#1582). An SDist has no ``.git`` entries, so ``.gitmodules``
+    marks the boundaries too.
+    """
+    monkeypatch.chdir(tmp_path)
+    Path(".gitignore").write_text("gen/\n*.log\n")
+    Path(".git").mkdir()
+    Path(".git/info").mkdir()
+    Path(".git/info/exclude").write_text("*.bin\n")
+    Path("gen").mkdir()
+    Path("gen/out.txt").write_text("content")
+    Path("top.log").write_text("content")
+
+    sub = Path("third_party/sub")
+    nested = sub / "nested"
+    (sub / "src/gen").mkdir(parents=True)
+    (nested / "src").mkdir(parents=True)
+    (sub / ".gitignore").write_text("*.cpp\n")
+    (sub / "src/gen/kernel.c").write_text("content")
+    (sub / "notes.log").write_text("content")
+    (sub / "data.bin").write_text("content")
+    (sub / "own.cpp").write_text("content")
+    (nested / "src/impl.cpp").write_text("content")
+
+    if marker == "gitmodules":
+        Path(".gitmodules").write_text('[submodule "sub"]\n\tpath = third_party/sub\n')
+        (sub / ".gitmodules").write_text('[submodule "nested"]\n\tpath = nested\n')
+    elif marker == "git-dir":
+        (sub / ".git/info").mkdir(parents=True)
+        (sub / ".git/info/exclude").write_text("*.tmp\n")
+        (sub / "scratch.tmp").write_text("content")
+        (nested / ".git").mkdir()
+    else:
+        (sub / ".git").write_text("gitdir: ../../.git/modules/sub\n")
+        (nested / ".git").write_text("gitdir: ../../../.git/modules/nested\n")
+
+    result = set(each_unignored_file(Path(), mode=mode))
+
+    expected = {
+        Path(".gitignore"),
+        sub / ".gitignore",
+        sub / "src/gen/kernel.c",
+        sub / "notes.log",
+        sub / "data.bin",
+        nested / "src/impl.cpp",
+    }
+    if marker == "gitmodules":
+        expected |= {Path(".gitmodules"), sub / ".gitmodules"}
+    if mode == "manual":
+        expected |= {Path("gen/out.txt"), Path("top.log"), sub / "own.cpp"}
+        if marker == "git-dir":
+            expected.add(sub / "scratch.tmp")
+    assert result == expected
+
+    # Walking from inside the submodule gives the same answer.
+    assert set(each_unignored_file(sub, mode=mode)) == {
+        p for p in expected if sub in p.parents
+    }
+
+
+def test_gitmodules_value_syntax(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    ``.gitmodules`` keys ignore case and values follow git-config syntax.
+    """
+    monkeypatch.chdir(tmp_path)
+    sub = Path("vendor/dep")
+    sub.mkdir(parents=True)
+    (sub / "run.log").write_text("content")
+    Path(".gitignore").write_text("*.log\n")
+    Path(".gitmodules").write_text(
+        '[submodule "dep"]\n\tPath=vendor/dep ; dependency\n'
+    )
+
+    assert sub / "run.log" in set(each_unignored_file(Path(), mode="default"))
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ('"a\\"b" ; c', 'a"b'),
+        ("a\\\\b", "a\\b"),
+        ('" a # b "', " a # b "),
+        ("a  b  # c", "a  b"),
+        ("a\\tb", "a\tb"),
+        (' "vendor/dep" # dependency', "vendor/dep"),
+        ('vendor/"a b"  ', "vendor/a b"),
+    ],
+)
+def test_git_config_value(value: str, expected: str) -> None:
+    assert _git_config_value(value) == expected

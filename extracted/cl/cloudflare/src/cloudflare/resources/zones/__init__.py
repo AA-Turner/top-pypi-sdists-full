@@ -56,6 +56,14 @@ from .rate_plans import (
     RatePlansResourceWithStreamingResponse,
     AsyncRatePlansResourceWithStreamingResponse,
 )
+from .entitlements import (
+    EntitlementsResource,
+    AsyncEntitlementsResource,
+    EntitlementsResourceWithRawResponse,
+    AsyncEntitlementsResourceWithRawResponse,
+    EntitlementsResourceWithStreamingResponse,
+    AsyncEntitlementsResourceWithStreamingResponse,
+)
 from .environments import (
     EnvironmentsResource,
     AsyncEnvironmentsResource,
@@ -63,6 +71,14 @@ from .environments import (
     AsyncEnvironmentsResourceWithRawResponse,
     EnvironmentsResourceWithStreamingResponse,
     AsyncEnvironmentsResourceWithStreamingResponse,
+)
+from .observability import (
+    ObservabilityResource,
+    AsyncObservabilityResource,
+    ObservabilityResourceWithRawResponse,
+    AsyncObservabilityResourceWithRawResponse,
+    ObservabilityResourceWithStreamingResponse,
+    AsyncObservabilityResourceWithStreamingResponse,
 )
 from .subscriptions import (
     SubscriptionsResource,
@@ -112,6 +128,12 @@ __all__ = [
     "AsyncActivationCheckResourceWithRawResponse",
     "ActivationCheckResourceWithStreamingResponse",
     "AsyncActivationCheckResourceWithStreamingResponse",
+    "ObservabilityResource",
+    "AsyncObservabilityResource",
+    "ObservabilityResourceWithRawResponse",
+    "AsyncObservabilityResourceWithRawResponse",
+    "ObservabilityResourceWithStreamingResponse",
+    "AsyncObservabilityResourceWithStreamingResponse",
     "SettingsResource",
     "AsyncSettingsResource",
     "SettingsResourceWithRawResponse",
@@ -172,6 +194,12 @@ __all__ = [
     "AsyncRatePlansResourceWithRawResponse",
     "RatePlansResourceWithStreamingResponse",
     "AsyncRatePlansResourceWithStreamingResponse",
+    "EntitlementsResource",
+    "AsyncEntitlementsResource",
+    "EntitlementsResourceWithRawResponse",
+    "AsyncEntitlementsResourceWithRawResponse",
+    "EntitlementsResourceWithStreamingResponse",
+    "AsyncEntitlementsResourceWithStreamingResponse",
     "CTResource",
     "AsyncCTResource",
     "CTResourceWithRawResponse",

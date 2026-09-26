@@ -69,7 +69,11 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[FirewallRule]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Create one or more firewall rules.
 
         Args:
@@ -122,7 +126,11 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FirewallRule:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates an existing firewall rule.
 
         Args:
@@ -184,9 +192,12 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[FirewallRule]:
-        """Fetches firewall rules in a zone.
+        """**This endpoint has been deprecated and returns 410 Gone.
 
-        You can filter the results using several
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
+        Fetches firewall rules in a zone. You can filter the results using several
         optional parameters.
 
         Args:
@@ -252,7 +263,11 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FirewallRule:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Deletes an existing firewall rule.
 
         Args:
@@ -298,7 +313,11 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[FirewallRule]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Deletes existing firewall rules.
 
         Args:
@@ -331,7 +350,7 @@ class RulesResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
+        id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -339,11 +358,17 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[FirewallRule]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates the priority of existing firewall rules.
 
         Args:
           zone_id: Defines an identifier.
+
+          id: The unique identifier of the firewall rule.
 
           extra_headers: Send extra headers
 
@@ -358,7 +383,7 @@ class RulesResource(SyncAPIResource):
         return self._get_api_list(
             path_template("/zones/{zone_id}/firewall/rules", zone_id=zone_id),
             page=SyncSinglePage[FirewallRule],
-            body=maybe_transform(body, rule_bulk_edit_params.RuleBulkEditParams),
+            body=maybe_transform({"id": id}, rule_bulk_edit_params.RuleBulkEditParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -373,7 +398,7 @@ class RulesResource(SyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
+        id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -381,11 +406,17 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[FirewallRule]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates one or more existing firewall rules.
 
         Args:
           zone_id: Defines an identifier.
+
+          id: The unique identifier of the firewall rule.
 
           extra_headers: Send extra headers
 
@@ -400,7 +431,7 @@ class RulesResource(SyncAPIResource):
         return self._get_api_list(
             path_template("/zones/{zone_id}/firewall/rules", zone_id=zone_id),
             page=SyncSinglePage[FirewallRule],
-            body=maybe_transform(body, rule_bulk_update_params.RuleBulkUpdateParams),
+            body=maybe_transform({"id": id}, rule_bulk_update_params.RuleBulkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -423,7 +454,11 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[FirewallRule]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates the priority of an existing firewall rule.
 
         Args:
@@ -468,7 +503,11 @@ class RulesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FirewallRule:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Fetches the details of a firewall rule.
 
         Args:
@@ -537,7 +576,11 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FirewallRule, AsyncSinglePage[FirewallRule]]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Create one or more firewall rules.
 
         Args:
@@ -590,7 +633,11 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FirewallRule:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates an existing firewall rule.
 
         Args:
@@ -652,9 +699,12 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FirewallRule, AsyncV4PagePaginationArray[FirewallRule]]:
-        """Fetches firewall rules in a zone.
+        """**This endpoint has been deprecated and returns 410 Gone.
 
-        You can filter the results using several
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
+        Fetches firewall rules in a zone. You can filter the results using several
         optional parameters.
 
         Args:
@@ -720,7 +770,11 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FirewallRule:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Deletes an existing firewall rule.
 
         Args:
@@ -766,7 +820,11 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FirewallRule, AsyncSinglePage[FirewallRule]]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Deletes existing firewall rules.
 
         Args:
@@ -799,7 +857,7 @@ class AsyncRulesResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
+        id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -807,11 +865,17 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FirewallRule, AsyncSinglePage[FirewallRule]]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates the priority of existing firewall rules.
 
         Args:
           zone_id: Defines an identifier.
+
+          id: The unique identifier of the firewall rule.
 
           extra_headers: Send extra headers
 
@@ -826,7 +890,7 @@ class AsyncRulesResource(AsyncAPIResource):
         return self._get_api_list(
             path_template("/zones/{zone_id}/firewall/rules", zone_id=zone_id),
             page=AsyncSinglePage[FirewallRule],
-            body=maybe_transform(body, rule_bulk_edit_params.RuleBulkEditParams),
+            body=maybe_transform({"id": id}, rule_bulk_edit_params.RuleBulkEditParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -841,7 +905,7 @@ class AsyncRulesResource(AsyncAPIResource):
         self,
         *,
         zone_id: str,
-        body: object,
+        id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -849,11 +913,17 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FirewallRule, AsyncSinglePage[FirewallRule]]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates one or more existing firewall rules.
 
         Args:
           zone_id: Defines an identifier.
+
+          id: The unique identifier of the firewall rule.
 
           extra_headers: Send extra headers
 
@@ -868,7 +938,7 @@ class AsyncRulesResource(AsyncAPIResource):
         return self._get_api_list(
             path_template("/zones/{zone_id}/firewall/rules", zone_id=zone_id),
             page=AsyncSinglePage[FirewallRule],
-            body=maybe_transform(body, rule_bulk_update_params.RuleBulkUpdateParams),
+            body=maybe_transform({"id": id}, rule_bulk_update_params.RuleBulkUpdateParams),
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -891,7 +961,11 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[FirewallRule, AsyncSinglePage[FirewallRule]]:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Updates the priority of an existing firewall rule.
 
         Args:
@@ -936,7 +1010,11 @@ class AsyncRulesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> FirewallRule:
-        """
+        """**This endpoint has been deprecated and returns 410 Gone.
+
+        Please use the
+        [Rulesets API](https://developers.cloudflare.com/ruleset-engine/) instead.**
+
         Fetches the details of a firewall rule.
 
         Args:

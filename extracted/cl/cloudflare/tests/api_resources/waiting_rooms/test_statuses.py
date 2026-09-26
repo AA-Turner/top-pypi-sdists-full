@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import pytest
 
@@ -23,7 +23,7 @@ class TestStatuses:
             waiting_room_id="699d98642c564d2e855e9661899b7252",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(StatusGetResponse, status, path=["response"])
+        assert_matches_type(Optional[StatusGetResponse], status, path=["response"])
 
     @parametrize
     def test_raw_response_get(self, client: Cloudflare) -> None:
@@ -35,7 +35,7 @@ class TestStatuses:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         status = response.parse()
-        assert_matches_type(StatusGetResponse, status, path=["response"])
+        assert_matches_type(Optional[StatusGetResponse], status, path=["response"])
 
     @parametrize
     def test_streaming_response_get(self, client: Cloudflare) -> None:
@@ -47,7 +47,7 @@ class TestStatuses:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             status = response.parse()
-            assert_matches_type(StatusGetResponse, status, path=["response"])
+            assert_matches_type(Optional[StatusGetResponse], status, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -77,7 +77,7 @@ class TestAsyncStatuses:
             waiting_room_id="699d98642c564d2e855e9661899b7252",
             zone_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
-        assert_matches_type(StatusGetResponse, status, path=["response"])
+        assert_matches_type(Optional[StatusGetResponse], status, path=["response"])
 
     @parametrize
     async def test_raw_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -89,7 +89,7 @@ class TestAsyncStatuses:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         status = await response.parse()
-        assert_matches_type(StatusGetResponse, status, path=["response"])
+        assert_matches_type(Optional[StatusGetResponse], status, path=["response"])
 
     @parametrize
     async def test_streaming_response_get(self, async_client: AsyncCloudflare) -> None:
@@ -101,7 +101,7 @@ class TestAsyncStatuses:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             status = await response.parse()
-            assert_matches_type(StatusGetResponse, status, path=["response"])
+            assert_matches_type(Optional[StatusGetResponse], status, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

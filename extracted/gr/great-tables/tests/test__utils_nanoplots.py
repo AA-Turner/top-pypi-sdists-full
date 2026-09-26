@@ -2214,7 +2214,6 @@ def test_format_number_compactly_fn_non_string_raises():
         _format_number_compactly(val=42.5, fn=lambda x: 42)  # type: ignore[return-value]
 
 
-@pytest.mark.xfail(reason="x_vals NaN removal path has a known bug")
 def test_nanoplot_x_vals_with_nan_removes_positions():
     import re
 
@@ -2227,6 +2226,18 @@ def test_nanoplot_x_vals_with_nan_removes_positions():
     circles = re.findall(r"<circle ", result)
 
     assert len(circles) == 4
+
+
+def test_nanoplot_x_vals_nan_drops_the_paired_y_val():
+    # A missing `x` value drops the whole position, so the plot has to match the
+    # one built from the surviving pairs, not merely have the right point count.
+    with_nan = _generate_nanoplot(
+        y_vals=[10.0, 20.0, 30.0],
+        x_vals=[1.0, float("nan"), 3.0],
+    )
+    without_nan = _generate_nanoplot(y_vals=[10.0, 30.0], x_vals=[1.0, 3.0])
+
+    assert with_nan == without_nan
 
 
 def test_nanoplot_boxplot_type():
@@ -2344,6 +2355,28 @@ def test_nanoplot_remove_missing_with_x_vals():
     x = [1.0, 2.0, 3.0, 4.0]
     result = _generate_nanoplot(y_vals=y, x_vals=x, missing_vals="remove")
     assert "<svg" in result
+
+
+def test_nanoplot_curved_line_without_x_vals_is_curved():
+    curved = _generate_nanoplot(y_vals=Y_VALS, show_data_line=True, data_line_type="curved")
+    straight = _generate_nanoplot(y_vals=Y_VALS, show_data_line=True, data_line_type="straight")
+
+    assert "<path" in curved
+    assert "<polyline" in straight
+    assert curved != straight
+
+
+def test_nanoplot_curved_line_with_x_vals_warns_and_falls_back():
+    with pytest.warns(UserWarning, match="curved data line is not supported"):
+        curved = _generate_nanoplot(
+            y_vals=Y_VALS, x_vals=X_VALS, show_data_line=True, data_line_type="curved"
+        )
+
+    straight = _generate_nanoplot(
+        y_vals=Y_VALS, x_vals=X_VALS, show_data_line=True, data_line_type="straight"
+    )
+
+    assert curved == straight
 
 
 def test_nanoplot_ref_area_with_na_suppresses_area():

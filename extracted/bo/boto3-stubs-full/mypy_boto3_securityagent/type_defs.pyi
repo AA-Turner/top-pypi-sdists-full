@@ -75,6 +75,7 @@ __all__ = (
     "AWSResourcesOutputTypeDef",
     "AWSResourcesTypeDef",
     "AWSResourcesUnionTypeDef",
+    "ActorMessageTypeDef",
     "ActorOutputTypeDef",
     "ActorTypeDef",
     "AddArtifactInputTypeDef",
@@ -236,6 +237,9 @@ __all__ = (
     "IntegratedResourceTypeDef",
     "IntegrationFilterTypeDef",
     "IntegrationSummaryTypeDef",
+    "ListActorMessagesInputPaginateTypeDef",
+    "ListActorMessagesInputTypeDef",
+    "ListActorMessagesOutputTypeDef",
     "ListAgentSpacesInputPaginateTypeDef",
     "ListAgentSpacesInputTypeDef",
     "ListAgentSpacesOutputTypeDef",
@@ -403,6 +407,12 @@ class VpcConfigTypeDef(TypedDict):
     vpcArn: NotRequired[str]
     securityGroupArns: NotRequired[Sequence[str]]
     subnetArns: NotRequired[Sequence[str]]
+
+class ActorMessageTypeDef(TypedDict):
+    sender: NotRequired[str]
+    subject: NotRequired[str]
+    body: NotRequired[str]
+    receivedAt: NotRequired[datetime]
 
 class AuthenticationTypeDef(TypedDict):
     providerType: NotRequired[AuthenticationProviderTypeType]
@@ -900,6 +910,13 @@ class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
+
+class ListActorMessagesInputTypeDef(TypedDict):
+    agentSpaceId: str
+    pentestId: str
+    actorIdentifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListAgentSpacesInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
@@ -1411,6 +1428,11 @@ class InitiateProviderRegistrationOutputTypeDef(TypedDict):
     csrfState: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ListActorMessagesOutputTypeDef(TypedDict):
+    messages: list[ActorMessageTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1754,6 +1776,12 @@ class ListIntegrationsOutputTypeDef(TypedDict):
     integrationSummaries: list[IntegrationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ListActorMessagesInputPaginateTypeDef(TypedDict):
+    agentSpaceId: str
+    pentestId: str
+    actorIdentifier: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAgentSpacesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]

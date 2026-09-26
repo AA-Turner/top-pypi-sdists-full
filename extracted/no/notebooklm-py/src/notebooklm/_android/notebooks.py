@@ -5,12 +5,14 @@ from __future__ import annotations
 import builtins
 import logging
 import re
-from contextvars import ContextVar
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any, cast
 
-from .._idempotency import mark_unconfirmed
+from .._idempotency import bound_operation_journal_entry, mark_unconfirmed
 from .._notebook_metadata import NotebookSourceLister
 from .._notebooks import NotebooksAPI
+from .._runtime.call_supervisor import OperationLease
 from ..exceptions import (
     AuthError,
     DecodingError,
@@ -20,7 +22,9 @@ from ..exceptions import (
     ServerError,
     ValidationError,
 )
+from ..outcomes import CommitState
 from ..types import NextStepSuggestion, Notebook, NotebookDescription, PromptSuggestion
+from .epoch import bind_workflow_epoch, reset_workflow_epoch
 from .session import AndroidSession
 
 logger = logging.getLogger(__name__)
@@ -105,6 +109,17 @@ class AndroidNotebooksAPI(NotebooksAPI):
     """Android notebook adapter for the directly tested read/notebook graph."""
 
     _create_method_id = f"/{_SERVICE}/CreateProject"
+    _copy_method_id = COPY_PROJECT_METHOD
+    _copy_failure_chain = "suppress"
+
+    @asynccontextmanager
+    async def _operation_scope(self, label: str) -> AsyncIterator[OperationLease]:
+        async with self._transport.operation_scope(label) as lease:
+            token = bind_workflow_epoch(self._transport, lease.epoch)
+            try:
+                yield lease
+            finally:
+                reset_workflow_epoch(token)
 
     def __init__(
         self,
@@ -112,16 +127,7 @@ class AndroidNotebooksAPI(NotebooksAPI):
         sources_api: NotebookSourceLister,
     ) -> None:
         self._transport = session
-        self._workflow_epoch: ContextVar[int | None] = ContextVar(
-            "android_notebook_workflow_epoch",
-            default=None,
-        )
-        self._created_chat_session_ids: dict[str, str] = {}
-        super().__init__(sources_api)
-
-    def _take_created_chat_session_id(self, notebook_id: str) -> str | None:
-        """Consume the exact chat-session hint volunteered by a create response."""
-        return self._created_chat_session_ids.pop(notebook_id, None)
+        super().__init__(sources_api, spawn_child=session.spawn_child)
 
     def _remember_created_chat_session(self, notebook: Notebook) -> None:
         if notebook.id and notebook.chat_sessions:
@@ -129,10 +135,6 @@ class AndroidNotebooksAPI(NotebooksAPI):
             self._created_chat_session_ids[notebook.id] = notebook.chat_sessions[0].id
             while len(self._created_chat_session_ids) > _MAX_CREATED_CHAT_SESSION_HINTS:
                 self._created_chat_session_ids.pop(next(iter(self._created_chat_session_ids)))
-
-    def _epoch_kwargs(self) -> dict[str, Any]:
-        epoch = self._workflow_epoch.get()
-        return {} if epoch is None else {"expected_epoch": epoch}
 
     async def _get_project_response(
         self,
@@ -151,7 +153,6 @@ class AndroidNotebooksAPI(NotebooksAPI):
                 request,
                 replay_safe=True,
                 response_type=wire.WireGetProjectResponse,
-                **self._epoch_kwargs(),
             )
             _notebook_codec().validate_project_identity(
                 response.project,
@@ -182,7 +183,6 @@ class AndroidNotebooksAPI(NotebooksAPI):
             request,
             replay_safe=True,
             response_type=proto.ListRecentlyViewedProjectsResponse,
-            **self._epoch_kwargs(),
         )
         return [
             _notebook_codec().decode_project(project, method_id=LIST_RECENT_PROJECTS_METHOD)
@@ -224,17 +224,9 @@ class AndroidNotebooksAPI(NotebooksAPI):
             )
         ]
 
-    async def create(self, title: str) -> Notebook:
-        """Create through the base transport-neutral probe workflow."""
-        async with self._transport.operation_scope("notebooks.create") as lease:
-            token = self._workflow_epoch.set(lease.epoch)
-            try:
-                return await super().create(title)
-            finally:
-                self._workflow_epoch.reset(token)
-
     async def _send_create(self, title: str) -> Notebook:
         # evidence: docs/android/proto-evidence-ledger.md#notebook-method-ledger
+        journal_entry = bound_operation_journal_entry()
         notebook_proto = _notebook_proto()
         read_proto = _read_proto()
         response = await self._transport.unary(
@@ -242,47 +234,35 @@ class AndroidNotebooksAPI(NotebooksAPI):
             notebook_proto.CreateProjectRequest(name=title),
             replay_safe=False,
             response_type=read_proto.Project,
-            **self._epoch_kwargs(),
         )
         try:
             notebook = _notebook_codec().decode_project(response, method_id=CREATE_PROJECT_METHOD)
         except DecodingError as error:
             raise mark_unconfirmed(error) from None
+        if journal_entry is not None:
+            journal_entry.record(
+                CommitState.CONFIRMED,
+                "decoded notebook create",
+                known_resource_ids=((notebook.id,) if notebook.id else ()),
+            )
         self._remember_created_chat_session(notebook)
         return notebook
 
-    async def copy(self, notebook_id: str, title: str) -> Notebook:
-        """Copy once, surfacing transport loss as an ambiguous outcome."""
-        if not notebook_id:
-            raise ValidationError("notebook_id must not be empty")
-        if not title or not title.strip():
-            raise ValidationError("title must not be empty")
-
+    async def _send_copy(self, notebook_id: str, title: str) -> Notebook:
+        """Send one Android ``CopyProject`` request and decode the new notebook."""
         # evidence: docs/android/proto-evidence-ledger.md#notebook-exact-and-web-derived-field-ledger
         notebook_proto = _notebook_proto()
         read_proto = _read_proto()
-        try:
-            response = await self._transport.unary(
-                COPY_PROJECT_METHOD,
-                notebook_proto.CopyProjectRequest(
-                    request_context=_android_request_context(),
-                    source_project_id=notebook_id,
-                    title=title,
-                ),
-                replay_safe=False,
-                response_type=read_proto.Project,
-            )
-        except (NetworkError, RateLimitError, ServerError) as exc:
-            rpc_code = exc.rpc_code if isinstance(exc, RPCError) else None
-            raise mark_unconfirmed(
-                RPCError(
-                    "UNRESOLVED — CopyProject may have committed before its response was "
-                    "lost. Do not blindly retry; list notebooks and resolve copies "
-                    "manually first.",
-                    method_id=COPY_PROJECT_METHOD,
-                    rpc_code=rpc_code,
-                )
-            ) from exc
+        response = await self._transport.unary(
+            COPY_PROJECT_METHOD,
+            notebook_proto.CopyProjectRequest(
+                request_context=_android_request_context(),
+                source_project_id=notebook_id,
+                title=title,
+            ),
+            replay_safe=False,
+            response_type=read_proto.Project,
+        )
         try:
             notebook = _notebook_codec().decode_project(response, method_id=COPY_PROJECT_METHOD)
             if notebook.id == notebook_id:
@@ -310,30 +290,32 @@ class AndroidNotebooksAPI(NotebooksAPI):
     ) -> builtins.list[PromptSuggestion]:
         if not 1 <= mode <= 10:
             raise ValidationError(f"mode must be in the inclusive range 1..10, got {mode!r}")
-        if source_ids is None:
-            source_ids = await self.get_source_ids(notebook_id)
-        resolved_query = query if query and query.strip() else ""
-        notebook_proto = _notebook_proto()
-        read_proto = _read_proto()
-        response = await self._transport.unary(
-            GENERATE_PROMPT_SUGGESTIONS_METHOD,
-            notebook_proto.GeneratePromptSuggestionsRequest(
-                request_context=_android_request_context(),
-                project_id=notebook_id,
-                source_ids=[read_proto.SourceId(id=source_id) for source_id in source_ids],
-                config_id=mode,
-                query=resolved_query,
-            ),
-            replay_safe=True,
-            response_type=notebook_proto.GeneratePromptSuggestionsResponse,
-        )
-        return [
-            PromptSuggestion(
-                title=_strip_leading_list_marker(item.title),
-                prompt=_strip_leading_list_marker(item.prompt),
+        async with self._operation_scope("notebooks.suggest_prompts") as lease:
+            if source_ids is None:
+                source_ids = await self.get_source_ids(notebook_id)
+            resolved_query = query if query and query.strip() else ""
+            notebook_proto = _notebook_proto()
+            read_proto = _read_proto()
+            response = await self._transport.unary(
+                GENERATE_PROMPT_SUGGESTIONS_METHOD,
+                notebook_proto.GeneratePromptSuggestionsRequest(
+                    request_context=_android_request_context(),
+                    project_id=notebook_id,
+                    source_ids=[read_proto.SourceId(id=source_id) for source_id in source_ids],
+                    config_id=mode,
+                    query=resolved_query,
+                ),
+                replay_safe=True,
+                response_type=notebook_proto.GeneratePromptSuggestionsResponse,
+                expected_epoch=lease.epoch,
             )
-            for item in response.suggestions
-        ]
+            return [
+                PromptSuggestion(
+                    title=_strip_leading_list_marker(item.title),
+                    prompt=_strip_leading_list_marker(item.prompt),
+                )
+                for item in response.suggestions
+            ]
 
     async def suggest_next_steps(
         self,

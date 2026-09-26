@@ -58,8 +58,10 @@ class ConfigResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConfigCreateResponse:
-        """
-        Configure auto top-up with a balance threshold and top-up amount.
+        """Configure auto top-up with a balance threshold and top-up amount.
+
+        Dashboard
+        sessions only: API token, OAuth, and service credentials are rejected with 403.
 
         Args:
           amount: Auto top-up amount in cents (min 1000).
@@ -106,8 +108,10 @@ class ConfigResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Remove the auto top-up configuration for the account.
+        """Remove the auto top-up configuration for the account.
+
+        Dashboard sessions only:
+        API token, OAuth, and service credentials are rejected with 403.
 
         Args:
           extra_headers: Send extra headers
@@ -203,8 +207,10 @@ class AsyncConfigResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ConfigCreateResponse:
-        """
-        Configure auto top-up with a balance threshold and top-up amount.
+        """Configure auto top-up with a balance threshold and top-up amount.
+
+        Dashboard
+        sessions only: API token, OAuth, and service credentials are rejected with 403.
 
         Args:
           amount: Auto top-up amount in cents (min 1000).
@@ -251,8 +257,10 @@ class AsyncConfigResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Remove the auto top-up configuration for the account.
+        """Remove the auto top-up configuration for the account.
+
+        Dashboard sessions only:
+        API token, OAuth, and service credentials are rejected with 403.
 
         Args:
           extra_headers: Send extra headers

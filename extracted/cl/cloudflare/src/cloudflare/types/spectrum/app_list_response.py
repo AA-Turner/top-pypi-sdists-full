@@ -33,13 +33,15 @@ class SpectrumConfigAppConfig(BaseModel):
     example `"tcp/1000-2000"`.
     """
 
-    traffic_type: Literal["direct", "http", "https"]
+    traffic_type: Literal["direct", "http", "https", "worker"]
     """Determines how data travels from the edge to your origin.
 
     When set to "direct", Spectrum will send traffic directly to your origin, and
     the application's type is derived from the `protocol`. When set to "http" or
     "https", Spectrum will apply Cloudflare's HTTP/HTTPS features as it sends
     traffic to your origin, and the application type matches this property exactly.
+    When set to "worker", traffic is sent to the Worker specified by
+    `origin_worker_id`.
     """
 
     argo_smart_routing: Optional[bool] = None
@@ -74,6 +76,14 @@ class SpectrumConfigAppConfig(BaseModel):
     ports, for example `"1000-2000"`. Notes: If specifying a port range, the number
     of ports in the range must match the number of ports specified in the "protocol"
     field.
+    """
+
+    origin_worker_id: Optional[str] = None
+    """Optional Worker script tag (worker ID) to use as the application's origin.
+
+    Only supported for TCP applications with traffic_type "worker"; mutually
+    exclusive with origin_direct, origin_dns, origin_port, proxy_protocol, and
+    argo_smart_routing. tls may only be "off" or "flexible".
     """
 
     proxy_protocol: Optional[Literal["off", "v1", "v2", "simple"]] = None

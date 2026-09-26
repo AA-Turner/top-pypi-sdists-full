@@ -27,6 +27,13 @@ class ServerConfig:
 
     brave_api_key: str = ""
 
+    # Where the platform (aidream) is, and the bridge token for calls made with no person's login
+    # to forward. The SOURCE LANDING hook needs them (server/source_landing_http.py); the GSC
+    # credential bridge (web_crawl/gsc_sync.py) reads the same two names. Unset = every scraped
+    # page is answered with a notice that it did not become a Source — loud, never silent.
+    aidream_url: str = ""
+    aidream_service_token: str = ""
+
     # NOTE: browser pool SIZE is intentionally NOT here. A concurrency ceiling
     # is not configuration — it lives in code as DEFAULT_BROWSER_POOL_SIZE
     # (browser_pool.py). An env var for it silently drifts between hosts.
@@ -71,5 +78,7 @@ class ServerConfig:
             cors_allowed_origins=os.getenv("MATRX_SCRAPER_CORS_ALLOWED_ORIGINS", ""),
             cors_allowed_origin_regex=os.getenv("MATRX_SCRAPER_CORS_ALLOWED_ORIGIN_REGEX", ""),
             brave_api_key=os.getenv("BRAVE_SEARCH_API_KEY_PRO_AI", ""),
+            aidream_url=os.getenv("AIDREAM_URL", ""),
+            aidream_service_token=os.getenv("AIDREAM_SERVICE_TOKEN", ""),
             log_level=os.getenv("LOG_LEVEL", "info"),
         )

@@ -22,9 +22,20 @@ from ._types.artifact_content import (
     FlashcardArtifactUserState,
     UnknownArtifactUserState,
 )
+from ._types.artifact_download import (
+    ArtifactDownloadListing,
+    ArtifactDownloadRequest,
+    ArtifactDownloadSelection,
+)
 from ._types.artifacts import (
     Artifact,
+    ArtifactCreationCapability,
     ArtifactCustomizationChoices,
+    ArtifactListing,
+    ArtifactListingComponent,
+    ArtifactListingFailure,
+    ArtifactLookup,
+    ArtifactLookupStatus,
     ArtifactType,
     CopiedArtifact,
     CustomizationChoice,
@@ -133,6 +144,7 @@ from ._types.research import (
     SourceGuide,
 )
 from ._types.sharing import SharedUser, ShareStatus
+from ._types.source_delete import SourceDeleteOutcome
 from ._types.sources import (
     CopiedSource,
     ExpertIntelligenceSourceMetadata,
@@ -142,6 +154,15 @@ from ._types.sources import (
     Source,
     SourceFulltext,
     SourceType,
+)
+from ._types.usage import (
+    UsageAction,
+    UsageActionCostTier,
+    UsageActionKind,
+    UsageSummary,
+    UsageSummaryStatus,
+    UsageWindow,
+    UsageWindowKind,
 )
 
 # Import exceptions from centralized module (re-export for backward compatibility)
@@ -210,9 +231,16 @@ _CITED_SOURCE_SELECTION_TYPE_HINT_GLOBALS = (ResearchSourceInput,)
 
 
 __all__ = [
+    "ArtifactDownloadListing",
+    "ArtifactDownloadRequest",
+    "ArtifactDownloadSelection",
+    "SourceDeleteOutcome",
     # Dataclasses
     "AccountLimits",
     "UserSettings",
+    "UsageSummary",
+    "UsageWindow",
+    "UsageAction",
     "CitedSourceSelection",
     "ConnectionLimits",
     "ClientMetricsSnapshot",
@@ -232,6 +260,11 @@ __all__ = [
     "ExpertIntelligenceSourceMetadata",
     "SourceSummary",
     "Artifact",
+    "ArtifactListing",
+    "ArtifactListingComponent",
+    "ArtifactListingFailure",
+    "ArtifactLookup",
+    "ArtifactLookupStatus",
     "ArtifactInfographic",
     "ArtifactMedia",
     "ArtifactMediaType",
@@ -247,6 +280,7 @@ __all__ = [
     "CustomizationChoice",
     "ReportPreset",
     "ArtifactCustomizationChoices",
+    "ArtifactCreationCapability",
     "Note",
     "Label",
     "Collection",
@@ -331,6 +365,10 @@ __all__ = [
     "ShareAccess",
     "ShareViewLevel",
     "SharePermission",
+    "UsageSummaryStatus",
+    "UsageWindowKind",
+    "UsageActionKind",
+    "UsageActionCostTier",
     # Helper functions
     "artifact_status_to_str",
     "discovery_mode_to_str",
@@ -349,14 +387,26 @@ for _public_common_type in (
     RpcTelemetryEvent,
     UnknownTypeWarning,
     UserSettings,
+    UsageAction,
+    UsageSummary,
+    UsageWindow,
 ):
     _public_common_type.__module__ = __name__
 del _public_common_type
 
 
 for _public_moved_type in (
+    ArtifactDownloadListing,
+    ArtifactDownloadRequest,
+    ArtifactDownloadSelection,
     Artifact,
+    ArtifactCreationCapability,
     ArtifactCustomizationChoices,
+    ArtifactListing,
+    ArtifactListingComponent,
+    ArtifactListingFailure,
+    ArtifactLookup,
+    ArtifactLookupStatus,
     ArtifactInfographic,
     ArtifactMedia,
     ArtifactMediaType,

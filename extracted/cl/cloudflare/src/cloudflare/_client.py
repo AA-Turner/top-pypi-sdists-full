@@ -127,12 +127,14 @@ if TYPE_CHECKING:
         cloud_connector,
         ddos_protection,
         durable_objects,
+        managed_defense,
         r2_data_catalog,
         request_tracers,
         security_center,
         brand_protection,
         content_scanning,
         custom_hostnames,
+        field_extractors,
         resource_sharing,
         resource_tagging,
         token_validation,
@@ -249,12 +251,14 @@ if TYPE_CHECKING:
     from .resources.cloud_connector.cloud_connector import CloudConnectorResource, AsyncCloudConnectorResource
     from .resources.ddos_protection.ddos_protection import DDoSProtectionResource, AsyncDDoSProtectionResource
     from .resources.durable_objects.durable_objects import DurableObjectsResource, AsyncDurableObjectsResource
+    from .resources.managed_defense.managed_defense import ManagedDefenseResource, AsyncManagedDefenseResource
     from .resources.r2_data_catalog.r2_data_catalog import R2DataCatalogResource, AsyncR2DataCatalogResource
     from .resources.request_tracers.request_tracers import RequestTracersResource, AsyncRequestTracersResource
     from .resources.security_center.security_center import SecurityCenterResource, AsyncSecurityCenterResource
     from .resources.brand_protection.brand_protection import BrandProtectionResource, AsyncBrandProtectionResource
     from .resources.content_scanning.content_scanning import ContentScanningResource, AsyncContentScanningResource
     from .resources.custom_hostnames.custom_hostnames import CustomHostnamesResource, AsyncCustomHostnamesResource
+    from .resources.field_extractors.field_extractors import FieldExtractorsResource, AsyncFieldExtractorsResource
     from .resources.resource_sharing.resource_sharing import ResourceSharingResource, AsyncResourceSharingResource
     from .resources.resource_tagging.resource_tagging import ResourceTaggingResource, AsyncResourceTaggingResource
     from .resources.token_validation.token_validation import TokenValidationResource, AsyncTokenValidationResource
@@ -1208,6 +1212,12 @@ class Cloudflare(SyncAPIClient):
         return MoQResource(self)
 
     @cached_property
+    def managed_defense(self) -> ManagedDefenseResource:
+        from .resources.managed_defense import ManagedDefenseResource
+
+        return ManagedDefenseResource(self)
+
+    @cached_property
     def cloudforce_one(self) -> CloudforceOneResource:
         from .resources.cloudforce_one import CloudforceOneResource
 
@@ -1356,6 +1366,12 @@ class Cloudflare(SyncAPIClient):
         from .resources.token_validation import TokenValidationResource
 
         return TokenValidationResource(self)
+
+    @cached_property
+    def field_extractors(self) -> FieldExtractorsResource:
+        from .resources.field_extractors import FieldExtractorsResource
+
+        return FieldExtractorsResource(self)
 
     @cached_property
     def with_raw_response(self) -> CloudflareWithRawResponse:
@@ -2396,6 +2412,12 @@ class AsyncCloudflare(AsyncAPIClient):
         return AsyncMoQResource(self)
 
     @cached_property
+    def managed_defense(self) -> AsyncManagedDefenseResource:
+        from .resources.managed_defense import AsyncManagedDefenseResource
+
+        return AsyncManagedDefenseResource(self)
+
+    @cached_property
     def cloudforce_one(self) -> AsyncCloudforceOneResource:
         from .resources.cloudforce_one import AsyncCloudforceOneResource
 
@@ -2544,6 +2566,12 @@ class AsyncCloudflare(AsyncAPIClient):
         from .resources.token_validation import AsyncTokenValidationResource
 
         return AsyncTokenValidationResource(self)
+
+    @cached_property
+    def field_extractors(self) -> AsyncFieldExtractorsResource:
+        from .resources.field_extractors import AsyncFieldExtractorsResource
+
+        return AsyncFieldExtractorsResource(self)
 
     @cached_property
     def with_raw_response(self) -> AsyncCloudflareWithRawResponse:
@@ -3508,6 +3536,12 @@ class CloudflareWithRawResponse:
         return MoQResourceWithRawResponse(self._client.moq)
 
     @cached_property
+    def managed_defense(self) -> managed_defense.ManagedDefenseResourceWithRawResponse:
+        from .resources.managed_defense import ManagedDefenseResourceWithRawResponse
+
+        return ManagedDefenseResourceWithRawResponse(self._client.managed_defense)
+
+    @cached_property
     def cloudforce_one(self) -> cloudforce_one.CloudforceOneResourceWithRawResponse:
         from .resources.cloudforce_one import CloudforceOneResourceWithRawResponse
 
@@ -3656,6 +3690,12 @@ class CloudflareWithRawResponse:
         from .resources.token_validation import TokenValidationResourceWithRawResponse
 
         return TokenValidationResourceWithRawResponse(self._client.token_validation)
+
+    @cached_property
+    def field_extractors(self) -> field_extractors.FieldExtractorsResourceWithRawResponse:
+        from .resources.field_extractors import FieldExtractorsResourceWithRawResponse
+
+        return FieldExtractorsResourceWithRawResponse(self._client.field_extractors)
 
 
 class AsyncCloudflareWithRawResponse:
@@ -4447,6 +4487,12 @@ class AsyncCloudflareWithRawResponse:
         return AsyncMoQResourceWithRawResponse(self._client.moq)
 
     @cached_property
+    def managed_defense(self) -> managed_defense.AsyncManagedDefenseResourceWithRawResponse:
+        from .resources.managed_defense import AsyncManagedDefenseResourceWithRawResponse
+
+        return AsyncManagedDefenseResourceWithRawResponse(self._client.managed_defense)
+
+    @cached_property
     def cloudforce_one(self) -> cloudforce_one.AsyncCloudforceOneResourceWithRawResponse:
         from .resources.cloudforce_one import AsyncCloudforceOneResourceWithRawResponse
 
@@ -4595,6 +4641,12 @@ class AsyncCloudflareWithRawResponse:
         from .resources.token_validation import AsyncTokenValidationResourceWithRawResponse
 
         return AsyncTokenValidationResourceWithRawResponse(self._client.token_validation)
+
+    @cached_property
+    def field_extractors(self) -> field_extractors.AsyncFieldExtractorsResourceWithRawResponse:
+        from .resources.field_extractors import AsyncFieldExtractorsResourceWithRawResponse
+
+        return AsyncFieldExtractorsResourceWithRawResponse(self._client.field_extractors)
 
 
 class CloudflareWithStreamedResponse:
@@ -5386,6 +5438,12 @@ class CloudflareWithStreamedResponse:
         return MoQResourceWithStreamingResponse(self._client.moq)
 
     @cached_property
+    def managed_defense(self) -> managed_defense.ManagedDefenseResourceWithStreamingResponse:
+        from .resources.managed_defense import ManagedDefenseResourceWithStreamingResponse
+
+        return ManagedDefenseResourceWithStreamingResponse(self._client.managed_defense)
+
+    @cached_property
     def cloudforce_one(self) -> cloudforce_one.CloudforceOneResourceWithStreamingResponse:
         from .resources.cloudforce_one import CloudforceOneResourceWithStreamingResponse
 
@@ -5534,6 +5592,12 @@ class CloudflareWithStreamedResponse:
         from .resources.token_validation import TokenValidationResourceWithStreamingResponse
 
         return TokenValidationResourceWithStreamingResponse(self._client.token_validation)
+
+    @cached_property
+    def field_extractors(self) -> field_extractors.FieldExtractorsResourceWithStreamingResponse:
+        from .resources.field_extractors import FieldExtractorsResourceWithStreamingResponse
+
+        return FieldExtractorsResourceWithStreamingResponse(self._client.field_extractors)
 
 
 class AsyncCloudflareWithStreamedResponse:
@@ -6333,6 +6397,12 @@ class AsyncCloudflareWithStreamedResponse:
         return AsyncMoQResourceWithStreamingResponse(self._client.moq)
 
     @cached_property
+    def managed_defense(self) -> managed_defense.AsyncManagedDefenseResourceWithStreamingResponse:
+        from .resources.managed_defense import AsyncManagedDefenseResourceWithStreamingResponse
+
+        return AsyncManagedDefenseResourceWithStreamingResponse(self._client.managed_defense)
+
+    @cached_property
     def cloudforce_one(self) -> cloudforce_one.AsyncCloudforceOneResourceWithStreamingResponse:
         from .resources.cloudforce_one import AsyncCloudforceOneResourceWithStreamingResponse
 
@@ -6483,6 +6553,12 @@ class AsyncCloudflareWithStreamedResponse:
         from .resources.token_validation import AsyncTokenValidationResourceWithStreamingResponse
 
         return AsyncTokenValidationResourceWithStreamingResponse(self._client.token_validation)
+
+    @cached_property
+    def field_extractors(self) -> field_extractors.AsyncFieldExtractorsResourceWithStreamingResponse:
+        from .resources.field_extractors import AsyncFieldExtractorsResourceWithStreamingResponse
+
+        return AsyncFieldExtractorsResourceWithStreamingResponse(self._client.field_extractors)
 
 
 Client = Cloudflare

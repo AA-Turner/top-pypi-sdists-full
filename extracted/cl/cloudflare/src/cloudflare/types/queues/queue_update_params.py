@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing_extensions import Required, TypedDict
+from typing_extensions import Literal, Required, TypedDict
 
 __all__ = ["QueueUpdateParams", "Settings"]
 
@@ -10,6 +10,8 @@ __all__ = ["QueueUpdateParams", "Settings"]
 class QueueUpdateParams(TypedDict, total=False):
     account_id: Required[str]
     """A Resource identifier."""
+
+    jurisdiction: Literal["eu", "us", "fedramp"]
 
     queue_name: str
 

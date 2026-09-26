@@ -23,6 +23,7 @@ from arthur_client.api_bindings.models.alert_check_job_spec import AlertCheckJob
 from arthur_client.api_bindings.models.compliance_policy_check_job_spec import CompliancePolicyCheckJobSpec
 from arthur_client.api_bindings.models.connector_check_job_spec import ConnectorCheckJobSpec
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
+from arthur_client.api_bindings.models.fetch_discovered_agents_job_spec import FetchDiscoveredAgentsJobSpec
 from arthur_client.api_bindings.models.list_datasets_job_spec import ListDatasetsJobSpec
 from arthur_client.api_bindings.models.metrics_calculation_job_spec import MetricsCalculationJobSpec
 from arthur_client.api_bindings.models.schedule_jobs_job_spec import ScheduleJobsJobSpec
@@ -31,7 +32,7 @@ from typing import Union, Any, List, Set, TYPE_CHECKING, Optional, Dict
 from typing_extensions import Literal, Self
 from pydantic import Field
 
-POSTJOBSPEC_ANY_OF_SCHEMAS = ["AlertCheckJobSpec", "CompliancePolicyCheckJobSpec", "ConnectorCheckJobSpec", "DiscoverAgentsJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec"]
+POSTJOBSPEC_ANY_OF_SCHEMAS = ["AlertCheckJobSpec", "CompliancePolicyCheckJobSpec", "ConnectorCheckJobSpec", "DiscoverAgentsJobSpec", "FetchDiscoveredAgentsJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec"]
 
 class PostJobSpec(BaseModel):
     """
@@ -54,11 +55,13 @@ class PostJobSpec(BaseModel):
     anyof_schema_7_validator: Optional[DiscoverAgentsJobSpec] = None
     # data type: CompliancePolicyCheckJobSpec
     anyof_schema_8_validator: Optional[CompliancePolicyCheckJobSpec] = None
+    # data type: FetchDiscoveredAgentsJobSpec
+    anyof_schema_9_validator: Optional[FetchDiscoveredAgentsJobSpec] = None
     if TYPE_CHECKING:
-        actual_instance: Optional[Union[AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec]] = None
+        actual_instance: Optional[Union[AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, FetchDiscoveredAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec]] = None
     else:
         actual_instance: Any = None
-    any_of_schemas: Set[str] = { "AlertCheckJobSpec", "CompliancePolicyCheckJobSpec", "ConnectorCheckJobSpec", "DiscoverAgentsJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec" }
+    any_of_schemas: Set[str] = { "AlertCheckJobSpec", "CompliancePolicyCheckJobSpec", "ConnectorCheckJobSpec", "DiscoverAgentsJobSpec", "FetchDiscoveredAgentsJobSpec", "ListDatasetsJobSpec", "MetricsCalculationJobSpec", "ScheduleJobsJobSpec", "SchemaInspectionJobSpec" }
 
     model_config = {
         "validate_assignment": True,
@@ -127,9 +130,15 @@ class PostJobSpec(BaseModel):
         else:
             return v
 
+        # validate data type: FetchDiscoveredAgentsJobSpec
+        if not isinstance(v, FetchDiscoveredAgentsJobSpec):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `FetchDiscoveredAgentsJobSpec`")
+        else:
+            return v
+
         if error_messages:
             # no match
-            raise ValueError("No match found when setting the actual_instance in PostJobSpec with anyOf schemas: AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting the actual_instance in PostJobSpec with anyOf schemas: AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, FetchDiscoveredAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -190,10 +199,16 @@ class PostJobSpec(BaseModel):
             return instance
         except (ValidationError, ValueError) as e:
              error_messages.append(str(e))
+        # anyof_schema_9_validator: Optional[FetchDiscoveredAgentsJobSpec] = None
+        try:
+            instance.actual_instance = FetchDiscoveredAgentsJobSpec.from_json(json_str)
+            return instance
+        except (ValidationError, ValueError) as e:
+             error_messages.append(str(e))
 
         if error_messages:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into PostJobSpec with anyOf schemas: AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into PostJobSpec with anyOf schemas: AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, FetchDiscoveredAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -207,7 +222,7 @@ class PostJobSpec(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], AlertCheckJobSpec, CompliancePolicyCheckJobSpec, ConnectorCheckJobSpec, DiscoverAgentsJobSpec, FetchDiscoveredAgentsJobSpec, ListDatasetsJobSpec, MetricsCalculationJobSpec, ScheduleJobsJobSpec, SchemaInspectionJobSpec]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

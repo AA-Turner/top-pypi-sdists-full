@@ -143,7 +143,9 @@ async def _can_access(row: Any, app_ctx: Any) -> bool:
     dropped ``is_public`` flag): builtins, org grants, and shares all resolve
     through ``iam.has_access_for`` — never re-implement that ladder here.
     """
-    if getattr(app_ctx, "is_admin", False):
+    from matrx_connect import admin_surface_active
+
+    if admin_surface_active(app_ctx):  # admin reach only on an admin surface (2026-09-25)
         return True
     user_id = getattr(app_ctx, "user_id", None)
     if not user_id:

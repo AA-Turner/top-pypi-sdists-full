@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.30.0
+Version: 0.31.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -44,6 +44,58 @@ Statsig helps you move faster with feature gates (feature flags), and/or dynamic
 ## Getting Started
 
 Read through the [Documentation](https://docs.statsig.com/server-core?ref=gh_server_core) or check out the [Samples](https://github.com/statsig-io/statsig-server-core/tree/main/examples).
+
+## ID-list file routing and fallback
+
+`download_id_list_file_api` selects the preferred base URL for file downloads.
+Enable `fallback_to_statsig_api` to try the original file URL from the manifest
+after an overridden request exhausts its retries, provided that URL belongs to
+the trusted HTTPS OpenAI CDN origin:
+
+```rust
+let options = statsig_rust::StatsigOptions {
+    download_id_list_file_api: Some("http://statsig-proxy:8080".to_string()),
+    fallback_to_statsig_api: Some(true),
+    ..Default::default()
+};
+```
+
+Fallback accepts only `https://statsigcdn.openai.com` with the default port or
+explicit `:443`. Fallback sends no request or SDK credentials to other manifest
+origins; the original request error is returned. Fallback does not follow redirects.
+Custom network providers must implement `send_without_redirects`; otherwise the
+fallback returns an error without sending a request. Fallback preserves the URL's
+path and query, the file identity, and the byte offset for incremental updates.
+Each destination uses its own range protocol: a `range` query for the OpenAI CDN, or `Range` and
+`statsig-id-list-file-size` headers for other hosts.
+
+Set `fallback_to_statsig_api` to `Some(false)` or leave it unset to keep file
+downloads strictly on the selected destination. There is no second attempt when
+the override resolves to the original URL, no override is set, or the request
+fails with an authentication rejection (401/403) or another non-retryable error.
+Response parsing failures do not trigger fallback. This uses the existing option
+across language bindings; wrappers that disable it continue to opt out.
+
+A successful proxy request makes no additional request. An eligible failure can
+add one request to the trusted CDN URL using the existing network timeout and retry
+policy. The next synchronization starts with the configured override again.
+
+## Read-only data stores
+
+Rust data stores can override `DataStoreTrait::is_read_only()`; Python `DataStore`
+subclasses can override the synchronous `is_read_only()` method:
+
+```python
+def is_read_only(self) -> bool:
+    return not self.is_leader
+```
+
+The default is `False`, preserving existing writable stores. Return `True` for a
+follower that only consumes shared cache entries. Bootstrap/polling reads and
+config hydration/evaluation remain enabled, but full network responses no longer
+build or compress hydrated cache snapshots or call the datastore's write methods.
+Delta responses continue to skip snapshot writes. Keep the role stable during an
+update. A failing Python capability check is treated as read-only.
 
 ## Packages
 

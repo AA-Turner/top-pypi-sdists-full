@@ -24,13 +24,35 @@ This release publishes:
   vocabulary so operations can share the Team Kitty timeline with missions
   without reusing mission event kinds. Post-MVP; the CLI emitter, SaaS view,
   and detail service are not implemented here.
+- Bounded cross-mission coordination messages (``spec_kitty_events.coordination_message``,
+  events#54): the ``CoordinationMessage`` volatile moment — one event type
+  whose payload ``kind`` carries the fact/proposal/question/answer/closure
+  vocabulary, a stable scoped ``message_id``, an untrusted logical-agent
+  sender label, a mention-shaped ``addressed_to``, bounded authored prose
+  (``body``, one printable line, <=240 UTF-8 bytes, error not truncation),
+  comma-free evidence refs, a requested-action enum, ``ttl_s`` expiry and
+  ``reply_to`` thread linkage, riding the existing ``zeitgeist_attrs``
+  transport. The payload contract only: the CLI send wrapper
+  (spec-kitty#4269) is the future producer and nothing here advertises a
+  runtime tool. Standing team-scoped publish authorization per the Live
+  Work ADR (planning#2188); received prose never overrides task authority.
+- Durable live-work contracts (``spec_kitty_events.work_observation``,
+  ``spec_kitty_events.work_replay``): the ``WorkObservation`` event type —
+  25 kinds across lifecycle/session/action/narrative/message/coverage
+  families with identity sub-models (producer/session/actor/mission/
+  repository), artifact references, source provenance, typed rejections,
+  schema negotiation, and the duplicate/conflict/late/gap replay semantics
+  (spec-kitty-events#55, planning#2268). Durable: it feeds the SaaS durable
+  journal (saas#1814), relay fan-out (zeitgeist#304), and the
+  People/Missions/Repositories projections (saas#1816) — never the volatile
+  ``zeitgeist_attrs`` codec.
 
 The offline sync/cutover surfaces (``spec_kitty_events.sync``, ``legacy``,
 ``cutover``) were removed in ``8.0.0``; envelope-level fail-closed gating now
 lives in ``spec_kitty_events.strict.validate_strict_envelope``.
 """
 
-__version__ = "9.1.6"
+__version__ = "10.4.0"
 
 # Core data models
 from spec_kitty_events.models import (
@@ -162,6 +184,21 @@ from spec_kitty_events.ops_invocation import (
     OpsInvocationOutcome,
     OpsInvocationStartedPayload,
     OpsInvocationCompletedPayload,
+)
+
+# Bounded cross-mission coordination-message contract (events#54): one
+# volatile event type over zeitgeist_attrs; payload contract only, no
+# runtime send tool (the CLI wrapper spec-kitty#4269 is the future producer).
+from spec_kitty_events.coordination_message import (
+    COORDINATION_MESSAGE,
+    COORDINATION_MESSAGE_EVENT_TYPES,
+    COORDINATION_MESSAGE_CONTRACT_VERSION,
+    FORBIDDEN_COORDINATION_KEYS,
+    FORBIDDEN_COORDINATION_KEYS_VERSION,
+    CoordinationMessageKind,
+    RequestedAction,
+    CoordinationMessagePayload,
+    coordination_aggregate_id,
 )
 
 # Build-aggregate event contracts (shipped by mission
@@ -526,6 +563,53 @@ from spec_kitty_events.retrospective import (
     RetrospectiveSkippedPayload as RetrospectiveSkippedPayload,
     TriggerSourceT as TriggerSourceT,
 )
+from spec_kitty_events.work_observation import (
+    WORK_OBSERVATION,
+    WORK_OBSERVATION_CONTRACT_VERSION,
+    WORK_OBSERVATION_PAYLOAD_IDS,
+    WORK_FAMILIES,
+    WORK_FAMILY_BY_KIND,
+    PAYLOAD_ID_BY_KIND as WORK_PAYLOAD_ID_BY_KIND,
+    FORBIDDEN_WORK_KEYS,
+    FORBIDDEN_WORK_KEYS_VERSION,
+    SERVER_OWNED_FIELDS,
+    ActionOutcome,
+    ActionState,
+    ActorIdentity,
+    ActivityRef,
+    AgentProfileRef,
+    ArtifactReference,
+    CoverageGap,
+    FactoryAttemptRef,
+    FileAction,
+    FileOperation,
+    MissionIdentity,
+    PrincipalRef,
+    ProducerIdentity,
+    ProgrammeLink,
+    RepositoryIdentity,
+    SessionIdentity,
+    SourceProvenance,
+    TestAction,
+    ToolAction,
+    WorkContext,
+    WorkKind,
+    WorkObservationPayload,
+    WorkRejectionReason,
+    TypedRejection,
+    NegotiationResult,
+    canonical_work_hash,
+    work_aggregate_id,
+    negotiate_work_contract,
+)
+from spec_kitty_events.work_replay import (
+    WorkStreamItem,
+    WorkStreamReport,
+    SequenceGap,
+    work_item_from_event,
+    replay_order_key,
+    classify_work_stream,
+)
 
 # Backward-compatible dossier aliases without the Payload suffix.
 # Older consumers import these names directly.
@@ -655,7 +739,60 @@ __all__ = [
     "OPS_INVOCATION_CONTRACT_VERSION",
     "OpsInvocationOutcome",
     "OpsInvocationStartedPayload",
+    "COORDINATION_MESSAGE",
+    "COORDINATION_MESSAGE_EVENT_TYPES",
+    "COORDINATION_MESSAGE_CONTRACT_VERSION",
+    "FORBIDDEN_COORDINATION_KEYS",
+    "FORBIDDEN_COORDINATION_KEYS_VERSION",
+    "CoordinationMessageKind",
+    "RequestedAction",
+    # Durable live-work contracts (#55)
+    "WORK_OBSERVATION",
+    "WORK_OBSERVATION_CONTRACT_VERSION",
+    "WORK_OBSERVATION_PAYLOAD_IDS",
+    "WORK_FAMILIES",
+    "WORK_FAMILY_BY_KIND",
+    "WORK_PAYLOAD_ID_BY_KIND",
+    "FORBIDDEN_WORK_KEYS",
+    "FORBIDDEN_WORK_KEYS_VERSION",
+    "SERVER_OWNED_FIELDS",
+    "ActionOutcome",
+    "ActionState",
+    "ActorIdentity",
+    "ActivityRef",
+    "AgentProfileRef",
+    "ArtifactReference",
+    "CoverageGap",
+    "FactoryAttemptRef",
+    "FileAction",
+    "FileOperation",
+    "MissionIdentity",
+    "PrincipalRef",
+    "ProducerIdentity",
+    "ProgrammeLink",
+    "RepositoryIdentity",
+    "SessionIdentity",
+    "SourceProvenance",
+    "TestAction",
+    "ToolAction",
+    "WorkContext",
+    "WorkKind",
+    "WorkObservationPayload",
+    "WorkRejectionReason",
+    "TypedRejection",
+    "NegotiationResult",
+    "canonical_work_hash",
+    "work_aggregate_id",
+    "negotiate_work_contract",
+    "WorkStreamItem",
+    "WorkStreamReport",
+    "SequenceGap",
+    "work_item_from_event",
+    "replay_order_key",
+    "classify_work_stream",
     "OpsInvocationCompletedPayload",
+    "CoordinationMessagePayload",
+    "coordination_aggregate_id",
     # Collaboration event contracts
     "PARTICIPANT_INVITED",
     "PARTICIPANT_JOINED",

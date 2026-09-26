@@ -79,7 +79,7 @@ class ObjectsResource(SyncAPIResource):
         per_page: int | Omit = omit,
         prefix: str | Omit = omit,
         start_after: str | Omit = omit,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -117,8 +117,6 @@ class ObjectsResource(SyncAPIResource):
           start_after: Returns objects with keys that come after the specified key in lexicographic
               order.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -132,7 +130,9 @@ class ObjectsResource(SyncAPIResource):
         if not bucket_name:
             raise ValueError(f"Expected a non-empty value for `bucket_name` but received {bucket_name!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._get_api_list(
@@ -167,7 +167,7 @@ class ObjectsResource(SyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -193,8 +193,6 @@ class ObjectsResource(SyncAPIResource):
               percent-encoded (i.e. `%2F`); other reserved characters should be
               percent-encoded as usual.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -210,7 +208,9 @@ class ObjectsResource(SyncAPIResource):
         if not object_key:
             raise ValueError(f"Expected a non-empty value for `object_key` but received {object_key!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._delete(
@@ -236,7 +236,7 @@ class ObjectsResource(SyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         if_modified_since: str | Omit = omit,
         if_none_match: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -266,8 +266,6 @@ class ObjectsResource(SyncAPIResource):
               percent-encoded (i.e. `%2F`); other reserved characters should be
               percent-encoded as usual.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           if_modified_since: Returns the object only if it has been modified since the specified time. Must
               be formatted as an HTTP-date (RFC 7231), e.g. `Tue, 15 Jan 2024 10:30:00 GMT`.
 
@@ -291,7 +289,7 @@ class ObjectsResource(SyncAPIResource):
         extra_headers = {
             **strip_not_given(
                 {
-                    "cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given,
+                    "cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given,
                     "If-Modified-Since": if_modified_since,
                     "If-None-Match": if_none_match,
                 }
@@ -318,7 +316,7 @@ class ObjectsResource(SyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         cf_r2_storage_class: Literal["Standard", "InfrequentAccess"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -350,8 +348,6 @@ class ObjectsResource(SyncAPIResource):
 
           body: The object body to upload.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           cf_r2_storage_class: Storage class for newly uploaded objects, unless specified otherwise.
 
           extra_headers: Send extra headers
@@ -371,7 +367,7 @@ class ObjectsResource(SyncAPIResource):
         extra_headers = {
             **strip_not_given(
                 {
-                    "cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given,
+                    "cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given,
                     "cf-r2-storage-class": str(cf_r2_storage_class) if is_given(cf_r2_storage_class) else not_given,
                 }
             ),
@@ -427,7 +423,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         per_page: int | Omit = omit,
         prefix: str | Omit = omit,
         start_after: str | Omit = omit,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -465,8 +461,6 @@ class AsyncObjectsResource(AsyncAPIResource):
           start_after: Returns objects with keys that come after the specified key in lexicographic
               order.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -480,7 +474,9 @@ class AsyncObjectsResource(AsyncAPIResource):
         if not bucket_name:
             raise ValueError(f"Expected a non-empty value for `bucket_name` but received {bucket_name!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return self._get_api_list(
@@ -515,7 +511,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -541,8 +537,6 @@ class AsyncObjectsResource(AsyncAPIResource):
               percent-encoded (i.e. `%2F`); other reserved characters should be
               percent-encoded as usual.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -558,7 +552,9 @@ class AsyncObjectsResource(AsyncAPIResource):
         if not object_key:
             raise ValueError(f"Expected a non-empty value for `object_key` but received {object_key!r}")
         extra_headers = {
-            **strip_not_given({"cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given}),
+            **strip_not_given(
+                {"cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given}
+            ),
             **(extra_headers or {}),
         }
         return await self._delete(
@@ -584,7 +580,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         if_modified_since: str | Omit = omit,
         if_none_match: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -614,8 +610,6 @@ class AsyncObjectsResource(AsyncAPIResource):
               percent-encoded (i.e. `%2F`); other reserved characters should be
               percent-encoded as usual.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           if_modified_since: Returns the object only if it has been modified since the specified time. Must
               be formatted as an HTTP-date (RFC 7231), e.g. `Tue, 15 Jan 2024 10:30:00 GMT`.
 
@@ -639,7 +633,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         extra_headers = {
             **strip_not_given(
                 {
-                    "cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given,
+                    "cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given,
                     "If-Modified-Since": if_modified_since,
                     "If-None-Match": if_none_match,
                 }
@@ -666,7 +660,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         *,
         account_id: str,
         bucket_name: str,
-        jurisdiction: Literal["default", "eu", "us", "fedramp"] | Omit = omit,
+        cf_r2_jurisdiction: Literal["default", "eu", "us", "fedramp", "fedramp-high"] | Omit = omit,
         cf_r2_storage_class: Literal["Standard", "InfrequentAccess"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -698,8 +692,6 @@ class AsyncObjectsResource(AsyncAPIResource):
 
           body: The object body to upload.
 
-          jurisdiction: Jurisdiction where objects in this bucket are guaranteed to be stored.
-
           cf_r2_storage_class: Storage class for newly uploaded objects, unless specified otherwise.
 
           extra_headers: Send extra headers
@@ -719,7 +711,7 @@ class AsyncObjectsResource(AsyncAPIResource):
         extra_headers = {
             **strip_not_given(
                 {
-                    "cf-r2-jurisdiction": str(jurisdiction) if is_given(jurisdiction) else not_given,
+                    "cf-r2-jurisdiction": str(cf_r2_jurisdiction) if is_given(cf_r2_jurisdiction) else not_given,
                     "cf-r2-storage-class": str(cf_r2_storage_class) if is_given(cf_r2_storage_class) else not_given,
                 }
             ),

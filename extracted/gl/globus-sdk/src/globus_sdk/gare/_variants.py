@@ -28,7 +28,7 @@ class LegacyDependentConsentRequiredAuthError(Serializable):
     The dependent_consent_required error format emitted by the Globus Auth service.
     """
 
-    def __init__(
+    def __init__(  # noqa: B042
         self,
         *,
         error: t.Literal["dependent_consent_required"],
@@ -68,7 +68,7 @@ class LegacyConsentRequiredTransferError(Serializable):
     The ConsentRequired error format emitted by the Globus Transfer service.
     """
 
-    def __init__(
+    def __init__(  # noqa: B042
         self,
         *,
         code: t.Literal["ConsentRequired"],
@@ -99,7 +99,7 @@ class LegacyConsentRequiredAPError(Serializable):
     Action Providers.
     """
 
-    def __init__(
+    def __init__(  # noqa: B042
         self,
         *,
         code: t.Literal["ConsentRequired"],
@@ -195,7 +195,7 @@ class LegacyAuthorizationParametersError(Serializable):
 
     DEFAULT_CODE = "AuthorizationRequired"
 
-    def __init__(
+    def __init__(  # noqa: B042
         self,
         *,
         authorization_parameters: dict[str, t.Any] | LegacyAuthorizationParameters,

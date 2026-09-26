@@ -2,8 +2,6 @@ from __future__ import annotations
 
 __lazy_modules__ = {
     "contextlib",
-    f"{__spec__.parent}._logging",
-    f"{__spec__.parent}._shutil",
     "json",
     "packaging",
     "packaging.version",
@@ -11,6 +9,8 @@ __lazy_modules__ = {
     "platform",
     "shutil",
     "subprocess",
+    f"{__spec__.parent}._logging",
+    f"{__spec__.parent}._shutil",
 }
 
 import contextlib
@@ -60,12 +60,23 @@ def _macos_binary_is_x86(path: Path) -> bool:
     """
     try:
         # lipo gives clean output like: "Architectures in the fat file: ... are: x86_64 arm64"
-        out = subprocess.check_output(["lipo", "-info", path], text=True)
-    except (FileNotFoundError, subprocess.CalledProcessError):
+        # stdin/stderr are silenced so shell shims cannot read input or print noise
+        out = subprocess.check_output(
+            ["lipo", "-info", path],
+            text=True,
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
         # Fallback to 'file' if lipo not available or fails
         try:
-            out = subprocess.check_output(["file", path], text=True)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+            out = subprocess.check_output(
+                ["file", path],
+                text=True,
+                stdin=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except (OSError, subprocess.CalledProcessError):
             return False  # unknown, assume not x86
 
     # Ignore native or fat binaries
@@ -84,6 +95,7 @@ def compute_timeout(executable: Path) -> int:
     * Is on CI: quadruples it
     * Is windows: doubles it
     * Runs with Rosetta: triples it
+    * Native Apple Silicon: doubles it
 
     These do not stack.
     """
@@ -95,7 +107,9 @@ def compute_timeout(executable: Path) -> int:
         return BASE_TIMEOUT * 2
 
     if sys.platform == "darwin" and platform.machine() == "arm64":
-        return BASE_TIMEOUT * 3 if _macos_binary_is_x86(executable) else BASE_TIMEOUT
+        return (
+            BASE_TIMEOUT * 3 if _macos_binary_is_x86(executable) else BASE_TIMEOUT * 2
+        )
 
     return BASE_TIMEOUT
 
@@ -116,7 +130,7 @@ def _get_cmake_path(*, module: bool = True) -> Generator[Path, None, None]:
 
             yield Path(CMAKE_BIN_DIR) / "cmake"
 
-    candidates = ("cmake3", "cmake")
+    candidates = ("cmake", "cmake3")
     for candidate in candidates:
         cmake_path = shutil.which(candidate)
         if cmake_path is not None:
@@ -186,8 +200,10 @@ def get_cmake_program(cmake_path: Path) -> Program:
             err.stdout,
             err.stderr,
         )
-    except PermissionError:
-        logger.warning("Permissions Error getting CMake's version")
+    except OSError as err:
+        # Covers a missing or non-executable path (FileNotFoundError,
+        # PermissionError, and friends)
+        logger.warning("Could not run CMake at {}: {}", cmake_path, err)
     except subprocess.TimeoutExpired:
         logger.warning("Accessing CMake timed out, ignoring")
 
@@ -217,7 +233,7 @@ def get_ninja_programs(*, module: bool = True) -> Generator[Program, None, None]
             )
         except (
             subprocess.CalledProcessError,
-            PermissionError,
+            OSError,
             subprocess.TimeoutExpired,
         ):
             yield Program(ninja_path, None)

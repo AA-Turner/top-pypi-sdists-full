@@ -28,7 +28,13 @@ from ....._response import (
 from ....._wrappers import ResultWrapper
 from .....pagination import SyncV4PagePaginationArray, AsyncV4PagePaginationArray
 from ....._base_client import AsyncPaginator, make_request_options
-from .....types.workers.beta import worker_edit_params, worker_list_params, worker_create_params, worker_update_params
+from .....types.workers.beta import (
+    worker_edit_params,
+    worker_list_params,
+    worker_create_params,
+    worker_delete_params,
+    worker_update_params,
+)
 from .....types.workers.beta.worker import Worker
 from .....types.workers.beta.worker_delete_response import WorkerDeleteResponse
 
@@ -66,6 +72,7 @@ class WorkersResource(SyncAPIResource):
         name: str,
         logpush: bool | Omit = omit,
         observability: worker_create_params.Observability | Omit = omit,
+        previews_base_config: worker_create_params.PreviewsBaseConfig | Omit = omit,
         subdomain: worker_create_params.Subdomain | Omit = omit,
         tags: SequenceNotStr[str] | Omit = omit,
         tail_consumers: Iterable[worker_create_params.TailConsumer] | Omit = omit,
@@ -87,6 +94,8 @@ class WorkersResource(SyncAPIResource):
           logpush: Whether logpush is enabled for the Worker.
 
           observability: Observability settings for the Worker.
+
+          previews_base_config: Template configuration used when creating new Previews for this Worker.
 
           subdomain: Subdomain settings for the Worker.
 
@@ -111,6 +120,7 @@ class WorkersResource(SyncAPIResource):
                     "name": name,
                     "logpush": logpush,
                     "observability": observability,
+                    "previews_base_config": previews_base_config,
                     "subdomain": subdomain,
                     "tags": tags,
                     "tail_consumers": tail_consumers,
@@ -135,6 +145,7 @@ class WorkersResource(SyncAPIResource):
         name: str,
         logpush: bool | Omit = omit,
         observability: worker_update_params.Observability | Omit = omit,
+        previews_base_config: worker_update_params.PreviewsBaseConfig | Omit = omit,
         subdomain: worker_update_params.Subdomain | Omit = omit,
         tags: SequenceNotStr[str] | Omit = omit,
         tail_consumers: Iterable[worker_update_params.TailConsumer] | Omit = omit,
@@ -161,6 +172,8 @@ class WorkersResource(SyncAPIResource):
           logpush: Whether logpush is enabled for the Worker.
 
           observability: Observability settings for the Worker.
+
+          previews_base_config: Template configuration used when creating new Previews for this Worker.
 
           subdomain: Subdomain settings for the Worker.
 
@@ -189,6 +202,7 @@ class WorkersResource(SyncAPIResource):
                     "name": name,
                     "logpush": logpush,
                     "observability": observability,
+                    "previews_base_config": previews_base_config,
                     "subdomain": subdomain,
                     "tags": tags,
                     "tail_consumers": tail_consumers,
@@ -270,6 +284,7 @@ class WorkersResource(SyncAPIResource):
         worker_id: str,
         *,
         account_id: str,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -284,6 +299,11 @@ class WorkersResource(SyncAPIResource):
           account_id: Identifier.
 
           worker_id: Identifier for the Worker, which can be ID or name.
+
+          force: If true, delete the Worker even when other Workers still reference it. Service
+              bindings in those Workers may be left broken. Durable Object namespaces
+              implemented by the deleted Worker are deleted even if other Workers reference
+              them.
 
           extra_headers: Send extra headers
 
@@ -302,7 +322,11 @@ class WorkersResource(SyncAPIResource):
                 "/accounts/{account_id}/workers/workers/{worker_id}", account_id=account_id, worker_id=worker_id
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"force": force}, worker_delete_params.WorkerDeleteParams),
             ),
             cast_to=WorkerDeleteResponse,
         )
@@ -318,6 +342,7 @@ class WorkersResource(SyncAPIResource):
         subdomain: worker_edit_params.Subdomain,
         tags: SequenceNotStr[str],
         tail_consumers: Iterable[worker_edit_params.TailConsumer],
+        previews_base_config: worker_edit_params.PreviewsBaseConfig | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -346,6 +371,8 @@ class WorkersResource(SyncAPIResource):
 
           tail_consumers: Other Workers that should consume logs from the Worker.
 
+          previews_base_config: Template configuration used when creating new Previews for this Worker.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -370,6 +397,7 @@ class WorkersResource(SyncAPIResource):
                     "subdomain": subdomain,
                     "tags": tags,
                     "tail_consumers": tail_consumers,
+                    "previews_base_config": previews_base_config,
                 },
                 worker_edit_params.WorkerEditParams,
             ),
@@ -461,6 +489,7 @@ class AsyncWorkersResource(AsyncAPIResource):
         name: str,
         logpush: bool | Omit = omit,
         observability: worker_create_params.Observability | Omit = omit,
+        previews_base_config: worker_create_params.PreviewsBaseConfig | Omit = omit,
         subdomain: worker_create_params.Subdomain | Omit = omit,
         tags: SequenceNotStr[str] | Omit = omit,
         tail_consumers: Iterable[worker_create_params.TailConsumer] | Omit = omit,
@@ -482,6 +511,8 @@ class AsyncWorkersResource(AsyncAPIResource):
           logpush: Whether logpush is enabled for the Worker.
 
           observability: Observability settings for the Worker.
+
+          previews_base_config: Template configuration used when creating new Previews for this Worker.
 
           subdomain: Subdomain settings for the Worker.
 
@@ -506,6 +537,7 @@ class AsyncWorkersResource(AsyncAPIResource):
                     "name": name,
                     "logpush": logpush,
                     "observability": observability,
+                    "previews_base_config": previews_base_config,
                     "subdomain": subdomain,
                     "tags": tags,
                     "tail_consumers": tail_consumers,
@@ -530,6 +562,7 @@ class AsyncWorkersResource(AsyncAPIResource):
         name: str,
         logpush: bool | Omit = omit,
         observability: worker_update_params.Observability | Omit = omit,
+        previews_base_config: worker_update_params.PreviewsBaseConfig | Omit = omit,
         subdomain: worker_update_params.Subdomain | Omit = omit,
         tags: SequenceNotStr[str] | Omit = omit,
         tail_consumers: Iterable[worker_update_params.TailConsumer] | Omit = omit,
@@ -556,6 +589,8 @@ class AsyncWorkersResource(AsyncAPIResource):
           logpush: Whether logpush is enabled for the Worker.
 
           observability: Observability settings for the Worker.
+
+          previews_base_config: Template configuration used when creating new Previews for this Worker.
 
           subdomain: Subdomain settings for the Worker.
 
@@ -584,6 +619,7 @@ class AsyncWorkersResource(AsyncAPIResource):
                     "name": name,
                     "logpush": logpush,
                     "observability": observability,
+                    "previews_base_config": previews_base_config,
                     "subdomain": subdomain,
                     "tags": tags,
                     "tail_consumers": tail_consumers,
@@ -665,6 +701,7 @@ class AsyncWorkersResource(AsyncAPIResource):
         worker_id: str,
         *,
         account_id: str,
+        force: bool | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -679,6 +716,11 @@ class AsyncWorkersResource(AsyncAPIResource):
           account_id: Identifier.
 
           worker_id: Identifier for the Worker, which can be ID or name.
+
+          force: If true, delete the Worker even when other Workers still reference it. Service
+              bindings in those Workers may be left broken. Durable Object namespaces
+              implemented by the deleted Worker are deleted even if other Workers reference
+              them.
 
           extra_headers: Send extra headers
 
@@ -697,7 +739,11 @@ class AsyncWorkersResource(AsyncAPIResource):
                 "/accounts/{account_id}/workers/workers/{worker_id}", account_id=account_id, worker_id=worker_id
             ),
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform({"force": force}, worker_delete_params.WorkerDeleteParams),
             ),
             cast_to=WorkerDeleteResponse,
         )
@@ -713,6 +759,7 @@ class AsyncWorkersResource(AsyncAPIResource):
         subdomain: worker_edit_params.Subdomain,
         tags: SequenceNotStr[str],
         tail_consumers: Iterable[worker_edit_params.TailConsumer],
+        previews_base_config: worker_edit_params.PreviewsBaseConfig | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -741,6 +788,8 @@ class AsyncWorkersResource(AsyncAPIResource):
 
           tail_consumers: Other Workers that should consume logs from the Worker.
 
+          previews_base_config: Template configuration used when creating new Previews for this Worker.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -765,6 +814,7 @@ class AsyncWorkersResource(AsyncAPIResource):
                     "subdomain": subdomain,
                     "tags": tags,
                     "tail_consumers": tail_consumers,
+                    "previews_base_config": previews_base_config,
                 },
                 worker_edit_params.WorkerEditParams,
             ),

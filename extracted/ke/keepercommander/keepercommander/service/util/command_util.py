@@ -25,6 +25,13 @@ from .throttle import (
     is_throttle_error,
     throttle_error_response,
 )
+from .protected_records import (
+    get_protected_folder_uids,
+    get_protected_record_uids,
+    hide_from_folder_cache,
+    hide_from_record_cache,
+    resolve_sync_down_exempt_uid,
+)
 from .verified_command import Verifycommand
 from ..core.globals import get_current_params
 from ..decorators.logging import logger, debug_decorator, sanitize_debug_data, sanitize_command_fields
@@ -172,16 +179,18 @@ class CommandExecutor:
             # Mode will treat as safe, not the whole shared OS temp root.
             request_temp_dir = os.path.dirname(temp_files[0]) if temp_files else None
 
+            def blocked(error):
+                logger.warning(
+                    f"Service Mode blocked command '{command_tokens[0] if command_tokens else ''}': {error}"
+                )
+                return {"status": "error", "error": error}, 403
+
             # Same tokens the CLI will run — do not use raw HTTP split(" ")
             service_mode_error = Verifycommand.validate_service_mode_restrictions(
                 command_tokens, request_temp_dir
             )
             if service_mode_error:
-                logger.warning(
-                    f"Service Mode blocked command '{command_tokens[0] if command_tokens else ''}': "
-                    f"{service_mode_error}"
-                )
-                return {"status": "error", "error": service_mode_error}, 403
+                return blocked(service_mode_error)
 
             force_error = Verifycommand.validate_enterprise_user_add_role_force(
                 command_tokens, params
@@ -189,16 +198,46 @@ class CommandExecutor:
             if force_error:
                 return {"status": "error", "error": force_error}, 400
 
-            sailpoint_enabled = bool((os.environ.get('SAILPOINT_RECORD') or '').strip())
-            if sailpoint_enabled:
-                from ..commands.integrations.sailpoint.service import SailPointService
-                command, sailpoint_response = SailPointService.handle_command(params, command)
-                if sailpoint_response is not None:
-                    response, status_code = sailpoint_response
-                    response = CommandExecutor.encrypt_response(response)
-                    return response, status_code
+            # Checked for every command (not a curated list) so no current or future
+            # command can be missed as a way to reference these records.
+            protected_uids = get_protected_record_uids(params)
 
-            return_value, printed_output, log_output = CommandExecutor.capture_output_and_logs(params, command)
+            # {slack,gchat}-app-setup --sync-down needs its own config record reachable.
+            sync_down_exempt_uid = resolve_sync_down_exempt_uid(command_tokens)
+            if sync_down_exempt_uid is not None:
+                protected_uids = {
+                    uid: title for uid, title in protected_uids.items() if uid != sync_down_exempt_uid
+                }
+
+            # Derived from the record set so the exemption above reaches the exempted integration's own folder too.
+            protected_folder_uids = get_protected_folder_uids(params, protected_uids)
+
+            protected_command_error = Verifycommand.validate_service_mode_protected_record_command(
+                command_tokens,
+                {**protected_uids, **{uid: '<protected folder>' for uid in protected_folder_uids}},
+            )
+            if protected_command_error:
+                return blocked(protected_command_error)
+
+            sailpoint_uid = (os.environ.get('SAILPOINT_RECORD') or '').strip()
+            sailpoint_enabled = bool(sailpoint_uid)
+
+            # Only SailPoint's own record is exempt from handle_command's guard; every other
+            # protected record (and the folder cache, which has no exemption) stays hidden throughout.
+            handle_command_uids = {uid: title for uid, title in protected_uids.items() if uid != sailpoint_uid}
+
+            with hide_from_folder_cache(params, protected_folder_uids), \
+                    hide_from_record_cache(params, handle_command_uids):
+                if sailpoint_enabled:
+                    from ..commands.integrations.sailpoint.service import SailPointService
+                    command, sailpoint_response = SailPointService.handle_command(params, command)
+                    if sailpoint_response is not None:
+                        response, status_code = sailpoint_response
+                        response = CommandExecutor.encrypt_response(response)
+                        return response, status_code
+
+                with hide_from_record_cache(params, protected_uids):
+                    return_value, printed_output, log_output = CommandExecutor.capture_output_and_logs(params, command)
             response = return_value if return_value else printed_output
 
             # Debug logging with sanitization
@@ -214,7 +253,10 @@ class CommandExecutor:
 
             if status_code == 200 and sailpoint_enabled:
                 try:
-                    SailPointService.after_command(params, command, success=True)
+                    # Same rule as the pre-dispatch phase: every protected record except
+                    # SailPoint's own stays hidden here too.
+                    with hide_from_record_cache(params, handle_command_uids):
+                        SailPointService.after_command(params, command, success=True)
                 except Exception as e:
                     logger.error(f'SailPoint post-process failed: {sanitize_debug_data(str(e))}')
                     err = {

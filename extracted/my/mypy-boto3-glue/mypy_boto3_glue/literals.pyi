@@ -194,6 +194,7 @@ __all__ = (
     "TableAttributesType",
     "TableOptimizerEventTypeType",
     "TableOptimizerTypeType",
+    "TableResourceShareTypeType",
     "TargetFormatType",
     "TaskRunSortColumnTypeType",
     "TaskStatusTypeType",
@@ -677,6 +678,7 @@ SubObjectSourceTypeType = Literal[
 TableAttributesType = Literal["DEFAULT", "LATEST_ICEBERG_METADATA", "NAME", "TABLE_TYPE"]
 TableOptimizerEventTypeType = Literal["completed", "failed", "in_progress", "starting"]
 TableOptimizerTypeType = Literal["compaction", "orphan_file_deletion", "retention"]
+TableResourceShareTypeType = Literal["ALL", "FEDERATED"]
 TargetFormatType = Literal[
     "avro", "csv", "delta", "hudi", "hyper", "iceberg", "json", "orc", "parquet", "xml"
 ]
@@ -867,6 +869,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -990,6 +993,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",

@@ -16,13 +16,14 @@ from operator import itemgetter
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
 import numpy as np
-import requests
 from PIL import Image
 from lxml import etree
 from nltk.tokenize.treebank import TreebankWordTokenizer
 
-from label_studio_sdk._extensions.label_studio_tools.core.utils.params import get_env
-from label_studio_sdk._extensions.label_studio_tools.core.utils.io import safe_build_path
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import (
+    resolve_local_storage_file,
+    safe_build_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,6 @@ _LABEL_TAGS = {"Label", "Choice"}
 _NOT_CONTROL_TAGS = {
     "Filter",
 }
-LOCAL_FILES_DOCUMENT_ROOT = get_env(
-    "LOCAL_FILES_DOCUMENT_ROOT", default=os.path.abspath(os.sep)
-)
 
 TreebankWordTokenizer.PUNCTUATION = [
     (re.compile(r"([:,])([^\d])"), r" \1 \2"),
@@ -192,7 +190,54 @@ def download(
     return_relative_path=False,
     upload_dir=None,
     download_resources=True,
+    hostname=None,
+    access_token=None,
+    task_id=None,
 ):
+    """Download a resource into ``output_dir``.
+
+    Prefer ``get_local_path`` for Label Studio task media (uploads, storage proxy,
+    and cloud URIs) when ``hostname`` / ``task_id`` / ``access_token`` are available.
+    This helper remains for VOC-era callers, audio, and DocLang that pass plain
+    HTTP(S) or local ``/data/`` paths without full task context.
+
+    For cloud schemes (``s3://``, ``gs://``, ``azure-blob://``), when task context
+    is provided, delegates to ``get_local_path`` (FIT-2611). Without task context,
+    cloud URIs raise ``ValueError`` instead of a silent HTTP GET failure.
+    """
+    from label_studio_sdk._extensions.label_studio_tools.core.utils.io import (
+        get_local_path,
+        http_get,
+        is_cloud_storage_uri,
+    )
+
+    if is_cloud_storage_uri(url):
+        if not hostname or task_id is None:
+            raise ValueError(
+                "Cloud storage URIs require hostname and task_id; use get_local_path(...) "
+                "or pass hostname/task_id/access_token to download()."
+            )
+
+        local_path = get_local_path(
+            url=url,
+            cache_dir=output_dir,
+            hostname=hostname,
+            project_dir=project_dir,
+            image_dir=upload_dir,
+            download_resources=download_resources,
+            access_token=access_token,
+            task_id=task_id,
+        )
+        ensure_dir(output_dir)
+        if download_resources and local_path and os.path.exists(local_path):
+            dest = os.path.join(output_dir, os.path.basename(local_path))
+            if os.path.abspath(local_path) != os.path.abspath(dest):
+                shutil.copy(local_path, dest)
+            local_path = dest
+        if return_relative_path:
+            return os.path.join(os.path.basename(output_dir), os.path.basename(local_path))
+        return local_path
+
     is_local_file = url.startswith("/data/") and "?d=" in url
     is_uploaded_file = url.startswith("/data/upload")
 
@@ -214,11 +259,9 @@ def download(
         return filepath
 
     if is_local_file:
-        filename, dir_path = url.split("/data/", 1)[-1].split("?d=")
-        dir_path = str(urllib.parse.unquote(dir_path))
-        filepath = safe_build_path(LOCAL_FILES_DOCUMENT_ROOT, dir_path)
-        if not os.path.exists(filepath):
-            raise FileNotFoundError(filepath)
+        filepath = resolve_local_storage_file(url)
+        if not filepath or not os.path.exists(filepath):
+            raise FileNotFoundError(filepath or url)
         if download_resources:
             shutil.copy(filepath, output_dir)
         return filepath
@@ -242,7 +285,7 @@ def download(
     if not os.path.exists(filepath):
         logger.info("Download {url} to {filepath}".format(url=url, filepath=filepath))
         if download_resources:
-            r = requests.get(url)
+            r = http_get(url)
             r.raise_for_status()
             with io.open(filepath, mode="wb") as fout:
                 fout.write(r.content)

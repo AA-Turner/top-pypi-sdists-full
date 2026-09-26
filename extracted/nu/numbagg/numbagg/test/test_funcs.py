@@ -22,6 +22,7 @@ from numbagg import (
     nancount,
     nanmax,
     nanmean,
+    nanmedian,
     nanmin,
     nanquantile,
     nanstd,
@@ -225,7 +226,7 @@ def test_numerical_results_identical(numbagg_func, comp_func, decimal):
                 assert_equal(da, dd, err_msg % (da, dd))
 
 
-@pytest.mark.parametrize("axis", [None, -1, 1, (1, 2), (0,), (-1, -2)])
+@pytest.mark.parametrize("axis", [None, -1, 1, (1, 2), (0,), (-1, -2), [1, 2], [0]])
 @pytest.mark.parametrize("quantiles", [0.5, [0.25, 0.75]])
 def test_nanquantile(axis, quantiles):
     arr = np.arange(60).reshape(3, 4, 5).astype(np.float64)
@@ -234,6 +235,34 @@ def test_nanquantile(axis, quantiles):
     expected = np.nanquantile(arr, quantiles, axis=axis)
 
     assert_array_almost_equal(result, expected)
+
+
+@pytest.mark.parametrize("func", [nancount, nansum, nanmean, nanvar, nanstd])
+@pytest.mark.parametrize("axis", [[1, 2], [0], [-1, -2]])
+def test_aggregation_list_axis(func, axis):
+    # dask passes `axis` as a list, which numpy also accepts.
+    arr = np.arange(60).reshape(3, 4, 5).astype(np.float64)
+
+    assert_array_equal(func(arr, axis=axis), func(arr, axis=tuple(axis)))
+
+
+@pytest.mark.parametrize("func", [nancount, nansum, nanmean, nanvar, nanstd, nanmedian])
+@pytest.mark.parametrize(
+    ("axis", "equivalent"),
+    [
+        (np.int64(1), 1),
+        (np.array(1), 1),
+        (range(1, 3), (1, 2)),
+        (np.array([1, 2]), (1, 2)),
+    ],
+    ids=["np-integer", "0d-array", "range", "1d-array"],
+)
+def test_axis_spellings(func, axis, equivalent):
+    # numpy takes `SupportsIndex | Sequence[SupportsIndex]`, so a numpy integer or a
+    # 0-d array is a single axis, while a range or a 1-d array is a set of them.
+    arr = np.arange(60).reshape(3, 4, 5).astype(np.float64)
+
+    assert_array_equal(func(arr, axis=axis), func(arr, axis=equivalent))
 
 
 @pytest.mark.parametrize("quantiles", [-0.5, [0.25, -0.75], [1.5], [0.5, 1.5]])
@@ -336,3 +365,47 @@ class TestAllnanAnynanEdgeCases:
 
         assert_array_equal(result, np.array([False, False, False]))
         assert_array_equal(result, np.any(np.isnan(arr), axis=1))
+
+
+@pytest.mark.parametrize(
+    "numbagg_func,comp_func",
+    [
+        (nansum, np.nansum),
+        (nanmean, np.nanmean),
+        (nanmax, np.nanmax),
+        (nanmin, np.nanmin),
+        (nanmedian, np.nanmedian),
+        (nanstd, partial(np.nanstd, ddof=1)),
+        (nanvar, partial(np.nanvar, ddof=1)),
+        (nancount, slow_count),
+    ],
+)
+# The NaN below sits in a length-1 slice, so numpy's reference implementations warn on
+# the degenerate reduction. numbagg returns the same values without warning.
+@pytest.mark.filterwarnings("ignore:Degrees of freedom <= 0 for slice")
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered")
+@pytest.mark.filterwarnings("ignore:Mean of empty slice")
+def test_aggregation_empty_tuple_axis(numbagg_func, comp_func):
+    """`axis=()` reduces nothing, matching numpy rather than reducing everything.
+
+    The aggregations used to hand an empty `axis` to `move_axes`, which flattened the
+    array instead of adding the length-1 axis numpy reduces over — so `nansum(a,
+    axis=())` returned the grand total rather than an array shaped like `a`. The
+    moving functions have always treated `axis=()` as a no-op (`test_moving.py`),
+    and `nanmax`/`nanmin` take a different code path that was already correct.
+    """
+    arr = np.arange(24).reshape(2, 3, 4).astype(np.float64)
+    arr[0, 1, 2] = np.nan
+
+    assert_allclose(numbagg_func(arr, axis=()), comp_func(arr, axis=()))
+
+
+@pytest.mark.parametrize("quantiles", [0.5, [0.25, 0.75]])
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered")
+def test_nanquantile_empty_tuple_axis(quantiles):
+    arr = np.arange(24).reshape(2, 3, 4).astype(np.float64)
+    arr[0, 1, 2] = np.nan
+
+    assert_allclose(
+        nanquantile(arr, quantiles, axis=()), np.nanquantile(arr, quantiles, axis=())
+    )

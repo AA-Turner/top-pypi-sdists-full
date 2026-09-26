@@ -3,6 +3,32 @@
 Finds DocLang XML in standard Label Studio, ReactCode, and custom Interface
 results, then packages it according to the DocLang archive specification:
 https://github.com/doclang-project/doclang/blob/main/spec.md#doclang-archive-format.
+
+Document discovery (export sources)
+------------------------------------
+DocLang archives are written from four task payload sources, in order:
+
+1. **Annotations** — each non-cancelled, non-skipped entry in ``annotations``
+   (or legacy ``completions``). One ``.dclx`` per annotation whose ``result``
+   contains DocLang XML.
+
+2. **Drafts** — each entry in ``drafts`` whose ``result`` contains DocLang XML.
+   When a draft is linked to an annotation via ``annotation`` and that annotation
+   already produced a DocLang archive in step 1, the draft is skipped so the
+   same labeling session does not emit duplicate documents.
+
+3. **Predictions** — each entry in ``predictions`` whose ``result`` contains
+   DocLang XML. Predictions are always exported under their own id; they are
+   never deduplicated against annotations or drafts.
+
+4. **Task data fallback** — when steps 1–3 produce no documents, DocLang XML
+   embedded under ``doclang`` / ``document`` keys in ``task.data`` is exported as
+   ``task-{id}-data.dclx`` (or ``task-{id}-data-{n}.dclx`` when multiple
+   distinct documents are found).
+
+Archive filenames use distinct prefixes (``annotation``, ``draft``,
+``prediction``, ``data``) plus the source id so outputs from different source
+kinds cannot collide.
 """
 
 import base64
@@ -16,7 +42,7 @@ import shutil
 import tempfile
 from glob import glob
 from pathlib import Path
-from typing import Iterable, Iterator, Mapping, Optional
+from typing import Iterable, Iterator, Mapping, NamedTuple, Optional
 from urllib.parse import parse_qsl, urlparse
 
 import ijson
@@ -71,6 +97,9 @@ _STANDARD_NON_DOCUMENT_RESULT_TYPES = {
     "videovector",
     "videovectorlabels",
 }
+
+_TASK_DATA_DOCLANG_KEYS = ("doclang", "document")
+# URL fields in task.data pointing at .dclg/.dclx archives are not fetched in v1.
 
 
 def _iter_raw_tasks(input_data: str, is_dir: bool) -> Iterator[dict]:
@@ -171,6 +200,39 @@ def _extract_doclang_bytes(annotation: dict) -> Optional[bytes]:
             if document is not None:
                 return document
     return None
+
+
+def _extract_doclang_bytes_from_data(task: dict) -> list[bytes]:
+    """Return distinct DocLang documents found under known keys in task.data."""
+    data = task.get("data") or {}
+    if not isinstance(data, dict):
+        return []
+
+    seen: set[bytes] = set()
+    documents: list[bytes] = []
+    stack = [(data, 0, False)]
+    visited = 0
+
+    while stack and visited < _MAX_VALUE_NODES:
+        current, depth, under_doclang_key = stack.pop()
+        visited += 1
+
+        if isinstance(current, str):
+            if under_doclang_key:
+                document = _doclang_xml_bytes(current)
+                if document is not None and document not in seen:
+                    seen.add(document)
+                    documents.append(document)
+        elif depth < _MAX_VALUE_DEPTH:
+            if isinstance(current, dict):
+                stack.extend(
+                    (child, depth + 1, under_doclang_key or key in _TASK_DATA_DOCLANG_KEYS)
+                    for key, child in reversed(tuple(current.items()))
+                )
+            elif isinstance(current, list):
+                stack.extend((child, depth + 1, under_doclang_key) for child in reversed(current))
+
+    return documents
 
 
 def resolve_image_data_keys(
@@ -459,9 +521,73 @@ def _stage_document_assets(
 def _valid_annotations(task: dict) -> Iterable[dict]:
     annotations = task.get("annotations") or task.get("completions") or []
     for ann in annotations:
+        if not isinstance(ann, dict):
+            continue
         if ann.get("was_cancelled") or ann.get("skipped"):
             continue
         yield ann
+
+
+class _DoclangSource(NamedTuple):
+    kind: str
+    source_id: int | str
+    document: bytes
+
+
+def _archive_filename(task_id, source: _DoclangSource) -> str:
+    if source.kind == "data":
+        if source.source_id == "":
+            return f"task-{task_id}-data.dclx"
+        return f"task-{task_id}-data-{source.source_id}.dclx"
+    return f"task-{task_id}-{source.kind}-{source.source_id}.dclx"
+
+
+def _iter_doclang_sources(task: dict) -> Iterable[_DoclangSource]:
+    """Yield result sources, falling back to known DocLang fields in task.data."""
+    exported_annotation_ids: set[int | str] = set()
+    found_result_source = False
+
+    for index, ann in enumerate(_valid_annotations(task)):
+        document = _extract_doclang_bytes(ann)
+        if document is None:
+            continue
+        ann_id = ann.get("id", index)
+        exported_annotation_ids.add(ann_id)
+        found_result_source = True
+        yield _DoclangSource("annotation", ann_id, document)
+
+    for index, draft in enumerate(task.get("drafts") or []):
+        if not isinstance(draft, dict):
+            continue
+        linked_annotation = draft.get("annotation")
+        if linked_annotation is not None and linked_annotation in exported_annotation_ids:
+            continue
+        document = _extract_doclang_bytes(draft)
+        if document is None:
+            continue
+        draft_id = draft.get("id", index)
+        found_result_source = True
+        yield _DoclangSource("draft", draft_id, document)
+
+    for index, prediction in enumerate(task.get("predictions") or []):
+        if not isinstance(prediction, dict):
+            continue
+        document = _extract_doclang_bytes(prediction)
+        if document is None:
+            continue
+        prediction_id = prediction.get("id", index)
+        found_result_source = True
+        yield _DoclangSource("prediction", prediction_id, document)
+
+    if found_result_source:
+        return
+
+    data_documents = _extract_doclang_bytes_from_data(task)
+    if len(data_documents) == 1:
+        yield _DoclangSource("data", "", data_documents[0])
+    else:
+        for index, document in enumerate(data_documents, start=1):
+            yield _DoclangSource("data", index, document)
 
 
 def convert_to_doclang(
@@ -475,65 +601,62 @@ def convert_to_doclang(
     upload_dir: Optional[str] = None,
     hostname: Optional[str] = None,
     access_token: Optional[str] = None,
-    task_id: Optional[int] = None,
 ) -> int:
     """Export annotations to DocLang ``.dclx`` archives.
 
-    One archive is written per non-cancelled annotation that contains a DocLang
-    XML region. Returns the number of archives written.
+    One archive is written per annotation, draft, prediction, or task.data
+    source that contains a DocLang XML region (see module docstring for
+    discovery rules). Returns the number of archives written.
     """
     ensure_dir(output_dir)
 
     written = 0
-    skipped_no_xml = 0
     for task in _iter_raw_tasks(input_data, is_dir=is_dir):
-        current_task_id = task.get("id")
+        sources = list(_iter_doclang_sources(task))
+        if not sources:
+            continue
+
+        task_id = task.get("id")
         page_urls = _extract_page_urls(task, image_key, image_list_key)
 
-        for ann in _valid_annotations(task):
-            document = _extract_doclang_bytes(ann)
-            if document is None:
-                skipped_no_xml += 1
-                continue
+        with tempfile.TemporaryDirectory() as task_tmp:
+            pages = (
+                _fetch_page_images(
+                    page_urls,
+                    task_tmp,
+                    project_dir,
+                    upload_dir,
+                    hostname,
+                    access_token,
+                    task_id,
+                )
+                if download_resources and page_urls
+                else None
+            )
 
-            filename = f"task-{current_task_id}-annotation-{ann.get('id')}.dclx"
-            output_path = os.path.join(output_dir, filename)
-            with tempfile.TemporaryDirectory() as tmp:
-                assets = {}
-                if download_resources:
-                    asset_dir = os.path.join(tmp, "assets")
-                    ensure_dir(asset_dir)
-                    document, assets = _stage_document_assets(document, asset_dir, project_dir, upload_dir)
-                document_path = Path(tmp) / "document.dclg"
-                document_path.write_bytes(document)
-                pages = (
-                    _fetch_page_images(
-                        page_urls,
-                        tmp,
-                        project_dir,
-                        upload_dir,
-                        hostname,
-                        access_token,
-                        current_task_id,
+            for source in sources:
+                filename = _archive_filename(task_id, source)
+                output_path = os.path.join(output_dir, filename)
+                with tempfile.TemporaryDirectory() as tmp:
+                    document = source.document
+                    assets = {}
+                    if download_resources:
+                        asset_dir = os.path.join(tmp, "assets")
+                        ensure_dir(asset_dir)
+                        document, assets = _stage_document_assets(document, asset_dir, project_dir, upload_dir)
+                    document_path = Path(tmp) / "document.dclg"
+                    document_path.write_bytes(document)
+                    pack(
+                        document_path,
+                        output=output_path,
+                        pages=pages or None,
+                        assets=assets or None,
+                        # DocLang 0.x minor releases are intentionally breaking, so full
+                        # schema validation is deferred until its compatibility contract stabilizes:
+                        # validate=True,
+                        validate=False,
                     )
-                    if download_resources and page_urls
-                    else None
-                )
-                pack(
-                    document_path,
-                    output=output_path,
-                    pages=pages or None,
-                    assets=assets or None,
-                    # DocLang 0.x minor releases are intentionally breaking, so full
-                    # schema validation is deferred until the format stabilizes:
-                    # validate=True,
-                    validate=False,
-                )
-            written += 1
+                written += 1
 
-    logger.info(
-        "DocLang export: wrote %d archives (skipped %d annotations with no DocLang XML)",
-        written,
-        skipped_no_xml,
-    )
+    logger.info("DocLang export: wrote %d archives", written)
     return written

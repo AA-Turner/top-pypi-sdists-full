@@ -43,6 +43,7 @@ class TestScripts:
                     "config": {
                         "_headers": "/dashboard/*\nX-Frame-Options: DENY\n\n/static/*\nAccess-Control-Allow-Origin: *",
                         "_redirects": "/foo /bar 301\n/news/* /blog/:splat",
+                        "base_path": "/docs/",
                         "html_handling": "auto-trailing-slash",
                         "not_found_handling": "404-page",
                         "run_worker_first": True,
@@ -118,6 +119,7 @@ class TestScripts:
                 "observability": {
                     "enabled": True,
                     "head_sampling_rate": 0.1,
+                    "issues": {"enabled": True},
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,
@@ -375,6 +377,7 @@ class TestAsyncScripts:
                     "config": {
                         "_headers": "/dashboard/*\nX-Frame-Options: DENY\n\n/static/*\nAccess-Control-Allow-Origin: *",
                         "_redirects": "/foo /bar 301\n/news/* /blog/:splat",
+                        "base_path": "/docs/",
                         "html_handling": "auto-trailing-slash",
                         "not_found_handling": "404-page",
                         "run_worker_first": True,
@@ -450,6 +453,7 @@ class TestAsyncScripts:
                 "observability": {
                     "enabled": True,
                     "head_sampling_rate": 0.1,
+                    "issues": {"enabled": True},
                     "logs": {
                         "enabled": True,
                         "invocation_logs": True,

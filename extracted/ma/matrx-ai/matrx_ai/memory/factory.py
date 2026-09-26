@@ -8,14 +8,16 @@ lets the caller use the returned value as a boolean gate::
     if om is None:
         return  # memory disabled
 
-The default model is ``MATRX_OM_DEFAULT_MODEL`` from the environment, or
-``gemini-2.5-flash`` as a final fallback. Per-conversation overrides
-come through ``ctx.memory_model``.
+The Observer and Reflector run on their mandates' Holders (memory.observer /
+memory.reflector) — model, instructions, sampling. ``ctx.memory_model`` is a
+run-scope override only when a request explicitly names one.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any
+
+from matrx_ai.code_call_mandate_keys import MEMORY_OBSERVER_MANDATE, MEMORY_REFLECTOR_MANDATE
 
 from .llm_adapter import MemoryLLMAdapter
 from .observational_memory import ObservationalMemory
@@ -32,9 +34,6 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 
-# Default observational-memory model when ctx carries no per-conversation
-# override. A code-reviewed constant, not an env var. (Was MATRX_OM_DEFAULT_MODEL.)
-_DEFAULT_MODEL = "gemini-2.5-flash"
 
 # ── KILL SWITCH (code-reviewed, NOT an env var) ──────────────────────────
 # Emergency disable of Observational Memory for ALL conversations. Default
@@ -86,21 +85,15 @@ def build_observational_memory(ctx: Any, conversation_id: str) -> ObservationalM
         logger.info("OM kill switch engaged (memory.factory.OBSERVATIONAL_MEMORY_KILL_SWITCH)")
         return None
 
-    model = str(getattr(ctx, "memory_model", None) or _DEFAULT_MODEL)
+    # An explicitly requested model is run scope; otherwise the Holder decides.
+    override = str(getattr(ctx, "memory_model", None) or "").strip() or None
     scope = _resolve_scope(getattr(ctx, "memory_scope", "thread"))
 
-    observer_model = ModelConfig(
-        model=model,
-        temperature=0.3,
-        max_tokens=16_000,
-    )
-    reflector_model = ModelConfig(
-        model=model,
-        temperature=0.0,
-        max_tokens=16_000,
-    )
+    observer_model = ModelConfig(mandate_key=MEMORY_OBSERVER_MANDATE, model=override)
+    reflector_model = ModelConfig(mandate_key=MEMORY_REFLECTOR_MANDATE, model=override)
     config = ObservationalMemoryConfig(
         scope=scope,
+        organization_id=str(getattr(ctx, "organization_id", "") or "") or None,
         observation=ObservationConfig(
             token_threshold=30_000,
             model=observer_model,

@@ -12,10 +12,15 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 import httpx
-from rich.console import Console
 from rich.table import Table
 
-console = Console()
+from src.cli.utils.presentation import (
+    build_command_header,
+    make_console,
+    print_rule,
+)
+
+console = make_console()
 
 DEFAULT_INTERVAL = 30  # minutes
 
@@ -165,13 +170,14 @@ class _BoardSyncScheduler:
 
     async def _sync_all(self) -> None:
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        console.print(f"\n[bold cyan]── Sync run at {now} ──[/bold cyan]")
+        console.print()
+        print_rule(f"Sync run at {now}", style="header")
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
                 boards = await self._list_boards(client)
             except Exception as e:
-                console.print(f"[red]Failed to list boards: {e}[/red]")
+                console.print(f"[bad]Failed to list boards: {e}[/bad]")
                 return
 
             if not boards:
@@ -199,36 +205,37 @@ class _BoardSyncScheduler:
                     table.add_row(
                         name,
                         board_type,
-                        f"[yellow]HTTP {result['status_code']}[/yellow]",
+                        f"[warn]HTTP {result['status_code']}[/warn]",
                     )
 
             console.print(table)
 
+    def _print_header(self, facts) -> None:
+        for line in build_command_header(
+            "scheduler start",
+            "Watching this organization's board",
+            facts=facts,
+            context=[str(self.org_id), str(self.api_url)],
+        ):
+            console.print(line)
+
     async def run_once(self) -> int:
-        console.print(
-            f"[bold]InnoDay Sync[/bold] — org [cyan]{self.org_id}[/cyan] → [cyan]{self.api_url}[/cyan]"
-        )
+        self._print_header(["one run"])
         try:
             await self._sync_all()
             return 0
         except Exception as e:
-            console.print(f"[red]Sync failed: {e}[/red]")
+            console.print(f"[bad]Sync failed: {e}[/bad]")
             return 1
 
     async def run_loop(self) -> int:
-        console.print(
-            f"[bold]InnoDay Sync Scheduler[/bold] starting\n"
-            f"  org:      [cyan]{self.org_id}[/cyan]\n"
-            f"  api:      [cyan]{self.api_url}[/cyan]\n"
-            f"  interval: [cyan]{self.interval_seconds // 60}m[/cyan]\n"
-            f"  [dim]Press Ctrl+C to stop[/dim]"
-        )
+        self._print_header([f"every {self.interval_seconds // 60}m", "Ctrl+C to stop"])
 
         while not self._stop.is_set():
             try:
                 await self._sync_all()
             except Exception as e:
-                console.print(f"[red]Sync error: {e}[/red]")
+                console.print(f"[bad]Sync error: {e}[/bad]")
 
             # Wait for interval or stop signal
             try:

@@ -282,9 +282,11 @@ impl StatsigOptionsPy {
         disable_disk_access: Option<bool>,
         experimental_flags: Option<HashSet<String>>,
         event_logging_adapter: Option<Py<EventLoggingAdapterBasePy>>,
+        // Alias the package root: stub-gen removes self-imports, and the
+        // evaluation_cache property shadows an unqualified submodule name.
         #[gen_stub(override_type(
-            type_repr = "typing.Optional[statsig_python_core.evaluation_cache.EvaluationCache]",
-            imports = ("typing", "statsig_python_core.evaluation_cache")
+            type_repr = "typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache]",
+            imports = ("typing", "statsig_python_core as _statsig_python_core", "statsig_python_core.evaluation_cache")
         ))]
         evaluation_cache: Option<Py<PyAny>>,
     ) -> Self {
@@ -356,8 +358,8 @@ impl StatsigOptionsPy {
 
     #[getter]
     #[gen_stub(override_return_type(
-        type_repr = "typing.Optional[statsig_python_core.evaluation_cache.EvaluationCache]",
-        imports = ("typing", "statsig_python_core.evaluation_cache")
+        type_repr = "typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache]",
+        imports = ("typing", "statsig_python_core as _statsig_python_core", "statsig_python_core.evaluation_cache")
     ))]
     fn evaluation_cache(&self, py: Python<'_>) -> Option<Py<PyAny>> {
         self.evaluation_cache
@@ -369,8 +371,8 @@ impl StatsigOptionsPy {
     fn set_evaluation_cache(
         &mut self,
         #[gen_stub(override_type(
-            type_repr = "typing.Optional[statsig_python_core.evaluation_cache.EvaluationCache]",
-            imports = ("typing", "statsig_python_core.evaluation_cache")
+            type_repr = "typing.Optional[_statsig_python_core.evaluation_cache.EvaluationCache]",
+            imports = ("typing", "statsig_python_core as _statsig_python_core", "statsig_python_core.evaluation_cache")
         ))]
         evaluation_cache: Option<Py<PyAny>>,
     ) {

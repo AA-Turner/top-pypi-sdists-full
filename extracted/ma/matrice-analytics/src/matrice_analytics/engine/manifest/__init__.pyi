@@ -375,6 +375,84 @@ class AppSpec:
     ...
 
 # From models
+class AttributeBandConfig:
+    # ``attribute_band`` — a numeric per-detection attribute, averaged per track and banded.
+    #
+    #     Replaces ``age_detection.AgeSmoother`` (a 20-frame running mean per track) plus
+    #     ``_get_age_category`` (the Child/Adult/Senior cut points, ``age <= 19``, ``age <= 60``,
+    #     else Senior), which are two halves of one operation split across two places in legacy,
+    #     with the cut points hard-coded in a method body where no manifest can reach them.
+    #
+    #     Deliberately separate from ``incident_quantise``: that maps a magnitude to a
+    #     **severity** and feeds the incident lifecycle. This maps a measurement to a **named
+    #     bucket** that gets counted. Same arithmetic, different output type, and fusing them
+    #     would put ``"Senior"`` where a ``Severity`` is expected.
+
+    def frame_output_names(self: Any) -> Any[str]: ...
+
+
+# From models
+class AttributeCountConfig:
+    # ``attribute_count`` — counts by the value of a decoded second-stage attribute.
+    #
+    #     The counting half of every chained-classifier app: ``vehicle_type_classification``'s
+    #     ``vehicle_type_counts`` (``:1007-1014``), ``age_gender_detection``'s per-gender counts,
+    #     ``face_emotion``'s per-emotion counts.  Reads
+    #     :attr:`~matrice_analytics.engine.primitives.base.PipelineDetection.attributes`; never
+    #     looks at a pixel and never runs a model -- the classifier is chained upstream
+    #     (``classification-primitives.md`` P0).
+    #
+    #     ``<value>.count`` is a *level*, so the window publishes two readings of each under two
+    #     names -- the last frame's and the window's peak (**PY-1**, and the same shape
+    #     :class:`DetectConfig` uses).  Sourcing one name with two ``agg_type``\ s cannot produce
+    #     two numbers.
+
+    def frame_output_names(self: Any) -> Any[str]: ...
+
+    def window_output_names(self: Any) -> Any[str]: ...
+
+
+# From models
+class AttributeVoteConfig:
+    # ``attribute_vote`` — one stable attribute value per track.
+    #
+    #     The primitive ``_REJECTED_PRIMITIVES['attribute_classify']`` asks for by name: *"per-track
+    #     attribute stabilisation, written four times with four different algorithms (EMA, majority
+    #     vote, running mean, modal)"*.  The four, with their legacy defaults:
+    #
+    #     ================== ========================================== ====== =========================
+    #     method             legacy source                              window notes
+    #     ================== ========================================== ====== =========================
+    #     ``majority``       ``gender_detection.GenderStabilizer``          10  ``include_current: false``
+    #     ``modal``          ``advanced_tracker.TrackClassAggregator``      30  ``include_current: true``
+    #     ``ema``            ``face_emotion`` (0.3 current / 0.7 prev)       -  needs ``top_k``
+    #     (numeric mean)     ``age_detection.AgeSmoother``                  20  use ``attribute_band``
+    #     ================== ========================================== ====== =========================
+    #
+    #     ``include_current`` and ``tie_policy`` are explicit fields because those are exactly the
+    #     two points where the four implementations disagree, and the disagreement is invisible in
+    #     the output.  ``TrackClassAggregator``'s docstring claims a tie goes to "the most recent
+    #     among tied classes"; ``Counter.most_common`` gives it to the **first inserted**, i.e. the
+    #     oldest.  Porting that silently would keep a documented behaviour that never existed.
+    #
+    #     ``ema`` is not implemented by this rollout phase (``classification-primitives.md`` §5.3):
+    #     it needs the full ``top_k`` probability vector, which
+    #     :class:`~matrice_analytics.engine.primitives.base.AttributeRef` does not carry.  A manifest
+    #     naming it validates -- the vocabulary is closed and real -- but construction refuses it
+    #     loudly rather than degrade to a one-hot vote.
+
+    ...
+
+# From models
+class BandSpec:
+    # One named bucket of ``attribute_band``'s scale, e.g. ``Child`` for age <= 19.
+    #
+    #     ``upper`` is the band's inclusive upper bound. Omitting it means "and above" -- legal
+    #     only on the last band, checked by :meth:`AttributeBandConfig._check_bands_ordered`.
+
+    ...
+
+# From models
 class CustomConfig:
     # ``custom`` — the escape hatch (``08`` §9, ``09`` §6).
     #

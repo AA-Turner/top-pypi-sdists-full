@@ -3,6 +3,21 @@ from werkzeug import Response, Request
 import threading
 import json
 import gzip
+import zstandard
+
+
+def decode_log_event_request(request: Request):
+    data = request.get_data()
+    content_encoding = request.headers.get("Content-Encoding")
+
+    if content_encoding == "gzip":
+        data = gzip.decompress(data)
+    elif content_encoding == "zstd":
+        data = zstandard.ZstdDecompressor().decompress(data)
+    else:
+        raise ValueError(f"Unsupported event compression: {content_encoding}")
+
+    return json.loads(data)
 
 
 class MockScrapi:
@@ -22,9 +37,7 @@ class MockScrapi:
             with self.lock:
                 self.requests.append(req)
                 if "/v1/log_event" in req.path:
-                    data = req.get_data()
-                    json_str = gzip.decompress(data)
-                    req_json = json.loads(json_str)
+                    req_json = decode_log_event_request(req)
                     self.logged_events.extend(req_json["events"])
 
             return Response(response, status=status)

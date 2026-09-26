@@ -7,6 +7,7 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .agreement_methodology_enum import AgreementMethodologyEnum
+from .all_roles_project_list_dm_column_defaults import AllRolesProjectListDmColumnDefaults
 from .annotator_evaluation_metric_enum import AnnotatorEvaluationMetricEnum
 from .assignment_settings import AssignmentSettings
 from .blueprint_list import BlueprintList
@@ -83,6 +84,11 @@ class AllRolesProjectList(UncheckedBaseModel):
 
     assignment_settings: AssignmentSettings
     blueprints: typing.Optional[typing.List[BlueprintList]] = None
+    collection_mode: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Data Collection project mode (assigned/open); null for non-collection projects. Set at creation only.
+    """
+
     color: typing.Optional[str] = pydantic.Field(default=None)
     """
     Color
@@ -130,6 +136,11 @@ class AllRolesProjectList(UncheckedBaseModel):
     """
 
     description_short: typing.Optional[str] = None
+    dm_column_defaults: typing.Optional[AllRolesProjectListDmColumnDefaults] = pydantic.Field(default=None)
+    """
+    Soft Data Manager column visibility and order defaults. Returned on project reads for every role so Data Manager can apply them at runtime; Managers and above may set this. explore is the main grid (shared order, role-keyed visible lists). labeling is reserved for independent Quick View defaults. On update, omitted surfaces keep their stored values; send null to clear both surfaces.
+    """
+
     duplication_done: typing.Optional[bool] = None
     duplication_status: typing.Optional[str] = None
     enable_empty_annotation: typing.Optional[bool] = pydantic.Field(default=None)
@@ -147,7 +158,11 @@ class AllRolesProjectList(UncheckedBaseModel):
     Instructions
     """
 
-    finished_task_number: typing.Optional[int] = None
+    finished_task_number: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Project-wide count of tasks considered finished under project completion rules (agreement threshold, overlap, or FSM states such as needs-review and completed). Not a per-user queue counter. Analytics KPIs such as `annotated_tasks`, `done_tasks`, and `total_tasks` measure related but not identical project-wide totals.
+    """
+
     ground_truth_number: typing.Optional[int] = pydantic.Field(default=None)
     """
     Honeypot annotation number in project
@@ -199,7 +214,11 @@ class AllRolesProjectList(UncheckedBaseModel):
     Machine learning model version
     """
 
-    num_tasks_with_annotations: typing.Optional[int] = None
+    num_tasks_with_annotations: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Tasks with at least one annotation. For annotators, counts only tasks this user annotated; for other roles, counts project-wide. For analytics, use annotated_tasks or related KPIs with explicit project/member filters.
+    """
+
     organization: typing.Optional[int] = None
     output_schema: typing.Optional[typing.Any] = None
     overlap_cohort_percentage: typing.Optional[int] = pydantic.Field(default=None)
@@ -223,11 +242,27 @@ class AllRolesProjectList(UncheckedBaseModel):
     """
 
     prompts: typing.Optional[typing.List[typing.Dict[str, typing.Any]]] = None
-    queue_done: typing.Optional[int] = None
-    queue_left: typing.Optional[int] = None
-    queue_total: typing.Optional[int] = None
+    queue_done: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Annotator-only: tasks this user has completed in the labeling queue for the project.
+    """
+
+    queue_left: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Reviewer-only: remaining tasks in this user's manually assigned review queue. Returns 0 when no manual assignments apply; the project card then uses `review_total_tasks` and `reviewed_number` for auto-review progress. Not the same as the project-wide `tasks_pending_review` KPI.
+    """
+
+    queue_total: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Role-dependent queue size. Annotators: total tasks in the labeling queue. Reviewers (list/counts): total manually assigned review tasks (same pool as `reviewer_queue_total`). Not the same as `task_number` (all project tasks) or `review_total_tasks` (auto-review stream pool).
+    """
+
     ready: typing.Optional[bool] = None
-    rejected: typing.Optional[int] = None
+    rejected: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Annotator-only: this user's annotations rejected by reviewers.
+    """
+
     require_comment_on_skip: typing.Optional[bool] = pydantic.Field(default=None)
     """
     Require comment to skip
@@ -239,9 +274,21 @@ class AllRolesProjectList(UncheckedBaseModel):
     """
 
     review_settings: ReviewSettings
-    review_total_tasks: typing.Optional[int] = None
-    reviewed_number: typing.Optional[int] = None
-    reviewer_queue_total: typing.Optional[int] = None
+    review_total_tasks: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Total tasks in this user's reviewer queue for the project (denominator for personal review progress). Respects review sampling limits when configured. Null for annotators. This is not the project-wide reviewed or pending count; see Analytics KPIs tasks_reviewed and tasks_pending_review for org-level totals.
+    """
+
+    reviewed_number: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Tasks this user has reviewed in the project (personal reviewer progress shown on the project card). Includes only reviews created by the authenticated user, so the value can be lower than the project-wide reviewed total when multiple reviewers participate. Null for annotators. For all reviewed tasks in the project, use the Analytics KPI tasks_reviewed: GET /api/analytics/kpis/tasks_reviewed?projects={id}&tz=UTC.
+    """
+
+    reviewer_queue_total: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Tasks manually assigned to this user for review (`reviewer_queue_total_count`). Null for annotators.
+    """
+
     sampling: typing.Optional[ProjectSamplingEnum] = None
     show_annotation_history: typing.Optional[bool] = pydantic.Field(default=None)
     """

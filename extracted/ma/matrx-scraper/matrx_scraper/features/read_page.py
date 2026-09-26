@@ -75,6 +75,7 @@ async def read_page_mcp_quick(url: str = None, stream_handler=None, call_id=None
         return {"status": "error", "result": "Sorry could not access this page.", "text": ""}
 
     extracted_text = ""
+    parsed: dict[str, Any] = {}
     if response.content_type == ContentType.HTML:
         parsed = await parse_html(response.content, response.response_url)
         extracted_text = parsed.get("ai_research_with_images", "")
@@ -144,6 +145,18 @@ async def read_page_mcp_quick(url: str = None, stream_handler=None, call_id=None
         "result": full_content,
         "text": extracted_text,
         "url": url,
+        # The parse, for landing the page as a Source (SOURCE-CONVERGENCE §4.5 —
+        # matrx_scraper.source_landing.land_page_result reads it through from_parsed_page).
+        "page": {
+            **(parsed if isinstance(parsed, dict) else {}),
+            "success": True,
+            "url": url,
+            "response_url": response.response_url or url,
+            "content_type": response.content_type_raw or "",
+            "text_data": extracted_text,
+            "engine": "http",
+            "raw_html": response.content if response.content_type == ContentType.HTML else None,
+        },
     }
 
 

@@ -306,3 +306,50 @@ def test_no_cases_reports_nothing_rather_than_zero() -> None:
 def test_default_comparative_vocabulary_is_an_enumeration_not_a_scale() -> None:
     assert COMPARATIVE_VERDICTS == ("better", "same", "worse", "regressed")
     assert all(isinstance(v, str) for v in COMPARATIVE_VERDICTS)
+
+
+async def test_funnel_lane_runs_on_its_mandate_holder(monkeypatch):
+    """A contract with no mandate of its own used to run a code-chosen model
+    (a retired Opus snapshot) and a code-typed system prompt. RED on that code;
+    GREEN when the comparative lane is held by ``evaluators.comparative_judge``."""
+    from matrx_ai.evaluators.judge import JudgeAssessment
+    from matrx_ai.mandates import HeldCall
+
+    seen: dict = {}
+
+    async def fake_hold(key, **kwargs):
+        seen["key"] = key
+        seen["variables"] = kwargs["variables"]
+        return HeldCall(
+            mandate_key=key,
+            model="holder-model",
+            system="HOLDER RULES",
+            temperature=None,
+            max_output_tokens=None,
+            turns=[],
+            config=None,
+            metadata={"mandate_key": key, "mandate_holder": {"agent_id": "a"}},
+        )
+
+    async def fake_structured(**kwargs):
+        seen["call"] = kwargs
+        return kwargs["output_cls"](
+            verdict="better", confidence=0.8, reasoning="Subject is complete.", evidence=["x"]
+        )
+
+    monkeypatch.setattr("matrx_ai.evaluators.judge.hold_code_call", fake_hold)
+    monkeypatch.setattr("matrx_ai.graph_nodes._strict_json.llm_to_pydantic", fake_structured)
+
+    judge = Judge(_comparative())
+    verdict, invocation = await judge._run_funnel(  # noqa: SLF001
+        JudgeSubject(label="s", content="subject"),
+        JudgeSubject(label="r", content="reference"),
+        context=None,
+    )
+    assert isinstance(verdict, JudgeAssessment) or verdict.verdict == "better"
+    assert seen["key"] == "evaluators.comparative_judge"
+    assert "'better'" in seen["variables"]["allowed_verdicts"]
+    assert seen["call"]["model"] == "holder-model"
+    assert seen["call"]["system"] == "HOLDER RULES"
+    assert seen["call"]["metadata"]["mandate_key"] == "evaluators.comparative_judge"
+    assert invocation["mandate"] == "evaluators.comparative_judge"

@@ -48,6 +48,7 @@ import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
+from .._app.artifacts import require_complete_artifact_listing
 from .._app.resolve import (
     FULL_ID_PATTERN,
     AmbiguousIdError,
@@ -67,6 +68,7 @@ if TYPE_CHECKING:
     from ..client import NotebookLMClient
 
 __all__ = [
+    "partition_source_refs",
     "reject_non_canonical_id",
     "resolve_artifact",
     "resolve_note",
@@ -394,6 +396,42 @@ async def resolve_sources(
     return [match(ref) for ref in validated]
 
 
+def partition_source_refs(
+    refs: Sequence[str], items: Sequence[Any]
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Resolve refs against one source-list snapshot without aborting the batch.
+
+    Full UUIDs must be members of ``items`` — an unknown UUID is ``not_found``,
+    never trusted (``sources.delete`` silently no-ops missing ids). Missing
+    title/prefix refs accumulate in ``not_found`` instead of raising. Empty
+    refs and ambiguous matches still raise.
+    """
+    validated = [validate_id(ref, "source") for ref in refs]
+    for ref in validated:
+        reject_non_canonical_id(ref, "source")
+    id_set = {item.id for item in items}
+    resolved: list[str] = []
+    not_found: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for ref in validated:
+        try:
+            if FULL_ID_PATTERN.fullmatch(ref):
+                if ref not in id_set:
+                    raise SourceNotFoundError(ref)
+                sid = ref
+            elif _HEX_ISH.match(ref):
+                sid = _resolve_hex(ref, items, not_found=SourceNotFoundError)
+            else:
+                sid = _resolve_by_title(ref, items, not_found=SourceNotFoundError)
+        except SourceNotFoundError as exc:
+            not_found.append({"source_id": ref, "error": str(exc)})
+            continue
+        if sid not in seen:
+            seen.add(sid)
+            resolved.append(sid)
+    return resolved, not_found
+
+
 async def resolve_note(client: NotebookLMClient, notebook_id: str, ref: str) -> str:
     """Resolve a note reference within a notebook to its id.
 
@@ -437,6 +475,11 @@ async def resolve_artifact(client: NotebookLMClient, notebook_id: str, ref: str)
     lets a concrete id (including a note-backed mind-map id, or one missing from a
     stale list) reach the ``_app`` core, which then routes it by kind.
 
+    Fuzzy title/prefix matching requires a **complete** aggregate inventory
+    (``list_with_status().is_complete``). A notes outage (or other secondary
+    backing failure) must not turn an ambiguous title/prefix into a unique hit
+    or project a partial miss as :class:`ArtifactNotFoundError`.
+
     Args:
         client: The lifespan-bound client.
         notebook_id: The (already-resolved) notebook id the artifact lives in.
@@ -451,13 +494,15 @@ async def resolve_artifact(client: NotebookLMClient, notebook_id: str, ref: str)
         ValidationError: ``ref`` is empty/whitespace.
         ArtifactNotFoundError: No artifact in the notebook matches ``ref``.
         AmbiguousIdError: ``ref`` matches more than one artifact by prefix or title.
+        RPCError: The aggregate listing was incomplete, so a title/prefix match
+            cannot be treated as unique or as absence.
     """
     ref = validate_id(ref, "artifact")
     reject_non_canonical_id(ref, "artifact")
     # Full UUID fast-path — never list.
     if FULL_ID_PATTERN.fullmatch(ref):
         return ref
-    items = await client.artifacts.list(notebook_id)
+    items = await require_complete_artifact_listing(client, notebook_id)
     if _HEX_ISH.match(ref):
         return _resolve_hex(ref, items, not_found=ArtifactNotFoundError)
     return _resolve_by_title(ref, items, not_found=ArtifactNotFoundError)

@@ -42,7 +42,13 @@ class GlobusAPIError(GlobusError):
     MESSAGE_FIELDS = ["message", "detail", "title"]
     RECOGNIZED_AUTHZ_SCHEMES = ["bearer", "basic", "globus-goauthtoken"]
 
-    def __init__(self, r: requests.Response, *args: t.Any, **kwargs: t.Any) -> None:
+    # TODO: re-evaluate how exception args are handled by this class.
+    # For now, ignore flake8-bugbear's B042 rule about exception inheritance.
+    # Fixing it would likely require somehow adjusting the interface for a
+    # GlobusAPIError, possibly in a breaking way.
+    def __init__(  # noqa: B042
+        self, r: requests.Response, *args: t.Any, **kwargs: t.Any
+    ) -> None:
         # defer this import to avoid circularity between 'exc' and 'transport'
         from globus_sdk.transport import RequestsTransport
 

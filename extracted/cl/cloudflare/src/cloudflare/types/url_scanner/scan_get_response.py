@@ -1,6 +1,6 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import Field as FieldInfo
 
@@ -170,8 +170,7 @@ __all__ = [
     "MetaProcessorsRobotsTXT",
     "MetaProcessorsRobotsTXTData",
     "MetaProcessorsRobotsTXTDataRules",
-    "MetaProcessorsRobotsTXTDataRulesapi_empty",
-    "MetaProcessorsRobotsTXTDataRulesapi_emptyContentSignal",
+    "MetaProcessorsRobotsTXTDataRulesContentSignal",
     "MetaProcessorsURLCategories",
     "MetaProcessorsURLCategoriesData",
     "MetaProcessorsURLCategoriesDataContent",
@@ -1881,7 +1880,7 @@ class MetaProcessorsPhishingV2(BaseModel):
     data: List[str]
 
 
-class MetaProcessorsRobotsTXTDataRulesapi_emptyContentSignal(BaseModel):
+class MetaProcessorsRobotsTXTDataRulesContentSignal(BaseModel):
     ai_input: Optional[str] = FieldInfo(alias="ai-input", default=None)
 
     ai_train: Optional[str] = FieldInfo(alias="ai-train", default=None)
@@ -1889,24 +1888,20 @@ class MetaProcessorsRobotsTXTDataRulesapi_emptyContentSignal(BaseModel):
     search: Optional[str] = None
 
 
-class MetaProcessorsRobotsTXTDataRulesapi_empty(BaseModel):
+class MetaProcessorsRobotsTXTDataRules(BaseModel):
     allow: List[str]
 
     disallow: List[str]
 
-    content_signal: Optional[MetaProcessorsRobotsTXTDataRulesapi_emptyContentSignal] = FieldInfo(
+    content_signal: Optional[MetaProcessorsRobotsTXTDataRulesContentSignal] = FieldInfo(
         alias="contentSignal", default=None
     )
 
     crawl_delay: Optional[float] = FieldInfo(alias="crawlDelay", default=None)
 
 
-class MetaProcessorsRobotsTXTDataRules(BaseModel):
-    api_empty: MetaProcessorsRobotsTXTDataRulesapi_empty = FieldInfo(alias="*")
-
-
 class MetaProcessorsRobotsTXTData(BaseModel):
-    rules: MetaProcessorsRobotsTXTDataRules
+    rules: Dict[str, MetaProcessorsRobotsTXTDataRules]
 
     sitemaps: List[str]
 

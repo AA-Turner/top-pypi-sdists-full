@@ -63,7 +63,10 @@ class TestInstances:
                 "keyword": True,
                 "vector": True,
             },
-            indexing_options={"keyword_tokenizer": "porter"},
+            indexing_options={
+                "keyword_tokenizer": "porter",
+                "use_ocr": True,
+            },
             max_num_results=1,
             metadata={
                 "created_from_aisearch_wizard": True,
@@ -222,7 +225,10 @@ class TestInstances:
                 "keyword": True,
                 "vector": True,
             },
-            indexing_options={"keyword_tokenizer": "porter"},
+            indexing_options={
+                "keyword_tokenizer": "porter",
+                "use_ocr": True,
+            },
             max_num_results=1,
             metadata={
                 "created_from_aisearch_wizard": True,
@@ -371,6 +377,7 @@ class TestInstances:
         instance = client.aisearch.namespaces.instances.list(
             name="my-namespace",
             account_id="c3dc5f0b34a14ff8e1b3ec04895e1b22",
+            hostname="x",
             namespace="namespace",
             order_by="created_at",
             order_by_direction="asc",
@@ -511,6 +518,10 @@ class TestInstances:
                 "cache": {
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
+                },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
                 },
                 "query_rewrite": {
                     "enabled": True,
@@ -705,6 +716,10 @@ class TestInstances:
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
                 },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
+                },
                 "query_rewrite": {
                     "enabled": True,
                     "model": "model",
@@ -895,7 +910,10 @@ class TestAsyncInstances:
                 "keyword": True,
                 "vector": True,
             },
-            indexing_options={"keyword_tokenizer": "porter"},
+            indexing_options={
+                "keyword_tokenizer": "porter",
+                "use_ocr": True,
+            },
             max_num_results=1,
             metadata={
                 "created_from_aisearch_wizard": True,
@@ -1054,7 +1072,10 @@ class TestAsyncInstances:
                 "keyword": True,
                 "vector": True,
             },
-            indexing_options={"keyword_tokenizer": "porter"},
+            indexing_options={
+                "keyword_tokenizer": "porter",
+                "use_ocr": True,
+            },
             max_num_results=1,
             metadata={
                 "created_from_aisearch_wizard": True,
@@ -1203,6 +1224,7 @@ class TestAsyncInstances:
         instance = await async_client.aisearch.namespaces.instances.list(
             name="my-namespace",
             account_id="c3dc5f0b34a14ff8e1b3ec04895e1b22",
+            hostname="x",
             namespace="namespace",
             order_by="created_at",
             order_by_direction="asc",
@@ -1343,6 +1365,10 @@ class TestAsyncInstances:
                 "cache": {
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
+                },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
                 },
                 "query_rewrite": {
                     "enabled": True,
@@ -1536,6 +1562,10 @@ class TestAsyncInstances:
                 "cache": {
                     "cache_threshold": "super_strict_match",
                     "enabled": True,
+                },
+                "custom_metadata": {
+                    "test": True,
+                    "user_id": "user-123",
                 },
                 "query_rewrite": {
                     "enabled": True,

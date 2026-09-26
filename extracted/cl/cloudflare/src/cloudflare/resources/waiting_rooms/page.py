@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -55,7 +55,7 @@ class PageResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> PagePreviewResponse:
+    ) -> Optional[PagePreviewResponse]:
         """Creates a waiting room page preview.
 
         Upload a custom waiting room page for
@@ -138,9 +138,9 @@ class PageResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[PagePreviewResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[PagePreviewResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[PagePreviewResponse], ResultWrapper[PagePreviewResponse]),
+            cast_to=cast(Type[Optional[PagePreviewResponse]], ResultWrapper[PagePreviewResponse]),
         )
 
 
@@ -175,7 +175,7 @@ class AsyncPageResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> PagePreviewResponse:
+    ) -> Optional[PagePreviewResponse]:
         """Creates a waiting room page preview.
 
         Upload a custom waiting room page for
@@ -258,9 +258,9 @@ class AsyncPageResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[PagePreviewResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[PagePreviewResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[PagePreviewResponse], ResultWrapper[PagePreviewResponse]),
+            cast_to=cast(Type[Optional[PagePreviewResponse]], ResultWrapper[PagePreviewResponse]),
         )
 
 

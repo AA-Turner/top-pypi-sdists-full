@@ -8,7 +8,6 @@ import argparse
 import sys
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
 from src.cli.client import APIError, InnoDayAPIClient
@@ -22,11 +21,12 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console
 from src.domain.ticket import TicketStatus
 from src.services.release_planning import OUTSTANDING_STATUSES, semver_key
 from src.services.ticket_release import CURRENT_RELEASE
 
-console = Console()
+console = make_console()
 
 #: The status vocabulary, derived from the enum rather than restated (GH #630).
 #:

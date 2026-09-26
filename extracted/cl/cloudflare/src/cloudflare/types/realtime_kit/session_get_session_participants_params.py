@@ -20,8 +20,8 @@ class SessionGetSessionParticipantsParams(TypedDict, total=False):
     page_no: float
     """The page number from which you want your page search results to be displayed."""
 
-    per_page: float
-    """Number of results per page"""
+    per_page: int
+    """Number of results per page."""
 
     search: str
     """The search query string.

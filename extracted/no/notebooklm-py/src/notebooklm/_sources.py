@@ -4,29 +4,85 @@ from __future__ import annotations
 
 import asyncio
 import builtins
+import contextlib
 import logging
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from time import monotonic
-from typing import Any, Literal
+from typing import Any, Generic, Literal, Protocol, TypeVar
 
 from ._lookup import unwrap_or_raise
-from ._source.batch import SourceUrlBatchItem
-from ._source.polling import SourcePoller, SourceWaitResult
+from ._notebook_metadata import reconcile_copy_mapping
+from ._runtime.call_supervisor import OperationLease
+from ._source.polling import SourcePoller, SourceWaitResult, SpawnSourceChild
 from ._types.research import SourceGuide
-from .exceptions import SourceNotFoundError, ValidationError
+from .exceptions import (
+    DecodingError,
+    NetworkError,
+    NonIdempotentRetryError,
+    RPCError,
+    SourceNotFoundError,
+    ValidationError,
+)
+from .outcomes import SourceBatchItemOutcome
 from .types import (
     CopiedSource,
     PlayBook,
     RelevantChunk,
     Source,
+    SourceDeleteOutcome,
     SourceFulltext,
     SourceStatus,
     SourceType,
 )
 
 logger = logging.getLogger(__name__)
+
+_TransferItem = TypeVar("_TransferItem")
+_UploadedSourceWaiter = Callable[[str, str, float], Awaitable[Source]]
+_UploadedSourceRenamer = Callable[[str, str, str], Awaitable[str | None]]
+
+
+class _UploadedSourceFinalizer(Protocol):
+    """Owner-neutral post-upload callback implemented by :class:`SourcesAPI`."""
+
+    async def __call__(
+        self,
+        notebook_id: str,
+        source_id: str,
+        filename: str,
+        *,
+        wait: bool,
+        wait_timeout: float,
+        title: str | None,
+        wait_until_ready: _UploadedSourceWaiter,
+        wait_until_registered: _UploadedSourceWaiter,
+        rename_uploaded: _UploadedSourceRenamer,
+    ) -> Source: ...
+
+
+@dataclass(frozen=True)
+class _TransferResult(Generic[_TransferItem]):
+    """Decoded rows plus backend-specific diagnostics for neutral policy."""
+
+    items: builtins.list[_TransferItem]
+    method_id: str
+    malformed_count: int = 0
+    raw_response: str | None = None
+
+
+def _validate_add_text_idempotency(idempotent: bool) -> None:
+    """Reject an unsupported text idempotency promise before admission."""
+    if idempotent:
+        raise NonIdempotentRetryError(
+            "add_text cannot be marked idempotent: text sources have no "
+            "reliable server-side dedupe key (titles non-unique, content "
+            "not exposed). For idempotent text imports, embed a UUID in "
+            "the title and dedupe client-side. See "
+            "docs/python-api.md#idempotency."
+        )
 
 
 def validate_search(
@@ -71,14 +127,22 @@ def finalize_search_results(
 class SourcesAPI(ABC):
     """Backend-neutral operations on NotebookLM sources.
 
-    Concrete backends own listing, mutation, content, and upload choreography.
-    The base owns identity lookup and readiness polling over the abstract
-    :meth:`list` operation.
+    Concrete backends own listing, mutation, content, and upload transport. The
+    base owns identity lookup, post-upload finalization, and readiness polling
+    over the abstract :meth:`list` operation.
     """
 
-    def __init__(self) -> None:
+    @abstractmethod
+    def _operation_scope(
+        self, label: str
+    ) -> contextlib.AbstractAsyncContextManager[OperationLease | None]:
+        """Return the backend's scope for one multi-call workflow."""
+        raise NotImplementedError
+
+    def __init__(self, *, spawn_child: SpawnSourceChild) -> None:
         """Initialize transport-neutral source polling state."""
         self._poller = SourcePoller()
+        self._spawn_child = spawn_child
 
     @abstractmethod
     async def list(
@@ -207,19 +271,20 @@ class SourcesAPI(ABC):
             )
             # Now safe to use in chat/artifacts
         """
-        return await self._poller.wait_until_ready(
-            notebook_id,
-            source_id,
-            timeout=timeout,
-            initial_interval=initial_interval,
-            max_interval=max_interval,
-            backoff_factor=backoff_factor,
-            transient_error_types=transient_error_types,
-            get_source=self.get_or_none,
-            sleep=asyncio.sleep,
-            monotonic=monotonic,
-            logger=logger,
-        )
+        async with self._operation_scope("source.wait_until_ready"):
+            return await self._poller.wait_until_ready(
+                notebook_id,
+                source_id,
+                timeout=timeout,
+                initial_interval=initial_interval,
+                max_interval=max_interval,
+                backoff_factor=backoff_factor,
+                transient_error_types=transient_error_types,
+                get_source=self.get_or_none,
+                sleep=asyncio.sleep,
+                monotonic=monotonic,
+                logger=logger,
+            )
 
     async def wait_all_until_ready(
         self,
@@ -238,19 +303,20 @@ class SourcesAPI(ABC):
         :class:`SourceTimeoutError`) are RETURNED, not raised. See
         :meth:`SourcePoller.wait_all_until_ready`.
         """
-        return await self._poller.wait_all_until_ready(
-            notebook_id,
-            source_ids,
-            timeout=timeout,
-            initial_interval=initial_interval,
-            max_interval=max_interval,
-            backoff_factor=backoff_factor,
-            transient_error_types=transient_error_types,
-            list_sources=self.list,
-            sleep=asyncio.sleep,
-            monotonic=monotonic,
-            logger=logger,
-        )
+        async with self._operation_scope("source.wait_all_until_ready"):
+            return await self._poller.wait_all_until_ready(
+                notebook_id,
+                source_ids,
+                timeout=timeout,
+                initial_interval=initial_interval,
+                max_interval=max_interval,
+                backoff_factor=backoff_factor,
+                transient_error_types=transient_error_types,
+                list_sources=self.list,
+                sleep=asyncio.sleep,
+                monotonic=monotonic,
+                logger=logger,
+            )
 
     async def wait_until_registered(
         self,
@@ -291,19 +357,20 @@ class SourcesAPI(ABC):
             SourceProcessingError: If source reports a terminal ERROR for a
                 non-transient source type.
         """
-        return await self._poller.wait_until_registered(
-            notebook_id,
-            source_id,
-            timeout=timeout,
-            initial_interval=initial_interval,
-            max_interval=max_interval,
-            backoff_factor=backoff_factor,
-            transient_error_types=transient_error_types,
-            get_source=self.get_or_none,
-            sleep=asyncio.sleep,
-            monotonic=monotonic,
-            logger=logger,
-        )
+        async with self._operation_scope("source.wait_until_registered"):
+            return await self._poller.wait_until_registered(
+                notebook_id,
+                source_id,
+                timeout=timeout,
+                initial_interval=initial_interval,
+                max_interval=max_interval,
+                backoff_factor=backoff_factor,
+                transient_error_types=transient_error_types,
+                get_source=self.get_or_none,
+                sleep=asyncio.sleep,
+                monotonic=monotonic,
+                logger=logger,
+            )
 
     async def wait_for_sources(
         self,
@@ -337,14 +404,16 @@ class SourcesAPI(ABC):
                 nb_id, [s.id for s in sources]
             )
         """
-        return await self._poller.wait_for_sources(
-            notebook_id,
-            source_ids,
-            timeout=timeout,
-            wait_until_ready=self.wait_until_ready,
-            logger=logger,
-            **kwargs,
-        )
+        async with self._operation_scope("source.wait_for_sources"):
+            return await self._poller.wait_for_sources(
+                notebook_id,
+                source_ids,
+                timeout=timeout,
+                wait_until_ready=self.wait_until_ready,
+                spawn_child=self._spawn_child,
+                logger=logger,
+                **kwargs,
+            )
 
     @abstractmethod
     async def add_url(
@@ -359,13 +428,26 @@ class SourcesAPI(ABC):
         """Add a URL source to a notebook."""
         raise NotImplementedError
 
+    async def add_urls_batch(
+        self,
+        notebook_id: str,
+        urls: builtins.list[str],
+    ) -> builtins.list[SourceBatchItemOutcome]:
+        """Add validated URLs once and return ordered per-input outcomes.
+
+        The returned commit states, rather than an exception category or HTTP
+        status, determine whether a member is confirmed, rejected, unknown, or
+        positively unattempted. The operation never replays the whole batch.
+        """
+        raise NotImplementedError
+
     async def _add_urls_batch(
         self,
         notebook_id: str,
         urls: builtins.list[str],
-    ) -> builtins.list[SourceUrlBatchItem]:
-        """Backend adapter seam used by the existing MCP/REST batch endpoints."""
-        raise NotImplementedError
+    ) -> builtins.list[SourceBatchItemOutcome]:
+        """Compatibility seam for pre-P7 first-party adapter callers."""
+        return await self.add_urls_batch(notebook_id, urls)
 
     @abstractmethod
     async def add_text(
@@ -381,7 +463,45 @@ class SourcesAPI(ABC):
         """Add copied text to a notebook."""
         raise NotImplementedError
 
-    @abstractmethod
+    @staticmethod
+    async def _finalize_uploaded_file(
+        notebook_id: str,
+        source_id: str,
+        filename: str,
+        *,
+        wait: bool,
+        wait_timeout: float,
+        title: str | None,
+        wait_until_ready: _UploadedSourceWaiter,
+        wait_until_registered: _UploadedSourceWaiter,
+        rename_uploaded: _UploadedSourceRenamer,
+    ) -> Source:
+        """Apply backend-neutral readiness and display-title policy after upload."""
+        needs_title_rename = title is not None and title != filename
+        if wait:
+            source = await wait_until_ready(notebook_id, source_id, wait_timeout)
+        elif needs_title_rename:
+            source = await wait_until_registered(notebook_id, source_id, wait_timeout)
+        else:
+            source = Source(
+                id=source_id,
+                title=filename,
+                status=SourceStatus.PROCESSING,
+                _type_code=None,
+            )
+
+        if needs_title_rename:
+            try:
+                assert title is not None
+                echoed_title = await rename_uploaded(notebook_id, source_id, title)
+                source = replace(source, title=echoed_title or title)
+            except (RPCError, NetworkError):
+                logger.warning(
+                    "Source %s uploaded but title finalization failed",
+                    source_id,
+                )
+        return source
+
     async def add_file(
         self,
         notebook_id: str,
@@ -393,7 +513,73 @@ class SourcesAPI(ABC):
         title: str | None = None,
         on_progress: Callable[[int, int], object] | None = None,
     ) -> Source:
-        """Add a file source to a notebook."""
+        """Add a file source using the backend's resumable upload pipeline.
+
+        Registers the source, opens an upload session, streams the file body,
+        and applies a requested display title after upload. Uploads are
+        memory-efficient and bounded by the backend's upload semaphore. The web
+        pipeline resolves the path before semaphore admission, opens it only
+        after admission, and may briefly wait for registration before applying
+        a custom title because an early rename would no-op. Backend failures
+        after registration retain their ``source_id`` and ``stage`` attributes.
+
+        Args:
+            notebook_id: The notebook ID.
+            file_path: Path to the file to upload.
+            mime_type: Content type for the upload handshake; inferred from the
+                filename extension when omitted.
+            title: Optional display title. Whitespace is stripped and an empty
+                title is rejected. A failed best-effort rename keeps the
+                upstream filename title.
+            wait: If true, wait for the source to be fully ready.
+            wait_timeout: Maximum seconds for readiness or title-registration
+                waiting.
+            on_progress: Optional sync or async callback receiving bytes sent
+                and total bytes.
+
+        Returns:
+            The created source; when ``wait`` is false it may still be processing.
+
+        Raises:
+            ValidationError: If the path is not a regular file, the title is
+                empty, or the file type is unsupported. A failure after
+                registration retains its backend-specific ``source_id`` and
+                ``stage`` diagnostics.
+        """
+        requested_title = None
+        try:
+            if title is not None:
+                requested_title = title.strip()
+                if not requested_title:
+                    raise ValidationError("Title cannot be empty or whitespace-only")
+            return await self._send_upload(
+                notebook_id,
+                file_path,
+                mime_type,
+                wait=wait,
+                wait_timeout=wait_timeout,
+                title=requested_title,
+                on_progress=on_progress,
+            )
+        finally:
+            # Android API objects own the bearer and transport pipeline. Do not
+            # retain either owner (or caller-controlled values) in a published
+            # exception's outer, backend-neutral traceback frame.
+            del self, file_path, title, requested_title, on_progress
+
+    @abstractmethod
+    async def _send_upload(
+        self,
+        notebook_id: str,
+        file_path: str | Path,
+        mime_type: str | None,
+        *,
+        wait: bool,
+        wait_timeout: float,
+        title: str | None,
+        on_progress: Callable[[int, int], object] | None,
+    ) -> Source:
+        """Run one backend upload pipeline around the shared finalization policy."""
         raise NotImplementedError
 
     @abstractmethod
@@ -445,6 +631,35 @@ class SourcesAPI(ABC):
         """Delete a source from a notebook."""
         raise NotImplementedError
 
+    async def delete_many(self, notebook_id: str, source_ids: Sequence[str]) -> None:
+        """Delete sources. Default: one :meth:`delete` per id.
+
+        Web overrides this with a single ``DELETE_SOURCE`` RPC
+        (``[[[id1], [id2], ...]]``). An empty ``source_ids`` is a no-op.
+        Unknown ids are a silent no-op on the backend — callers that need
+        ``not_found`` must resolve against a source-list snapshot first.
+        """
+        ids = list(dict.fromkeys(source_ids))
+        for sid in ids:
+            await self.delete(notebook_id, sid)
+
+    async def delete_many_with_outcomes(
+        self, notebook_id: str, source_ids: Sequence[str]
+    ) -> builtins.list[SourceDeleteOutcome]:
+        """Delete each input occurrence with ordered evidence and settled children.
+
+        Unlike ``delete_many``, this uses one per-source delete operation, preserves
+        duplicates, and limits cleanup to ten children with a half-second pause
+        between groups. Cancellation settles children and retains batch evidence
+        on the escaping exception, including positively unattempted members.
+        """
+        from ._source.delete_batch import delete_sources_with_outcomes
+
+        async with self._operation_scope("sources.delete_many_with_outcomes"):
+            return await delete_sources_with_outcomes(
+                notebook_id, tuple(source_ids), delete=self.delete, spawn_child=self._spawn_child
+            )
+
     @abstractmethod
     async def rename(
         self,
@@ -484,6 +699,36 @@ class SourcesAPI(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def _send_add_urls_async(
+        self,
+        notebook_id: str,
+        urls: builtins.list[str],
+    ) -> _TransferResult[Source]:
+        """Queue URL sources and return decoded rows plus the wire method id."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _send_append_text(
+        self,
+        notebook_id: str,
+        source_id: str,
+        text: str,
+        *,
+        header: str,
+    ) -> None:
+        """Append one text block through the selected backend."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _send_copy(
+        self,
+        notebook_id: str,
+        source_ids: builtins.list[str],
+        target_notebook_id: str,
+    ) -> _TransferResult[CopiedSource]:
+        """Copy sources and return decoded mappings plus the wire method id."""
+        raise NotImplementedError
+
     async def add_urls_async(
         self,
         notebook_id: str,
@@ -497,9 +742,34 @@ class SourcesAPI(ABC):
         subset, so it is surfaced as an unconfirmed error for the caller to
         reconcile against :meth:`list`.
         """
-        raise NotImplementedError
+        if not urls:
+            return []
+        if any(not url or not url.strip() for url in urls):
+            raise ValidationError("urls must not contain empty entries")
+        async with self._operation_scope("source.add_urls_async"):
+            transfer = await self._send_add_urls_async(notebook_id, urls)
+        sources = transfer.items
+        if not sources:
+            raise DecodingError(
+                "AddSourcesAsync returned no queued source rows",
+                raw_response=transfer.raw_response,
+                method_id=transfer.method_id,
+            )
+        if any(not source.id for source in sources):
+            raise DecodingError(
+                "AddSourcesAsync returned a queued source row without an id",
+                raw_response=transfer.raw_response,
+                method_id=transfer.method_id,
+            )
+        if len(sources) != len(urls):
+            logger.warning(
+                "AddSourcesAsync queued %d source(s) for %d URL(s) in notebook %s",
+                len(sources),
+                len(urls),
+                notebook_id,
+            )
+        return sources
 
-    @abstractmethod
     async def append_text(
         self,
         notebook_id: str,
@@ -513,9 +783,18 @@ class SourcesAPI(ABC):
         ``text`` lands at the very end of the source's fulltext; ``header`` is
         accepted by the backend but does not appear in the fulltext.
         """
-        raise NotImplementedError
+        if not source_id:
+            raise ValidationError("source_id must not be empty")
+        if not text:
+            raise ValidationError("text must not be empty")
+        async with self._operation_scope("source.append_text"):
+            await self._send_append_text(
+                notebook_id,
+                source_id,
+                text,
+                header=header,
+            )
 
-    @abstractmethod
     async def copy(
         self,
         notebook_id: str,
@@ -527,7 +806,31 @@ class SourcesAPI(ABC):
         Returns one :class:`CopiedSource` per copied source, pairing the
         original id with the new row in the target notebook.
         """
-        raise NotImplementedError
+        if not source_ids:
+            raise ValidationError("source_ids must not be empty")
+        if any(not source_id for source_id in source_ids):
+            raise ValidationError("source_ids must not contain empty entries")
+        if not target_notebook_id:
+            raise ValidationError("target_notebook_id must not be empty")
+        async with self._operation_scope("source.copy"):
+            transfer = await self._send_copy(
+                notebook_id,
+                source_ids,
+                target_notebook_id,
+            )
+        return reconcile_copy_mapping(
+            source_ids,
+            transfer.items,
+            original_id=lambda item: item.original_id,
+            operation="CopySourcesAsync",
+            item_label="source",
+            target_notebook_id=target_notebook_id,
+            method_id=transfer.method_id,
+            malformed_count=transfer.malformed_count,
+            raw_response=transfer.raw_response,
+            empty_error=SourceNotFoundError(", ".join(source_ids), method_id=transfer.method_id),
+            warning_logger=logger,
+        )
 
 
 __all__ = ["SourcesAPI"]

@@ -573,6 +573,13 @@ def test_retained_inline_comment_view_tracks_structural_mutations() -> None:
     t["b"] = 4
     comments["b"] = "new b"
     assert dict(comments) == {"c": "a c", "a": "an a", "b": "new b"}
+    assert tomlrt.dumps(doc) == td("""
+        t = {
+            c = 3, # a c
+            a = 1, # an a
+            b = 4, # new b
+        }
+        """)
 
 
 def test_inline_table_header_comment_get_raises() -> None:
@@ -2363,6 +2370,44 @@ def test_array_leading_comments_clear_after_prior_eol() -> None:
             "z",
             "a", # eol a
             "M",
+        ]
+        """)
+
+
+def test_section_comment_clear_keeps_header_and_values() -> None:
+    doc = tomlrt.loads(
+        td("""
+        [section] # header
+        a = 1 # aye
+        plain = 0
+        b = 2 # bee
+        """)
+    )
+    doc.table("section").comments.clear()
+    assert tomlrt.dumps(doc) == td("""
+        [section] # header
+        a = 1
+        plain = 0
+        b = 2
+        """)
+
+
+def test_clear_eol_comments_before_and_after_a_comma() -> None:
+    doc = tomlrt.loads(
+        td("""
+        items = [
+          1 # before
+          , # after
+          2
+        ]
+        """)
+    )
+    doc.array("items").comments.clear()
+    assert tomlrt.dumps(doc) == td("""
+        items = [
+          1
+          ,
+          2
         ]
         """)
 

@@ -128,6 +128,12 @@ class PolicyFilterParam(TypedDict, total=False):
     target_zone_name: SequenceNotStr[str]
     """Used for configuring advanced_ddos_attack_l7_alert"""
 
+    token_id: SequenceNotStr[str]
+    """Access service token IDs to include for expiring_service_token_alert.
+
+    Omit this property to include all current and future service tokens.
+    """
+
     traffic_exclusions: List[Literal["security_events"]]
     """Used for configuring traffic_anomalies_alert"""
 

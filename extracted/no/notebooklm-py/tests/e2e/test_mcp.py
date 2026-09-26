@@ -40,6 +40,9 @@ from ._mcp_live_helpers import (  # noqa: E402 - after importorskip guard
     call_tool as _call,
 )
 from ._mcp_live_helpers import (  # noqa: E402 - after importorskip guard
+    is_android_inventory_only_slide_failure as _is_android_inventory_only_slide_failure,
+)
+from ._mcp_live_helpers import (  # noqa: E402 - after importorskip guard
     mcp_client as _mcp_client,
 )
 from ._mcp_live_helpers import (  # noqa: E402 - after importorskip guard
@@ -442,24 +445,25 @@ class TestMcpArtifacts:
 
     @pytest.mark.asyncio
     @pytest.mark.readonly
-    async def test_artifact_list(self, client, generation_notebook_id):
+    async def test_artifact_list(self, client, read_only_notebook_id):
         """``studio_list`` returns the notebook's merged notes+artifacts as a list."""
-        structured = await _call(client, "studio_list", {"notebook": generation_notebook_id})
+        structured = await _call(client, "studio_list", {"notebook": read_only_notebook_id})
         assert isinstance(structured["items"], list)
 
     @pytest.mark.asyncio
     @pytest.mark.readonly
-    async def test_download_existing_artifact(self, client, generation_notebook_id, tmp_path):
+    async def test_download_existing_artifact(self, client, read_only_notebook_id, tmp_path):
         """Download an EXISTING artifact (no fresh generation) to a local path.
 
-        Reuses whatever downloadable artifact the notebook already has (generation
-        e2e populates them nightly). Skips cleanly when none is present so this
-        never depends on cross-file test ordering.
+        Reuses a downloadable artifact from the prepared reference copy. Skips
+        cleanly when none is present, so this never depends on cross-file ordering.
         """
-        listing = await _call(client, "studio_list", {"notebook": generation_notebook_id})
-        candidate = _pick_downloadable_artifact(listing["items"])
+        listing = await _call(client, "studio_list", {"notebook": read_only_notebook_id})
+        candidate = _pick_downloadable_artifact(
+            listing["items"], backend=client.backends["artifacts"]
+        )
         if candidate is None:
-            pytest.skip("no existing downloadable artifact on the generation notebook")
+            pytest.skip("no existing downloadable artifact on the reference notebook")
 
         # A merged item's hyphenated ``type`` IS the studio_download key.
         dl_type = candidate["type"]
@@ -468,12 +472,19 @@ class TestMcpArtifacts:
             client,
             "studio_download",
             {
-                "notebook": generation_notebook_id,
+                "notebook": read_only_notebook_id,
                 "artifact_type": dl_type,
+                "artifact_id": candidate["id"],
                 "path": str(out_path),
             },
         )
         assert isinstance(result, dict)
+        if _is_android_inventory_only_slide_failure(
+            result,
+            backend=client.backends["artifacts"],
+            artifact_type=dl_type,
+        ):
+            pytest.skip("Android hydration confirmed an inventory-only slide deck")
         # The stdio download core writes the file and reports its path; assert
         # bytes landed on disk.
         written = Path(result.get("output_path") or out_path)
@@ -482,15 +493,16 @@ class TestMcpArtifacts:
 
     @pytest.mark.asyncio
     @pytest.mark.variants
-    async def test_generate_report_wiring(self, client, generation_notebook_id):
+    async def test_generate_report_wiring(self, client, generation_notebook_id, generation_journal):
         """Wiring smoke: ``studio_generate`` threads through and returns a
         ``task_id``; one ``studio_status`` poll dispatches. Does NOT poll to
         completion (the RPC health of generation is proven by ``test_generation``)."""
-        generated = await _call(
-            client,
-            "studio_generate",
-            {"notebook": generation_notebook_id, "artifact_type": "report"},
-        )
+        with generation_journal.producer_surface("mcp"):
+            generated = await _call(
+                client,
+                "studio_generate",
+                {"notebook": generation_notebook_id, "artifact_type": "report"},
+            )
         task_id = generated.get("task_id")
         assert task_id, f"studio_generate returned no task_id: {generated}"
 

@@ -8,22 +8,28 @@ from ..clients.transport import _bases_for, _describe, backend_base_url
 from ..clients.transport import _rpc
 from ..clients.transport import _rpc_data
 from ..engine.contract.schemas import StreamInfoError
+from ..engine.intake.attributes import AttributeSpec
+from ..engine.intake.attributes import attach_attributes
 from ..engine.manifest.loader import load_app_bundle
 from ..engine.manifest.loader import redact_url
 from ..engine.publish import RedisStreamPublisher
 from ..engine.routing import RoutingError
 from ..engine.routing import resolve_flow_mode, route_app
+from ..engine.routing import route_app
 from ..engine.runtime.session import Session
 from ..engine.runtime.stream_info import resolve_stream_info
 from ..post_processing.post_processor import PostProcessor
-from .app_bundle import AppBundleError, resolve_app_bundle_refs
+from .app_bundle import AppBundleError
 from .app_bundle import POST_PROCESSING_CONFIGS_PATH
 from .app_bundle import _open_session
 from .app_bundle import fetch_post_processing_config_by_camera_and_app
 from .app_bundle import fetch_post_processing_configs
+from .app_bundle import resolve_app_bundle_refs
+from .attribute_specs import _attribute_specs_for
 from .backends import BackendError, LegacyBackend, select_engine_backend
 from .backends import BackendError, require_engine_ready, resolve_source_dims
 from .backends import _declared_resolution, normalize_zone_config
+from .legacy_agg_bridge import LEGACY_AGG_SHAPE_ENV, legacy_shape_agg_summary
 from .post_proc_runner import _result_as_dict
 from .post_proc_runner import _unwrap_agg_summary
 from .post_proc_runner import normalize_detections
@@ -233,34 +239,6 @@ def app_bundle_zone_path(deployment_id: Optional[str]) -> str:
     ...
 
 # From backends
-def legacy_shape_agg_summary(agg_summary: Optional[Dict[str, Any]], stream_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """
-    Re-key a zone-keyed engine ``agg_summary`` into the legacy frame-keyed shape (PY-5).
-    
-        The two shapes are a deliberate, documented divergence
-        (:class:`~matrice_analytics.engine.contract.schemas.FrameSummaryEntry`), and the engine's is the
-        better one -- it is the only form that works for a multi-zone app. But every consumer was built
-        against legacy, so this bridges rather than migrates:
-    
-        ==========================  ==========================  ==================================
-        field                       legacy                      engine
-        ==========================  ==========================  ==================================
-        top-level key               frame number (``"45507"``)  zone (``"global"``, ``"inside"``)
-        ``human_text``              on the frame entry          inside ``tracking_stats``
-        ``zone_analysis``           on the frame entry          implicit in the zone keys
-        ==========================  ==========================  ==================================
-    
-        So: the per-zone entries collapse into one frame entry, ``human_text`` is lifted back out,
-        ``zone_analysis`` is rebuilt from the zone keys (and mirrored inside ``tracking_stats``, which
-        is where legacy puts it too), and ``alerts`` / ``incidents`` / ``business_analytics`` are
-        merged. Nothing is dropped: the per-zone view survives in full under ``zone_analysis``.
-    
-        Returns the input unchanged when the bridge is disabled, when there is nothing to convert, or
-        when the payload is already frame-keyed -- so it is idempotent and safe to call twice.
-    """
-    ...
-
-# From backends
 def normalize_zone_config(zone_config: Any) -> Optional[Dict[str, Any]]:
     """
     A ``zone_config`` with every polygon in the unit square, or ``None`` when it declares none.
@@ -359,6 +337,34 @@ def select_engine_backend(app_ref: Optional[str]) -> Optional['Any']:
 def source_dims_of(stream_info: Dict[str, Any]) -> Optional[Tuple[int, int]]:
     """
     ``(width, height)`` from a stream_info, or ``None`` when it declares no resolution.
+    """
+    ...
+
+# From legacy_agg_bridge
+def legacy_shape_agg_summary(agg_summary: Optional[Dict[str, Any]], stream_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Re-key a zone-keyed engine ``agg_summary`` into the legacy frame-keyed shape (PY-5).
+    
+        The two shapes are a deliberate, documented divergence
+        (:class:`~matrice_analytics.engine.contract.schemas.FrameSummaryEntry`), and the engine's is the
+        better one -- it is the only form that works for a multi-zone app. But every consumer was built
+        against legacy, so this bridges rather than migrates:
+    
+        ==========================  ==========================  ==================================
+        field                       legacy                      engine
+        ==========================  ==========================  ==================================
+        top-level key               frame number (``"45507"``)  zone (``"global"``, ``"inside"``)
+        ``human_text``              on the frame entry          inside ``tracking_stats``
+        ``zone_analysis``           on the frame entry          implicit in the zone keys
+        ==========================  ==========================  ==================================
+    
+        So: the per-zone entries collapse into one frame entry, ``human_text`` is lifted back out,
+        ``zone_analysis`` is rebuilt from the zone keys (and mirrored inside ``tracking_stats``, which
+        is where legacy puts it too), and ``alerts`` / ``incidents`` / ``business_analytics`` are
+        merged. Nothing is dropped: the per-zone view survives in full under ``zone_analysis``.
+    
+        Returns the input unchanged when the bridge is disabled, when there is nothing to convert, or
+        when the payload is already frame-keyed -- so it is idempotent and safe to call twice.
     """
     ...
 
@@ -752,4 +758,4 @@ class ZoneGeometryResolver:
     def refresh_seconds(self: Any) -> float: ...
 
 
-from . import app_bundle, backends, post_proc_runner, zone_source
+from . import app_bundle, attribute_specs, backends, legacy_agg_bridge, post_proc_runner, zone_source

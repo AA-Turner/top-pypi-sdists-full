@@ -370,7 +370,7 @@ class PassThroughFrame:
     class OperationId(utils.OpenIntEnum):
         SELECT = 0x00
         UP = 0x01
-        DOWN = 0x01
+        DOWN = 0x02
         LEFT = 0x03
         RIGHT = 0x04
         RIGHT_UP = 0x05
@@ -435,7 +435,7 @@ class PassThroughFrame:
         return (
             PassThroughFrame.StateFlag(operands[0] >> 7),
             PassThroughFrame.OperationId(operands[0] & 0x7F),
-            operands[1 : 1 + operands[1]],
+            operands[2 : 2 + operands[1]],
         )
 
     def make_operands(self):

@@ -25,10 +25,12 @@ def _client_factory(**kwargs: object) -> httpx.AsyncClient:
 async def test_kernel_rejects_retired_epoch_before_wire_io() -> None:
     auth = AuthTokens(csrf_token="csrf", session_id="sid", cookies={"SID": "cookie"})
     kernel = Kernel(auth=auth, async_client_factory=_client_factory)
-    kernel.activate_epoch(1)
+    kernel.activate(1)
     await kernel.open(
         auth=auth,
-        timeout=1,
+        read_timeout=1,
+        write_timeout=1,
+        pool_timeout=1,
         connect_timeout=1,
         limits=ConnectionLimits(),
         capture_cookie_snapshot=lambda cookies: None,
@@ -36,15 +38,17 @@ async def test_kernel_rejects_retired_epoch_before_wire_io() -> None:
     )
     assert kernel.get_http_client(expected_epoch=1) is kernel.http_client
 
-    kernel.fence_epoch(1)
+    kernel.fence()
     with pytest.raises(RuntimeError, match="generation is retired"):
         kernel.get_http_client(expected_epoch=1)
 
     await kernel.aclose()
-    kernel.activate_epoch(2)
+    kernel.activate(2)
     await kernel.open(
         auth=auth,
-        timeout=1,
+        read_timeout=1,
+        write_timeout=1,
+        pool_timeout=1,
         connect_timeout=1,
         limits=ConnectionLimits(),
         capture_cookie_snapshot=lambda cookies: None,

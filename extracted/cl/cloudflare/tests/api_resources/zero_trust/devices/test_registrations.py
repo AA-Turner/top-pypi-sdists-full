@@ -15,6 +15,8 @@ from cloudflare.types.zero_trust.devices import (
     RegistrationListResponse,
 )
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -40,6 +42,7 @@ class TestRegistrations:
             include="include",
             per_page=0,
             policy={"id": "11ffb86f-3f0c-4306-b4a2-e62f872b166a"},
+            registration_type="warp",
             search="search",
             seen_after="seen_after",
             seen_before="seen_before",
@@ -247,19 +250,22 @@ class TestRegistrations:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_method_revoke(self, client: Cloudflare) -> None:
-        registration = client.zero_trust.devices.registrations.revoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            registration = client.zero_trust.devices.registrations.revoke(
+                account_id="account_id",
+                id=["string"],
+            )
+
         assert_matches_type(object, registration, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_raw_response_revoke(self, client: Cloudflare) -> None:
-        response = client.zero_trust.devices.registrations.with_raw_response.revoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.zero_trust.devices.registrations.with_raw_response.revoke(
+                account_id="account_id",
+                id=["string"],
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -269,43 +275,48 @@ class TestRegistrations:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_streaming_response_revoke(self, client: Cloudflare) -> None:
-        with client.zero_trust.devices.registrations.with_streaming_response.revoke(
-            account_id="account_id",
-            id=["string"],
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.zero_trust.devices.registrations.with_streaming_response.revoke(
+                account_id="account_id",
+                id=["string"],
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            registration = response.parse()
-            assert_matches_type(object, registration, path=["response"])
+                registration = response.parse()
+                assert_matches_type(object, registration, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_path_params_revoke(self, client: Cloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            client.zero_trust.devices.registrations.with_raw_response.revoke(
-                account_id="",
-                id=["string"],
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                client.zero_trust.devices.registrations.with_raw_response.revoke(
+                    account_id="",
+                    id=["string"],
+                )
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_method_unrevoke(self, client: Cloudflare) -> None:
-        registration = client.zero_trust.devices.registrations.unrevoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            registration = client.zero_trust.devices.registrations.unrevoke(
+                account_id="account_id",
+                id=["string"],
+            )
+
         assert_matches_type(object, registration, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_raw_response_unrevoke(self, client: Cloudflare) -> None:
-        response = client.zero_trust.devices.registrations.with_raw_response.unrevoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.zero_trust.devices.registrations.with_raw_response.unrevoke(
+                account_id="account_id",
+                id=["string"],
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -315,26 +326,28 @@ class TestRegistrations:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_streaming_response_unrevoke(self, client: Cloudflare) -> None:
-        with client.zero_trust.devices.registrations.with_streaming_response.unrevoke(
-            account_id="account_id",
-            id=["string"],
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.zero_trust.devices.registrations.with_streaming_response.unrevoke(
+                account_id="account_id",
+                id=["string"],
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            registration = response.parse()
-            assert_matches_type(object, registration, path=["response"])
+                registration = response.parse()
+                assert_matches_type(object, registration, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     def test_path_params_unrevoke(self, client: Cloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            client.zero_trust.devices.registrations.with_raw_response.unrevoke(
-                account_id="",
-                id=["string"],
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                client.zero_trust.devices.registrations.with_raw_response.unrevoke(
+                    account_id="",
+                    id=["string"],
+                )
 
 
 class TestAsyncRegistrations:
@@ -361,6 +374,7 @@ class TestAsyncRegistrations:
             include="include",
             per_page=0,
             policy={"id": "11ffb86f-3f0c-4306-b4a2-e62f872b166a"},
+            registration_type="warp",
             search="search",
             seen_after="seen_after",
             seen_before="seen_before",
@@ -568,19 +582,22 @@ class TestAsyncRegistrations:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_method_revoke(self, async_client: AsyncCloudflare) -> None:
-        registration = await async_client.zero_trust.devices.registrations.revoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            registration = await async_client.zero_trust.devices.registrations.revoke(
+                account_id="account_id",
+                id=["string"],
+            )
+
         assert_matches_type(object, registration, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_raw_response_revoke(self, async_client: AsyncCloudflare) -> None:
-        response = await async_client.zero_trust.devices.registrations.with_raw_response.revoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.zero_trust.devices.registrations.with_raw_response.revoke(
+                account_id="account_id",
+                id=["string"],
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -590,43 +607,48 @@ class TestAsyncRegistrations:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_streaming_response_revoke(self, async_client: AsyncCloudflare) -> None:
-        async with async_client.zero_trust.devices.registrations.with_streaming_response.revoke(
-            account_id="account_id",
-            id=["string"],
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.zero_trust.devices.registrations.with_streaming_response.revoke(
+                account_id="account_id",
+                id=["string"],
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            registration = await response.parse()
-            assert_matches_type(object, registration, path=["response"])
+                registration = await response.parse()
+                assert_matches_type(object, registration, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_path_params_revoke(self, async_client: AsyncCloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            await async_client.zero_trust.devices.registrations.with_raw_response.revoke(
-                account_id="",
-                id=["string"],
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                await async_client.zero_trust.devices.registrations.with_raw_response.revoke(
+                    account_id="",
+                    id=["string"],
+                )
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_method_unrevoke(self, async_client: AsyncCloudflare) -> None:
-        registration = await async_client.zero_trust.devices.registrations.unrevoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            registration = await async_client.zero_trust.devices.registrations.unrevoke(
+                account_id="account_id",
+                id=["string"],
+            )
+
         assert_matches_type(object, registration, path=["response"])
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_raw_response_unrevoke(self, async_client: AsyncCloudflare) -> None:
-        response = await async_client.zero_trust.devices.registrations.with_raw_response.unrevoke(
-            account_id="account_id",
-            id=["string"],
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.zero_trust.devices.registrations.with_raw_response.unrevoke(
+                account_id="account_id",
+                id=["string"],
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -636,23 +658,25 @@ class TestAsyncRegistrations:
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_streaming_response_unrevoke(self, async_client: AsyncCloudflare) -> None:
-        async with async_client.zero_trust.devices.registrations.with_streaming_response.unrevoke(
-            account_id="account_id",
-            id=["string"],
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.zero_trust.devices.registrations.with_streaming_response.unrevoke(
+                account_id="account_id",
+                id=["string"],
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            registration = await response.parse()
-            assert_matches_type(object, registration, path=["response"])
+                registration = await response.parse()
+                assert_matches_type(object, registration, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @pytest.mark.skip(reason="TODO: investigate prism error for invalid security scheme used")
     @parametrize
     async def test_path_params_unrevoke(self, async_client: AsyncCloudflare) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
-            await async_client.zero_trust.devices.registrations.with_raw_response.unrevoke(
-                account_id="",
-                id=["string"],
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
+                await async_client.zero_trust.devices.registrations.with_raw_response.unrevoke(
+                    account_id="",
+                    id=["string"],
+                )

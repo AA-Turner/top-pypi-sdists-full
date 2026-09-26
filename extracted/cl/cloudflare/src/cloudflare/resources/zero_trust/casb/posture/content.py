@@ -78,6 +78,7 @@ class ContentResource(SyncAPIResource):
             "SALESFORCE",
             "SERVICENOW",
             "SLACK",
+            "ZOOM",
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -179,6 +180,7 @@ class ContentResource(SyncAPIResource):
                 "SALESFORCE",
                 "SERVICENOW",
                 "SLACK",
+                "ZOOM",
             ]
         ]
         | Omit = omit,
@@ -295,6 +297,7 @@ class AsyncContentResource(AsyncAPIResource):
             "SALESFORCE",
             "SERVICENOW",
             "SLACK",
+            "ZOOM",
         ]
         | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -396,6 +399,7 @@ class AsyncContentResource(AsyncAPIResource):
                 "SALESFORCE",
                 "SERVICENOW",
                 "SLACK",
+                "ZOOM",
             ]
         ]
         | Omit = omit,

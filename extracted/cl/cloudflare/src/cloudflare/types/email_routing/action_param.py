@@ -16,3 +16,4 @@ class ActionParam(TypedDict, total=False):
     """Type of supported action."""
 
     value: SequenceNotStr[str]
+    """List of values for the action. Currently limited to a single value."""

@@ -40,6 +40,7 @@ from .literals import (
     ClusteringFrequencyType,
     CodeInterpreterNetworkModeType,
     CodeInterpreterStatusType,
+    CoinbaseCdpSecretType,
     ConfigurationBundleStatusType,
     ConsentPortalStatusType,
     ContentLevelType,
@@ -205,6 +206,7 @@ __all__ = (
     "CodeTypeDef",
     "CoinbaseCdpConfigurationInputTypeDef",
     "CoinbaseCdpConfigurationOutputTypeDef",
+    "CoinbaseCdpRotationTargetsTypeDef",
     "ComponentConfigurationOutputTypeDef",
     "ComponentConfigurationTypeDef",
     "ComponentConfigurationUnionTypeDef",
@@ -299,6 +301,7 @@ __all__ = (
     "CredentialProviderOutputTypeDef",
     "CredentialProviderTypeDef",
     "CredentialProviderUnionTypeDef",
+    "CredentialRotationConfigTypeDef",
     "CredentialsProviderConfigurationTypeDef",
     "CustomClaimValidationTypeOutputTypeDef",
     "CustomClaimValidationTypeTypeDef",
@@ -895,6 +898,8 @@ __all__ = (
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
     "RootVolumeConfigurationTypeDef",
+    "RotatePaymentConnectorCredentialsRequestTypeDef",
+    "RotatePaymentConnectorCredentialsResponseTypeDef",
     "RouteToTargetActionOutputTypeDef",
     "RouteToTargetActionTypeDef",
     "RouteToTargetActionUnionTypeDef",
@@ -1319,6 +1324,9 @@ class S3LocationTypeDef(TypedDict):
 
 class SecretTypeDef(TypedDict):
     secretArn: str
+
+class CoinbaseCdpRotationTargetsTypeDef(TypedDict):
+    secrets: Sequence[CoinbaseCdpSecretType]
 
 class ComponentConfigurationOutputTypeDef(TypedDict):
     configuration: dict[str, Any]
@@ -2309,6 +2317,7 @@ PaymentConnectorSummaryTypeDef = TypedDict(
         "type": PaymentConnectorTypeType,
         "status": PaymentConnectorStatusType,
         "lastUpdatedAt": datetime,
+        "provisionMode": NotRequired[PaymentConnectorProvisionModeType],
     },
 )
 
@@ -3070,6 +3079,13 @@ class PutResourcePolicyResponseTypeDef(TypedDict):
     policy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RotatePaymentConnectorCredentialsResponseTypeDef(TypedDict):
+    paymentConnectorId: str
+    paymentManagerId: str
+    lastUpdatedAt: datetime
+    status: PaymentConnectorStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class SubmitRegistryRecordForApprovalResponseTypeDef(TypedDict):
     registryArn: str
     recordArn: str
@@ -3452,6 +3468,9 @@ class UpdateApiKeyCredentialProviderResponseTypeDef(TypedDict):
     createdTime: datetime
     lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CredentialRotationConfigTypeDef(TypedDict):
+    coinbaseCDP: NotRequired[CoinbaseCdpRotationTargetsTypeDef]
 
 ComponentConfigurationUnionTypeDef = Union[
     ComponentConfigurationTypeDef, ComponentConfigurationOutputTypeDef
@@ -4449,6 +4468,12 @@ class PaymentProviderConfigurationOutputTypeDef(TypedDict):
     coinbaseCdpConfiguration: NotRequired[CoinbaseCdpConfigurationOutputTypeDef]
     stripePrivyConfiguration: NotRequired[StripePrivyConfigurationOutputTypeDef]
 
+class RotatePaymentConnectorCredentialsRequestTypeDef(TypedDict):
+    paymentManagerId: str
+    paymentConnectorId: str
+    credentialsToRotate: CredentialRotationConfigTypeDef
+    clientToken: NotRequired[str]
+
 class CreateConfigurationBundleRequestTypeDef(TypedDict):
     bundleName: str
     components: Mapping[str, ComponentConfigurationUnionTypeDef]
@@ -4591,11 +4616,13 @@ GetPaymentConnectorResponseTypeDef = TypedDict(
         "name": str,
         "description": str,
         "type": PaymentConnectorTypeType,
+        "provisionMode": PaymentConnectorProvisionModeType,
         "credentialProviderConfigurations": list[CredentialsProviderConfigurationTypeDef],
         "createdAt": datetime,
         "lastUpdatedAt": datetime,
         "status": PaymentConnectorStatusType,
         "authorizationUrl": str,
+        "credentialsUpdatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

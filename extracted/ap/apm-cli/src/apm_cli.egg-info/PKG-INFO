@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apm-cli
-Version: 0.31.0
+Version: 0.32.0
 Summary: MCP configuration tool
 Author-email: Daniel Meppiel <user@example.com>
 License: MIT License
@@ -67,7 +67,7 @@ Requires-Dist: pylint>=3.0.0; extra == "dev"
 Requires-Dist: hypothesis>=6.0.0; extra == "dev"
 Requires-Dist: mutmut==3.6.0; extra == "dev"
 Provides-Extra: build
-Requires-Dist: pyinstaller>=6.0.0; extra == "build"
+Requires-Dist: pyinstaller>=6.17.0; extra == "build"
 Dynamic: license-file
 
 # APM – Agent Package Manager

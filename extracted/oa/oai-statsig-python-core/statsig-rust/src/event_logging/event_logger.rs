@@ -64,6 +64,7 @@ pub struct EventLogger {
     limit_flush_semaphore: Arc<Semaphore>,
     flush_interval: FlushInterval,
     shutdown_notify: Notify,
+    background_flush_stopped: tokio::sync::RwLock<bool>,
     ops_stats: Arc<OpsStatsForInstance>,
     sec_expo_experiment: SecExpoAsPrimaryExperiment,
     enqueue_dropped_events_count: AtomicU64,
@@ -92,6 +93,7 @@ impl EventLogger {
             logging_adapter: event_logging_adapter.clone(),
             non_exposed_checks: RwLock::new(HashMap::new()),
             shutdown_notify: Notify::new(),
+            background_flush_stopped: tokio::sync::RwLock::new(false),
             limit_flush_notify: Notify::new(),
             limit_flush_semaphore: Arc::new(Semaphore::new(MAX_LIMIT_FLUSH_TASKS)),
             ops_stats: OPS_STATS.get_for_instance(sdk_instance_id),
@@ -227,13 +229,19 @@ impl EventLogger {
     }
 
     pub async fn flush_all_pending_events(&self) -> Result<(), StatsigErr> {
+        let _flush = self.background_flush_stopped.read().await;
         self.try_flush_all_pending_events(FlushType::Manual).await
     }
 
     pub async fn shutdown(&self) -> Result<(), StatsigErr> {
-        let result = self.try_flush_all_pending_events(FlushType::Shutdown).await;
         self.shutdown_notify.notify_one();
-        result
+        // Each export holds a read guard through delivery or requeue. Tokio's
+        // fair write lock waits for those batches and prevents another export
+        // from taking them before the final snapshot. Runtime task ownership
+        // remains intact so the caller's shutdown deadline can still abort them.
+        let mut stopped = self.background_flush_stopped.write().await;
+        *stopped = true;
+        self.try_flush_all_pending_events(FlushType::Shutdown).await
     }
 
     pub fn force_shutdown(&self) {
@@ -362,6 +370,10 @@ impl EventLogger {
     }
 
     async fn flush_next_batch(&self, flush_type: FlushType) -> bool {
+        let stopped = self.background_flush_stopped.read().await;
+        if *stopped {
+            return false;
+        }
         self.prepare_event_queue_for_flush(flush_type);
 
         let mut batch = match self.queue.take_next_batch() {

@@ -14,15 +14,29 @@ from ..._types.enums import (
     INTERACTIVE_MIND_MAP_VARIANT,
     QUIZ_VARIANT,
     ArtifactTypeCode,
+    GrpcStatusCode,
 )
-from ...exceptions import DecodingError
+from ...exceptions import AuthError, DecodingError, RateLimitError, RPCTimeoutError, ServerError
 from ...rpc import (
     RPCError,
     RPCMethod,
 )
-from ...types import Artifact, ArtifactNotFoundError, ArtifactNotReadyError, ArtifactType
+from ...types import (
+    Artifact,
+    ArtifactListing,
+    ArtifactListingComponent,
+    ArtifactListingFailure,
+    ArtifactNotFoundError,
+    ArtifactNotReadyError,
+    ArtifactType,
+)
 from ..contracts import RpcCaller
-from ..rows.artifacts import ArtifactRow, unwrap_artifact_rows
+from ..rows.artifacts import (
+    ArtifactRow,
+    decode_artifact,
+    decode_mind_map_artifact,
+    unwrap_artifact_rows,
+)
 from ..rows.notes import NoteRow
 
 logger = logging.getLogger("notebooklm._artifact.listing")
@@ -108,12 +122,44 @@ class ArtifactListingService:
             notebook_id,
             f'NOT artifact.status = "{ARTIFACT_STATUS_SUGGESTED_WIRE_NAME}"',
         ]
-        result = await rpc.rpc_call(
-            RPCMethod.LIST_ARTIFACTS,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-        )
+        try:
+            result = await rpc.rpc_call(
+                RPCMethod.LIST_ARTIFACTS,
+                params,
+                source_path=f"/notebook/{notebook_id}",
+                allow_null=True,
+                raise_on_null_status=True,
+            )
+        # The catch-order contract guard requires explicit infrastructure
+        # pass-through before a broad RPCError handler, even with the type check.
+        except (AuthError, RateLimitError, ServerError):
+            raise
+        except RPCError as exc:
+            # A rejected read is not an empty listing (#2432). Classify bare
+            # status-tagged nulls here so polling can retry this read without
+            # changing the decoder's contract for unrelated RPC methods.
+            if type(exc) is not RPCError:
+                raise
+            if exc.rpc_code == GrpcStatusCode.DEADLINE_EXCEEDED:
+                # Preserve the status code and raw response on the cause,
+                # since transport timeout errors do not expose wire fields.
+                raise RPCTimeoutError(
+                    str(exc), method_id=exc.method_id, original_error=exc
+                ) from exc
+            error_type: type[RPCError]
+            if exc.rpc_code == GrpcStatusCode.RESOURCE_EXHAUSTED:
+                error_type = RateLimitError
+            elif exc.rpc_code in (GrpcStatusCode.INTERNAL, GrpcStatusCode.UNAVAILABLE):
+                error_type = ServerError
+            else:
+                raise
+            raise error_type(
+                str(exc),
+                method_id=exc.method_id,
+                rpc_code=exc.rpc_code,
+                found_ids=exc.found_ids,
+                raw_response=exc.raw_response,
+            ) from exc
         # LIST_ARTIFACTS returns either a wrapped single-element envelope
         # (``[[row1, row2, ...]]``) or an already-flat list of rows. The wrap
         # probe (``result[0]`` / ``inner[0]``) is centralised in
@@ -166,8 +212,18 @@ class ArtifactListingService:
         this before the backend split, so malformed optional metadata on an
         unrelated artifact must not change the requested task's result.
         """
-        row = find_artifact_row_by_id(await list_raw(notebook_id), task_id)
+        raw_rows = await list_raw(notebook_id)
+        row = find_artifact_row_by_id(raw_rows, task_id)
         if row is None:
+            if logger.isEnabledFor(logging.DEBUG):
+                # Capture siblings before the target-only projection discards
+                # them. Do not decode unrelated metadata or log content/URLs.
+                logger.debug(
+                    "Artifact %s not listed in notebook %s; listed_ids=%s",
+                    task_id,
+                    notebook_id,
+                    [candidate.id for candidate in iter_artifact_rows(raw_rows)],
+                )
             return []
         status = row.status
         artifact_type = row.type_code
@@ -210,10 +266,33 @@ class ArtifactListingService:
         It is also ``[]`` when the sub-fetch was skipped (a specific non-mind-map
         ``artifact_type``); that list is never threaded to ``download_mind_map``.
         """
+        listing, raw_studio_rows, mind_map_rows = await self.list_artifacts_with_status_and_raw(
+            notebook_id,
+            artifact_type,
+            list_raw=list_raw,
+            list_mind_maps=list_mind_maps,
+        )
+        return list(listing.items), raw_studio_rows, mind_map_rows
+
+    async def list_artifacts_with_status_and_raw(
+        self,
+        notebook_id: str,
+        artifact_type: ArtifactType | None,
+        *,
+        list_raw: ListRawCallback,
+        list_mind_maps: ListMindMapsCallback,
+    ) -> tuple[ArtifactListing, list[Any], list[Any] | None]:
+        """Build the aggregate result before secondary-read evidence is lost.
+
+        The raw-row values remain an internal download compatibility seam. The
+        public :class:`ArtifactListing` retains only typed artifacts and bounded,
+        sanitized failure evidence.
+        """
         raw_studio_rows = await list_raw(notebook_id)
         artifacts = self._filter_studio_artifacts(raw_studio_rows, artifact_type)
 
         mind_map_rows: list[Any] | None = []
+        failures: tuple[ArtifactListingFailure, ...] = ()
         if artifact_type is None or artifact_type == ArtifactType.MIND_MAP:
             try:
                 mind_map_rows = await list_mind_maps(notebook_id)
@@ -228,9 +307,24 @@ class ArtifactListingService:
                 # is temporarily unavailable. Use ``None`` (not ``[]``) as the
                 # "fetch failed" sentinel so a downstream caller re-fetches.
                 mind_map_rows = None
-                logger.warning("Failed to fetch mind maps: %s", e)
+                failures = (
+                    ArtifactListingFailure(
+                        component=ArtifactListingComponent.NOTE_BACKED_MIND_MAPS,
+                        error_type=type(e).__name__[:80],
+                        message="The note-backed mind-map listing is unavailable.",
+                    ),
+                )
+                logger.warning("Failed to fetch mind maps (%s).", type(e).__name__)
 
-        return artifacts, raw_studio_rows, mind_map_rows
+        return (
+            ArtifactListing(
+                items=tuple(artifacts),
+                is_complete=not failures,
+                failures=failures,
+            ),
+            raw_studio_rows,
+            mind_map_rows,
+        )
 
     async def get(
         self,
@@ -377,7 +471,7 @@ class ArtifactListingService:
         artifacts: list[Artifact] = []
         for art_data in artifacts_data:
             if isinstance(art_data, list) and len(art_data) > 0:
-                artifact = Artifact.from_api_response(art_data)
+                artifact = decode_artifact(Artifact, art_data)
                 if _matches_artifact_type(artifact, artifact_type):
                     artifacts.append(artifact)
         return artifacts
@@ -390,7 +484,7 @@ class ArtifactListingService:
         artifacts: list[Artifact] = []
         for mm_data in mind_maps:
             if isinstance(mm_data, list):
-                mind_map_artifact = Artifact.from_mind_map(mm_data)
+                mind_map_artifact = decode_mind_map_artifact(Artifact, mm_data)
                 if mind_map_artifact is not None:
                     if _matches_artifact_type(mind_map_artifact, artifact_type):
                         artifacts.append(mind_map_artifact)

@@ -1680,13 +1680,15 @@ class ToolDefinition(BaseModel):
     def format_user_message(self, arguments: dict[str, Any]) -> str:
         if not self.on_call_message_template:
             return f"Executing {' '.join(self.name.split('_')).title()}"
-        message = self.on_call_message_template
-        for placeholder in re.findall(r"\{\{(\w+)\}\}", message):
-            if placeholder in arguments:
-                val = arguments[placeholder]
-                replacement = ", ".join(str(i) for i in val) if isinstance(val, list) else str(val)
-                message = message.replace(f"{{{{{placeholder}}}}}", replacement)
-        return message
+        from matrx_ai.config.template_substitution import substitute_authored
+
+        template = self.on_call_message_template
+
+        def render(val: Any) -> str:
+            return ", ".join(str(i) for i in val) if isinstance(val, list) else str(val)
+
+        # One pass: an argument's own braces are data, never re-filled.
+        return substitute_authored(template, template, arguments, render)
 
 
 CxToolCallStatus = Literal["pending", "running", "completed", "error"]

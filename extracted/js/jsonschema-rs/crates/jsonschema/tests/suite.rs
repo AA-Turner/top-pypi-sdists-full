@@ -1,7 +1,11 @@
 #![allow(clippy::large_stack_arrays, clippy::needless_pass_by_value)]
 
 mod tests {
+    #[cfg(feature = "jsonb")]
+    use jsonschema::json::Jsonb;
     use jsonschema::{canonical::CanonicalKind, Draft, PatternOptions, Registry};
+    #[cfg(feature = "jsonb")]
+    use jsonschema_value::jsonb::encode::encode;
     #[cfg(not(target_arch = "wasm32"))]
     use std::env;
     #[cfg(not(target_arch = "wasm32"))]
@@ -27,7 +31,7 @@ mod tests {
         "draft2020-12::optional::format::idn_email::validation_of_an_internationalized_e_mail_addresses::a_local_part_with_a_lone_utf_16_surrogate_is_invalid",
     ]
 )]
-    fn test_suite(test: &Test, codegen_validator: Box<dyn CodegenValidator>) {
+    fn test_suite(test: &Test, codegen_validator: Option<Box<dyn CodegenValidator>>) {
         enum RegexEngine {
             Regex,
             FancyRegex,
@@ -69,6 +73,35 @@ mod tests {
             .with_registry(&registry);
         if test.is_optional {
             options = options.should_validate_formats(true);
+        }
+
+        #[cfg(feature = "jsonb")]
+        {
+            let mut options = jsonschema::options_for::<Jsonb>()
+                .with_draft(draft)
+                .with_registry(&registry);
+            if test.is_optional {
+                options = options.should_validate_formats(true);
+            }
+            let validator = options
+                .build(&test.schema)
+                .expect("Failed to build a schema");
+            let encoded = encode(&test.data);
+            let instance = Jsonb::root(&encoded);
+            for (method, valid) in [
+                ("is_valid", validator.is_valid(instance)),
+                ("validate", validator.validate(instance).is_ok()),
+            ] {
+                assert_eq!(
+                    valid,
+                    test.valid,
+                    "`{method}` over jsonb:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                    test.case,
+                    test.description,
+                    pretty_json(&test.schema),
+                    pretty_json(&test.data),
+                );
+            }
         }
 
         for engine in [RegexEngine::FancyRegex, RegexEngine::Regex] {
@@ -172,22 +205,24 @@ mod tests {
                     pretty_json(&test.schema),
                     pretty_json(&test.data),
                 );
-                assert!(
-                    codegen_validator.is_valid(&test.data),
-                    "Test case should be valid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case,
-                    test.description,
-                    pretty_json(&test.schema),
-                    pretty_json(&test.data),
-                );
-                assert!(
-                    codegen_validator.validate(&test.data).is_ok(),
-                    "Test case should be valid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case,
-                    test.description,
-                    pretty_json(&test.schema),
-                    pretty_json(&test.data),
-                );
+                if let Some(codegen_validator) = &codegen_validator {
+                    assert!(
+                        codegen_validator.is_valid(&test.data),
+                        "Test case should be valid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case,
+                        test.description,
+                        pretty_json(&test.schema),
+                        pretty_json(&test.data),
+                    );
+                    assert!(
+                        codegen_validator.validate(&test.data).is_ok(),
+                        "Test case should be valid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case,
+                        test.description,
+                        pretty_json(&test.schema),
+                        pretty_json(&test.data),
+                    );
+                }
                 assert!(
                     validator.validate(&test.data).is_ok(),
                     "Test case should be valid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
@@ -263,14 +298,16 @@ mod tests {
                     pretty_json(&test.schema),
                     pretty_json(&test.data),
                 );
-                assert!(
-                    !codegen_validator.is_valid(&test.data),
-                    "Test case should be invalid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case,
-                    test.description,
-                    pretty_json(&test.schema),
-                    pretty_json(&test.data),
-                );
+                if let Some(codegen_validator) = &codegen_validator {
+                    assert!(
+                        !codegen_validator.is_valid(&test.data),
+                        "Test case should be invalid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case,
+                        test.description,
+                        pretty_json(&test.schema),
+                        pretty_json(&test.data),
+                    );
+                }
                 let Some(error) = validator.validate(&test.data).err() else {
                     panic!(
                     "Test case should be invalid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
@@ -300,60 +337,62 @@ mod tests {
                     "Evaluation path should be a JSON pointer: {evaluation_path}"
                 );
 
-                // Compare codegen validate() error against runtime validate()
-                let codegen_error = codegen_validator
-                    .validate(&test.data)
-                    .err()
-                    .unwrap_or_else(|| panic!(
-                        "codegen validate() should return Err:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                if let Some(codegen_validator) = &codegen_validator {
+                    // Compare codegen validate() error against runtime validate()
+                    let codegen_error = codegen_validator
+                        .validate(&test.data)
+                        .err()
+                        .unwrap_or_else(|| panic!(
+                            "codegen validate() should return Err:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                            test.case, test.description,
+                            pretty_json(&test.schema), pretty_json(&test.data),
+                        ));
+                    let codegen_validation_error = codegen_error
+                        .downcast::<jsonschema::ValidationError<'static>>()
+                        .expect("codegen validate() error should downcast to ValidationError");
+                    let codegen_message = codegen_validation_error.to_string();
+                    let codegen_parts = (*codegen_validation_error).into_parts();
+                    assert_eq!(
+                        codegen_parts.schema_path, error_parts.schema_path,
+                        "codegen validate() schema_path mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
                         test.case, test.description,
                         pretty_json(&test.schema), pretty_json(&test.data),
-                    ));
-                let codegen_validation_error = codegen_error
-                    .downcast::<jsonschema::ValidationError<'static>>()
-                    .expect("codegen validate() error should downcast to ValidationError");
-                let codegen_message = codegen_validation_error.to_string();
-                let codegen_parts = (*codegen_validation_error).into_parts();
-                assert_eq!(
-                    codegen_parts.schema_path, error_parts.schema_path,
-                    "codegen validate() schema_path mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case, test.description,
-                    pretty_json(&test.schema), pretty_json(&test.data),
-                );
-                assert_eq!(
-                    codegen_parts.instance_path, error_parts.instance_path,
-                    "codegen validate() instance_path mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case, test.description,
-                    pretty_json(&test.schema), pretty_json(&test.data),
-                );
-                assert_eq!(
-                    codegen_message, runtime_message,
-                    "codegen validate() message mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case, test.description,
-                    pretty_json(&test.schema), pretty_json(&test.data),
-                );
+                    );
+                    assert_eq!(
+                        codegen_parts.instance_path, error_parts.instance_path,
+                        "codegen validate() instance_path mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case, test.description,
+                        pretty_json(&test.schema), pretty_json(&test.data),
+                    );
+                    assert_eq!(
+                        codegen_message, runtime_message,
+                        "codegen validate() message mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case, test.description,
+                        pretty_json(&test.schema), pretty_json(&test.data),
+                    );
 
-                // Compare codegen iter_errors() against runtime iter_errors()
-                let runtime_iter: Vec<(String, String, String)> = validator
-                    .iter_errors(&test.data)
-                    .map(|e| {
-                        (
-                            e.to_string(),
-                            e.schema_path().to_string(),
-                            e.instance_path().to_string(),
-                        )
-                    })
-                    .collect();
-                let codegen_iter = codegen_validator.iter_errors(&test.data);
-                assert_eq!(
-                    codegen_iter,
-                    runtime_iter,
-                    "codegen iter_errors() mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                    test.case,
-                    test.description,
-                    pretty_json(&test.schema),
-                    pretty_json(&test.data),
-                );
+                    // Compare codegen iter_errors() against runtime iter_errors()
+                    let runtime_iter: Vec<(String, String, String)> = validator
+                        .iter_errors(&test.data)
+                        .map(|e| {
+                            (
+                                e.to_string(),
+                                e.schema_path().to_string(),
+                                e.instance_path().to_string(),
+                            )
+                        })
+                        .collect();
+                    let codegen_iter = codegen_validator.iter_errors(&test.data);
+                    assert_eq!(
+                        codegen_iter,
+                        runtime_iter,
+                        "codegen iter_errors() mismatch:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                        test.case,
+                        test.description,
+                        pretty_json(&test.schema),
+                        pretty_json(&test.data),
+                    );
+                }
 
                 let evaluation = validator.evaluate(&test.data);
                 assert!(

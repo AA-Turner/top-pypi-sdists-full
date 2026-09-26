@@ -11,4 +11,5 @@ class RuleBulkEditParams(TypedDict, total=False):
     zone_id: Required[str]
     """Defines an identifier."""
 
-    body: Required[object]
+    id: Required[str]
+    """The unique identifier of the firewall rule."""

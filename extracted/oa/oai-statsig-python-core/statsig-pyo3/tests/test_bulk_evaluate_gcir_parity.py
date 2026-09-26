@@ -1,4 +1,3 @@
-import gzip
 import json
 from typing import Any
 
@@ -10,7 +9,7 @@ from statsig_python_core import (
     StatsigUser,
 )
 
-from mock_scrapi import MockScrapi
+from mock_scrapi import MockScrapi, decode_log_event_request
 from utils import get_test_data_resource
 
 
@@ -29,7 +28,7 @@ def _assert_common_evaluation_fields(
 def _decode_log_event_requests(mock_scrapi: MockScrapi) -> list[dict[str, Any]]:
     events = []
     for request in mock_scrapi.get_requests_for_endpoint("/v1/log_event"):
-        payload = json.loads(gzip.decompress(request.get_data()))
+        payload = decode_log_event_request(request)
         events.extend(payload["events"])
     return [
         event

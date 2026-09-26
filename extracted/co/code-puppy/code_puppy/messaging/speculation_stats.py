@@ -39,7 +39,7 @@ _SPECULATION_EVENTS = (
 
 @dataclass(kw_only=True)
 class SpeculationStats:
-    """Accumulate outcomes across snippets and turns in this terminal session."""
+    """Accumulate outcomes across snippets and turns in one conversation."""
 
     hits: int = 0
     misses: int = 0
@@ -47,6 +47,15 @@ class SpeculationStats:
     saved_ms: float = 0.0
     eager_saved_ms: float = 0.0
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def reset(self) -> None:
+        """Clear all counters for a fresh conversation."""
+        with self._lock:
+            self.hits = 0
+            self.misses = 0
+            self.wasted = 0
+            self.saved_ms = 0.0
+            self.eager_saved_ms = 0.0
 
     def handle_event(self, event: AgentStreamEvent) -> bool:
         """Consume telemetry without retaining generated code or rendering a box."""
@@ -68,11 +77,17 @@ class SpeculationStats:
         return True
 
     def render(self) -> Text:
-        """One styled row: counts light up only when non-zero, one headline total."""
+        """One styled row: counts light up only when non-zero, one headline total.
+
+        Speculative and eager savings are accumulated separately (they are
+        different clocks) but the row shows their SUM only -- a single
+        "saved" headline. Splitting it out per mechanism meant the narrowest
+        thing on screen was the one the user reads, and the split never
+        changed a decision.
+        """
         with self._lock:
             hits, misses, wasted = self.hits, self.misses, self.wasted
-            spec_ms, eager_ms = self.saved_ms, self.eager_saved_ms
-        total = _seconds(spec_ms + eager_ms)
+            total = _seconds(self.saved_ms + self.eager_saved_ms)
         row = Text()
         row.append(t("speculation.label"), style=f"bold {agent_accent()}")
         row.append("  ")
@@ -89,15 +104,6 @@ class SpeculationStats:
         row.append(
             t("speculation.saved", seconds=total),
             style="bold bright_green" if total != "0.0" else _MUTED,
-        )
-        row.append("   ")
-        row.append(
-            t(
-                "speculation.breakdown",
-                speculative_seconds=_seconds(spec_ms),
-                eager_seconds=_seconds(eager_ms),
-            ),
-            style=_MUTED,
         )
         return row
 
@@ -116,6 +122,12 @@ _stats = SpeculationStats()
 
 def get_speculation_stats() -> SpeculationStats:
     return _stats
+
+
+def reset_speculation_stats() -> None:
+    """Reset conversation-scoped telemetry and immediately refresh its chrome."""
+    _stats.reset()
+    refresh_speculation_status()
 
 
 def get_speculation_status() -> Text | None:

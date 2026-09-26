@@ -58,15 +58,6 @@ def _entry_key_path(t: Container, leaf: str) -> tuple[str, ...]:
     return (*suffix, leaf)
 
 
-def _find_entry(
-    iv: InlineTableValue, key_path: tuple[str, ...]
-) -> tuple[int, InlineTableEntry] | None:
-    for i, e in enumerate(iv.items):
-        if e.key_path == key_path:
-            return i, e
-    return None
-
-
 def _find_prefix_entries(iv: InlineTableValue, key_path: tuple[str, ...]) -> list[int]:
     """Return indices of entries whose ``key_parts`` start with ``key_path``."""
     n = len(key_path)
@@ -83,13 +74,18 @@ def _find_prefix_entries(iv: InlineTableValue, key_path: tuple[str, ...]) -> lis
 
 
 def copy_dotted_table(table: Container) -> InlineTableValue:
-    """Extract a navigator's entries without copying its owner's framing comments."""
+    """Clone a navigator's layout without copying unrelated value subtrees."""
     root = _outermost_inline(table)
     source = root._value  # noqa: SLF001
     assert source is not None
     prefix = table._path[len(root._path) :]  # noqa: SLF001
     depth = len(prefix)
-    value = copy.deepcopy(source)
+    # Splicing only rebinds discarded entries' layout, not their values.
+    # Keep originals alive until their memo entries are no longer needed.
+    discarded = [entry for entry in source.items if entry.key_path[:depth] != prefix]
+    memo = {id(entry): copy.copy(entry) for entry in discarded}
+    value = copy.deepcopy(source, memo)
+    del memo, discarded
     multiline = source.is_multiline()
     newline = _value_newline(source) if multiline else table._doc_newline  # noqa: SLF001
     removed = [
@@ -105,6 +101,7 @@ def copy_dotted_table(table: Container) -> InlineTableValue:
         entry.key_parts = entry.key_parts[depth:]
         entry.key_seps = entry.key_seps[depth:]
         entry.key_path = entry.key_path[depth:]
+    value.reindex()
     value.reset_multiline_cache()
     if multiline and not value.is_multiline():
         set_comma_value_multiline(
@@ -146,6 +143,7 @@ def append_entry(t: Container, key: str, new_value: Value) -> None:
     )
     style = detect_style(iv)
     splice_in(iv, new_entry, style, root._doc_newline)  # noqa: SLF001
+    iv.record_entry(new_entry)
 
 
 def overwrite_entry(t: Container, key: str, new_value: Value) -> None:
@@ -159,9 +157,8 @@ def overwrite_entry(t: Container, key: str, new_value: Value) -> None:
     iv = root._value  # noqa: SLF001
     assert iv is not None
     full_path = _entry_key_path(t, key)
-    found = _find_entry(iv, full_path)
-    if found is not None:
-        _, entry = found
+    entry = iv._key_index.get(full_path)  # noqa: SLF001
+    if entry is not None:
         entry.value = new_value
         return
     keep_pad = None if iv.is_multiline() else (iv.header_trivia, iv.final_trivia)
@@ -184,7 +181,7 @@ def delete_entry(t: Container, key: str) -> None:
     assert iv is not None
     full_path = _entry_key_path(t, key)
 
-    found = _find_entry(iv, full_path)
+    found = iv.find_entry(full_path)
     if found is not None:
         indices: list[int] = [found[0]]
     else:
@@ -195,6 +192,10 @@ def delete_entry(t: Container, key: str) -> None:
 def _remove_entries(iv: InlineTableValue, indices: list[int], nl: str) -> None:
     """Remove resolved entries while preserving comma-value boundaries."""
     assert indices, "inline view key must have backing entries"
+    for index in indices:
+        del iv._key_index[iv.items[index].key_path]  # noqa: SLF001
+    if not iv._key_index:  # noqa: SLF001
+        iv._key_index.clear()  # noqa: SLF001
     splice_out(
         iv,
         indices,
@@ -235,6 +236,7 @@ def reorder_inline(c: Container, new_key_order: list[str]) -> None:
         root._doc_newline,  # noqa: SLF001
         is_multiline=iv.is_multiline(),
     )
+    iv.reindex()
 
 
 def set_inline_multiline(root: Container, *, multiline: bool, indent: str) -> None:

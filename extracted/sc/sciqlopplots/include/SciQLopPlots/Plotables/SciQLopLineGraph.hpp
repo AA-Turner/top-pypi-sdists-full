@@ -36,11 +36,21 @@ class SciQLopLineGraph : public SciQLopMultiGraphBase
     Q_OBJECT
 
     std::shared_ptr<const std::vector<double>> _color_values;
+    //! What _color_values was made from, handed back as is by color_data().
+    SciQLopPyBuffer _color_buffer;
+    //! Only a gradient given explicitly: without one, the plot's gradient wins.
+    std::optional<::ColorGradient> _gradient_preset;
     QCPColorGradient _color_gradient { QCPColorGradient::gpJet };
     QPointer<QCPColorScale> _color_scale;
 
     //! Range, scale type and gradient into the multigraph: the scale's, or the graph's own.
     void push_color_mapping();
+    void check_color_length(const SciQLopPyBuffer& values, std::size_t samples) const;
+    //! One value per x sample, or an empty/invalid buffer to turn the colouring off.
+    void apply_color_values(const SciQLopPyBuffer& values);
+    void store_color_values(const SciQLopPyBuffer& values);
+    //! The stored values (or none) and their mapping into the multigraph.
+    void push_color_values();
 
 protected:
     QCPMultiGraph* create_multi_graph(QCPAxis* keyAxis, QCPAxis* valueAxis) override
@@ -70,6 +80,29 @@ public:
      */
     Q_SLOT void set_color_data(SciQLopPyBuffer values,
                                ::ColorGradient gradient = ::ColorGradient::Jet) override;
+
+    /*!
+     * \brief set_color_gradient The gradient colour data is drawn with, set_color_data's
+     *        or a coloured data batch's. It can be set before any data arrives.
+     */
+    void set_color_gradient(::ColorGradient gradient);
+
+    //! The colour values last set (set_color_data or a coloured batch), None when uncoloured.
+    SciQLopPyBuffer color_data() const noexcept { return _color_values ? _color_buffer : SciQLopPyBuffer {}; }
+    //! The gradient given to this graph, Jet when none was. On a plot, plot.z_gradient() is
+    //! the one drawn.
+    ::ColorGradient color_gradient() const noexcept
+    {
+        return _gradient_preset.value_or(::ColorGradient::Jet);
+    }
+
+    /*!
+     * \brief set_data_and_color A batch that carries its colour axis: \a data is [x, y],
+     *        \a color one value per x sample, drawn with the stored gradient.
+     * \throws std::invalid_argument before touching the graph if the batch is malformed.
+     */
+    void set_data_and_color(const QList<SciQLopPyBuffer>& data,
+                            const SciQLopPyBuffer& color) override;
 
 #ifndef BINDINGS_H
     bool has_color_values() const override { return _color_values != nullptr; }

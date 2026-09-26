@@ -11,18 +11,15 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+from ..._client_contracts import CookieRotator, CookieSaver
 from ..._runtime.config import CORE_LOGGER_NAME
 from ...auth import AuthTokens
-from .cookie_persistence import SaveCookiesToStorage
 from .kernel import Kernel
 
 if TYPE_CHECKING:
     from ...types import ConnectionLimits
     from .auth import AuthRefreshCoordinator
     from .cookie_persistence import CookiePersistence
-
-CookieSaver = SaveCookiesToStorage
-CookieRotator = Callable[..., Awaitable[None]]
 
 logger = logging.getLogger(CORE_LOGGER_NAME)
 
@@ -61,8 +58,10 @@ class WebTransportLifecycle:
         auth_coord: AuthRefreshCoordinator,
         cookie_persistence: CookiePersistence,
         kernel: Kernel,
-        timeout: float,
-        connect_timeout: float,
+        read_timeout: float | None,
+        write_timeout: float | None,
+        pool_timeout: float | None,
+        connect_timeout: float | None,
         limits: ConnectionLimits,
         keepalive_interval: float | None,
         keepalive_storage_path: Path | None,
@@ -74,7 +73,9 @@ class WebTransportLifecycle:
         self._auth_coord = auth_coord
         self._cookie_persistence = cookie_persistence
         self._kernel = kernel
-        self._timeout = timeout
+        self._read_timeout = read_timeout
+        self._write_timeout = write_timeout
+        self._pool_timeout = pool_timeout
         self._connect_timeout = connect_timeout
         self._limits = limits
         self._keepalive_interval = keepalive_interval
@@ -91,7 +92,7 @@ class WebTransportLifecycle:
         if self._active_epoch == epoch and self._kernel.http_client is not None:
             return
         self._active_epoch = epoch
-        self._kernel.activate_epoch(epoch)
+        self._kernel.activate(epoch)
         self._auth_coord.activate_epoch(epoch)
         await self._cookie_persistence._prepare_open_baseline(
             self._cookie_persistence_path,
@@ -99,7 +100,9 @@ class WebTransportLifecycle:
         )
         await self._kernel.open(
             auth=self._auth,
-            timeout=self._timeout,
+            read_timeout=self._read_timeout,
+            write_timeout=self._write_timeout,
+            pool_timeout=self._pool_timeout,
             connect_timeout=self._connect_timeout,
             limits=self._limits,
             capture_cookie_snapshot=self._cookie_persistence.capture_open_snapshot,
@@ -115,7 +118,7 @@ class WebTransportLifecycle:
         """Fence Kernel/Auth synchronously, then settle web background work."""
         epoch = self._active_epoch
         self._active_epoch = None
-        self._kernel.fence_epoch(epoch)
+        self._kernel.fence()
         self._auth_coord.fence_epoch(epoch)
         task = self._keepalive_task
         self._keepalive_task = None

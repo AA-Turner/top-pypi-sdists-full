@@ -22,10 +22,23 @@ class BulkCreateParams(TypedDict, total=False):
     comment: Optional[str]
 
     destination: Literal["Inbox", "JunkEmail", "DeletedItems", "RecoverableItemsDeletions", "RecoverableItemsPurges"]
+    """Required when action is 'MOVE'."""
 
-    expected_disposition: Literal[
-        "MALICIOUS", "MALICIOUS-BEC", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "ENCRYPTED", "EXTERNAL", "UNKNOWN", "NONE"
+    expected_disposition: Optional[
+        Literal[
+            "MALICIOUS",
+            "MALICIOUS-BEC",
+            "SUSPICIOUS",
+            "SPOOF",
+            "SPAM",
+            "BULK",
+            "ENCRYPTED",
+            "EXTERNAL",
+            "UNKNOWN",
+            "NONE",
+        ]
     ]
+    """Nonfunctional field. End of life: December 1, 2026."""
 
 
 class SearchParams(TypedDict, total=False):
@@ -37,8 +50,8 @@ class SearchParams(TypedDict, total=False):
 
     alert_id: Optional[str]
 
-    delivery_status: Literal[
-        "delivered", "moved", "quarantined", "rejected", "deferred", "bounced", "queued", "move_failed"
+    delivery_status: Optional[
+        Literal["delivered", "moved", "quarantined", "rejected", "deferred", "bounced", "queued", "move_failed"]
     ]
     """Delivery status of the message."""
 
@@ -51,8 +64,19 @@ class SearchParams(TypedDict, total=False):
 
     exact_subject: Optional[str]
 
-    final_disposition: Literal[
-        "MALICIOUS", "MALICIOUS-BEC", "SUSPICIOUS", "SPOOF", "SPAM", "BULK", "ENCRYPTED", "EXTERNAL", "UNKNOWN", "NONE"
+    final_disposition: Optional[
+        Literal[
+            "MALICIOUS",
+            "MALICIOUS-BEC",
+            "SUSPICIOUS",
+            "SPOOF",
+            "SPAM",
+            "BULK",
+            "ENCRYPTED",
+            "EXTERNAL",
+            "UNKNOWN",
+            "NONE",
+        ]
     ]
 
     message_action: Optional[Literal["PREVIEW", "QUARANTINE_RELEASED", "MOVED"]]

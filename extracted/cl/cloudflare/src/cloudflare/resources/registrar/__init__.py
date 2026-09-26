@@ -24,6 +24,14 @@ from .extensions import (
     ExtensionsResourceWithStreamingResponse,
     AsyncExtensionsResourceWithStreamingResponse,
 )
+from .transfer_in import (
+    TransferInResource,
+    AsyncTransferInResource,
+    TransferInResourceWithRawResponse,
+    AsyncTransferInResourceWithRawResponse,
+    TransferInResourceWithStreamingResponse,
+    AsyncTransferInResourceWithStreamingResponse,
+)
 from .registrations import (
     RegistrationsResource,
     AsyncRegistrationsResource,
@@ -39,6 +47,14 @@ from .update_status import (
     AsyncUpdateStatusResourceWithRawResponse,
     UpdateStatusResourceWithStreamingResponse,
     AsyncUpdateStatusResourceWithStreamingResponse,
+)
+from .transfer_in_status import (
+    TransferInStatusResource,
+    AsyncTransferInStatusResource,
+    TransferInStatusResourceWithRawResponse,
+    AsyncTransferInStatusResourceWithRawResponse,
+    TransferInStatusResourceWithStreamingResponse,
+    AsyncTransferInStatusResourceWithStreamingResponse,
 )
 from .registration_status import (
     RegistrationStatusResource,
@@ -80,6 +96,18 @@ __all__ = [
     "AsyncExtensionsResourceWithRawResponse",
     "ExtensionsResourceWithStreamingResponse",
     "AsyncExtensionsResourceWithStreamingResponse",
+    "TransferInResource",
+    "AsyncTransferInResource",
+    "TransferInResourceWithRawResponse",
+    "AsyncTransferInResourceWithRawResponse",
+    "TransferInResourceWithStreamingResponse",
+    "AsyncTransferInResourceWithStreamingResponse",
+    "TransferInStatusResource",
+    "AsyncTransferInStatusResource",
+    "TransferInStatusResourceWithRawResponse",
+    "AsyncTransferInStatusResourceWithRawResponse",
+    "TransferInStatusResourceWithStreamingResponse",
+    "AsyncTransferInStatusResourceWithStreamingResponse",
     "RegistrarResource",
     "AsyncRegistrarResource",
     "RegistrarResourceWithRawResponse",

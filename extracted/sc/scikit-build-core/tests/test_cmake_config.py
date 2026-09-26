@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import sysconfig
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 DIR = Path(__file__).parent.resolve()
 
 
-def single_config(param: None | str) -> bool:
+def single_config(param: str | None) -> bool:
     if param is None:
         return not sysconfig.get_platform().startswith("win")
 
@@ -303,6 +304,29 @@ def test_install_targets(tmp_path: Path, fp):
     assert not any("--install" in c for c in fp.calls)
 
 
+def test_build_multiple_targets_one_call(tmp_path: Path, fp):
+    source_dir = tmp_path / "src"
+    source_dir.mkdir()
+    build_dir = tmp_path / "build"
+
+    config = CMaker(
+        CMake(Version("3.30"), Path("cmake")),
+        source_dir=source_dir,
+        build_dir=build_dir,
+        build_type="Release",
+        single_config=True,
+    )
+
+    fp.register([fp.program("cmake"), fp.any()], occurrences=10)
+
+    config.build(targets=["one", "two"])
+
+    build_calls = [c for c in fp.calls if "--build" in c]
+    assert len(build_calls) == 1
+    call = [os.fspath(arg) for arg in build_calls[0]]
+    assert call[call.index("--target") :] == ["--target", "one", "two"]
+
+
 def test_install_targets_and_components(tmp_path: Path, fp):
     source_dir = tmp_path / "src"
     source_dir.mkdir()
@@ -339,3 +363,54 @@ def test_get_cmake_via_envvar(monkeypatch: pytest.MonkeyPatch, fp):
     result = CMake.default_search(env=os.environ)
     assert result.cmake_path == cmake_path
     assert result.version == Version("3.20.0")
+
+
+def test_cmake_fresh_clears_cache(tmp_path: Path) -> None:
+    cmake = CMake(Version("3.30"), Path("cmake"))
+    source_dir = DIR / "packages" / "simple_pure"
+    build_dir = tmp_path / "build"
+
+    CMaker(cmake, source_dir=source_dir, build_dir=build_dir, build_type="Release")
+    cache = build_dir / "CMakeCache.txt"
+    cmakefiles = build_dir / "CMakeFiles"
+    cache.write_text("cached")
+    cmakefiles.mkdir()
+    cmakefiles.joinpath("obj.txt").write_text("obj")
+
+    CMaker(cmake, source_dir=source_dir, build_dir=build_dir, build_type="Release")
+    assert cache.exists()
+    assert cmakefiles.joinpath("obj.txt").exists()
+
+    CMaker(
+        cmake,
+        source_dir=source_dir,
+        build_dir=build_dir,
+        build_type="Release",
+        fresh=True,
+    )
+    assert not cache.exists()
+    assert not cmakefiles.exists()
+
+
+def test_get_cmake_via_envvar_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CMAKE_EXECUTABLE", str(DIR / "not-a-cmake"))
+    with pytest.raises(CMakeNotFoundError):
+        CMake.default_search(env=os.environ)
+
+
+@pytest.mark.parametrize("contents", ["", "{", '{"source_dir": "/nope"}', "[]"])
+def test_cmake_corrupt_info_file(tmp_path: Path, contents: str) -> None:
+    cmake = CMake(Version("3.30"), Path("cmake"))
+    source_dir = DIR / "packages" / "simple_pure"
+    build_dir = tmp_path / "build"
+    build_dir.mkdir()
+
+    info = build_dir / ".skbuild-info.json"
+    info.write_text(contents, encoding="utf-8")
+    cache = build_dir / "CMakeCache.txt"
+    cache.write_text("cached", encoding="utf-8")
+
+    CMaker(cmake, source_dir=source_dir, build_dir=build_dir, build_type="Release")
+
+    assert not cache.exists()
+    assert json.loads(info.read_text(encoding="utf-8"))["source_dir"] == str(source_dir)

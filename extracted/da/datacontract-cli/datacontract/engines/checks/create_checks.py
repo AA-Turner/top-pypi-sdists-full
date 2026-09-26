@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import List, Optional
+from typing import List, Mapping, Optional
 
 import yaml
 from open_data_contract_standard.model import (
@@ -21,11 +21,12 @@ from open_data_contract_standard.model import (
     SchemaProperty,
     Server,
 )
+from sqlglot import Dialect, exp
 
-from datacontract.config.variables import UnresolvedVariableError, resolve_variables
-from datacontract.engines.checks.check_spec import CheckSpec, MetricType, Op, Threshold
+from datacontract.config.variables import VariableError, contains_variables, resolve_variables
+from datacontract.engines.checks.check_spec import METADATA_METRICS, CheckSpec, MetricType, Op, Threshold
 from datacontract.engines.checks.dimensions import default_dimension
-from datacontract.engines.checks.sql_guard import dialect_for_server_type, is_read_only_query
+from datacontract.engines.checks.sql_guard import dialect_for_server_type, refusal_reason, sqlglot_dialect_by_name
 from datacontract.engines.checks.type_normalize import normalize_type_name
 from datacontract.engines.ibis.native_type import supports_native_type_introspection
 from datacontract.model.enum_values import get_enum_values
@@ -34,7 +35,8 @@ from datacontract.model.server import get_server_type
 logger = logging.getLogger(__name__)
 
 _FILE_SERVER_TYPES = {"local", "s3", "gcs", "azure"}
-_NESTED_CHECK_SERVER_TYPES = {"dataframe", "databricks"}
+# Spark and every server read through DuckDB
+_NESTED_CHECK_SERVER_TYPES = {"dataframe", "databricks", "duckdb", "iceberg", "kafka"} | _FILE_SERVER_TYPES
 
 
 # ---------------------------------------------------------------------------
@@ -121,23 +123,25 @@ def _property_type(prop: SchemaProperty) -> str:
 
 def _iter_property_paths(
     properties: list[SchemaProperty] | None,
-    server_type: str | None,
     prefix: str | None = None,
 ):
+    """Yield ``(path, property, nested)`` for every property, descending into objects and array items."""
     for prop in properties or []:
         field = prop.physicalName or prop.name
         field_path = f"{prefix}.{field}" if prefix else field
-        yield field_path, prop
+        yield field_path, prop, prefix is not None
 
         prop_type = _property_type(prop)
-        if server_type in _NESTED_CHECK_SERVER_TYPES and prop_type == "object" and prop.properties:
-            yield from _iter_property_paths(prop.properties, server_type, field_path)
-        elif (
-            server_type in _NESTED_CHECK_SERVER_TYPES and prop_type == "array" and prop.items and prop.items.properties
-        ):
+        if prop_type == "object" and prop.properties:
+            yield from _iter_property_paths(prop.properties, field_path)
+        elif prop_type == "array" and prop.items and prop.items.properties:
             # `[]` marks the array hop; the executor turns it into a predicate
             # over the elements instead of a column lookup.
-            yield from _iter_property_paths(prop.items.properties, server_type, f"{field_path}[]")
+            yield from _iter_property_paths(prop.items.properties, f"{field_path}[]")
+
+
+def nested_not_run_reason(server_type: Optional[str]) -> str:
+    return f"Checks on nested properties are not supported on {server_type} servers."
 
 
 _PERCENT_UNITS = {"percent", "percentage", "%"}
@@ -184,38 +188,45 @@ def prepare_query(
 ) -> Optional[str]:
     """Substitute placeholders in a user SQL query.
 
-    Identifiers are emitted unquoted: the query runs through ibis against the
-    backend, which resolves unquoted names per its own casing rules (this is
-    what soda effectively did for the common backends).
+    Each dot-separated part of a name is quoted only where the server's dialect
+    cannot read it bare, so a plain name keeps the backend's case-insensitive
+    resolution. Quotes the author wrote around a placeholder are dropped, except
+    that backticks force the name to be quoted (e.g. a reserved word on Spark).
     """
     if not quality.query:
         return None
 
-    query = quality.query
-    query = re.sub(r'["\']?\$?\{model}["\']?', model_name, query)
-    query = re.sub(r'["\']?\$?\{table}["\']?', model_name, query)
-    query = re.sub(r'["\']?\$?\{object}["\']?', model_name, query)
+    dialect = sqlglot_dialect_by_name(dialect_for_server_type(get_server_type(server)))
+    # the dialect's extra name characters, e.g. `$` in Snowflake's `amount$usd`
+    name_chars = re.escape("".join(Dialect.get_or_raise(dialect).tokenizer_class.VAR_SINGLE_TOKENS))
+    bare = re.compile(rf"[_a-zA-Z][\w{name_chars}]*")
 
-    schema_replacement = server.schema_ if server and server.schema_ else model_name
-    query = re.sub(r'["\']?\$?\{schema}["\']?', schema_replacement, query)
-
+    names = dict.fromkeys(("model", "table", "object"), model_name)
+    names["schema"] = server.schema_ if server and server.schema_ else model_name
     for placeholder in ("dataset", "project", "catalog", "database"):
-        replacement = getattr(server, placeholder, None) if server else None
-        query = re.sub(rf'["\']?\$?\{{{placeholder}}}["\']?', replacement or model_name, query)
-
+        names[placeholder] = (getattr(server, placeholder, None) if server else None) or model_name
     if field_name is not None:
-        query = re.sub(r'["\']?\$?\{field}["\']?', field_name, query)
-        query = re.sub(r'["\']?\$?\{column}["\']?', field_name, query)
-        query = re.sub(r'["\']?\$?\{property}["\']?', field_name, query)
+        names |= dict.fromkeys(("field", "column", "property"), field_name)
 
-    return query
+    def identifier(match: re.Match) -> str:
+        forced = "`" in match.group(0)
+        return ".".join(
+            exp.to_identifier(part, quoted=forced or not bare.fullmatch(part)).sql(dialect=dialect)
+            for part in names[match.group(1)].split(".")
+        )
+
+    # one pass, so a substituted name is not searched for placeholders again
+    return re.sub(rf"[\"'`]?\$?\{{({'|'.join(names)})}}[\"'`]?", identifier, quality.query)
 
 
 # ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
 def create_checks(
-    data_contract: OpenDataContractStandard, server: Optional[Server], schema_name: str = "all"
+    data_contract: OpenDataContractStandard,
+    server: Optional[Server],
+    schema_name: str = "all",
+    variables: Optional[Mapping[str, str]] = None,
 ) -> List[CheckSpec]:
     checks: List[CheckSpec] = []
     if data_contract.schema_ is None:
@@ -226,7 +237,7 @@ def create_checks(
         if _is_azure_blob_schema(schema_obj, server):
             # File-metadata checks are emitted by check_azure_blob_file
             continue
-        checks.extend(_to_schema_checks(schema_obj, server))
+        checks.extend(_to_schema_checks(schema_obj, server, variables))
     checks.extend(_to_servicelevel_checks(data_contract, server))
     checks = [c for c in checks if c is not None]
     # Schema and service level checks cannot declare an ODCS dimension, so fill
@@ -241,7 +252,9 @@ def _is_azure_blob_schema(schema_object: SchemaObject, server: Optional[Server])
     return server is not None and server.type == "azure" and (schema_object.logicalType or "").lower() == "blob"
 
 
-def _to_schema_checks(schema_object: SchemaObject, server: Optional[Server]) -> List[CheckSpec]:
+def _to_schema_checks(
+    schema_object: SchemaObject, server: Optional[Server], variables: Optional[Mapping[str, str]] = None
+) -> List[CheckSpec]:
     checks: List[CheckSpec] = []
     server_type = get_server_type(server) if server is not None else None
     model = to_schema_name(schema_object, server_type)
@@ -260,7 +273,8 @@ def _to_schema_checks(schema_object: SchemaObject, server: Optional[Server]) -> 
     )
     primary_key_is_composite = len(primary_key_props) > 1
 
-    for field, prop in _iter_property_paths(properties, server_type):
+    for field, prop, nested in _iter_property_paths(properties):
+        first_check = len(checks)
         # ODCS physicalName is the real column; mirror to_schema_name at field level.
 
         checks.append(
@@ -533,7 +547,26 @@ def _to_schema_checks(schema_object: SchemaObject, server: Optional[Server]) -> 
             )
 
         if prop.quality:
-            checks.extend(_quality_checks(model, field, prop.quality, server))
+            checks.extend(_quality_checks(model, field, prop.quality, server, variables))
+
+        # A check the server cannot run is reported, not dropped.
+        unenforced = []
+        if nested and server_type not in _NESTED_CHECK_SERVER_TYPES:
+            # The parent's nested type check already covers presence and types.
+            if check_types:
+                checks[first_check:] = [c for c in checks[first_check:] if c.metric not in METADATA_METRICS]
+            unenforced = checks[first_check:]
+            reason = nested_not_run_reason(server_type)
+        elif uses_raw_view:
+            # The file is cast into the contract's types, so a type check would compare the contract with itself.
+            unenforced = [c for c in checks[first_check:] if c.metric in METADATA_METRICS - {MetricType.FIELD_PRESENT}]
+            reason = f"Checking types in {server.format} files is not supported yet."
+        for check in unenforced:
+            # An unrunnable rule keeps its own, more specific reason.
+            if check.preset_result != "warning":
+                check.metric = MetricType.UNSUPPORTED
+                check.preset_result = "warning"
+                check.preset_reason = reason
 
     if primary_key_is_composite:
         primary_key_fields = [prop.physicalName or prop.name for prop in primary_key_props]
@@ -552,7 +585,7 @@ def _to_schema_checks(schema_object: SchemaObject, server: Optional[Server]) -> 
         )
 
     if schema_object.quality:
-        checks.extend(_quality_checks(model, None, schema_object.quality, server))
+        checks.extend(_quality_checks(model, None, schema_object.quality, server, variables))
 
     return checks
 
@@ -653,11 +686,15 @@ def _row_count_check(model, threshold: Threshold, severity=None, dimension=None)
 # quality list
 # ---------------------------------------------------------------------------
 def _quality_checks(
-    model: str, field: Optional[str], quality_list: List[DataQuality], server: Optional[Server]
+    model: str,
+    field: Optional[str],
+    quality_list: List[DataQuality],
+    server: Optional[Server],
+    variables: Optional[Mapping[str, str]] = None,
 ) -> List[CheckSpec]:
     checks: List[CheckSpec] = []
     for count, quality in enumerate(quality_list):
-        rule_checks = _quality_rule_checks(model, field, quality, count, server)
+        rule_checks = _quality_rule_checks(model, field, quality, count, server, variables)
         # Every check keeps a link back to the rule that declared it, so that
         # `test --quality-id` / `test --tag` can select it.
         for check in rule_checks:
@@ -668,12 +705,81 @@ def _quality_checks(
     return checks
 
 
+# The levels each library metric means something at, named as a contract author writes them.
+_METRIC_LEVELS = {
+    "rowCount": ("schema",),
+    "duplicateValues": ("schema", "property"),
+    "nullValues": ("property",),
+    "missingValues": ("property",),
+    "invalidValues": ("property",),
+}
+
+# A percent threshold needs a row-count denominator, which only these metrics have.
+_PERCENT_METRICS = ("nullValues", "missingValues", "invalidValues")
+
+
+def unrunnable_reason(quality: DataQuality, field: Optional[str]) -> Optional[str]:
+    """Why a library quality rule cannot run as written, or None; decided from the rule alone, for `lint` and `test`."""
+    metric = quality.metric
+    # A reference is decided by `test`, once it resolves.
+    if metric is None or contains_variables(metric):
+        return None
+    if metric not in _METRIC_LEVELS:
+        return f"Metric {metric} is not supported. Supported metrics are {', '.join(_METRIC_LEVELS)}."
+    level = "property" if field is not None else "schema"
+    allowed = _METRIC_LEVELS[metric]
+    if level not in allowed:
+        return (
+            f"Metric {metric} is only supported at {' or '.join(allowed)} level, "
+            f"but this rule is declared at {level} level."
+        )
+    if is_percent_unit(quality) and metric not in _PERCENT_METRICS:
+        return "'unit:percent' has to be combined with 'nullValues', 'missingValues' or 'invalidValues'."
+    if metric == "invalidValues":
+        args = quality.arguments or {}
+        if args.get("validValues") is None and args.get("pattern") is None:
+            return "Metric invalidValues needs a validValues or a pattern argument."
+    return None
+
+
+def unexecuted_check_name(model: str, field: Optional[str]) -> str:
+    return f"Quality rule on {model}.{field} cannot be tested" if field else f"Quality rule on {model} cannot be tested"
+
+
+def _unexecuted_check(
+    check_key: str,
+    check_type: str,
+    model: str,
+    field: Optional[str],
+    quality: DataQuality,
+    reason: str,
+    result: str = "warning",
+) -> List[CheckSpec]:
+    """A rule the engine cannot run, reported rather than dropped."""
+    return [
+        CheckSpec(
+            key=check_key,
+            category="quality",
+            type=check_type,
+            name=quality.description or unexecuted_check_name(model, field),
+            model=model,
+            field=field,
+            metric=MetricType.UNSUPPORTED,
+            dimension=quality.dimension,
+            severity=quality.severity,
+            preset_result=result,
+            preset_reason=reason,
+        )
+    ]
+
+
 def _quality_rule_checks(
     model: str,
     field: Optional[str],
     quality: DataQuality,
     count: int,
     server: Optional[Server],
+    variables: Optional[Mapping[str, str]] = None,
 ) -> List[CheckSpec]:
     """The checks of a single ODCS quality rule (``count`` is its index in the list)."""
     if quality.type == "custom" and quality.engine == "soda" and quality.implementation:
@@ -726,46 +832,26 @@ def _quality_rule_checks(
         threshold = to_threshold(quality)
         query = prepare_query(quality, model, field, server)
         if query is None:
-            logger.warning(f"Quality check {check_key} has no query")
-            return []
+            return _unexecuted_check(check_key, check_type, model, field, quality, "The rule has no query.")
         if threshold is None:
-            logger.warning(f"Quality check {check_key} has no valid threshold")
-            return []
+            return _unexecuted_check(check_key, check_type, model, field, quality, "The rule has no valid comparator.")
 
         def not_executed(reason: str) -> List[CheckSpec]:
-            return [
-                CheckSpec(
-                    key=check_key,
-                    category="quality",
-                    type=check_type,
-                    name=quality.description or "Quality Check",
-                    model=model,
-                    field=field,
-                    metric=MetricType.UNSUPPORTED,
-                    dimension=quality.dimension,
-                    severity=quality.severity,
-                    preset_result="failed",
-                    preset_reason=reason,
-                )
-            ]
+            return _unexecuted_check(check_key, check_type, model, field, quality, reason, result="failed")
 
         # ``${VAR}`` references (ODCS v3.2.0) resolve from the environment now that
         # the query is about to be used; the CLI's own ``${model}``-style placeholders
         # were substituted first, so they are not mistaken for variables. The
         # contract keeps the references.
         try:
-            query = resolve_variables(query, source=f"the query of quality check '{check_key}'")
-        except UnresolvedVariableError as e:
-            return not_executed(f"{e} Set it in the environment or a .env file, or use ${{{e.name}:-default}}.")
+            query = resolve_variables(query, source=f"the query of quality check '{check_key}'", variables=variables)
+        except VariableError as e:
+            return not_executed(str(e))
         # The query is read as the dialect of the server it runs against, so
         # dialect-specific syntax is not mistaken for something that is not a query.
-        parse_dialect = dialect_for_server_type(get_server_type(server))
-        if not is_read_only_query(query, parse_dialect):
-            return not_executed(
-                f"A quality rule query must be a single read-only query, and this one could "
-                f"not be read as one{f' ({parse_dialect} SQL)' if parse_dialect else ''}, "
-                f"so it was not executed."
-            )
+        refusal = refusal_reason(query, dialect_for_server_type(get_server_type(server)))
+        if refusal is not None:
+            return not_executed(refusal)
         return [
             CheckSpec(
                 key=check_key,
@@ -782,10 +868,18 @@ def _quality_rule_checks(
             )
         ]
     if quality.metric is not None:
+        if field is None:
+            check_key = f"{model}__quality_library_{count}"
+            check_type = "model_quality_library"
+        else:
+            check_key = f"{model}__{field}__quality_library_{count}"
+            check_type = "field_quality_library"
+        reason = unrunnable_reason(quality, field)
+        if reason is not None:
+            return _unexecuted_check(check_key, check_type, model, field, quality, reason)
         threshold = to_threshold(quality)
         if threshold is None:
-            logger.warning(f"Quality metric {quality.metric} has no valid threshold")
-            return []
+            return _unexecuted_check(check_key, check_type, model, field, quality, "The rule has no valid comparator.")
         return _quality_metric_check(model, field, quality, threshold)
     return []
 
@@ -795,13 +889,6 @@ def _quality_metric_check(model, field, quality: DataQuality, threshold: Thresho
     severity = quality.severity
     dimension = quality.dimension
     is_percent = is_percent_unit(quality)
-
-    # Percent thresholds only make sense for the count-of-bad-rows metrics, where
-    # the engine can divide by the model row count. Warn (and fall back to an
-    # absolute comparison) rather than silently comparing a count to a percent.
-    if is_percent and metric not in ("nullValues", "missingValues", "invalidValues"):
-        logger.warning(f"Quality metric {metric} does not support unit: percent; comparing absolute count")
-        is_percent = False
 
     if metric == "rowCount":
         return [_row_count_check(model, threshold, severity=severity, dimension=dimension)]
@@ -836,9 +923,6 @@ def _quality_metric_check(model, field, quality: DataQuality, threshold: Thresho
             )
         ]
     if metric == "nullValues":
-        if field is None:
-            logger.warning("Quality check nullValues is only supported at field level")
-            return []
         return [
             _missing_count_check(
                 model,
@@ -852,17 +936,9 @@ def _quality_metric_check(model, field, quality: DataQuality, threshold: Thresho
             )
         ]
     if metric == "invalidValues":
-        if field is None:
-            logger.warning("Quality check invalidValues is only supported at field level")
-            return []
         args = quality.arguments or {}
         valid_values = args.get("validValues")
         pattern = args.get("pattern")
-        if valid_values is None and pattern is None:
-            logger.warning(
-                f"Quality check invalidValues on field {field} has no validValues or pattern argument; skipping"
-            )
-            return []
         return [
             _invalid_count_check(
                 model,
@@ -879,9 +955,6 @@ def _quality_metric_check(model, field, quality: DataQuality, threshold: Thresho
             )
         ]
     if metric == "missingValues":
-        if field is None:
-            logger.warning("Quality check missingValues is only supported at field level")
-            return []
         missing_values = quality.arguments.get("missingValues") if quality.arguments else None
         if missing_values is not None:
             missing_values = [v for v in missing_values if v is not None]
@@ -898,8 +971,7 @@ def _quality_metric_check(model, field, quality: DataQuality, threshold: Thresho
                 dimension=dimension,
             )
         ]
-    logger.warning(f"Quality check {metric} is not yet supported")
-    return []
+    return []  # unreachable: unrunnable_reason rejects every other metric
 
 
 # ---------------------------------------------------------------------------

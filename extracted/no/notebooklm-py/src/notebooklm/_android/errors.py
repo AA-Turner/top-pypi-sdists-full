@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import traceback
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import NoReturn
+from functools import wraps
+from typing import Any, NoReturn, ParamSpec, TypeVar
 
+from .._idempotency import mark_commit_state, mark_unconfirmed
 from ..exceptions import (
     AuthError,
     ClientError,
@@ -14,6 +17,8 @@ from ..exceptions import (
     RPCTimeoutError,
     ServerError,
 )
+from ..outcomes import CommitState
+from .retry_policy import replay_safe_for
 
 
 @dataclass(frozen=True)
@@ -44,6 +49,9 @@ _STATUS_CODES = {
     "UNAUTHENTICATED": 16,
 }
 _STATUS_NAMES = {code: name for name, code in _STATUS_CODES.items()}
+
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
 
 
 def grpc_status(error: Exception) -> GrpcStatus:
@@ -95,6 +103,23 @@ def sanitize_escaping_exception(error: BaseException) -> BaseException:
     return error
 
 
+def sanitize_async_boundary(
+    function: Callable[_P, Coroutine[Any, Any, _T]],
+) -> Callable[_P, Coroutine[Any, Any, _T]]:
+    """Scrub failures after the decorated coroutine releases its arguments."""
+
+    @wraps(function)
+    async def sanitized(*args: _P.args, **kwargs: _P.kwargs) -> _T:
+        try:
+            return await function(*args, **kwargs)
+        except BaseException as caught:
+            failure = sanitize_escaping_exception(caught)
+        del args, kwargs
+        raise failure from None
+
+    return sanitized
+
+
 def raise_grpc_status(
     status: GrpcStatus,
     *,
@@ -120,6 +145,16 @@ def raise_grpc_status(
         error = ClientError(message, method_id=method, rpc_code=status.code)
     else:
         error = RPCError(message, method_id=method, rpc_code=status.code)
+    if not replay_safe_for(method, True):
+        # AddTentativeSources cannot have registered content when its decoded
+        # response is UNAUTHENTICATED. Keep that producer evidence positive so
+        # the importer can mark stage="register" and the staging owner can
+        # safely remove its unused prerequisite. Other post-dispatch statuses
+        # remain unknown for mutations.
+        if status.name == "UNAUTHENTICATED" and method.endswith("/AddTentativeSources"):
+            mark_commit_state(error, CommitState.REJECTED)
+        else:
+            mark_unconfirmed(error)
     raise error
 
 
@@ -139,5 +174,6 @@ __all__ = [
     "is_grpc_status",
     "raise_deadline_exceeded",
     "raise_grpc_status",
+    "sanitize_async_boundary",
     "sanitize_escaping_exception",
 ]

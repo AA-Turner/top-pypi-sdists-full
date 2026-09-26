@@ -29,6 +29,9 @@ class ConfigUpdateParams(TypedDict, total=False):
     """
 
     origin: Required[Origin]
+    """
+    Combines database connection fields with exactly one supported network location.
+    """
 
     caching: Caching
 
@@ -55,7 +58,10 @@ class OriginPublicDatabase(TypedDict, total=False):
     """Set the name of your origin database."""
 
     host: Required[str]
-    """Defines the host (hostname or IP) of your origin database."""
+    """Defines the publicly reachable hostname or IP of your origin database.
+
+    Private, loopback, and link-local IP addresses are not allowed.
+    """
 
     password: Required[str]
     """Set the password needed to access your origin database.
@@ -175,4 +181,9 @@ class MTLS(TypedDict, total=False):
     """Define mTLS certificate ID obtained after uploading client cert."""
 
     sslmode: str
-    """Set SSL mode to 'require', 'verify-ca', or 'verify-full' to verify the CA."""
+    """PostgreSQL accepts `require`, `verify-ca`, and `verify-full`.
+
+    MySQL accepts `REQUIRED`, `VERIFY_CA`, and `VERIFY_IDENTITY`. The verify modes
+    require a CA certificate; the require modes cannot be used with a CA
+    certificate.
+    """

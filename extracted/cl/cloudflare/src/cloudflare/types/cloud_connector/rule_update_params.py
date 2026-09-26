@@ -12,7 +12,7 @@ class RuleUpdateParams(TypedDict, total=False):
     zone_id: Required[str]
     """Identifier."""
 
-    rules: Iterable[Rule]
+    rules: Required[Iterable[Rule]]
 
 
 class RuleParameters(TypedDict, total=False):

@@ -37,6 +37,7 @@ def test_skbuild_settings_default(tmp_path: Path):
     assert not settings.build.verbose
     assert settings.cmake.build_type == "Release"
     assert settings.cmake.source_dir == Path()
+    assert not settings.cmake.fresh
     assert settings.build.targets == []
     assert settings.logging.level == "WARNING"
     assert settings.sdist.include == []
@@ -278,6 +279,7 @@ def test_skbuild_settings_envvar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("SKBUILD_CMAKE_DEFINE", "a=1;b=2")
     monkeypatch.setenv("SKBUILD_CMAKE_BUILD_TYPE", "Debug")
     monkeypatch.setenv("SKBUILD_CMAKE_SOURCE_DIR", "a/b/c")
+    monkeypatch.setenv("SKBUILD_CMAKE_FRESH", "1")
     monkeypatch.setenv("SKBUILD_LOGGING_LEVEL", "DEBUG")
     monkeypatch.setenv("SKBUILD_SDIST_INCLUDE", "a;b; c")
     monkeypatch.setenv("SKBUILD_SDIST_EXCLUDE", "d;e;f")
@@ -329,6 +331,7 @@ def test_skbuild_settings_envvar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     assert settings.cmake.define == {"a": "1", "b": "2"}
     assert settings.cmake.build_type == "Debug"
     assert settings.cmake.source_dir == Path("a/b/c")
+    assert settings.cmake.fresh
     assert not settings.ninja.make_fallback
     assert settings.logging.level == "DEBUG"
     assert settings.sdist.include == ["a", "b", "c"]
@@ -388,6 +391,7 @@ def test_skbuild_settings_config_settings(
         "cmake.define.b": "2",
         "cmake.build-type": "Debug",
         "cmake.source-dir": "a/b/c",
+        "cmake.fresh": "true",
         "env.SOME_VAR": "some-value",
         "logging.level": "INFO",
         "sdist.include": ["a", "b", "c"],
@@ -437,6 +441,7 @@ def test_skbuild_settings_config_settings(
     assert settings.build.verbose
     assert settings.cmake.build_type == "Debug"
     assert settings.cmake.source_dir == Path("a/b/c")
+    assert settings.cmake.fresh
     assert settings.env == {"SOME_VAR": EnvValue("some-value")}
     assert settings.logging.level == "INFO"
     assert settings.sdist.include == ["a", "b", "c"]
@@ -492,6 +497,7 @@ def test_skbuild_settings_pyproject_toml(
             cmake.define = {a = "1", b = "2"}
             cmake.build-type = "Debug"
             cmake.source-dir = "a/b/c"
+            cmake.fresh = true
             logging.level = "ERROR"
             sdist.include = ["a", "b", "c"]
             sdist.exclude = ["d", "e", "f"]
@@ -546,6 +552,7 @@ def test_skbuild_settings_pyproject_toml(
     assert settings.cmake.define == {"a": "1", "b": "2"}
     assert settings.cmake.build_type == "Debug"
     assert settings.cmake.source_dir == Path("a/b/c")
+    assert settings.cmake.fresh
     assert settings.logging.level == "ERROR"
     assert settings.sdist.include == ["a", "b", "c"]
     assert settings.sdist.exclude == ["d", "e", "f"]
@@ -1230,6 +1237,34 @@ def test_editable_rebuild_requires_build_dir(tmp_path: Path, trigger: str):
         SettingsReader.from_file(pyproject_toml)
 
 
+@pytest.mark.parametrize(
+    ("rebuild_line", "rebuild"),
+    [
+        ("", True),
+        ("editable.rebuild = true", True),
+        ("editable.rebuild = false", False),
+    ],
+)
+def test_editable_rebuild_dir_rebuild(tmp_path: Path, rebuild_line: str, rebuild: bool):
+    # rebuild-dir turns on rebuild-on-import unless rebuild is explicitly false.
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        textwrap.dedent(
+            f"""\
+            [tool.scikit-build]
+            build-dir = "build"
+            editable.rebuild-dir = "tree"
+            {rebuild_line}
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    reader = SettingsReader.from_file(pyproject_toml)
+    assert reader.settings.editable.rebuild_on_import is rebuild
+    assert reader.settings.editable.persistent_install
+
+
 def test_editable_inplace_rebuild_allowed(tmp_path: Path):
     # Inplace builds in the source tree, so editable.rebuild needs no build-dir.
     pyproject_toml = tmp_path / "pyproject.toml"
@@ -1439,3 +1474,38 @@ def test_sdist_inclusion_mode_explicit_requires_minimum_version(
     with pytest.raises(SystemExit):
         SettingsReader.from_file(pyproject_toml, {})
     assert "1.0" in capsys.readouterr().err
+
+
+def test_sdist_resolve_symlinks_error_requires_minimum_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    monkeypatch.setattr(
+        scikit_build_core.settings.skbuild_read_settings, "__version__", "1.1.0"
+    )
+    monkeypatch.setenv("SKBUILD_SDIST_RESOLVE_SYMLINKS", "error")
+    pyproject_toml = tmp_path / "pyproject.toml"
+    pyproject_toml.write_text(
+        textwrap.dedent(
+            """\
+            [tool.scikit-build]
+            minimum-version = "1.0"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit):
+        SettingsReader.from_file(pyproject_toml, {})
+    assert "1.1" in capsys.readouterr().err
+
+    pyproject_toml.write_text(
+        textwrap.dedent(
+            """\
+            [tool.scikit-build]
+            minimum-version = "1.1"
+            """
+        ),
+        encoding="utf-8",
+    )
+    settings_reader = SettingsReader.from_file(pyproject_toml, {})
+    assert settings_reader.settings.sdist.resolve_symlinks == "error"

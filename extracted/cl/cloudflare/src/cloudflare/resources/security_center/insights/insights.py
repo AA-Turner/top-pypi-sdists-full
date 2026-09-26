@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from typing_extensions import Literal
 
 import httpx
 
@@ -135,6 +136,7 @@ class InsightsResource(SyncAPIResource):
         product_neq: SequenceNotStr[str] | Omit = omit,
         severity: List[SeverityQueryParam] | Omit = omit,
         severity_neq: List[SeverityQueryParam] | Omit = omit,
+        source: List[Literal["cloudflare", "riskrecon"]] | Omit = omit,
         subject: SequenceNotStr[str] | Omit = omit,
         subject_neq: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -202,6 +204,7 @@ class InsightsResource(SyncAPIResource):
                         "product_neq": product_neq,
                         "severity": severity,
                         "severity_neq": severity_neq,
+                        "source": source,
                         "subject": subject,
                         "subject_neq": subject_neq,
                     },
@@ -331,6 +334,7 @@ class AsyncInsightsResource(AsyncAPIResource):
         product_neq: SequenceNotStr[str] | Omit = omit,
         severity: List[SeverityQueryParam] | Omit = omit,
         severity_neq: List[SeverityQueryParam] | Omit = omit,
+        source: List[Literal["cloudflare", "riskrecon"]] | Omit = omit,
         subject: SequenceNotStr[str] | Omit = omit,
         subject_neq: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -398,6 +402,7 @@ class AsyncInsightsResource(AsyncAPIResource):
                         "product_neq": product_neq,
                         "severity": severity,
                         "severity_neq": severity_neq,
+                        "source": source,
                         "subject": subject,
                         "subject_neq": subject_neq,
                     },

@@ -16,3 +16,4 @@ class CatchAllActionParam(TypedDict, total=False):
     """Type of action for catch-all rule."""
 
     value: SequenceNotStr[str]
+    """List of values for the action. Currently limited to a single value."""

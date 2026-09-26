@@ -117,7 +117,7 @@ class RoutesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteUpdateResponse:
         """
-        Updates the URL pattern or Worker associated with a route.
+        Replaces the URL pattern or Worker associated with a Worker route.
 
         Args:
           zone_id: Identifier.
@@ -172,7 +172,7 @@ class RoutesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncSinglePage[RouteListResponse]:
         """
-        Returns routes for a zone.
+        Returns Worker routes for a zone.
 
         Args:
           zone_id: Identifier.
@@ -209,7 +209,7 @@ class RoutesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteDeleteResponse:
         """
-        Deletes a route.
+        Deletes a Worker route.
 
         Args:
           zone_id: Identifier.
@@ -253,7 +253,7 @@ class RoutesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteGetResponse:
         """
-        Returns information about a route, including URL pattern and Worker.
+        Returns information about a Worker route, including URL pattern and Worker.
 
         Args:
           zone_id: Identifier.
@@ -373,7 +373,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteUpdateResponse:
         """
-        Updates the URL pattern or Worker associated with a route.
+        Replaces the URL pattern or Worker associated with a Worker route.
 
         Args:
           zone_id: Identifier.
@@ -428,7 +428,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[RouteListResponse, AsyncSinglePage[RouteListResponse]]:
         """
-        Returns routes for a zone.
+        Returns Worker routes for a zone.
 
         Args:
           zone_id: Identifier.
@@ -465,7 +465,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteDeleteResponse:
         """
-        Deletes a route.
+        Deletes a Worker route.
 
         Args:
           zone_id: Identifier.
@@ -509,7 +509,7 @@ class AsyncRoutesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> RouteGetResponse:
         """
-        Returns information about a route, including URL pattern and Worker.
+        Returns information about a Worker route, including URL pattern and Worker.
 
         Args:
           zone_id: Identifier.

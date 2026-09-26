@@ -11,6 +11,11 @@ on:
         description: 'Branch/ref to test (leave empty to use the triggering ref). Use this to run the full gate against a release branch that conflicts with main and so cannot run via pull_request.'
         required: false
         default: ''
+      run_historical:
+        description: 'Run historical qualification and retired layout inventories'
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   # Include the dispatch input so a manual run against a release branch gets its
@@ -87,6 +92,14 @@ jobs:
       # matrix instead — `server` is not wired into the CLI command tree.
       run: uv run python -c "import notebooklm, notebooklm.notebooklm_cli, notebooklm.client, notebooklm.artifacts"
 
+    - name: Verify built base wheel without browser extra
+      shell: bash
+      run: |
+        uv build --wheel --out-dir dist
+        wheels=(dist/notebooklm_py-*.whl)
+        test "${#wheels[@]}" -eq 1
+        uv run python scripts/check_base_wheel.py --wheel "${wheels[0]}"
+
     - name: Run pre-commit checks
       run: uv run pre-commit run --all-files
 
@@ -98,7 +111,14 @@ jobs:
       # checker is the only thing standing between a typo and a maintainer's
       # release run. `--ignore-missing-imports` keeps this green on the lean
       # install this job uses (no `mcp`/`server` extras).
-      run: uv run mypy src/notebooklm scripts/_live_auth_scenarios --ignore-missing-imports
+      run: >-
+        uv run mypy src/notebooklm scripts/_live_auth_scenarios
+        scripts/audit_auth_patch_sites.py
+        scripts/audit_auth_shared_mutations.py
+        scripts/check_auth_behavior_scenario_policy.py
+        scripts/check_auth_coverage_delta.py
+        scripts/check_auth_lifecycle_cleanup_policy.py
+        --ignore-missing-imports
 
     - name: Assert workflow permissions are scoped
       run: uv run python scripts/check_workflow_permissions.py
@@ -177,27 +197,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Release confidence requires the complete supported Cartesian product:
-        # all five Python versions on Linux, macOS, and Windows. Canonical
-        # Ubuntu 3.12 still owns Chromium, external-reality work, and the
-        # critical contract guards so those heavyweight checks run only once.
-        os:
-        - ubuntu-latest
-        - macos-latest
-        - windows-latest
-        python-version:
-        - "3.10"
-        - "3.11"
-        - "3.12"
-        - "3.13"
-        - "3.14"
+        # Three full routine cells cover the oldest, canonical, and newest
+        # supported CPython versions. The secondary OS cells start with the
+        # audited platform manifest; high-risk or unclassifiable PRs expand
+        # those cells back to the full routine selector below. The complete
+        # 15-cell product remains in nightly-checks.yml until the observation
+        # criteria in the optimization plan have been met.
         include:
+        - os: ubuntu-latest
+          python-version: "3.10"
+          canonical: false
+          windows_playwright: false
+          selection: full
         - os: ubuntu-latest
           python-version: "3.12"
           canonical: true
+          windows_playwright: false
+          selection: full
+        - os: ubuntu-latest
+          python-version: "3.14"
+          canonical: false
+          windows_playwright: false
+          selection: full
+        - os: macos-latest
+          python-version: "3.12"
+          canonical: false
+          windows_playwright: false
+          selection: platform
         - os: windows-latest
           python-version: "3.12"
+          canonical: false
           windows_playwright: true
+          selection: platform
     env:
       # Pin Playwright's browser install dir to a single workspace-relative
       # path on every OS. The previous dual-path cache stanza (``~/.cache``
@@ -213,6 +244,7 @@ jobs:
         # Honor the workflow_dispatch custom_branch input; falls back to the
         # triggering ref for push/pull_request (input is empty there).
         ref: ${{ inputs.custom_branch || github.ref }}
+        fetch-depth: 0
         persist-credentials: false
 
     - name: Set up Python ${{ matrix.python-version }}
@@ -244,7 +276,9 @@ jobs:
         # `src/notebooklm/{mcp,server}/**` and `_curl_cffi_transport.py` real
         # coverage in nightly's coverage.json (no 0% blind spot). Installing
         # them in every compatibility cell also proves curl_cffi's native wheels
-        # resolve across the full 3-OS by 5-Python support matrix.
+        # resolve across every supported Python version on Linux and on the
+        # representative Python 3.12 macOS/Windows cells (nightly proves the
+        # full 3-OS by 5-Python product).
         # `cookies` is now included since rookie-cookies supports all Python versions.
         #
         # Tradeoff: the deleted MCP/server jobs each enforced a scoped 90% floor.
@@ -327,10 +361,10 @@ jobs:
       if: matrix.canonical
       # These tests exercise real Playwright driver subprocesses. Keep them out
       # of xdist, but retain one complete PR lane instead of silently dropping
-      # them from the ordinary compatibility suite.
+      # them from the reduced compatibility matrix.
       run: >-
         uv run pytest tests/unit
-        -m "(requires_playwright or requires_chromium) and not reality"
+        -m "(requires_playwright or requires_chromium) and not reality and not refactor_qualification"
         -n 0 --no-cov
 
     - name: Run critical contract guards
@@ -339,7 +373,7 @@ jobs:
       # while their expensive mutation variants live in the bounded manual
       # repo-lint lane.
       # This is one no-coverage lane, so it can use the runner's full worker set
-      # without adding coverage collection to all 15 compatibility jobs.
+      # without adding coverage collection to every compatibility cell.
       run: >-
         uv run pytest -n auto --dist worksteal --timeout=180 --no-cov
         tests/unit/test_ci_test_matrix.py
@@ -351,14 +385,115 @@ jobs:
         tests/_guardrails/test_playwright_gateway.py::test_raw_sync_playwright_is_confined_to_policy_gateway
         tests/_guardrails/test_wire_contract.py::test_every_adapter_constant_is_declared
         tests/_guardrails/test_builtin_shadowed_annotations.py::test_class_body_annotations_do_not_name_a_shadowed_builtin
+        tests/_guardrails/test_client_composition.py::test_public_client_and_root_selector_import_no_web_namespaces
+        tests/_guardrails/test_client_composition.py::test_features_receive_specific_collaborators_not_whole_client
+        tests/_guardrails/test_client_composition.py::test_android_rpc_call_materializes_sidecar_inside_operation_lease
+        tests/_guardrails/test_backend_boundaries.py::test_backend_direct_import_boundaries
+        tests/_guardrails/test_cookie_persistence_boundary.py::test_client_registration_requires_exact_sequential_constructor_provenance
+        tests/_guardrails/test_cli_boundary.py::test_no_private_module_imports_in_cli
+        tests/_guardrails/test_mcp_boundary.py
+        tests/_guardrails/test_server_boundary.py
+        tests/_guardrails/test_adapter_import_scanner.py
+        tests/_guardrails/test_adapter_support_boundary.py
+
+    - name: Run PR contract suites
+      if: matrix.canonical
+      # Positive protocol, schema, release gate, and deprecation invariant suites.
+      run: >-
+        uv run pytest -n auto --dist loadgroup --timeout=180 --no-cov
+        -m "pr_contract and not requires_playwright and not requires_chromium and not reality"
+
+    - name: Validate focused-platform manifest
+      id: platform-manifest
+      shell: bash
+      run: |
+        set -euo pipefail
+        python - <<'PY' > "$RUNNER_TEMP/platform-manifest-status"
+        import json
+        from pathlib import Path
+
+        root = Path.cwd()
+        manifest = root / "tests/fixtures/ci-platform-selection.json"
+        try:
+            data = json.loads(manifest.read_text(encoding="utf-8"))
+            paths = data["paths"]
+            if not isinstance(paths, list) or not paths:
+                raise ValueError("paths must be a non-empty list")
+            for path in paths:
+                if not isinstance(path, str) or not path or Path(path).is_absolute() or ".." in Path(path).parts:
+                    raise ValueError(f"invalid relative POSIX path: {path!r}")
+                if not (root / path).exists():
+                    raise ValueError(f"missing manifest path: {path}")
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
+            print(f"invalid:{error}")
+        else:
+            print("valid")
+        PY
+        status=$(cat "$RUNNER_TEMP/platform-manifest-status")
+        if [ "$status" = valid ]; then
+          echo 'valid=true' >> "$GITHUB_OUTPUT"
+        else
+          echo 'valid=false' >> "$GITHUB_OUTPUT"
+          echo "::warning::Focused platform manifest unavailable: ${status#invalid:}"
+        fi
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+
+    - name: Resolve routine selection
+      id: routine-selection
+      shell: bash
+      env:
+        REQUESTED_SELECTION: ${{ matrix.selection }}
+        EVENT_NAME: ${{ github.event_name }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        PLATFORM_MANIFEST_VALID: ${{ steps.platform-manifest.outputs.valid }}
+        PLATFORM_ROLLOUT_READY: ${{ vars.CI_PLATFORM_SELECTION_READY }}
+      run: |
+        set -euo pipefail
+        full='not repo_lint and not refactor_qualification and not requires_playwright and not requires_chromium'
+        platform='compat_smoke and not repo_lint and not refactor_qualification and not requires_playwright and not requires_chromium and not reality'
+        selection="$full"
+        reason='full matrix cell'
+
+        # Focused OS selection is additive-risk only: any source/runtime,
+        # adapter, dependency, fixture, or CI-selection edit gets a full
+        # secondary-OS routine run. Non-PR events and malformed/empty diffs
+        # also fail closed to the full selector.
+        if [ "$REQUESTED_SELECTION" = platform ]; then
+          if [ "$PLATFORM_ROLLOUT_READY" != true ]; then
+            reason='focused-OS rollout evidence has not been approved'
+          elif [ "$PLATFORM_MANIFEST_VALID" != true ]; then
+            reason='invalid or unavailable focused-platform manifest'
+          elif [ "$EVENT_NAME" != pull_request ] || [ -z "$PR_BASE_SHA" ] || ! git cat-file -e "$PR_BASE_SHA^{commit}"; then
+            reason='non-PR or unavailable merge base'
+          else
+            changed=$(git diff --name-only "$PR_BASE_SHA" HEAD) || {
+              echo 'Unable to determine changed paths; selecting the full routine suite.' >&2
+              changed=''
+            }
+            if [ -z "$changed" ]; then
+              reason='empty or unreadable diff'
+            elif printf '%s\n' "$changed" | grep -Eq '^(src/notebooklm/|pyproject\.toml$|uv\.lock$|tests/(conftest\.py|fixtures/ci-platform-selection\.json|_helpers/|_fault_server/)|\.github/workflows/)'; then
+              reason='high-risk runtime, dependency, fixture, or CI change'
+            else
+              selection="$platform"
+              reason='audited platform manifest'
+            fi
+          fi
+        fi
+        echo "selection=$selection" >> "$GITHUB_OUTPUT"
+        echo "reason=$reason" >> "$GITHUB_OUTPUT"
+        printf 'Routine selection: %s (%s)\n' "$selection" "$reason" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Run tests without coverage
-      # Every required compatibility cell runs the ordinary suite exactly once.
-      # Repository lint has a bounded manual lane, coverage and per-file floors
-      # run nightly, and real Playwright subprocesses stay outside xdist.
+      # Full cells always run routine behavior. Secondary OS cells use the
+      # audited platform subset only for low-risk PRs; Resolve routine selection
+      # fails closed to full coverage for all other inputs.
+      env:
+        TEST_SELECTION: ${{ steps.routine-selection.outputs.selection }}
+      shell: bash
       run: >-
         uv run pytest -n auto --dist loadgroup
-        -m "not repo_lint and not requires_playwright and not requires_chromium"
+        -m "$TEST_SELECTION"
         --no-cov
 
     - name: Run Windows Playwright compatibility smoke serially
@@ -401,5 +536,20 @@ jobs:
       # Manual-only deep audits use the runner's available workers and a wider
       # per-test timeout, but never collect coverage or slow pull requests.
       run: >-
-        uv run pytest -n auto --dist loadgroup -m repo_lint
+        uv run pytest -n auto --dist loadgroup
+        -m "repo_lint and not refactor_qualification"
+        --timeout=180 --no-cov
+
+    - name: Run refactor qualification tests
+      # Exhaustive migration inventories and lifecycle race matrices belong in
+      # an explicit manual/release lane, not every required PR matrix cell.
+      run: >-
+        uv run pytest -n auto --dist loadgroup -m refactor_qualification
+        --timeout=180 --no-cov
+
+    - name: Run historical qualification tests
+      if: inputs.run_historical != false
+      # Historical v0.8 and retired layout migration inventories (Phase 2).
+      run: >-
+        uv run pytest tests/qualification/historical --run-historical -m historical
         --timeout=180 --no-cov

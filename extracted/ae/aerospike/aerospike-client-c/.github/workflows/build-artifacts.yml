@@ -1,0 +1,791 @@
+name: Create Release Bundle 
+
+# Multi-platform release build for the Aerospike C client.
+# Called by push-to-stage.yml to build, sign, deploy, and bundle artifacts.
+# One JFrog parent build-id ({run}-{attempt}) and one -artifacts child: merge all signed
+# platform artifacts, then a single deploy publishes mac .pkg + win nupkg + linux together.
+
+on:
+  workflow_call:
+    inputs:
+      dry-run:
+        description: >
+          If true, skip Apple/NuGet signing, deploy unsigned artifacts, and skip auto-promotion to TEST.
+          Otherwise, sign artifacts and promote the release bundle to TEST.
+          Controlled via vars.DRY_RUN_RELEASE repository variable in push-to-stage.yml.
+        required: false
+        type: boolean
+        default: true
+      enforce-doxygen-warnings:
+        description: >
+          If true, fail generate-api-docs when Doxygen emits warnings.
+        required: false
+        type: boolean
+        default: true
+      event-lib:
+        description: 'Event library filter for the smoke test. If all is present, it takes precedence.'
+        required: false
+        type: string
+        default: all
+      run-mac:
+        description: 'Run macOS ARM64 build+test in the smoke test'
+        required: false
+        type: boolean
+        default: false
+      run-windows:
+        description: 'Run Windows x64 build+test in the smoke test'
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      jf-build-id:
+        description: Single JFrog parent build id for the whole release (all platforms)
+        value: ${{ jobs.deploy-artifacts.outputs.jf-build-id }}
+    secrets:
+      GPG_SECRET_KEY:
+        required: true
+      GPG_PUBLIC_KEY:
+        required: true
+      GPG_PASS:
+        required: true
+      APPLE_APPLICATION_CERT:
+        required: false
+      APPLE_CERT_PASSWORD:
+        required: false
+      APPLE_INSTALLER_CERT:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_NOTARIZATION_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      ES_USERNAME:
+        required: false
+      ES_PASSWORD:
+        required: false
+      CREDENTIAL_ID:
+        required: false
+      ES_TOTP_SECRET:
+        required: false
+
+permissions:
+  actions: write
+  id-token: write
+  contents: read
+  checks: write
+  pull-requests: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  JF_BUNDLE_NAME: aerospike-client-c
+
+jobs:
+
+  # Resolve version and snapshot status.
+  get-version:
+    name: get version
+    runs-on: ubuntu-24.04
+    outputs:
+      version:     ${{ steps.ver.outputs.release-version }}
+      is-snapshot: ${{ steps.ver.outputs.is-snapshot }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0   # get-version compares HEAD vs HEAD~1 to detect release cuts
+
+      - name: Extract version
+        id: ver
+        uses: ./.github/actions/get-version
+
+  # Smoke-test the exact source before release artifacts are bundled.
+  test:
+    name: test
+    needs: get-version
+    uses: ./.github/workflows/build-and-test.yml
+    with:
+      ref:          ${{ github.sha }}
+      linux-distros-json:  '{"distros":[{"distro":"ubuntu-22.04","container":"ubuntu:22.04","archs":["amd64"]}]}'
+      runners-json: '{"amd64":"ubuntu-24.04"}'
+      event-lib:    ${{ inputs.event-lib }}
+      server-tag:   latest
+      num-nodes:    '1'
+      valgrind:     false
+      run-mac:      ${{ inputs.run-mac }}
+      run-windows:  ${{ inputs.run-windows }}
+      enforce-doxygen-warnings: false
+    secrets: inherit
+
+  # Build API docs; optionally fail on Doxygen warnings (enforce-doxygen-warnings).
+  generate-api-docs:
+    name: generate api docs
+    needs: get-version
+    runs-on: ubuntu-24.04
+    outputs:
+      archive:    ${{ steps.package-docs.outputs.archive }}
+      html-count: ${{ steps.package-docs.outputs.html-count }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+
+      - name: Build API docs
+        uses: ./.github/actions/build-api-docs
+        with:
+          log-path: doxygen.log
+          diagnostics-artifact-name: doxygen-diagnostics-${{ needs.get-version.outputs.version }}
+          fail-on-warnings: ${{ inputs.enforce-doxygen-warnings }}
+
+      - name: Package API docs
+        id: package-docs
+        env:
+          VERSION: ${{ needs.get-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          html_count=$(find target/docs/html -type f 2>/dev/null | wc -l | tr -d ' ')
+          archive="api-docs-${VERSION}.tgz"
+          tar -C target/docs/html -czf "$archive" .
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+          echo "html-count=$html_count" >> "$GITHUB_OUTPUT"
+          echo "Packaged ${html_count} HTML files into ${archive}"
+
+      - name: Upload API docs artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: api-docs-${{ needs.get-version.outputs.version }}
+          path: ${{ steps.package-docs.outputs.archive }}
+          retention-days: 90
+
+  # Convert vars.LINUX_DISTRO_MATRIX into the execute-build matrix schema.
+  # Each row passes DISTRO and CONTAINER from the matrix; build-linux runs
+  # install_deps.bash inside that container before make package.
+  compute-release-matrix:
+    name: compute release matrix
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix-json: ${{ steps.transform.outputs.matrix }}
+    steps:
+      - id: transform
+        shell: bash
+        env:
+          DISTRO_MATRIX: ${{ vars.LINUX_DISTRO_MATRIX }}
+          RUNNERS: '{"amd64":"ubuntu-24.04","arm64":"ubuntu-24.04-arm"}'
+        run: |
+          set -euo pipefail
+          matrix=$(echo "$DISTRO_MATRIX" | jq -c \
+            --argjson runners "$RUNNERS" \
+            '{"include": [
+              .distros[] | . as $d | $d.archs[] | . as $arch | {
+                "runs-on":  $runners[$arch],
+                "distro":   $d.distro,
+                "arch":     $arch,
+                "build-env": (
+                  "DISTRO=" + $d.distro + ";CONTAINER=" + $d.container +
+                  (if $d.distro == "ubuntu-22.04" and $arch == "amd64" then ";OWN_SOURCE=1" else ";OWN_SOURCE=0" end)
+                )
+              }
+            ]}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Release matrix: $(echo "$matrix" | jq '.include | length') entries"
+
+  # Linux: parallel matrix builds → sign (pattern merge on runner) → unified deploy below.
+  build-linux:
+    name: linux / build (${{ matrix.distro }}, ${{ matrix.arch }})
+    needs: [get-version, compute-release-matrix]
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.compute-release-matrix.outputs.matrix-json) }}
+    uses: aerospike/shared-workflows/.github/workflows/reusable_execute-build.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:       b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      jf-build-name:          aerospike-client-c
+      jf-build-id:            ${{ github.run_id }}-${{ github.run_attempt }}-buildinfo-${{ matrix.distro }}-${{ matrix.arch }}
+      jf-project:             ${{ vars.JFROG_PROJECT }}
+      runs-on:                ${{ matrix.runs-on }}
+      build-env:              ${{ matrix.build-env }}
+      matrix-json-data:       ${{ toJSON(matrix) }}
+      job-name:               linux-build-${{ matrix.distro }}-${{ matrix.arch }}
+      gh-source-path:         aerospike-client-c
+      working-directory:      aerospike-client-c
+      gh-artifact-directory:  target/packages
+      gh-artifact-name:       linux-build-${{ matrix.distro }}-${{ matrix.arch }}
+      publish-build-info:     true
+      oidc-provider-name:     ${{ vars.JFROG_OIDC_PROVIDER }}
+      oidc-audience:          ${{ vars.JFROG_OIDC_AUDIENCE }}
+      build-script: |-
+        set -euo pipefail
+          docker run --rm \
+            -e DISTRO="$DISTRO" \
+            -e OWN_SOURCE="${OWN_SOURCE:-0}" \
+            -e RELEASE_VERSION="${{ needs.get-version.outputs.is-snapshot == 'false' && needs.get-version.outputs.version || '' }}" \
+            -v "$PWD:/workspace" \
+            "$CONTAINER" \
+            bash -c '
+              set -e
+              case "$DISTRO" in
+                ubuntu-*|debian-*)
+                  export DEBIAN_FRONTEND=noninteractive
+                  apt-get update -q
+                  apt-get install -y --no-install-recommends git ca-certificates make
+                  ;;
+                amazonlinux-*)
+                  dnf install -y git tar gzip make
+                  ;;
+                rhel-*)
+                  microdnf install -y git tar gzip make
+                  ;;
+              esac
+              git config --global --add safe.directory /workspace
+              cd /workspace
+              INSTALL_DOCS=false
+              bash .github/script/install_deps.bash "$DISTRO" all false "$INSTALL_DOCS"
+              export MAKEFLAGS="-j$(nproc)"
+              if [ "$INSTALL_DOCS" = false ]; then
+                SKIP_DOCS=1 make package
+              else
+                make package
+              fi
+              if [ "${OWN_SOURCE:-0}" != "1" ]; then
+                rm -f target/packages/aerospike-client-c-src-*.zip
+              fi
+            '
+    secrets: inherit
+
+  # Download linux-build-* on the runner and sign in one job (skips collect re-upload).
+  sign-linux-gpg:
+    name: linux / sign (GPG)
+    needs: build-linux
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download matrix build artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          pattern: linux-build-*
+          path: unsigned-artifacts
+          merge-multiple: true
+
+      - name: Checkout shared-workflows
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: aerospike/shared-workflows
+          ref: b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+          path: shared-workflows
+
+      - name: Set up GPG
+        uses: aerospike/shared-workflows/.github/actions/setup-gpg@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+        with:
+          gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
+          gpg-public-key:  ${{ secrets.GPG_PUBLIC_KEY }}
+          gpg-key-pass:    ${{ secrets.GPG_PASS }}
+
+      - name: Install dpkg-sig
+        run: sudo apt-get update && sudo apt-get install -y dpkg-sig dpkg-dev
+
+      - name: Sign artifacts
+        run: |
+          chmod +x shared-workflows/.github/workflows/sign-artifacts/entrypoint.sh
+          shared-workflows/.github/workflows/sign-artifacts/entrypoint.sh \
+            'unsigned-artifacts/**/*' 'linux-signed-artifacts'
+
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: linux-signed-artifacts
+          path: linux-signed-artifacts
+          retention-days: 1
+
+  # macOS ARM64 — build and sign only; deploy is unified below.
+
+  # Build and publish child build-info; artifact: mac-build-artifacts.
+  build-mac-artifacts:
+    name: mac / build
+    needs: get-version
+    uses: aerospike/shared-workflows/.github/workflows/reusable_execute-build.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:      b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      jf-build-name:         aerospike-client-c
+      jf-build-id:           ${{ github.run_id }}-${{ github.run_attempt }}-buildinfo-mac-arm64
+      jf-project:            ${{ vars.JFROG_PROJECT }}
+      runs-on:               macos-14
+      job-name:              mac-build-arm64
+      gh-source-path:        aerospike-client-c
+      working-directory:     aerospike-client-c
+      gh-artifact-directory: target/packages
+      gh-artifact-name:      mac-build-artifacts
+      publish-build-info:    true
+      oidc-provider-name:    ${{ vars.JFROG_OIDC_PROVIDER }}
+      oidc-audience:         ${{ vars.JFROG_OIDC_AUDIENCE }}
+      build-script: |-
+        set -euo pipefail
+        brew install autoconf automake libtool doxygen graphviz
+        ./install_libev
+        ./install_libuv
+        ./install_libevent
+        export MAKEFLAGS="-j$(sysctl -n hw.ncpu)"
+        if [ "${{ needs.get-version.outputs.is-snapshot }}" = "false" ]; then
+          export RELEASE_VERSION="${{ needs.get-version.outputs.version }}"
+        fi
+        make package
+        rm -f target/packages/*.zip  # Linux owns the source zip; removing avoids duplicate-artifact 422 on create-release-bundle.
+    secrets: inherit
+
+  # Count .pkg files in the unsigned build artifact and expose as output
+  # so verify-mac-signing can assert signed count == unsigned count.
+  count-mac-pkgs:
+    name: mac / count unsigned pkgs
+    needs: build-mac-artifacts
+    runs-on: ubuntu-24.04
+    outputs:
+      pkg-count: ${{ steps.count.outputs.pkg-count }}
+    steps:
+      - name: Download unsigned mac artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: mac-build-artifacts
+          path: unsigned-artifacts
+
+      - name: Count .pkg files
+        id: count
+        run: |
+          count=$(find unsigned-artifacts -name "*.pkg" | wc -l | tr -d ' ')
+          echo "pkg-count=$count" >> "$GITHUB_OUTPUT"
+          echo "Unsigned .pkg count: $count"
+          if [[ $count -eq 0 ]]; then
+            echo "::error::No .pkg files found in mac-build-artifacts — build may have failed."
+            exit 1
+          fi
+
+  # Apple code-sign and notarize .pkg files; overwrites mac-build-artifacts in-place. Skipped on dry-run.
+  sign-mac-apple:
+    name: mac / sign (Apple)
+    if: ${{ !inputs.dry-run }}
+    needs: [build-mac-artifacts, count-mac-pkgs]
+    uses: aerospike/shared-workflows/.github/workflows/reusable_sign-mac-artifacts.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:      b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      gh-unsigned-artifacts: mac-build-artifacts
+      signing-identity:      'Developer ID Application: Aerospike, Inc.'
+      installer-identity:    'Developer ID Installer: Aerospike, Inc.'
+      artifact-glob:         '*.pkg'
+      notarize:              true
+      runs-on:               macos-14
+    secrets:
+      apple-application-cert:      ${{ secrets.APPLE_APPLICATION_CERT }}
+      apple-cert-password:         ${{ secrets.APPLE_CERT_PASSWORD }}
+      apple-installer-cert:        ${{ secrets.APPLE_INSTALLER_CERT }}
+      apple-id:                    ${{ secrets.APPLE_ID }}
+      apple-notarization-password: ${{ secrets.APPLE_NOTARIZATION_PASSWORD }}
+      apple-team-id:               ${{ secrets.APPLE_TEAM_ID }}
+
+  # Verify Apple signing produced at least one signed .pkg; fails the pipeline
+  # early if the reusable step silently signed 0 files (e.g. glob mismatch).
+  verify-mac-signing:
+    name: mac / verify signing
+    if: ${{ !inputs.dry-run }}
+    needs: [sign-mac-apple, count-mac-pkgs]
+    runs-on: macos-14
+    steps:
+      - name: Checkout action
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          sparse-checkout: .github/actions/verify-mac-signing
+          sparse-checkout-cone-mode: true
+
+      - name: Download signed mac artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: mac-build-artifacts
+          path: signed-artifacts
+
+      - name: Check all .pkg files are signed
+        uses: ./.github/actions/verify-mac-signing
+        with:
+          signed-dir:     signed-artifacts
+          expected-count: ${{ needs.count-mac-pkgs.outputs.pkg-count }}
+
+  # GPG-sign all artifacts; runs even when Apple-sign is skipped on dry-run.
+  sign-mac-gpg:
+    name: mac / sign (GPG)
+    needs: [build-mac-artifacts, verify-mac-signing]
+    if: |
+      always() && !cancelled() &&
+      needs.build-mac-artifacts.result == 'success' &&
+      (needs.sign-mac-apple.result == 'success' || needs.sign-mac-apple.result == 'skipped') &&
+      (needs.verify-mac-signing.result == 'success' || needs.verify-mac-signing.result == 'skipped')
+    uses: aerospike/shared-workflows/.github/workflows/reusable_sign-artifacts.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:      b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      gh-unsigned-artifacts: mac-build-artifacts
+      gh-artifact-name:      mac-signed-artifacts
+      runs-on:               ubuntu-22.04
+    secrets:
+      gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
+      gpg-public-key:  ${{ secrets.GPG_PUBLIC_KEY }}
+      gpg-key-pass:    ${{ secrets.GPG_PASS }}
+
+  # Windows — build DLLs, pack NuGet, GPG-sign nupkg; deploy is unified below.
+  build-windows-dlls:
+    name: windows / build dlls
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@b26b823c478ee115be5c9403e62c90b0bf943843 # v3.1.0
+
+      - name: Cache NuGet packages
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: vs\packages
+          key: nuget-${{ hashFiles('vs/**/packages.config') }}
+          restore-keys: nuget-
+
+      - name: Restore NuGet packages (populates vs\packages\)
+        shell: cmd
+        run: nuget restore vs\aerospike.sln
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
+
+      # Build all configs referenced by the nuspec files.
+      - name: Build all configurations
+        shell: pwsh
+        run: |
+          $slnDir = (Resolve-Path "vs").Path + "\"
+          $configs = @(
+            "Release",
+            "Debug",
+            "Release libuv",
+            "Debug libuv",
+            "Release libevent",
+            "Debug libevent"
+          )
+          foreach ($cfg in $configs) {
+            Write-Host "=== Building: $cfg ==="
+            msbuild vs\aerospike\aerospike.vcxproj `
+              "/p:Configuration=$cfg" `
+              /p:Platform=x64 `
+              "/p:SolutionDir=$slnDir" `
+              /m /nologo
+          }
+
+      - name: Upload Windows DLLs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: win-unsigned-dlls
+          path: vs\x64\
+          if-no-files-found: error
+          retention-days: 1
+
+  # Publish Windows child build-info (metadata only); NuGet packages are built below.
+  publish-windows-buildinfo:
+    name: windows / publish build-info
+    needs: build-windows-dlls
+    if: always() && !cancelled() && needs.build-windows-dlls.result == 'success'
+    uses: aerospike/shared-workflows/.github/workflows/reusable_execute-build.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:      b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      jf-build-name:         aerospike-client-c
+      jf-build-id:           ${{ github.run_id }}-${{ github.run_attempt }}-buildinfo-windows-amd64
+      jf-project:            ${{ vars.JFROG_PROJECT }}
+      runs-on:               ubuntu-24.04
+      job-name:              windows-publish-buildinfo-amd64
+      gh-source-path:        aerospike-client-c
+      working-directory:     aerospike-client-c
+      gh-artifact-directory: target/packages
+      gh-artifact-name:      win-buildinfo-stub
+      publish-build-info:    true
+      oidc-provider-name:    ${{ vars.JFROG_OIDC_PROVIDER }}
+      oidc-audience:         ${{ vars.JFROG_OIDC_AUDIENCE }}
+      build-script: |-
+        mkdir -p target/packages
+        echo "windows-amd64" > target/packages/.buildinfo-stub
+    secrets: inherit
+
+  # Pack NuGet packages from the DLLs built in build-windows-dlls.
+  pack-nuget:
+    name: windows / nuget pack
+    needs: [get-version, build-windows-dlls]
+    if: |
+      always() && !cancelled() &&
+      needs.get-version.result == 'success' &&
+      needs.build-windows-dlls.result == 'success'
+    runs-on: windows-2022
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          submodules: recursive
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@b26b823c478ee115be5c9403e62c90b0bf943843 # v3.1.0
+
+      - name: Cache NuGet packages
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: vs\packages
+          key: nuget-${{ hashFiles('vs/**/packages.config') }}
+          restore-keys: nuget-
+
+      # Restore DLL dependencies referenced by the nuspec files.
+      - name: Restore NuGet packages
+        shell: cmd
+        run: nuget restore vs\aerospike.sln
+
+      - name: Download Windows DLLs
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: win-unsigned-dlls
+          path: vs\x64
+
+      - name: Pack NuGet packages
+        shell: cmd
+        working-directory: vs
+        env:
+          VERSION: ${{ needs.get-version.outputs.version }}
+        run: |
+          nuget pack aerospike-client-c.nuspec -Version %VERSION%
+          nuget pack aerospike-client-c-libuv.nuspec -Version %VERSION%
+          nuget pack aerospike-client-c-libevent.nuspec -Version %VERSION%
+
+      - name: Upload unsigned NuGet packages
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: win-unsigned-nupkg
+          path: vs\*.nupkg
+          if-no-files-found: error
+          retention-days: 1
+
+  # Sign NuGet packages.
+  sign-nuget:
+    name: windows / sign nupkg
+    if: ${{ !inputs.dry-run }}
+    needs: pack-nuget
+    uses: aerospike/shared-workflows/.github/workflows/reusable_sign-artifacts.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:      b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      gh-unsigned-artifacts: win-unsigned-nupkg
+      gh-artifact-name:      win-signed-nupkg
+      nuget-environment:     PROD
+    secrets:
+      gpg-private-key: ${{ secrets.GPG_SECRET_KEY }}
+      gpg-public-key:  ${{ secrets.GPG_PUBLIC_KEY }}
+      gpg-key-pass:    ${{ secrets.GPG_PASS }}
+      es-username:     ${{ secrets.ES_USERNAME }}
+      es-password:     ${{ secrets.ES_PASSWORD }}
+      credential_id:   ${{ secrets.CREDENTIAL_ID }}
+      es-totp_secret:  ${{ secrets.ES_TOTP_SECRET }}
+
+  # Merge Linux + mac + Windows signed artifacts for one JFrog -artifacts build-info.
+  collect-release-artifacts:
+    name: collect release artifacts
+    runs-on: ubuntu-24.04
+    needs:
+      - sign-linux-gpg
+      - sign-mac-gpg
+      - pack-nuget
+      - sign-nuget
+    if: |
+      always() && !cancelled() &&
+      needs.sign-linux-gpg.result == 'success' &&
+      needs.sign-mac-gpg.result == 'success' &&
+      needs.pack-nuget.result == 'success' &&
+      (needs.sign-nuget.result == 'success' || needs.sign-nuget.result == 'skipped')
+    steps:
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: linux-signed-artifacts
+          path: build-artifacts
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: mac-signed-artifacts
+          path: build-artifacts
+          merge-multiple: true
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: ${{ inputs.dry-run && 'win-unsigned-nupkg' || 'win-signed-nupkg' }}
+          path: build-artifacts
+          merge-multiple: true
+
+      - name: Upload merged release artifacts
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: release-artifacts
+          path: build-artifacts
+          retention-days: 7
+
+  # Single deploy: one -artifacts child includes mac .pkg, win nupkg, and linux packages.
+  deploy-artifacts:
+    name: deploy
+    needs: [get-version, collect-release-artifacts, publish-windows-buildinfo]
+    if: |
+      always() && !cancelled() &&
+      needs.collect-release-artifacts.result == 'success' &&
+      needs.publish-windows-buildinfo.result == 'success'
+    uses: aerospike/shared-workflows/.github/workflows/reusable_deploy-artifacts.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:      b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      jf-build-name:         aerospike-client-c
+      jf-build-id:           ${{ github.run_id }}-${{ github.run_attempt }}
+      jf-metadata-build-id:  ${{ github.run_id }}-${{ github.run_attempt }}-buildinfo
+      jf-project:            ${{ vars.JFROG_PROJECT }}
+      version:               ${{ needs.get-version.outputs.version }}
+      gh-artifact-name:      release-artifacts
+      oidc-provider-name:    ${{ vars.JFROG_OIDC_PROVIDER }}
+      oidc-audience:         ${{ vars.JFROG_OIDC_AUDIENCE }}
+    secrets: inherit
+
+  # Ensure an existing promoted bundle is not overwritten.
+  # Does not need test or generate-api-docs — those gate create-release-bundle instead,
+  # allowing the bundle check to start as soon as all platform deploys finish.
+  check-existing-bundle:
+    name: check existing bundle
+    runs-on: ubuntu-24.04
+    needs:
+      - get-version
+      - deploy-artifacts
+    if: always() && !cancelled() && needs.deploy-artifacts.result == 'success'
+    steps:
+      - name: Setup JFrog CLI
+        id: jfrog-setup
+        uses: step-security/setup-jfrog-cli@3054b554c0fb4915b3d58847fb7730c593dbb934 # v5.0.0
+        env:
+          JF_URL: ${{ vars.JFROG_PLATFORM_URL }}
+        with:
+          oidc-provider-name: ${{ vars.JFROG_OIDC_PROVIDER }}
+          oidc-audience:      ${{ vars.JFROG_OIDC_AUDIENCE }}
+
+      - name: Check existing bundle status
+        env:
+          VERSION:         ${{ needs.get-version.outputs.version }}
+          JFROG_PROJECT:   ${{ vars.JFROG_PROJECT }}
+          JF_URL:          ${{ vars.JFROG_PLATFORM_URL }}
+          JF_ACCESS_TOKEN: ${{ steps.jfrog-setup.outputs.oidc-token }}
+        run: |
+          set -euo pipefail
+          BUNDLE_NAME="aerospike-client-c"
+
+          # Step 1: Check existence via native jf CLI.
+          # jf release-bundle-search routes to the lifecycle service correctly (no /artifactory/ rewrite).
+          echo "Checking if bundle ${BUNDLE_NAME}@${VERSION} exists (project: ${JFROG_PROJECT})..."
+          versions_json=$(jf release-bundle-search versions "$BUNDLE_NAME" \
+            --project="$JFROG_PROJECT" --format=json)
+          version_exists=$(echo "$versions_json" | jq -r \
+            --arg v "$VERSION" \
+            '.release_bundles[]? | select(.release_bundle_version == $v) | .release_bundle_version')
+
+          if [[ -z "$version_exists" ]]; then
+            echo "Bundle ${BUNDLE_NAME}@${VERSION} not found — safe to create."
+            exit 0
+          fi
+
+          echo "Bundle ${BUNDLE_NAME}@${VERSION} exists. Fetching promotion stage..."
+
+          # Step 2: Get the actual promotion environment via promotion/records.
+          # /lifecycle/* lives on the platform URL; jf rt curl rewrites to /artifactory/... and 404s.
+          # The release_bundle/records endpoint returns artifact lists, not promotion status —
+          # promotion/records is the correct source (same pattern as promote-bundle.yml).
+          platform_url="${JF_URL%/}"
+          REPO="${JFROG_PROJECT}-release-bundles-v2"
+          promo_url="${platform_url}/lifecycle/api/v2/promotion/records/${BUNDLE_NAME}?project=${JFROG_PROJECT}&repository_key=${REPO}&filter_by=${VERSION}&order_by=created_millis&order_asc=true"
+
+          HTTP_CODE=$(curl -sS -o /tmp/promo.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${JF_ACCESS_TOKEN}" \
+            -H "Accept: application/json" \
+            "$promo_url")
+
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "::error::Failed to fetch promotion records for ${BUNDLE_NAME}@${VERSION} (HTTP ${HTTP_CODE})."
+            cat /tmp/promo.json
+            exit 1
+          fi
+
+          current_env=$(jq -r \
+            '[.promotions[]? | select(.status == "COMPLETED")] | sort_by(.created_millis) | .[-1] | .environment // "NONE"' \
+            /tmp/promo.json)
+          echo "Current promotion stage: ${current_env}"
+
+          IS_PROMOTED=$(jq -rn \
+            --arg s "$current_env" \
+            'if ($s == "TEST" or $s == "STAGE" or $s == "PREVIEW" or $s == "PROD") then "true" else "false" end')
+
+          if [[ "$IS_PROMOTED" == "true" ]]; then
+            echo "::error::Bundle ${BUNDLE_NAME}@${VERSION} is already at '${current_env}'." \
+              "Refusing to overwrite a promoted bundle. Bump the version or promote manually."
+            exit 1
+          fi
+
+          # Bundle is only at DEV or has no promotions yet — safe to delete and recreate.
+          echo "Bundle exists at '${current_env}' (not yet promoted). Deleting stale bundle..."
+          jf release-bundle-delete-local "$BUNDLE_NAME" "$VERSION" \
+            --project="$JFROG_PROJECT" --quiet
+          echo "Stale bundle deleted. Proceeding with creation."
+
+  # Release bundle Content is driven by build-info at create time. Include both the
+  # parent (buildinfo children) and -artifacts child (deployed deb/rpm/nuget/pkg files).
+  create-release-bundle:
+    name: create release bundle
+    needs:
+      - get-version
+      - test
+      - generate-api-docs
+      - deploy-artifacts
+      - check-existing-bundle
+    if: |
+      always() && !cancelled() &&
+      needs.test.result                  == 'success' &&
+      needs.generate-api-docs.result     == 'success' &&
+      needs.deploy-artifacts.result      == 'success' &&
+      needs.check-existing-bundle.result == 'success'
+    uses: aerospike/shared-workflows/.github/workflows/reusable_create-release-bundle.yaml@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+    with:
+      gh-workflows-ref:   b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860
+      jf-project:         ${{ vars.JFROG_PROJECT }}
+      jf-bundle-name:     aerospike-client-c
+      version:            ${{ needs.get-version.outputs.version }}
+      jf-build-names: >-
+        aerospike-client-c:${{ needs.deploy-artifacts.outputs.jf-build-id }},aerospike-client-c:${{ needs.deploy-artifacts.outputs.jf-build-id }}-artifacts
+      oidc-provider-name: ${{ vars.JFROG_OIDC_PROVIDER }}
+      oidc-audience:      ${{ vars.JFROG_OIDC_AUDIENCE }}
+    secrets: inherit
+
+  # Auto-promote the new bundle to DEV for normal release; skipped on dry-run.
+  auto-promote-dev:
+    name: promote to DEV
+    needs:
+      - get-version
+      - create-release-bundle
+    if: always() && !cancelled() && !inputs.dry-run && needs.create-release-bundle.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Setup JFrog CLI
+        uses: step-security/setup-jfrog-cli@3054b554c0fb4915b3d58847fb7730c593dbb934 # v5.0.0
+        env:
+          JF_URL: ${{ vars.JFROG_PLATFORM_URL }}
+        with:
+          oidc-provider-name: ${{ vars.JFROG_OIDC_PROVIDER }}
+          oidc-audience:      ${{ vars.JFROG_OIDC_AUDIENCE }}
+
+      - name: Promote release bundle
+        uses: aerospike/shared-workflows/.github/actions/promote-release-bundle@b4b1e9dc89314a2d542f9d6fe0ee150ad06f9860 # v5.0.0
+        with:
+          bundle-name:   ${{ env.JF_BUNDLE_NAME }}
+          version:       ${{ needs.get-version.outputs.version }}
+          environment:   DEV
+          jf-project:    ${{ vars.JFROG_PROJECT }}
+          # Exclude legacy JFrog Pipelines repos (DEV-tagged, no CI write access) from distribution.
+          exclude-repos: pipelines-templates-local
+

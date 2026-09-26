@@ -1,8 +1,6 @@
-.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-mandatory start-test-a2a-tck start-test-a2a-tck-mandatory start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios test-auth-read-only-assistant
+.PHONY: build release lint format test test_watch start start-inmem start-inmem-license-oss start build-go-server start-go-server stop-go-server check-version check-base-imports test-a2a-tck test-a2a-tck-must test-a2a-tck-propose-baseline start-test-a2a-tck start-test-a2a-tck-must start-test-a2a-tck-watch test-mcp-conformance start-test-mcp-conformance list-mcp-scenarios test-auth-read-only-assistant
 
-# Environment variables
-LANGSERVE_GRAPHS_ALL = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "assistant_id_runtime": "./tests/graphs/assistant_id_runtime.py:graph", "custom_lifespan": "./tests/graphs/my_router.py:graph", "single_node": "./tests/graphs/single_node.py:graph", "benchmark": "./tests/graphs/benchmark.py:graph", "benchmark_delta": "./tests/graphs/benchmark.py:graph_delta", "benchmark_delta_freq": "./tests/graphs/benchmark.py:graph_delta_freq", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_interrupt": "./tests/graphs/agent_interrupt.py:graph", "agent_parallel_interrupt": "./tests/graphs/agent_parallel_interrupt.py:graph", "message_type_test": "./tests/graphs/message_type_test.py:graph", "remote_subgraph_parent": "./tests/graphs/remote_subgraph_parent.py:graph", "simple_remote": "./tests/graphs/simple_remote.py:graph", "nested_subgraphs": "./tests/graphs/nested_subgraphs.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "max_concurrency_graph": "./tests/graphs/max_concurrency_graph.py:graph", "unserializable_subgraph": "./tests/graphs/unserializable_subgraph.py:graph", "private_config_subgraph": "./tests/graphs/private_config_subgraph.py:graph", "agent_interrupt_text": "./tests/graphs/agent_interrupt_text.py:graph", "agent_echo_stream": "./tests/graphs/agent_echo_stream.py:graph", "agent_tool_stream": "./tests/graphs/agent_tool_stream.py:graph", "runtime_graph": "./tests/graphs/runtime_graph.py:graph", "tool_call_chunk_stream": "./tests/graphs/tool_call_chunk_stream.py:graph", "ui_tool_call_stream": "./tests/graphs/ui_tool_call_stream.py:graph", "agent_metrics_stream": "./tests/graphs/agent_metrics_stream.py:graph", "agent_multimodal_stream": "./tests/graphs/agent_multimodal_stream.py:graph", "agent_bedtime_story": "./tests/graphs/agent_bedtime_story.py:graph", "delta_channel": "./tests/graphs/delta_channel.py:graph", "delta_channel_freq": "./tests/graphs/delta_channel_freq.py:graph", "delta_channel_files": "./tests/graphs/delta_channel_files.py:graph", "delta_channel_files_freq": "./tests/graphs/delta_channel_files_freq.py:graph", "delta_channel_legacy": "./tests/graphs/delta_channel_migration.py:graph_legacy", "delta_channel_delta": "./tests/graphs/delta_channel_migration.py:graph_delta", "delta_channel_delta_filter": "./tests/graphs/delta_channel_migration.py:graph_delta_filter", "delta_channel_messages_freq": "./tests/graphs/delta_channel_messages.py:graph_freq", "delta_channel_messages": "./tests/graphs/delta_channel_messages.py:graph", "delta_channel_messages_legacy": "./tests/graphs/delta_channel_messages.py:graph_legacy", "delta_channel_messages_remove": "./tests/graphs/delta_channel_messages.py:graph_remove", "delta_channel_messages_update": "./tests/graphs/delta_channel_messages.py:graph_update", "delta_channel_messages_delta": "./tests/graphs/delta_channel_messages.py:graph_delta", "store_e2e_async": "./tests/graphs/store_e2e.py:graph_async", "store_e2e_sync": "./tests/graphs/store_e2e.py:graph_sync"}'
-LANGSERVE_GRAPHS_AUTH = '{"agent": {"path": "./tests/graphs/agent.py:graph", "description": "agent"}, "assistant_id_runtime": "./tests/graphs/assistant_id_runtime.py:graph", "config_graph": "./tests/graphs/config_graph.py:graph", "other": "./tests/graphs/other.py:make_graph", "weather": "./tests/graphs/weather.py:mk_weather_graph", "searchy": "./tests/graphs/searchy.py:graph", "agent_simple": "./tests/graphs/agent_simple.py:graph", "simple_runtime": "./tests/graphs/simple_runtime.py:graph", "agent_parallel_interrupt": "./tests/graphs/agent_parallel_interrupt.py:graph", "functional_fibonacci": "./tests/graphs/functional_fibonacci.py:fibonacci", "state_graph_fibonacci": "./tests/graphs/state_graph_fibonacci.py:fibonacci", "runtime_graph": "./tests/graphs/runtime_graph.py:graph"}'
+LANGSERVE_GRAPHS_ALL := '$(shell uv run python tests/graphs/configure_langgraph.py --path-prefix ./tests/graphs --emit langserve-env)'
 
 # Go server management
 build-go-server:
@@ -238,7 +236,7 @@ start-auth-jwt:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	LANGGRAPH_AES_KEY='$(LANGGRAPH_AES_KEY)' \
 	N_JOBS_PER_WORKER=10 \
-	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_AUTH) \
+	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_ALL) \
 	LANGGRAPH_STORE='$(STORE_CONFIG)' \
 	LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' \
 	LANGGRAPH_AUTH='$(LANGGRAPH_AUTH)' \
@@ -255,7 +253,7 @@ start-auth-jwt:
 start-auth-fastapi-jwt:
 	LANGGRAPH_RUNTIME_EDITION=inmem LANGGRAPH_HTTP='$(HTTP_CONFIG)' \
 	N_JOBS_PER_WORKER=10 \
-	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_AUTH) \
+	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_ALL) \
 	LANGGRAPH_STORE='$(STORE_CONFIG)' \
 	LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' \
 	LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_auth.py:auth"}' \
@@ -280,7 +278,7 @@ define RUN_FASTAPI_JWT_MW_ORDERING
 	LANGGRAPH_RUNTIME_EDITION=inmem \
 	LANGGRAPH_HTTP='{"app": "./tests/graphs/fastapi_jwt_middleware_ordering.py:app", "middleware_order": "$(1)", "enable_custom_route_auth": $(2)}' \
 	N_JOBS_PER_WORKER=10 \
-	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_AUTH) \
+	LANGSERVE_GRAPHS=$(LANGSERVE_GRAPHS_ALL) \
 	LANGGRAPH_STORE='$(STORE_CONFIG)' \
 	LANGGRAPH_CHECKPOINTER='$(CHECKPOINTER_CONFIG)' \
 	LANGGRAPH_AUTH='{"path": "./tests/graphs/fastapi_jwt_middleware_ordering.py:auth"}' \
@@ -317,48 +315,49 @@ bump-version:
 
 # A2A TCK (Test Compatibility Kit) targets
 # Requires a running server: make start (in another terminal)
-# The script clones TCK to ~/.cache/a2a-tck and runs it directly
-# (pip entry point is broken upstream)
 
 TCK_PORT ?= 9123
 TCK_GRAPH_ID ?= agent_simple
-TCK_CATEGORY ?= all
+TCK_TRANSPORT ?= jsonrpc
 
 test-a2a-tck:
 	uv run python scripts/run_a2a_tck.py \
 		--base-url http://localhost:$(TCK_PORT) \
 		--graph-id $(TCK_GRAPH_ID) \
-		--category $(TCK_CATEGORY) \
+		--transport $(TCK_TRANSPORT) \
 		--verbose
 
-test-a2a-tck-mandatory:
+test-a2a-tck-must:
 	uv run python scripts/run_a2a_tck.py \
 		--base-url http://localhost:$(TCK_PORT) \
 		--graph-id $(TCK_GRAPH_ID) \
-		--category mandatory \
+		--transport $(TCK_TRANSPORT) \
+		--level must \
 		--verbose
+
+test-a2a-tck-propose-baseline:
+	uv run python scripts/run_a2a_tck.py \
+		--base-url http://localhost:$(TCK_PORT) \
+		--graph-id $(TCK_GRAPH_ID) \
+		--transport $(TCK_TRANSPORT) \
+		--propose-baseline
 
 # Combined targets: start server + run A2A TCK together
 # Uses npx concurrently to manage both processes
-# TCK runner writes assistant_id to /tmp/langgraph_tck_assistant_id for agent card discovery
 TCK_STARTUP_DELAY ?= 8
 
 start-test-a2a-tck:
-	npx concurrently -k -s first \
-		"$(MAKE) start" \
-		"sleep $(TCK_STARTUP_DELAY) && $(MAKE) test-a2a-tck"
+	$(MAKE) test-with-server TEST_TARGET=test-a2a-tck
 
-start-test-a2a-tck-mandatory:
-	npx concurrently -k -s first \
-		"$(MAKE) start" \
-		"sleep $(TCK_STARTUP_DELAY) && $(MAKE) test-a2a-tck-mandatory"
+start-test-a2a-tck-must:
+	$(MAKE) test-with-server TEST_TARGET=test-a2a-tck-must
 
 # Watch mode: restart tests on file changes (server stays running)
 # Useful during development - edit a2a.py and tests re-run automatically
 start-test-a2a-tck-watch:
 	npx concurrently -k \
 		"$(MAKE) start" \
-		"sleep $(TCK_STARTUP_DELAY) && npx nodemon --watch langgraph_api/api/a2a.py --ext py --exec '$(MAKE) test-a2a-tck-mandatory'"
+		"sleep $(TCK_STARTUP_DELAY) && npx nodemon --watch langgraph_api/api/a2a.py --ext py --exec '$(MAKE) test-a2a-tck-must'"
 
 # MCP Conformance Test targets
 # Uses the official MCP conformance test suite (https://github.com/modelcontextprotocol/conformance)

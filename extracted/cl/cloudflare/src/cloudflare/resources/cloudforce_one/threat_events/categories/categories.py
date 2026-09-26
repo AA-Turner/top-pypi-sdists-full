@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing_extensions
+
 import httpx
 
 from .catalog import (
@@ -152,6 +154,7 @@ class CategoriesResource(SyncAPIResource):
             cast_to=CategoryListResponse,
         )
 
+    @typing_extensions.deprecated("Use DELETE /events/event-categories/by-id/{category_id} before 2026-11-28.")
     def delete(
         self,
         category_id: str,
@@ -164,8 +167,10 @@ class CategoriesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryDeleteResponse:
-        """
-        Removes a threat event category from Cloudforce One.
+        """Deprecated; use DELETE /events/event-categories/by-id/{category_id}.
+
+        Available
+        through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -196,6 +201,7 @@ class CategoriesResource(SyncAPIResource):
             cast_to=CategoryDeleteResponse,
         )
 
+    @typing_extensions.deprecated("Use PATCH /events/event-categories/by-id/{category_id} before 2026-11-28.")
     def edit(
         self,
         category_id: str,
@@ -213,9 +219,10 @@ class CategoriesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryEditResponse:
-        """
-        Partially updates a threat event category in Cloudforce One, modifying specific
-        fields without replacing the entire category.
+        """Deprecated; use PATCH /events/event-categories/by-id/{category_id}.
+
+        Available
+        through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -256,6 +263,7 @@ class CategoriesResource(SyncAPIResource):
             cast_to=CategoryEditResponse,
         )
 
+    @typing_extensions.deprecated("Use GET /events/event-categories/by-id/{category_id} before 2026-11-28.")
     def get(
         self,
         category_id: str,
@@ -268,8 +276,10 @@ class CategoriesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryGetResponse:
-        """
-        Retrieves details for a specific threat event category.
+        """Deprecated; use GET /events/event-categories/by-id/{category_id}.
+
+        Available
+        through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -422,6 +432,7 @@ class AsyncCategoriesResource(AsyncAPIResource):
             cast_to=CategoryListResponse,
         )
 
+    @typing_extensions.deprecated("Use DELETE /events/event-categories/by-id/{category_id} before 2026-11-28.")
     async def delete(
         self,
         category_id: str,
@@ -434,8 +445,10 @@ class AsyncCategoriesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryDeleteResponse:
-        """
-        Removes a threat event category from Cloudforce One.
+        """Deprecated; use DELETE /events/event-categories/by-id/{category_id}.
+
+        Available
+        through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -466,6 +479,7 @@ class AsyncCategoriesResource(AsyncAPIResource):
             cast_to=CategoryDeleteResponse,
         )
 
+    @typing_extensions.deprecated("Use PATCH /events/event-categories/by-id/{category_id} before 2026-11-28.")
     async def edit(
         self,
         category_id: str,
@@ -483,9 +497,10 @@ class AsyncCategoriesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryEditResponse:
-        """
-        Partially updates a threat event category in Cloudforce One, modifying specific
-        fields without replacing the entire category.
+        """Deprecated; use PATCH /events/event-categories/by-id/{category_id}.
+
+        Available
+        through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -526,6 +541,7 @@ class AsyncCategoriesResource(AsyncAPIResource):
             cast_to=CategoryEditResponse,
         )
 
+    @typing_extensions.deprecated("Use GET /events/event-categories/by-id/{category_id} before 2026-11-28.")
     async def get(
         self,
         category_id: str,
@@ -538,8 +554,10 @@ class AsyncCategoriesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> CategoryGetResponse:
-        """
-        Retrieves details for a specific threat event category.
+        """Deprecated; use GET /events/event-categories/by-id/{category_id}.
+
+        Available
+        through 2026-11-28.
 
         Args:
           account_id: Account ID.
@@ -581,14 +599,20 @@ class CategoriesResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             categories.list,
         )
-        self.delete = to_raw_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = to_raw_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_raw_response_wrapper(
-            categories.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                categories.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -606,14 +630,20 @@ class AsyncCategoriesResourceWithRawResponse:
         self.list = async_to_raw_response_wrapper(
             categories.list,
         )
-        self.delete = async_to_raw_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = async_to_raw_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_raw_response_wrapper(
-            categories.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                categories.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -631,14 +661,20 @@ class CategoriesResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             categories.list,
         )
-        self.delete = to_streamed_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = to_streamed_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_streamed_response_wrapper(
-            categories.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                categories.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property
@@ -656,14 +692,20 @@ class AsyncCategoriesResourceWithStreamingResponse:
         self.list = async_to_streamed_response_wrapper(
             categories.list,
         )
-        self.delete = async_to_streamed_response_wrapper(
-            categories.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                categories.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.edit = async_to_streamed_response_wrapper(
-            categories.edit,
+        self.edit = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                categories.edit,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_streamed_response_wrapper(
-            categories.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                categories.get,  # pyright: ignore[reportDeprecated],
+            )
         )
 
     @cached_property

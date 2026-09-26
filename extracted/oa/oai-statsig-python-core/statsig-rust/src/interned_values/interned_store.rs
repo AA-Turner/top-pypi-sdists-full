@@ -42,9 +42,11 @@ use crate::{
     observability::ops_stats::OpsStatsForInstance,
     specs_adapter::{SpecsInfo, SpecsSyncTrigger, StatsigHttpSpecsAdapter},
     specs_response::{
+        parse_options::SpecsResponseParseOptions,
+        proto_compression::is_compressed_protobuf_response,
         proto_specs::{
-            ProtobufHydrationContext, ProtobufUpdate, deserialize_protobuf,
-            deserialize_protobuf_for_store_with_hydration,
+            ProtobufHydrationContext, ProtobufUpdate,
+            deserialize_protobuf_for_store_with_hydration, deserialize_protobuf_with_options,
         },
         spec_types::{Spec, SpecsResponseFull},
         specs_hash_map::{SpecPointer, SpecsHashMap},
@@ -515,52 +517,44 @@ impl InternedStore {
             .fetch_specs_from_network(specs_info, SpecsSyncTrigger::Manual)
             .await
             .map_err(StatsigErr::NetworkError)?;
-        let result = if super::mmap_sync::is_protobuf_response(&response.data) {
+        let result = if is_compressed_protobuf_response(&response.data) {
             // The integrated async parser hydrates protobuf values while it
             // walks the original compressed stream. Hold the graph lock across
             // that await because parsing fills process-global intern tables
             // that mmap serialization drains immediately afterward.
             let graph_guard = acquire_mmap_graph_write_lock().await;
-            if !super::mmap_sync::protobuf_response_needs_parse(&response.data, previous)? {
-                Ok(MmapWriteOutcome::NoUpdate)
-            } else {
-                let current_specs = SpecsResponseFull::default();
-                let mut next_specs = SpecsResponseFull::default();
-                let source_url = response.request_url.clone();
-                let (update, _, _) = deserialize_protobuf_for_store_with_hydration(
-                    adapter.ops_stats(),
-                    &current_specs,
-                    Default::default(),
-                    &mut next_specs,
-                    &mut response.data,
-                    ProtobufHydrationContext {
-                        hydrator: adapter.remote_config_value_hydrator(),
-                        source_url: &source_url,
-                        mmap_project_id: MmapProjectId::for_sdk_key(sdk_key),
-                        capture_hydrated_data_store_bytes: false,
-                        preserve_session_update_mode: false,
-                    },
-                )
-                .await?;
-                if matches!(update, ProtobufUpdate::Materialized { .. }) {
-                    match super::mmap_sync::resolve_parsed_protobuf_response(
-                        &response.data,
-                        next_specs,
-                        previous,
-                    )? {
-                        Some(resolved) => write_resolved_mmap_artifacts(
-                            &graph_guard,
-                            resolved,
-                            &mmap_v2_path_for_sdk_key(sdk_key),
-                            &mmap_manifest_path_for_sdk_key(sdk_key),
-                        ),
-                        None => Ok(MmapWriteOutcome::NoUpdate),
-                    }
-                } else {
-                    Err(StatsigErr::InvalidOperation(
-                        "Mmap protobuf fetch did not produce a full snapshot".to_string(),
-                    ))
+            let current_specs = SpecsResponseFull::default();
+            let mut next_specs = SpecsResponseFull::default();
+            let source_url = response.request_url.clone();
+            let (update, _, _) = deserialize_protobuf_for_store_with_hydration(
+                adapter.ops_stats(),
+                &current_specs,
+                Default::default(),
+                &mut next_specs,
+                &mut response.data,
+                ProtobufHydrationContext {
+                    hydrator: adapter.remote_config_value_hydrator(),
+                    source_url: &source_url,
+                    mmap_project_id: MmapProjectId::for_sdk_key(sdk_key),
+                    capture_hydrated_data_store_bytes: false,
+                    preserve_session_update_mode: false,
+                },
+            )
+            .await?;
+            if matches!(update, ProtobufUpdate::Materialized { .. }) {
+                match super::mmap_sync::resolve_parsed_response(next_specs, previous)? {
+                    Some(resolved) => write_resolved_mmap_artifacts(
+                        &graph_guard,
+                        resolved,
+                        &mmap_v2_path_for_sdk_key(sdk_key),
+                        &mmap_manifest_path_for_sdk_key(sdk_key),
+                    ),
+                    None => Ok(MmapWriteOutcome::NoUpdate),
                 }
+            } else {
+                Err(StatsigErr::InvalidOperation(
+                    "Mmap protobuf fetch did not produce a full snapshot".to_string(),
+                ))
             }
         } else {
             // JSON hydration can rewrite the response in place before the
@@ -1035,8 +1029,11 @@ impl InternedStore {
 // ------------------------------------------------------------------------------- [ Preloading ]
 
 fn try_parse_as_json(data: &[u8]) -> Result<SpecsResponseFull, StatsigErr> {
-    serde_json::from_slice(data)
-        .map_err(|e| StatsigErr::JsonParseError(TAG.to_string(), e.to_string()))
+    SpecsResponseFull::deserialize_json_with_options(
+        data,
+        SpecsResponseParseOptions::for_shared_preload(),
+    )
+    .map_err(|e| StatsigErr::JsonParseError(TAG.to_string(), e.to_string()))
 }
 
 fn try_parse_as_proto(data: &[u8]) -> Result<SpecsResponseFull, StatsigErr> {
@@ -1053,7 +1050,13 @@ fn try_parse_as_proto(data: &[u8]) -> Result<SpecsResponseFull, StatsigErr> {
 
     let ops_stats = OpsStatsForInstance::new();
 
-    deserialize_protobuf(&ops_stats, &current, &mut next, &mut response_data)?;
+    deserialize_protobuf_with_options(
+        &ops_stats,
+        &current,
+        &mut next,
+        &mut response_data,
+        SpecsResponseParseOptions::for_shared_preload(),
+    )?;
 
     Ok(next)
 }

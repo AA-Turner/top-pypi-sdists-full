@@ -1,6 +1,6 @@
 [project]
 name = "notebooklm-py"
-version = "0.8.2"
+version = "0.8.3"
 description = "Unofficial Python library for automating Google NotebookLM"
 dynamic = ["readme"]
 requires-python = ">=3.10"
@@ -84,7 +84,7 @@ dev = [
     "python-dotenv>=1.0.0,<2",
     "mypy>=1.0.0,<3",
     "pre-commit>=4.5.1,<5",
-    "ruff==0.16.1",
+    "ruff==0.16.8",
     "tomli>=2.0.0,<3; python_version < '3.11'",  # for tests/unit/test_install_docs.py on Python 3.10 (tomllib is 3.11+)
     "vcrpy>=6.0.0,<9",
     "packaging>=23.0,<27",  # for tests/unit/test_version_gate.py (PEP 440 version parsing)
@@ -171,6 +171,12 @@ pythonpath = ["."]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = "--ignore=tests/e2e"
+filterwarnings = [
+    "ignore:SelectableGroups dict interface is deprecated:DeprecationWarning",
+    "ignore:.*Using .httpx. with .starlette\\.testclient. is deprecated.*",
+    "ignore:ssl\\.SSLContext\\(\\) without protocol argument is deprecated\\.:DeprecationWarning:gpsoauth",
+    "ignore:ssl\\.PROTOCOL_TLS is deprecated:DeprecationWarning:gpsoauth",
+]
 # Global timeout prevents tests from hanging indefinitely (CI safety net)
 # Individual tests can override with @pytest.mark.timeout(seconds)
 timeout = 60
@@ -186,6 +192,7 @@ markers = [
     "no_keepalive_disable: opt a VCR test out of the global NOTEBOOKLM_DISABLE_KEEPALIVE_POKE=1 autouse fixture in tests/integration/conftest.py",
     "allow_no_vcr: opt a tests/integration/ test out of the integration-tree enforcement hook; use for mock-only tests that legitimately live under tests/integration/",
     "characterization: behavior-pinning unit tests that lock in current observable contracts and would be too synthetic to cassette-back",
+    "refactor_qualification: exhaustive migration inventories and concurrency characterizations; excluded from routine PR CI and run in manual, nightly, and release qualification",
     "reality: tests that validate assumptions about external tools or environments; required lanes must execute them",
     "requires_playwright: tests requiring the Playwright Python package",
     "requires_chromium: tests requiring a launchable Chromium browser",
@@ -245,6 +252,8 @@ module = [
     "notebooklm.io",
     "notebooklm.log",
     "notebooklm.migration",
+    "notebooklm.outcomes",
+    "notebooklm.options",
     "notebooklm.paths",
     "notebooklm.research",
     "notebooklm.types",

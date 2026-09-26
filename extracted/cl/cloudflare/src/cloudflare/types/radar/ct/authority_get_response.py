@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List
+from datetime import date
 from typing_extensions import Literal
 
 from pydantic import Field as FieldInfo
@@ -88,10 +89,10 @@ class CertificateAuthority(BaseModel):
     subject_key_identifier: str = FieldInfo(alias="subjectKeyIdentifier")
     """The subjectKeyIdentifier value extracted from the certificate PEM."""
 
-    valid_from: str = FieldInfo(alias="validFrom")
+    valid_from: date = FieldInfo(alias="validFrom")
     """The start date of the certificate’s validity period (ISO format)."""
 
-    valid_to: str = FieldInfo(alias="validTo")
+    valid_to: date = FieldInfo(alias="validTo")
     """The end date of the certificate’s validity period (ISO format)."""
 
 

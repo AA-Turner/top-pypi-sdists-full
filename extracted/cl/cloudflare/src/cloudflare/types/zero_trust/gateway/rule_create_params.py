@@ -16,6 +16,7 @@ __all__ = ["RuleCreateParams", "Expiration"]
 
 class RuleCreateParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     action: Required[
         Literal[

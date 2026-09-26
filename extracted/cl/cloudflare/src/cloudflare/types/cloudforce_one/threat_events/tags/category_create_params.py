@@ -49,6 +49,18 @@ class Schema(TypedDict, total=False):
 
     annotations: SchemaAnnotations
 
+    deprecated: bool
+    """
+    Marks a field as unavailable for new values while retaining its definition for
+    historical values.
+    """
+
+    deprecated_values: Annotated[SequenceNotStr[str], PropertyInfo(alias="deprecatedValues")]
+    """
+    Enum values unavailable for new writes but retained in allowedValues for
+    historical display.
+    """
+
     element: object
 
     enforcement: Literal["error", "warn", "off"]

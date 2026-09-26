@@ -21,8 +21,9 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console, print_command_header
 
-console = Console()
+console = make_console()
 
 # Deprecation notices go to stderr: this command's stdout is the result, and a
 # flag that is on its way out should not change what a script parses.
@@ -116,8 +117,10 @@ class ScopeCommands:
         command = getattr(args, "scope_command", None)
 
         if command == "show":
+            print_command_header(args, config, "scope show")
             return await ScopeCommands._handle_show(args, config)
         elif command == "generate":
+            print_command_header(args, config, "scope generate")
             return await ScopeCommands._handle_generate(args, config)
         else:
             console.print(format_error("No scope command specified"))

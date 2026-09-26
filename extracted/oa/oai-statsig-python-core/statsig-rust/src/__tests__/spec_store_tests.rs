@@ -1565,34 +1565,44 @@ fn test_cursor_accepts_same_lcut_checksum_repair_and_ignores_stale_or_duplicate_
 #[test]
 #[serial]
 fn test_checksum_failure_does_not_advance_cursor() {
-    let spec_store = initialized_spec_store("checksum-failure-test");
+    for silent in [false, true] {
+        let options = StatsigOptions::default().suppress_diagnostic_output(silent);
+        let spec_store = SpecStore::new(
+            "checksum-failure-test",
+            "checksum-failure-test".into(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            Some(&options),
+        );
+        apply_eval_project(&spec_store);
 
-    let before = spec_store.load_data();
-    let before_info = spec_store.get_current_specs_info();
-    let result = apply_delta(
-        &spec_store,
-        protobuf_delta(
-            &before.snapshot,
-            before.lcut() + 1,
-            "invalid-checksum",
-            DeltaOverrides {
-                corrupt_checksums: true,
-                ..DeltaOverrides::default()
-            },
-        ),
-        SpecsSource::Network,
-        "invalid-api",
-    );
+        let before = spec_store.load_data();
+        let before_info = spec_store.get_current_specs_info();
+        let result = apply_delta(
+            &spec_store,
+            protobuf_delta(
+                &before.snapshot,
+                before.lcut() + 1,
+                "invalid-checksum",
+                DeltaOverrides {
+                    corrupt_checksums: true,
+                    ..DeltaOverrides::default()
+                },
+            ),
+            SpecsSource::Network,
+            "invalid-api",
+        );
 
-    assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
-    let after = spec_store.load_data();
-    assert!(Arc::ptr_eq(&before.snapshot, &after.snapshot));
-    assert_eq!(after.lcut(), before.lcut());
-    assert_eq!(
-        spec_store.get_current_specs_info().checksum,
-        before_info.checksum
-    );
-    assert_eq!(after.source_api, before.source_api);
+        assert!(matches!(result, Err(StatsigErr::ChecksumFailure(_))));
+        let after = spec_store.load_data();
+        assert!(Arc::ptr_eq(&before.snapshot, &after.snapshot));
+        assert_eq!(after.lcut(), before.lcut());
+        assert_eq!(
+            spec_store.get_current_specs_info().checksum,
+            before_info.checksum
+        );
+        assert_eq!(after.source_api, before.source_api);
+    }
 }
 
 #[test]

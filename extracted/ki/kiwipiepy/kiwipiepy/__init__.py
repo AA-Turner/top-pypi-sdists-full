@@ -6,10 +6,12 @@ from kiwipiepy._version import __version__
 from kiwipiepy._wrap import (
     Kiwi, 
     KiwiConfig,
+    SplitForm,
     Sentence, 
     TypoTransformer, 
     TypoDefinition, 
     HSDataset, 
+    GenerativeMADataset,
     ChrDataset,
     MorphemeSet, 
     PretokenizedToken, 
@@ -29,10 +31,12 @@ from kiwipiepy.default_typo_transformer import (
 )
 
 Kiwi.__module__ = 'kiwipiepy'
+SplitForm.__module__ = 'kiwipiepy'
 Sentence.__module__ = 'kiwipiepy'
 TypoTransformer.__module__ = 'kiwipiepy'
 TypoDefinition.__module__ = 'kiwipiepy'
 HSDataset.__module__ = 'kiwipiepy'
+GenerativeMADataset.__module__ = 'kiwipiepy'
 ChrDataset.__module__ = 'kiwipiepy'
 MorphemeSet.__module__ = 'kiwipiepy'
 PretokenizedToken.__module__ = 'kiwipiepy'

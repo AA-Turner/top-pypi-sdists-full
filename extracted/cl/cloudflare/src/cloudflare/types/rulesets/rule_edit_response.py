@@ -2,14 +2,13 @@
 
 from typing import List, Union, Optional
 from datetime import datetime
-from typing_extensions import Literal, Annotated, TypeAlias
+from typing_extensions import Literal, TypeAlias
 
 from pydantic import Field as FieldInfo
 
 from .kind import Kind
 from .phase import Phase
 from .logging import Logging
-from ..._utils import PropertyInfo
 from .log_rule import LogRule
 from ..._models import BaseModel
 from .skip_rule import SkipRule
@@ -32,73 +31,101 @@ __all__ = [
     "RuleEditResponse",
     "Ruleset",
     "RulesetRule",
-    "RulesetRuleRulesetsChallengeRule",
-    "RulesetRuleRulesetsChallengeRuleExposedCredentialCheck",
-    "RulesetRuleRulesetsChallengeRuleRatelimit",
-    "RulesetRuleRulesetsJSChallengeRule",
-    "RulesetRuleRulesetsJSChallengeRuleExposedCredentialCheck",
-    "RulesetRuleRulesetsJSChallengeRuleRatelimit",
-    "RulesetRuleRulesetsSetCacheControlRule",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParameters",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutable",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAge",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidate",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstand",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCache",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStore",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransform",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivate",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidate",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersPublic",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxage",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfError",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidate",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidateSetDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidateRemoveDirective",
-    "RulesetRuleRulesetsSetCacheControlRuleExposedCredentialCheck",
-    "RulesetRuleRulesetsSetCacheControlRuleRatelimit",
-    "RulesetRuleRulesetsSetCacheTagsRule",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParameters",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsValues",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsExpression",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsValues",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsExpression",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsValues",
-    "RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsExpression",
-    "RulesetRuleRulesetsSetCacheTagsRuleExposedCredentialCheck",
-    "RulesetRuleRulesetsSetCacheTagsRuleRatelimit",
-    "RulesetRuleRulesetsTransformResponseHTMLRule",
-    "RulesetRuleRulesetsTransformResponseHTMLRuleActionParameters",
-    "RulesetRuleRulesetsTransformResponseHTMLRuleExposedCredentialCheck",
-    "RulesetRuleRulesetsTransformResponseHTMLRuleRatelimit",
+    "RulesetRuleBlockRule",
+    "RulesetRuleChallengeRule",
+    "RulesetRuleChallengeRuleExposedCredentialCheck",
+    "RulesetRuleChallengeRuleRatelimit",
+    "RulesetRuleResponseCompressionRule",
+    "RulesetRuleDDoSDynamicRule",
+    "RulesetRuleExecuteRule",
+    "RulesetRuleForceConnectionCloseRule",
+    "RulesetRuleJavaScriptChallengeRule",
+    "RulesetRuleJavaScriptChallengeRuleExposedCredentialCheck",
+    "RulesetRuleJavaScriptChallengeRuleRatelimit",
+    "RulesetRuleLogRule",
+    "RulesetRuleLogCustomFieldRule",
+    "RulesetRuleManagedChallengeRule",
+    "RulesetRuleRedirectRule",
+    "RulesetRuleRewriteRule",
+    "RulesetRuleRouteRule",
+    "RulesetRuleScoreRule",
+    "RulesetRuleServeErrorRule",
+    "RulesetRuleSetCacheControlRule",
+    "RulesetRuleSetCacheControlRuleActionParameters",
+    "RulesetRuleSetCacheControlRuleActionParametersImmutable",
+    "RulesetRuleSetCacheControlRuleActionParametersImmutableSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersImmutableRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersMaxAge",
+    "RulesetRuleSetCacheControlRuleActionParametersMaxAgeSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersMaxAgeRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersMustRevalidate",
+    "RulesetRuleSetCacheControlRuleActionParametersMustRevalidateSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersMustRevalidateRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersMustUnderstand",
+    "RulesetRuleSetCacheControlRuleActionParametersMustUnderstandSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersMustUnderstandRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersNoCache",
+    "RulesetRuleSetCacheControlRuleActionParametersNoCacheSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersNoCacheRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersNoStore",
+    "RulesetRuleSetCacheControlRuleActionParametersNoStoreSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersNoStoreRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersNoTransform",
+    "RulesetRuleSetCacheControlRuleActionParametersNoTransformSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersNoTransformRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersPrivate",
+    "RulesetRuleSetCacheControlRuleActionParametersPrivateSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersPrivateRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersProxyRevalidate",
+    "RulesetRuleSetCacheControlRuleActionParametersProxyRevalidateSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersProxyRevalidateRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersPublic",
+    "RulesetRuleSetCacheControlRuleActionParametersPublicSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersPublicRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersSMaxage",
+    "RulesetRuleSetCacheControlRuleActionParametersSMaxageSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersSMaxageRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersStaleIfError",
+    "RulesetRuleSetCacheControlRuleActionParametersStaleIfErrorSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersStaleIfErrorRemoveDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidate",
+    "RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidateSetDirective",
+    "RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidateRemoveDirective",
+    "RulesetRuleSetCacheControlRuleExposedCredentialCheck",
+    "RulesetRuleSetCacheControlRuleRatelimit",
+    "RulesetRuleSetCacheSettingsRule",
+    "RulesetRuleSetCacheTagsRule",
+    "RulesetRuleSetCacheTagsRuleActionParameters",
+    "RulesetRuleSetCacheTagsRuleActionParametersAddCacheTagsValues",
+    "RulesetRuleSetCacheTagsRuleActionParametersAddCacheTagsExpression",
+    "RulesetRuleSetCacheTagsRuleActionParametersRemoveCacheTagsValues",
+    "RulesetRuleSetCacheTagsRuleActionParametersRemoveCacheTagsExpression",
+    "RulesetRuleSetCacheTagsRuleActionParametersSetCacheTagsValues",
+    "RulesetRuleSetCacheTagsRuleActionParametersSetCacheTagsExpression",
+    "RulesetRuleSetCacheTagsRuleExposedCredentialCheck",
+    "RulesetRuleSetCacheTagsRuleRatelimit",
+    "RulesetRuleSetConfigurationRule",
+    "RulesetRuleSkipRule",
+    "RulesetRuleTransformResponseHTMLRule",
+    "RulesetRuleTransformResponseHTMLRuleActionParameters",
+    "RulesetRuleTransformResponseHTMLRuleExposedCredentialCheck",
+    "RulesetRuleTransformResponseHTMLRuleRatelimit",
 ]
 
 
-class RulesetRuleRulesetsChallengeRuleExposedCredentialCheck(BaseModel):
+class RulesetRuleBlockRule(BlockRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleChallengeRuleExposedCredentialCheck(BaseModel):
     """Configuration for exposed credential checking."""
 
     password_expression: str
@@ -108,7 +135,7 @@ class RulesetRuleRulesetsChallengeRuleExposedCredentialCheck(BaseModel):
     """An expression that selects the user ID used in the credentials check."""
 
 
-class RulesetRuleRulesetsChallengeRuleRatelimit(BaseModel):
+class RulesetRuleChallengeRuleRatelimit(BaseModel):
     """An object configuring the rule's rate limit behavior."""
 
     characteristics: List[str]
@@ -154,18 +181,27 @@ class RulesetRuleRulesetsChallengeRuleRatelimit(BaseModel):
     """
 
 
-class RulesetRuleRulesetsChallengeRule(BaseModel):
+class RulesetRuleChallengeRule(BaseModel):
+    id: str
+    """The unique ID of the rule."""
+
+    action: Literal["challenge"]
+    """The action to perform when the rule matches."""
+
+    enabled: bool
+    """Whether the rule should be executed."""
+
+    expression: str
+    """The expression defining which traffic will match the rule."""
+
     last_updated: datetime
     """The timestamp of when the rule was last modified."""
 
+    ref: str
+    """The reference of the rule (the rule's ID by default)."""
+
     version: str
     """The version of the rule."""
-
-    id: Optional[str] = None
-    """The unique ID of the rule."""
-
-    action: Optional[Literal["challenge"]] = None
-    """The action to perform when the rule matches."""
 
     action_parameters: Optional[object] = None
     """The parameters configuring the rule's action."""
@@ -176,26 +212,65 @@ class RulesetRuleRulesetsChallengeRule(BaseModel):
     description: Optional[str] = None
     """An informative description of the rule."""
 
-    enabled: Optional[bool] = None
-    """Whether the rule should be executed."""
-
-    exposed_credential_check: Optional[RulesetRuleRulesetsChallengeRuleExposedCredentialCheck] = None
+    exposed_credential_check: Optional[RulesetRuleChallengeRuleExposedCredentialCheck] = None
     """Configuration for exposed credential checking."""
-
-    expression: Optional[str] = None
-    """The expression defining which traffic will match the rule."""
 
     logging: Optional[Logging] = None
     """An object configuring the rule's logging behavior."""
 
-    ratelimit: Optional[RulesetRuleRulesetsChallengeRuleRatelimit] = None
+    ratelimit: Optional[RulesetRuleChallengeRuleRatelimit] = None
     """An object configuring the rule's rate limit behavior."""
 
-    ref: Optional[str] = None
-    """The reference of the rule (the rule's ID by default)."""
+
+class RulesetRuleResponseCompressionRule(CompressResponseRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
 
 
-class RulesetRuleRulesetsJSChallengeRuleExposedCredentialCheck(BaseModel):
+class RulesetRuleDDoSDynamicRule(DDoSDynamicRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleExecuteRule(ExecuteRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleForceConnectionCloseRule(ForceConnectionCloseRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleJavaScriptChallengeRuleExposedCredentialCheck(BaseModel):
     """Configuration for exposed credential checking."""
 
     password_expression: str
@@ -205,7 +280,7 @@ class RulesetRuleRulesetsJSChallengeRuleExposedCredentialCheck(BaseModel):
     """An expression that selects the user ID used in the credentials check."""
 
 
-class RulesetRuleRulesetsJSChallengeRuleRatelimit(BaseModel):
+class RulesetRuleJavaScriptChallengeRuleRatelimit(BaseModel):
     """An object configuring the rule's rate limit behavior."""
 
     characteristics: List[str]
@@ -251,18 +326,27 @@ class RulesetRuleRulesetsJSChallengeRuleRatelimit(BaseModel):
     """
 
 
-class RulesetRuleRulesetsJSChallengeRule(BaseModel):
+class RulesetRuleJavaScriptChallengeRule(BaseModel):
+    id: str
+    """The unique ID of the rule."""
+
+    action: Literal["js_challenge"]
+    """The action to perform when the rule matches."""
+
+    enabled: bool
+    """Whether the rule should be executed."""
+
+    expression: str
+    """The expression defining which traffic will match the rule."""
+
     last_updated: datetime
     """The timestamp of when the rule was last modified."""
 
+    ref: str
+    """The reference of the rule (the rule's ID by default)."""
+
     version: str
     """The version of the rule."""
-
-    id: Optional[str] = None
-    """The unique ID of the rule."""
-
-    action: Optional[Literal["js_challenge"]] = None
-    """The action to perform when the rule matches."""
 
     action_parameters: Optional[object] = None
     """The parameters configuring the rule's action."""
@@ -273,26 +357,113 @@ class RulesetRuleRulesetsJSChallengeRule(BaseModel):
     description: Optional[str] = None
     """An informative description of the rule."""
 
-    enabled: Optional[bool] = None
-    """Whether the rule should be executed."""
-
-    exposed_credential_check: Optional[RulesetRuleRulesetsJSChallengeRuleExposedCredentialCheck] = None
+    exposed_credential_check: Optional[RulesetRuleJavaScriptChallengeRuleExposedCredentialCheck] = None
     """Configuration for exposed credential checking."""
-
-    expression: Optional[str] = None
-    """The expression defining which traffic will match the rule."""
 
     logging: Optional[Logging] = None
     """An object configuring the rule's logging behavior."""
 
-    ratelimit: Optional[RulesetRuleRulesetsJSChallengeRuleRatelimit] = None
+    ratelimit: Optional[RulesetRuleJavaScriptChallengeRuleRatelimit] = None
     """An object configuring the rule's rate limit behavior."""
 
-    ref: Optional[str] = None
-    """The reference of the rule (the rule's ID by default)."""
+
+class RulesetRuleLogRule(LogRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableSetDirective(BaseModel):
+class RulesetRuleLogCustomFieldRule(LogCustomFieldRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleManagedChallengeRule(ManagedChallengeRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleRedirectRule(RedirectRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleRewriteRule(RewriteRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleRouteRule(RouteRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleScoreRule(ScoreRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleServeErrorRule(ServeErrorRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleSetCacheControlRuleActionParametersImmutableSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -302,7 +473,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableSetDirectiv
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersImmutableRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -312,13 +483,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableRemoveDirec
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutable: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutableRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersImmutable: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersImmutableSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersImmutableRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersMaxAgeSetDirective(BaseModel):
     """Set the directive with a duration value in seconds."""
 
     operation: Literal["set", "remove"]
@@ -331,7 +502,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeSetDirective(B
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersMaxAgeRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -341,13 +512,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeRemoveDirectiv
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAge: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAgeRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersMaxAge: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersMaxAgeSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersMaxAgeRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersMustRevalidateSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -357,7 +528,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateSetDir
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersMustRevalidateRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -367,13 +538,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateRemove
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidate: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidateRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersMustRevalidate: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersMustRevalidateSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersMustRevalidateRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersMustUnderstandSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -383,7 +554,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandSetDir
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersMustUnderstandRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -393,13 +564,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandRemove
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstand: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstandRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersMustUnderstand: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersMustUnderstandSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersMustUnderstandRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersNoCacheSetDirective(BaseModel):
     """Set the directive with optional qualifiers."""
 
     operation: Literal["set", "remove"]
@@ -415,7 +586,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheSetDirective(
     """
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersNoCacheRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -425,13 +596,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheRemoveDirecti
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCache: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCacheRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersNoCache: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersNoCacheSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersNoCacheRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersNoStoreSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -441,7 +612,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreSetDirective(
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersNoStoreRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -451,13 +622,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreRemoveDirecti
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStore: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStoreRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersNoStore: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersNoStoreSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersNoStoreRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersNoTransformSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -467,7 +638,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformSetDirect
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersNoTransformRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -477,13 +648,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformRemoveDir
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransform: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransformRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersNoTransform: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersNoTransformSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersNoTransformRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersPrivateSetDirective(BaseModel):
     """Set the directive with optional qualifiers."""
 
     operation: Literal["set", "remove"]
@@ -499,7 +670,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateSetDirective(
     """
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersPrivateRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -509,13 +680,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateRemoveDirecti
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivate: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivateRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersPrivate: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersPrivateSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersPrivateRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersProxyRevalidateSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -525,7 +696,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateSetDi
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersProxyRevalidateRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -535,13 +706,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateRemov
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidate: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidateRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersProxyRevalidate: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersProxyRevalidateSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersProxyRevalidateRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersPublicSetDirective(BaseModel):
     """Set the directive."""
 
     operation: Literal["set", "remove"]
@@ -551,7 +722,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicSetDirective(B
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersPublicRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -561,13 +732,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicRemoveDirectiv
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersPublic: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersPublicRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersPublic: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersPublicSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersPublicRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersSMaxageSetDirective(BaseModel):
     """Set the directive with a duration value in seconds."""
 
     operation: Literal["set", "remove"]
@@ -580,7 +751,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageSetDirective(
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersSMaxageRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -590,13 +761,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageRemoveDirecti
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxage: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxageRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersSMaxage: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersSMaxageSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersSMaxageRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersStaleIfErrorSetDirective(BaseModel):
     """Set the directive with a duration value in seconds."""
 
     operation: Literal["set", "remove"]
@@ -609,7 +780,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorSetDirec
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersStaleIfErrorRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -619,13 +790,13 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorRemoveDi
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfError: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfErrorRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersStaleIfError: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersStaleIfErrorSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersStaleIfErrorRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidateSetDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidateSetDirective(BaseModel):
     """Set the directive with a duration value in seconds."""
 
     operation: Literal["set", "remove"]
@@ -638,7 +809,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidate
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidateRemoveDirective(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidateRemoveDirective(BaseModel):
     """Remove the directive."""
 
     operation: Literal["set", "remove"]
@@ -648,37 +819,35 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidate
     """Whether the directive should only be applied to the Cloudflare CDN cache."""
 
 
-RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidate: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidateSetDirective,
-    RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidateRemoveDirective,
+RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidate: TypeAlias = Union[
+    RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidateSetDirective,
+    RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidateRemoveDirective,
 ]
 
 
-class RulesetRuleRulesetsSetCacheControlRuleActionParameters(BaseModel):
+class RulesetRuleSetCacheControlRuleActionParameters(BaseModel):
     """The parameters configuring the rule's action."""
 
-    immutable: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersImmutable] = None
+    immutable: Optional[RulesetRuleSetCacheControlRuleActionParametersImmutable] = None
     """A cache-control directive configuration."""
 
-    max_age: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersMaxAge] = FieldInfo(
-        alias="max-age", default=None
-    )
+    max_age: Optional[RulesetRuleSetCacheControlRuleActionParametersMaxAge] = FieldInfo(alias="max-age", default=None)
     """
     A cache-control directive configuration that accepts a duration value in
     seconds.
     """
 
-    must_revalidate: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersMustRevalidate] = FieldInfo(
+    must_revalidate: Optional[RulesetRuleSetCacheControlRuleActionParametersMustRevalidate] = FieldInfo(
         alias="must-revalidate", default=None
     )
     """A cache-control directive configuration."""
 
-    must_understand: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersMustUnderstand] = FieldInfo(
+    must_understand: Optional[RulesetRuleSetCacheControlRuleActionParametersMustUnderstand] = FieldInfo(
         alias="must-understand", default=None
     )
     """A cache-control directive configuration."""
 
-    no_cache: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersNoCache] = FieldInfo(
+    no_cache: Optional[RulesetRuleSetCacheControlRuleActionParametersNoCache] = FieldInfo(
         alias="no-cache", default=None
     )
     """
@@ -686,31 +855,31 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParameters(BaseModel):
     names).
     """
 
-    no_store: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersNoStore] = FieldInfo(
+    no_store: Optional[RulesetRuleSetCacheControlRuleActionParametersNoStore] = FieldInfo(
         alias="no-store", default=None
     )
     """A cache-control directive configuration."""
 
-    no_transform: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersNoTransform] = FieldInfo(
+    no_transform: Optional[RulesetRuleSetCacheControlRuleActionParametersNoTransform] = FieldInfo(
         alias="no-transform", default=None
     )
     """A cache-control directive configuration."""
 
-    private: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersPrivate] = None
+    private: Optional[RulesetRuleSetCacheControlRuleActionParametersPrivate] = None
     """
     A cache-control directive configuration that accepts optional qualifiers (header
     names).
     """
 
-    proxy_revalidate: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersProxyRevalidate] = FieldInfo(
+    proxy_revalidate: Optional[RulesetRuleSetCacheControlRuleActionParametersProxyRevalidate] = FieldInfo(
         alias="proxy-revalidate", default=None
     )
     """A cache-control directive configuration."""
 
-    public: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersPublic] = None
+    public: Optional[RulesetRuleSetCacheControlRuleActionParametersPublic] = None
     """A cache-control directive configuration."""
 
-    s_maxage: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersSMaxage] = FieldInfo(
+    s_maxage: Optional[RulesetRuleSetCacheControlRuleActionParametersSMaxage] = FieldInfo(
         alias="s-maxage", default=None
     )
     """
@@ -718,7 +887,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParameters(BaseModel):
     seconds.
     """
 
-    stale_if_error: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleIfError] = FieldInfo(
+    stale_if_error: Optional[RulesetRuleSetCacheControlRuleActionParametersStaleIfError] = FieldInfo(
         alias="stale-if-error", default=None
     )
     """
@@ -726,8 +895,8 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParameters(BaseModel):
     seconds.
     """
 
-    stale_while_revalidate: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParametersStaleWhileRevalidate] = (
-        FieldInfo(alias="stale-while-revalidate", default=None)
+    stale_while_revalidate: Optional[RulesetRuleSetCacheControlRuleActionParametersStaleWhileRevalidate] = FieldInfo(
+        alias="stale-while-revalidate", default=None
     )
     """
     A cache-control directive configuration that accepts a duration value in
@@ -735,7 +904,7 @@ class RulesetRuleRulesetsSetCacheControlRuleActionParameters(BaseModel):
     """
 
 
-class RulesetRuleRulesetsSetCacheControlRuleExposedCredentialCheck(BaseModel):
+class RulesetRuleSetCacheControlRuleExposedCredentialCheck(BaseModel):
     """Configuration for exposed credential checking."""
 
     password_expression: str
@@ -745,7 +914,7 @@ class RulesetRuleRulesetsSetCacheControlRuleExposedCredentialCheck(BaseModel):
     """An expression that selects the user ID used in the credentials check."""
 
 
-class RulesetRuleRulesetsSetCacheControlRuleRatelimit(BaseModel):
+class RulesetRuleSetCacheControlRuleRatelimit(BaseModel):
     """An object configuring the rule's rate limit behavior."""
 
     characteristics: List[str]
@@ -791,20 +960,28 @@ class RulesetRuleRulesetsSetCacheControlRuleRatelimit(BaseModel):
     """
 
 
-class RulesetRuleRulesetsSetCacheControlRule(BaseModel):
+class RulesetRuleSetCacheControlRule(BaseModel):
+    id: str
+    """The unique ID of the rule."""
+
+    action: Literal["set_cache_control"]
+    """The action to perform when the rule matches."""
+
+    enabled: bool
+
+    expression: str
+    """The expression defining which traffic will match the rule."""
+
     last_updated: datetime
     """The timestamp of when the rule was last modified."""
+
+    ref: str
+    """The reference of the rule (the rule's ID by default)."""
 
     version: str
     """The version of the rule."""
 
-    id: Optional[str] = None
-    """The unique ID of the rule."""
-
-    action: Optional[Literal["set_cache_control"]] = None
-    """The action to perform when the rule matches."""
-
-    action_parameters: Optional[RulesetRuleRulesetsSetCacheControlRuleActionParameters] = None
+    action_parameters: Optional[RulesetRuleSetCacheControlRuleActionParameters] = None
     """The parameters configuring the rule's action."""
 
     categories: Optional[List[str]] = None
@@ -813,26 +990,29 @@ class RulesetRuleRulesetsSetCacheControlRule(BaseModel):
     description: Optional[str] = None
     """An informative description of the rule."""
 
-    enabled: Optional[bool] = None
-    """Whether the rule should be executed."""
-
-    exposed_credential_check: Optional[RulesetRuleRulesetsSetCacheControlRuleExposedCredentialCheck] = None
+    exposed_credential_check: Optional[RulesetRuleSetCacheControlRuleExposedCredentialCheck] = None
     """Configuration for exposed credential checking."""
-
-    expression: Optional[str] = None
-    """The expression defining which traffic will match the rule."""
 
     logging: Optional[Logging] = None
     """An object configuring the rule's logging behavior."""
 
-    ratelimit: Optional[RulesetRuleRulesetsSetCacheControlRuleRatelimit] = None
+    ratelimit: Optional[RulesetRuleSetCacheControlRuleRatelimit] = None
     """An object configuring the rule's rate limit behavior."""
 
-    ref: Optional[str] = None
-    """The reference of the rule (the rule's ID by default)."""
+
+class RulesetRuleSetCacheSettingsRule(SetCacheSettingsRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsValues(BaseModel):
+class RulesetRuleSetCacheTagsRuleActionParametersAddCacheTagsValues(BaseModel):
     """Add cache tags using a list of values."""
 
     operation: Literal["add", "remove", "set"]
@@ -842,7 +1022,7 @@ class RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsValues(Base
     """A list of cache tag values."""
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsExpression(BaseModel):
+class RulesetRuleSetCacheTagsRuleActionParametersAddCacheTagsExpression(BaseModel):
     """Add cache tags using an expression."""
 
     expression: str
@@ -852,7 +1032,7 @@ class RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsExpression(
     """The operation to perform on the cache tags."""
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsValues(BaseModel):
+class RulesetRuleSetCacheTagsRuleActionParametersRemoveCacheTagsValues(BaseModel):
     """Remove cache tags using a list of values."""
 
     operation: Literal["add", "remove", "set"]
@@ -862,7 +1042,7 @@ class RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsValues(B
     """A list of cache tag values."""
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsExpression(BaseModel):
+class RulesetRuleSetCacheTagsRuleActionParametersRemoveCacheTagsExpression(BaseModel):
     """Remove cache tags using an expression."""
 
     expression: str
@@ -872,7 +1052,7 @@ class RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsExpressi
     """The operation to perform on the cache tags."""
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsValues(BaseModel):
+class RulesetRuleSetCacheTagsRuleActionParametersSetCacheTagsValues(BaseModel):
     """Set cache tags using a list of values."""
 
     operation: Literal["add", "remove", "set"]
@@ -882,7 +1062,7 @@ class RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsValues(Base
     """A list of cache tag values."""
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsExpression(BaseModel):
+class RulesetRuleSetCacheTagsRuleActionParametersSetCacheTagsExpression(BaseModel):
     """Set cache tags using an expression."""
 
     expression: str
@@ -892,17 +1072,17 @@ class RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsExpression(
     """The operation to perform on the cache tags."""
 
 
-RulesetRuleRulesetsSetCacheTagsRuleActionParameters: TypeAlias = Union[
-    RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsValues,
-    RulesetRuleRulesetsSetCacheTagsRuleActionParametersAddCacheTagsExpression,
-    RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsValues,
-    RulesetRuleRulesetsSetCacheTagsRuleActionParametersRemoveCacheTagsExpression,
-    RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsValues,
-    RulesetRuleRulesetsSetCacheTagsRuleActionParametersSetCacheTagsExpression,
+RulesetRuleSetCacheTagsRuleActionParameters: TypeAlias = Union[
+    RulesetRuleSetCacheTagsRuleActionParametersAddCacheTagsValues,
+    RulesetRuleSetCacheTagsRuleActionParametersAddCacheTagsExpression,
+    RulesetRuleSetCacheTagsRuleActionParametersRemoveCacheTagsValues,
+    RulesetRuleSetCacheTagsRuleActionParametersRemoveCacheTagsExpression,
+    RulesetRuleSetCacheTagsRuleActionParametersSetCacheTagsValues,
+    RulesetRuleSetCacheTagsRuleActionParametersSetCacheTagsExpression,
 ]
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleExposedCredentialCheck(BaseModel):
+class RulesetRuleSetCacheTagsRuleExposedCredentialCheck(BaseModel):
     """Configuration for exposed credential checking."""
 
     password_expression: str
@@ -912,7 +1092,7 @@ class RulesetRuleRulesetsSetCacheTagsRuleExposedCredentialCheck(BaseModel):
     """An expression that selects the user ID used in the credentials check."""
 
 
-class RulesetRuleRulesetsSetCacheTagsRuleRatelimit(BaseModel):
+class RulesetRuleSetCacheTagsRuleRatelimit(BaseModel):
     """An object configuring the rule's rate limit behavior."""
 
     characteristics: List[str]
@@ -958,20 +1138,28 @@ class RulesetRuleRulesetsSetCacheTagsRuleRatelimit(BaseModel):
     """
 
 
-class RulesetRuleRulesetsSetCacheTagsRule(BaseModel):
+class RulesetRuleSetCacheTagsRule(BaseModel):
+    id: str
+    """The unique ID of the rule."""
+
+    action: Literal["set_cache_tags"]
+    """The action to perform when the rule matches."""
+
+    enabled: bool
+
+    expression: str
+    """The expression defining which traffic will match the rule."""
+
     last_updated: datetime
     """The timestamp of when the rule was last modified."""
+
+    ref: str
+    """The reference of the rule (the rule's ID by default)."""
 
     version: str
     """The version of the rule."""
 
-    id: Optional[str] = None
-    """The unique ID of the rule."""
-
-    action: Optional[Literal["set_cache_tags"]] = None
-    """The action to perform when the rule matches."""
-
-    action_parameters: Optional[RulesetRuleRulesetsSetCacheTagsRuleActionParameters] = None
+    action_parameters: Optional[RulesetRuleSetCacheTagsRuleActionParameters] = None
     """The parameters configuring the rule's action."""
 
     categories: Optional[List[str]] = None
@@ -980,33 +1168,48 @@ class RulesetRuleRulesetsSetCacheTagsRule(BaseModel):
     description: Optional[str] = None
     """An informative description of the rule."""
 
-    enabled: Optional[bool] = None
-    """Whether the rule should be executed."""
-
-    exposed_credential_check: Optional[RulesetRuleRulesetsSetCacheTagsRuleExposedCredentialCheck] = None
+    exposed_credential_check: Optional[RulesetRuleSetCacheTagsRuleExposedCredentialCheck] = None
     """Configuration for exposed credential checking."""
-
-    expression: Optional[str] = None
-    """The expression defining which traffic will match the rule."""
 
     logging: Optional[Logging] = None
     """An object configuring the rule's logging behavior."""
 
-    ratelimit: Optional[RulesetRuleRulesetsSetCacheTagsRuleRatelimit] = None
+    ratelimit: Optional[RulesetRuleSetCacheTagsRuleRatelimit] = None
     """An object configuring the rule's rate limit behavior."""
 
-    ref: Optional[str] = None
-    """The reference of the rule (the rule's ID by default)."""
+
+class RulesetRuleSetConfigurationRule(SetConfigRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
 
 
-class RulesetRuleRulesetsTransformResponseHTMLRuleActionParameters(BaseModel):
+class RulesetRuleSkipRule(SkipRule):
+    id: str  # type: ignore
+
+    action: str  # type: ignore
+
+    enabled: bool  # type: ignore
+
+    expression: str  # type: ignore
+
+    ref: str  # type: ignore
+
+
+class RulesetRuleTransformResponseHTMLRuleActionParameters(BaseModel):
     """The parameters configuring the rule's action."""
 
     link_maze: object
     """Enables the link maze transformation on the response."""
 
 
-class RulesetRuleRulesetsTransformResponseHTMLRuleExposedCredentialCheck(BaseModel):
+class RulesetRuleTransformResponseHTMLRuleExposedCredentialCheck(BaseModel):
     """Configuration for exposed credential checking."""
 
     password_expression: str
@@ -1016,7 +1219,7 @@ class RulesetRuleRulesetsTransformResponseHTMLRuleExposedCredentialCheck(BaseMod
     """An expression that selects the user ID used in the credentials check."""
 
 
-class RulesetRuleRulesetsTransformResponseHTMLRuleRatelimit(BaseModel):
+class RulesetRuleTransformResponseHTMLRuleRatelimit(BaseModel):
     """An object configuring the rule's rate limit behavior."""
 
     characteristics: List[str]
@@ -1062,20 +1265,28 @@ class RulesetRuleRulesetsTransformResponseHTMLRuleRatelimit(BaseModel):
     """
 
 
-class RulesetRuleRulesetsTransformResponseHTMLRule(BaseModel):
+class RulesetRuleTransformResponseHTMLRule(BaseModel):
+    id: str
+    """The unique ID of the rule."""
+
+    action: Literal["transform_response_html"]
+    """The action to perform when the rule matches."""
+
+    enabled: bool
+
+    expression: str
+    """The expression defining which traffic will match the rule."""
+
     last_updated: datetime
     """The timestamp of when the rule was last modified."""
+
+    ref: str
+    """The reference of the rule (the rule's ID by default)."""
 
     version: str
     """The version of the rule."""
 
-    id: Optional[str] = None
-    """The unique ID of the rule."""
-
-    action: Optional[Literal["transform_response_html"]] = None
-    """The action to perform when the rule matches."""
-
-    action_parameters: Optional[RulesetRuleRulesetsTransformResponseHTMLRuleActionParameters] = None
+    action_parameters: Optional[RulesetRuleTransformResponseHTMLRuleActionParameters] = None
     """The parameters configuring the rule's action."""
 
     categories: Optional[List[str]] = None
@@ -1084,50 +1295,38 @@ class RulesetRuleRulesetsTransformResponseHTMLRule(BaseModel):
     description: Optional[str] = None
     """An informative description of the rule."""
 
-    enabled: Optional[bool] = None
-    """Whether the rule should be executed."""
-
-    exposed_credential_check: Optional[RulesetRuleRulesetsTransformResponseHTMLRuleExposedCredentialCheck] = None
+    exposed_credential_check: Optional[RulesetRuleTransformResponseHTMLRuleExposedCredentialCheck] = None
     """Configuration for exposed credential checking."""
-
-    expression: Optional[str] = None
-    """The expression defining which traffic will match the rule."""
 
     logging: Optional[Logging] = None
     """An object configuring the rule's logging behavior."""
 
-    ratelimit: Optional[RulesetRuleRulesetsTransformResponseHTMLRuleRatelimit] = None
+    ratelimit: Optional[RulesetRuleTransformResponseHTMLRuleRatelimit] = None
     """An object configuring the rule's rate limit behavior."""
 
-    ref: Optional[str] = None
-    """The reference of the rule (the rule's ID by default)."""
 
-
-RulesetRule: TypeAlias = Annotated[
-    Union[
-        BlockRule,
-        RulesetRuleRulesetsChallengeRule,
-        CompressResponseRule,
-        DDoSDynamicRule,
-        ExecuteRule,
-        ForceConnectionCloseRule,
-        RulesetRuleRulesetsJSChallengeRule,
-        LogRule,
-        LogCustomFieldRule,
-        ManagedChallengeRule,
-        RedirectRule,
-        RewriteRule,
-        RouteRule,
-        ScoreRule,
-        ServeErrorRule,
-        RulesetRuleRulesetsSetCacheControlRule,
-        SetCacheSettingsRule,
-        RulesetRuleRulesetsSetCacheTagsRule,
-        SetConfigRule,
-        SkipRule,
-        RulesetRuleRulesetsTransformResponseHTMLRule,
-    ],
-    PropertyInfo(discriminator="action"),
+RulesetRule: TypeAlias = Union[
+    RulesetRuleBlockRule,
+    RulesetRuleChallengeRule,
+    RulesetRuleResponseCompressionRule,
+    RulesetRuleDDoSDynamicRule,
+    RulesetRuleExecuteRule,
+    RulesetRuleForceConnectionCloseRule,
+    RulesetRuleJavaScriptChallengeRule,
+    RulesetRuleLogRule,
+    RulesetRuleLogCustomFieldRule,
+    RulesetRuleManagedChallengeRule,
+    RulesetRuleRedirectRule,
+    RulesetRuleRewriteRule,
+    RulesetRuleRouteRule,
+    RulesetRuleScoreRule,
+    RulesetRuleServeErrorRule,
+    RulesetRuleSetCacheControlRule,
+    RulesetRuleSetCacheSettingsRule,
+    RulesetRuleSetCacheTagsRule,
+    RulesetRuleSetConfigurationRule,
+    RulesetRuleSkipRule,
+    RulesetRuleTransformResponseHTMLRule,
 ]
 
 

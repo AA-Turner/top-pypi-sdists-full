@@ -5,9 +5,10 @@ from typing import Optional
 from unittest import TestCase, mock
 
 from data_enterprise import EnterpriseEnvironment, get_enterprise_data, enterprise_allocate_ids
-from keepercommander import api, crypto, utils, vault
+from keepercommander import api, crypto, enterprise as enterprise_data, utils, vault
 from keepercommander.params import KeeperParams, PublicKeys
 from keepercommander.error import CommandError
+from keepercommander.proto import enterprise_pb2
 from data_vault import VaultEnvironment, get_connected_params
 from keepercommander.commands import enterprise, aram
 
@@ -46,6 +47,41 @@ class TestEnterprise(TestCase):
         self.assertIsNotNone(params.enterprise)
         self.assertEqual(params.enterprise['unencrypted_tree_key'], ent_env.tree_key)
         self.assertEqual(len(params.enterprise['nodes']), 2)
+
+    def test_general_data_restrict_visibility_controls_root_node(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        params.enterprise['keys'] = {}
+        root = next(x for x in params.enterprise['nodes'] if x['node_id'] == ent_env.node1_id)
+        child = next(x for x in params.enterprise['nodes'] if x['node_id'] == ent_env.node2_id)
+        root['restrict_visibility'] = True
+        child['restrict_visibility'] = True
+
+        response = enterprise_pb2.EnterpriseDataResponse()
+        response.generalData.enterpriseName = params.enterprise['enterprise_name']
+        response.generalData.restrictVisibility = False
+        response.hasMore = False
+
+        loader = enterprise_data._EnterpriseLoader(params.enterprise['unencrypted_tree_key'])
+        with mock.patch('keepercommander.enterprise.api.communicate_rest', return_value=response):
+            loader.load(params)
+
+        self.assertNotIn('restrict_visibility', root)
+        self.assertTrue(child['restrict_visibility'])
+
+        response.generalData.restrictVisibility = True
+        with mock.patch('keepercommander.enterprise.api.communicate_rest', return_value=response):
+            loader.load(params)
+
+        self.assertTrue(root['restrict_visibility'])
+        self.assertTrue(child['restrict_visibility'])
+
+        response = enterprise_pb2.EnterpriseDataResponse()
+        response.hasMore = False
+        with mock.patch('keepercommander.enterprise.api.communicate_rest', return_value=response):
+            loader.load(params)
+
+        self.assertTrue(root['restrict_visibility'])
 
     def test_enterprise_info_command(self):
         params = get_connected_params()
@@ -86,6 +122,207 @@ class TestEnterprise(TestCase):
             'role_id': str(ent_env.role1_id),
             'role_name': ent_env.role1_name,
         }])
+
+    def test_enterprise_info_columns_base_fields_no_warning(self):
+        """Base fields that are always present in the row (user_id/email, team_uid, node_id, role_id, and
+        name for teams/nodes/roles) should not trigger the "Supported X columns" warning."""
+        params = get_connected_params()
+        api.query_enterprise(params)
+        cmd = enterprise.EnterpriseInfoCommand()
+
+        with mock.patch('logging.warning') as warn:
+            cmd.execute(params, users=True, format='json', columns='user_id,email,name', quiet=True)
+        warn.assert_not_called()
+
+        with mock.patch('logging.warning') as warn:
+            cmd.execute(params, teams=True, format='json', columns='team_uid,name,users', quiet=True)
+        warn.assert_not_called()
+
+        with mock.patch('logging.warning') as warn:
+            cmd.execute(params, nodes=True, format='json', columns='node_id,name,users', quiet=True)
+        warn.assert_not_called()
+
+        with mock.patch('logging.warning') as warn:
+            cmd.execute(params, roles=True, format='json', columns='role_id,name,admin', quiet=True)
+        warn.assert_not_called()
+
+    def test_enterprise_info_columns_invalid_field_still_warns(self):
+        """An actually unsupported column should still trigger the "Supported X columns" warning."""
+        params = get_connected_params()
+        api.query_enterprise(params)
+        cmd = enterprise.EnterpriseInfoCommand()
+
+        with self.assertLogs(level=logging.WARNING) as log:
+            cmd.execute(params, users=True, format='json', columns='bogus_column', quiet=True)
+        self.assertTrue(any('Supported user columns' in m for m in log.output))
+
+        with self.assertLogs(level=logging.WARNING) as log:
+            cmd.execute(params, teams=True, format='json', columns='bogus_column', quiet=True)
+        self.assertTrue(any('Supported team columns' in m for m in log.output))
+
+    def test_enterprise_info_uses_root_displayname(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        params.enterprise['nodes'][0]['data']['displayname'] = 'ECC-cmdr'
+        cmd = enterprise.EnterpriseInfoCommand()
+
+        report = json.loads(cmd.execute(params, nodes=True, format='json', quiet=True))
+        root = next(x for x in report if x['node_id'] == ent_env.node1_id)
+        self.assertEqual(root['name'], 'ECC-cmdr')
+        self.assertIn('ECC-cmdr', cmd.execute(params, quiet=True))
+        self.assertIn('ECC-cmdr', cmd.execute(params, nodes=True, format='csv', quiet=True))
+
+        self.assertEqual(
+            [x['node_id'] for x in cmd.resolve_nodes(params, 'ECC-cmdr')],
+            [ent_env.node1_id],
+        )
+        self.assertEqual(
+            [x['node_id'] for x in cmd.resolve_nodes(params, 'Enterprise 1')],
+            [ent_env.node1_id],
+        )
+        self.assertEqual(cmd.get_node_path(params, ent_env.node2_id), 'ECC-cmdr\\Sub node 1')
+
+    def test_enterprise_node_path_cache_refreshes_displayname(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        cmd = enterprise.EnterpriseInfoCommand()
+
+        self.assertEqual(cmd.get_node_path(params, ent_env.node2_id), 'Enterprise 1\\Sub node 1')
+        params.enterprise['nodes'][0]['data']['displayname'] = 'ECC-cmdr'
+        self.assertEqual(cmd.get_node_path(params, ent_env.node2_id), 'ECC-cmdr\\Sub node 1')
+
+    def test_enterprise_node_rename_root_omits_parent_id(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        cmd = enterprise.EnterpriseNodeCommand()
+
+        with mock.patch('keepercommander.commands.enterprise.api.execute_batch',
+                        return_value=[{'result': 'success'}]) as execute_batch:
+            cmd.execute(params, node=[str(ent_env.node1_id)], displayname='Renamed Enterprise')
+
+        request = execute_batch.call_args.args[1][0]
+        self.assertNotIn('parent_id', request)
+        data = crypto.decrypt_aes_v1(
+            utils.base64_url_decode(request['encrypted_data']),
+            params.enterprise['unencrypted_tree_key'],
+        )
+        self.assertEqual(json.loads(data.decode('utf-8'))['displayname'], 'Renamed Enterprise')
+
+    def test_enterprise_node_rename_child_preserves_parent_id(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        cmd = enterprise.EnterpriseNodeCommand()
+
+        with mock.patch('keepercommander.commands.enterprise.api.execute_batch',
+                        return_value=[{'result': 'success'}]) as execute_batch:
+            cmd.execute(params, node=[str(ent_env.node2_id)], displayname='Renamed Child')
+
+        request = execute_batch.call_args.args[1][0]
+        self.assertEqual(request['parent_id'], ent_env.node1_id)
+        data = crypto.decrypt_aes_v1(
+            utils.base64_url_decode(request['encrypted_data']),
+            params.enterprise['unencrypted_tree_key'],
+        )
+        self.assertEqual(json.loads(data.decode('utf-8'))['displayname'], 'Renamed Child')
+
+    def test_enterprise_node_move_sets_selected_parent_id(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        cmd = enterprise.EnterpriseNodeCommand()
+
+        with mock.patch('keepercommander.commands.enterprise.api.execute_batch',
+                        return_value=[{'result': 'success'}]) as execute_batch:
+            cmd.execute(params, node=[str(ent_env.node2_id)], parent=str(ent_env.node1_id))
+
+        request = execute_batch.call_args.args[1][0]
+        self.assertEqual(request['parent_id'], ent_env.node1_id)
+
+    def test_enterprise_node_toggle_root_isolation(self):
+        for was_isolated in (False, True):
+            with self.subTest(was_isolated=was_isolated):
+                params = get_connected_params()
+                api.query_enterprise(params)
+                root = next(x for x in params.enterprise['nodes']
+                            if x['node_id'] == ent_env.node1_id)
+                root['data']['displayname'] = 'Enterprise 1'
+                if was_isolated:
+                    root['restrict_visibility'] = True
+
+                def refresh_enterprise(p, force=False, tree_key=None):
+                    self.assertTrue(force)
+                    refreshed_root = next(x for x in p.enterprise['nodes']
+                                          if x['node_id'] == ent_env.node1_id)
+                    if was_isolated:
+                        refreshed_root.pop('restrict_visibility', None)
+                    else:
+                        refreshed_root['restrict_visibility'] = True
+
+                cmd = enterprise.EnterpriseNodeCommand()
+                with mock.patch(
+                        'keepercommander.commands.enterprise.api.communicate_rest'
+                ) as communicate_rest, mock.patch(
+                        'keepercommander.commands.enterprise.api.query_enterprise',
+                        side_effect=refresh_enterprise
+                ) as query_enterprise:
+                    cmd.execute(
+                        params,
+                        node=[str(ent_env.node1_id)],
+                        toggle_isolated=True,
+                    )
+
+                request = communicate_rest.call_args.args[1]
+                self.assertEqual(request.nodeId, 0)
+                query_enterprise.assert_called_once_with(params, force=True)
+
+    def test_enterprise_node_toggle_child_isolation(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        def refresh_enterprise(p, force=False, tree_key=None):
+            self.assertTrue(force)
+            child = next(x for x in p.enterprise['nodes']
+                         if x['node_id'] == ent_env.node2_id)
+            child['restrict_visibility'] = True
+
+        cmd = enterprise.EnterpriseNodeCommand()
+        with mock.patch(
+                'keepercommander.commands.enterprise.api.communicate_rest'
+        ) as communicate_rest, mock.patch(
+                'keepercommander.commands.enterprise.api.query_enterprise',
+                side_effect=refresh_enterprise
+        ):
+            cmd.execute(
+                params,
+                node=[str(ent_env.node2_id)],
+                toggle_isolated=True,
+            )
+
+        request = communicate_rest.call_args.args[1]
+        self.assertEqual(request.nodeId, ent_env.node2_id)
+
+    def test_enterprise_node_toggle_isolation_reports_noop(self):
+        params = get_connected_params()
+        api.query_enterprise(params)
+        child = next(x for x in params.enterprise['nodes']
+                     if x['node_id'] == ent_env.node2_id)
+        child['restrict_visibility'] = True
+
+        cmd = enterprise.EnterpriseNodeCommand()
+        with mock.patch(
+                'keepercommander.commands.enterprise.api.communicate_rest'
+        ), mock.patch(
+                'keepercommander.commands.enterprise.api.query_enterprise'
+        ), self.assertLogs(level=logging.WARNING) as logs:
+            cmd.execute(
+                params,
+                node=[str(ent_env.node2_id)],
+                toggle_isolated=True,
+            )
+
+        self.assertTrue(any(
+            'server accepted the isolation toggle, but the state did not change' in message
+            for message in logs.output
+        ))
 
     def test_enterprise_add_user(self):
         params = get_connected_params()
@@ -190,6 +427,253 @@ class TestEnterprise(TestCase):
             cmd.execute(params, add_user=[ent_env.user2_email], verbose=True, role=['Invalid'])
             with mock.patch('builtins.print'):
                 cmd.execute(params, add_user=['invalid@keepersecurity.com'], verbose=True, role=[ent_env.role1_name])
+
+    def test_enterprise_role_add_transfer_account_privilege_denied(self):
+        """KC-1412: Delegated admin without transfer_account privilege cannot grant it (CVE fix)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        # Role1 (current user) has only manage_nodes, manage_user, manage_roles (no transfer_account)
+        # Try to grant transfer_account to Role2 - should be denied by KC-1412 fix
+        with self.assertLogs(level=logging.WARNING) as log:
+            cmd.execute(params, add_privilege=['transfer_account'], role=[ent_env.role2_name],
+                       node='Enterprise 1')
+            # KC-1412 fix: Check for the privilege denial message
+            self.assertTrue(any('You do not have the required privilege' in msg for msg in log.output))
+
+        # Expected: no command sent to server (returned early due to lack of authorization)
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_add_manage_teams_privilege_denied(self):
+        """KC-1412: Delegated admin without manage_teams privilege cannot grant it (CVE fix)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        # Role1 has no manage_teams privilege - try to grant it, should be denied
+        with self.assertLogs(level=logging.WARNING) as log:
+            cmd.execute(params, add_privilege=['manage_teams'], role=[ent_env.role2_name],
+                       node='Enterprise 1')
+            # KC-1412 fix: Check for the privilege denial message
+            self.assertTrue(any('You do not have the required privilege' in msg for msg in log.output))
+
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_add_privilege_with_authorization(self):
+        """KC-1412: Admin with transfer_account privilege CAN grant it (regression test)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Use the admin role which has transfer_account in test data
+        # Add admin role to User1 so they have the privilege
+        params.enterprise['role_users'].append({
+            'role_id': ent_env.role_admin_id,
+            'enterprise_user_id': ent_env.user1_id
+        })
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        TestEnterprise.expected_commands = ['managed_node_privilege_add']
+        # Now User1 has transfer_account via Admin role, can grant it to Role2
+        cmd.execute(params, add_privilege=['transfer_account'], role=[ent_env.role2_name],
+                   node='Enterprise 1')
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_add_manage_companies_privilege_denied(self):
+        """Delegated admin without manage_companies privilege cannot grant it"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        with self.assertLogs(level=logging.WARNING) as log:
+            cmd.execute(params, add_privilege=['manage_companies'], role=[ent_env.role2_name],
+                       node='Enterprise 1')
+            self.assertTrue(any('You do not have the required privilege' in msg for msg in log.output))
+
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_remove_transfer_account_privilege_denied(self):
+        """Delegated admin without transfer_account privilege cannot strip it from another role"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Role2 already holds transfer_account; User1 (Role1) does not.
+        params.enterprise['role_privileges'].append({
+            'role_id': ent_env.role2_id,
+            'managed_node_id': ent_env.node1_id,
+            'privilege': 'transfer_account'
+        })
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        with self.assertLogs(level=logging.WARNING) as log:
+            cmd.execute(params, remove_privilege=['transfer_account'], role=[ent_env.role2_name],
+                       node='Enterprise 1')
+            self.assertTrue(any('You do not have the required privilege' in msg for msg in log.output))
+
+        # No removal command sent - Role2 should still hold the privilege
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_remove_privilege_with_authorization(self):
+        """Admin with transfer_account privilege CAN remove it from another role (regression test)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Role2 already holds transfer_account
+        params.enterprise['role_privileges'].append({
+            'role_id': ent_env.role2_id,
+            'managed_node_id': ent_env.node1_id,
+            'privilege': 'transfer_account'
+        })
+        # Give User1 transfer_account via Admin role
+        params.enterprise['role_users'].append({
+            'role_id': ent_env.role_admin_id,
+            'enterprise_user_id': ent_env.user1_id
+        })
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        TestEnterprise.expected_commands = ['managed_node_privilege_remove']
+        cmd.execute(params, remove_privilege=['transfer_account'], role=[ent_env.role2_name],
+                   node='Enterprise 1')
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_require_account_share_enforcement_denied_delegated_admin(self):
+        """KC-1412: Delegated admin (non-root) cannot set require_account_share enforcement (CVE fix)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Node2 is a sub-node (has parent_id), so user in that node is not root admin
+        # Modify to make Role1 manage Node2 instead
+        params.enterprise['managed_nodes'] = [
+            {
+                'role_id': ent_env.role1_id,
+                'managed_node_id': ent_env.node2_id,
+                'cascade_node_management': True,
+            }
+        ]
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        # Try to set require_account_share enforcement by role name
+        # This should be denied because the user is not a root admin (managing non-root node)
+        # KC-1412 fix should reject this with a warning and return early
+        with self.assertLogs(level=logging.WARNING):
+            cmd.execute(params, enforcements=[f'require_account_share:Admin Role'],
+                       role=[ent_env.role1_name])
+
+        # No command should be sent to server (returned early due to root admin check)
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_require_account_share_enforcement_allowed_root_admin(self):
+        """KC-1412: Root admin CAN set require_account_share enforcement (regression test)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Role1 manages Node1 (root node, no parent_id) - user is root admin
+        # Set enforcement to Admin Role which has transfer_account privilege
+        cmd = enterprise.EnterpriseRoleCommand()
+        TestEnterprise.expected_commands = ['role_enforcement_add']
+        cmd.execute(params, enforcements=['require_account_share:Admin Role'],
+                   role=[ent_env.role1_name])
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_other_enforcements_work_delegated_admin(self):
+        """KC-1412: Delegated admin CAN set non-sensitive enforcements (regression test)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        # Non-sensitive enforcement should work for delegated admin
+        TestEnterprise.expected_commands = ['role_enforcement_add']
+        cmd.execute(params, enforcements=['require_two_factor:True'],
+                   role=[ent_env.role1_name])
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_cascade_privilege_grant(self):
+        """KC-1435: Privilege grant on child node respects cascade from parent (regression test)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Set up: Admin role has transfer_account on Node1 (root)
+        # Add admin role's transfer_account privilege to parent node
+        params.enterprise['role_privileges'].append({
+            'role_id': ent_env.role_admin_id,
+            'managed_node_id': ent_env.node1_id,
+            'privilege': 'transfer_account'
+        })
+        # Add User1 to admin role so they have transfer_account via cascade
+        params.enterprise['role_users'].append({
+            'role_id': ent_env.role_admin_id,
+            'enterprise_user_id': ent_env.user1_id
+        })
+        # Role2 manages Node2 (child of Node1) with cascade enabled
+        params.enterprise['managed_nodes'].append({
+            'role_id': ent_env.role2_id,
+            'managed_node_id': ent_env.node2_id,
+            'cascade_node_management': False,
+        })
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        TestEnterprise.expected_commands = ['managed_node_privilege_add']
+        # Attempt to grant transfer_account on the child node — should succeed because
+        # the user's transfer_account privilege on parent Node1 cascades down to Node2
+        cmd.execute(params, add_privilege=['transfer_account'], role=[ent_env.role2_name],
+                   node='Sub node 1')
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_mixed_case_username(self):
+        """KC-1435: Username matching is case-insensitive (regression test)"""
+        params = get_connected_params()
+        # Mock user with mixed-case username
+        params.user = 'User@TEST.COM'
+        api.query_enterprise(params)
+
+        # Update the test data user to match in lowercase
+        params.enterprise['users'][0]['username'] = 'user@test.com'
+
+        # Add admin role to User1 for transfer_account
+        params.enterprise['role_users'].append({
+            'role_id': ent_env.role_admin_id,
+            'enterprise_user_id': ent_env.user1_id
+        })
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        TestEnterprise.expected_commands = ['managed_node_privilege_add']
+        # Should succeed despite mixed-case username in params.user
+        cmd.execute(params, add_privilege=['transfer_account'], role=[ent_env.role2_name],
+                   node='Enterprise 1')
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
+
+    def test_enterprise_role_enforcement_removal_restricted_non_root(self):
+        """KC-1435: Delegated admin cannot remove require_account_share enforcement (CVE fix)"""
+        params = get_connected_params()
+        api.query_enterprise(params)
+
+        # Set up Role1 to manage Node2 (non-root)
+        params.enterprise['managed_nodes'] = [
+            {
+                'role_id': ent_env.role1_id,
+                'managed_node_id': ent_env.node2_id,
+                'cascade_node_management': True,
+            }
+        ]
+        # Add existing enforcement on Role2
+        params.enterprise['role_enforcements'] = [
+            {
+                'role_id': ent_env.role2_id,
+                'enforcements': {
+                    'require_account_share': 'Admin Role'
+                }
+            }
+        ]
+
+        cmd = enterprise.EnterpriseRoleCommand()
+        # Attempt to remove the enforcement — should be denied by KC-1435 fix
+        # because delegated admin managing non-root node cannot modify it
+        with self.assertLogs(level=logging.WARNING):
+            cmd.execute(params, enforcements=['require_account_share'],
+                       role=[ent_env.role2_name])
+
+        # No command should be sent (denied by KC-1435 fix)
+        self.assertEqual(len(TestEnterprise.expected_commands), 0)
 
     def test_enterprise_team(self):
         params = get_connected_params()

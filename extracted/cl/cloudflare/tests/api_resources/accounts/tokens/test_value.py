@@ -22,7 +22,6 @@ class TestValue:
         value = client.accounts.tokens.value.update(
             token_id="ed17574386854bf78a67040be0a770b0",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            body={},
         )
         assert_matches_type(str, value, path=["response"])
 
@@ -32,7 +31,6 @@ class TestValue:
         response = client.accounts.tokens.value.with_raw_response.update(
             token_id="ed17574386854bf78a67040be0a770b0",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            body={},
         )
 
         assert response.is_closed is True
@@ -46,7 +44,6 @@ class TestValue:
         with client.accounts.tokens.value.with_streaming_response.update(
             token_id="ed17574386854bf78a67040be0a770b0",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -63,14 +60,12 @@ class TestValue:
             client.accounts.tokens.value.with_raw_response.update(
                 token_id="ed17574386854bf78a67040be0a770b0",
                 account_id="",
-                body={},
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `token_id` but received ''"):
             client.accounts.tokens.value.with_raw_response.update(
                 token_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )
 
 
@@ -85,7 +80,6 @@ class TestAsyncValue:
         value = await async_client.accounts.tokens.value.update(
             token_id="ed17574386854bf78a67040be0a770b0",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            body={},
         )
         assert_matches_type(str, value, path=["response"])
 
@@ -95,7 +89,6 @@ class TestAsyncValue:
         response = await async_client.accounts.tokens.value.with_raw_response.update(
             token_id="ed17574386854bf78a67040be0a770b0",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            body={},
         )
 
         assert response.is_closed is True
@@ -109,7 +102,6 @@ class TestAsyncValue:
         async with async_client.accounts.tokens.value.with_streaming_response.update(
             token_id="ed17574386854bf78a67040be0a770b0",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -126,12 +118,10 @@ class TestAsyncValue:
             await async_client.accounts.tokens.value.with_raw_response.update(
                 token_id="ed17574386854bf78a67040be0a770b0",
                 account_id="",
-                body={},
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `token_id` but received ''"):
             await async_client.accounts.tokens.value.with_raw_response.update(
                 token_id="",
                 account_id="023e105f4ecef8ad9ca31a8372d0c353",
-                body={},
             )

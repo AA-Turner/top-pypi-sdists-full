@@ -44,7 +44,7 @@ class TestSippy:
                 "region": "region",
                 "secret_access_key": "secretAccessKey",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -117,7 +117,7 @@ class TestSippy:
                 "private_key": "privateKey",
                 "provider": "gcs",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -190,7 +190,7 @@ class TestSippy:
                 "provider": "s3",
                 "secret_access_key": "secretAccessKey",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -264,7 +264,7 @@ class TestSippy:
                 "provider": "azure",
                 "sas_token": "sasToken",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -326,7 +326,7 @@ class TestSippy:
         sippy = client.r2.buckets.sippy.delete(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(SippyDeleteResponse, sippy, path=["response"])
 
@@ -388,7 +388,7 @@ class TestSippy:
         sippy = client.r2.buckets.sippy.get(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -468,7 +468,7 @@ class TestAsyncSippy:
                 "region": "region",
                 "secret_access_key": "secretAccessKey",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -541,7 +541,7 @@ class TestAsyncSippy:
                 "private_key": "privateKey",
                 "provider": "gcs",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -614,7 +614,7 @@ class TestAsyncSippy:
                 "provider": "s3",
                 "secret_access_key": "secretAccessKey",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -688,7 +688,7 @@ class TestAsyncSippy:
                 "provider": "azure",
                 "sas_token": "sasToken",
             },
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 
@@ -750,7 +750,7 @@ class TestAsyncSippy:
         sippy = await async_client.r2.buckets.sippy.delete(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(SippyDeleteResponse, sippy, path=["response"])
 
@@ -812,7 +812,7 @@ class TestAsyncSippy:
         sippy = await async_client.r2.buckets.sippy.get(
             bucket_name="example-bucket",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
-            jurisdiction="default",
+            cf_r2_jurisdiction="default",
         )
         assert_matches_type(Sippy, sippy, path=["response"])
 

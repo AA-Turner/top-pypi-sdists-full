@@ -854,6 +854,48 @@ fn test_required_before_properties_validate_parity(instance: serde_json::Value) 
     );
 }
 
+#[jsonschema::validator(
+    schema = r#"{"properties":{"a":{"type":"integer"},"b":{"properties":{"c":{"type":"string"}}}},"required":["a","z"],"additionalProperties":{"type":"boolean"}}"#
+)]
+struct RequiredWithAdditionalSchemaParityValidator;
+
+#[test_case(serde_json::json!({"a":1,"z":true}) ; "valid")]
+#[test_case(serde_json::json!({"a":1,"z":0}) ; "required_key_checked_by_additional_properties")]
+#[test_case(serde_json::json!({"a":"x","z":true}) ; "bad_value")]
+#[test_case(serde_json::json!({"a":1,"b":{"c":1},"z":true}) ; "nested_bad_value")]
+#[test_case(serde_json::json!({"b":{"c":1},"a":"x","z":true}) ; "first_bad_value_in_instance_order")]
+#[test_case(serde_json::json!({"a":1,"y":1,"z":true}) ; "bad_additional_value")]
+#[test_case(serde_json::json!({"a":"x","y":1}) ; "missing_required_not_in_properties")]
+#[test_case(serde_json::json!({"z":0,"y":1}) ; "missing_required_in_properties")]
+fn test_required_with_additional_schema_validate_parity(instance: serde_json::Value) {
+    let schema = serde_json::json!({"properties":{"a":{"type":"integer"},"b":{"properties":{"c":{"type":"string"}}}},"required":["a","z"],"additionalProperties":{"type":"boolean"}});
+    assert_validate_parity_for(
+        &schema,
+        RequiredWithAdditionalSchemaParityValidator::is_valid(&instance),
+        RequiredWithAdditionalSchemaParityValidator::validate(&instance),
+        &instance,
+    );
+}
+
+#[jsonschema::validator(
+    schema = r#"{"properties":{"a":{"type":"integer"},"b":{"type":"integer"}},"required":["a","b"],"additionalProperties":false}"#
+)]
+struct RequiredWithAdditionalFalseParityValidator;
+
+#[test_case(serde_json::json!({"a":1,"b":2}) ; "valid")]
+#[test_case(serde_json::json!({"a":1,"b":2,"x":0}) ; "unexpected_key")]
+#[test_case(serde_json::json!({"a":1,"x":0}) ; "missing_required_and_unexpected_key")]
+#[test_case(serde_json::json!({"x":0,"a":"y","b":2}) ; "unexpected_key_before_bad_value")]
+fn test_required_with_additional_false_validate_parity(instance: serde_json::Value) {
+    let schema = serde_json::json!({"properties":{"a":{"type":"integer"},"b":{"type":"integer"}},"required":["a","b"],"additionalProperties":false});
+    assert_validate_parity_for(
+        &schema,
+        RequiredWithAdditionalFalseParityValidator::is_valid(&instance),
+        RequiredWithAdditionalFalseParityValidator::validate(&instance),
+        &instance,
+    );
+}
+
 // patternProperties value errors and additionalProperties errors interleave in instance order for
 // additionalProperties:false; property values come before pattern values otherwise.
 #[jsonschema::validator(
@@ -4840,4 +4882,165 @@ fn codegen_agrees_with_runtime_on_drawn_instances(tc: hegel::TestCase) {
             value,
         );
     }
+}
+
+// `methods` drops generated methods; the ones that remain must still compile against the shared
+// helpers and agree with the runtime validator. `anyOf` exercises the branch helpers, `$ref` the
+// per-target helpers, `$ref: "#"` the recursive stacks.
+#[jsonschema::validator(
+    schema = r##"{"type":"object","properties":{"a":{"anyOf":[{"type":"string"},{"type":"number"}]},"b":{"$ref":"#/properties/a"}}}"##,
+    methods = { is_valid = false }
+)]
+struct MethodsIsValidOff;
+
+#[jsonschema::validator(
+    schema = r##"{"type":"object","properties":{"a":{"anyOf":[{"type":"string"},{"type":"number"}]},"b":{"$ref":"#/properties/a"}}}"##,
+    methods = { validate = false }
+)]
+struct MethodsValidateOff;
+
+#[jsonschema::validator(
+    schema = r##"{"type":"object","properties":{"a":{"anyOf":[{"type":"string"},{"type":"number"}]},"b":{"$ref":"#/properties/a"}}}"##,
+    methods = { iter_errors = false }
+)]
+struct MethodsIterErrorsOff;
+
+#[jsonschema::validator(
+    schema = r##"{"type":"object","properties":{"a":{"anyOf":[{"type":"string"},{"type":"number"}]},"b":{"$ref":"#/properties/a"}}}"##,
+    methods = { validate = false, iter_errors = false }
+)]
+struct MethodsOnlyIsValid;
+
+fn methods_schema() -> serde_json::Value {
+    serde_json::json!({"type":"object","properties":{"a":{"anyOf":[{"type":"string"},{"type":"number"}]},"b":{"$ref":"#/properties/a"}}})
+}
+
+#[test_case(serde_json::json!({"a":"x","b":1}) ; "valid")]
+#[test_case(serde_json::json!({"a":[],"b":true}) ; "invalid_both")]
+#[test_case(serde_json::json!("text") ; "non_object")]
+fn test_methods_subsets(instance: serde_json::Value) {
+    let runtime = jsonschema::validator_for(&methods_schema()).expect("valid schema");
+    assert_validate_parity(
+        runtime.is_valid(&instance),
+        MethodsIsValidOff::validate(&instance),
+        &runtime,
+        &instance,
+    );
+    assert_iter_errors_parity(
+        MethodsIsValidOff::iter_errors(&instance),
+        &runtime,
+        &instance,
+    );
+    assert_eq!(
+        MethodsValidateOff::is_valid(&instance),
+        runtime.is_valid(&instance)
+    );
+    assert_iter_errors_parity(
+        MethodsValidateOff::iter_errors(&instance),
+        &runtime,
+        &instance,
+    );
+    assert_validate_parity(
+        MethodsIterErrorsOff::is_valid(&instance),
+        MethodsIterErrorsOff::validate(&instance),
+        &runtime,
+        &instance,
+    );
+    assert_eq!(
+        MethodsOnlyIsValid::is_valid(&instance),
+        runtime.is_valid(&instance)
+    );
+}
+
+#[jsonschema::validator(
+    schema = r##"{"type":"object","properties":{"child":{"$ref":"#"},"kind":{"anyOf":[{"type":"string"},{"type":"integer"}]}}}"##,
+    methods = { validate = false }
+)]
+struct MethodsRecursiveValidateOff;
+
+#[jsonschema::validator(
+    schema = r##"{"type":"object","properties":{"child":{"$ref":"#"},"kind":{"anyOf":[{"type":"string"},{"type":"integer"}]}}}"##,
+    methods = { validate = false, iter_errors = false }
+)]
+struct MethodsRecursiveOnlyIsValid;
+
+fn methods_recursive_schema() -> serde_json::Value {
+    serde_json::json!({"type":"object","properties":{"child":{"$ref":"#"},"kind":{"anyOf":[{"type":"string"},{"type":"integer"}]}}})
+}
+
+#[test_case(serde_json::json!({"kind":"x","child":{"kind":3}}) ; "valid")]
+#[test_case(serde_json::json!({"kind":"x","child":{"kind":[]}}) ; "invalid_nested")]
+fn test_methods_recursive_subsets(instance: serde_json::Value) {
+    let runtime = jsonschema::validator_for(&methods_recursive_schema()).expect("valid schema");
+    assert_eq!(
+        MethodsRecursiveValidateOff::is_valid(&instance),
+        runtime.is_valid(&instance)
+    );
+    assert_iter_errors_parity(
+        MethodsRecursiveValidateOff::iter_errors(&instance),
+        &runtime,
+        &instance,
+    );
+    assert_eq!(
+        MethodsRecursiveOnlyIsValid::is_valid(&instance),
+        runtime.is_valid(&instance)
+    );
+}
+
+// `$recursiveRef` and `$dynamicRef` push per-target `validate`/`collect` helpers onto their
+// stacks; with those helpers dropped the pushes must go too.
+#[jsonschema::validator(
+    schema = r##"{"$id":"https://ex/m","$recursiveAnchor":true,"type":["object","boolean"],"properties":{"allOf":{"type":"array","items":{"$recursiveRef":"#"}}}}"##,
+    draft = Draft201909,
+    methods = { validate = false, iter_errors = false }
+)]
+struct MethodsRecursiveRefOnlyIsValid;
+
+#[jsonschema::validator(
+    schema = r##"{"$id":"https://ex/d","$dynamicAnchor":"node","type":["object","boolean"],"properties":{"allOf":{"type":"array","items":{"$dynamicRef":"#node"}}}}"##,
+    draft = Draft202012,
+    methods = { validate = false, iter_errors = false }
+)]
+struct MethodsDynamicRefOnlyIsValid;
+
+#[test_case(serde_json::json!({"allOf":[true, {"allOf":[false]}]}) ; "valid")]
+#[test_case(serde_json::json!({"allOf":[true, {"allOf":[1]}]}) ; "invalid_nested")]
+fn test_methods_stack_refs_only_is_valid(instance: serde_json::Value) {
+    let recursive = serde_json::json!({"$id":"https://ex/m","$recursiveAnchor":true,"type":["object","boolean"],"properties":{"allOf":{"type":"array","items":{"$recursiveRef":"#"}}}});
+    let runtime = jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft201909)
+        .build(&recursive)
+        .expect("valid schema");
+    assert_eq!(
+        MethodsRecursiveRefOnlyIsValid::is_valid(&instance),
+        runtime.is_valid(&instance)
+    );
+    let dynamic = serde_json::json!({"$id":"https://ex/d","$dynamicAnchor":"node","type":["object","boolean"],"properties":{"allOf":{"type":"array","items":{"$dynamicRef":"#node"}}}});
+    let runtime = jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .build(&dynamic)
+        .expect("valid schema");
+    assert_eq!(
+        MethodsDynamicRefOnlyIsValid::is_valid(&instance),
+        runtime.is_valid(&instance)
+    );
+}
+
+// `oneOf` keeps its `is_branch_valid_*` gates when the branch error collectors are dropped.
+#[jsonschema::validator(
+    schema = r#"{"oneOf":[{"properties":{"a":{}},"required":["a"]},{"properties":{"b":{}},"required":["b"]}]}"#,
+    methods = { validate = false, iter_errors = false }
+)]
+struct MethodsOneOfOnlyIsValid;
+
+#[test_case(serde_json::json!({"a":1}) ; "one_branch")]
+#[test_case(serde_json::json!({"a":1,"b":2}) ; "both_branches")]
+#[test_case(serde_json::json!({}) ; "no_branch")]
+fn test_methods_one_of_only_is_valid(instance: serde_json::Value) {
+    let schema = serde_json::json!({"oneOf":[{"properties":{"a":{}},"required":["a"]},{"properties":{"b":{}},"required":["b"]}]});
+    assert_is_valid_parity(
+        &schema,
+        MethodsOneOfOnlyIsValid::is_valid(&instance),
+        &instance,
+    );
 }

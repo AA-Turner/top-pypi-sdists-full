@@ -135,6 +135,12 @@ class ItemInterface(BaseModel):
     operstate: str
     """UP/DOWN state of the network interface"""
 
+    health_reason: Optional[str] = None
+    """Comma-separated list of reasons for health score"""
+
+    health_score: Optional[float] = None
+    """Aggregate health score (0-100)"""
+
     ip_addresses: Optional[List[ItemInterfaceIPAddress]] = None
 
     speed: Optional[float] = None

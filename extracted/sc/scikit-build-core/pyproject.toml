@@ -9,7 +9,7 @@ authors = [
 ]
 description = "Build backend for CMake based projects"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "Apache-2.0"
 classifiers = [
     "Topic :: Scientific/Engineering",
@@ -20,7 +20,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -37,7 +36,6 @@ dynamic = ["version"]
 
 dependencies = [
     "exceptiongroup >=1.0; python_version<'3.11'",
-    "importlib-resources >=1.3; python_version<'3.9'",
     "packaging >=23.2",
     "pathspec >=0.12.0",
     "tomli >=1.2.2; python_version<'3.11'",
@@ -48,14 +46,17 @@ dependencies = [
 
 [project.optional-dependencies]
 wheels = [
-    "cmake",
+    # 4.4.0's FindPython can't find Development.SABIModule on Windows
+    # (https://gitlab.kitware.com/cmake/cmake/-/issues/27950); remove when
+    # 4.4.1 is out
+    "cmake; sys_platform!='win32'",
+    "cmake!=4.4.0; sys_platform=='win32'",
     "ninja; sys_platform!='win32'",
 ]
 wheel-free-setuptools = [
-    'setuptools>=70.1; python_version>="3.8"',
+    'setuptools>=70.1',
 ]
 setuptools = [
-    'setuptools >=43; python_version<"3.9"',
     'setuptools >=45; python_version=="3.9"',
     'setuptools >=49; python_version>="3.10" and python_version<"3.12"',
     'setuptools >=66.1; python_version>="3.12"',
@@ -109,11 +110,9 @@ test-core = [
     "pip>=24.1; python_version>='3.13'",
     "pytest >=7.2,!=9.1.0",  # 9.1.0 regression overriding params-fixtures: pytest-dev/pytest#13974
     "pytest-subprocess >=1.5",
-    'setuptools >=43; python_version<"3.9"',
     'setuptools >=45; python_version=="3.9"',
     'setuptools >=49; python_version>="3.10" and python_version<"3.12"',
     'setuptools >=66.1; python_version>="3.12"',
-    'typing-extensions >=3.10; python_version<"3.10"',
     "virtualenv >=20.20",
     "wheel >=0.40",
 ]
@@ -129,7 +128,6 @@ test-meta = [
 test-numpy = [
     { include-group = "test-core" },
     "numpy>=1.24.1; python_version<'3.15' and platform_python_implementation!='PyPy' and (platform_system != 'Windows' or platform_machine != 'ARM64')",
-    "numpy~=1.24.1; python_version=='3.8' and platform_python_implementation=='PyPy'",
     "numpy~=2.0; python_version=='3.9' and platform_python_implementation=='PyPy'",
     "numpy~=2.2; python_version=='3.10' and platform_python_implementation=='PyPy'",
     "numpy~=2.4.1; python_version=='3.11' and platform_python_implementation=='PyPy'",
@@ -140,7 +138,8 @@ test-pybind11 = [
 ]
 test-schema = [
     { include-group = "test-core" },
-    "fastjsonschema>=2.16.2",
+    "fastjsonschema>=2.16.2; python_version>='3.10'",
+    "fastjsonschema>=2.16.2,!=2.22.0; python_version<'3.10'",
     "validate-pyproject>=0.21",
 ]
 test = [
@@ -176,6 +175,7 @@ docs = [
     "sphinx-copybutton",
     "sphinx-inline-tabs",
     "sphinx-jsonschema",
+    "sphinx-llm",
     "sphinx-tippy",
     "sphinxcontrib-programoutput >=0.19",
 ]
@@ -184,12 +184,11 @@ docs = [
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "src/scikit_build_core/_version.py"
-build.targets.sdist.exclude = [".git", ".agents/", ".distro/", ".fmf/", ".github/", ".packit.yaml", ".readthedocs.yaml"]
+build.targets.sdist.exclude = [".git", ".agents/", ".distro/", ".fmf/", ".github/", ".packit.yaml", ".readthedocs.yml"]
 
 
 [tool.uv]
 exclude-newer = "7 days"
-workspace.members = ["tmp/hello/hello"]
 
 # These provide CMake helpers used by the init templates (f2py_add_module,
 # cython helpers); allow their freshly released versions so the generated
@@ -206,10 +205,6 @@ xfail_strict = true
 filterwarnings = [
     "error",
     "ignore:Config variable '.*' is unset, Python ABI tag may be incorrect:RuntimeWarning",
-    "default:pkg_resources is deprecated as an API:DeprecationWarning:wheel",  # Caused by wheel<0.41 in tests
-    "default:The 'wheel' package is no longer the canonical location:DeprecationWarning",  # Caused by wheel also
-    "default:The 'wheel' package is no longer the canonical location:FutureWarning",  # Newer wheel/setuptools emit this as a FutureWarning
-    "default:onerror argument is deprecated, use onexc instead:DeprecationWarning:wheel", # Caused by wheel<0.41 & Python 3.12
     "default:The distutils package is deprecated and slated for removal:DeprecationWarning",  # Caused by setuptools sometimes
     "default:The distutils.sysconfig module is deprecated, use sysconfig instead:DeprecationWarning",  # Caused by setuptools sometimes
     "default:check_home argument is deprecated and ignored.:DeprecationWarning",  # Caused by setuptools sometimes
@@ -219,6 +214,7 @@ filterwarnings = [
     "ignore:version of cmake-example already set:UserWarning",  # Caused by setuptoools-scm 9+ being installed
     "default:tag.strict is not set:FutureWarning",  # setuptools-scm 10+ asks users to set tag.strict explicitly
     "default:Configuration was created without VcsEnvironment:DeprecationWarning",  # Leaked by vcs-versioning 2.x internals, even from its public API
+    "default:The setuptools.file_finders entry point is deprecated:DeprecationWarning",  # setuptools-scm 10.3+ warns from its global entry point on every setuptools egg_info, including packages that do not use it
 ]
 log_level = "INFO"
 pythonpath = ["tests/utils"]
@@ -244,7 +240,6 @@ exclude = [
     '^tests/packages/simplest_c/src/simplest/__init__.py',
     '^tests/packages/dynamic_metadata/src/dynamic/__init__.py',
     '^tests/packages/.*/setup.py',
-    '^tests/packages/extensionlib/*',
 ]
 mypy_path = ["$MYPY_CONFIG_FILE_DIR/src", "$MYPY_CONFIG_FILE_DIR/tests/utils"]
 python_version = "3.10"
@@ -266,7 +261,7 @@ ignore_missing_imports = true
 
 
 [tool.pylint]
-py-version = "3.8"
+py-version = "3.9"
 jobs = "0"
 reports.output-format = "colorized"
 good-names = ["f"]
@@ -277,7 +272,6 @@ messages_control.disable = [
     "invalid-name",
     "line-too-long",
     "missing-class-docstring",
-    "missing-function-docstring",
     "missing-function-docstring",
     "missing-module-docstring",
     "wrong-import-position",
@@ -303,7 +297,7 @@ report.exclude_also = [
     'if typing.TYPE_CHECKING:',
     'if TYPE_CHECKING:',
     'def __repr__',
-    'if __name__ == "main":',
+    'if __name__ == "__main__":',
 ]
 
 
@@ -321,17 +315,15 @@ ignore = [
     "ANN401",  # Disallow Any
     "C90",     # Complexity
     "COM",     # Trailing commas teach the formatter
+    "CPY",     # Copyright notice at top of file
     "D",       # Too many doc requests
     "E501",    # Line too long
-    "ERA",     # Commented out code
     "FIX",     # Hacks and todos
     "PLC0415", # Import should be at top of file
-    "PLE1205", # Format check doesn't work with our custom logger
     "PLR09",   # Too many ...
     "PLR2004", # Magic value used in comparison
     "PT013",   # It's correct to import classes for typing!
     "S101",    # Use of assert detected
-    "S404",    # subprocess module is possibly insecure
     "S603",    # subprocess untrusted input
     "S607",    # subprocess call
     "SLF001",  # Private members are okay to access
@@ -364,8 +356,6 @@ docstring-code-format = true
 "tomllib".msg = "Use scikit_build_core._compat.tomllib instead."
 "importlib_metadata".msg = "Use importlib.metadata directly instead."
 "importlib.metadata.entry_points".msg = "Use scikit_build_core._compat.importlib.metadata.entry_points instead."
-"importlib.resources".msg = "Use scikit_build_core._compat.importlib.resources instead."
-"importlib_resources".msg = "Use scikit_build_core._compat.importlib.resources instead."
 "pyproject_metadata".msg = "Use scikit_build_core._vendor.pyproject_metadata instead."
 "setuptools.errors".msg = "Use scikit_build_core._compat.setuptools.errors instead."
 
@@ -374,15 +364,13 @@ docstring-code-format = true
 "tests/**" = ["T20", "ANN", "FBT001", "INP"]
 "noxfile.py" = ["T20", "TID251"]
 ".agents/skills/**/*.py" = ["T20"]
-"src/scikit_build_core/resources/*.py" = ["PTH", "ARG002", "FBT", "TID251"]
+"src/scikit_build_core/resources/*.py" = ["PTH", "ARG002", "FBT"]
 "src/scikit_build_core/_compat/**.py" = ["TID251"]
 "src/scikit_build_core/settings/**.py" = ["FBT001", "FA"]
 "src/scikit_build_core/file_api/**.py" = ["FA"]
 "tests/conftest.py" = ["TID251"]
-"tests/packages/**.py" = ["TID251"]
 "tests/test_settings.py" = ["FA"]
 "docs/**" = ["INP"]
-"docs/conf.py" = ["TID251"]
 "docs/examples/**" = ["ANN"]
 "src/scikit_build_core/file_api/model/*.py" = ["N"]
 "**/__main__.py" = ["T20"]

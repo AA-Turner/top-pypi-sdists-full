@@ -17,6 +17,10 @@ NON_TURN_CLIENT_ATTRS: dict[str, str] = {
     "google_music_realtime": "music_realtime",
     "google_embeddings": "embedding",
     "groq_stt": "stt",
+    # Streaming speech-to-text through LiveKit Inference, executed by the
+    # LiveKit agent worker's SDK (aidream services/meet/worker.py) — the
+    # catalog names the model so a mandate Holder can carry it.
+    "livekit_inference_stt": "stt_realtime",
     "typesafe_systemone": "decision",
 }
 

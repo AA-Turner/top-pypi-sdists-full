@@ -2,7 +2,7 @@
 
 from typing import List, Union, Optional
 from datetime import datetime
-from typing_extensions import TypeAlias
+from typing_extensions import Literal, TypeAlias
 
 from .azure_ad import AzureAD
 from ..._models import BaseModel
@@ -516,6 +516,15 @@ class AccessGoogleAppsConfig(BaseModel):
 
     email_claim_name: Optional[str] = None
     """The claim name for email in the id_token response."""
+
+    prompt: Optional[Literal["none", "consent", "select_account"]] = None
+    """Configures the prompt behavior for Google authentication."""
+
+    use_login_hint: Optional[bool] = None
+    """
+    Whether to use a previously authenticated Access email as a Google login hint
+    when exactly one email matches the Workspace domain.
+    """
 
 
 class AccessGoogleAppsSAMLCertificateSetCurrentCertificate(BaseModel):
@@ -1236,6 +1245,9 @@ class AccessSAMLConfig(BaseModel):
 
     Note: Requires `saml_certificate_set_id` to be set when `true`.
     """
+
+    force_authn: Optional[bool] = None
+    """Asks the IdP to reauthenticate the user for each SAML authentication request."""
 
     header_attributes: Optional[List[AccessSAMLConfigHeaderAttribute]] = None
     """

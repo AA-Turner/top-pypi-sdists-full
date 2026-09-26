@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="OperatorSettings")
 
@@ -20,6 +22,10 @@ class OperatorSettings:
         groups (bool): Whether operators can view groups page
         folders (bool): Whether operators can view folders page
         workers (bool): Whether operators can view workers page
+        manage_schedules (Union[Unset, bool]): Whether operators can create, edit and delete schedules. Granted unless
+            withdrawn; omitting the field leaves the stored value unchanged.
+        manage_triggers (Union[Unset, bool]): Whether operators can create, edit and delete triggers. Granted unless
+            withdrawn; omitting the field leaves the stored value unchanged.
     """
 
     runs: bool
@@ -32,6 +38,8 @@ class OperatorSettings:
     groups: bool
     folders: bool
     workers: bool
+    manage_schedules: Union[Unset, bool] = UNSET
+    manage_triggers: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +53,8 @@ class OperatorSettings:
         groups = self.groups
         folders = self.folders
         workers = self.workers
+        manage_schedules = self.manage_schedules
+        manage_triggers = self.manage_triggers
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -62,6 +72,10 @@ class OperatorSettings:
                 "workers": workers,
             }
         )
+        if manage_schedules is not UNSET:
+            field_dict["manage_schedules"] = manage_schedules
+        if manage_triggers is not UNSET:
+            field_dict["manage_triggers"] = manage_triggers
 
         return field_dict
 
@@ -88,6 +102,10 @@ class OperatorSettings:
 
         workers = d.pop("workers")
 
+        manage_schedules = d.pop("manage_schedules", UNSET)
+
+        manage_triggers = d.pop("manage_triggers", UNSET)
+
         operator_settings = cls(
             runs=runs,
             schedules=schedules,
@@ -99,6 +117,8 @@ class OperatorSettings:
             groups=groups,
             folders=folders,
             workers=workers,
+            manage_schedules=manage_schedules,
+            manage_triggers=manage_triggers,
         )
 
         operator_settings.additional_properties = d

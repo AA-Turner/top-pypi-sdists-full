@@ -168,3 +168,41 @@ def test_the_admin_check_never_raises_on_a_broken_database():
         {"type": "http", "headers": [(b"authorization", b"Bearer idt_anything")]}
     )
     assert is_platform_admin_request(request, session) is False
+
+
+# --- the admin peek writes nothing (PF-463) --------------------------------
+
+
+@pytest.mark.parametrize("route", [HEALTH, STATUS])
+def test_admin_peek_does_not_stamp_token_last_used(
+    client, db_engine, make_user_with_cli_token, route
+):
+    from sqlmodel import Session, select
+
+    from src.domain.cli_token import CLIToken
+
+    user, token = make_user_with_cli_token(is_platform_member=True)
+    assert client.get(route, headers=_bearer(token)).status_code == 200
+    with Session(db_engine) as s:
+        row = s.exec(select(CLIToken).where(CLIToken.user_id == user.id)).one()
+        assert row.last_used_at is None
+
+
+def test_read_only_jwt_lookup_creates_no_user(db_engine, monkeypatch):
+    from sqlmodel import Session, select
+
+    from src.domain.user import User
+    from src.middleware import token_auth
+
+    monkeypatch.setattr(token_auth, "supabase_auth_configured", lambda: True)
+    monkeypatch.setattr(token_auth, "verify_supabase_jwt", lambda _t: {})
+    monkeypatch.setattr(
+        token_auth,
+        "extract_identity",
+        lambda _c: {"supabase_user_id": "sub-new", "email": "new@example.com"},
+    )
+    with Session(db_engine) as s:
+        assert token_auth._user_from_supabase_jwt("jwt", s, record_use=False) is None
+        assert (
+            s.exec(select(User).where(User.email == "new@example.com")).first() is None
+        )

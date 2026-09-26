@@ -2,14 +2,29 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import reprlib
 from typing import TYPE_CHECKING, Any
 
-from .._chat import ChatAPI, _PostedAsk, _prepare_note_citations
+from .._chat import (
+    ChatAPI,
+    _ChatSettingsRead,
+    _ConfigureAttemptLogPolicy,
+    _PostedAsk,
+    _prepare_note_citations,
+    _TurnRoleSnapshot,
+)
 from .._conversation_cache import ConversationCache
+from .._idempotency import (
+    OperationJournal,
+    attach_journal_entry,
+    bind_operation_journal_entries,
+    mark_unconfirmed,
+)
 from .._logging import get_request_id, reset_request_id, set_request_id
 from .._notebook_metadata import CreatedChatSessionProvider, NotebookSourceIdProvider
+from .._request_policy import RequestPolicyOwner, request_scoped
 from .._runtime.config import (
     DEFAULT_CHAT_RESPONSE_MAX_BYTES,
     DEFAULT_CHAT_TIMEOUT,
@@ -17,9 +32,10 @@ from .._runtime.config import (
 )
 from .._runtime.contracts import LoopGuard
 from .._types.enums import ChatGoal, ChatResponseLength
-from ..exceptions import ChatError, NetworkError, UnknownRPCMethodError, ValidationError
+from ..exceptions import ChatError, NotebookLMError, UnknownRPCMethodError
+from ..outcomes import CommitState
 from ..rpc import RPCMethod, safe_index
-from ..types import ChatReference, ChatSessionStatus, ChatSettings, ConversationTurn, Note
+from ..types import ChatReference, ChatSessionStatus, ConversationTurn, Note
 from .contracts import RpcCaller
 from .params.chat_note import build_save_chat_as_note_params
 from .params.chat_session import (
@@ -50,6 +66,7 @@ from .rows.notes import NoteRow
 from .transport.chat import chat_aware_authed_post
 
 if TYPE_CHECKING:
+    from .._runtime.call_supervisor import CallSupervisor, OperationLease
     from .transport.reqid_counter import ReqidCounter
     from .transport.request_types import AuthSnapshot
     from .transport.runtime import RuntimeTransport
@@ -116,7 +133,7 @@ async def save_chat_answer_as_note(
     )
 
 
-class WebChatAPI(ChatAPI):
+class WebChatAPI(RequestPolicyOwner, ChatAPI):
     """Operations for notebook chat/conversations.
 
     Provides methods for asking questions to notebooks and managing
@@ -136,6 +153,14 @@ class WebChatAPI(ChatAPI):
             )
     """
 
+    _configure_attempt_log_policy: _ConfigureAttemptLogPolicy = "before_validation"
+
+    def _operation_scope(
+        self, label: str
+    ) -> contextlib.AbstractAsyncContextManager[OperationLease]:
+        """Keep neutral chat workflows under the Web supervisor."""
+        return self._supervisor.operation_scope(label)
+
     def __init__(
         self,
         *,
@@ -143,6 +168,7 @@ class WebChatAPI(ChatAPI):
         transport: RuntimeTransport,
         reqid: ReqidCounter,
         loop_guard: LoopGuard,
+        supervisor: CallSupervisor,
         notebooks: NotebookSourceIdProvider,
         chat_timeout: float | None = DEFAULT_CHAT_TIMEOUT,
         chat_response_max_bytes: int | None = DEFAULT_CHAT_RESPONSE_MAX_BYTES,
@@ -183,6 +209,7 @@ class WebChatAPI(ChatAPI):
         self._rpc = rpc
         self._transport = transport
         self._reqid = reqid
+        self._supervisor = supervisor
         assert_resolved_read_timeout(chat_timeout, name="chat_timeout")
         self._chat_timeout = chat_timeout
         self._chat_response_max_bytes = chat_response_max_bytes
@@ -193,6 +220,7 @@ class WebChatAPI(ChatAPI):
             created_chat_sessions=created_chat_sessions,
         )
 
+    @request_scoped
     async def _stream_answer(
         self,
         *,
@@ -217,20 +245,36 @@ class WebChatAPI(ChatAPI):
             )
 
         reqid_token = None if get_request_id() is not None else set_request_id()
+        journal = OperationJournal("chat")
+        journal_entry = journal.new_entry(method="chat.ask")
         try:
-            response = await chat_aware_authed_post(
-                self._transport,
-                build_request=build_request,
-                parse_label="chat.ask",
-                read_timeout=self._chat_timeout,
-                max_response_bytes=self._chat_response_max_bytes,
-                disable_read_timeout_retries=True,
-            )
+            with bind_operation_journal_entries(journal_entry):
+                response = await chat_aware_authed_post(
+                    self._transport,
+                    build_request=build_request,
+                    parse_label="chat.ask",
+                    read_timeout=self._chat_timeout,
+                    max_response_bytes=self._chat_response_max_bytes,
+                    disable_read_timeout_retries=True,
+                )
         finally:
             if reqid_token is not None:
                 reset_request_id(reqid_token)
 
-        parsed = parse_streaming_chat_response(response.text)
+        try:
+            parsed = parse_streaming_chat_response(response.text)
+        except NotebookLMError as exc:
+            if exc.commit_state is not None:
+                journal_entry.record(exc.commit_state, "decoded chat outcome")
+            attach_journal_entry(exc, journal_entry)
+            raise
+        except Exception as exc:
+            error = mark_unconfirmed(
+                ChatError(f"Failed to decode streamed chat response: {type(exc).__name__}"),
+                operation="chat",
+            )
+            raise attach_journal_entry(error, journal_entry) from exc
+        journal_entry.record(CommitState.CONFIRMED, "decoded terminal chat response")
         return _PostedAsk(
             answer=parsed.answer,
             references=parsed.references,
@@ -246,14 +290,17 @@ class WebChatAPI(ChatAPI):
         notebook_id: str,
         conversation_id: str,
         limit: int,
-    ) -> list[object]:
+    ) -> _TurnRoleSnapshot:
         turns_data = await self.get_conversation_turns(
             notebook_id,
             conversation_id,
             limit=limit,
         )
         turns = unwrap_conversation_turns(turns_data, source="_chat.ask.turn_count")
-        return [ConversationTurnRow(turn).role for turn in turns]
+        return _TurnRoleSnapshot(
+            roles=tuple(ConversationTurnRow(turn).role for turn in turns),
+            exhausted=len(turns) < limit,
+        )
 
     async def _send_delete_conversation(
         self,
@@ -395,53 +442,29 @@ class WebChatAPI(ChatAPI):
 
         Returns:
             List of (question, answer) pairs, oldest-first.
-            Returns an empty list if no conversations exist.
+            For positive limits, empty means no conversation or no turns; fetch failures raise.
         """
-        logger.debug("Getting conversation history for notebook %s (limit=%d)", notebook_id, limit)
-        conv_id = conversation_id or await self.get_conversation_id(notebook_id)
-        if not conv_id:
-            return []
-        try:
+        async with self._operation_scope("chat.get_history"):
+            logger.debug(
+                "Getting conversation history for notebook %s (limit=%d)", notebook_id, limit
+            )
+            conv_id = conversation_id or await self.get_conversation_id(notebook_id)
+            if not conv_id:
+                return []
             turns_data = await self.get_conversation_turns(notebook_id, conv_id, limit=limit)
-        except (ChatError, NetworkError) as exc:
-            logger.warning("Failed to fetch conversation turns for %s: %s", notebook_id, exc)
-            return []
-        turns = unwrap_conversation_turns(turns_data, source="_chat.get_history")
-        if turns:
-            turns_data = [list(reversed(turns))]
-        return self._parse_turns_to_qa_pairs(turns_data)
+            turns = unwrap_conversation_turns(turns_data, source="_chat.get_history")
+            if turns:
+                turns_data = [list(reversed(turns))]
+            return self._parse_turns_to_qa_pairs(turns_data)
 
-    async def configure(
+    async def _send_configure(
         self,
         notebook_id: str,
-        goal: ChatGoal | None = None,
-        response_length: ChatResponseLength | None = None,
-        custom_prompt: str | None = None,
+        goal: ChatGoal,
+        response_length: ChatResponseLength,
+        custom_prompt: str | None,
     ) -> None:
-        """Configure chat persona and response settings for a notebook.
-
-        Writes the WHOLE chat-settings block with no server-side merge: an
-        omitted ``goal`` / ``response_length`` resets that field to its default.
-        This is the low-level primitive — for a partial, merge-preserving update
-        (CLI ``configure`` / MCP ``chat_configure``) go through
-        ``_app.chat.execute_configure``, which reads :meth:`get_settings` first.
-
-        Args:
-            notebook_id: The notebook ID.
-            goal: Chat persona/goal (ChatGoal enum: DEFAULT, CUSTOM, LEARNING_GUIDE).
-            response_length: Response verbosity (ChatResponseLength enum).
-            custom_prompt: Custom instructions (required if goal is CUSTOM).
-
-        Raises:
-            ValidationError: If goal is CUSTOM but custom_prompt is not provided.
-        """
-        logger.debug("Configuring chat for notebook %s", notebook_id)
-        if goal is None:
-            goal = ChatGoal.DEFAULT
-        if response_length is None:
-            response_length = ChatResponseLength.DEFAULT
-        if goal == ChatGoal.CUSTOM and not custom_prompt:
-            raise ValidationError("custom_prompt is required when goal is CUSTOM")
+        """Send one Web whole-settings mutation."""
         goal_array = [goal.value, custom_prompt] if goal == ChatGoal.CUSTOM else [goal.value]
         chat_settings = [goal_array, [response_length.value]]
         params = [notebook_id, [[None, None, None, None, None, None, None, chat_settings]]]
@@ -454,27 +477,8 @@ class WebChatAPI(ChatAPI):
             raise_on_null_status=True,
         )
 
-    async def get_settings(self, notebook_id: str) -> ChatSettings:
-        """Read the notebook's current chat configuration.
-
-        Decodes the chat-settings block from ``GET_NOTEBOOK`` so a *partial*
-        ``configure`` can merge (read-modify-write) instead of clobbering the
-        fields it doesn't touch — the server stores the whole block with no
-        merge (see :meth:`configure`). A notebook that has never been configured
-        reads back as ``DEFAULT``/``DEFAULT`` with no persona.
-
-        Args:
-            notebook_id: The notebook ID.
-
-        Returns:
-            The current :class:`ChatSettings` (goal, response length, persona).
-
-        Raises:
-            UnknownRPCMethodError: if the GET_NOTEBOOK chat-settings block has
-                drifted from the expected shape — raised rather than silently
-                defaulting, which on the merge path would clobber a field the
-                caller meant to preserve (the #1751 footgun).
-        """
+    async def _read_settings(self, notebook_id: str) -> _ChatSettingsRead:
+        """Read and validate Web chat settings."""
         params = build_get_notebook_params(notebook_id)
         result = await self._rpc.rpc_call(
             RPCMethod.GET_NOTEBOOK,
@@ -500,7 +504,11 @@ class WebChatAPI(ChatAPI):
                 source="ChatAPI.get_settings",
                 data_at_failure=reprlib.repr((row.goal_code, row.response_length_code)),
             ) from exc
-        return ChatSettings(goal=goal, response_length=length, custom_prompt=row.custom_prompt)
+        return _ChatSettingsRead(
+            goal=goal,
+            response_length=length,
+            custom_prompt=row.custom_prompt,
+        )
 
     @staticmethod
     def _parse_turns_to_qa_pairs(turns_data: Any) -> list[tuple[str, str]]:
@@ -554,6 +562,7 @@ class WebChatAPI(ChatAPI):
         """Compatibility helper for tests and advanced internal callers."""
         return self._build_history_from_turns(self.get_cached_turns(conversation_id))
 
+    @request_scoped
     def _build_chat_request(
         self,
         *,

@@ -51,6 +51,13 @@ from ..params import KeeperParams
 from ..proto import record_pb2, APIRequest_pb2, enterprise_pb2, automator_pb2, pam_pb2
 
 
+# Privileges that require the current user to already hold them before they can be granted to,
+# or removed from, another role. These control account transfer, team/company management, and
+# financial operations. manage_nodes/sharing_administrator are excluded — restricting those would
+# block delegated admins from routine management.
+_PRIVILEGED_GRANTS = frozenset(('transfer_account', 'manage_companies', 'manage_teams'))
+
+
 def register_commands(commands):
     commands['enterprise-down'] = GetEnterpriseDataCommand()
     commands['enterprise-info'] = EnterpriseInfoCommand()
@@ -110,6 +117,11 @@ SUPPORTED_USER_COLUMNS = ['name', 'status', 'transfer_status', 'node', 'team_cou
 SUPPORTED_TEAM_COLUMNS = ['restricts', 'node', 'user_count', 'users', 'queued_user_count', 'queued_users', 'role_count', 'roles']
 SUPPORTED_ROLE_COLUMNS = ['visible_below', 'default_role', 'admin', 'node', 'user_count', 'users', 'team_count', 'teams',
                           'enforcement_count', 'enforcements', 'managed_node_count', 'managed_nodes', 'managed_nodes_permissions']
+# Always present in the output row/header, regardless of --columns; not selectable so excluded from validation.
+BASE_NODE_COLUMNS = {'node_id', 'name'}
+BASE_USER_COLUMNS = {'user_id', 'email'}
+BASE_TEAM_COLUMNS = {'team_uid', 'name'}
+BASE_ROLE_COLUMNS = {'role_id', 'name'}
 
 enterprise_data_parser = argparse.ArgumentParser(prog='enterprise-down',
                                                  description='Download & decrypt enterprise data.')
@@ -397,7 +409,8 @@ class EnterpriseInfoCommand(EnterpriseCommand):
             nodes[node_id] = {
                 'node_id': node_id,
                 'parent_id': node.get('parent_id') or 0,
-                'name': (node['data'].get('displayname') or '') if node.get('parent_id') else params.enterprise['enterprise_name'],
+                'name': node['data'].get('displayname') or
+                        (params.enterprise['enterprise_name'] if not node.get('parent_id') else ''),
                 'isolated': node.get('restrict_visibility') or False,
                 'users': [],
                 'teams': [],
@@ -650,7 +663,7 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                 if len(columns) == 0:
                     columns.update(('parent_node', 'parent_id', 'user_count', 'team_count', 'role_count'))
                 else:
-                    wc = columns.difference(supported_columns)
+                    wc = columns.difference(supported_columns, BASE_NODE_COLUMNS)
                     if len(wc) > 0:
                         logging.warning('\n\nSupported node columns: %s\n', ', '.join(supported_columns))
 
@@ -755,7 +768,7 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                 if len(columns) == 0:
                     columns.update(('name', 'status', 'transfer_status', 'node'))
                 else:
-                    wc = columns.difference(supported_columns)
+                    wc = columns.difference(supported_columns, BASE_USER_COLUMNS)
                     if len(wc) > 0:
                         logging.warning('\n\nSupported user columns: %s\n', ', '.join(supported_columns))
 
@@ -867,7 +880,7 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                         if len(params.enterprise['queued_team_users']) > 0:
                             columns.update(('queued_user_count',))
                 else:
-                    wc = columns.difference(supported_columns)
+                    wc = columns.difference(supported_columns, BASE_TEAM_COLUMNS)
                     if len(wc) > 0:
                         logging.warning('\n\nSupported team columns: %s\n', ', '.join(supported_columns))
 
@@ -931,7 +944,7 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                 if len(columns) == 0:
                     columns.update(('default_role', 'admin', 'node', 'user_count'))
                 else:
-                    wc = columns.difference(supported_columns)
+                    wc = columns.difference(supported_columns, BASE_ROLE_COLUMNS)
                     if len(wc) > 0:
                         logging.warning('\n\nSupported role columns: %s\n', ', '.join(supported_columns))
 
@@ -1236,19 +1249,44 @@ class EnterpriseNodeCommand(EnterpriseCommand):
             if not matched_nodes:
                 raise CommandError('enterprise-node', 'No nodes to toggle.')
 
+            toggled_nodes = []
             for mn in matched_nodes:
                 node_id = mn['node_id']
                 data = mn['data']
-                displayname = data['displayname']
+                displayname = data.get('displayname') or str(node_id)
+                was_isolated = bool(mn.get('restrict_visibility'))
+                is_root = not mn.get('parent_id')
                 request = enterprise_pb2.SetRestrictVisibilityRequest()
-                request.nodeId = node_id
+                # Root isolation is an enterprise-level flag returned in
+                # GeneralDataEntity rather than on the root Node entity.
+                request.nodeId = 0 if is_root else node_id
                 try:
                     api.communicate_rest(params, request, 'enterprise/set_restrict_visibility')
-                    mn['restrict_visibility'] = not (mn.get('restrict_visibility') or False)
-                    logging.warning('good result: {}'.format(displayname))
+                    toggled_nodes.append((node_id, displayname, was_isolated))
                 except Exception as e:
                     logging.warning('node \"%s\": toggle isolation failed: %s', displayname, e)
-            api.query_enterprise(params)
+            if toggled_nodes:
+                api.query_enterprise(params, force=True)
+                refreshed_nodes = {
+                    x['node_id']: x for x in (params.enterprise or {}).get('nodes', [])
+                }
+                for node_id, displayname, was_isolated in toggled_nodes:
+                    refreshed_node = refreshed_nodes.get(node_id)
+                    if not refreshed_node:
+                        logging.warning(
+                            'node \"%s\": isolation toggle could not be verified after refresh',
+                            displayname)
+                        continue
+                    is_isolated = bool(refreshed_node.get('restrict_visibility'))
+                    if is_isolated == was_isolated:
+                        logging.warning(
+                            'node \"%s\": server accepted the isolation toggle, '
+                            'but the state did not change',
+                            displayname)
+                    else:
+                        logging.info(
+                            'node \"%s\": isolation is now %s',
+                            displayname, 'enabled' if is_isolated else 'disabled')
         else:
             for node_name in unmatched_nodes:
                 logging.warning('Node \'%s\' is not found: Skipping', node_name)
@@ -1554,7 +1592,9 @@ class EnterpriseNodeCommand(EnterpriseCommand):
                             'node_id': node['node_id'],
                             'encrypted_data': encrypted_data
                         }
-                        rq['parent_id'] = parent_id if parent_id else node.get('parent_id')
+                        effective_parent_id = parent_id if parent_id else node.get('parent_id')
+                        if effective_parent_id:
+                            rq['parent_id'] = effective_parent_id
                         request_batch.append(rq)
 
         if request_batch:
@@ -2260,6 +2300,72 @@ class EnterpriseRoleCommand(EnterpriseCommand):
         managed_nodes = params.enterprise.get('managed_nodes')
         return any(True for x in managed_nodes if x.get('managed_node_id') == node_id and x.get('role_id') == role_id)
 
+    @staticmethod
+    def get_effective_privileges_for_node(params, role_id, target_node_id):
+        # type: (KeeperParams, int, int) -> Set[str]
+        """Compute effective privileges for a role on a target node, honoring cascade.
+
+        Walks up the ancestor chain to find privileges granted on parent nodes
+        that cascade down to the target node.
+        """
+        effective_privs = set()  # type: Set[str]
+
+        # Build node lookup and parent map
+        nodes = {n['node_id']: n for n in params.enterprise.get('nodes', [])}
+        if target_node_id not in nodes:
+            return effective_privs
+
+        # Build managed_nodes by role_id with cascade info
+        role_managed = {}  # type: Dict[int, Dict[str, Any]]
+        for mn in params.enterprise.get('managed_nodes', []):
+            if mn['role_id'] == role_id:
+                role_managed[mn['managed_node_id']] = {
+                    'cascade': mn.get('cascade_node_management', False)
+                }
+
+        # Walk up from target_node_id to root, collecting managed ancestor nodes
+        current_node_id = target_node_id
+        managed_ancestors = []  # type: List[int]
+
+        while current_node_id:
+            if current_node_id in role_managed:
+                managed_ancestors.append(current_node_id)
+            node = nodes.get(current_node_id)
+            if node and node.get('parent_id'):
+                current_node_id = node['parent_id']
+            else:
+                current_node_id = None
+
+        # Collect privileges from managed ancestors that cascade or are exact matches
+        for rp in params.enterprise.get('role_privileges', []):
+            if rp['role_id'] != role_id:
+                continue
+            privilege = rp['privilege'].lower()
+            managed_node_id = rp['managed_node_id']
+
+            if managed_node_id == target_node_id:
+                # Exact match always applies
+                effective_privs.add(privilege)
+            elif managed_node_id in managed_ancestors:
+                # Ancestor privilege applies if cascade is enabled
+                if role_managed[managed_node_id]['cascade']:
+                    effective_privs.add(privilege)
+
+        return effective_privs
+
+    @staticmethod
+    def get_current_enterprise_user_id(params):
+        # type: (KeeperParams) -> Optional[int]
+        """Find the current user's enterprise_user_id by username matching."""
+        if 'users' not in params.enterprise:
+            return None
+
+        username_lower = params.user.lower() if params.user else None
+        for user in params.enterprise['users']:
+            if user.get('username', '').lower() == username_lower:
+                return user.get('enterprise_user_id')
+        return None
+
     def execute(self, params, **kwargs):
         if kwargs.get('add') and kwargs.get('remove'):
             raise CommandError('enterprise-role', "'add' and 'delete' parameters are mutually exclusive.")
@@ -2655,6 +2761,19 @@ class EnterpriseRoleCommand(EnterpriseCommand):
                     else:
                         enforcement_value = None
 
+                    # Restrict require_account_share enforcement to root admins only.
+                    # Reuses EnterpriseCommand.get_user_root_nodes(), which fails open (treats an
+                    # unresolvable current user as main admin) to match the rest of the class.
+                    if key == 'require_account_share':
+                        true_root_node_id = next((n['node_id'] for n in params.enterprise.get('nodes', [])
+                                                   if n['node_id'] & 0xffffffff == 2), None)
+                        is_root_admin = true_root_node_id is not None and \
+                            true_root_node_id in self.get_user_root_nodes(params)
+                        if not is_root_admin:
+                            logging.warning('Failed to modify enforcement \'%s\': Only enterprise root administrators can manage account transfer policies',
+                                            key)
+                            continue
+
                     role_enforcements = params.enterprise.get('role_enforcements') or []
                     for role in matched_roles:
                         role_id = role['role_id']
@@ -2776,9 +2895,23 @@ class EnterpriseRoleCommand(EnterpriseCommand):
                 if not node:
                     logging.warning('Role "%d" does not manage node "%d"', role_id, node_id)
                     return
-                privileges = {x['privilege'] for x in params.enterprise.get('role_privileges', [])
+                privileges = {x['privilege'].lower() for x in params.enterprise.get('role_privileges', [])
                               if x['role_id'] == role_id and x['managed_node_id'] == node_id}
                 all_privileges = {x[1].lower() for x in constants.ROLE_PRIVILEGES}
+
+                # Get current user's effective privileges for authorization check.
+                # Cascade-aware: walks ancestor chain to find privileges granted on parent nodes.
+                # Fails closed: an unresolvable current user yields no privileges, so the request is denied.
+                current_user_id = self.get_current_enterprise_user_id(params)
+                current_user_effective_privileges = set()  # type: Set[str]
+                if current_user_id:
+                    current_user_roles = {x['role_id'] for x in params.enterprise.get('role_users', [])
+                                          if x.get('enterprise_user_id') == current_user_id}
+                    for user_role_id in current_user_roles:
+                        # For each role the user has, get effective privileges on this node (honoring cascade)
+                        priv_set = self.get_effective_privileges_for_node(params, user_role_id, node_id)
+                        current_user_effective_privileges.update(priv_set)
+
                 for is_add in [True, False]:
                     parameter = 'add_privilege' if is_add else 'remove_privilege'
                     privilege_list = kwargs.get(parameter)
@@ -2787,11 +2920,7 @@ class EnterpriseRoleCommand(EnterpriseCommand):
                             privilege = privilege.lower()
                             if privilege not in all_privileges:
                                 logging.warning('Add/Remove managed node privilege: invalid privilege: %s', privilege)
-                                return
-                            # if is_add:
-                            #     if privilege in ['transfer_account', 'manage_companies']:
-                            #         logging.warning('Add managed node privilege: Commander does not support \"%s\" privilege', privilege)
-                            #         return
+                                continue
                             if is_add and privilege in privileges:
                                 logging.info('Add privilege: Role "%d", Mode "%s" already contains privilege "%s" ',
                                              role_id, node_id, privilege)
@@ -2800,6 +2929,17 @@ class EnterpriseRoleCommand(EnterpriseCommand):
                                 logging.info('Remove privilege: Role "%d", Mode "%s" does not contains privilege "%s" ',
                                              role_id, node_id, privilege)
                                 continue
+
+                            # Verify caller holds the privilege before granting or revoking it on another
+                            # role. Gating removal too, since a node admin without the privilege could
+                            # otherwise strip transfer_account/manage_teams/manage_companies from a role
+                            # that depends on it (e.g. an offboarding or security-owning role).
+                            if privilege in _PRIVILEGED_GRANTS:
+                                if privilege not in current_user_effective_privileges:
+                                    verb = 'assign' if is_add else 'remove'
+                                    logging.warning('Failed to %s \'%s\' privilege: You do not have the required privilege to modify \'%s\'',
+                                                    verb, privilege, privilege)
+                                    continue
 
                             rq = {
                                 'command': 'managed_node_privilege_add' if is_add else 'managed_node_privilege_remove',

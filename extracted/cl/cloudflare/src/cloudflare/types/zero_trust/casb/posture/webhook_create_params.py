@@ -26,6 +26,9 @@ class WebhookCreateParams(TypedDict, total=False):
     signing_secret: str
     """Secret key used for HMAC signing when authentication_type is "HMAC-Signing"."""
 
+    status: Literal["enabled", "disabled"]
+    """Status of the webhook configuration. Defaults to enabled when omitted."""
+
 
 class Header(TypedDict, total=False):
     """A header to include in webhook requests.

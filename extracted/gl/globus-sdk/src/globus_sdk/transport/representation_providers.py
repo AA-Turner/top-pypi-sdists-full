@@ -3,6 +3,7 @@ from __future__ import annotations
 import enum
 import typing as t
 import uuid
+from collections import deque
 
 from globus_sdk._internal import orjson_compat
 from globus_sdk._missing import MISSING, filter_missing
@@ -106,17 +107,65 @@ class RequestsRepresentationProvider:
         """
         Prepare the data (body) for a request.
 
-        If the body is a dict, list, or tuple, it will be recursively processed to
-        filter out MISSING and format primitives.
-
-        Otherwise, it is returned as-is.
+        MISSING values are filtered out of dicts, lists, and tuples.
+        Scalar elements, like UUIDs and enums, and converted to strings.
         """
-        if isinstance(data, dict):
-            return filter_missing({k: self._prepare_data(v) for k, v in data.items()})
-        elif isinstance(data, (list, tuple)):
-            return [self._prepare_data(x) for x in data if x is not MISSING]
-        else:
+
+        if not isinstance(data, (dict, list, tuple)):
             return self._format_primitive(data)
+
+        # Strategy: Rely on object mutability to iteratively prepare data
+        # after it has already been appended to a list / assigned in a dict.
+        data = self._create_mutable_copy(data)
+        unprocessed_data: deque[dict[str, t.Any] | list[t.Any]] = deque((data,))
+
+        while unprocessed_data:
+            current_data = unprocessed_data.popleft()
+
+            if isinstance(current_data, dict):
+                prepared_dict: dict[str, t.Any] = {
+                    k: self._prepare_element(v, unprocessed_data)
+                    for k, v in current_data.items()
+                    if v is not MISSING
+                }
+                current_data.clear()
+                current_data.update(prepared_dict)
+
+            else:  # isinstance(current_data, list)
+                prepared_list: list[t.Any] = [
+                    self._prepare_element(v, unprocessed_data)
+                    for v in current_data
+                    if v is not MISSING
+                ]
+                current_data.clear()
+                current_data.extend(prepared_list)
+
+        return data
+
+    def _prepare_element(
+        self, element: t.Any, unprocessed_data: deque[dict[str, t.Any] | list[t.Any]]
+    ) -> t.Any:
+        if not isinstance(element, (dict, list, tuple)):
+            return self._format_primitive(element)
+        element = self._create_mutable_copy(element)
+        unprocessed_data.append(element)
+        return element
+
+    @staticmethod
+    def _create_mutable_copy(
+        data: dict[str, t.Any] | list[t.Any] | tuple[t.Any, ...],
+    ) -> dict[str, t.Any] | list[t.Any]:
+        """
+        Make a mutable copy of a non-scalar value.
+
+        Tuples will be converted to lists.
+        """
+
+        if isinstance(data, tuple):
+            return list(data)
+        if isinstance(data, list):
+            return data.copy()
+        return data.copy()
 
 
 class RequestsPlainTextProvider(RequestsRepresentationProvider):

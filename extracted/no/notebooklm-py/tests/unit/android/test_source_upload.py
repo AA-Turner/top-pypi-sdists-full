@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import traceback
 from collections import deque
@@ -45,8 +46,10 @@ from notebooklm._android.upload import (
     validate_upload_session_url,
 )
 from notebooklm._curl_cffi_transport import CurlCffiAsyncClient
+from notebooklm._idempotency import bound_operation_journal_entries
 from notebooklm._types.sources import _UPLOAD_FILE_EXTENSIONS
 from notebooklm.exceptions import (
+    AuthError,
     NetworkError,
     RPCError,
     ServerError,
@@ -88,11 +91,21 @@ class FakeSession:
         self.scopes.append(label)
         yield _Lease(self.epoch)
 
+    async def spawn_child(
+        self,
+        label: str,
+        factory: Callable[[], Awaitable[Any]],
+    ) -> asyncio.Task[Any]:
+        """Declare unowned child scheduling for direct session tests."""
+        return asyncio.create_task(factory(), name=label)
+
     def assert_epoch(self, expected_epoch: int) -> None:
         if expected_epoch != self.epoch:
             raise RuntimeError("retired fake epoch")
 
     async def unary(self, method: str, request: Any, **kwargs: Any) -> Any:
+        for entry in bound_operation_journal_entries():
+            entry.mark_dispatched()
         self.calls.append((method, request, kwargs))
         result = self.handlers[method]
         if isinstance(result, deque):
@@ -406,7 +419,7 @@ async def test_pdf_synthetic_branch_pins_wire_headers_body_progress_and_fresh_be
     assert result.id == SOURCE_ID
     assert result.title == path.name
     assert result.status is SourceStatus.PROCESSING
-    assert session.scopes == ["Android source upload"]
+    assert session.scopes == ["source.add_file", "Android source upload"]
     assert [call[0] for call in session.calls] == [ADD_TENTATIVE_SOURCES_METHOD]
     registration = session.calls[0][1]
     assert registration.tentative_sources_metadata[0].name == path.name
@@ -479,6 +492,9 @@ async def test_waiting_branches_use_one_exact_read_then_optional_no_readback_tit
     )
 
     assert result.status is expected_status
+    # Gate 3: the GetProject row uses the same public PDF type code as the web
+    # source plane, so fail-fast/transient policy sees backend-parity metadata.
+    assert result._type_code == 3
     assert result.title == (custom_title or path.name)
     methods = [call[0] for call in session.calls]
     assert methods.count(GET_PROJECT_METHOD) == 1
@@ -661,17 +677,34 @@ async def test_unaccepted_registration_statuses_time_out_without_title_mutation(
 
 
 @pytest.mark.asyncio
-async def test_title_mutation_rpc_failure_is_best_effort_without_readback(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "rename_error",
+    [RPCError("safe rpc failure", rpc_code=14), NetworkError("safe network failure")],
+    ids=["rpc", "network"],
+)
+async def test_title_mutation_failure_is_best_effort_without_readback(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    rename_error: Exception,
+) -> None:
     harness = HTTPHarness()
     session, _, _, api = await _graph(harness)
     path, _ = _write_pdf(tmp_path)
     session.handlers[GET_PROJECT_METHOD] = _project(_SETTINGS.SOURCE_STATUS_PENDING)
-    session.handlers[MUTATE_SOURCE_METHOD] = RPCError("safe", rpc_code=14)
+    session.handlers[MUTATE_SOURCE_METHOD] = rename_error
 
-    result = await api.add_file(NOTEBOOK_ID, path, title="Custom")
+    with caplog.at_level(logging.WARNING, logger="notebooklm._sources"):
+        result = await api.add_file(NOTEBOOK_ID, path, title="Custom")
 
     assert result.title == path.name
     assert [call[0] for call in session.calls].count(GET_PROJECT_METHOD) == 1
+    warnings = [
+        record for record in caplog.records if "title finalization failed" in record.message
+    ]
+    assert len(warnings) == 1
+    assert "Custom" not in caplog.text
+    assert str(rename_error) not in caplog.text
+    assert warnings[0].exc_info is None
 
 
 @pytest.mark.asyncio
@@ -694,6 +727,48 @@ async def test_title_cancellation_and_lifecycle_failure_propagate(
         await api.add_file(NOTEBOOK_ID, path, title="Custom")
 
     assert [call[0] for call in session.calls].count(MUTATE_SOURCE_METHOD) == 1
+
+
+def _assert_raw_upload_owners_absent_from_library_traceback(
+    error: BaseException,
+    *raw_objects: object,
+) -> None:
+    inspected: list[str] = []
+    leaked: list[str] = []
+    for frame, _line in traceback.walk_tb(error.__traceback__):
+        source_path = frame.f_code.co_filename.replace("\\", "/")
+        if (
+            "/notebooklm/" not in source_path and "/src/notebooklm/" not in source_path
+        ) or "/tests/" in source_path:
+            continue
+        inspected.append(frame.f_code.co_name)
+        if any(raw is value for raw in raw_objects for value in frame.f_locals.values()):
+            leaked.append(frame.f_code.co_name)
+
+    assert inspected, "no notebooklm frame was inspected; the scan proved nothing"
+    assert not leaked, f"raw upload owner survived in library frames: {leaked}"
+
+
+@pytest.mark.asyncio
+async def test_post_upload_failure_traceback_retains_no_raw_upload_owner(tmp_path: Path) -> None:
+    harness = HTTPHarness()
+    session, bearer, pipeline, api = await _graph(harness)
+    session.handlers[GET_PROJECT_METHOD] = _project(_SETTINGS.SOURCE_STATUS_ERROR)
+    path, _ = _write_pdf(tmp_path)
+
+    with pytest.raises(SourceProcessingError) as raised:
+        await api.add_file(NOTEBOOK_ID, path, wait=True)
+
+    error = raised.value
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    _assert_raw_upload_owners_absent_from_library_traceback(
+        error,
+        session,
+        bearer,
+        pipeline,
+        api,
+    )
 
 
 @pytest.mark.asyncio
@@ -960,12 +1035,16 @@ async def test_http_failure_never_replays_or_cleans_up_and_only_401_invalidates(
     session, bearer, _, api = await _graph(harness)
     path, _ = _write_pdf(tmp_path)
 
-    with pytest.raises(SourceAddError) as raised:
+    error_type = AuthError if status == 401 else SourceAddError
+    with pytest.raises(error_type) as raised:
         await api.add_file(NOTEBOOK_ID, path)
 
     assert cast(Any, raised.value).source_id == SOURCE_ID
     assert cast(Any, raised.value).stage == stage
-    assert raised.value.cause is None
+    if isinstance(raised.value, SourceAddError):
+        assert raised.value.cause is None
+    else:
+        assert raised.value.__cause__ is None
     assert [call.method for call in harness.calls].count("POST" if stage == "start" else "PUT") == 1
     assert all("Delete" not in call[0] for call in session.calls)
     expected_generation = 1 if stage == "start" else 2
@@ -1161,7 +1240,7 @@ async def test_hostile_session_capability_never_reaches_bearer_logs_exception_or
         ("X-Goog-Upload-Status", "active"),
         ("X-Goog-Upload-URL", hostile),
     ]
-    _, bearer, _, api = await _graph(harness)
+    session, bearer, pipeline, api = await _graph(harness)
     path, _ = _write_pdf(tmp_path)
 
     with pytest.raises(SourceAddError) as raised:
@@ -1176,11 +1255,52 @@ async def test_hostile_session_capability_never_reaches_bearer_logs_exception_or
     assert secret not in repr(error)
     assert secret not in caplog.text
     assert secret not in "".join(traceback.format_exception(error))
+    _assert_raw_upload_owners_absent_from_library_traceback(
+        error,
+        session,
+        bearer,
+        pipeline,
+        api,
+    )
     frame = error.__traceback__
     while frame is not None:
-        if "/src/notebooklm/" in frame.tb_frame.f_code.co_filename:
+        source_path = frame.tb_frame.f_code.co_filename.replace("\\", "/")
+        if (
+            "/notebooklm/" in source_path or "/src/notebooklm/" in source_path
+        ) and "/tests/" not in source_path:
             assert secret not in repr(frame.tb_frame.f_locals)
             assert "bearer-secret" not in repr(frame.tb_frame.f_locals)
+        frame = frame.tb_next
+
+
+@pytest.mark.asyncio
+async def test_drive_staging_auth_error_public_traceback_retains_no_bearer_owner(
+    tmp_path: Path,
+) -> None:
+    harness = HTTPHarness()
+    harness.drive_stage_status = 401
+    _, bearer, pipeline, api = await _graph(harness)
+    path = tmp_path / "report.docx"
+    path.write_bytes(b"PK\x03\x04 docx payload")
+
+    with pytest.raises(AuthError) as captured:
+        await api.add_file(NOTEBOOK_ID, path)
+
+    error = captured.value
+    assert bearer.invalidated == [1]
+    assert error.__cause__ is None
+    assert error.__context__ is None
+    frame = error.__traceback__
+    while frame is not None:
+        source_path = frame.tb_frame.f_code.co_filename.replace("\\", "/")
+        if (
+            "/notebooklm/" in source_path or "/src/notebooklm/" in source_path
+        ) and "/tests/" not in source_path:
+            values = tuple(frame.tb_frame.f_locals.values())
+            assert api not in values
+            assert pipeline not in values
+            assert bearer not in values
+            assert not any(getattr(value, "_bearer_provider", None) is bearer for value in values)
         frame = frame.tb_next
 
 
@@ -1223,8 +1343,8 @@ async def test_docx_stages_through_drive_and_removes_the_staged_copy(tmp_path: P
 
 
 @pytest.mark.asyncio
-async def test_drive_staged_copy_is_removed_when_registration_fails(tmp_path: Path) -> None:
-    """Staging happens before registration, so its failure must still clean up."""
+async def test_drive_staged_copy_is_retained_when_registration_is_ambiguous(tmp_path: Path) -> None:
+    """An ambiguous registration may still be reading the staged Drive file."""
     harness = HTTPHarness()
     session, _, pipeline, api = await _graph(harness)
     session.handlers[ADD_TENTATIVE_SOURCES_METHOD] = ServerError("rejected", rpc_code=13)
@@ -1235,8 +1355,7 @@ async def test_drive_staged_copy_is_removed_when_registration_fails(tmp_path: Pa
         await api.add_file(NOTEBOOK_ID, path, wait=True, wait_timeout=30.0)
 
     deletes = [c for c in harness.calls if c.method == "DELETE"]
-    assert len(deletes) == 1
-    assert DRIVE_STAGED_ID in deletes[0].url
+    assert deletes == []
     del pipeline
 
 

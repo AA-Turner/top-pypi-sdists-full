@@ -287,7 +287,9 @@ async def handle_tools_list(
             schemas = await client.assistants.get_schemas(
                 assistant["assistant_id"], headers=request.headers
             )
-            input_schema = schemas.get("input_schema") or {}
+            input_schema = schemas.get("input_schema", {})
+            if input_schema is None:
+                raise ValueError("Input schema generation failed")
             if input_schema:
                 _sanitizers.simplify_mcp_schema_inplace(input_schema)
             # MCP spec requires inputSchema to be a JSON Schema with type "object"

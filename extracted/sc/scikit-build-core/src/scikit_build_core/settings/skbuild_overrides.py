@@ -1,19 +1,17 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._compat",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.sysconfig",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.errors",
-    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.resources",
     "packaging",
     "packaging.specifiers",
-    "packaging.tags",
     "pathlib",
     "platform",
     "re",
     "typing",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}._logging",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder._known_wheels",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.builder.sysconfig",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.cmake",
+    f"{(__spec__.parent or '').rsplit('.', 1)[0]}.errors",
 }
 
 import dataclasses
@@ -24,16 +22,14 @@ import sys
 from pathlib import Path
 from typing import Any, Literal
 
-import packaging.tags
 from packaging.specifiers import SpecifierSet
 
 from .. import __version__
-from .._compat import tomllib
 from .._logging import logger
+from ..builder._known_wheels import is_known_platform, known_wheels
 from ..builder.sysconfig import get_abi_flags
 from ..cmake import CMake
 from ..errors import CMakeNotFoundError
-from ..resources import resources
 
 __all__ = ["OverrideRecord", "process_overrides", "regex_match"]
 
@@ -74,6 +70,9 @@ class OverrideRecord:
     passed_any: dict[str, str] | None
     """All if.any statements that passed."""
 
+    passed_not: dict[str, str] | None
+    """All if.not statements that passed, that is, that did not match."""
+
 
 def strtobool(value: str) -> bool:
     """
@@ -112,6 +111,7 @@ def override_match(
     ],
     has_dist_info: bool,
     retry: bool,
+    current_config_settings: Mapping[str, str | bool | None] | None = None,
     python_version: str | None = None,
     implementation_name: str | None = None,
     implementation_version: str | None = None,
@@ -119,6 +119,7 @@ def override_match(
     platform_machine: str | None = None,
     platform_node: str | None = None,
     env: dict[str, str] | None = None,
+    config_setting: dict[str, str | bool] | None = None,
     state: str | None = None,
     from_sdist: bool | None = None,
     failed: bool | None = None,
@@ -241,14 +242,8 @@ def override_match(
             failed_set.add("system-cmake")
 
     if cmake_wheel is not None:
-        with resources.joinpath("known_wheels.toml").open("rb") as f:
-            known_wheels_toml = tomllib.load(f)
-        known_cmake_wheels = set(
-            known_wheels_toml["tool"]["scikit-build"]["cmake"]["known-wheels"]
-        )
-        cmake_plat = known_cmake_wheels.intersection(packaging.tags.sys_tags())
-        if cmake_plat:
-            passed_dict["cmake-wheel"] = f"cmake wheel available on {cmake_plat}"
+        if is_known_platform(known_wheels("cmake")):
+            passed_dict["cmake-wheel"] = "cmake wheel available on this platform"
         else:
             failed_set.add("cmake-wheel")
 
@@ -278,6 +273,43 @@ def override_match(
                 else:
                     failed_set.add(f"env.{key}")
 
+    if config_setting:
+        for cs_key, cs_match in config_setting.items():
+            if current_config_settings is None or cs_key not in current_config_settings:
+                msg = (
+                    f"if.config-setting {cs_key!r} is not declared in"
+                    " tool.scikit-build.config-setting"
+                )
+                raise TypeError(msg)
+            cs_value = current_config_settings[cs_key]
+            if isinstance(cs_match, bool):
+                cs_bool = (
+                    cs_value
+                    if isinstance(cs_value, bool)
+                    else strtobool(cs_value or "")
+                )
+                if cs_bool == cs_match:
+                    passed_dict[f"config-setting.{cs_key}"] = (
+                        f"config-setting {cs_key} is {cs_match}"
+                    )
+                else:
+                    failed_set.add(f"config-setting.{cs_key}")
+            elif cs_value is None:
+                failed_set.add(f"config-setting.{cs_key}")
+            else:
+                cs_str = (
+                    ("true" if cs_value else "false")
+                    if isinstance(cs_value, bool)
+                    else cs_value
+                )
+                match_msg = regex_match(cs_str, cs_match)
+                if match_msg:
+                    passed_dict[f"config-setting.{cs_key}"] = (
+                        f"config-setting {cs_key}: {match_msg}"
+                    )
+                else:
+                    failed_set.add(f"config-setting.{cs_key}")
+
     if len(passed_dict) + len(failed_set) + len(unknown) < 1:
         msg = "At least one override must be provided"
         raise ValueError(msg)
@@ -298,7 +330,7 @@ def inherit_join(
     if isinstance(previous, list) and isinstance(value, list):
         return [*previous, *value] if mode == "append" else [*value, *previous]
     if isinstance(previous, dict) and isinstance(value, dict):
-        return {**previous, **value} if mode == "append" else {**value, **previous}
+        return previous | value if mode == "append" else value | previous
     msg = "Append/prepend modes can only be used on lists or dicts"
     raise TypeError(msg)
 
@@ -310,6 +342,7 @@ def record_override(
     overridden_items: dict[str, OverrideRecord],
     passed_all: dict[str, str] | None,
     passed_any: dict[str, str] | None,
+    passed_not: dict[str, str] | None,
 ) -> None:
     full_key = ".".join(keys)
     # Get the original_value to construct the record
@@ -348,6 +381,7 @@ def record_override(
         value=value,
         passed_any=passed_any,
         passed_all=passed_all,
+        passed_not=passed_not,
     )
 
 
@@ -357,6 +391,7 @@ def process_overrides(
     state: Literal["sdist", "wheel", "editable", "metadata_wheel", "metadata_editable"],
     retry: bool,
     env: Mapping[str, str] | None = None,
+    config_settings: Mapping[str, str | bool | None] | None = None,
 ) -> tuple[set[str], dict[str, OverrideRecord]]:
     """
     Process overrides into the main dictionary if they match. Modifies the input
@@ -372,9 +407,12 @@ def process_overrides(
     for override in tool_skb.pop("overrides", []):
         passed_any: dict[str, str] | None = None
         passed_all: dict[str, str] | None = None
+        passed_not: dict[str, str] | None = None
         unknown: set[str] = set()
         failed_any: set[str] = set()
         failed_all: set[str] = set()
+        matched_not: dict[str, str] = {}
+        failed_not: set[str] = set()
         if_override = override.pop("if", None)
         if not if_override:
             msg = "At least one 'if' override must be provided"
@@ -390,9 +428,24 @@ def process_overrides(
                 current_state=state,
                 has_dist_info=has_dist_info,
                 retry=retry,
+                current_config_settings=config_settings,
                 **select,
             )
             unknown |= set(unknown_any)
+
+        if "not" in if_override:
+            not_override = if_override.pop("not")
+            select = {k.replace("-", "_"): v for k, v in not_override.items()}
+            matched_not, failed_not, unknown_not = override_match(
+                current_env=env,
+                current_state=state,
+                has_dist_info=has_dist_info,
+                retry=retry,
+                **select,
+            )
+            unknown |= set(unknown_not)
+            # An if.not passes only if none of its conditions match
+            passed_not = {k: f"{k} did not match" for k in sorted(failed_not)}
 
         inherit_override = override.pop("inherit", {})
         if not isinstance(inherit_override, dict):
@@ -406,6 +459,7 @@ def process_overrides(
                 current_state=state,
                 has_dist_info=has_dist_info,
                 retry=retry,
+                current_config_settings=config_settings,
                 **select,
             )
             unknown |= set(unknown_all)
@@ -414,15 +468,17 @@ def process_overrides(
         passed_or_failed = {
             *(passed_all or {}),
             *(passed_any or {}),
+            *matched_not,
             *failed_all,
             *failed_any,
+            *failed_not,
         }
         if "scikit-build-version" not in passed_or_failed and unknown:
             msg = f"Unknown overrides: {', '.join(unknown)}"
             raise TypeError(msg)
 
         # If no overrides are passed, do nothing
-        if passed_any is None and passed_all is None:
+        if passed_any is None and passed_all is None and passed_not is None:
             continue
 
         # If normal overrides are passed and one or more fails, do nothing
@@ -433,7 +489,13 @@ def process_overrides(
         if passed_any is not None and not passed_any:
             continue
 
-        local_matched = set(passed_any or []) | set(passed_all or [])
+        # If not is passed, none of the conditions are allowed to match.
+        if matched_not:
+            continue
+
+        local_matched = (
+            set(passed_any or []) | set(passed_all or []) | set(passed_not or [])
+        )
         global_matched |= local_matched
         if local_matched:
             if unknown:
@@ -444,6 +506,7 @@ def process_overrides(
                 [
                     *(passed_all or {}).values(),
                     *([" or ".join(passed_any.values())] if passed_any else []),
+                    *(passed_not or {}).values(),
                 ]
             )
             logger.info("Overrides {}", all_str)
@@ -459,6 +522,7 @@ def process_overrides(
                             overridden_items=overridden_items,
                             passed_all=passed_all,
                             passed_any=passed_any,
+                            passed_not=passed_not,
                         )
                         inherit2 = inherit1.get(key2, "none")
                         inner = tool_skb.get(key, {})
@@ -474,6 +538,7 @@ def process_overrides(
                         overridden_items=overridden_items,
                         passed_all=passed_all,
                         passed_any=passed_any,
+                        passed_not=passed_not,
                     )
                     # ``inherit`` is keyed per-table; a non-dict top-level key
                     # has no nested inherit entry, so any inherit for it must be

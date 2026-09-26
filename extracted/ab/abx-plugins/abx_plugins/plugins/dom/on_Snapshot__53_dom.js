@@ -24,6 +24,7 @@ const {
   emitArchiveResultRecord,
   writeFileAtomic,
   hasStaticFileOutput,
+  isNonHtmlDocument,
 } = require("../base/utils.js");
 ensureNodeModuleResolution(module);
 const { connectToPage } = require("../chrome/chrome_utils.js");
@@ -67,16 +68,20 @@ async function dumpDom(url, timeoutMs) {
 
     // Get the full DOM content
     const domContent = await page.evaluate(() => {
-      // Serialize computed image sizes on a clone: stylesheets are discarded
+      // Serialize computed image and SVG sizes on a clone: stylesheets are discarded
       // by article extractors, and the live page must remain untouched.
       const clone = document.documentElement.cloneNode(true);
-      const originals = document.querySelectorAll('img');
-      clone.querySelectorAll('img').forEach((img, index) => {
+      const originals = document.querySelectorAll('img,svg');
+      clone.querySelectorAll('img,svg').forEach((img, index) => {
         const original = originals[index];
         const style = getComputedStyle(original);
-        if (original.getClientRects().length && parseFloat(style.width) > 0 && parseFloat(style.height) > 0) {
+        if (parseFloat(style.width) > 0 && parseFloat(style.height) > 0) {
           img.style.width = style.width;
           img.style.height = style.height;
+          if (img.tagName.toLowerCase() === 'svg') {
+            img.setAttribute('width', style.width);
+            img.setAttribute('height', style.height);
+          }
         }
       });
       return (document.doctype ? new XMLSerializer().serializeToString(document.doctype) : '') + clone.outerHTML;
@@ -118,6 +123,11 @@ async function main() {
         `Skipping DOM - staticfile extractor already downloaded this`
       );
       emitArchiveResultRecord("noresults", "staticfile already handled");
+      process.exit(0);
+    }
+    if (isNonHtmlDocument()) {
+      console.error("Browser document is not HTML");
+      emitArchiveResultRecord("noresults", "Browser document is not HTML");
       process.exit(0);
     }
 

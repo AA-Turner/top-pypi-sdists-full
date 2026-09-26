@@ -78,6 +78,8 @@ class ConfigurationsResource(SyncAPIResource):
         Update the current Zero Trust account configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           settings: Specify account settings.
 
           extra_headers: Send extra headers
@@ -123,6 +125,8 @@ class ConfigurationsResource(SyncAPIResource):
         lacks proper configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           settings: Specify account settings.
 
           extra_headers: Send extra headers
@@ -163,6 +167,8 @@ class ConfigurationsResource(SyncAPIResource):
         Retrieve the current Zero Trust account configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -226,6 +232,8 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         Update the current Zero Trust account configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           settings: Specify account settings.
 
           extra_headers: Send extra headers
@@ -273,6 +281,8 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         lacks proper configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           settings: Specify account settings.
 
           extra_headers: Send extra headers
@@ -313,6 +323,8 @@ class AsyncConfigurationsResource(AsyncAPIResource):
         Retrieve the current Zero Trust account configuration.
 
         Args:
+          account_id: Specify the Cloudflare account identifier.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request

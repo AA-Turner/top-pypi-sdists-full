@@ -383,6 +383,120 @@ def _classify_git_exec_config(cmd: str, hits: list[tuple[str, str]]) -> None:
                      "named in the remote URL"))
 
 
+# ── git transport FLAGS that name a program (clawmetry-pro#244, part 2) ───
+# The second, disjoint family: not config keys, so not in git_config_exec.
+# They never appear in a file, which is why only this module needs them.
+# `git push --receive-pack=/tmp/x` is the GitSpawn follow-up that ended in RCE
+# against a quote-stripping validator; it scored `medium` here.
+#
+# Long forms are unambiguous on every subcommand. `--exec` and `-u` are not:
+# `rebase --exec` runs a visible command by design and `push -u` is
+# --set-upstream, so those two only count on the subcommands where they name a
+# transport program.
+_GIT_EXEC_FLAGS_ANY = ("--upload-pack", "--receive-pack")
+_GIT_EXEC_FLAG_BY_SUBCMD = {
+    "--exec": frozenset({"push", "archive", "fetch-pack", "send-pack"}),
+    "-u": frozenset({"clone", "ls-remote"}),
+}
+# Global options before the subcommand that consume the next token.
+_GIT_GLOBAL_OPTS_WITH_ARG = frozenset({
+    "-c", "-C", "--git-dir", "--work-tree", "--namespace", "--config-env",
+    "--super-prefix",
+})
+# The programs these flags normally name. Recognised, not suppressed.
+_GIT_TRANSPORT_PROGRAMS = frozenset({
+    "git-upload-pack", "git-receive-pack", "git-upload-archive",
+})
+_SHELL_METACHARS = re.compile(r"[;&|`$><\n\r!#(){}]")
+_SEGMENT_BREAKS = frozenset({";", "&&", "||", "|", "&", "(", ")"})
+
+
+def _shell_tokens(cmd: str) -> list:
+    """Split like a POSIX shell, so quoting cannot change a verdict.
+
+    The Claude Code validator bug in the GitSpawn follow-up was stripping
+    single-quoted content BEFORE inspecting it; `--receive-pack='x'` then read
+    as empty and ran. Unquoting first and inspecting second is the property.
+    Unbalanced quotes fall back to a whitespace split rather than raising.
+    """
+    import shlex
+    try:
+        lx = shlex.shlex(cmd, posix=True, punctuation_chars=";&|()")
+        lx.whitespace_split = True
+        return list(lx)
+    except ValueError:
+        return cmd.split()
+
+
+def _git_flag_hits(tokens: list, hits: list[tuple[str, str]], depth: int) -> None:
+    segment: list = []
+    for tok in list(tokens) + [";"]:
+        if tok not in _SEGMENT_BREAKS:
+            segment.append(tok)
+            continue
+        _git_flag_hits_segment(segment, hits, depth)
+        segment = []
+
+
+def _git_flag_hits_segment(seg: list, hits: list[tuple[str, str]],
+                           depth: int) -> None:
+    # `bash -c "git push --receive-pack=..."` arrives as ONE token; look inside
+    # it once more, bounded, rather than miss the wrapped form.
+    if depth < 2:
+        for tok in seg:
+            if " " in tok and "git" in tok.lower():
+                _git_flag_hits(_shell_tokens(tok), hits, depth + 1)
+    git_at = -1
+    for i, tok in enumerate(seg):
+        base = tok.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if base in ("git", "git.exe"):
+            git_at = i
+            break
+    if git_at < 0:
+        return
+    rest = seg[git_at + 1:]
+    subcmd = ""
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        if tok in _GIT_GLOBAL_OPTS_WITH_ARG:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        subcmd = tok.lower()
+        break
+    for j, tok in enumerate(rest):
+        flag, eq, value = tok.partition("=")
+        if flag in _GIT_EXEC_FLAGS_ANY:
+            pass
+        elif subcmd in _GIT_EXEC_FLAG_BY_SUBCMD.get(flag, ()):
+            pass
+        else:
+            continue
+        if not eq:
+            value = rest[j + 1] if j + 1 < len(rest) else ""
+        first = value.split()[0] if value.split() else ""
+        prog = first.replace("\\", "/").rsplit("/", 1)[-1].lower()
+        if prog in _GIT_TRANSPORT_PROGRAMS and not _SHELL_METACHARS.search(value):
+            hits.append(("medium",
+                         f"sets git {flag} to the standard {prog} program"))
+            continue
+        hits.append(("high",
+                     f"passes git {flag}, which names a program git runs"))
+
+
+def _classify_git_exec_flags(cmd: str, hits: list[tuple[str, str]]) -> None:
+    """Flag git transport options whose value is a program git executes."""
+    low = cmd.lower()
+    # Cheap gate: the Brain feed classifies thousands of rows per page-load and
+    # tokenising every shell command to find nothing is wasted work.
+    if "git" not in low or not ("-pack" in low or "--exec" in low or "-u" in low):
+        return
+    _git_flag_hits(_shell_tokens(cmd), hits, 0)
+
+
 def _classify_exec(cmd: str, hits: list[tuple[str, str]]) -> None:
     low = cmd.lower()
     for rx_, level, reason in _CMD_RULES:
@@ -391,6 +505,7 @@ def _classify_exec(cmd: str, hits: list[tuple[str, str]]) -> None:
     # Read from the ORIGINAL command, not `low`: an alias's executability
     # depends on its value, and lowercasing a path can change it.
     _classify_git_exec_config(cmd, hits)
+    _classify_git_exec_flags(cmd, hits)
     # rm -rf aimed at root or home escalates to critical.
     if _RM_RECURSIVE_FORCE.search(low) or _RM_DASH_R.search(low):
         if _RM_ROOT_TARGET.search(low):

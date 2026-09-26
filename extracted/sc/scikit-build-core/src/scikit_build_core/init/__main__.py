@@ -49,7 +49,7 @@ _BACKENDS = {
     "cython": _Backend(requires=("cython", "cython-cmake")),
     "swig": _Backend(requires=("swig",)),
     "fortran": _Backend(requires=("numpy", "f2py-cmake"), dependencies=("numpy",)),
-    "abi3": _Backend(tool='\n[tool.scikit-build]\nwheel.py-api = "cp38"\n'),
+    "abi3": _Backend(tool='\n[tool.scikit-build]\nwheel.py-api = "cp39"\n'),
     "abi3t": _Backend(
         tool=(
             "\n[tool.scikit-build]\n"
@@ -113,8 +113,7 @@ def _generate(
                     stack.append((entry, rel / name))
                     continue
                 # A ".in" suffix marks a template rendered to its bare name.
-                if name.endswith(".in"):
-                    name = name[:-3]
+                name = name.removesuffix(".in")
                 text = string.Template(
                     entry.read_text(encoding="utf-8")
                 ).safe_substitute(substitutions)
@@ -123,6 +122,11 @@ def _generate(
                 dest.write_text(text.rstrip() + "\n", encoding="utf-8")
                 written.append(dest)
     return sorted(written)
+
+
+def _derive_module(project_name: str) -> str:
+    """Derive the Python module name from a normalized project name."""
+    return project_name.replace("-", "_").replace(".", "_")
 
 
 def generate_project(
@@ -139,8 +143,7 @@ def generate_project(
     files outside ``directory``.
     """
     project_name = canonicalize_name(name, validate=True)
-    module = project_name.replace("-", "_").replace(".", "_")
-    return _generate(directory, backend, project_name, module)
+    return _generate(directory, backend, project_name, _derive_module(project_name))
 
 
 def _display(path: Path) -> str:
@@ -176,7 +179,7 @@ def main_init(args: argparse.Namespace, /) -> None:
             "Could not derive a valid project name from {raw_name!r}; pass {bold}--name{normal}.",
             raw_name=raw_name,
         )
-    module = project_name.replace("-", "_").replace(".", "_")
+    module = _derive_module(project_name)
     if not module.isidentifier():
         rich_error(
             "{module!r} (derived from {raw_name!r}) is not a valid Python identifier; pass a {bold}--name{normal} that starts with a letter or underscore.",

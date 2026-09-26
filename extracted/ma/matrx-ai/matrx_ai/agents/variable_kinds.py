@@ -262,6 +262,13 @@ def _convert_variable(
             sidecar["component"] = ctype
         return field, sidecar, losses
 
+    # A merge-field binding is provenance too, but the variable keeps its own
+    # component (nothing is inherited), so the binding rides the sidecar and the
+    # field is derived as usual below.
+    binding = entry.get("binding")
+    if isinstance(binding, dict) and binding.get("kind") == "merge_field":
+        sidecar["mergeFieldBinding"] = binding
+
     # PRECEDENCE: scope binding → picklist → component type.
     if _has_scope_binding(entry):
         # Runtime-filled from the active scope. The VALUE structure in kind
@@ -360,6 +367,7 @@ def variable_definitions_to_kind_fields(
     variable definition                         field                      sidecar
     ==========================================  =========================  ==========================
     binding set (scope context item)            string                     scopeBinding
+    binding kind merge_field                    (per component)            mergeFieldBinding
     picklist + static options + !multiple       enum {values} (+open)      structuredList
     picklist otherwise                          string (+LOSS)             structuredList (+allowOther)
     textarea / no customComponent               string                     —
@@ -485,6 +493,16 @@ def _structured_shape_label(field: dict[str, Any]) -> str:
 
 
 def _field_to_variable_definition(
+    name: str, field: dict[str, Any], sidecar: dict[str, Any]
+) -> dict[str, Any]:
+    definition = _field_to_variable_definition_core(name, field, sidecar)
+    merge_field = sidecar.get("mergeFieldBinding")
+    if isinstance(merge_field, dict):
+        definition["binding"] = merge_field
+    return definition
+
+
+def _field_to_variable_definition_core(
     name: str, field: dict[str, Any], sidecar: dict[str, Any]
 ) -> dict[str, Any]:
     ftype = field.get("type")

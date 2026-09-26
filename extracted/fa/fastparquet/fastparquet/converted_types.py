@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover
 # Explicitly use numpy type in order to avoid promotion errors due to NEP 50 in numpy >= 2
 DAYS_TO_NANOS = np.int64(86400000000000)
 """Number of nanoseconds in a day. Used to convert a Date to a date"""
-nat = np.datetime64('NaT').view('int64')
+nat = np.int64(-9223372036854775808)  # np.datetime64('NaT').view('int64')
 
 simple = {
     parquet_thrift.Type.INT32: np.dtype('int32'),
@@ -210,11 +210,17 @@ def convert(data, se, timestamp96=True, dtype=None):
         # this was not covered by new pandas time units
         data = data.astype('int64')
         time_shift(data, 1000000)
-        return data.view('timedelta64[ns]')
+        result = data.view('timedelta64[ns]')
+        if dtype is not None and hasattr(dtype, 'kind') and dtype.kind == 'm' and dtype != result.dtype:
+            return result.astype(dtype, casting='unsafe')
+        return result
     elif ctype == parquet_thrift.ConvertedType.TIMESTAMP_MILLIS:
         return data.view('datetime64[ms]')
     elif ctype == parquet_thrift.ConvertedType.TIME_MICROS:
-        return data.view('timedelta64[us]')
+        result = data.view('timedelta64[us]')
+        if dtype is not None and hasattr(dtype, 'kind') and dtype.kind == 'm' and dtype != result.dtype:
+            return result.astype(dtype, casting='unsafe')
+        return result
     elif ctype == parquet_thrift.ConvertedType.TIMESTAMP_MICROS:
         return data.view('datetime64[us]')
     elif ctype == parquet_thrift.ConvertedType.UINT_8:

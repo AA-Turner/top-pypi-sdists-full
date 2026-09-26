@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Dict, Iterable, Optional
 from typing_extensions import Required, TypedDict
 
 __all__ = ["TargetBulkUpdateParams", "Body", "BodyIP", "BodyIPIPV4", "BodyIPIPV6"]
@@ -62,3 +62,9 @@ class Body(TypedDict, total=False):
 
     ip: Required[BodyIP]
     """The IPv4/IPv6 address that identifies where to reach a target"""
+
+    tags: Optional[Dict[str, str]]
+    """Optional tags to associate with the target.
+
+    Keys and values are user-defined strings.
+    """

@@ -1,34 +1,190 @@
 import re
 from functools import partial
 from typing import Callable, List, Dict, Optional, Tuple, Union, Iterable, NamedTuple, NewType, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field, asdict
 import itertools
 import warnings
 
 import _kiwipiepy
-from _kiwipiepy import _Kiwi, _TypoTransformer, _HSDataset, _ChrDataset, _MorphemeSet, _NgramExtractor
+from _kiwipiepy import _Kiwi, _TypoTransformer, _HSDataset, _GenerativeMADataset, _ChrDataset, _MorphemeSet, _NgramExtractor
 from kiwipiepy._c_api import Token
 from kiwipiepy._version import __version__
 from kiwipiepy.utils import Stopwords
 from kiwipiepy.const import Match, Dialect
 from kiwipiepy.template import Template
 
-class Sentence(NamedTuple):
-    '''문장 분할 결과를 담기 위한 `namedtuple`입니다.'''
-    text: str
-    start: int
-    end: int
-    tokens: Optional[List[Token]]
-    subs: Optional[List['Sentence']]
 
-Sentence.text.__doc__ = '분할된 문장의 텍스트'
-Sentence.start.__doc__ = '전체 텍스트 내에서 분할된 문장이 시작하는 위치 (문자 단위)'
-Sentence.end.__doc__ = '전체 텍스트 내에서 분할된 문장이 끝나는 위치 (문자 단위)'
-Sentence.tokens.__doc__ = '분할된 문장의 형태소 분석 결과'
-Sentence.subs.__doc__ = '''.. versionadded:: 0.14.0
+@dataclass
+class SplitForm:
+    '''.. versionadded:: 0.24.0
+
+`Kiwi.split_into_forms`의 결과로, 원문의 표면형을 보존한 분할 단위를 담는 데이터 클래스입니다.
+    '''
+    form: str
+    '''원문에서 잘라낸 표면형'''
+    tag: str
+    '''이 구간에 대응하는 형태소들의 품사 태그를 분석 결과 순서대로 `+`로 연결한 값'''
+    start: int
+    '''전체 텍스트 내에서 이 구간이 시작하는 위치 (문자 단위)'''
+    end: int
+    '''전체 텍스트 내에서 이 구간이 끝나는 위치 (문자 단위)'''
+    tokens: List[Token] = field(default_factory=list, repr=False, compare=False)
+    '''이 구간에 대응하는 형태소 `Token`의 목록'''
+
+    @property
+    def len(self) -> int:
+        '''이 구간의 길이 (문자 단위)'''
+        return self.end - self.start
+
+
+def _split_by_spans(
+    text: str,
+    tokens: List[Token],
+) -> List[SplitForm]:
+    spans = []
+    token_span_indices = [None] * len(tokens)
+    sorted_token_indices = sorted(
+        range(len(tokens)),
+        key=lambda i: (tokens[i].start, tokens[i].end),
+    )
+    for token_index in sorted_token_indices:
+        start, end = tokens[token_index].start, tokens[token_index].end
+        if start == end:
+            continue
+        # 겹치는 구간은 합치고, 맞닿기만 한 구간은 따로 둡니다.
+        if spans and start < spans[-1][1]:
+            spans[-1][1] = max(spans[-1][1], end)
+        else:
+            spans.append([start, end])
+        token_span_indices[token_index] = len(spans) - 1
+
+    # 길이가 0인 형태소는 분석 순서상 다음 표면 구간에 결합합니다.
+    next_span_index = None
+    for token_index in reversed(range(len(tokens))):
+        if token_span_indices[token_index] is not None:
+            next_span_index = token_span_indices[token_index]
+        elif tokens[token_index].start == tokens[token_index].end:
+            token_span_indices[token_index] = next_span_index
+
+    # 뒤에 표면 구간이 없는 길이 0 형태소는 앞선 표면 구간에 결합합니다.
+    previous_span_index = None
+    for token_index, token in enumerate(tokens):
+        if token_span_indices[token_index] is not None:
+            previous_span_index = token_span_indices[token_index]
+        elif token.start == token.end:
+            token_span_indices[token_index] = previous_span_index
+
+    span_tokens = [[] for _ in spans]
+    for token, span_index in zip(tokens, token_span_indices):
+        if span_index is not None:
+            span_tokens[span_index].append(token)
+    return [
+        SplitForm(
+            text[start:end],
+            '+'.join(token.tag for token in token_group),
+            start,
+            end,
+            token_group,
+        )
+        for (start, end), token_group in zip(spans, span_tokens)
+    ]
+
+
+_SENTENCE_FIELDS = ('text', 'start', 'end', 'tokens', 'subs')
+
+def _warn_sentence_as_tuple(usage: str):
+    warnings.warn(
+        f"Using `Sentence` as a tuple ({usage}) is deprecated since 0.24.0. "
+        f"Please access its fields by name (`{'`, `'.join(_SENTENCE_FIELDS)}`) instead. "
+        "Tuple compatibility will be removed in a future version.",
+        FutureWarning,
+        stacklevel=3,
+    )
+
+class _DeprecatedFields:
+    def __get__(self, obj, objtype=None):
+        _warn_sentence_as_tuple('_fields')
+        return _SENTENCE_FIELDS
+
+@dataclass(frozen=True, eq=False)
+class Sentence:
+    '''문장 분할 결과를 담기 위한 데이터 클래스입니다.
+
+    .. versionchanged:: 0.24.0
+
+        `namedtuple`에서 데이터 클래스로 변경되었습니다. 언패킹, 인덱싱 등
+        튜플처럼 다루는 사용법은 당분간 `FutureWarning`과 함께 계속
+        동작하지만, 향후 버전에서 제거될 예정이므로 속성 이름으로 접근하는
+        방식으로 옮겨주세요.
+    '''
+    text: str
+    '''분할된 문장의 텍스트'''
+    start: int
+    '''전체 텍스트 내에서 분할된 문장이 시작하는 위치 (문자 단위)'''
+    end: int
+    '''전체 텍스트 내에서 분할된 문장이 끝나는 위치 (문자 단위)'''
+    tokens: Optional[List[Token]]
+    '''분할된 문장의 형태소 분석 결과'''
+    subs: Optional[List['Sentence']]
+    '''.. versionadded:: 0.14.0
 
 현 문장 내에 포함된 안긴 문장의 목록
 '''
+
+    @property
+    def len(self) -> int:
+        '''.. versionadded:: 0.24.0
+
+분할된 문장의 길이 (문자 단위). 튜플 호환을 위해 남아있는 `len(sentence)`와는
+다른 값이므로 주의해주세요. `len(sentence)`는 필드의 개수를 돌려줍니다.
+'''
+        return self.end - self.start
+
+    # 이하는 `namedtuple`이던 시절과의 하위호환을 위한 것으로, 향후 제거됩니다.
+    _fields = _DeprecatedFields()
+
+    def _astuple(self) -> tuple:
+        return (self.text, self.start, self.end, self.tokens, self.subs)
+
+    def __iter__(self):
+        _warn_sentence_as_tuple('unpacking or iteration')
+        return iter(self._astuple())
+
+    def __getitem__(self, index):
+        _warn_sentence_as_tuple('indexing')
+        return self._astuple()[index]
+
+    def __len__(self) -> int:
+        _warn_sentence_as_tuple('len()')
+        return len(_SENTENCE_FIELDS)
+
+    def __bool__(self) -> bool:
+        # __len__이 있으면 truth 판정에까지 경고가 새어나오므로 따로 정의.
+        return True
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Sentence):
+            return self._astuple() == other._astuple()
+        if isinstance(other, tuple):
+            _warn_sentence_as_tuple('comparison with a tuple')
+            return self._astuple() == other
+        return NotImplemented
+
+    def __hash__(self) -> int:
+        return hash(self._astuple())
+
+    def _asdict(self) -> Dict[str, Any]:
+        _warn_sentence_as_tuple('_asdict()')
+        return dict(zip(_SENTENCE_FIELDS, self._astuple()))
+
+    def _replace(self, **kwargs) -> 'Sentence':
+        _warn_sentence_as_tuple('_replace()')
+        unknown = set(kwargs) - set(_SENTENCE_FIELDS)
+        if unknown:
+            raise ValueError(f'Got unexpected field names: {sorted(unknown)!r}')
+        values = dict(zip(_SENTENCE_FIELDS, self._astuple()))
+        values.update(kwargs)
+        return Sentence(**values)
 
 POSTag = NewType('POSTag', str)
 SenseId = NewType('SenseId', int)
@@ -221,7 +377,7 @@ def _convert_oov_handling(oov_handling: Union[str, int]) -> Match:
     elif oov_handling in (Match.OOV_RULE_ONLY, Match.OOV_CHR_MODEL, Match.OOV_CHR_FREQ_MODEL, Match.OOV_CHR_FREQ_BRANCH_MODEL, Match.OOV_TOTAL_CONSISTENCY, Match.OOV_CHR_FREQ_MODEL | Match.OOV_TOTAL_CONSISTENCY):
         return oov_handling
     else:
-        raise ValueError(f"Unknown oov_handling option: {oov_handling}. Should be one of (None, 'rule', 'chr', 'chr_freq', 'chr_freq_branch').")
+        raise ValueError(f"Unknown oov_handling option: {oov_handling}. Should be one of (None, 'rule', 'chr', 'chr_freq', 'chr_freq_branch', 'chr_freq_consistency').")
 
 class TypoTransformer(_TypoTransformer):
     '''.. versionadded:: 0.13.0
@@ -392,6 +548,9 @@ def _convert_typos(typos: Union[str, TypoTransformer]) -> TypoTransformer:
 class HSDataset(_HSDataset):
     pass
 
+class GenerativeMADataset(_GenerativeMADataset):
+    pass
+
 class ChrDataset(_ChrDataset):
     def __init__(self,
                  batch_size: int,
@@ -403,8 +562,8 @@ class ChrDataset(_ChrDataset):
                  ):
         super().__init__(batch_size, causal_context_size, window_size, dropout_prob, sample_without_weights, contextual_mapper or [])
     
-    def add_sentence(self, text: str, weight: float=1.0, non_label_prefix: str = '') -> None:
-        return super().add_sentence(text, weight, non_label_prefix)
+    def add_sentence(self, text: str, weight: float=1.0, non_label_prefix: str = '', reverse: bool = False) -> None:
+        return super().add_sentence(text, weight, non_label_prefix, reverse)
 
 class MorphemeSet(_MorphemeSet):
     '''.. versionadded:: 0.15.0
@@ -638,10 +797,71 @@ enabled_dialects: Union[Dialect, str]
         self._model_path = model_path
         self._load_default_dict = load_default_dict
         self._load_typo_dict = load_typo_dict
+        self._load_multi_dict = load_multi_dict
         self._enabled_dialects = enabled_dialects
         self._pretokenized_pats : List[Tuple['re.Pattern', str, Any]] = []
         self._user_values : Dict[int, Any] = {}
         self._template_cache : Dict[str, Template] = {}
+        self._dict_modified_by : Optional[str] = None
+
+    def _mark_dict_modified(self, method_name:str):
+        '''사전을 변경하는 메소드가 호출되었음을 기록합니다.
+
+        기록된 인스턴스는 `__reduce__`에서 pickle이 거부됩니다. 사전 조작의 효과는
+        C++ 레벨에 있어 생성자 재호출만으로는 복원되지 않기 때문입니다.
+        '''
+        if self._dict_modified_by is None:
+            self._dict_modified_by = method_name
+
+    def __reduce__(self):
+        '''`Kiwi`를 pickle 가능하게 만듭니다.
+
+        .. versionadded:: 0.23.0
+
+        C++ 레벨의 내부 상태를 직접 복사하는 대신, unpickle 시 생성자를 다시 호출하여
+        인스턴스를 재구성합니다. 따라서 생성자 인자로 결정되는 상태와 `global_config`가
+        그대로 복원됩니다.
+
+        사전을 변경하는 메소드(`add_user_word`, `add_pre_analyzed_word`, `add_rule`,
+        `add_re_rule`, `add_re_word`, `clear_re_words`, `load_user_dictionary`,
+        `extract_add_words`)를 한 번이라도 호출한 인스턴스는 pickle할 수 없으며
+        `TypeError`가 발생합니다. 이 조작들의 효과는 C++ 레벨에 있어 생성자 재호출로는
+        복원되지 않는데, 절반만 복원된 객체를 조용히 돌려주면 사용자는 사전이 빠졌다는
+        사실을 알 방법이 없기 때문입니다.
+        '''
+        if self._dict_modified_by is not None:
+            raise TypeError(
+                f"cannot pickle a Kiwi instance whose dictionary has been modified "
+                f"(`{self._dict_modified_by}` was called). "
+                f"Create a new Kiwi in each process and repeat the dictionary calls there, "
+                f"or build it inside the worker."
+            )
+
+        init_args = (
+            self.num_workers,
+            self._model_path,
+            self._global_config.integrate_allomorph,
+            self._load_default_dict,
+            self._load_typo_dict,
+            self._load_multi_dict,
+            self.model_type,
+            None,
+            2.5,
+            self._enabled_dialects,
+        )
+        state = {
+            # global_config holds mutable fields (space_tolerance, cutoff_threshold,
+            # space_penalty, etc.) that users can change after construction via
+            # `kiwi.global_config.<field> = ...`. Only integrate_allomorph is threaded
+            # through the constructor above; the rest must be saved/restored explicitly
+            # or they silently reset to KiwiConfig's defaults on unpickle.
+            'global_config': asdict(self._global_config),
+        }
+        return (self.__class__, init_args, state)
+
+    def __setstate__(self, state):
+        for field_name, value in state.get('global_config', {}).items():
+            setattr(self._global_config, field_name, value)
 
     def __repr__(self):
         return (
@@ -708,6 +928,7 @@ False
 False
 ```
         '''
+        self._mark_dict_modified('add_user_word')
         mid, inserted = super().add_user_word(word, tag, score, orig_word)
         self._user_values[mid] = user_value
         return inserted
@@ -765,7 +986,9 @@ Kiwi 분석 결과에서 해당 형태소의 분석 결과가 정확하게 나�
                 analyzed = new_analyzed
         
         dialect = _convert_dialect(dialect)
-        return super().add_pre_analyzed_word(form, analyzed, score, dialect)
+        self._mark_dict_modified('add_pre_analyzed_word')
+        inserted = super().add_pre_analyzed_word(form, analyzed, score, dialect)
+        return inserted
     
     def add_re_word(self,
         pattern:Union[str, 're.Pattern'],
@@ -878,6 +1101,7 @@ import kiwipiepy\\n```
  Token(form='ᆸ니다', tag='EF', start=47, len=3)]
 ```
         '''
+        self._mark_dict_modified('add_re_word')
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
             
@@ -888,6 +1112,7 @@ import kiwipiepy\\n```
 
 `add_re_word`로 추가했던 정규표현식 패턴 기반 처리 규칙을 모두 삭제합니다.
         '''
+        self._mark_dict_modified('clear_re_words')
         self._pretokenized_pats.clear()
 
     def add_rule(self,
@@ -921,6 +1146,7 @@ Returns
 inserted_forms: List[str]
     규칙에 의해 새로 생성된 형태소의 `list`를 반환합니다.
         '''
+        self._mark_dict_modified('add_rule')
         ret = super().add_rule(tag, replacer, score)
         if not ret: return []
         mids, inserted_forms = zip(*ret)
@@ -973,6 +1199,7 @@ kiwi.add_re_rule('EF', r'요$', r'염', -3.0)
 이런 이형태들을 대량으로 등록할 경우 이형태가 원본 형태보다 분석결과에서 높은 우선권을 가지지 않도록
 score를 `-3` 이하의 값으로 설정하는걸 권장합니다.
         '''
+        self._mark_dict_modified('add_re_rule')
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
         return self.add_rule(tag, lambda x:pattern.sub(repl, x), score, user_value)
@@ -998,6 +1225,7 @@ Notes
 사용자 정의 사전 파일의 형식에 대해서는 <a href='#_3'>여기</a>를 참조하세요.
         '''
 
+        self._mark_dict_modified('load_user_dictionary')
         return super().load_user_dictionary(dict_path)
 
     def extract_words(self,
@@ -1087,6 +1315,7 @@ result: List[Tuple[str, float, int, float]]
     추출된 단어후보의 목록을 반환합니다. 리스트의 각 항목은 (단어 형태, 최종 점수, 출현 빈도, 품사 점수)로 구성된 튜플입니다.
         '''
 
+        self._mark_dict_modified('extract_add_words')
         return super().extract_add_words(
             texts,
             min_cnt,
@@ -1113,13 +1342,15 @@ result: List[Tuple[str, float, int, float]]
         if callable(override_pretokenized):
             spans = override_pretokenized(text)
             if spans: 
-                if not all(0 <= s <= e <= len(text) for s, e, *_ in spans):
+                # 빈 span은 native splitter에서 길이 - 1을 계산하므로 public API에서 막는다.
+                if not all(0 <= s < e <= len(text) for s, e, *_ in spans):
                     raise ValueError("All spans must be valid range of text")
                 span_groups.append(spans)
         elif override_pretokenized is not None:
             spans = override_pretokenized
             if spans: 
-                if not all(0 <= s <= e <= len(text) for s, e, *_ in spans):
+                # 빈 span은 native splitter에서 길이 - 1을 계산하므로 public API에서 막는다.
+                if not all(0 <= s < e <= len(text) for s, e, *_ in spans):
                     raise ValueError("All spans must be valid range of text")
                 span_groups.append(spans)
         
@@ -1565,6 +1796,8 @@ pretokenized: Union[Callable[[str], PretokenizedTokenList], PretokenizedTokenLis
 
     형태소 분석에 앞서 텍스트 내 특정 구간의 형태소 분석 결과를 미리 정의합니다. 이 값에 의해 정의된 텍스트 구간은 항상 해당 방법으로만 토큰화됩니다.
     이 값은 str을 입력 받아 `PretokenizedTokenList`를 반환하는 `Callable`로 주어지거나, `PretokenizedTokenList` 값 단독으로 주어질 수 있습니다.
+    각 외부 구간은 Python code point 기준으로 `0 <= begin < end <= len(text)`를 만족해야 하며,
+    내부 `PretokenizedToken`의 구간도 해당 외부 구간 안에 있어야 합니다.
     `text`가 `Iterable[str]`인 경우 `pretokenized`는 None 혹은 `Callable`로 주어져야 합니다. 자세한 것은 아래 Notes의 예시를 참조하십시오.
 allowed_dialects: Union[Dialect, str]
     .. versionadded:: 0.22.0
@@ -1738,9 +1971,9 @@ Notes
 [Token(form='시곗바늘', tag='NNG', start=0, len=4)]
 ```
         '''
-        return self._tokenize(text, match_options, normalize_coda, 
+        return self._tokenize(text, match_options, normalize_coda,
                               z_coda, split_complex, compatible_jamo, saisiot,
-                              split_sents, stopwords, echo, 
+                              split_sents, stopwords, echo,
                               blocklist=blocklist, 
                               open_ending=open_ending,
                               allowed_dialects=allowed_dialects,
@@ -1751,6 +1984,126 @@ Notes
                               typo_cost_threshold=typo_cost_threshold,
                               override_config=override_config,
                               )
+
+    def split_into_forms(self,
+        text:Union[str, Iterable[str]],
+        match_options:int = Match.ALL,
+        normalize_coda:bool = False,
+        z_coda:bool = True,
+        split_complex:bool = False,
+        compatible_jamo:bool = False,
+        saisiot:Optional[bool] = None,
+        echo:bool = False,
+        blocklist:Optional[Union[Iterable[str], MorphemeSet]] = None,
+        open_ending:bool = False,
+        allowed_dialects:Union[Dialect, str] = Dialect.STANDARD,
+        dialect_cost:float = 3.,
+        pretokenized:Optional[Union[Callable[[str], PretokenizedTokenList], PretokenizedTokenList]] = None,
+        oov_handling:Optional[str] = None,
+        typos:Optional[Union[str, TypoTransformer]] = None,
+        typo_cost_threshold:float = 2.5,
+        override_config:Optional[KiwiConfig] = None,
+    ) -> Union[
+        List[SplitForm],
+        Iterable[List[SplitForm]],
+        Iterable[Tuple[List[SplitForm], str]],
+    ]:
+        '''Kiwi의 형태소 분석 경계에 맞춰 원문의 표면형을 나눕니다.
+
+서로 겹치는 Token 구간은 하나의 결과로 합치고, 겹치지 않고 이어지는
+Token 구간은 각각 나누어 반환합니다. Token이 없는 원문 구간은 결과에서
+제외하지만, 하나의 Token 구간 안에 포함된 공백은 원문 그대로 보존합니다.
+길이가 0인 Token은 분석 순서상 다음 표면형의 품사 태그에 결합하며, 다음
+표면형이 없을 때에는 이전 표면형에 결합합니다. 
+분할된 결과는 `SplitForm` data class로 반환됩니다. 이 클래스에는 원문의 표면형,
+결합된 품사 태그, 원문 내 시작/끝 위치, 그리고 해당 구간에 대응하는
+형태소 `Token`의 목록이 포함되어 있습니다.
+
+Parameters
+----------
+text: Union[str, Iterable[str]]
+    분석할 문자열입니다. 단일 str 또는 str의 Iterable을 사용할 수 있습니다.
+match_options: kiwipiepy.const.Match
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+normalize_coda: bool
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+z_coda: bool
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+split_complex: bool
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+compatible_jamo: bool
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+saisiot: Optional[bool]
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+echo: bool
+    text가 str의 Iterable이고 이 값이 True이면 분할 결과와 원문을 함께 반환합니다.
+blocklist: Union[MorphemeSet, Iterable[str]]
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+open_ending: bool
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+allowed_dialects: Union[Dialect, str]
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+dialect_cost: float
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+pretokenized: Union[Callable[[str], PretokenizedTokenList], PretokenizedTokenList]
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+oov_handling: str
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+typos: Union[str, TypoTransformer]
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+typo_cost_threshold: float
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+override_config: KiwiConfig
+    `Kiwi.tokenize`에서와 동일한 역할을 수행합니다.
+
+Returns
+-------
+result: List[SplitForm]
+    text가 단일 str일 때의 분할 결과입니다.
+results: Iterable[List[SplitForm]]
+    text가 str의 Iterable일 때의 분할 결과입니다.
+results_with_echo: Iterable[Tuple[List[SplitForm], str]]
+    text가 str의 Iterable이고 `echo=True`일 때의 분할 결과와 원문입니다.
+
+Notes
+-----
+
+```python
+>>> kiwi.split_into_forms('했다')
+[SplitForm(form='했', tag='VV+EP', start=0, end=1),
+ SplitForm(form='다', tag='EF', start=1, end=2)]
+>>> [part.form for part in kiwi.split_into_forms('했다')]
+['했', '다']
+>>> kiwi.split_into_forms('랠프 월도 에머슨')
+[SplitForm(form='랠프 월도 에머슨', tag='NNP', start=0, end=9)]
+```
+
+`tokens` 필드에는 각 표면형에 대응하는 형태소 분석 결과가 그대로 담겨 있습니다.
+
+```python
+>>> kiwi.split_into_forms('했다')[0].tokens
+[Token(form='하', tag='VV', start=0, len=1), Token(form='었', tag='EP', start=0, len=1)]
+```
+        '''
+        # iterable 입력의 각 분석 결과를 원문과 다시 대응시키기 위해 내부 echo를 켭니다.
+        result = self._tokenize(
+            text, match_options, normalize_coda, z_coda, split_complex,
+            compatible_jamo, saisiot, False, None,
+            not isinstance(text, str), blocklist=blocklist,
+            open_ending=open_ending, allowed_dialects=allowed_dialects,
+            dialect_cost=dialect_cost, pretokenized=pretokenized,
+            oov_handling=oov_handling, typos=typos,
+            typo_cost_threshold=typo_cost_threshold,
+            override_config=override_config,
+        )
+        if isinstance(text, str):
+            return _split_by_spans(text, result)
+
+        def _split_result(item):
+            tokens, raw_input = item
+            parts = _split_by_spans(raw_input, tokens)
+            return (parts, raw_input) if echo else parts
+        return map(_split_result, result)
 
     def split_into_sents(self, 
         text:Union[str, Iterable[str]], 
@@ -2733,6 +3086,7 @@ See Also
         num_workers:int = 1, 
         dropout:float = 0, 
         dropout_on_history:float = 0,
+        ss_augmenting_prob:float = 0,
         noun_augmenting_prob:float = 0,
         emoji_augmenting_prob:float = 0,
         sb_augmenting_prob:float = 0,
@@ -2755,6 +3109,7 @@ See Also
             num_workers, 
             dropout, 
             dropout_on_history, 
+            ss_augmenting_prob,
             noun_augmenting_prob,
             emoji_augmenting_prob,
             sb_augmenting_prob,
@@ -2767,6 +3122,43 @@ See Also
             morpheme_def_min_cnt, 
             contextual_mapper or [],
             transform,
+            seed)
+
+    def make_generative_ma_dataset(
+        self,
+        tokenizer_path:str,
+        bos_token_id:int,
+        eos_token_id:int,
+        to_morpheme_token_id:int,
+        to_surface_token_id:int,
+        pos_tag_token_ids:Dict[str, int],
+        batch_size:int = 128,
+        max_seq_length:int = 512,
+        num_workers:int = 0,
+        typos:Union[str, TypoTransformer] = None,
+        typo_prob:float = 0,
+        typo_cost_threshold:float = 2.5,
+        typo_cost_scale:float = 1,
+        space_remove_prob:float = 0,
+        space_insert_prob:float = 0,
+        seed:int = 0,
+    ):
+        return super().make_generative_ma_dataset(
+            tokenizer_path,
+            batch_size,
+            max_seq_length,
+            num_workers,
+            bos_token_id,
+            eos_token_id,
+            to_morpheme_token_id,
+            to_surface_token_id,
+            pos_tag_token_ids,
+            _convert_typos(typos),
+            typo_prob,
+            typo_cost_threshold,
+            typo_cost_scale,
+            space_remove_prob,
+            space_insert_prob,
             seed)
 
 

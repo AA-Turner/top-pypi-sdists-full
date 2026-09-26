@@ -62,6 +62,9 @@ aerospike_index_create_private(
 		case AS_INDEX_NUMERIC:
 			dtype_string = "NUMERIC";
 			break;
+		case AS_INDEX_INTEGER:
+			dtype_string = "INTEGER";
+			break;
 		case AS_INDEX_BLOB:
 			dtype_string = "BLOB";
 			break;
@@ -118,7 +121,7 @@ aerospike_index_create_private(
 		as_string_builder_append(&sb, ";indextype=SET");
 	}
 	else {
-		if (as_version_compare(&node->version, &as_server_version_8_1_3) >= 0) {
+		if (as_version_compare(&node->version, &as_server_version_8_2_0) >= 0) {
 			if (dtype == AS_INDEX_NUMERIC) {
 				dtype = AS_INDEX_INTEGER;
 				dtype_string = "INTEGER";

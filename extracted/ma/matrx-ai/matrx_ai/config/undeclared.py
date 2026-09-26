@@ -49,15 +49,24 @@ def begin_turn() -> None:
     _undelivered.set({})
 
 
-def note_unresolved(text: str) -> tuple[str, ...]:
+def note_unresolved(text: str, *, template: str | None = None) -> tuple[str, ...]:
     """Record every placeholder still standing in ``text`` and return their names.
 
     Called after substitution, with the substituted text. Returns the names it found so
     a caller that wants to act immediately can, without reading the whole record.
+
+    ``template`` is the text BEFORE this substitution pass. When given, only a
+    placeholder the template itself carried counts: braces that arrived INSIDE a
+    substituted value are that value's content (a conversation about Handlebars, a
+    case quoting ``{{name}}``), not something the prompt failed to deliver — naming
+    them would tell the model to disclaim data it was handed in full.
     """
     if not text or "{{" not in text:
         return ()
     found = tuple(dict.fromkeys(m.group(1) for m in PLACEHOLDER_RE.finditer(text)))
+    if template is not None:
+        authored = {m.group(1) for m in PLACEHOLDER_RE.finditer(template)}
+        found = tuple(name for name in found if name in authored)
     if not found:
         return ()
     record = _undelivered.get()

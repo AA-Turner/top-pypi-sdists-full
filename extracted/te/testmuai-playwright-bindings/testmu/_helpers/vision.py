@@ -348,6 +348,11 @@ async def vision_query(
         _log_v3.info("    [vision_query] result=%s", repr(extracted)[:120])
         return await _derive_if_recorded(page, code_js, extracted)
 
+    # Resolve {{vars}}/${params} before the query leaves the binding; the
+    # analyzer would otherwise read the literal placeholder text.
+    from testmu._vars import var
+    description = str(var(description))
+
     # VQ must not throw on invisibility — fall through with the last screenshot
     # so the analyzer still gets a chance to extract.
     screenshot_b64 = await _wait_for_visibility(
@@ -408,6 +413,10 @@ async def textual_query(page, description: str, return_type: str, selected_attri
     from testmu import _configure
     if _configure.get("kane_version", "v4") == "v3":
         return await _textual_query_v3(page, description, return_type, selected_attribute_name)
+
+    # Resolve {{vars}}/${params} before the query leaves the binding.
+    from testmu._vars import var
+    description = str(var(description))
 
     cdp = await page.context.new_cdp_session(page)
     try:
@@ -622,7 +631,15 @@ async def get_vision_coordinates(
 
     _log.info("    [get_vision_coordinates] query=%s", description[:60])
 
-    screenshot_b64 = await _wait_for_visibility(page, description)
+    # Gate on visibility, then locate on a FRESH frame. The visibility call
+    # takes seconds, and its screenshot was captured right after the previous
+    # action — a checkbox ticked by that action may not have rendered yet.
+    # Locating on the stale frame can pick an element whose state has since
+    # changed (e.g. click an already-ticked box, unticking it).
+    # The gate must not block the action on exhaustion — fall through and let
+    # the coordinates API's `found` flag decide.
+    await _wait_for_visibility(page, description, opts={"should_raise": False})
+    screenshot_b64 = base64.b64encode(await take_screenshot(page)).decode("utf-8")
 
     viewport = await _query_viewport_size(page)
     width = viewport["width"] if viewport else 1920

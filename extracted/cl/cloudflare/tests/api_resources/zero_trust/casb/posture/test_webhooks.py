@@ -54,6 +54,7 @@ class TestWebhooks:
                 },
             ],
             signing_secret="my-secret-key",
+            status="enabled",
         )
         assert_matches_type(Optional[WebhookCreateResponse], webhook, path=["response"])
 
@@ -470,6 +471,7 @@ class TestAsyncWebhooks:
                 },
             ],
             signing_secret="my-secret-key",
+            status="enabled",
         )
         assert_matches_type(Optional[WebhookCreateResponse], webhook, path=["response"])
 

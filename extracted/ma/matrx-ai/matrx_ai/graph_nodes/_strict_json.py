@@ -784,6 +784,10 @@ async def llm_stream_messages(
     return text
 
 
+@mandate_carrier_passthrough(
+    "the single-user-turn streaming wrapper forwards its caller's resolved Holder "
+    "metadata to llm_stream_messages"
+)
 async def llm_stream_text(
     *,
     model: str,
@@ -831,6 +835,7 @@ async def llm_messages_to_pydantic_measured(
     messages: list[dict[str, Any]],
     output_cls: type[T],
     max_tokens: int = 8092,
+    temperature: float | None = None,
     internal_web_search: bool = False,
     api_keys: dict[str, str] | None = None,
     system_run: bool | None = None,
@@ -912,7 +917,7 @@ async def llm_messages_to_pydantic_measured(
             on_delta=on_delta if stream else None,
             on_reset=on_reset if stream else None,
             max_tokens=max_tokens,
-            temperature=None,
+            temperature=temperature,
             response_format=response_format,
             internal_web_search=allow_web_search,
             api_keys=api_keys,
@@ -1023,6 +1028,7 @@ async def llm_messages_to_pydantic(
     messages: list[dict[str, Any]],
     output_cls: type[T],
     max_tokens: int = 8092,
+    temperature: float | None = None,
     internal_web_search: bool = False,
     api_keys: dict[str, str] | None = None,
     system_run: bool | None = None,
@@ -1044,6 +1050,7 @@ async def llm_messages_to_pydantic(
         messages=messages,
         output_cls=output_cls,
         max_tokens=max_tokens,
+        temperature=temperature,
         internal_web_search=internal_web_search,
         api_keys=api_keys,
         system_run=system_run,
@@ -1068,6 +1075,7 @@ async def llm_to_pydantic_measured(
     user: str,
     output_cls: type[T],
     max_tokens: int = 8092,
+    temperature: float | None = None,
     internal_web_search: bool = False,
     metadata: dict[str, Any] | None = None,
     store: bool | None = None,
@@ -1090,6 +1098,7 @@ async def llm_to_pydantic_measured(
         messages=[{"role": "user", "content": user}],
         output_cls=output_cls,
         max_tokens=max_tokens,
+        temperature=temperature,
         internal_web_search=internal_web_search,
         metadata=metadata,
         store=store,
@@ -1111,6 +1120,7 @@ async def llm_to_pydantic(
     user: str,
     output_cls: type[T],
     max_tokens: int = 8092,
+    temperature: float | None = None,
     metadata: dict[str, Any] | None = None,
     store: bool | None = None,
     conversation_id: str | None = None,
@@ -1145,6 +1155,7 @@ async def llm_to_pydantic(
         messages=[{"role": "user", "content": user}],
         output_cls=output_cls,
         max_tokens=max_tokens,
+        temperature=temperature,
         metadata=metadata,
         store=store,
         conversation_id=conversation_id,

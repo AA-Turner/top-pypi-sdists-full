@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 1.11.0
+Version: 1.12.0
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://pipecat.ai
@@ -25,7 +25,7 @@ Requires-Dist: docstring_parser<1,>=0.16
 Requires-Dist: loguru~=0.7.3
 Requires-Dist: loudness<1,>=0.2.0
 Requires-Dist: Markdown<4,>=3.7
-Requires-Dist: nltk<4,>=3.10.0
+Requires-Dist: sentencex==1.0.31
 Requires-Dist: numpy<3,>=1.26.4
 Requires-Dist: Pillow<13,>=11.1.0
 Requires-Dist: protobuf<7,>=5.29.6
@@ -96,6 +96,8 @@ Provides-Extra: hume
 Requires-Dist: hume<1,>=0.11.2; extra == "hume"
 Provides-Extra: inception
 Provides-Extra: inworld
+Provides-Extra: jev
+Requires-Dist: httpx[http2]<1,>=0.27; extra == "jev"
 Provides-Extra: keenable
 Requires-Dist: pipecat-ai[mcp]; extra == "keenable"
 Provides-Extra: koala
@@ -118,11 +120,11 @@ Provides-Extra: local
 Requires-Dist: pyaudio~=0.2.14; extra == "local"
 Provides-Extra: local-smart-turn
 Requires-Dist: coremltools>=8.0; extra == "local-smart-turn"
-Requires-Dist: transformers<6,>=4.48.0; extra == "local-smart-turn"
+Requires-Dist: transformers<6,>=5.10.0; extra == "local-smart-turn"
 Requires-Dist: torch<3,>=2.5.0; extra == "local-smart-turn"
 Requires-Dist: torchaudio<3,>=2.5.0; extra == "local-smart-turn"
 Provides-Extra: mcp
-Requires-Dist: mcp[cli]<3,>=1.24.0; extra == "mcp"
+Requires-Dist: mcp[cli]<3,>=2.1.1; extra == "mcp"
 Provides-Extra: mem0
 Requires-Dist: mem0ai<3,>=2; extra == "mem0"
 Provides-Extra: meta
@@ -131,15 +133,15 @@ Requires-Dist: mistralai<3,>=2.0.0; extra == "mistral"
 Provides-Extra: mlx-whisper
 Requires-Dist: mlx-whisper~=0.4.2; extra == "mlx-whisper"
 Provides-Extra: moondream
-Requires-Dist: accelerate~=1.10.0; extra == "moondream"
-Requires-Dist: einops~=0.8.0; extra == "moondream"
-Requires-Dist: pyvips[binary]~=3.0.0; extra == "moondream"
-Requires-Dist: timm~=1.0.13; extra == "moondream"
-Requires-Dist: transformers<6,>=4.48.0; extra == "moondream"
+Requires-Dist: accelerate<2,>=1.10.0; extra == "moondream"
+Requires-Dist: einops<1,>=0.8.0; extra == "moondream"
+Requires-Dist: pyvips[binary]<4,>=3.0.0; extra == "moondream"
+Requires-Dist: timm<2,>=1.0.13; extra == "moondream"
+Requires-Dist: transformers<6,>=5.10.0; extra == "moondream"
 Provides-Extra: moonshine
 Requires-Dist: moonshine-voice>=0.1.5; extra == "moonshine"
 Provides-Extra: moq
-Requires-Dist: moq-rs~=0.4.4; extra == "moq"
+Requires-Dist: moq-rs~=0.4.6; extra == "moq"
 Requires-Dist: cryptography>=45.0.0; extra == "moq"
 Provides-Extra: nebius
 Provides-Extra: neuphonic
@@ -169,7 +171,7 @@ Provides-Extra: rime
 Provides-Extra: runner
 Requires-Dist: uvicorn<1.0.0,>=0.32.0; extra == "runner"
 Requires-Dist: fastapi<1,>=0.115.6; extra == "runner"
-Requires-Dist: pipecat-ai-prebuilt>=1.2.1; extra == "runner"
+Requires-Dist: pipecat-ai-prebuilt>=1.2.2; extra == "runner"
 Provides-Extra: sagemaker
 Requires-Dist: aws_sdk_sagemaker_runtime_http2<0.10,>=0.6.0; python_version >= "3.12" and extra == "sagemaker"
 Provides-Extra: sambanova

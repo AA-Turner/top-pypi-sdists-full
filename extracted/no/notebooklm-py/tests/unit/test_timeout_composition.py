@@ -30,6 +30,7 @@ from types import SimpleNamespace
 import pytest
 
 from notebooklm import NotebookLMClient
+from notebooklm._research_import import _import_research_read_timeout
 from notebooklm._runtime.config import (
     AUTO_READ_TIMEOUT,
     DEFAULT_CHAT_TIMEOUT,
@@ -47,8 +48,11 @@ from notebooklm._web.policy import (
     IDEMPOTENCY_REGISTRY,
     resolve_effective_disable_internal_retries,
 )
-from notebooklm._web.research_import import _import_research_read_timeout
 from notebooklm.rpc import RPCMethod
+
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:Non-default legacy NotebookLMClient.*tuning arguments are deprecated:DeprecationWarning"
+)
 
 #: batchexecute puts the RPC id in the query string (``?rpcids=…``), so it
 #: identifies the IMPORT_RESEARCH POST among everything else a client sends.
@@ -342,6 +346,7 @@ class TestRejectsUnusableWindows:
         with pytest.raises(TypeError, match="AUTO_READ_TIMEOUT"):
             WebChatAPI(
                 rpc=SimpleNamespace(rpc_call=None),
+                supervisor=SimpleNamespace(operation_scope=None),
                 transport=SimpleNamespace(),
                 reqid=SimpleNamespace(),
                 loop_guard=SimpleNamespace(assert_bound_loop=lambda: None),

@@ -34,6 +34,7 @@ class TestSettings:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 0.1,
+                "issues": {"enabled": True},
                 "logs": {
                     "enabled": True,
                     "invocation_logs": True,
@@ -172,6 +173,7 @@ class TestAsyncSettings:
             observability={
                 "enabled": True,
                 "head_sampling_rate": 0.1,
+                "issues": {"enabled": True},
                 "logs": {
                     "enabled": True,
                     "invocation_logs": True,

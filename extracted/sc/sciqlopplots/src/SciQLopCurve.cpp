@@ -312,11 +312,13 @@ void SciQLopCurve::set_time_color_gradient(const QColor& start, const QColor& en
 
 void SciQLopCurve::set_color_gradient(::ColorGradient gradient)
 {
+    _gradient_preset = gradient;
     const QCPColorGradient qcp_gradient { to_qcp(gradient) };
     for (auto comp : m_components)
         if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
             tc->set_color_gradient(qcp_gradient);
-    notify_color_scale(gradient);
+    // Like line graphs: an uncoloured curve does not touch the plot's scale yet.
+    notify_color_scale(has_color_values() ? std::optional { gradient } : std::nullopt);
     Q_EMIT this->replot();
 }
 
@@ -375,6 +377,7 @@ void SciQLopCurve::set_color_data(SciQLopPyBuffer values, ::ColorGradient gradie
         colors = to_double_vector<QVector<double>>(values);
     }
 
+    _gradient_preset = gradient;
     const QCPColorGradient qcp_gradient { to_qcp(gradient) };
     for (auto comp : m_components)
         if (auto* tc = dynamic_cast<SciQLopTimeColoredCurve*>(comp->plottable()))
@@ -383,6 +386,28 @@ void SciQLopCurve::set_color_data(SciQLopPyBuffer values, ::ColorGradient gradie
     set_color_values(colors);
     set_time_color_enabled(!colors.isEmpty());
     notify_color_scale(colors.isEmpty() ? std::nullopt : std::optional { gradient });
+    Q_EMIT this->replot();
+}
+
+void SciQLopCurve::set_data_and_color(const QList<SciQLopPyBuffer>& data,
+                                      const SciQLopPyBuffer& color)
+{
+    if (data.size() != 2)
+        throw std::invalid_argument("Curve: a coloured batch needs [x, y], got "
+                                    + std::to_string(data.size()) + " buffers");
+    const std::size_t samples = data[0].is_valid() ? data[0].flat_size() : 0;
+    const std::size_t count = color.is_valid() ? color.flat_size() : 0;
+    if (count > 0 && count != samples)
+        throw std::invalid_argument("Curve: expected one colour value per data point ("
+                                    + std::to_string(samples) + "), got "
+                                    + std::to_string(count));
+    const bool was_coloured = has_color_values();
+    set_data(data[0], data[1]);
+    const auto colors = count > 0 ? to_double_vector<QVector<double>>(color) : QVector<double> {};
+    set_color_values(colors);
+    set_time_color_enabled(!colors.isEmpty());
+    // Same rule as line graphs: the explicit gradient, only when the colouring switches on.
+    notify_color_scale(!colors.isEmpty() && !was_coloured ? _gradient_preset : std::nullopt);
     Q_EMIT this->replot();
 }
 

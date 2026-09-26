@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.57.0
+Version: 1.57.1
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -40,6 +40,7 @@ Requires-Dist: a2a-sdk<0.4.0,>=0.3.0; extra == 'a2a'
 Requires-Dist: a2a-sdk[sql]<0.4.0,>=0.3.0; extra == 'a2a'
 Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'a2a'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'a2a'
+Requires-Dist: sqlalchemy<2.1.0,>=2.0.0; extra == 'a2a'
 Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'a2a'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'a2a'
 Provides-Extra: all
@@ -74,6 +75,7 @@ Requires-Dist: smithy-http[awscrt]==0.5.0; (python_version >= '3.12') and extra 
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'all'
 Requires-Dist: sphinx-rtd-theme<4.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'all'
+Requires-Dist: sqlalchemy<2.1.0,>=2.0.0; extra == 'all'
 Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'all'
 Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'all'
@@ -108,6 +110,7 @@ Requires-Dist: smithy-http[awscrt]==0.5.0; (python_version >= '3.12') and extra 
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'bidi-all'
 Requires-Dist: sphinx-rtd-theme<4.0.0,>=1.0.0; extra == 'bidi-all'
 Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'bidi-all'
+Requires-Dist: sqlalchemy<2.1.0,>=2.0.0; extra == 'bidi-all'
 Requires-Dist: starlette<2.0.0,>=1.0.0; extra == 'bidi-all'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'bidi-all'
 Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'bidi-all'
@@ -134,7 +137,7 @@ Requires-Dist: pytest-cov<8.0.0,>=7.0.0; extra == 'dev'
 Requires-Dist: pytest-timeout<3.0.0,>=2.0.0; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == 'dev'
 Requires-Dist: pytest<10.0.0,>=9.0.0; extra == 'dev'
-Requires-Dist: ruff<0.17.0,>=0.13.0; extra == 'dev'
+Requires-Dist: ruff<0.17.0,>=0.16.0; extra == 'dev'
 Requires-Dist: tenacity<10.0.0,>=9.0.0; extra == 'dev'
 Provides-Extra: docs
 Requires-Dist: sphinx-autodoc-typehints<4.0.0,>=1.12.0; extra == 'docs'
@@ -377,7 +380,7 @@ It's also available on GitHub via [strands-agents/tools](https://github.com/stra
 Build real-time voice and audio conversations with persistent streaming connections. Unlike traditional request-response patterns, bidirectional streaming maintains long-running conversations where users can interrupt, provide continuous input, and receive real-time audio responses. Get started with your first BidiAgent by following the [Quickstart](https://strandsagents.com/docs/user-guide/concepts/bidirectional-streaming/quickstart/) guide. 
 
 **Supported Model Providers:**
-- Amazon Bedrock Nova Sonic (v1, v2)
+- Amazon Bedrock Nova Sonic
 - Google Gemini Live
 - OpenAI Realtime API
 
@@ -407,7 +410,7 @@ from strands_tools import calculator, stop
 
 async def main():
     # Create bidirectional agent with Nova Sonic v2
-    model = BedrockNovaSonicModel()
+    model = BedrockNovaSonicModel(model_id="amazon.nova-2-sonic-v1:0")
     agent = BidiAgent(model=model, tools=[calculator, stop])
 
     # Setup audio I/O (local audio requires the bidi-pyaudio extra)
@@ -437,11 +440,12 @@ from strands.experimental.bidi.models import BedrockNovaSonicModel
 
 # Configure audio streams and Nova Sonic session parameters.
 model = BedrockNovaSonicModel(
+    model_id="amazon.nova-2-sonic-v1:0",
     audio={
-        "input_rate": 16000,
-        "output_rate": 16000,
-        "voice": "matthew",
+        "input": {"sample_rate": 16000},
+        "output": {"sample_rate": 16000},
     },
+    voice="matthew",
     params={
         "turnDetectionConfiguration": {
             "endpointingSensitivity": "MEDIUM"

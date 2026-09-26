@@ -21,7 +21,7 @@ class TestAnalytics:
     @parametrize
     def test_method_get_org_analytics(self, client: Cloudflare) -> None:
         analytics = client.realtime_kit.analytics.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(AnalyticsGetOrgAnalyticsResponse, analytics, path=["response"])
@@ -30,7 +30,7 @@ class TestAnalytics:
     @parametrize
     def test_method_get_org_analytics_with_all_params(self, client: Cloudflare) -> None:
         analytics = client.realtime_kit.analytics.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             end_date="2022-09-22T00:00:00Z",
             start_date="2022-09-01T00:00:00Z",
@@ -41,7 +41,7 @@ class TestAnalytics:
     @parametrize
     def test_raw_response_get_org_analytics(self, client: Cloudflare) -> None:
         response = client.realtime_kit.analytics.with_raw_response.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -54,7 +54,7 @@ class TestAnalytics:
     @parametrize
     def test_streaming_response_get_org_analytics(self, client: Cloudflare) -> None:
         with client.realtime_kit.analytics.with_streaming_response.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -70,7 +70,7 @@ class TestAnalytics:
     def test_path_params_get_org_analytics(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             client.realtime_kit.analytics.with_raw_response.get_org_analytics(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 
@@ -90,7 +90,7 @@ class TestAsyncAnalytics:
     @parametrize
     async def test_method_get_org_analytics(self, async_client: AsyncCloudflare) -> None:
         analytics = await async_client.realtime_kit.analytics.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
         assert_matches_type(AnalyticsGetOrgAnalyticsResponse, analytics, path=["response"])
@@ -99,7 +99,7 @@ class TestAsyncAnalytics:
     @parametrize
     async def test_method_get_org_analytics_with_all_params(self, async_client: AsyncCloudflare) -> None:
         analytics = await async_client.realtime_kit.analytics.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             end_date="2022-09-22T00:00:00Z",
             start_date="2022-09-01T00:00:00Z",
@@ -110,7 +110,7 @@ class TestAsyncAnalytics:
     @parametrize
     async def test_raw_response_get_org_analytics(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.realtime_kit.analytics.with_raw_response.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         )
 
@@ -123,7 +123,7 @@ class TestAsyncAnalytics:
     @parametrize
     async def test_streaming_response_get_org_analytics(self, async_client: AsyncCloudflare) -> None:
         async with async_client.realtime_kit.analytics.with_streaming_response.get_org_analytics(
-            app_id="app_id",
+            app_id="14a396e7-ca44-4937-bf1f-050a69118543",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
         ) as response:
             assert not response.is_closed
@@ -139,7 +139,7 @@ class TestAsyncAnalytics:
     async def test_path_params_get_org_analytics(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_id` but received ''"):
             await async_client.realtime_kit.analytics.with_raw_response.get_org_analytics(
-                app_id="app_id",
+                app_id="14a396e7-ca44-4937-bf1f-050a69118543",
                 account_id="",
             )
 

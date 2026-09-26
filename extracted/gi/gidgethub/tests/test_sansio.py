@@ -2,7 +2,7 @@ import datetime
 import http
 import json
 import pathlib
-
+from typing import ClassVar
 
 import pytest
 
@@ -16,8 +16,8 @@ from gidgethub import (
     RedirectionException,
     ValidationError,
     ValidationFailure,
+    sansio,
 )
-from gidgethub import sansio
 
 
 class TestValidateEvent:
@@ -51,10 +51,10 @@ class TestValidateEvent:
 class TestEvent:
     """Tests for gidgethub.sansio.Event."""
 
-    data = {"action": "opened"}
+    data: ClassVar = {"action": "opened"}
     data_bytes = b'{"action": "opened"}'
     secret = "123456"
-    headers = {
+    headers: ClassVar = {
         "content-type": "application/json",
         "x-github-event": "pull_request",
         "x-github-delivery": "72d3162e-cc78-11e3-81ab-4c9367dc0958",
@@ -98,14 +98,13 @@ class TestEvent:
             )
 
     def test_from_http_unknown_content_type(self):
-        headers = headers = {
+        headers = {
             "content-type": "image/png",
             "x-github-event": "pull_request",
             "x-github-delivery": "72d3162e-cc78-11e3-81ab-4c9367dc0958",
         }
         with pytest.raises(BadRequest):
             sansio.Event.from_http(headers, self.data_bytes)
-        pass
 
     def test_from_http_missing_secret(self):
         """Signature but no secret raises ValidationFailure."""
@@ -185,8 +184,8 @@ class TestCreateHeaders:
             user_agent, accept=test_api, oauth_token=oauth_token
         )
         assert len(headers) == 3
-        for key in headers.keys():
-            assert key == key.lower()
+        for key in headers:
+            assert key.islower()
         assert headers["user-agent"] == user_agent
         assert headers["accept"] == test_api
         assert headers["authorization"] == f"token {oauth_token}"
@@ -247,6 +246,7 @@ class TestRateLimit:
             "x-ratelimit-reset": str(reset.timestamp()),
         }
         rate_limit = sansio.RateLimit.from_http(headers)
+        assert rate_limit is not None
         assert rate_limit.limit == rate
         assert rate_limit.remaining == left
         assert rate_limit.reset_datetime == reset
@@ -263,7 +263,7 @@ class TestRateLimit:
         assert str(reset) in message
 
     def test_from_http_no_ratelimit(self):
-        headers = {}
+        headers: dict[str, str] = {}
         rate_limit = sansio.RateLimit.from_http(headers)
         assert rate_limit is None
 
@@ -286,12 +286,14 @@ class TestDecipherResponse:
         with pytest.raises(GitHubBroken) as exc_info:
             sansio.decipher_response(status_code, {}, b"")
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
+        assert exc_info.value.headers == {}
 
     def test_4XX_no_message(self):
         status_code = 400
         with pytest.raises(BadRequest) as exc_info:
             sansio.decipher_response(status_code, {}, b"")
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
+        assert exc_info.value.headers == {}
 
     def test_4XX_message(self):
         status_code = 400
@@ -301,6 +303,7 @@ class TestDecipherResponse:
             sansio.decipher_response(status_code, headers, message)
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
         assert str(exc_info.value) == "it went bad"
+        assert exc_info.value.headers == headers
 
     def test_404(self):
         status_code = 404
@@ -309,19 +312,26 @@ class TestDecipherResponse:
             sansio.decipher_response(status_code, headers, body)
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
         assert str(exc_info.value) == "Not Found"
+        assert exc_info.value.headers == headers
 
     def test_403_rate_limit_exceeded(self):
         status_code = 403
+        # A future reset keeps this exhausted RateLimit falsey;
+        # https://github.com/gidgethub/gidgethub/issues/231
+        reset = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            days=1
+        )
         headers = {
             "content-type": "application/json; charset=utf-8",
             "x-ratelimit-limit": "2",
             "x-ratelimit-remaining": "0",
-            "x-ratelimit-reset": "1",
+            "x-ratelimit-reset": str(reset.timestamp()),
         }
         body = json.dumps({"message": "oops"}).encode("UTF-8")
         with pytest.raises(RateLimitExceeded) as exc_info:
             sansio.decipher_response(status_code, headers, body)
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
+        assert exc_info.value.headers == headers
 
     def test_403_forbidden(self):
         status_code = 403
@@ -334,17 +344,18 @@ class TestDecipherResponse:
         with pytest.raises(BadRequest) as exc_info:
             sansio.decipher_response(status_code, headers, b"")
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
+        assert exc_info.value.headers == headers
 
     def test_422(self):
         status_code = 422
         errors = [{"resource": "Issue", "field": "title", "code": "missing_field"}]
-        body = json.dumps({"message": "it went bad", "errors": errors})
-        body = body.encode("utf-8")
+        body = json.dumps({"message": "it went bad", "errors": errors}).encode("utf-8")
         headers = {"content-type": "application/json; charset=utf-8"}
         with pytest.raises(InvalidField) as exc_info:
             sansio.decipher_response(status_code, headers, body)
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
         assert str(exc_info.value) == "it went bad for 'title'"
+        assert exc_info.value.headers == headers
 
     def test_422_custom_code(self):
         status_code = 422
@@ -355,8 +366,7 @@ class TestDecipherResponse:
                 "message": "A pull request already exists for foo:1.",
             }
         ]
-        body = json.dumps({"message": "it went bad", "errors": errors})
-        body = body.encode("utf-8")
+        body = json.dumps({"message": "it went bad", "errors": errors}).encode("utf-8")
         headers = {"content-type": "application/json; charset=utf-8"}
         with pytest.raises(ValidationError) as exc_info:
             sansio.decipher_response(status_code, headers, body)
@@ -365,6 +375,48 @@ class TestDecipherResponse:
             str(exc_info.value)
             == "it went bad: 'A pull request already exists for foo:1.'"
         )
+        assert exc_info.value.headers == headers
+
+    def test_422_errors_as_string(self):
+        """Test 422 response where 'errors' field is a string instead of list of objects."""
+        status_code = 422
+        body = json.dumps(
+            {
+                "message": "Validation Failed",
+                "errors": "Validation failed: This SHA and context has reached the maximum number of statuses.",
+                "documentation_url": "https://docs.github.com/rest/commits/statuses#create-a-commit-status",
+                "status": "422",
+            }
+        ).encode("utf-8")
+        headers = {"content-type": "application/json; charset=utf-8"}
+        with pytest.raises(ValidationError) as exc_info:
+            sansio.decipher_response(status_code, headers, body)
+        assert exc_info.value.status_code == http.HTTPStatus(status_code)
+        assert (
+            str(exc_info.value)
+            == "Validation Failed: Validation failed: This SHA and context has reached the maximum number of statuses."
+        )
+        assert exc_info.value.headers == headers
+
+    def test_422_errors_list_of_strings(self):
+        # https://github.com/brettcannon/gidgethub/issues/139
+        status_code = 422
+        body = json.dumps(
+            {
+                "message": "Unprocessable Entity",
+                "errors": ["Line must be part of the diff"],
+                "documentation_url": "https://docs.github.com/rest/reference/pulls#create-a-review-for-a-pull-request",
+            }
+        ).encode("utf-8")
+        headers = {"content-type": "application/json; charset=utf-8"}
+        with pytest.raises(ValidationError) as exc_info:
+            sansio.decipher_response(status_code, headers, body)
+        assert exc_info.value.status_code == http.HTTPStatus(status_code)
+        assert (
+            str(exc_info.value)
+            == "Unprocessable Entity: 'Line must be part of the diff'"
+        )
+        assert exc_info.value.headers == headers
 
     def test_422_no_errors_object(self):
         status_code = 422
@@ -373,13 +425,13 @@ class TestDecipherResponse:
                 "message": "Reference does not exist",
                 "documentation_url": "https://docs.github.com/en/free-pro-team@latest/rest/reference/git#delete-a-reference",
             }
-        )
-        body = body.encode("utf-8")
+        ).encode("utf-8")
         headers = {"content-type": "application/json; charset=utf-8"}
         with pytest.raises(InvalidField) as exc_info:
             sansio.decipher_response(status_code, headers, body)
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
         assert str(exc_info.value) == "Reference does not exist"
+        assert exc_info.value.headers == headers
 
     def test_422_html_response(self):
         # https://github.com/brettcannon/gidgethub/issues/81
@@ -391,6 +443,7 @@ class TestDecipherResponse:
             sansio.decipher_response(status_code, headers, encoded_body)
         assert exc_info.value.status_code == http.HTTPStatus(status_code)
         assert exc_info.value.response == body
+        assert exc_info.value.headers == headers
 
     def test_3XX(self):
         status_code = 301
@@ -409,6 +462,7 @@ class TestDecipherResponse:
         headers, body = sample("pr_single", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more is None
+        assert rate_limit is not None
         assert rate_limit.remaining == 53
         assert data["url"] == "https://api.github.com/repos/python/cpython/pulls/1"
 
@@ -434,6 +488,7 @@ class TestDecipherResponse:
             status_code, headers, body
         )
         assert more is None
+        assert rate_limit is not None
         assert rate_limit.limit == 60
         assert returned_data == data
 
@@ -453,7 +508,7 @@ class TestDecipherResponse:
             "forks": 0,
         }
         body = json.dumps(data).encode("UTF-8")
-        returned_data, rate_limit, more = sansio.decipher_response(
+        returned_data, _rate_limit, more = sansio.decipher_response(
             status_code, headers, body
         )
         assert more is None
@@ -465,6 +520,7 @@ class TestDecipherResponse:
         headers, body = sample("pr_merged", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more is None
+        assert rate_limit is not None
         assert rate_limit.remaining == 41
         assert data is None
 
@@ -473,22 +529,24 @@ class TestDecipherResponse:
         headers, body = sample("pr_page_1", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more == "https://api.github.com/repositories/4164482/pulls?page=2"
+        assert rate_limit is not None
         assert rate_limit.remaining == 53
         assert data[0]["url"] == "https://api.github.com/repos/django/django/pulls/8053"
 
         headers, body = sample("pr_page_2", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more == "https://api.github.com/repositories/4164482/pulls?page=3"
+        assert rate_limit is not None
         assert rate_limit.remaining == 50
         assert data[0]["url"] == "https://api.github.com/repos/django/django/pulls/7805"
 
         headers, body = sample("pr_page_last", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more is None
+        assert rate_limit is not None
         assert rate_limit.remaining == 48
         assert data[0]["url"] == "https://api.github.com/repos/django/django/pulls/6395"
 
-    @pytest.mark.asyncio
     def test_next_with_search_api(self):
         status_code = 200
         headers, body = sample("search_issues_page_1", status_code)
@@ -498,6 +556,7 @@ class TestDecipherResponse:
             "?q=repo%3Abrettcannon%2Fgidgethub+state%3Aclosed"
             "+rate+&per_page=3&page=2"
         )
+        assert rate_limit is not None
         assert rate_limit.remaining == 9
         assert {"items", "incomplete_results", "total_count"} == data.keys()
         expected_first_url = (
@@ -508,6 +567,7 @@ class TestDecipherResponse:
         headers, body = sample("search_issues_page_last", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more is None
+        assert rate_limit is not None
         assert rate_limit.remaining == 9
         assert {"items", "incomplete_results", "total_count"} == data.keys()
         expected_first_url = (
@@ -521,6 +581,7 @@ class TestDecipherResponse:
         headers, body = sample("pr_diff", status_code)
         data, rate_limit, more = sansio.decipher_response(status_code, headers, body)
         assert more is None
+        assert rate_limit is not None
         assert rate_limit.remaining == 43
         assert data.startswith("diff --git")
 
@@ -613,3 +674,23 @@ class TestFormatUrl:
         label = {"name": "CLA signed"}
         url = sansio.format_url(template_url, label, base_url=base_url)
         assert url == "https://api.github.com/repos/python/cpython/labels/CLA%20signed"
+
+    @pytest.mark.parametrize(
+        ["base_url", "url"],
+        [
+            (
+                "https://ghes.example.com/api/v3/",
+                "/app/installations/123/access_tokens",
+            ),
+            ("https://ghes.example.com/api/v3", "/app/installations/123/access_tokens"),
+            ("https://ghes.example.com/api/v3/", "app/installations/123/access_tokens"),
+            ("https://ghes.example.com/api/v3", "app/installations/123/access_tokens"),
+        ],
+    )
+    def test_base_url_with_path(self, base_url, url):
+        result = sansio.format_url(url, url_vars=None, base_url=base_url)
+
+        assert (
+            result
+            == "https://ghes.example.com/api/v3/app/installations/123/access_tokens"
+        )

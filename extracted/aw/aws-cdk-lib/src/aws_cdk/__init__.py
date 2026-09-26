@@ -4552,7 +4552,7 @@ class Bitrate(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Bitrate"):
             router_input_name="failover-input",
             maximum_bitrate=Bitrate.mbps(10),
             routing_scope=RoutingScope.REGIONAL,
-            tier=RouterInputTier.INPUT_50,
+            tier=RouterInputTier.INPUT_20,
             configuration=RouterInputConfiguration.failover(
                 network_interface=network_interface,
                 protocols=[
@@ -23049,9 +23049,9 @@ class PolicyViolatingResource:
     ) -> None:
         '''Resource violating a specific rule.
 
-        :param locations: The locations in the CloudFormation template that pose the violations. TODO: Define whether this is from the root of the template, or from the resource itself. Not sure this is well-defined at the moment.
+        :param locations: The locations in the CloudFormation template that pose the violations. This is a location in the CloudFormation template, relative to the resource that this violation is about. For example, if the violation is about a property of a resource, this will contain something like ``Properties.MyProperty``. If the violation is about the Stack itself, it will contain something like ``Parameters.MyParameter``.
         :param construct_path: The construct path of the violating construct. Use this for violations that originate from constructs rather than CloudFormation resources (e.g. annotations added via ``Annotations.of()`` or ``Validations.of()``). When provided, the report will use this path directly instead of deriving it from the resource logical ID. Mutually exclusive with ``resourceLogicalId``. Default: - construct path is derived from the resource logical ID
-        :param resource_logical_id: The logical ID of the resource in the CloudFormation template. Required for plugin-sourced violations that operate on CloudFormation templates. Mutually exclusive with ``constructPath``. Default: - no resource logical ID
+        :param resource_logical_id: The logical ID of the resource in the CloudFormation template. Intended for plugin-sourced violations that operate on CloudFormation templates. If set, the ``constructPath`` will be added later. Default: - no resource logical ID
         :param template_path: The path to the CloudFormation template that contains this resource. Default: - no template path
 
         :exampleMetadata: fixture=_generated
@@ -23091,8 +23091,10 @@ class PolicyViolatingResource:
     def locations(self) -> typing.List[builtins.str]:
         '''The locations in the CloudFormation template that pose the violations.
 
-        TODO: Define whether this is from the root of the template, or from the
-        resource itself. Not sure this is well-defined at the moment.
+        This is a location in the CloudFormation template, relative to the resource that
+        this violation is about. For example, if the violation is about a property of a resource,
+        this will contain something like ``Properties.MyProperty``. If the violation is about the Stack
+        itself, it will contain something like ``Parameters.MyParameter``.
         '''
         result = self._values.get("locations")
         assert result is not None, "Required property 'locations' is missing"
@@ -23117,8 +23119,10 @@ class PolicyViolatingResource:
     def resource_logical_id(self) -> typing.Optional[builtins.str]:
         '''The logical ID of the resource in the CloudFormation template.
 
-        Required for plugin-sourced violations that operate on CloudFormation
-        templates. Mutually exclusive with ``constructPath``.
+        Intended for plugin-sourced violations that operate on CloudFormation
+        templates.
+
+        If set, the ``constructPath`` will be added later.
 
         :default: - no resource logical ID
         '''

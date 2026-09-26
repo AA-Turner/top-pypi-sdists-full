@@ -33,6 +33,7 @@ __all__ = [
     "WorkersBindingKindMTLSCertificate",
     "WorkersBindingKindPlainText",
     "WorkersBindingKindPipelines",
+    "WorkersBindingKindK2",
     "WorkersBindingKindQueue",
     "WorkersBindingKindRatelimit",
     "WorkersBindingKindRatelimitSimple",
@@ -341,6 +342,19 @@ class WorkersBindingKindPipelines(BaseModel):
     """The kind of resource that the binding provides."""
 
 
+class WorkersBindingKindK2(BaseModel):
+    """A K2 stream binding. Available only to accounts enabled for K2."""
+
+    name: str
+    """A JavaScript variable name for the binding."""
+
+    stream: str
+    """ID of a K2 stream owned by the account deploying the Worker."""
+
+    type: Literal["k2"]
+    """The kind of resource that the binding provides."""
+
+
 class WorkersBindingKindQueue(BaseModel):
     name: str
     """A JavaScript variable name for the binding."""
@@ -620,6 +634,7 @@ BindingGetResponse: TypeAlias = Annotated[
         WorkersBindingKindMTLSCertificate,
         WorkersBindingKindPlainText,
         WorkersBindingKindPipelines,
+        WorkersBindingKindK2,
         WorkersBindingKindQueue,
         WorkersBindingKindRatelimit,
         WorkersBindingKindR2Bucket,

@@ -300,9 +300,10 @@ class SessionsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionGetSessionParticipantDetailsResponse:
-        """
-        Returns details of the given participant ID along with call statistics for the
-        given session ID.
+        """Returns details of the given participant ID for the given session ID.
+
+        Use the
+        peer report endpoint to retrieve call statistics.
 
         Args:
           account_id: The account identifier tag.
@@ -356,7 +357,7 @@ class SessionsResource(SyncAPIResource):
         app_id: str,
         include_peer_events: bool | Omit = omit,
         page_no: float | Omit = omit,
-        per_page: float | Omit = omit,
+        per_page: int | Omit = omit,
         search: str | Omit = omit,
         sort_by: Literal["joinedAt", "duration"] | Omit = omit,
         sort_order: Literal["ASC", "DESC"] | Omit = omit,
@@ -380,7 +381,7 @@ class SessionsResource(SyncAPIResource):
 
           page_no: The page number from which you want your page search results to be displayed.
 
-          per_page: Number of results per page
+          per_page: Number of results per page.
 
           search: The search query string. You can search using participant ID, custom participant
               ID, or display name.
@@ -877,9 +878,10 @@ class AsyncSessionsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SessionGetSessionParticipantDetailsResponse:
-        """
-        Returns details of the given participant ID along with call statistics for the
-        given session ID.
+        """Returns details of the given participant ID for the given session ID.
+
+        Use the
+        peer report endpoint to retrieve call statistics.
 
         Args:
           account_id: The account identifier tag.
@@ -933,7 +935,7 @@ class AsyncSessionsResource(AsyncAPIResource):
         app_id: str,
         include_peer_events: bool | Omit = omit,
         page_no: float | Omit = omit,
-        per_page: float | Omit = omit,
+        per_page: int | Omit = omit,
         search: str | Omit = omit,
         sort_by: Literal["joinedAt", "duration"] | Omit = omit,
         sort_order: Literal["ASC", "DESC"] | Omit = omit,
@@ -957,7 +959,7 @@ class AsyncSessionsResource(AsyncAPIResource):
 
           page_no: The page number from which you want your page search results to be displayed.
 
-          per_page: Number of results per page
+          per_page: Number of results per page.
 
           search: The search query string. You can search using participant ID, custom participant
               ID, or display name.

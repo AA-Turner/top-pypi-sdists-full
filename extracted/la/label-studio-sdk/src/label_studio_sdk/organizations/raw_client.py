@@ -18,6 +18,8 @@ from ..types.default_role import DefaultRole
 from ..types.lse_organization import LseOrganization
 from ..types.organization_id import OrganizationId
 from ..types.organization_invite import OrganizationInvite
+from ..types.organization_member_membership_option import OrganizationMemberMembershipOption
+from ..types.organization_member_skills_option import OrganizationMemberSkillsOption
 from ..types.organization_role_enum import OrganizationRoleEnum
 from pydantic import ValidationError
 
@@ -162,7 +164,6 @@ class RawOrganizationsClient:
         id: int,
         *,
         contact_info: typing.Optional[str] = OMIT,
-        created_by: typing.Optional[int] = OMIT,
         custom_interfaces_enabled: typing.Optional[bool] = OMIT,
         custom_scripts_enabled: typing.Optional[bool] = OMIT,
         email_notification_settings: typing.Optional[typing.Any] = OMIT,
@@ -189,8 +190,6 @@ class RawOrganizationsClient:
         id : int
 
         contact_info : typing.Optional[str]
-
-        created_by : typing.Optional[int]
 
         custom_interfaces_enabled : typing.Optional[bool]
             Enable or disable custom interfaces for this organization
@@ -234,7 +233,6 @@ class RawOrganizationsClient:
             method="PATCH",
             json={
                 "contact_info": contact_info,
-                "created_by": created_by,
                 "custom_interfaces_enabled": custom_interfaces_enabled,
                 "custom_scripts_enabled": custom_scripts_enabled,
                 "email_notification_settings": email_notification_settings,
@@ -295,6 +293,102 @@ class RawOrganizationsClient:
                         ),
                     ),
                 )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def api_organizations_memberships_filter_options_membership_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.List[OrganizationMemberMembershipOption]]:
+        """
+        Return the actor-accessible workspaces, each with its projects, plus unparented projects.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[typing.List[OrganizationMemberMembershipOption]]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/organizations/{encode_path_param(id)}/memberships/filter-options/membership",
+            method="GET",
+            params={
+                "search": search,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.List[OrganizationMemberMembershipOption],
+                    construct_type(
+                        type_=typing.List[OrganizationMemberMembershipOption],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def api_organizations_memberships_filter_options_skills_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.List[OrganizationMemberSkillsOption]]:
+        """
+        Return self-reported Skills values with Contributor Setup display metadata.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[typing.List[OrganizationMemberSkillsOption]]
+
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/organizations/{encode_path_param(id)}/memberships/filter-options/skills",
+            method="GET",
+            params={
+                "search": search,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.List[OrganizationMemberSkillsOption],
+                    construct_type(
+                        type_=typing.List[OrganizationMemberSkillsOption],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
@@ -584,7 +678,6 @@ class AsyncRawOrganizationsClient:
         id: int,
         *,
         contact_info: typing.Optional[str] = OMIT,
-        created_by: typing.Optional[int] = OMIT,
         custom_interfaces_enabled: typing.Optional[bool] = OMIT,
         custom_scripts_enabled: typing.Optional[bool] = OMIT,
         email_notification_settings: typing.Optional[typing.Any] = OMIT,
@@ -611,8 +704,6 @@ class AsyncRawOrganizationsClient:
         id : int
 
         contact_info : typing.Optional[str]
-
-        created_by : typing.Optional[int]
 
         custom_interfaces_enabled : typing.Optional[bool]
             Enable or disable custom interfaces for this organization
@@ -656,7 +747,6 @@ class AsyncRawOrganizationsClient:
             method="PATCH",
             json={
                 "contact_info": contact_info,
-                "created_by": created_by,
                 "custom_interfaces_enabled": custom_interfaces_enabled,
                 "custom_scripts_enabled": custom_scripts_enabled,
                 "email_notification_settings": email_notification_settings,
@@ -717,6 +807,102 @@ class AsyncRawOrganizationsClient:
                         ),
                     ),
                 )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def api_organizations_memberships_filter_options_membership_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.List[OrganizationMemberMembershipOption]]:
+        """
+        Return the actor-accessible workspaces, each with its projects, plus unparented projects.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.List[OrganizationMemberMembershipOption]]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/organizations/{encode_path_param(id)}/memberships/filter-options/membership",
+            method="GET",
+            params={
+                "search": search,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.List[OrganizationMemberMembershipOption],
+                    construct_type(
+                        type_=typing.List[OrganizationMemberMembershipOption],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def api_organizations_memberships_filter_options_skills_list(
+        self, id: int, *, search: typing.Optional[str] = None, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.List[OrganizationMemberSkillsOption]]:
+        """
+        Return self-reported Skills values with Contributor Setup display metadata.
+
+        Parameters
+        ----------
+        id : int
+
+        search : typing.Optional[str]
+            Optional case-insensitive option label search.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.List[OrganizationMemberSkillsOption]]
+
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/organizations/{encode_path_param(id)}/memberships/filter-options/skills",
+            method="GET",
+            params={
+                "search": search,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.List[OrganizationMemberSkillsOption],
+                    construct_type(
+                        type_=typing.List[OrganizationMemberSkillsOption],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
             _response_json = _response.json()
         except JSONDecodeError:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)

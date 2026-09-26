@@ -18,7 +18,7 @@ use crate::{
     interned_string::InternedString,
     interned_values::{
         mmap_data_v2::{MmapDataV2, MmapEvaluatorValue, MmapSpec},
-        mmap_sync::{MmapConfigResponse, MmapResolvedUpdate, MmapSyncCursor, MmapWriteOutcome},
+        mmap_sync::{MmapResolvedUpdate, MmapSyncCursor, MmapWriteOutcome, resolve_json_response},
     },
     log_d,
     networking::ResponseData,
@@ -52,7 +52,7 @@ pub(super) fn write_mmap_artifacts(
     v2_path: &Path,
     manifest_path: &Path,
 ) -> Result<MmapWriteOutcome, StatsigErr> {
-    let Some(resolved) = MmapConfigResponse::new(response_data)?.resolve(previous)? else {
+    let Some(resolved) = resolve_json_response(response_data, previous)? else {
         return Ok(MmapWriteOutcome::NoUpdate);
     };
 

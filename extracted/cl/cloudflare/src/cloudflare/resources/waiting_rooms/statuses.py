@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Type, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -54,7 +54,7 @@ class StatusesResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> StatusGetResponse:
+    ) -> Optional[StatusGetResponse]:
         """Fetches the status of a configured waiting room.
 
         Response fields include:
@@ -103,9 +103,9 @@ class StatusesResource(SyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[StatusGetResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[StatusGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[StatusGetResponse], ResultWrapper[StatusGetResponse]),
+            cast_to=cast(Type[Optional[StatusGetResponse]], ResultWrapper[StatusGetResponse]),
         )
 
 
@@ -140,7 +140,7 @@ class AsyncStatusesResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> StatusGetResponse:
+    ) -> Optional[StatusGetResponse]:
         """Fetches the status of a configured waiting room.
 
         Response fields include:
@@ -189,9 +189,9 @@ class AsyncStatusesResource(AsyncAPIResource):
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                post_parser=ResultWrapper[StatusGetResponse]._unwrapper,
+                post_parser=ResultWrapper[Optional[StatusGetResponse]]._unwrapper,
             ),
-            cast_to=cast(Type[StatusGetResponse], ResultWrapper[StatusGetResponse]),
+            cast_to=cast(Type[Optional[StatusGetResponse]], ResultWrapper[StatusGetResponse]),
         )
 
 

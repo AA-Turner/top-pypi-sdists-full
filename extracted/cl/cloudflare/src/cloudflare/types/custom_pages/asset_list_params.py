@@ -15,5 +15,7 @@ class AssetListParams(TypedDict, total=False):
     """The Zone ID to use for this endpoint. Mutually exclusive with the Account ID."""
 
     page: int
+    """Page number of paginated results."""
 
     per_page: int
+    """Number of custom assets per page."""

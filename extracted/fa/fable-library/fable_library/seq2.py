@@ -16,7 +16,7 @@ from .util import UNIT, Disposable, Unit, get_enumerator, to_enumerable
 
 
 def distinct[T](xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> IEnumerable_1[T]:
-    def _arrow34(xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
+    def _arrow36(xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
         hash_set: Any = HashSet(Array[Any]([]), comparer)
 
         def predicate(x: T = UNIT) -> bool:
@@ -24,13 +24,13 @@ def distinct[T](xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]) -> IEn
 
         return filter(predicate, xs)
 
-    return delay(_arrow34)
+    return delay(_arrow36)
 
 
 def distinct_by[T, KEY](
     projection: Callable[[T], KEY], xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]
 ) -> IEnumerable_1[T]:
-    def _arrow36(projection: Any = projection, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
+    def _arrow37(projection: Any = projection, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
         hash_set: Any = HashSet(Array[Any]([]), comparer)
 
         def predicate(x: T = UNIT) -> bool:
@@ -38,13 +38,13 @@ def distinct_by[T, KEY](
 
         return filter(predicate, xs)
 
-    return delay(_arrow36)
+    return delay(_arrow37)
 
 
 def except_[T](
     items_to_exclude: IEnumerable_1[T], xs: IEnumerable_1[T], comparer: IEqualityComparer_1[Any]
 ) -> IEnumerable_1[T]:
-    def _arrow37(items_to_exclude: Any = items_to_exclude, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
+    def _arrow38(items_to_exclude: Any = items_to_exclude, xs: Any = xs, comparer: Any = comparer) -> IEnumerable_1[T]:
         hash_set: Any = HashSet(items_to_exclude, comparer)
 
         def predicate(x: T = UNIT) -> bool:
@@ -52,7 +52,7 @@ def except_[T](
 
         return filter(predicate, xs)
 
-    return delay(_arrow37)
+    return delay(_arrow38)
 
 
 def count_by[T, KEY](

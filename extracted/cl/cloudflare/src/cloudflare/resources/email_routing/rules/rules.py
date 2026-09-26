@@ -311,7 +311,8 @@ class RulesResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[EmailRoutingRule]:
         """
-        Delete a specific routing rule.
+        Deletes a routing rule so matching incoming messages are no longer forwarded by
+        it.
 
         Args:
           zone_id: Identifier.
@@ -669,7 +670,8 @@ class AsyncRulesResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[EmailRoutingRule]:
         """
-        Delete a specific routing rule.
+        Deletes a routing rule so matching incoming messages are no longer forwarded by
+        it.
 
         Args:
           zone_id: Identifier.

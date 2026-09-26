@@ -100,6 +100,7 @@ pub(crate) fn test_config_with_draft(schema: Value, draft: Draft) -> CodegenConf
         ignore_unknown_formats: true,
         email_options: None,
         pattern_options: crate::context::PatternEngineConfig::default(),
+        methods: crate::context::MethodGates::default(),
     }
 }
 
@@ -123,16 +124,15 @@ fn schema_to_code_with_runtime_alias(
 }
 
 fn render_config(config: &CodegenConfig) -> String {
+    render_config_for::<crate::codegen::emit_serde::SerdeEmitter>(config)
+}
+
+fn render_config_for<E: crate::codegen::emit::ValueEmitter>(config: &CodegenConfig) -> String {
     let name = format_ident!("Validator");
     let impl_mod_name = format_ident!("__validator_impl");
     let recompile_trigger: TokenStream = quote! {};
-    let tokens = generate_from_config::<crate::codegen::emit_serde::SerdeEmitter>(
-        config,
-        &recompile_trigger,
-        &name,
-        &impl_mod_name,
-    )
-    .expect("schema should generate");
+    let tokens = generate_from_config::<E>(config, &recompile_trigger, &name, &impl_mod_name)
+        .expect("schema should generate");
 
     // Wrap in a struct declaration so syn can parse as a complete file
     let wrapped: TokenStream = quote! {
@@ -247,17 +247,141 @@ fn config_rejects_unknown_attribute() {
 
     assert_eq!(
         error.to_string(),
-        "Expected `path`, `schema`, `draft`, `backend`, `base_uri`, `resources`, `vocabularies`, `validate_formats`, `formats`, `keywords`, `content_media_types`, `content_encodings`, `ignore_unknown_formats`, `email_options`, or `pattern_options` attribute"
+        "Expected `path`, `schema`, `draft`, `backend`, `base_uri`, `resources`, `vocabularies`, `validate_formats`, `formats`, `keywords`, `content_media_types`, `content_encodings`, `ignore_unknown_formats`, `email_options`, `pattern_options`, or `methods` attribute"
     );
 }
 
 #[test]
 fn config_parses_with_trailing_commas() {
-    let input = r#"schema = "{}", resources = { "json-schema:///a" => { schema = "{}", }, }, pattern_options = { size_limit = 1, }, email_options = { required_tld = true, }"#;
+    let input = r#"schema = "{}", resources = { "json-schema:///a" => { schema = "{}", }, }, pattern_options = { size_limit = 1, }, email_options = { required_tld = true, }, methods = { is_valid = true, }"#;
     assert!(
         syn::parse_str::<crate::Config>(input).is_ok(),
         "trailing commas after the final entry should parse"
     );
+}
+
+#[test]
+fn config_parses_methods() {
+    let config = syn::parse_str::<crate::Config>(
+        r#"schema = "{}", methods = { validate = false, iter_errors = false }"#,
+    )
+    .expect("methods should parse");
+    assert!(config.methods.is_valid);
+    assert!(!config.methods.validate);
+    assert!(!config.methods.iter_errors);
+}
+
+#[test]
+fn config_methods_default_to_all_enabled() {
+    let config = syn::parse_str::<crate::Config>(r#"schema = "{}""#).expect("config should parse");
+    assert!(config.methods.is_valid);
+    assert!(config.methods.validate);
+    assert!(config.methods.iter_errors);
+}
+
+#[test_case(r#"schema = "{}", methods = { evaluate = false }"#, "Unknown methods key. Expected `is_valid`, `validate`, or `iter_errors`" ; "unknown_key")]
+#[test_case(r#"schema = "{}", methods = { validate = false, validate = true }"#, "Duplicate methods key: `validate`" ; "duplicate_key")]
+#[test_case(r#"schema = "{}", methods = { is_valid = false, validate = false, iter_errors = false }"#, "At least one of `is_valid`, `validate`, or `iter_errors` must be enabled" ; "all_disabled")]
+fn config_rejects_invalid_methods(input: &str, expected: &str) {
+    let error = syn::parse_str::<crate::Config>(input)
+        .err()
+        .expect("invalid methods should not parse");
+    assert_eq!(error.to_string(), expected);
+}
+
+fn branchy_schema() -> Value {
+    json!({"anyOf": [{"type": "string"}, {"type": "number"}]})
+}
+
+fn schema_to_code_with_methods(schema: Value, methods: crate::context::MethodGates) -> String {
+    let mut config = test_config(schema);
+    config.methods = methods;
+    render_config(&config)
+}
+
+// Absence is the property only a text scan can establish; the surviving methods are proven
+// against the runtime validator by the `methods` cases in `crates/jsonschema/tests/codegen.rs`.
+#[test]
+fn methods_is_valid_off_drops_only_public_wrapper() {
+    let code = schema_to_code_with_methods(
+        branchy_schema(),
+        crate::context::MethodGates {
+            is_valid: false,
+            ..Default::default()
+        },
+    );
+    assert!(!code.contains("pub fn is_valid"), "{code}");
+    assert!(!code.contains("entry_is_valid"), "{code}");
+    // `validate` and the branch gates still call the internal `is_valid`.
+    extract_is_valid_body(&code);
+}
+
+#[test]
+fn methods_validate_off_drops_validate_functions() {
+    let code = schema_to_code_with_methods(
+        branchy_schema(),
+        crate::context::MethodGates {
+            validate: false,
+            ..Default::default()
+        },
+    );
+    assert!(!code.contains("pub fn validate"), "{code}");
+    assert!(!code.contains("pub(super) fn validate"), "{code}");
+    assert!(!code.contains("_validate"), "{code}");
+    // `iter_errors` keeps the error-collection functions.
+    extract_fn_body(&code, "pub(super) fn collect_errors");
+}
+
+#[test]
+fn methods_iter_errors_off_drops_only_public_wrapper() {
+    let code = schema_to_code_with_methods(
+        branchy_schema(),
+        crate::context::MethodGates {
+            iter_errors: false,
+            ..Default::default()
+        },
+    );
+    assert!(!code.contains("pub fn iter_errors"), "{code}");
+    assert!(!code.contains("entry_iter_errors"), "{code}");
+    // `validate` builds `anyOf` error context from the collection functions.
+    extract_fn_body(&code, "pub(super) fn collect_errors");
+}
+
+#[test]
+fn methods_validate_and_iter_errors_off_drop_collection() {
+    let code = schema_to_code_with_methods(
+        branchy_schema(),
+        crate::context::MethodGates {
+            validate: false,
+            iter_errors: false,
+            ..Default::default()
+        },
+    );
+    assert!(!code.contains("collect_errors"), "{code}");
+    assert!(!code.contains("collect_branch_errors"), "{code}");
+    assert!(!code.contains("_validate"), "{code}");
+    extract_is_valid_body(&code);
+}
+
+#[test]
+fn methods_gate_every_backend() {
+    let mut config = test_config(branchy_schema());
+    config.methods = crate::context::MethodGates {
+        validate: false,
+        iter_errors: false,
+        ..Default::default()
+    };
+    for code in [
+        render_config_for::<crate::codegen::emit_serde::SerdeEmitter>(&config),
+        render_config_for::<crate::codegen::emit_pyo3::Pyo3Emitter>(&config),
+        render_config_for::<crate::codegen::emit_magnus::MagnusEmitter>(&config),
+    ] {
+        assert!(!code.contains("pub fn validate"), "{code}");
+        assert!(!code.contains("pub fn iter_errors"), "{code}");
+        assert!(!code.contains("entry_validate"), "{code}");
+        assert!(!code.contains("entry_iter_errors"), "{code}");
+        extract_is_valid_body(&code);
+    }
 }
 
 #[test]
@@ -746,6 +870,7 @@ fn codegen_is_valid_body_snapshot(schema_json: &str, snap_name: &str) {
 #[test_case(r#"{"oneOf":[{"type":"string"},{"type":"number"}]}"#, "one_of_no_discriminator_validate" ; "one_of_no_discriminator_validate")]
 #[test_case(r#"{"type":"object","required":["a"],"properties":{"a":{"type":"string"}},"additionalProperties":false}"#, "properties_validate_uses_bound_obj" ; "properties_validate_uses_bound_obj")]
 #[test_case(r#"{"type":"object","properties":{"a":{"type":"integer"}},"patternProperties":{"^x":{"type":"string"}},"additionalProperties":false}"#, "object_pass_validate_uses_bound_obj" ; "object_pass_validate_uses_bound_obj")]
+#[test_case(r#"{"type":"object","required":["a","z"],"properties":{"a":{"type":"string"},"b":{"type":"integer"}}}"#, "properties_validate_tracks_required" ; "properties_validate_tracks_required")]
 fn codegen_validate_body_snapshot(schema_json: &str, snap_name: &str) {
     let schema: Value = serde_json::from_str(schema_json).expect("valid schema json");
     let description = serde_json::to_string(&schema).expect("schema serialization");
@@ -810,4 +935,84 @@ fn discriminator_branch_helper_reduces_only_validity() {
     assert!(!is_valid.contains("circle"));
     assert!(is_valid.contains(">= 8"));
     assert!(collect.contains("circle"));
+}
+
+fn keyword_families_schema() -> Value {
+    json!({
+        "properties": {
+            "structured": {"const": {"o": true}},
+            "integer": {"type": "integer", "minimum": 1},
+            "choice": {"enum": [1, "a", true, null, {"o": [1]}]},
+            "tuple": {
+                "prefixItems": [{"type": "string"}],
+                "contains": {"const": 1},
+                "uniqueItems": true
+            },
+            "record": {
+                "patternProperties": {"^x-": {"type": "integer"}},
+                "propertyNames": {"maxLength": 5}
+            },
+            "open": {"additionalProperties": {"type": "boolean"}},
+            "shape": {
+                "oneOf": [{"properties": {"kind": {"const": "circle"}, "r": {"type": "number"}}, "required": ["kind"]}, {"properties": {"kind": {"const": "square"}, "s": {"type": "number"}}, "required": ["kind"]}]
+            },
+            "code": {
+                "oneOf": [{"properties": {"code": {"const": 1}}, "required": ["code"]}, {"properties": {"code": {"const": 2}}, "required": ["code"]}]
+            },
+            "flag": {
+                "oneOf": [{"properties": {"on": {"const": true}}, "required": ["on"]}, {"properties": {"on": {"const": false}}, "required": ["on"]}]
+            },
+            "nothing": {"type": "null"},
+            "list": {"type": "array"},
+            "flags": {"type": ["boolean", "null", "array"]},
+            "fallbacks": {"type": ["string", "integer", "array", "object"], "minProperties": 1},
+            "empty": {"additionalProperties": false},
+            "rest": {"unevaluatedProperties": {"type": "string"}},
+            "items": {"unevaluatedItems": false},
+            "tree": {"$ref": "#/$defs/tree"},
+            "nested": {
+                "allOf": [{"unevaluatedProperties": {"type": "string"}}],
+                "unevaluatedProperties": false
+            }
+        },
+        "$defs": {"tree": {"properties": {"child": {"$ref": "#/$defs/tree"}}}}
+    })
+}
+
+fn draft4_integer_schema() -> Value {
+    json!({"$schema": "http://json-schema.org/draft-04/schema#", "type": ["integer", "string"]})
+}
+
+#[test_case("pyo3_emitter", &quote! { Pyo3 }, &keyword_families_schema() ; "pyo3 keyword families")]
+#[test_case("pyo3_emitter_draft4", &quote! { Pyo3 }, &draft4_integer_schema() ; "pyo3 draft4 integer")]
+#[test_case("magnus_emitter", &quote! { Magnus }, &keyword_families_schema() ; "magnus keyword families")]
+#[test_case("magnus_emitter_draft4", &quote! { Magnus }, &draft4_integer_schema() ; "magnus draft4 integer")]
+fn backend_emitter(snapshot: &str, backend: &TokenStream, schema: &Value) {
+    let schema = serde_json::to_string(schema).expect("schema serializes");
+    let config: crate::Config =
+        syn::parse2(quote! { schema = #schema, backend = #backend }).expect("Config should parse");
+    let item: syn::ItemStruct = syn::parse2(quote! {
+        struct Validator;
+    })
+    .expect("Item should parse");
+    let tokens = crate::validator_impl(&config, &item).expect("schema should generate");
+    let file: syn::File = syn::parse2(tokens).expect("valid token stream");
+    let [syn::Item::Struct(declaration), syn::Item::Macro(wrapper)] = file.items.as_slice() else {
+        panic!("expected the struct followed by the backend wrapper");
+    };
+    // `prettyplease` leaves macro bodies unformatted, so the wrapped items are rendered on their own.
+    let wrapped: syn::File = syn::parse2(wrapper.mac.tokens.clone()).expect("wrapped items");
+    let declaration = syn::File {
+        shebang: None,
+        attrs: Vec::new(),
+        items: vec![syn::Item::Struct(declaration.clone())],
+    };
+    let path = &wrapper.mac.path;
+    let rendered = format!(
+        "{}{}! {{\n{}}}\n",
+        prettyplease::unparse(&declaration),
+        quote!(#path).to_string().replace(' ', ""),
+        prettyplease::unparse(&wrapped)
+    );
+    insta::assert_snapshot!(snapshot, rendered);
 }

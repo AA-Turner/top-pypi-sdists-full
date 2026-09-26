@@ -240,9 +240,17 @@ async def test_viewer_and_admin_access_allowed():
         create=True,
     ):
         assert await validate_plan_agents(plan, _CTX) == []
-    admin_ctx = SimpleNamespace(user_id="admin-1", is_admin=True)
+    # THE ADMIN SURFACE (2026-09-25): admin reach works only from an admin surface.
+    admin_ctx = SimpleNamespace(user_id="admin-1", is_admin=True, admin_surface=True)
     with _mock_manager({_A1: _agent_row(created_by="someone-else")}):
         assert await validate_plan_agents(plan, admin_ctx) == []
+    admin_in_chat = SimpleNamespace(user_id="admin-1", is_admin=True, admin_surface=False)
+    with _mock_manager({_A1: _agent_row(created_by="someone-else")}), patch(
+        "matrx_ai.db.agx_manager.agent_viewer_access",
+        AsyncMock(return_value=False),
+        create=True,
+    ):
+        assert await validate_plan_agents(plan, admin_in_chat) != []
 
 
 async def test_archived_agent_rejected():

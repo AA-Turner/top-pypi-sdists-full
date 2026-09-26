@@ -14,7 +14,7 @@ from .config import (
     ConfigResourceWithStreamingResponse,
     AsyncConfigResourceWithStreamingResponse,
 )
-from ....._types import Body, Query, Headers, NotGiven, not_given
+from ....._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ....._utils import path_template, maybe_transform, async_maybe_transform
 from ....._compat import cached_property
 from ....._resource import SyncAPIResource, AsyncAPIResource
@@ -62,6 +62,7 @@ class TopupResource(SyncAPIResource):
         *,
         account_id: str,
         amount: int,
+        payment_method_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -76,6 +77,8 @@ class TopupResource(SyncAPIResource):
         Args:
           amount: Top-up amount in cents (min 1000).
 
+          payment_method_id: Stripe PaymentMethod to charge instead of the customer's default payment method.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -88,7 +91,13 @@ class TopupResource(SyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return self._post(
             path_template("/accounts/{account_id}/ai-gateway/billing/topup", account_id=account_id),
-            body=maybe_transform({"amount": amount}, topup_create_params.TopupCreateParams),
+            body=maybe_transform(
+                {
+                    "amount": amount,
+                    "payment_method_id": payment_method_id,
+                },
+                topup_create_params.TopupCreateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -170,6 +179,7 @@ class AsyncTopupResource(AsyncAPIResource):
         *,
         account_id: str,
         amount: int,
+        payment_method_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -184,6 +194,8 @@ class AsyncTopupResource(AsyncAPIResource):
         Args:
           amount: Top-up amount in cents (min 1000).
 
+          payment_method_id: Stripe PaymentMethod to charge instead of the customer's default payment method.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -196,7 +208,13 @@ class AsyncTopupResource(AsyncAPIResource):
             raise ValueError(f"Expected a non-empty value for `account_id` but received {account_id!r}")
         return await self._post(
             path_template("/accounts/{account_id}/ai-gateway/billing/topup", account_id=account_id),
-            body=await async_maybe_transform({"amount": amount}, topup_create_params.TopupCreateParams),
+            body=await async_maybe_transform(
+                {
+                    "amount": amount,
+                    "payment_method_id": payment_method_id,
+                },
+                topup_create_params.TopupCreateParams,
+            ),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

@@ -10,7 +10,7 @@ Maintainer: Timo Reents, PSI (2025-onwards)
 Licence: MIT License, see LICENSE.txt file
 """
 
-__version__ = '2.2.1'
+__version__ = '2.2.2'
 __author__ = 'Giovanni Pizzi, PSI'
 __maintainer__ = 'Timo Reents, PSI'
 __copyright__ = (
@@ -45,7 +45,19 @@ from .getpaths import (
 )
 
 from .hpkot import EdgeCaseWarning, SymmetryDetectionError
-from .brillouinzone import brillouinzone
+
+
+def __getattr__(name):
+    """Import the Brillouin zone subpackage only when it is used.
+
+    It needs the optional ``scipy`` dependency, so importing it eagerly would
+    make ``import seekpath`` fail without it.
+    """
+    if name == 'brillouinzone':
+        import importlib
+
+        return importlib.import_module(f'{__name__}.brillouinzone')
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
 
 
 __all__ = (

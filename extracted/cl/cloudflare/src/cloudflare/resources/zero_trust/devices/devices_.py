@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import typing_extensions
 from typing import Type, Optional, cast
 from typing_extensions import Literal
 
@@ -54,6 +55,7 @@ class DevicesResource(SyncAPIResource):
         id: SequenceNotStr[str] | Omit = omit,
         active_registrations: Literal["include", "only", "exclude"] | Omit = omit,
         cursor: str | Omit = omit,
+        has_registration_type: Literal["warp", "browser_extension"] | Omit = omit,
         include: str | Omit = omit,
         last_seen_registration: device_list_params.LastSeenRegistration | Omit = omit,
         last_seen_user: device_list_params.LastSeenUser | Omit = omit,
@@ -66,6 +68,7 @@ class DevicesResource(SyncAPIResource):
         ]
         | Omit = omit,
         sort_order: Literal["asc", "desc"] | Omit = omit,
+        tag: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -86,6 +89,8 @@ class DevicesResource(SyncAPIResource):
               records. A cursor value can be obtained from the result_info.cursor field in the
               response.
 
+          has_registration_type: Filter by the type of active registration associated with the device.
+
           include: Comma-separated list of additional information that should be included in the
               device response. Supported values are: "last_seen_registration.policy".
 
@@ -102,6 +107,9 @@ class DevicesResource(SyncAPIResource):
           sort_by: The device field to order results by.
 
           sort_order: Sort direction.
+
+          tag: Filter by one or more device tags in key:value format. Devices must match all
+              provided tags.
 
           extra_headers: Send extra headers
 
@@ -126,6 +134,7 @@ class DevicesResource(SyncAPIResource):
                         "id": id,
                         "active_registrations": active_registrations,
                         "cursor": cursor,
+                        "has_registration_type": has_registration_type,
                         "include": include,
                         "last_seen_registration": last_seen_registration,
                         "last_seen_user": last_seen_user,
@@ -135,6 +144,7 @@ class DevicesResource(SyncAPIResource):
                         "seen_before": seen_before,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
+                        "tag": tag,
                     },
                     device_list_params.DeviceListParams,
                 ),
@@ -235,6 +245,7 @@ class DevicesResource(SyncAPIResource):
             cast_to=cast(Type[DeviceGetResponse], ResultWrapper[DeviceGetResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def revoke(
         self,
         device_id: str,
@@ -247,8 +258,10 @@ class DevicesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Revokes all WARP registrations associated with the specified device.
+        """Revokes all WARP registrations associated with the specified device.
+
+        Prefer
+        "delete" operation instead, "revoke" does not release virtual IPs.
 
         Args:
           extra_headers: Send extra headers
@@ -307,6 +320,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         id: SequenceNotStr[str] | Omit = omit,
         active_registrations: Literal["include", "only", "exclude"] | Omit = omit,
         cursor: str | Omit = omit,
+        has_registration_type: Literal["warp", "browser_extension"] | Omit = omit,
         include: str | Omit = omit,
         last_seen_registration: device_list_params.LastSeenRegistration | Omit = omit,
         last_seen_user: device_list_params.LastSeenUser | Omit = omit,
@@ -319,6 +333,7 @@ class AsyncDevicesResource(AsyncAPIResource):
         ]
         | Omit = omit,
         sort_order: Literal["asc", "desc"] | Omit = omit,
+        tag: SequenceNotStr[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -339,6 +354,8 @@ class AsyncDevicesResource(AsyncAPIResource):
               records. A cursor value can be obtained from the result_info.cursor field in the
               response.
 
+          has_registration_type: Filter by the type of active registration associated with the device.
+
           include: Comma-separated list of additional information that should be included in the
               device response. Supported values are: "last_seen_registration.policy".
 
@@ -355,6 +372,9 @@ class AsyncDevicesResource(AsyncAPIResource):
           sort_by: The device field to order results by.
 
           sort_order: Sort direction.
+
+          tag: Filter by one or more device tags in key:value format. Devices must match all
+              provided tags.
 
           extra_headers: Send extra headers
 
@@ -379,6 +399,7 @@ class AsyncDevicesResource(AsyncAPIResource):
                         "id": id,
                         "active_registrations": active_registrations,
                         "cursor": cursor,
+                        "has_registration_type": has_registration_type,
                         "include": include,
                         "last_seen_registration": last_seen_registration,
                         "last_seen_user": last_seen_user,
@@ -388,6 +409,7 @@ class AsyncDevicesResource(AsyncAPIResource):
                         "seen_before": seen_before,
                         "sort_by": sort_by,
                         "sort_order": sort_order,
+                        "tag": tag,
                     },
                     device_list_params.DeviceListParams,
                 ),
@@ -488,6 +510,7 @@ class AsyncDevicesResource(AsyncAPIResource):
             cast_to=cast(Type[DeviceGetResponse], ResultWrapper[DeviceGetResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def revoke(
         self,
         device_id: str,
@@ -500,8 +523,10 @@ class AsyncDevicesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """
-        Revokes all WARP registrations associated with the specified device.
+        """Revokes all WARP registrations associated with the specified device.
+
+        Prefer
+        "delete" operation instead, "revoke" does not release virtual IPs.
 
         Args:
           extra_headers: Send extra headers
@@ -546,8 +571,10 @@ class DevicesResourceWithRawResponse:
         self.get = to_raw_response_wrapper(
             devices.get,
         )
-        self.revoke = to_raw_response_wrapper(
-            devices.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                devices.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -564,8 +591,10 @@ class AsyncDevicesResourceWithRawResponse:
         self.get = async_to_raw_response_wrapper(
             devices.get,
         )
-        self.revoke = async_to_raw_response_wrapper(
-            devices.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                devices.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -582,8 +611,10 @@ class DevicesResourceWithStreamingResponse:
         self.get = to_streamed_response_wrapper(
             devices.get,
         )
-        self.revoke = to_streamed_response_wrapper(
-            devices.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                devices.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -600,6 +631,8 @@ class AsyncDevicesResourceWithStreamingResponse:
         self.get = async_to_streamed_response_wrapper(
             devices.get,
         )
-        self.revoke = async_to_streamed_response_wrapper(
-            devices.revoke,
+        self.revoke = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                devices.revoke,  # pyright: ignore[reportDeprecated],
+            )
         )

@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 __lazy_modules__ = {
-    "contextlib",
+    "json",
+    "packaging",
+    "packaging.version",
+    "shutil",
+    "subprocess",
+    "textwrap",
+    "typing",
     f"{__spec__.parent}._compat.builtins",
     f"{__spec__.parent}._logging",
     f"{__spec__.parent}._shutil",
@@ -10,17 +16,8 @@ __lazy_modules__ = {
     f"{__spec__.parent}.file_api.query",
     f"{__spec__.parent}.file_api.reply",
     f"{__spec__.parent}.program_search",
-    "json",
-    "packaging",
-    "packaging.version",
-    "shutil",
-    "subprocess",
-    "sysconfig",
-    "textwrap",
-    "typing",
 }
 
-import contextlib
 import dataclasses
 import json
 import os
@@ -38,7 +35,7 @@ from . import __version__
 from ._compat.builtins import ExceptionGroup
 from ._logging import logger
 from ._shutil import Run
-from .builder.generator import parse_generator
+from .builder.generator import resolve_generator
 from .errors import CMakeConfigError, CMakeNotFoundError, FailedLiveProcessError
 from .file_api.query import stateless_query
 from .file_api.reply import load_reply_dir
@@ -61,6 +58,18 @@ def __dir__() -> list[str]:
 
 
 DIR = Path(__file__).parent.resolve()
+
+
+def _load_file_api(reply_dir: Path) -> Index | None:
+    """Read a file-api reply, returning None if it cannot be parsed."""
+    try:
+        return load_reply_dir(reply_dir)
+    except (ExceptionGroup, IndexError, OSError) as exc:
+        # ExceptionGroup: any parse/conversion failure, IndexError: no index
+        # file, OSError: unreadable or missing reply files
+        logger.debug("Could not parse CMake file-api")
+        logger.debug(str(exc))
+    return None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -107,6 +116,7 @@ class CMaker:
     module_dirs: list[Path] = dataclasses.field(default_factory=list)
     prefix_dirs: list[Path] = dataclasses.field(default_factory=list)
     prefix_roots: dict[str, list[Path]] = dataclasses.field(default_factory=dict)
+    fresh: bool = False
     init_cache_file: Path = dataclasses.field(init=False, default=Path())
     env: dict[str, str] = dataclasses.field(init=False, default_factory=os.environ.copy)
     single_config: bool = not sysconfig.get_platform().startswith("win")
@@ -121,49 +131,60 @@ class CMaker:
             msg = f"source directory {self.source_dir} does not exist"
             raise CMakeConfigError(msg)
 
-        self.build_dir.mkdir(parents=True, exist_ok=True)
-        if not self.build_dir.is_dir():
+        try:
+            self.build_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as err:
             msg = f"build directory {self.build_dir} must be a (creatable) directory"
-            raise CMakeConfigError(msg)
+            raise CMakeConfigError(msg) from err
 
         # TODO: This could be stateful instead
         self._file_api_query = stateless_query(self.build_dir)
         skbuild_info = self.build_dir / ".skbuild-info.json"
-        stale = False
-
-        info: dict[str, str] = {}
-        with contextlib.suppress(FileNotFoundError), skbuild_info.open(
-            "r", encoding="utf-8"
-        ) as f:
-            info = json.load(f)
-
-        if info:
-            # If building via SDist, this could be pre-filled
-            cached_source_dir = Path(info["source_dir"])
-            if cached_source_dir != source_dir:
-                logger.warning(
-                    "Original src {} != {}, clearing cache",
-                    cached_source_dir,
-                    source_dir,
-                )
+        stale = self.fresh
+        if self.fresh:
+            logger.info("Fresh build requested, clearing cache")
+        else:
+            info: dict[str, str] = {}
+            try:
+                with skbuild_info.open("r", encoding="utf-8") as f:
+                    info = json.load(f)
+            except FileNotFoundError:
+                pass
+            except (OSError, ValueError):
+                # An interrupted build can leave a truncated or empty file
+                logger.warning("Unreadable {}, clearing cache", skbuild_info)
                 stale = True
+            else:
+                if not isinstance(info, dict):
+                    logger.warning("Invalid {}, clearing cache", skbuild_info)
+                    info = {}
+                    stale = True
 
-            # Isolated environments can cause this
-            cached_skbuild_dir = Path(info["skbuild_path"])
-            if cached_skbuild_dir != DIR:
-                logger.info(
-                    "New isolated environment {} -> {}, clearing cache",
-                    cached_skbuild_dir,
-                    DIR,
-                )
-                stale = True
+            if info:
+                # If building via SDist, this could be pre-filled
+                cached_source_dir = info.get("source_dir")
+                if cached_source_dir is None or Path(cached_source_dir) != source_dir:
+                    logger.warning(
+                        "Original src {} != {}, clearing cache",
+                        cached_source_dir,
+                        source_dir,
+                    )
+                    stale = True
+
+                # Isolated environments can cause this
+                cached_skbuild_dir = info.get("skbuild_path")
+                if cached_skbuild_dir is None or Path(cached_skbuild_dir) != DIR:
+                    logger.info(
+                        "New isolated environment {} -> {}, clearing cache",
+                        cached_skbuild_dir,
+                        DIR,
+                    )
+                    stale = True
 
         # Not using --fresh here, not just due to CMake 3.24+, but also just in
         # case it triggers an extra FetchContent pull in CMake 3.30+
         if stale:
-            # Python 3.8+ can use missing_ok=True
-            with contextlib.suppress(FileNotFoundError):
-                self.build_dir.joinpath("CMakeCache.txt").unlink()
+            self.build_dir.joinpath("CMakeCache.txt").unlink(missing_ok=True)
             shutil.rmtree(self.build_dir.joinpath("CMakeFiles"), ignore_errors=True)
 
         with skbuild_info.open("w", encoding="utf-8") as f:
@@ -272,14 +293,7 @@ class CMaker:
         Try to get the generator that will be used to build the project. If it's
         not set, return None (default generator will be used).
         """
-        generator = parse_generator(args)
-        if generator:
-            return generator
-        if defines and "CMAKE_GENERATOR" in defines:
-            gen_value = defines["CMAKE_GENERATOR"]
-            assert isinstance(gen_value, str)
-            return gen_value
-        return self.env.get("CMAKE_GENERATOR", None)
+        return resolve_generator(args, defines, self.env)
 
     def configure(
         self,
@@ -304,12 +318,8 @@ class CMaker:
             msg = "CMake configuration failed"
             raise FailedLiveProcessError(msg) from None
 
-        try:
-            if self._file_api_query.exists():
-                self.file_api = load_reply_dir(self._file_api_query)
-        except ExceptionGroup as exc:
-            logger.debug("Could not parse CMake file-api")
-            logger.debug(str(exc))
+        if self._file_api_query.exists():
+            self.file_api = _load_file_api(self._file_api_query)
 
     def _compute_build_args(
         self,
@@ -335,12 +345,10 @@ class CMaker:
         local_args = list(
             self._compute_build_args(verbose=verbose, build_type=build_type)
         )
-        if not targets:
-            self._build(*local_args, *build_args)
-            return
-
-        for target in targets:
-            self._build(*local_args, "--target", target, *build_args)
+        if targets:
+            # CMake 3.15+ accepts several targets in one invocation.
+            local_args += ["--target", *targets]
+        self._build(*local_args, *build_args)
 
     def _build(self, *args: str) -> None:
         try:

@@ -23,13 +23,13 @@ import webbrowser
 from typing import Any, Dict, Optional, Tuple
 
 import httpx
-from rich.console import Console
 from rich.panel import Panel
 
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import format_error, format_success, format_warning
+from src.cli.utils.presentation import make_console
 
-console = Console()
+console = make_console()
 
 # OAuth device-flow grant type per RFC 8628.
 DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
 import sys
 import typing as t
 from collections import defaultdict, deque
@@ -14,7 +15,6 @@ SPECIAL_TOKENS = set("[]*")
 class ScopeGraph:
     def __init__(self) -> None:
         self.top_level_scopes: set[tuple[str, bool]] = set()
-        self.nodes: set[str] = set()
         self.edges: set[tuple[str, str, bool]] = set()
         self.adjacency_matrix: dict[str, set[tuple[str, str, bool]]] = defaultdict(set)
 
@@ -53,43 +53,11 @@ class ScopeGraph:
             self.adjacency_matrix[src].remove(edge)
 
     def _check_cycles(self) -> None:
-        # explore the graph using an iterative Depth-First Search
-        # as we explore the graph, keep track of paths of ancestry being explored
-        # if we ever find a back-edge along one of those paths of ancestry, that
-        # means that there must be a cycle
-
-        # start from the top-level nodes (which we know to be the roots of this
-        # forest-shaped graph)
-        # we will track this as the set of paths to continue to branch and explore in a
-        # stack and pop from it until it is empty, thus implementing DFS
-        #
-        # conceptually, the paths could be implemented as `list[str]`, which would
-        # preserve the order in which we encountered each node. Using a set is a
-        # micro-optimization which makes checks faster, since we only care to detect
-        # *that* there was a cycle, not what the shape of that cycle was
-        paths_to_explore: list[tuple[set[str], str]] = [
-            ({node}, node) for node, _ in self.top_level_scopes
-        ]
-
-        while paths_to_explore:
-            path, terminus = paths_to_explore.pop()
-
-            # get out-edges from the last node in the path
-            children = self.adjacency_matrix[terminus]
-
-            # if the node was a leaf, no children, we are done exploring this path
-            if not children:
-                continue
-
-            # for each child edge, do two basic things:
-            # - check if we found a back-edge (cycle!)
-            # - create a new path to explore, with the child node as its current
-            #   terminus
-            for edge in children:
-                _, dest, _ = edge
-                if dest in path:
-                    raise ScopeCycleError(f"A cycle was found involving '{dest}'")
-                paths_to_explore.append((path.union((dest,)), dest))
+        """
+        Check the graph for cycles, and if one is detected immediately error.
+        """
+        detector = _CycleDetector(self)
+        detector.run()
 
     def __str__(self) -> str:
         lines = ["digraph scopes {", '  rankdir="LR";', ""]
@@ -130,7 +98,6 @@ class ScopeGraph:
         while node_queue:
             tree_node = node_queue.pop()
             scope_string = tree_node.scope_string
-            graph.nodes.add(scope_string)
             for dep in tree_node.dependencies:
                 node_queue.append(dep)
                 graph.add_edge(scope_string, dep.scope_string, dep.optional)
@@ -276,3 +243,78 @@ def _peek_enumerate(data: str | list[str]) -> t.Iterator[tuple[int, str, str | N
         prev = c
 
     yield (len(data) - 1, prev, None)
+
+
+class _DetectorStates(enum.Enum):
+    UNVISITED = enum.auto()
+    ON_CURRENT_PATH = enum.auto()
+    PROVEN_NO_CYCLE = enum.auto()
+
+
+class _CycleDetector:
+    """
+    A stateful object which can detect cycles in scope graphs.
+    """
+
+    def __init__(self, graph: ScopeGraph) -> None:
+        self.graph = graph
+        # stack of pairs: (node, out-edge-iterator)
+        self.visit_stack: list[tuple[str, t.Iterator[tuple[str, str, bool]]]] = []
+        self.node_states: dict[str, _DetectorStates] = {}
+
+    def _start_nodes(self) -> t.Iterator[str]:
+        for root, _ in self.graph.top_level_scopes:
+            yield root
+
+    def _stack_push(self, node: str) -> None:
+        # The use of `iter()` copies the set of edges into a consumable iterator.
+        self.visit_stack.append((node, iter(self.graph.adjacency_matrix[node])))
+
+    def run(self) -> None:
+        """
+        Check the graph for cycles, and if one is detected immediately error.
+        """
+        # Perform a DFS traversal keeping track of nodes on the current path, looking
+        # for any back-edges. (Back-edges are cycles.)
+        #
+        # If a node has already been explored and proven not to produce cycles, then
+        # it is marked as such to save us from needing to do extra traversals.
+        #
+        # Nodes start out unvisited, in that they are not in the visited node tracking.
+        for start in self._start_nodes():
+            # If we already proved this node out, because one root refers to another,
+            # don't do any extra work.
+            if self.node_states.get(start) is _DetectorStates.PROVEN_NO_CYCLE:
+                continue
+
+            # Now a traversal begins, starting from this root node.
+            self.node_states[start] = _DetectorStates.ON_CURRENT_PATH
+
+            self._stack_push(start)
+            while self.visit_stack:
+                # Peek at the top of the stack, but do not pop. We may be descending,
+                # and we want to be able to later resume exploration of the graph at
+                # this node.
+                current_node, edges = self.visit_stack[-1]
+
+                # walk all of the out-edges
+                for _, dest, _ in edges:
+                    dest_state = self.node_states.get(dest, _DetectorStates.UNVISITED)
+
+                    # if we found a destination on the current path, error!
+                    if dest_state is _DetectorStates.ON_CURRENT_PATH:
+                        raise ScopeCycleError(f"A cycle was found involving '{dest}'")
+                    elif dest_state is _DetectorStates.UNVISITED:
+                        self.node_states[dest] = _DetectorStates.ON_CURRENT_PATH
+                        self._stack_push(dest)
+                        break
+                    else:  # _DetectorStates.PROVEN_NO_CYCLE
+                        pass  # Do nothing; don't descend.
+
+                # 'else' means there was no break from the loop, so we explored all of
+                # the out-edges of the current node and didn't find any cycles.
+                # Mark off the current node, pop the stack, and let the next round of
+                # iteration resume exploration of the graph.
+                else:
+                    self.node_states[current_node] = _DetectorStates.PROVEN_NO_CYCLE
+                    self.visit_stack.pop()

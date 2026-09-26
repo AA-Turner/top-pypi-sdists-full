@@ -13,8 +13,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 const DEFAULT_LOG_EVENT_URL: &str = "https://api.oaistatsig.com/v1/log_event";
-const DIRECT_EVENT_SERIALIZATION_FLAG: &str = "direct_event_serialization";
-const EVENT_COMPRESSION_ZSTD_FLAG: &str = "event_compression_zstd";
 
 #[derive(Deserialize)]
 struct LogEventResult {
@@ -24,7 +22,7 @@ struct LogEventResult {
 const TAG: &str = stringify!(StatsigHttpEventLoggingAdapter);
 
 pub struct StatsigHttpEventLoggingAdapter {
-    direct_event_serialization_enabled: bool,
+    output_policy: crate::output_policy::OutputPolicy,
     event_compression_zstd_enabled: bool,
     event_compression_format: String,
     log_event_url: String,
@@ -35,6 +33,8 @@ pub struct StatsigHttpEventLoggingAdapter {
 impl StatsigHttpEventLoggingAdapter {
     #[must_use]
     pub fn new(sdk_key: &str, options: Option<&StatsigOptions>) -> Self {
+        let output_policy = crate::output_policy::OutputPolicy::from_options(options);
+        let _output_scope = output_policy.enter();
         let headers = StatsigMetadata::get_constant_request_headers(
             sdk_key,
             options.and_then(|opts| opts.service_name.as_deref()),
@@ -49,17 +49,9 @@ impl StatsigHttpEventLoggingAdapter {
             .map(|opts| opts.get_sdk_instance_id(sdk_key))
             .unwrap_or(sdk_key);
 
-        let direct_event_serialization_enabled = options
-            .and_then(|opts| opts.experimental_flags.as_ref())
-            .is_some_and(|flags| flags.contains(DIRECT_EVENT_SERIALIZATION_FLAG));
-
-        // This feature is compiled only into the PyO3 wheel. The per-instance
-        // flag keeps gzip as the default and gives callers an immediate kill
-        // switch without changing custom EventLoggingAdapter behavior.
-        let event_compression_zstd_enabled = cfg!(feature = "pyo3_event_zstd")
-            && options
-                .and_then(|opts| opts.experimental_flags.as_ref())
-                .is_some_and(|flags| flags.contains(EVENT_COMPRESSION_ZSTD_FLAG));
+        // This feature is compiled only into the PyO3 wheel. Use zstd whenever
+        // that build target is selected without changing custom EventLoggingAdapter behavior.
+        let event_compression_zstd_enabled = cfg!(feature = "pyo3_event_zstd");
         let event_compression_format = if event_compression_zstd_enabled {
             "zstd".to_string()
         } else {
@@ -67,7 +59,7 @@ impl StatsigHttpEventLoggingAdapter {
         };
 
         Self {
-            direct_event_serialization_enabled,
+            output_policy,
             event_compression_zstd_enabled,
             event_compression_format,
             log_event_url,
@@ -77,102 +69,113 @@ impl StatsigHttpEventLoggingAdapter {
     }
 
     pub async fn send_events_over_http(&self, request: &LogEventRequest) -> Result<(), StatsigErr> {
-        let payload = serde_json::to_vec(&request.payload)
-            .map_err(|e| StatsigErr::SerializationError(e.to_string()))?;
-        self.send_serialized_events_over_http(SerializedLogEventRequest {
-            payload,
-            event_count: request.event_count,
-            retries: request.retries,
-            flush_type: get_request_flush_type(request),
-        })
-        .await
+        self.output_policy
+            .scope(async {
+                let payload = serde_json::to_vec(&request.payload)
+                    .map_err(|e| StatsigErr::SerializationError(e.to_string()))?;
+                self.send_serialized_events_over_http(SerializedLogEventRequest {
+                    payload,
+                    event_count: request.event_count,
+                    retries: request.retries,
+                    flush_type: get_request_flush_type(request),
+                })
+                .await
+            })
+            .await
     }
 
     async fn send_serialized_events_over_http(
         &self,
         request: SerializedLogEventRequest,
     ) -> Result<(), StatsigErr> {
-        let SerializedLogEventRequest {
-            payload,
-            event_count,
-            retries,
-            flush_type,
-        } = request;
+        self.output_policy
+            .scope(async {
+                let SerializedLogEventRequest {
+                    payload,
+                    event_count,
+                    retries,
+                    flush_type,
+                } = request;
 
-        log_d!(
-            TAG,
-            "Logging Events ({}): {}",
-            event_count,
-            String::from_utf8_lossy(&payload)
-        );
+                log_d!(
+                    TAG,
+                    "Logging Events ({}): {}",
+                    event_count,
+                    String::from_utf8_lossy(&payload)
+                );
 
-        // Set headers
-        let headers = HashMap::from([
-            ("statsig-event-count".to_string(), event_count.to_string()),
-            ("statsig-retry-count".to_string(), retries.to_string()),
-            (
-                "Content-Encoding".to_owned(),
-                self.event_compression_format.clone(),
-            ),
-            ("Content-Type".to_owned(), "application/json".to_owned()),
-        ]);
+                // Set headers
+                let headers = HashMap::from([
+                    ("statsig-event-count".to_string(), event_count.to_string()),
+                    ("statsig-retry-count".to_string(), retries.to_string()),
+                    (
+                        "Content-Encoding".to_owned(),
+                        self.event_compression_format.clone(),
+                    ),
+                    ("Content-Type".to_owned(), "application/json".to_owned()),
+                ]);
 
-        // Compress data before sending it
-        self.ops_stats
-            .log_event_request_uncompressed_body_size_bytes(
-                payload.len(),
-                flush_type,
-                self.get_observability_tags(),
-            );
+                // Compress data before sending it
+                self.ops_stats
+                    .log_event_request_uncompressed_body_size_bytes(
+                        payload.len(),
+                        flush_type,
+                        self.get_observability_tags(),
+                    );
 
-        let compressed = match self.compress_event_payload(&payload) {
-            Ok(c) => c,
-            Err(e) => return Err(e),
-        };
-        // The request body may stay in flight for a while. Once compression is done,
-        // retain only the compressed bytes instead of holding both full buffers.
-        drop(payload);
+                let compressed = match self.compress_event_payload(&payload) {
+                    Ok(c) => c,
+                    Err(e) => return Err(e),
+                };
+                // The request body may stay in flight for a while. Once compression is done,
+                // retain only the compressed bytes instead of holding both full buffers.
+                drop(payload);
 
-        // Make request
-        let response = self
-            .network
-            .post(
-                RequestArgs {
-                    url: self.log_event_url.clone(),
-                    headers: Some(headers),
-                    accept_gzip_response: true,
-                    ..RequestArgs::new()
-                },
-                Some(compressed),
-            )
+                // Make request
+                let response = self
+                    .network
+                    .post(
+                        RequestArgs {
+                            url: self.log_event_url.clone(),
+                            headers: Some(headers),
+                            accept_gzip_response: true,
+                            ..RequestArgs::new()
+                        },
+                        Some(compressed),
+                    )
+                    .await
+                    .map_err(StatsigErr::NetworkError)?;
+
+                let mut res_data = match response.data {
+                    Some(data) => data,
+                    None => {
+                        return Err(StatsigErr::NetworkError(NetworkError::RequestFailed(
+                            self.log_event_url.clone(),
+                            response.status_code,
+                            "Empty response from network".to_string(),
+                        )));
+                    }
+                };
+
+                let result = res_data
+                    .deserialize_into::<LogEventResult>()
+                    .map(|result| result.success != Some(false))
+                    .map_err(|e| {
+                        StatsigErr::JsonParseError(
+                            stringify!(LogEventResult).to_string(),
+                            e.to_string(),
+                        )
+                    })?;
+
+                if result {
+                    Ok(())
+                } else {
+                    Err(StatsigErr::LogEventError(
+                        "Unsuccessful response from network".into(),
+                    ))
+                }
+            })
             .await
-            .map_err(StatsigErr::NetworkError)?;
-
-        let mut res_data = match response.data {
-            Some(data) => data,
-            None => {
-                return Err(StatsigErr::NetworkError(NetworkError::RequestFailed(
-                    self.log_event_url.clone(),
-                    response.status_code,
-                    "Empty response from network".to_string(),
-                )));
-            }
-        };
-
-        let result = res_data
-            .deserialize_into::<LogEventResult>()
-            .map(|result| result.success != Some(false))
-            .map_err(|e| {
-                StatsigErr::JsonParseError(stringify!(LogEventResult).to_string(), e.to_string())
-            })?;
-
-        if result {
-            Ok(())
-        } else {
-            Err(StatsigErr::LogEventError(
-                "Unsuccessful response from network".into(),
-            ))
-        }
     }
 
     fn compress_event_payload(&self, payload: &[u8]) -> Result<Vec<u8>, StatsigErr> {
@@ -208,7 +211,7 @@ impl EventLoggingAdapter for StatsigHttpEventLoggingAdapter {
     }
 
     fn supports_serialized_events(&self) -> bool {
-        self.direct_event_serialization_enabled
+        true
     }
 
     async fn log_serialized_events(
@@ -238,41 +241,14 @@ impl EventLoggingAdapter for StatsigHttpEventLoggingAdapter {
 }
 
 #[test]
-fn direct_event_serialization_is_opt_in() {
-    use std::collections::HashSet;
-
-    let default_adapter = StatsigHttpEventLoggingAdapter::new("secret-test", None);
-    assert!(!default_adapter.supports_serialized_events());
-
-    let unrelated_options = StatsigOptions {
-        experimental_flags: Some(HashSet::from(["other_flag".to_string()])),
-        ..StatsigOptions::default()
-    };
-    let unrelated_flag_adapter =
-        StatsigHttpEventLoggingAdapter::new("secret-test", Some(&unrelated_options));
-    assert!(!unrelated_flag_adapter.supports_serialized_events());
-
-    let enabled_options = StatsigOptions {
-        experimental_flags: Some(HashSet::from([DIRECT_EVENT_SERIALIZATION_FLAG.to_string()])),
-        ..StatsigOptions::default()
-    };
-    let enabled_adapter =
-        StatsigHttpEventLoggingAdapter::new("secret-test", Some(&enabled_options));
-    assert!(enabled_adapter.supports_serialized_events());
+fn direct_event_serialization_is_enabled_by_default() {
+    let adapter = StatsigHttpEventLoggingAdapter::new("secret-test", None);
+    assert!(adapter.supports_serialized_events());
 }
 
 #[test]
-fn event_compression_zstd_is_feature_gated_and_opt_in() {
-    use std::collections::HashSet;
-
-    let default_adapter = StatsigHttpEventLoggingAdapter::new("secret-test", None);
-    assert!(!default_adapter.event_compression_zstd_enabled);
-
-    let options = StatsigOptions {
-        experimental_flags: Some(HashSet::from([EVENT_COMPRESSION_ZSTD_FLAG.to_string()])),
-        ..StatsigOptions::default()
-    };
-    let adapter = StatsigHttpEventLoggingAdapter::new("secret-test", Some(&options));
+fn event_compression_zstd_follows_build_feature() {
+    let adapter = StatsigHttpEventLoggingAdapter::new("secret-test", None);
     assert_eq!(
         adapter.event_compression_zstd_enabled,
         cfg!(feature = "pyo3_event_zstd")
@@ -303,7 +279,7 @@ async fn test_event_logging() {
     assert!(result.is_ok(), "Error logging events: {:?}", result.err());
 }
 
-#[cfg(not(feature = "with_zstd"))]
+#[cfg(all(not(feature = "with_zstd"), not(feature = "pyo3_event_zstd")))]
 #[tokio::test]
 async fn serialized_event_path_preserves_http_payload_and_headers() {
     use crate::log_event_payload::SerializedLogEventRequest;
@@ -369,7 +345,6 @@ async fn serialized_event_path_preserves_http_payload_and_headers() {
 async fn event_compression_zstd_repeated_adapter_calls_preserve_payload_and_update_retry_header() {
     use crate::log_event_payload::SerializedLogEventRequest;
     use serde_json::json;
-    use std::collections::HashSet;
     use std::sync::Mutex;
     use wiremock::{
         Mock, MockServer, Request, ResponseTemplate,
@@ -421,10 +396,6 @@ async fn event_compression_zstd_repeated_adapter_calls_preserve_payload_and_upda
 
     let options = StatsigOptions {
         log_event_url: Some(format!("{}/v1/log_event", server.uri())),
-        experimental_flags: Some(HashSet::from([
-            DIRECT_EVENT_SERIALIZATION_FLAG.to_string(),
-            EVENT_COMPRESSION_ZSTD_FLAG.to_string(),
-        ])),
         ..StatsigOptions::default()
     };
     let adapter = StatsigHttpEventLoggingAdapter::new("secret-test", Some(&options));

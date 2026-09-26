@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import datetime
 import uuid
-from datetime import datetime
 
 from globus_sdk import GlobusError, Scope
 
@@ -28,8 +28,15 @@ class IdentityMismatchError(IdentityValidationError, ValueError):
         self, message: str, stored_id: uuid.UUID | str, new_id: uuid.UUID | str
     ) -> None:
         super().__init__(message)
+        self.message = message
         self.stored_id = stored_id
         self.new_id = new_id
+
+    def __str__(self) -> str:
+        return self.message
+
+    def __reduce__(self) -> tuple[type, tuple[str, uuid.UUID | str, uuid.UUID | str]]:
+        return (IdentityMismatchError, (self.message, self.stored_id, self.new_id))
 
 
 class MissingTokenError(TokenValidationError, LookupError):
@@ -37,16 +44,34 @@ class MissingTokenError(TokenValidationError, LookupError):
 
     def __init__(self, message: str, resource_server: str) -> None:
         super().__init__(message)
+        self.message = message
         self.resource_server = resource_server
+
+    def __str__(self) -> str:
+        return self.message
+
+    def __reduce__(self) -> tuple[type, tuple[str, str]]:
+        return (MissingTokenError, (self.message, self.resource_server))
 
 
 class ExpiredTokenError(TokenValidationError, ValueError):
     """The token stored for a given resource server has expired."""
 
     def __init__(self, expires_at_seconds: int) -> None:
-        expiration = datetime.fromtimestamp(expires_at_seconds)
-        super().__init__(f"Token expired at {expiration.isoformat()}")
+        expiration = datetime.datetime.fromtimestamp(expires_at_seconds)
+        message = f"Token expired at {expiration.isoformat()}"
+
+        super().__init__(message)
+
+        self.message = message
         self.expiration = expiration
+        self._expires_at_seconds = expires_at_seconds
+
+    def __str__(self) -> str:
+        return self.message
+
+    def __reduce__(self) -> tuple[type, tuple[int]]:
+        return (ExpiredTokenError, (self._expires_at_seconds,))
 
 
 class UnmetScopeRequirementsError(TokenValidationError, ValueError):
@@ -56,6 +81,13 @@ class UnmetScopeRequirementsError(TokenValidationError, ValueError):
         self, message: str, scope_requirements: dict[str, list[Scope]]
     ) -> None:
         super().__init__(message)
+        self.message = message
         # The full set of scope requirements which were evaluated.
         #   Notably this is not exclusively the unmet scope requirements.
         self.scope_requirements = scope_requirements
+
+    def __str__(self) -> str:
+        return self.message
+
+    def __reduce__(self) -> tuple[type, tuple[str, dict[str, list[Scope]]]]:
+        return (UnmetScopeRequirementsError, (self.message, self.scope_requirements))

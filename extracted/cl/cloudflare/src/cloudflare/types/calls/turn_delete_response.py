@@ -1,6 +1,5 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
-from typing import Optional
 from datetime import datetime
 
 from ..._models import BaseModel
@@ -9,14 +8,14 @@ __all__ = ["TURNDeleteResponse"]
 
 
 class TURNDeleteResponse(BaseModel):
-    created: Optional[datetime] = None
+    created: datetime
     """The date and time the item was created."""
 
-    modified: Optional[datetime] = None
+    modified: datetime
     """The date and time the item was last modified."""
 
-    name: Optional[str] = None
-    """A short description of Calls app, not shown to end users."""
+    name: str
+    """A short description of a Realtime SFU app, not shown to end users."""
 
-    uid: Optional[str] = None
+    uid: str
     """A Cloudflare-generated unique identifier for a item."""

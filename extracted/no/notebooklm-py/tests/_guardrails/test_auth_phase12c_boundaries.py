@@ -35,17 +35,17 @@ _MODULE_HASHES = {
     "account_repair.py": "4d6cd6af598c26d04bbeed07970708f587f23a24358ccd0125e5883470e8d074",
     "account_types.py": "ae645b74c6d3f46ee9532179672c90d5b690877b900120889022d32d8efa372a",
     "profile_account.py": "899baf4cc0c748740247b68c3adfa2a3754bb565b143d4a1150329a05f456ce4",
-    "cookie_types.py": "203e902e76add32859cab6bdad2c4855d34dea57dfc4f1ed56b47587c36dd6d8",
-    "cookies.py": "575a6a071af1b0ff266f385678c9a1bf763a1a27a07be61bf51bb3637298b393",
+    "cookie_types.py": "4cb8725cbbcb0dbdbb49f81e8495695bd98b6dc2e475ad8ea6bd137e392df5cb",
+    "cookies.py": "d5236519a8a4f693faee522305caacdd1ebc65b675c326c3e0dafe36bb7bdee6",
     "keepalive.py": "505cfcf1d093d7aea2f26c2b7745a27ed8f7b51698e1bebdc3fafe4d6f78f065",
     "master_token.py": "42b3d3c3a4bc96c860d454ef8defd243b5d55617df7d3b4fc95467ae675bab78",
     "master_token_types.py": "856c741582249f7049fca0030e7af84cbda9141c7099a7aad6be6066090e5d57",
     "profile_migration.py": "ea6408a76890563c6f0f948e8031038436687611c0dd832b19c07b0177ede582",
-    "profile_store.py": "26d63e626a6bf5333bb5e73f371177bff7c41baa6e11206ae8fbe5151a65b793",
-    "psidts_recovery.py": "cde36fed0fcdc319a3e1d3a165c33d2a05385141b318667d4ce8c2c54ff7e51f",
-    "recovery.py": "b396b441096ef4a4a961cccec8bf846eeb5aa1e11848927d1e3de8118e55e1e1",
-    "refresh.py": "99bc87088b997b534c1ce9e12844d6103a223b4fddf459df00d5812501ed866f",
-    "single_flight.py": "8e298fe515dd667a3dfc95449165ab45345d327381951e98474aafa67510f246",
+    "profile_store.py": "1ed4945720ba1c25940677cd197210d5c80c62a3b8b6cf7b8f0c1f88783759bd",
+    "psidts_recovery.py": "7a4f6891a1a46bd43eff61f3665f1b818d9ced281cabfc381b366cfefa50e03b",
+    "recovery.py": "500bb249b58d186ab3e43392ce39c1f1240e31edf7e811b64e0c7340519f2167",
+    "refresh.py": "30e63423793be6ccce76a4e71ce40b0fe0d430226473358a63f44f149e835963",
+    "single_flight.py": "b48c3efeeaff9d03ddce7c3f50c60ead2e60cfe9f5bd6832a7a7632b03714e44",
     "storage.py": "7c106fc41e4945c82d95fd57c7e29855b7e862e02d8d81db931df3df133f8b1e",
 }
 
@@ -57,7 +57,7 @@ _NODE_HASHES = {
     (
         "single_flight.py",
         "SingleFlight",
-    ): "661fa857608b0fcd03ce7f4328ed8339bf6d879b2f1d3faecea627ee0c8d17ad",
+    ): "5a644ba6c0ea8524436302d3d1a328fbf89186a2b3deb33167ec9ed1fee6b9a1",
     (
         "single_flight.py",
         "read_success_epoch",
@@ -93,11 +93,11 @@ _NODE_HASHES = {
     (
         "recovery.py",
         "ColdRecoveryState",
-    ): "e440a56209af00bffa5a8270658b071e9f670adbf4e46a69d97a388ef1968b0c",
+    ): "d8bebf0d16f6e99539e74f2677720c7ff5ad89f5b9cdce78f59244720af58f8d",
     (
         "recovery.py",
         "ColdRecoveryCoordinator",
-    ): "ebc51a5732119e65bc53999db2749985464ee2a587127c6f32db08a414455c19",
+    ): "441063d197b3703e7c4bc4351c7de99f4f4164ac64c83689abbcc98541249060",
     (
         "recovery.py",
         "_run_cold_recovery",
@@ -181,7 +181,7 @@ _NODE_HASHES = {
     (
         "psidts_recovery.py",
         "_psidts_routes_to_rotate",
-    ): "55968e7a32561622e990b6364026716d0f73bba1994e2c3ff5855001be4aeffe",
+    ): "182ad5672ebdcc202e8548b2c03a480dba7710904246554303786b6f4b23a87d",
     (
         "master_token_types.py",
         "MasterTokenError",
@@ -370,6 +370,29 @@ def test_relocated_values_errors_helpers_and_retired_upward_aliases_are_exact() 
     )
     assert storage._cookie_jar_for_merge.__module__ == "notebooklm._auth.storage"
     assert cookies.load_session_jar.__module__ == "notebooklm._auth.cookies"
+    helper_signatures = {
+        "_bounded_row_field": "(entry: 'Any', field: 'str') -> 'str'",
+        "_sanitize_recovery_row": "(entry: 'Any') -> 'dict[str, Any] | None'",
+        "_try_cookie": (
+            "(entry: 'Any', converter: '_CookieConverter') -> 'http.cookiejar.Cookie | None'"
+        ),
+        "_cookie_header_names": "(header: 'str') -> 'set[str]'",
+        "_allowed_cookie_name": "(entry: 'Any') -> 'str | None'",
+        "_is_expired": ("(cookie: 'http.cookiejar.Cookie', now: 'float | None') -> 'bool'"),
+        "_iter_routable_psidts_cookies": (
+            "(entries: 'list[dict[str, Any]]', *, to_cookie: '_CookieConverter', "
+            "now: 'float | None' = None) -> 'Iterator[http.cookiejar.Cookie]'"
+        ),
+        "_psidts_routes_to_rotate": (
+            "(entries: 'list[dict[str, Any]]', *, to_cookie: '_CookieConverter', "
+            "now: 'float | None' = None) -> 'bool'"
+        ),
+        "_cookies_route_psidts": "(cookies: 'Iterable[http.cookiejar.Cookie]') -> 'bool'",
+    }
+    for name, expected in helper_signatures.items():
+        helper = getattr(psidts_recovery, name)
+        assert helper.__module__ == "notebooklm._auth.psidts_recovery"
+        assert str(inspect.signature(helper)) == expected
     for name in {
         "load_session_jar",
         "_load_storage_state",
@@ -378,6 +401,31 @@ def test_relocated_values_errors_helpers_and_retired_upward_aliases_are_exact() 
         "_validate_cookie_shape",
     }:
         assert not hasattr(psidts_recovery, name)
+
+
+def test_psidts_compatibility_wrappers_inject_every_nested_patch_seam() -> None:
+    expected_fragments = {
+        "_sanitize_recovery_row": {"bounded_row_field=_bounded_row_field"},
+        "_try_cookie": {"bounded_row_field=_bounded_row_field"},
+        "_allowed_cookie_name": {
+            "sanitize=_sanitize_recovery_row",
+            "is_allowed_domain=_is_allowed_auth_domain",
+        },
+        "_iter_routable_psidts_cookies": {
+            "allowed_cookie_name=_allowed_cookie_name",
+            "try_cookie=_try_cookie",
+            "is_expired=_is_expired",
+        },
+        "_cookies_route_psidts": {"cookie_header_names=_cookie_header_names"},
+        "_psidts_routes_to_rotate": {
+            "rotate_url=_keepalive.KEEPALIVE_ROTATE_URL",
+            "iter_routable=_iter_routable_psidts_cookies",
+            "cookies_route=_cookies_route_psidts",
+        },
+    }
+    for function_name, fragments in expected_fragments.items():
+        source = ast.unparse(_top_node(_tree("psidts_recovery.py"), function_name))
+        assert all(fragment in source for fragment in fragments)
 
 
 @pytest.mark.parametrize(

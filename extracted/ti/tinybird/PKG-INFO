@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.20
+Version: 4.6.21
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.21
+********
+
+- `Fixed` ``tb deployment discard`` now discards the deployment that is not live, instead of assuming the live deployment is listed first. Previously, if removing the old deployment failed after a promotion, the command refused to discard it.
 
 4.6.20
 ********

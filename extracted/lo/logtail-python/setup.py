@@ -3,7 +3,7 @@ import os
 from setuptools import setup
 
 
-VERSION = '0.4.1'
+VERSION = '0.5.1'
 ROOT_DIR = os.path.dirname(__file__)
 
 REQUIREMENTS = [
@@ -18,6 +18,7 @@ setup(
     name='logtail-python',
     version=VERSION,
     packages=['logtail'],
+    package_data={'logtail': ['py.typed']},
     include_package_data=True,
     license='ISC',
     description='Better Stack client library',
@@ -40,6 +41,7 @@ setup(
           'Programming Language :: Python :: 3.12',
           'Programming Language :: Python :: 3.13',
           'Programming Language :: Python :: 3.14',
+          'Programming Language :: Python :: 3.15',
           'Programming Language :: Python',
           'Topic :: Software Development :: Libraries :: Python Modules',
     ],

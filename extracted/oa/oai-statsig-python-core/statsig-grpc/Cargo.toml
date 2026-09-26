@@ -10,18 +10,18 @@ homepage.workspace = true
 repository.workspace = true
 
 [dependencies]
-tokio = { version = "1.39.1", features = ["full"] }
-async-trait = "0.1.81"
-tonic = { version = "0.12.1", features = ["tls"] }
-parking_lot = "0.12.1"
-prost = "0.13.1"
-tonic-build = "0.12.1"
-log = "0.4.22"
-chrono = "0.4.38"
+tokio = { version = "1.53.1", features = ["full"] }
+async-trait = "0.1.92"
+tonic = { version = "0.14.6", features = ["tls-ring"] }
+parking_lot = "0.12.5"
+prost = "0.14.4"
+tonic-prost = "0.14.6"
+log = "0.4.34"
+chrono = "0.4.45"
 lazy_static = "1.5.0"
 
 [build-dependencies]
-tonic-build = "0.12.1"
+tonic-prost-build = "0.14.6"
 
 [[bin]]
 name = "mock_grpc_server"

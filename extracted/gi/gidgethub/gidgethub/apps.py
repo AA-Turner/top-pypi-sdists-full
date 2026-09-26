@@ -1,25 +1,37 @@
 """Support for GitHub Actions."""
 
-from typing import cast, Any, Dict
+from __future__ import annotations
 
 import time
+from typing import Any, cast
+
 import jwt
 
 from gidgethub.abc import GitHubAPI
 
+_CLOCK_SKEW_SECONDS = 60
 
-def get_jwt(*, app_id: str, private_key: str, expiration: int = 10 * 60) -> str:
-    """Construct the JWT (JSON Web Token), used for GitHub App authentication."""
-    time_int = int(time.time())
-    payload = {"iat": time_int, "exp": time_int + expiration, "iss": app_id}
+
+def get_jwt(*, app_id: str, private_key: str | bytes, expiration: int = 10 * 60) -> str:
+    """Construct a GitHub App JWT, backdating its issue time for clock drift."""
+    issued_at = int(time.time()) - _CLOCK_SKEW_SECONDS
+    payload = {
+        "iat": issued_at,
+        "exp": issued_at + expiration,
+        "iss": app_id,
+    }
     bearer_token = jwt.encode(payload, private_key, algorithm="RS256")
 
     return bearer_token
 
 
 async def get_installation_access_token(
-    gh: GitHubAPI, *, installation_id: str, app_id: str, private_key: str
-) -> Dict[str, Any]:
+    gh: GitHubAPI,
+    *,
+    installation_id: str,
+    app_id: str,
+    private_key: str | bytes,
+) -> dict[str, Any]:
     """Obtain a GitHub App's installation access token.
 
 
@@ -39,4 +51,4 @@ async def get_installation_access_token(
     #   "expires_at": "2016-07-11T22:14:10Z"
     # }
 
-    return cast(Dict[str, Any], response)
+    return cast(dict[str, Any], response)

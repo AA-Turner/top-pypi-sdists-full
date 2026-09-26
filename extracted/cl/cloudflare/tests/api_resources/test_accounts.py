@@ -32,8 +32,10 @@ class TestAccounts:
     def test_method_create_with_all_params(self, client: Cloudflare) -> None:
         account = client.accounts.create(
             name="name",
+            standalone=True,
             type="standard",
             unit={"id": "f267e341f3dd4697bd3b9f71dd96247f"},
+            idempotency_key="x",
         )
         assert_matches_type(Optional[Account], account, path=["response"])
 
@@ -254,8 +256,10 @@ class TestAsyncAccounts:
     async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
         account = await async_client.accounts.create(
             name="name",
+            standalone=True,
             type="standard",
             unit={"id": "f267e341f3dd4697bd3b9f71dd96247f"},
+            idempotency_key="x",
         )
         assert_matches_type(Optional[Account], account, path=["response"])
 

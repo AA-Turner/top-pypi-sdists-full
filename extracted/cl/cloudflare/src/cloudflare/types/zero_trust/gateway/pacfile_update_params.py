@@ -9,6 +9,7 @@ __all__ = ["PacfileUpdateParams"]
 
 class PacfileUpdateParams(TypedDict, total=False):
     account_id: Required[str]
+    """Specify the Cloudflare account identifier."""
 
     contents: Required[str]
     """Actual contents of the PAC file"""

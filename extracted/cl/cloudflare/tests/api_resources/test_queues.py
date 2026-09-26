@@ -31,6 +31,15 @@ class TestQueues:
         assert_matches_type(Optional[Queue], queue, path=["response"])
 
     @parametrize
+    def test_method_create_with_all_params(self, client: Cloudflare) -> None:
+        queue = client.queues.create(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            queue_name="example-queue",
+            jurisdiction="eu",
+        )
+        assert_matches_type(Optional[Queue], queue, path=["response"])
+
+    @parametrize
     def test_raw_response_create(self, client: Cloudflare) -> None:
         response = client.queues.with_raw_response.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
@@ -77,6 +86,7 @@ class TestQueues:
         queue = client.queues.update(
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            jurisdiction="eu",
             queue_name="example-queue",
             settings={
                 "delivery_delay": 5,
@@ -225,6 +235,7 @@ class TestQueues:
         queue = client.queues.edit(
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            jurisdiction="eu",
             queue_name="example-queue",
             settings={
                 "delivery_delay": 5,
@@ -385,6 +396,15 @@ class TestAsyncQueues:
         assert_matches_type(Optional[Queue], queue, path=["response"])
 
     @parametrize
+    async def test_method_create_with_all_params(self, async_client: AsyncCloudflare) -> None:
+        queue = await async_client.queues.create(
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            queue_name="example-queue",
+            jurisdiction="eu",
+        )
+        assert_matches_type(Optional[Queue], queue, path=["response"])
+
+    @parametrize
     async def test_raw_response_create(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.queues.with_raw_response.create(
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
@@ -431,6 +451,7 @@ class TestAsyncQueues:
         queue = await async_client.queues.update(
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            jurisdiction="eu",
             queue_name="example-queue",
             settings={
                 "delivery_delay": 5,
@@ -579,6 +600,7 @@ class TestAsyncQueues:
         queue = await async_client.queues.edit(
             queue_id="023e105f4ecef8ad9ca31a8372d0c353",
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            jurisdiction="eu",
             queue_name="example-queue",
             settings={
                 "delivery_delay": 5,

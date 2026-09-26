@@ -10,6 +10,7 @@ running byte cap, ``?filename`` handling, temp cleanup, and the lifespan-unset 5
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextlib
 import hashlib
@@ -140,7 +141,9 @@ def test_download_error_releases_slot(monkeypatch, mock_client, config) -> None:
     async def fake(plan, client, *, notebook_resolver, artifact_resolver, progress=None):
         return _fileroutes.download_core.DownloadResult(
             outcome=_fileroutes.download_core.DownloadOutcome.NO_ARTIFACTS,
-            error="none yet",
+            failure=_fileroutes.download_core.DownloadFailure(
+                "no_artifacts", artifact_type="audio"
+            ),
         )
 
     monkeypatch.setattr(_fileroutes.download_core, "execute_download", fake)
@@ -395,7 +398,9 @@ def test_download_not_ready_409(monkeypatch, mock_client, config) -> None:
     async def fake(plan, client, *, notebook_resolver, artifact_resolver, progress=None):
         return _fileroutes.download_core.DownloadResult(
             outcome=_fileroutes.download_core.DownloadOutcome.NO_ARTIFACTS,
-            error="none yet",
+            failure=_fileroutes.download_core.DownloadFailure(
+                "no_artifacts", artifact_type="audio"
+            ),
         )
 
     monkeypatch.setattr(_fileroutes.download_core, "execute_download", fake)
@@ -873,6 +878,7 @@ def test_upload_page_get_does_not_consume_jti(mock_client, config) -> None:
 def test_upload_failed_add_frees_jti_for_retry(monkeypatch, mock_client, config) -> None:
     # record-on-success: a failed add rolls the jti back (via the route's finally), so the
     # SAME link is retryable — honors ADR-0024's large-file retry window.
+    """Allow a retry when source registration fails before an uncertain commit."""
     from notebooklm.exceptions import ServerError
 
     calls = {"n": 0}
@@ -894,9 +900,44 @@ def test_upload_failed_add_frees_jti_for_retry(monkeypatch, mock_client, config)
     assert "src-ok" in second.text
 
 
+def test_upload_unconfirmed_add_freezes_jti(monkeypatch, mock_client, config) -> None:
+    """Freeze a possibly committed upload and reject replay without another source add."""
+    from notebooklm._idempotency import mark_unconfirmed
+    from notebooklm.exceptions import NetworkError
+    from notebooklm.mcp.tools._fileupload import _await_upload
+
+    calls = 0
+
+    async def fake(client, exec_plan):
+        """Model a source registration whose outcome could not be confirmed."""
+        nonlocal calls
+        calls += 1
+        raise mark_unconfirmed(NetworkError("connection reset"))
+
+    monkeypatch.setattr(_fileroutes.add_core, "execute_source_add", fake)
+    app = _build(mock_client, config)
+    url = config.upload_url({"op": "ul", "nb": NB})
+    with starlette_testclient.TestClient(app) as client:
+        first = client.post(_path(url) + "?filename=a.pdf", content=b"DATA")
+        second = client.post(_path(url) + "?filename=a.pdf", content=b"DATA")
+
+    assert first.status_code == 502
+    assert "link is frozen" in first.text
+    assert "The source registration could not be confirmed" in first.text
+    assert "Nothing was uploaded" not in first.text
+    assert first.headers["X-NotebookLM-Upload-Status"] == "unconfirmed"
+    assert "X-NotebookLM-Upload-Status" in first.headers["Access-Control-Expose-Headers"]
+    assert second.status_code == 403
+    assert calls == 1
+    outcome = asyncio.run(_await_upload(config, url, timeout_s=0))
+    assert outcome["status"] == "unconfirmed"
+    assert "source_list" in outcome["hint"]
+
+
 def test_upload_429_does_not_burn_jti(monkeypatch, mock_client, config) -> None:
     # A 429 (concurrency cap) is not a use of the token: the claim is rolled back in the
     # outer finally, so the same link works once a slot frees up.
+    """Retain an unused upload token when admission rejects a throttled request."""
     add_file = AsyncMock(return_value=MagicMock(id="src-1"))
     mock_client.sources.add_file = add_file
     app = _build(mock_client, config)
@@ -1024,6 +1065,43 @@ def test_lifespan_not_set_returns_500(mock_client, config) -> None:
     assert resp.status_code == 500
 
 
+def _failing_open_app(config: FileTransferConfig):
+    """A server whose lazy client open always fails (#2330), e.g. expired cookies."""
+
+    from notebooklm.exceptions import AuthError
+
+    @contextlib.asynccontextmanager
+    async def factory():
+        raise AuthError("session expired: cookie SID=AAAA1111secret")
+        yield  # pragma: no cover - unreachable, keeps this an async generator
+
+    server = create_server(client_factory=factory, file_transfer=config)  # type: ignore[arg-type]
+    return server.http_app()
+
+
+def test_download_route_returns_500_when_the_lazy_open_fails(config) -> None:
+    # The client is opened lazily (#2330), so the accessor can now raise an
+    # auth/network error, not just RuntimeError. It must still be a clean 500 that
+    # echoes nothing of the cause (the route is reachable by anyone with the link).
+    url = config.download_url({"op": "dl", "nb": NB, "atype": "audio"})
+    with starlette_testclient.TestClient(_failing_open_app(config)) as client:
+        resp = client.get(_path(url))
+    assert resp.status_code == 500
+    assert "AAAA1111secret" not in resp.text
+    assert "session expired" not in resp.text
+
+
+def test_upload_route_500_on_failed_lazy_open_still_carries_cors(config) -> None:
+    # Same widening on the upload route — and the CORS header must ride along, or
+    # the in-app widget's cross-origin fetch cannot even read the failure.
+    url = config.upload_url({"op": "ul", "nb": NB})
+    with starlette_testclient.TestClient(_failing_open_app(config)) as client:
+        resp = client.post(_path(url), content=b"hello")
+    assert resp.status_code == 500
+    assert resp.headers["Access-Control-Allow-Origin"] == "*"
+    assert "AAAA1111secret" not in resp.text
+
+
 # --------------------------------------------------------------------------- #
 # Upstream-error classification + redaction (#1682)
 # --------------------------------------------------------------------------- #
@@ -1076,7 +1154,9 @@ def test_download_returned_error_outcome_stays_409_and_hides_detail(
     async def fake(plan, client, *, notebook_resolver, artifact_resolver, progress=None):
         return _fileroutes.download_core.DownloadResult(
             outcome=_fileroutes.download_core.DownloadOutcome.ERROR,
-            error="boom /home/secretuser/leak.json",
+            failure=_fileroutes.download_core.DownloadFailure(
+                "download_failed", detail="boom /home/secretuser/leak.json"
+            ),
         )
 
     monkeypatch.setattr(_fileroutes.download_core, "execute_download", fake)

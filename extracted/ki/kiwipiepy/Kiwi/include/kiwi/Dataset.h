@@ -53,8 +53,9 @@ namespace kiwi
 		std::shared_ptr<Vector<std::pair<std::u16string, POSTag>>> oovDict;
 		std::unique_ptr<utils::ThreadPool> workers;
 		std::shared_ptr<KiwiBuilder> dummyBuilder;
-		std::discrete_distribution<> dropout;
 		float dropoutProbOnHistory = 0;
+		std::discrete_distribution<> dropout;
+		std::discrete_distribution<> ssAugmentor;
 		std::discrete_distribution<> nounAugmentor;
 		std::discrete_distribution<> emojiAugmentor;
 		std::discrete_distribution<> sbAugmentor;
@@ -78,7 +79,7 @@ namespace kiwi
 		size_t totalTokens = 0;
 		size_t passedSents = 0;
 		size_t passedWorkItems = 0;
-		std::array<size_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> specialMorphIds = { { 0, } };
+		std::array<uint32_t, static_cast<size_t>(Kiwi::SpecialMorph::max)> specialMorphIds = { { 0, } };
 
 		size_t numValidTokensInSent(size_t sentId) const;
 
@@ -195,7 +196,7 @@ namespace kiwi
 		ChrDataset& operator=(const ChrDataset&) = delete;
 		ChrDataset& operator=(ChrDataset&&) /*noexcept*/;
 
-		void addSentence(std::string_view sentence, float weight = 1.f, std::string_view nonLabelPrefix = {});
+		void addSentence(std::string_view sentence, float weight = 1.f, std::string_view nonLabelPrefix = {}, bool reverse = false);
 
 		size_t numSents() const;
 		
@@ -211,6 +212,168 @@ namespace kiwi
 		size_t next(int32_t* in, int32_t* out);
 		size_t next(int64_t* in, int64_t* out);
 
-		std::vector<std::pair<std::vector<uint32_t>, double>> extractPrefixes(float resolution, float minWeight, size_t maxLength, size_t numWorkers = 1, bool exclusiveCnt = false) const;
+		std::vector<std::pair<std::vector<uint32_t>, double>> extractPrefixes(float resolution, float minWeight, size_t maxLength, 
+			size_t numWorkers = 1, 
+			bool exclusiveCnt = false,
+			const std::vector<std::pair<uint32_t, uint32_t>>* mergeTargets = nullptr) const;
+	};
+
+	class BpeTokenizer;
+
+	/**
+	* posTagTokenIds는 POSTag 값으로 인덱싱한다. 불규칙 활용 태그(POSTag::vvi 등)의 자리가 0이면 규칙 활용 태그의 값을 쓴다.
+	*/
+	struct GenerativeMAOption
+	{
+		uint32_t toMorphemeTokenId = 0;
+		uint32_t toSurfaceTokenId = 0;
+		uint32_t bosTokenId = 0;
+		uint32_t eosTokenId = 0;
+		/** ToMorpheme 방향의 원문에서 오타가 발생할 수 있는 지점마다 오타를 넣을 확률 */
+		float typoProb = 0;
+		/** 넣을 오타 하나의 비용 상한 */
+		float typoCostThreshold = 2.5f;
+		/** 한 지점의 오타 후보를 exp(-typoCostScale * cost)에 비례하는 확률로 고른다. 0이면 균등하게 고른다. */
+		float typoCostScale = 1;
+		/** ToMorpheme 방향의 원문에서 어절 사이의 공백을 지울 확률 */
+		float spaceRemoveProb = 0;
+		/** ToMorpheme 방향의 원문에서 공백이 아닌 두 글자 사이에 공백을 넣을 확률 */
+		float spaceInsertProb = 0;
+		std::array<uint32_t, 256> posTagTokenIds = { { 0, } };
+	};
+
+	/**
+	* 임의의 한국어 문장이 입력되면 생성형 형태소분석 스타일로 변환하여 데이터셋을 구성하는 클래스
+	* 예를 들어 '이것은 분석기입니다.' 라는 문장이 입력되면 '이것/NP 은/JX 분석/NNG 기/NNG 이/VCP ㅂ니다/EF ./SF'로 형태소 분석한 뒤
+	* 다음과 같이 한 쌍의 번역 데이터셋으로 변환한다.
+	* 
+	* 이것은 분석기입니다. <|ToMorpheme|> 이것/NP 은/JX 분석/NNG 기/NNG 이/VCP ㅂ니다/EF ./SF
+	* 이것/NP 은/JX 분석/NNG 기/NNG 이/VCP ㅂ니다/EF ./SF <|ToSurface|> 이것은 분석기입니다.
+	* 
+	* 이렇게 1개의 입력 문장은 총 2개의 데이터를 만들어내며, 각 데이터는 BpeTokenizer에 의해 encoding되어 int 배열로 리턴된다.
+	*
+	* 실제 토큰열은 다음과 같으며, 형태소마다 형태 뒤에 품사 태그 토큰 하나를 붙인다.
+	*
+	*     [bos] encode(원문) [toMorpheme] (encode(형태) [태그])... [eos]
+	*     [bos] (encode(형태) [태그])... [toSurface] encode(원문) [eos]
+	*
+	* 오타(`typoProb`)와 띄어쓰기 오류(`spaceRemoveProb`, `spaceInsertProb`)은 ToMorpheme 방향의 원문에만 넣으며,
+	* 오타를 먼저 넣고 띄어쓰기를 흐트러뜨린다. 형태소열과 ToSurface 방향의 원문은 항상 깨끗하다.
+	*
+	* maxSeqLength를 넘는 부분은 뒤에서 잘리고(따라서 [eos]도 사라진다), 남는 자리는 `padToken`으로 채운다.
+	*
+	* `KiwiBuilder::makeGenerativeMADataset`으로 생성해야 한다.
+	*/
+	class GenerativeMADataset
+	{
+		friend class KiwiBuilder;
+
+		struct ThreadLocal
+		{
+			std::u16string u16Buf, noisyBuf, spacedBuf, formsBuf;
+			std::string textBuf, formBuf;
+			std::vector<uint32_t> surfaceBuf, noisySurfaceBuf, morphemeBuf;
+		};
+
+		struct WorkItem
+		{
+			Vector<int32_t> data; /**< maxSeqLength 길이의 행들이 이어붙여진 버퍼 */
+			size_t numRows = 0;
+			size_t numTruncatedSents = 0;
+			size_t numTypos = 0;
+			size_t numRemovedSpaces = 0;
+			size_t numInsertedSpaces = 0;
+		};
+
+		std::shared_ptr<Kiwi> kiwiInst;
+		std::shared_ptr<const BpeTokenizer> tokenizer;
+		/** 오타를 넣지 않는 경우 nullptr */
+		std::shared_ptr<const PreparedTypoTransformer> typoGenerator;
+		std::unique_ptr<utils::ThreadPool> workers;
+		HiddenMember<RaggedVector<char16_t>, sizeof(Vector<size_t>) * 2> sents;
+		/** 데이터마다 형태소들의 형태를 이어붙인 것. 원문만 받은 데이터는 비어있다. */
+		HiddenMember<RaggedVector<char16_t>, sizeof(Vector<size_t>) * 2> morphemeForms;
+		/** 데이터마다 형태소별 (morphemeForms 안에서 형태가 끝나는 위치 << 8 | 품사). 비어있으면 원문을 형태소 분석해서 쓴다. */
+		HiddenMember<RaggedVector<uint32_t>, sizeof(Vector<size_t>) * 2> morphemeInfos;
+		Vector<ThreadLocal> locals;
+		Vector<uint32_t> shuffledIdx;
+		Deque<std::future<WorkItem>> futures;
+		/** `consumedRows >= current.numRows`이면 다 쓴 작업 단위다. */
+		WorkItem current;
+		size_t consumedRows = 0;
+		GenerativeMAOption option;
+		std::mt19937_64 rng;
+		size_t currentSeed = 0;
+		size_t batchSize = 0;
+		size_t maxSeqLength = 0;
+		size_t passedSents = 0;
+		size_t truncatedSents = 0;
+		size_t insertedTypos = 0;
+		size_t removedSpaces = 0;
+		size_t insertedSpaces = 0;
+
+		uint32_t tagTokenId(POSTag tag) const;
+		size_t sentsPerWorkItem() const;
+		void pushItem(std::u16string_view surface, std::u16string_view forms, const Vector<uint32_t>& infos);
+		void appendMorpheme(std::vector<uint32_t>& out, std::string& buf, std::u16string_view form, POSTag tag, POSTag prevTag) const;
+		/** `seed`는 주 스레드에서 정하므로 어느 워커가 처리하든 결과가 같다. */
+		WorkItem buildWorkItem(size_t localId, size_t sentFirst, size_t sentLast, uint64_t seed);
+		bool prepareMore();
+
+		template<class Ty>
+		size_t _next(Ty* inputIds);
+
+	public:
+		static constexpr int32_t padToken = -1;
+
+		GenerativeMADataset(
+			const BpeTokenizer& tokenizer,
+			const GenerativeMAOption& option,
+			size_t _batchSize = 0,
+			size_t _maxSeqLength = 0,
+			size_t _workers = 0,
+			const TypoTransformer& _typos = {}
+		);
+		~GenerativeMADataset();
+		GenerativeMADataset(const GenerativeMADataset&) = delete;
+		GenerativeMADataset(GenerativeMADataset&&) /*noexcept*/;
+		GenerativeMADataset& operator=(const GenerativeMADataset&) = delete;
+		GenerativeMADataset& operator=(GenerativeMADataset&&) /*noexcept*/;
+
+		void addSentence(std::string_view sentence);
+		void addSentence(std::u16string_view sentence);
+
+		/**
+		* 형태소 분석된 말뭉치를 추가한다. 한 줄은 `어절\t형태1\t품사1\t형태2\t품사2...`이고,
+		* 빈 줄 하나는 문장 경계, 빈 줄 두 개 이상은 문서 경계다.
+		* 같은 문서의 연속된 문장은 행이 maxSeqLength를 넘지 않는 만큼 이어붙여 하나의 데이터로 만든다.
+		* 어미 첫 글자 '아'는 Kiwi의 분석 결과에 맞추어 '어'로 바꾸고, NA처럼 알 수 없는 품사가 있는 문장은
+		* 경고를 stderr로 출력하고 버린다.
+		* @return 추가된 문장의 개수
+		*/
+		size_t addAnalyzedCorpus(std::istream& is);
+
+		size_t numSents() const;
+		size_t numEstimBatches() const;
+
+		// 아래 개수들은 직전 `reset()` 이후의 누적값이다.
+		size_t numTruncatedSents() const { return truncatedSents; }
+		size_t numInsertedTypos() const { return insertedTypos; }
+		size_t numRemovedSpaces() const { return removedSpaces; }
+		size_t numInsertedSpaces() const { return insertedSpaces; }
+
+		size_t getBatchSize() const { return batchSize; }
+		size_t getMaxSeqLength() const { return maxSeqLength; }
+		size_t vocabSize() const;
+
+		void seed(size_t newSeed);
+		void reset();
+
+		/**
+		* @param input_ids `batchSize * maxSeqLength` 크기의 버퍼
+		* @return 채운 행의 개수. 0이면 epoch이 끝난 것이므로 `reset()`을 호출해야 한다.
+		*/
+		size_t next(int32_t* input_ids);
+		size_t next(int64_t* input_ids);
 	};
 }

@@ -12,9 +12,10 @@ from matrx_ai.memory import (
 )
 from matrx_ai.memory.buffering_coordinator import BufferingCoordinator
 
-async def dummy_llm_call(model, messages, temperature, max_tokens):
-    """A dummy LLM that just returns a fixed XML structure."""
-    if "Extract observations" in messages[-1]["content"]:
+async def dummy_llm_call(*, mandate_key, messages, model=None, variables=None):
+    """A dummy LLM that just returns a fixed XML structure. The task text is the
+    Holder's user turn now, so the call is told apart by its mandate."""
+    if mandate_key == "memory.observer":
         return """
 <observations>
 Date: Dec 4, 2025

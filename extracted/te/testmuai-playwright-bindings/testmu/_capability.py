@@ -227,12 +227,19 @@ def get_capabilities(
             return default
         return val.lower() in ("1", "true", "yes")
 
-    # Build + name: configure() > test_config > env > default
+    # Build: configure() > test_config > env > default
     _build = _configure.get("build") or _he_cap(
         "BUILD", os.getenv("BUILD", build or "")
     )
-    _name = _configure.get("name") or _he_cap(
-        "TEST_NAME", os.getenv("TEST_NAME", name or "")
+    # Name: non-empty test_config > configure() > env > default. configure() carries
+    # the title baked in at code-export time; the per-run test config carries the
+    # current one, so a test renamed after export still reports its new name.
+    from testmu._test_config import load_test_config
+
+    _name = (
+        (load_test_config() or {}).get("test_name")
+        or _configure.get("name")
+        or os.getenv("TEST_NAME", name or "")
     )
     _tc_id = _configure.get("tc_id") or tc_id or os.getenv("LT_TC_ID", "")
 

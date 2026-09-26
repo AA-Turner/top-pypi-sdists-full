@@ -4267,6 +4267,7 @@ async def _execute_until_complete_inner(
                     conversation_id=current_request.conversation_id,
                     request_id=current_request.request_id,
                     iteration=iteration,
+                    organization_id=getattr(current_request, "organization_id", None),
                 )
 
                 _wire_config = _send_prep.wire_config

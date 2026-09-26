@@ -20,6 +20,7 @@ from .content_update_params import ContentUpdateParams as ContentUpdateParams
 from .schedule_get_response import ScheduleGetResponse as ScheduleGetResponse
 from .version_create_params import VersionCreateParams as VersionCreateParams
 from .version_list_response import VersionListResponse as VersionListResponse
+from .deployment_list_params import DeploymentListParams as DeploymentListParams
 from .schedule_update_params import ScheduleUpdateParams as ScheduleUpdateParams
 from .secret_update_response import SecretUpdateResponse as SecretUpdateResponse
 from .subdomain_get_response import SubdomainGetResponse as SubdomainGetResponse

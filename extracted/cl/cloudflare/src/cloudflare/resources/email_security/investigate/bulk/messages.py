@@ -51,8 +51,7 @@ class MessagesResource(SyncAPIResource):
         account_id: str,
         page: int | Omit = omit,
         per_page: int | Omit = omit,
-        status: Literal["PENDING", "DISCOVERING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED"]
-        | Omit = omit,
+        status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -70,6 +69,8 @@ class MessagesResource(SyncAPIResource):
           page: Current page within paginated list of results.
 
           per_page: The number of results per page. Maximum value is 1000.
+
+          status: Filter by message status.
 
           extra_headers: Send extra headers
 
@@ -135,8 +136,7 @@ class AsyncMessagesResource(AsyncAPIResource):
         account_id: str,
         page: int | Omit = omit,
         per_page: int | Omit = omit,
-        status: Literal["PENDING", "DISCOVERING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED"]
-        | Omit = omit,
+        status: Literal["PENDING", "PROCESSING", "COMPLETED", "FAILED", "CANCELLED", "SKIPPED"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -154,6 +154,8 @@ class AsyncMessagesResource(AsyncAPIResource):
           page: Current page within paginated list of results.
 
           per_page: The number of results per page. Maximum value is 1000.
+
+          status: Filter by message status.
 
           extra_headers: Send extra headers
 

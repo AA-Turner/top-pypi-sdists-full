@@ -27,7 +27,8 @@ use crate::specs_adapter::remote_config_value_hydrator::RemoteConfigValueHydrato
 use crate::specs_response::parse_options::{SpecsResponseParseOptions, with_parse_options};
 use crate::specs_response::proto_compression::{ProtoCompression, is_compressed_protobuf_response};
 use crate::specs_response::proto_specs::{
-    ProtobufHydrationContext, ProtobufUpdate, deserialize_protobuf_for_store_with_hydration,
+    ProtobufHydrationContext, ProtobufUpdate, SpecsFieldChecksums,
+    deserialize_protobuf_for_store_with_hydration_and_checksums,
     deserialize_protobuf_for_store_with_options,
 };
 use crate::specs_response::spec_types::{
@@ -69,6 +70,7 @@ pub struct SpecStoreData {
     sync_cursor: ConfigSyncCursor,
     // Reused as the starting point for delta telemetry so unchanged maps can use native cloning.
     spec_decode_stats: SpecDecodeStats,
+    field_checksums: SpecsFieldChecksums,
 }
 
 #[derive(Clone, Default)]
@@ -184,6 +186,7 @@ const CONFIG_PROTO_UPDATE_MATERIALIZED: &str = "materialized";
 const INTERNED_MMAP_SPEC_DECODE_COUNT_METRIC: &str = "interned_mmap.spec_decode.count";
 
 pub struct SpecStore {
+    output_policy: crate::output_policy::OutputPolicy,
     data: ArcSwap<SpecStoreData>,
     update_lock: Mutex<()>,
 
@@ -229,6 +232,8 @@ impl SpecStore {
         options: Option<&StatsigOptions>,
         session_options: &SnapshotEvaluationSessionInitOptions,
     ) -> SpecStore {
+        let output_policy = crate::output_policy::OutputPolicy::from_options(options);
+        let _output_scope = output_policy.enter();
         let mut data_store = None;
         if let Some(options) = options {
             data_store = options.data_store.clone();
@@ -238,6 +243,7 @@ impl SpecStore {
             .map(|opts| opts.get_sdk_instance_id(sdk_key))
             .unwrap_or(sdk_key);
         SpecStore {
+            output_policy,
             data_store_keys: DataStoreCacheKeys::from_selected_key(&data_store_key),
             data: ArcSwap::from_pointee(SpecStoreData {
                 snapshot: Arc::new(SpecsResponseFull::default()),
@@ -253,6 +259,7 @@ impl SpecStore {
                 gcir_evaluation_plan: Arc::new(OnceLock::new()),
                 sync_cursor: ConfigSyncCursor::default(),
                 spec_decode_stats: SpecDecodeStats::default(),
+                field_checksums: SpecsFieldChecksums::default(),
             }),
             update_lock: Mutex::new(()),
             event_emitter,
@@ -280,6 +287,7 @@ impl SpecStore {
     }
 
     pub fn set_source(&self, source: SpecsSource) {
+        let _output_scope = self.output_policy.enter();
         {
             let Some(_update_guard) = self.try_lock_for_update("set_source") else {
                 return;
@@ -294,6 +302,7 @@ impl SpecStore {
     }
 
     pub fn get_current_values(&self) -> Option<SpecsResponseFull> {
+        let _output_scope = self.output_policy.enter();
         let data = self.load_data();
         let json = serde_json::to_string(data.snapshot.as_ref()).ok()?;
         let mut values = serde_json::from_str::<SpecsResponseFull>(&json).ok()?;
@@ -313,6 +322,7 @@ impl SpecStore {
         entity_name: &str,
         entity_type: SpecType,
     ) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         let data = self.load_data();
         let entities = match entity_type {
             SpecType::Gate => &data.snapshot.feature_gates,
@@ -334,6 +344,7 @@ impl SpecStore {
         top_level_key: &str,
         entity_type: &str,
     ) -> Vec<String> {
+        let _output_scope = self.output_policy.enter();
         let data = self.load_data();
         if top_level_key == "param_stores" {
             match &data.snapshot.param_stores {
@@ -369,6 +380,7 @@ impl SpecStore {
     }
 
     pub fn set_values(&self, mut specs_update: SpecsUpdate) -> Result<(), StatsigErr> {
+        let _output_scope = self.output_policy.enter();
         let update_started_at = Instant::now();
         // Updating the spec store is a three step process:
         // 1. Prep (serialized writer path). Deserialize and compare to the current snapshot.
@@ -389,7 +401,7 @@ impl SpecStore {
             e
         })?;
 
-        self.finish_set_values(locked_result, specs_update, update_started_at)
+        self.finish_set_values(locked_result, specs_update, update_started_at, true)
     }
 }
 
@@ -398,6 +410,7 @@ impl SpecStore {
 enum PrepResult {
     HasUpdates {
         values: Box<SpecsResponseFull>,
+        field_checksums: SpecsFieldChecksums,
         response_format: SpecsFormat,
         is_delta: bool,
         spec_decode_stats: SpecDecodeStats,
@@ -422,6 +435,7 @@ enum DeserializedSpecs {
     Materialized {
         values: Box<SpecsResponseFull>,
         is_delta: bool,
+        field_checksums: SpecsFieldChecksums,
     },
     CursorOnly {
         lcut: u64,
@@ -468,6 +482,7 @@ impl SpecStore {
                 LockedSetValuesResult::CurrentValuesNewer,
                 specs_update,
                 update_started_at,
+                true,
             );
         }
         if proto_response_matches_cursor(&specs_update.data, &parse_base) {
@@ -475,18 +490,20 @@ impl SpecStore {
                 LockedSetValuesResult::Duplicate,
                 specs_update,
                 update_started_at,
+                true,
             );
         }
 
         let mut next_values = Box::new(SpecsResponseFull::default());
-        let capture_hydrated_data_store_bytes = self.data_store.is_some()
-            && specs_update.source == SpecsSource::Network
-            && specs_update.data.get_header_ref("x-deltas-used").is_none();
+        let capture_hydrated_data_store_bytes = self
+            .writable_data_store_for_update(&specs_update.source, &specs_update.data)
+            .is_some();
         let (protobuf_update, spec_decode_stats, hydrated_data_store_bytes) =
-            match deserialize_protobuf_for_store_with_hydration(
+            match deserialize_protobuf_for_store_with_hydration_and_checksums(
                 &self.ops_stats,
                 parse_base.snapshot.as_ref(),
                 parse_base.spec_decode_stats,
+                &parse_base.field_checksums,
                 next_values.as_mut(),
                 &mut specs_update.data,
                 ProtobufHydrationContext {
@@ -517,6 +534,7 @@ impl SpecStore {
                             ),
                             specs_update,
                             update_started_at,
+                            true,
                         );
                     }
 
@@ -530,12 +548,16 @@ impl SpecStore {
         }
 
         let prep_result = match protobuf_update {
-            ProtobufUpdate::Materialized { is_delta } => {
+            ProtobufUpdate::Materialized {
+                field_checksums,
+                is_delta,
+            } => {
                 if self.are_current_values_newer(&parse_base, &next_values) {
                     PrepResult::CurrentValuesNewer
                 } else if next_values.has_updates {
                     PrepResult::HasUpdates {
                         values: next_values,
+                        field_checksums,
                         response_format: SpecsFormat::Protobuf,
                         is_delta,
                         spec_decode_stats,
@@ -578,7 +600,12 @@ impl SpecStore {
             error
         })?;
 
-        self.finish_set_values(locked_result, specs_update, update_started_at)
+        self.finish_set_values(
+            locked_result,
+            specs_update,
+            update_started_at,
+            capture_hydrated_data_store_bytes,
+        )
     }
 
     fn apply_prep_result(
@@ -589,6 +616,7 @@ impl SpecStore {
         match prep_result {
             PrepResult::HasUpdates {
                 values,
+                field_checksums,
                 response_format,
                 is_delta,
                 spec_decode_stats,
@@ -598,8 +626,13 @@ impl SpecStore {
                     values.checksum.as_deref(),
                     values.time,
                 )?;
-                let apply_result =
-                    self.specs_update_apply(values, specs_update, is_delta, spec_decode_stats)?;
+                let apply_result = self.specs_update_apply(
+                    values,
+                    field_checksums,
+                    specs_update,
+                    is_delta,
+                    spec_decode_stats,
+                )?;
                 Ok(LockedSetValuesResult::Applied(
                     response_format,
                     apply_result,
@@ -676,6 +709,7 @@ impl SpecStore {
         locked_result: LockedSetValuesResult,
         specs_update: SpecsUpdate,
         update_started_at: Instant,
+        allow_data_store_write: bool,
     ) -> Result<(), StatsigErr> {
         let (response_format, apply_result, response_type, is_delta) = match locked_result {
             LockedSetValuesResult::Applied(
@@ -714,7 +748,13 @@ impl SpecStore {
         }
 
         let notify_result = self
-            .specs_update_notify(response_format, response_type, specs_update, apply_result)
+            .specs_update_notify(
+                response_format,
+                response_type,
+                specs_update,
+                apply_result,
+                allow_data_store_write,
+            )
             .map_err(|e| {
                 log_error_to_statsig_and_console!(self.ops_stats, TAG, e);
                 e
@@ -809,6 +849,7 @@ impl SpecStore {
                 DeserializedSpecs::Materialized {
                     values: next_values,
                     is_delta,
+                    field_checksums,
                 },
                 spec_decode_stats,
             )) => {
@@ -819,6 +860,7 @@ impl SpecStore {
                 if next_values.has_updates {
                     return Ok(PrepResult::HasUpdates {
                         values: next_values,
+                        field_checksums,
                         response_format,
                         is_delta,
                         spec_decode_stats,
@@ -865,6 +907,7 @@ impl SpecStore {
     fn specs_update_apply(
         &self,
         next_values: Box<SpecsResponseFull>,
+        field_checksums: SpecsFieldChecksums,
         specs_update: &SpecsUpdate,
         is_delta: bool,
         spec_decode_stats: SpecDecodeStats,
@@ -934,6 +977,7 @@ impl SpecStore {
             gcir_evaluation_plan,
             sync_cursor,
             spec_decode_stats,
+            field_checksums,
         });
 
         Ok(ApplyResult {
@@ -971,6 +1015,7 @@ impl SpecStore {
         response_type: ConfigResponseType,
         specs_update: SpecsUpdate,
         apply_result: ApplyResult,
+        allow_data_store_write: bool,
     ) -> Result<(), StatsigErr> {
         let SpecsUpdate { data, .. } = specs_update;
         let ApplyResult {
@@ -996,14 +1041,18 @@ impl SpecStore {
 
         // Data store writes preserve the actual full-response compression in
         // codec-specific keys. Delta responses are never persisted.
-        let proto_compression = ProtoCompression::from_response(&data);
-        self.try_update_data_store(
-            &source,
-            data,
-            time_received_at,
-            checksum.clone(),
-            proto_compression,
-        );
+        if allow_data_store_write {
+            // A failed capability check before hydration skips sidecar capture.
+            // Do not let a later successful check persist the original protobuf.
+            let proto_compression = ProtoCompression::from_response(&data);
+            self.try_update_data_store(
+                &source,
+                data,
+                time_received_at,
+                checksum.clone(),
+                proto_compression,
+            );
+        }
 
         self.ops_stats_log_config_propagation_diff(
             lcut,
@@ -1036,17 +1085,20 @@ impl SpecStore {
                             &self.ops_stats,
                             current_data.snapshot.as_ref(),
                             current_data.spec_decode_stats,
+                            &current_data.field_checksums,
                             next_values.as_mut(),
                             response_data,
                             self.preserve_session_update_mode,
                         )?;
                         match update {
-                            ProtobufUpdate::Materialized { is_delta } => {
-                                Ok(DeserializedSpecs::Materialized {
-                                    values: next_values,
-                                    is_delta,
-                                })
-                            }
+                            ProtobufUpdate::Materialized {
+                                field_checksums,
+                                is_delta,
+                            } => Ok(DeserializedSpecs::Materialized {
+                                values: next_values,
+                                field_checksums,
+                                is_delta,
+                            }),
                             ProtobufUpdate::CursorOnly { lcut, checksum } => {
                                 Ok(DeserializedSpecs::CursorOnly { lcut, checksum })
                             }
@@ -1061,8 +1113,10 @@ impl SpecStore {
                         with_parse_options(parse_options, || {
                             response_data.deserialize_in_place(next_values.as_mut())
                         })?;
+                        let field_checksums = SpecsFieldChecksums::from_specs(&next_values);
                         Ok(DeserializedSpecs::Materialized {
                             values: next_values,
+                            field_checksums,
                             is_delta: false,
                         })
                     }
@@ -1124,6 +1178,20 @@ impl SpecStore {
         }
     }
 
+    fn writable_data_store_for_update(
+        &self,
+        source: &SpecsSource,
+        data: &ResponseData,
+    ) -> Option<&Arc<dyn DataStoreTrait>> {
+        if source != &SpecsSource::Network || data.get_header_ref("x-deltas-used").is_some() {
+            return None;
+        }
+
+        self.data_store
+            .as_ref()
+            .filter(|data_store| !data_store.is_read_only())
+    }
+
     fn try_update_data_store(
         &self,
         source: &SpecsSource,
@@ -1132,19 +1200,7 @@ impl SpecStore {
         checksum: Option<String>,
         proto_compression: Option<ProtoCompression>,
     ) {
-        if source != &SpecsSource::Network {
-            return;
-        }
-
-        if data.get_header_ref("x-deltas-used").is_some() {
-            log_d!(
-                TAG,
-                "Skipping data store write for delta response identified by x-deltas-used header"
-            );
-            return;
-        }
-
-        let data_store = match &self.data_store {
+        let data_store = match self.writable_data_store_for_update(source, &data) {
             Some(data_store) => data_store.clone(),
             None => return,
         };
@@ -1487,31 +1543,36 @@ impl SpecsUpdateListener for SpecStore {
         mut update: SpecsUpdate,
         hydration: Option<SpecsUpdateHydration>,
     ) -> Result<(), StatsigErr> {
-        let Some(hydration) = hydration else {
-            return self.set_values(update);
-        };
+        self.output_policy
+            .scope(async {
+                let Some(hydration) = hydration else {
+                    return self.set_values(update);
+                };
 
-        if matches!(
-            self.get_spec_response_format(&update),
-            SpecsFormat::Protobuf
-        ) {
-            return self
-                .set_values_with_protobuf_hydration(
-                    update,
-                    hydration.hydrator.as_ref(),
-                    &hydration.source_url,
-                )
-                .await;
-        }
+                if matches!(
+                    self.get_spec_response_format(&update),
+                    SpecsFormat::Protobuf
+                ) {
+                    return self
+                        .set_values_with_protobuf_hydration(
+                            update,
+                            hydration.hydrator.as_ref(),
+                            &hydration.source_url,
+                        )
+                        .await;
+                }
 
-        hydration
-            .hydrator
-            .hydrate_response(&mut update.data, &hydration.source_url)
-            .await?;
-        self.set_values(update)
+                hydration
+                    .hydrator
+                    .hydrate_response(&mut update.data, &hydration.source_url)
+                    .await?;
+                self.set_values(update)
+            })
+            .await
     }
 
     fn did_advance_specs_cursor(&self, update: SpecsCursorUpdate) -> Result<(), StatsigErr> {
+        let _output_scope = self.output_policy.enter();
         let Some(_update_guard) = self.try_lock_for_update("did_advance_specs_cursor") else {
             return Err(StatsigErr::LockFailure(
                 "Failed to acquire spec store update lock for cursor update".to_string(),
@@ -1560,6 +1621,7 @@ impl IdListsUpdateListener for SpecStore {
         &self,
         updates: HashMap<String, crate::id_lists_adapter::IdListUpdate>,
     ) {
+        let _output_scope = self.output_policy.enter();
         let Some(_update_guard) = self.try_lock_for_update("did_receive_id_list_updates") else {
             return;
         };
@@ -1594,6 +1656,7 @@ mod tests {
         ConfigResponseType, ConfigSyncCursor, DELTAS_USED_HEADER, SpecDecodeStats, SpecStore,
         SpecStoreData, build_live_overlay_target_app_index,
     };
+    use crate::data_store_interface::{DataStoreResponse, DataStoreTrait, RequestPath};
     use crate::hashing::HashUtil;
     use crate::networking::ResponseData;
     use crate::sdk_event_emitter::SdkEventEmitter;
@@ -1601,10 +1664,93 @@ mod tests {
     use crate::specs_response::spec_types::SpecsResponseFull;
     use crate::statsig_options::SnapshotEvaluationSessionInitOptions;
     use crate::statsig_runtime::StatsigRuntime;
-    use crate::{SpecsSource, SpecsUpdate, StatsigErr};
+    use crate::{SpecsSource, SpecsUpdate, StatsigErr, StatsigOptions};
+    use async_trait::async_trait;
     use std::collections::HashMap;
     use std::sync::{Arc, OnceLock};
     use std::time::{Duration, Instant};
+
+    struct CacheCapabilityDataStore(bool);
+
+    #[async_trait]
+    impl DataStoreTrait for CacheCapabilityDataStore {
+        fn is_read_only(&self) -> bool {
+            self.0
+        }
+
+        async fn initialize(&self) -> Result<(), StatsigErr> {
+            unreachable!()
+        }
+
+        async fn shutdown(&self) -> Result<(), StatsigErr> {
+            unreachable!()
+        }
+
+        async fn get(&self, _key: &str) -> Result<DataStoreResponse, StatsigErr> {
+            unreachable!()
+        }
+
+        async fn set(
+            &self,
+            _key: &str,
+            _value: &str,
+            _time: Option<u64>,
+        ) -> Result<(), StatsigErr> {
+            unreachable!()
+        }
+
+        async fn support_polling_updates_for(&self, _path: RequestPath) -> bool {
+            unreachable!()
+        }
+    }
+
+    #[test]
+    fn cache_capture_and_writes_require_a_writable_network_full_response() {
+        let full_data = ResponseData::from_bytes(Vec::new());
+        let delta_data = ResponseData::from_bytes_with_headers(
+            Vec::new(),
+            Some(HashMap::from([(
+                DELTAS_USED_HEADER.to_string(),
+                "true".to_string(),
+            )])),
+        );
+        for read_only in [None, Some(false), Some(true)] {
+            let options = StatsigOptions {
+                data_store: read_only.map(|read_only| {
+                    Arc::new(CacheCapabilityDataStore(read_only)) as Arc<dyn DataStoreTrait>
+                }),
+                ..StatsigOptions::default()
+            };
+            let store = SpecStore::new(
+                "cache-capability",
+                "cache-capability".to_string(),
+                StatsigRuntime::get_runtime(),
+                Arc::new(SdkEventEmitter::default()),
+                Some(&options),
+            );
+            // The hydration parser's capture flag and the eventual write share
+            // this predicate, so read-only stores never construct an encoder.
+            assert_eq!(
+                store
+                    .writable_data_store_for_update(&SpecsSource::Network, &full_data)
+                    .is_some(),
+                read_only == Some(false)
+            );
+            assert!(
+                store
+                    .writable_data_store_for_update(&SpecsSource::Network, &delta_data)
+                    .is_none()
+            );
+            assert!(
+                store
+                    .writable_data_store_for_update(
+                        &SpecsSource::Adapter("DataStore".to_string()),
+                        &full_data
+                    )
+                    .is_none()
+            );
+        }
+    }
 
     #[test]
     fn shared_id_list_snapshots_never_wait_for_config_updates() {
@@ -1961,6 +2107,7 @@ mod tests {
             gcir_evaluation_plan: Arc::new(OnceLock::new()),
             sync_cursor: ConfigSyncCursor::default(),
             spec_decode_stats: SpecDecodeStats::default(),
+            field_checksums: Default::default(),
         };
         let hashing = HashUtil::new();
 

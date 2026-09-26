@@ -16,8 +16,9 @@ import binascii
 import functools
 import os
 import uuid
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Literal, NotRequired, cast
+from typing import Any, Literal, NotRequired, Self, cast
 
 import orjson
 import structlog
@@ -27,7 +28,20 @@ from starlette.responses import JSONResponse, Response
 from typing_extensions import TypedDict
 
 from langgraph_api import __version__
-from langgraph_api.config import A2A_ALLOWED_TOOL_CALL_RESULTS
+from langgraph_api.api.a2ui import (
+    A2UI_EXTENSION_URI,
+    A2UI_MIME_TYPE,
+    A2UIValidationError,
+    is_a2ui_mime_type,
+    normalize_metadata,
+    validate_client_metadata,
+    validate_payload,
+)
+from langgraph_api.config import (
+    A2A_A2UI_ENABLED,
+    A2A_A2UI_TOOL_CALL_RESULTS,
+    A2A_ALLOWED_TOOL_CALL_RESULTS,
+)
 from langgraph_api.metadata import USER_API_URL
 from langgraph_api.route import ApiRequest, ApiRoute
 from langgraph_api.schema import RunCommand
@@ -42,7 +56,11 @@ logger = structlog.stdlib.get_logger(__name__)
 _assistant_schemas_cache = LRUCache[dict[str, Any]](max_size=1000, ttl=60)
 
 MAX_HISTORY_LENGTH_REQUESTED = 10
-LANGGRAPH_HISTORY_QUERY_LIMIT = 500
+HISTORY_SCOPE_EXTENSION_URI = "https://langchain.com/a2a/extensions/history-scope/v1"
+HISTORY_SCOPE_HEADER = "LangGraph-A2A-History-Scope"
+A2A_EXTENSIONS_HEADER = "A2A-Extensions"
+A2UI_EXTENSIONS_HEADER = "X-A2A-Extensions"
+HistoryScope = Literal["context", "task"]
 
 
 # ============================================================================
@@ -103,6 +121,225 @@ class InvalidAgentResponseError(ValueError):
     """Raised when public agent output cannot be represented as an A2A part."""
 
 
+@dataclass(frozen=True)
+class A2UIContext:
+    enabled: bool
+    active: bool
+    metadata: dict[str, Any]
+    extensions: list[str]
+    drop_invalid: bool = False
+    mime_type: str = A2UI_MIME_TYPE
+
+    @property
+    def negotiated(self) -> bool:
+        return self.enabled and self.active
+
+    def part_for(
+        self,
+        data: object,
+        metadata: dict[str, Any],
+        *,
+        direction: Literal["client", "server"],
+    ) -> dict[str, Any] | None:
+        if not self.negotiated:
+            return None
+        try:
+            validate_payload(data, direction=direction)
+        except A2UIValidationError:
+            if not self.drop_invalid:
+                raise
+            logger.warning("Dropping invalid A2UI payload", direction=direction)
+            return None
+        return {
+            "kind": "data",
+            "data": data,
+            "metadata": normalize_metadata(metadata, mime_type=self.mime_type),
+        }
+
+    def parts_per_message(
+        self,
+        data: object,
+        metadata: dict[str, Any],
+        *,
+        direction: Literal["client", "server"],
+    ) -> list[dict[str, Any]]:
+        part = self.part_for(data, metadata, direction=direction)
+        if part is None:
+            return []
+        messages = part["data"] if isinstance(part["data"], list) else [part["data"]]
+        return [{**part, "data": message} for message in messages]
+
+
+_A2UI_DISABLED_CONTEXT = A2UIContext(False, False, {}, [])
+
+
+@dataclass(frozen=True)
+class A2ATask:
+    task_id: str
+    context_id: str
+    run: dict[str, Any]
+    state: str
+    status_timestamp: str
+    task_ids_by_start_id: dict[str, str]
+
+
+@dataclass(frozen=True)
+class RunMessages:
+    messages: list[Any]
+    added_from: int | None
+
+    @classmethod
+    def between(cls, before: list[Any], messages: list[Any]) -> Self:
+        if messages[: len(before)] == before:
+            return cls(messages, len(before))
+        before_ids = {
+            message.get("id") for message in before if isinstance(message, dict)
+        }
+        if len(before_ids) != len(before) or None in before_ids:
+            return cls(messages, None)
+        last_kept = max(
+            (
+                index
+                for index, message in enumerate(messages)
+                if isinstance(message, dict) and message.get("id") in before_ids
+            ),
+            default=-1,
+        )
+        return cls(messages, last_kept + 1)
+
+    @property
+    def added(self) -> list[Any] | None:
+        return None if self.added_from is None else self.messages[self.added_from :]
+
+    def stamped(self, task_id: str) -> list[Any]:
+        if self.added_from is None or self.added_from >= len(self.messages):
+            return self.messages
+        message = self.messages[self.added_from]
+        if not isinstance(message, dict):
+            return self.messages
+        additional_kwargs = message.get("additional_kwargs")
+        additional_kwargs = (
+            dict(additional_kwargs) if isinstance(additional_kwargs, dict) else {}
+        )
+        stored_a2a = additional_kwargs.get("a2a")
+        stored_a2a = dict(stored_a2a) if isinstance(stored_a2a, dict) else {}
+        if stored_a2a.get("task_id") or stored_a2a.get("task_start_id"):
+            return self.messages
+        messages = list(self.messages)
+        messages[self.added_from] = {
+            **message,
+            "additional_kwargs": {
+                **additional_kwargs,
+                "a2a": {**stored_a2a, "task_id": task_id},
+            },
+        }
+        return messages
+
+
+# Keep each core search rate-limit charge bounded.
+_A2A_CONTEXT_SEARCH_LIMIT = 1000
+_A2A_RUN_SCAN_LIMIT = 1000
+_A2A_LIST_CONCURRENCY = 10
+_TERMINAL_TASK_STATES = frozenset(
+    {
+        "TASK_STATE_COMPLETED",
+        "TASK_STATE_FAILED",
+        "TASK_STATE_CANCELED",
+        "TASK_STATE_REJECTED",
+    }
+)
+
+
+def _a2ui_enabled(assistant: dict[str, Any]) -> bool:
+    metadata = assistant.get("metadata")
+    a2a_metadata = metadata.get("a2a") if isinstance(metadata, dict) else None
+    override = a2a_metadata.get("a2ui") if isinstance(a2a_metadata, dict) else None
+    return override if isinstance(override, bool) else A2A_A2UI_ENABLED
+
+
+def _a2ui_context_for_run(run: dict[str, Any]) -> A2UIContext:
+    metadata = run.get("metadata")
+    a2a_metadata = metadata.get("a2a") if isinstance(metadata, dict) else None
+    if not isinstance(a2a_metadata, dict):
+        a2a_metadata = {}
+    return A2UIContext(
+        enabled=a2a_metadata.get("a2ui") is True,
+        active=a2a_metadata.get("a2ui_active") is True,
+        metadata={},
+        extensions=[],
+        mime_type=(
+            a2a_metadata["a2ui_mime_type"]
+            if is_a2ui_mime_type(a2a_metadata.get("a2ui_mime_type"))
+            else A2UI_MIME_TYPE
+        ),
+    )
+
+
+def _a2a_run_metadata(
+    assistant: dict[str, Any],
+    context: A2UIContext,
+    *,
+    task_id: str | None,
+    task_start_id: str | None,
+) -> dict[str, Any]:
+    metadata = assistant.get("metadata")
+    a2a_metadata = metadata.get("a2a") if isinstance(metadata, dict) else None
+    inherited = (
+        {
+            key: value
+            for key, value in a2a_metadata.items()
+            if key not in {"task_id", "task_start_id"}
+        }
+        if context.enabled and isinstance(a2a_metadata, dict)
+        else {}
+    )
+    return {
+        "a2a": {
+            **inherited,
+            **({"task_id": task_id} if task_id else {}),
+            **({"task_start_id": task_start_id} if task_start_id else {}),
+            **(
+                {"a2ui": True, "a2ui_active": context.active} if context.enabled else {}
+            ),
+            **({"a2ui_mime_type": context.mime_type} if context.negotiated else {}),
+        }
+    }
+
+
+def _a2ui_message_context(
+    params: dict[str, Any],
+    assistant: dict[str, Any],
+    headers: Headers,
+    *,
+    default_mime_type: str = A2UI_MIME_TYPE,
+) -> A2UIContext:
+    message = params.get("message") or {}
+    metadata = message.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        raise A2UIValidationError("Invalid A2A message metadata")
+    extensions: list[str] = []
+    for header in (A2A_EXTENSIONS_HEADER, A2UI_EXTENSIONS_HEADER):
+        for header_value in headers.getlist(header):
+            for value in header_value.split(","):
+                if (extension := value.strip()) and extension not in extensions:
+                    extensions.append(extension)
+    mime_type = default_mime_type
+    for part in message.get("parts") or []:
+        part_metadata = part.get("metadata") if isinstance(part, dict) else None
+        if isinstance(part_metadata, dict) and is_a2ui_mime_type(
+            part_metadata.get("mimeType")
+        ):
+            mime_type = part_metadata["mimeType"]
+            break
+    return A2UIContext(
+        enabled=_a2ui_enabled(assistant),
+        active=A2UI_EXTENSION_URI in extensions,
+        metadata=metadata,
+        extensions=extensions,
+        mime_type=mime_type,
+    )
+
+
 # ============================================================================
 # Legacy (v0.x) format helpers
 # ============================================================================
@@ -146,6 +383,17 @@ def _validate_history_length(history_length: Any) -> str | None:
     if history_length > MAX_HISTORY_LENGTH_REQUESTED:
         return f"historyLength cannot exceed {MAX_HISTORY_LENGTH_REQUESTED}"
     return None
+
+
+def _resolve_history_scope(
+    options: dict[str, Any], headers: Headers
+) -> tuple[HistoryScope, str | None]:
+    history_scope = options.get("historyScope")
+    if history_scope is None:
+        history_scope = headers.get(HISTORY_SCOPE_HEADER, "context")
+    if history_scope not in ("context", "task"):
+        return "context", "historyScope must be 'context' or 'task'"
+    return cast("HistoryScope", history_scope), None
 
 
 def _to_spec_format(data: Any) -> Any:
@@ -218,6 +466,180 @@ def _parse_task_id(task_id: str) -> tuple[str, str]:
     return "", task_id
 
 
+def _http_status_code(exception: Exception) -> int | None:
+    response = getattr(exception, "response", None)
+    return getattr(response, "status_code", None)
+
+
+def _run_a2a_metadata(run: dict[str, Any]) -> dict[str, Any]:
+    metadata = run.get("metadata")
+    a2a = metadata.get("a2a") if isinstance(metadata, dict) else None
+    return a2a if isinstance(a2a, dict) else {}
+
+
+def _task_id_for_run(context_id: str, run: dict[str, Any]) -> str:
+    stored_task_id = _run_a2a_metadata(run).get("task_id")
+    if isinstance(stored_task_id, str) and stored_task_id:
+        return stored_task_id
+    return _make_task_id(context_id, str(run["run_id"]))
+
+
+def _task_ids_by_start_id(
+    runs: list[dict[str, Any]], context_id: str, assistant_id: str
+) -> dict[str, str]:
+    task_ids: dict[str, str] = {}
+    for run in runs:
+        if str(run.get("assistant_id")) != assistant_id:
+            continue
+        task_start_id = _run_a2a_metadata(run).get("task_start_id")
+        if isinstance(task_start_id, str) and task_start_id:
+            task_ids[task_start_id] = _task_id_for_run(context_id, run)
+    return task_ids
+
+
+def _run_sort_key(run: dict[str, Any]) -> tuple[str, str]:
+    created_at = run.get("created_at")
+    if isinstance(created_at, datetime):
+        created_at = created_at.isoformat()
+    return str(created_at or ""), str(run.get("run_id") or "")
+
+
+def _latest_run_id(runs: list[dict[str, Any]]) -> str | None:
+    return str(max(runs, key=_run_sort_key).get("run_id")) if runs else None
+
+
+def _runs_for_assistant(
+    runs: list[dict[str, Any]], assistant_id: str
+) -> list[dict[str, Any]]:
+    return sorted(
+        (run for run in runs if str(run.get("assistant_id")) == assistant_id),
+        key=_run_sort_key,
+        reverse=True,
+    )
+
+
+async def _list_context_runs(
+    client: LangGraphClient,
+    *,
+    context_id: str,
+    headers: Headers | dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    runs = await client.runs.list(
+        context_id,
+        limit=_A2A_RUN_SCAN_LIMIT,
+        headers=headers,
+    )
+    if len(runs) == _A2A_RUN_SCAN_LIMIT:
+        await logger.awarning(
+            "A2A context run scan reached its limit; task state or history may be truncated",
+            context_id=context_id,
+            run_scan_limit=_A2A_RUN_SCAN_LIMIT,
+        )
+    return runs
+
+
+def _lg_status_to_a2a_state(lg_status: str) -> str:
+    """Map a LangGraph run status to an A2A task state."""
+    mapping = {
+        "pending": "TASK_STATE_SUBMITTED",
+        "running": "TASK_STATE_WORKING",
+        "success": "TASK_STATE_COMPLETED",
+        # LangGraph uses this for an externally canceled run. Graph-level HITL
+        # interrupts finish the run successfully and interrupt the thread.
+        "interrupted": "TASK_STATE_CANCELED",
+        "error": "TASK_STATE_FAILED",
+        "timeout": "TASK_STATE_FAILED",
+    }
+    return mapping.get(lg_status, "TASK_STATE_SUBMITTED")
+
+
+def _task_state_for_run(
+    run: dict[str, Any], thread: dict[str, Any] | None = None
+) -> str:
+    state = _lg_status_to_a2a_state(run.get("status", "unknown"))
+    if (
+        run.get("status") == "success"
+        and thread is not None
+        and thread.get("status") == "interrupted"
+    ):
+        return "TASK_STATE_INPUT_REQUIRED"
+    return state
+
+
+def _run_timestamp(run: dict[str, Any]) -> str:
+    timestamp = run.get("updated_at") or run.get("created_at")
+    if isinstance(timestamp, datetime):
+        return timestamp.isoformat()
+    if isinstance(timestamp, str):
+        return timestamp
+    return datetime.now(UTC).isoformat()
+
+
+async def _resolve_task(
+    client: LangGraphClient,
+    *,
+    task_id: str,
+    context_id: str | None,
+    assistant_id: str,
+    headers: Headers | dict[str, Any] | None,
+) -> A2ATask | None:
+    parsed_context_id, anchor_run_id = _parse_task_id(task_id)
+    if parsed_context_id and context_id and parsed_context_id != context_id:
+        return None
+    resolved_context_id = context_id or parsed_context_id
+    if not resolved_context_id:
+        return None
+
+    try:
+        anchor_run, thread = await asyncio.gather(
+            client.runs.get(
+                thread_id=resolved_context_id,
+                run_id=anchor_run_id,
+                headers=headers,
+            ),
+            client.threads.get(resolved_context_id, headers=headers),
+        )
+    except Exception as exc:
+        if _http_status_code(exc) in {400, 404, 422}:
+            return None
+        raise
+    if str(anchor_run.get("assistant_id")) != assistant_id:
+        return None
+
+    anchor_stored_task_id = _run_a2a_metadata(anchor_run).get("task_id")
+    if (
+        isinstance(anchor_stored_task_id, str)
+        and anchor_stored_task_id
+        and anchor_stored_task_id != task_id
+    ):
+        return None
+
+    runs = await _list_context_runs(
+        client, context_id=resolved_context_id, headers=headers
+    )
+    latest_run = anchor_run
+    context_latest_run_id = _latest_run_id(runs)
+    is_context_latest = False
+    for run in _runs_for_assistant(runs, assistant_id):
+        if str(run.get("run_id")) == anchor_run_id or (
+            _run_a2a_metadata(run).get("task_id") == task_id
+        ):
+            latest_run = run
+            is_context_latest = str(run.get("run_id")) == context_latest_run_id
+            break
+
+    return A2ATask(
+        task_id=task_id,
+        context_id=resolved_context_id,
+        run=latest_run,
+        state=_task_state_for_run(latest_run, thread if is_context_latest else None),
+        status_timestamp=_run_timestamp(latest_run),
+        task_ids_by_start_id=_task_ids_by_start_id(
+            runs, resolved_context_id, assistant_id
+        ),
+    )
+
+
 async def _get_assistant(
     assistant_id: str, headers: Headers | dict[str, Any] | None
 ) -> dict[str, Any]:
@@ -284,7 +706,15 @@ async def _validate_supports_messages(
 
     # Validate messages field only if there are text or file parts
     has_message_parts = any(
-        ("text" in part) or ("file" in part) for part in parts if isinstance(part, dict)
+        ("text" in part)
+        or ("file" in part)
+        or (
+            "data" in part
+            and isinstance(part.get("metadata"), dict)
+            and is_a2ui_mime_type(part["metadata"].get("mimeType"))
+        )
+        for part in parts
+        if isinstance(part, dict)
     )
     if has_message_parts:
         input_schema = schemas.get("input_schema") or schemas.get("state_schema")
@@ -447,17 +877,10 @@ async def _maybe_promote_resume_to_command(
 
     if not context_id:
         return None, None, input_content
+    if not task_id:
+        return None, None, input_content
     if not await _is_thread_interrupted(client, context_id, headers):
         return None, None, input_content
-    if not task_id:
-        return (
-            None,
-            {
-                "code": ERROR_CODE_INVALID_PARAMS,
-                "message": "contextId and taskId are required when resuming a task",
-            },
-            input_content,
-        )
 
     if resume_source == "text" and "messages" in input_content:
         input_content = dict(input_content)
@@ -506,12 +929,16 @@ def _process_a2a_message_parts(
     parts: list[dict[str, Any]],
     message_role: str,
     message_id: str,
+    *,
+    a2ui: A2UIContext,
+    task_id: str | None = None,
+    task_start_id: str | None = None,
 ) -> dict[str, Any]:
     """Convert A2A message parts to LangChain messages format.
 
-    Text-only messages keep today's per-part string content. When any file part
-    is present, emit one consolidated message whose ``content`` is an ordered
-    list of LangChain content blocks (text + file/image/audio/video).
+    Text-only messages keep today's per-part string content. When a file or
+    A2UI part is present, emit one consolidated message whose ``content`` is an
+    ordered list of LangChain content blocks.
 
     Args:
         parts: List of A2A message parts
@@ -526,7 +953,19 @@ def _process_a2a_message_parts(
     messages = []
     additional_data = {}
     content_blocks: list[dict[str, Any]] = []
-    has_file_parts = any(isinstance(part, dict) and "file" in part for part in parts)
+    validate_client_metadata(a2ui.metadata)
+    has_content_blocks = any(
+        isinstance(part, dict)
+        and (
+            "file" in part
+            or (
+                "data" in part
+                and isinstance(part.get("metadata"), dict)
+                and is_a2ui_mime_type(part["metadata"].get("mimeType"))
+            )
+        )
+        for part in parts
+    )
     langgraph_role = "human" if message_role == "ROLE_USER" else "assistant"
 
     for part in parts:
@@ -544,7 +983,7 @@ def _process_a2a_message_parts(
             )
 
         if "text" in part:
-            if has_file_parts:
+            if has_content_blocks:
                 content_blocks.append({"type": "text", "text": part["text"]})
             else:
                 messages.append(
@@ -559,8 +998,28 @@ def _process_a2a_message_parts(
             content_blocks.append(_a2a_file_part_to_content_block(part))
 
         elif "data" in part:
-            # Data parts become structured input parameters
             part_data = part.get("data", {})
+            part_metadata = (
+                part.get("metadata") if isinstance(part.get("metadata"), dict) else {}
+            )
+            if is_a2ui_mime_type(part_metadata.get("mimeType")):
+                if not a2ui.enabled:
+                    raise A2UIValidationError("A2UI is not enabled for this agent")
+                if not a2ui.active:
+                    raise A2UIValidationError("The A2UI extension must be activated")
+                validate_payload(part_data, direction="client")
+                content_blocks.append(
+                    {
+                        "type": "data",
+                        "data": part_data,
+                        "metadata": normalize_metadata(
+                            part_metadata, mime_type=a2ui.mime_type
+                        ),
+                    }
+                )
+                continue
+
+            # Non-A2UI data parts remain structured top-level input parameters.
             if not isinstance(part_data, dict):
                 raise ValueError(
                     "DataPart must contain a JSON object in the 'data' field"
@@ -573,7 +1032,7 @@ def _process_a2a_message_parts(
                 "A2A agents support 'text', 'data', and 'file' parts only."
             )
 
-    if has_file_parts:
+    if has_content_blocks:
         messages.append(
             {
                 "role": langgraph_role,
@@ -581,6 +1040,16 @@ def _process_a2a_message_parts(
                 "id": message_id,
             }
         )
+
+    if task_id or task_start_id or a2ui.metadata or a2ui.extensions:
+        a2a_data = {
+            **({"task_id": task_id} if task_id else {}),
+            **({"task_start_id": task_start_id} if task_start_id else {}),
+            **({"metadata": a2ui.metadata} if a2ui.metadata else {}),
+            **({"extensions": a2ui.extensions} if a2ui.extensions else {}),
+        }
+        for graph_message in messages:
+            graph_message["additional_kwargs"] = {"a2a": a2a_data}
 
     if not messages and not additional_data:
         raise ValueError(
@@ -707,9 +1176,12 @@ def _content_block_to_a2a_file_part(block: dict[str, Any]) -> dict[str, Any]:
     return {"kind": "file", "file": file_obj}
 
 
-def _content_to_a2a_parts(content: Any) -> list[dict[str, Any]]:
-    """Convert public LangChain message content to ordered A2A parts."""
-
+def _content_to_a2a_parts(
+    content: Any,
+    *,
+    a2ui: A2UIContext,
+    a2ui_direction: Literal["client", "server"] = "server",
+) -> list[dict[str, Any]]:
     if isinstance(content, str):
         return [{"kind": "text", "text": content}]
     if content is None:
@@ -732,6 +1204,16 @@ def _content_to_a2a_parts(content: Any) -> list[dict[str, Any]]:
             text = block.get("text")
             if isinstance(text, str):
                 text_parts.append(text)
+        elif isinstance(block, dict) and block.get("type") == "data":
+            metadata = (
+                block.get("metadata") if isinstance(block.get("metadata"), dict) else {}
+            )
+            if not is_a2ui_mime_type(metadata.get("mimeType")):
+                continue
+            part = a2ui.part_for(block.get("data"), metadata, direction=a2ui_direction)
+            if part is not None:
+                flush_text()
+                parts.append(part)
         elif (
             isinstance(block, dict) and block.get("type") in _MEDIA_CONTENT_BLOCK_TYPES
         ):
@@ -746,7 +1228,7 @@ def _a2a_parts_have_content(parts: list[dict[str, Any]]) -> bool:
     """Return whether converted parts contain public text or file content."""
 
     return any(
-        part.get("kind") == "file"
+        part.get("kind") in {"data", "file"}
         or (part.get("kind") == "text" and bool(part.get("text")))
         for part in parts
     )
@@ -772,41 +1254,45 @@ def _content_to_text(content: Any) -> str:
     return str(content)
 
 
-def _extract_a2a_response(result: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extract public A2A parts from the last assistant response.
+def _current_turn(messages: list[object]) -> list[object]:
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if isinstance(message, dict) and _a2a_role_for_message(message) == "ROLE_USER":
+            return messages[index + 1 :]
+    return messages
 
-    Args:
-        result: Graph execution result
 
-    Returns:
-        Ordered public parts from the last assistant message
-
-    Raises:
-        ValueError: If result doesn't contain messages or is invalid
-    """
+def _extract_a2a_response(
+    result: dict[str, Any],
+    *,
+    a2ui: A2UIContext,
+    turn: list[object] | None = None,
+) -> list[dict[str, Any]]:
     if "__error__" in result:
-        # Let the caller handle errors
         return [{"kind": "text", "text": str(result)}]
 
     if "messages" not in result:
-        # Fallback to the full result if no messages schema. It is not optimal to do A2A on assistants without
-        # a messages key, but it is not a hard requirement.
         return [{"kind": "text", "text": str(result)}]
 
     messages = result["messages"]
     if not isinstance(messages, list) or not messages:
         return [{"kind": "text", "text": str(result)}]
 
-    # Find the last assistant message
-    for message in reversed(messages):
-        if not isinstance(message, dict):
-            continue
-        if _a2a_role_for_message(message) == "ROLE_AGENT" and "content" in message:
-            parts = _content_to_a2a_parts(message["content"])
-            if _a2a_parts_have_content(parts):
-                return parts
+    turn = _current_turn(messages) if turn is None else turn
+    tool_ui = [
+        part for message in turn for part in _tool_result_a2ui_parts(message, a2ui)
+    ]
+    for message in reversed(turn):
+        if (
+            isinstance(message, dict)
+            and _a2a_role_for_message(message) == "ROLE_AGENT"
+            and "content" in message
+        ):
+            reply = _content_to_a2a_parts(message["content"], a2ui=a2ui)
+            if _a2a_parts_have_content(reply):
+                return [*reply, *tool_ui]
 
-    return [{"kind": "text", "text": ""}]
+    return tool_ui or [{"kind": "text", "text": ""}]
 
 
 def _create_interrupt_artifact(interrupts: list[dict[str, Any]]) -> dict[str, Any]:
@@ -879,19 +1365,14 @@ def _create_response_artifact_update(
     }
 
 
-def _tool_result_data(message: dict[str, Any]) -> dict[str, Any] | None:
-    """Build the published form of one tool result, or None if not publishable.
-
-    A tool result is only published when it is correlated to the call that
-    produced it: ``tool_call_id`` is what lets a client match the payload back
-    to its request. Uncorrelated tool output stays internal.
-
-    Only the correlation id, content, tool name, and status are copied. Raw
-    LangChain internals (``response_metadata``, ``additional_kwargs``,
-    ``artifact``) are deliberately excluded.
-    """
+def _tool_call_id(message: dict[str, Any]) -> str | None:
     tool_call_id = message.get("tool_call_id")
-    if not isinstance(tool_call_id, str) or not tool_call_id:
+    return tool_call_id if isinstance(tool_call_id, str) and tool_call_id else None
+
+
+def _tool_result_data(message: dict[str, Any]) -> dict[str, Any] | None:
+    tool_call_id = _tool_call_id(message)
+    if tool_call_id is None:
         return None
 
     if (
@@ -915,6 +1396,26 @@ def _tool_results_data_part(tool_results: list[dict[str, Any]]) -> dict[str, Any
     """Wrap one or more tool results in a single A2A DataPart."""
 
     return {"kind": "data", "data": {"tool_results": tool_results}}
+
+
+def _tool_result_a2ui_parts(message: object, a2ui: A2UIContext) -> list[dict[str, Any]]:
+    if (
+        not a2ui.negotiated
+        or not isinstance(message, dict)
+        or message.get("name") not in A2A_A2UI_TOOL_CALL_RESULTS
+        or message.get("status") == "error"
+        or _tool_call_id(message) is None
+    ):
+        return []
+    content = message.get("content")
+    try:
+        data = orjson.loads(content) if isinstance(content, str) else content
+    except orjson.JSONDecodeError:
+        logger.warning("Dropping non-JSON A2UI tool result", tool=message.get("name"))
+        return []
+    return replace(a2ui, drop_invalid=True).parts_per_message(
+        data, {"mimeType": a2ui.mime_type}, direction="server"
+    )
 
 
 def _lc_stream_items_to_a2a_message(
@@ -1073,68 +1574,15 @@ def _map_runs_create_error_to_rpc(
     }
 
 
-def _map_runs_get_error_to_rpc(
-    exception: Exception, task_id: str, thread_id: str
-) -> dict[str, Any]:
-    """Map runs.get() exceptions to A2A JSON-RPC error responses.
-
-    Args:
-        exception: Exception from runs.get()
-        task_id: The task/run ID that was requested
-        thread_id: The thread ID that was requested
-
-    Returns:
-        A2A error response dictionary
-    """
-    if hasattr(exception, "response") and hasattr(exception.response, "status_code"):
-        status_code = exception.response.status_code
-        error_text = str(exception)
-
-        status_code_handlers = {
-            404: {
-                "error": {
-                    "code": ERROR_CODE_TASK_NOT_FOUND,
-                    "message": f"Task '{task_id}' not found in thread '{thread_id}'",
-                }
-            },
-            400: {
-                "error": {
-                    "code": ERROR_CODE_INVALID_PARAMS,
-                    "message": f"Invalid request: {error_text}",
-                }
-            },
-            403: {
-                "error": {
-                    "code": ERROR_CODE_INVALID_PARAMS,
-                    "message": "Access denied to task",
-                }
-            },
-        }
-
-        return status_code_handlers.get(
-            status_code,
-            {
-                "error": {
-                    "code": ERROR_CODE_INVALID_PARAMS,
-                    "message": f"Failed to get task: {error_text}",
-                }
-            },
-        )
-
-    return {
-        "error": {
-            "code": ERROR_CODE_INTERNAL_ERROR,
-            "message": "Internal server error",
-        }
-    }
-
-
 def _convert_messages_to_a2a_format(
     messages: list[dict[str, Any]],
     task_id: str,
     context_id: str,
     *,
     history_length: int | None = None,
+    history_scope: HistoryScope = "context",
+    a2ui: A2UIContext,
+    task_ids_by_start_id: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Convert LangChain messages to A2A message format.
 
@@ -1146,30 +1594,75 @@ def _convert_messages_to_a2a_format(
 
     Args:
         messages: List of LangChain messages
-        task_id: The task ID to assign to all messages
+        task_id: Requested task ID and context-scope fallback for legacy messages
         context_id: The context ID to assign to all messages
         history_length: Maximum number of visible A2A messages to return.
+        history_scope: Whether to return the whole context or only this task.
 
     Returns:
         List of A2A messages
     """
 
+    history_a2ui = replace(a2ui, drop_invalid=True)
+
+    # A task-stamped user message starts a new provenance segment. Agent and
+    # tool messages that follow belong to that task until the next stamped turn.
+    current_task_id: str | None = None if history_scope == "task" else task_id
+    known_task_ids = (
+        set(task_ids_by_start_id.values()) if task_ids_by_start_id is not None else None
+    )
+
     # Convert each LangChain message to A2A format
     a2a_messages = []
     for msg in messages:
         if isinstance(msg, dict):
+            additional_kwargs = msg.get("additional_kwargs")
+            stored_a2a = (
+                additional_kwargs.get("a2a")
+                if isinstance(additional_kwargs, dict)
+                else None
+            )
+            stored_task_id = (
+                stored_a2a.get("task_id") if isinstance(stored_a2a, dict) else None
+            )
+            stored_task_start_id = (
+                stored_a2a.get("task_start_id")
+                if isinstance(stored_a2a, dict)
+                else None
+            )
+            if isinstance(stored_task_id, str) and stored_task_id:
+                current_task_id = (
+                    stored_task_id
+                    if known_task_ids is None
+                    or stored_task_id == task_id
+                    or stored_task_id in known_task_ids
+                    else None
+                )
+            elif isinstance(stored_task_start_id, str) and stored_task_start_id:
+                if task_ids_by_start_id is not None:
+                    current_task_id = task_ids_by_start_id.get(stored_task_start_id)
+                elif history_scope == "task":
+                    current_task_id = None
+
+            if current_task_id is None:
+                continue
+
             a2a_role = _a2a_role_for_message(msg)
 
             if a2a_role is None:
-                # Internal message: publish a correlated tool result as data,
-                # drop system prompts and uncorrelated output entirely.
-                tool_result = _tool_result_data(msg)
-                if tool_result is None:
+                parts = []
+                if (tool_result := _tool_result_data(msg)) is not None:
+                    parts.append(_tool_results_data_part([tool_result]))
+                parts.extend(_tool_result_a2ui_parts(msg, history_a2ui))
+                if not parts:
                     continue
                 a2a_role = "ROLE_AGENT"
-                parts = [_tool_results_data_part([tool_result])]
             else:
-                parts = _content_to_a2a_parts(msg.get("content", ""))
+                parts = _content_to_a2a_parts(
+                    msg.get("content", ""),
+                    a2ui=history_a2ui,
+                    a2ui_direction=("client" if a2a_role == "ROLE_USER" else "server"),
+                )
                 if a2a_role == "ROLE_AGENT" and not _a2a_parts_have_content(parts):
                     continue
                 if not parts:
@@ -1180,11 +1673,15 @@ def _convert_messages_to_a2a_format(
                 "role": a2a_role,
                 "parts": parts,
                 "messageId": msg.get("id") or str(uuid7()),
-                "taskId": task_id,
+                "taskId": current_task_id,
                 "contextId": context_id,
             }
             a2a_messages.append(a2a_message)
 
+    if history_scope == "task":
+        a2a_messages = [
+            message for message in a2a_messages if message["taskId"] == task_id
+        ]
     if history_length is None:
         return a2a_messages
     if history_length == 0:
@@ -1197,27 +1694,21 @@ async def _create_task_response(
     context_id: str,
     result: dict[str, Any],
     assistant_id: str,
+    a2ui: A2UIContext,
     history_length: int | None = None,
+    history_scope: HistoryScope = "context",
+    task_ids_by_start_id: dict[str, str] | None = None,
+    turn: list[object] | None = None,
 ) -> dict[str, Any]:
-    """Create A2A Task response structure for both success and failure cases.
-
-    Args:
-        task_id: The task/run ID
-        context_id: The context/thread ID
-        result: LangGraph execution result
-        assistant_id: The assistant ID used
-        history_length: Maximum public history messages to include.
-
-    Returns:
-        A2A Task response dictionary
-    """
-    # Convert result messages to A2A message format
     messages = result.get("messages", []) or []
     thread_history = _convert_messages_to_a2a_format(
         messages,
         task_id,
         context_id,
         history_length=history_length,
+        history_scope=history_scope,
+        a2ui=a2ui,
+        task_ids_by_start_id=task_ids_by_start_id,
     )
 
     base_task: dict[str, Any] = {
@@ -1257,7 +1748,10 @@ async def _create_task_response(
             "timestamp": datetime.now(UTC).isoformat(),
         }
         base_task["artifacts"] = [
-            _create_response_artifact(_extract_a2a_response(result), assistant_id)
+            _create_response_artifact(
+                _extract_a2a_response(result, a2ui=a2ui, turn=turn),
+                assistant_id,
+            )
         ]
 
     return {"result": {"task": base_task}}
@@ -1502,6 +1996,14 @@ async def handle_jsonrpc_request(
     Returns:
         JSON-RPC response
     """
+    try:
+        assistant_id = str(uuid.UUID(assistant_id))
+    except ValueError:
+        return create_jsonrpc_error_response(
+            ERROR_CODE_INVALID_PARAMS,
+            "Invalid assistant ID: must be a UUID",
+            message["id"],
+        )
     method = message["method"]
     params = message.get("params", {})
     # Route to appropriate A2A method handler
@@ -1510,11 +2012,11 @@ async def handle_jsonrpc_request(
     elif method == "SendMessage":
         result_or_error = await handle_message_send(request, params, assistant_id)
     elif method == "GetTask":
-        result_or_error = await handle_tasks_get(request, params)
+        result_or_error = await handle_tasks_get(request, params, assistant_id)
     elif method == "CancelTask":
-        result_or_error = await handle_tasks_cancel(request, params)
+        result_or_error = await handle_tasks_cancel(request, params, assistant_id)
     elif method == "ListTasks":
-        result_or_error = await handle_list_tasks(request, params)
+        result_or_error = await handle_list_tasks(request, params, assistant_id)
     elif method == "GetExtendedAgentCard":
         result_or_error = await handle_get_extended_card(request, assistant_id)
     else:
@@ -1599,6 +2101,16 @@ async def handle_message_send(
                     "message": history_error,
                 }
             }
+        history_scope, history_scope_error = _resolve_history_scope(
+            configuration, request.headers
+        )
+        if history_scope_error:
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": history_scope_error,
+                }
+            }
 
         message = params.get("message")
         if not message:
@@ -1654,10 +2166,83 @@ async def handle_message_send(
                 }
             }
 
+        requested_context_id = message.get("contextId")
+        existing_task_id = message.get("taskId")
+        if requested_context_id is not None and not isinstance(
+            requested_context_id, str
+        ):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "contextId must be a string",
+                }
+            }
+        if existing_task_id is not None and not isinstance(existing_task_id, str):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "taskId must be a string",
+                }
+            }
+
+        if existing_task_id is None:
+            context_id = requested_context_id or str(uuid.uuid4())
+            task_id = None
+            task_start_id = str(uuid7())
+            task_ids_by_start_id: dict[str, str] = {}
+            a2ui_mime_type = A2UI_MIME_TYPE
+        else:
+            task = await _resolve_task(
+                client,
+                task_id=existing_task_id,
+                context_id=requested_context_id,
+                assistant_id=assistant_id,
+                headers=request.headers,
+            )
+            if task is None:
+                return {
+                    "error": {
+                        "code": ERROR_CODE_TASK_NOT_FOUND,
+                        "message": f"Task not found: {existing_task_id}",
+                    }
+                }
+            if task.state in _TERMINAL_TASK_STATES:
+                return {
+                    "error": {
+                        "code": ERROR_CODE_UNSUPPORTED_OPERATION,
+                        "message": "A terminal task cannot accept another message",
+                    }
+                }
+            context_id = task.context_id
+            task_id = task.task_id
+            task_start_id = None
+            task_ids_by_start_id = task.task_ids_by_start_id
+            a2ui_mime_type = _a2ui_context_for_run(task.run).mime_type
+
         # Process A2A message parts into LangChain messages format
         try:
+            a2ui = _a2ui_message_context(
+                params,
+                assistant,
+                request.headers,
+                default_mime_type=a2ui_mime_type,
+            )
             message_role = _normalize_input_role(message.get("role", "ROLE_USER"))
-            input_content = _process_a2a_message_parts(parts, message_role, message_id)
+            input_content = _process_a2a_message_parts(
+                parts,
+                message_role,
+                message_id,
+                a2ui=a2ui,
+                task_id=task_id,
+                task_start_id=task_start_id,
+            )
+        except A2UIValidationError as e:
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": str(e),
+                }
+            }
         except ValueError as e:
             return {
                 "error": {
@@ -1666,12 +2251,10 @@ async def handle_message_send(
                 }
             }
 
-        context_id = message.get("contextId")
-        # Check if this is a continuation (taskId provided in message)
-        existing_task_id = message.get("taskId")
-
         # Extract and validate command (LangGraph extension for resuming interrupts)
-        command, command_error = _extract_and_validate_command(message, context_id)
+        command, command_error = _extract_and_validate_command(
+            message, requested_context_id
+        )
         if command_error:
             return {"error": command_error}
         if command is not None and command.get("resume") and existing_task_id is None:
@@ -1689,7 +2272,7 @@ async def handle_message_send(
             ) = await _maybe_promote_resume_to_command(
                 client=client,
                 parts=parts,
-                context_id=context_id,
+                context_id=context_id if existing_task_id else requested_context_id,
                 task_id=existing_task_id,
                 input_content=input_content,
                 headers=request.headers,
@@ -1703,10 +2286,6 @@ async def handle_message_send(
                 task_id=existing_task_id,
             )
 
-        # If no contextId provided, generate a UUID so we don't pass None to runs.create
-        if context_id is None:
-            context_id = str(uuid.uuid4())
-
         try:
             run = await client.runs.create(
                 thread_id=context_id,
@@ -1714,6 +2293,12 @@ async def handle_message_send(
                 input=input_content,
                 command=command,
                 context=run_context,
+                metadata=_a2a_run_metadata(
+                    assistant,
+                    a2ui,
+                    task_id=task_id,
+                    task_start_id=task_start_id,
+                ),
                 if_not_exists="create",
                 headers=request.headers,
             )
@@ -1723,16 +2308,43 @@ async def handle_message_send(
                 raise
             return error_response
 
+        context_id = str(run["thread_id"])
+        if task_id is None:
+            task_id = _make_task_id(context_id, str(run["run_id"]))
+            try:
+                runs = await _list_context_runs(
+                    client, context_id=context_id, headers=request.headers
+                )
+                task_ids_by_start_id = _task_ids_by_start_id(
+                    runs, context_id, assistant_id
+                )
+            except Exception:
+                await logger.awarning(
+                    "Failed to resolve A2A history provenance",
+                    context_id=context_id,
+                    exc_info=True,
+                )
+            if task_start_id:
+                task_ids_by_start_id.setdefault(task_start_id, task_id)
+
         result = await client.runs.join(
             thread_id=run["thread_id"],
             run_id=run["run_id"],
             headers=request.headers,
         )
-
-        context_id = str(run["thread_id"])
-        # If continuing an existing task, preserve the original task_id
-        # Otherwise create a new composite task_id
-        task_id = existing_task_id or _make_task_id(context_id, run["run_id"])
+        data_only_input = command is None and "messages" not in input_content
+        turn = None
+        if data_only_input or (
+            history_scope == "task"
+            and history_length != 0
+            and "messages" not in input_content
+        ):
+            run_messages = await _load_run_messages(
+                context_id, str(run["run_id"]), request.headers
+            )
+            result = {**result, "messages": run_messages.stamped(task_id)}
+            if data_only_input:
+                turn = run_messages.added
 
         return await _create_task_response(
             task_id=task_id,
@@ -1740,6 +2352,10 @@ async def handle_message_send(
             result=result,
             assistant_id=assistant_id,
             history_length=history_length,
+            history_scope=history_scope,
+            a2ui=a2ui,
+            task_ids_by_start_id=task_ids_by_start_id,
+            turn=turn,
         )
 
     except InvalidAgentResponseError as e:
@@ -1759,32 +2375,42 @@ async def handle_message_send(
         }
 
 
+async def _latest_messages(
+    context_id: str, metadata: dict[str, str], headers: Headers
+) -> list[Any] | None:
+    history = await get_client().threads.get_history(
+        context_id, limit=1, metadata=metadata, headers=headers
+    )
+    return (history[0]["values"].get("messages") or []) if history else None
+
+
+async def _load_run_messages(
+    context_id: str, run_id: str, headers: Headers
+) -> RunMessages:
+    messages, before = await asyncio.gather(
+        _latest_messages(context_id, {"run_id": run_id}, headers),
+        _latest_messages(context_id, {"run_id": run_id, "source": "input"}, headers),
+    )
+    if messages is None:
+        return RunMessages([], None)
+    if before is None:
+        return RunMessages(messages, None)
+    return RunMessages.between(before, messages)
+
+
 async def _get_historical_messages_for_task(
     context_id: str,
     task_run_id: str,
     request_headers: Headers,
+    *,
+    task_id: str,
 ) -> list[Any]:
-    """Get historical messages for a specific task by matching run_id."""
-    history = await get_client().threads.get_history(
-        context_id,
-        limit=LANGGRAPH_HISTORY_QUERY_LIMIT,
-        metadata={"run_id": task_run_id},
-        headers=request_headers,
-    )
-
-    if history:
-        # Find the checkpoint with the highest step number (final state for this task)
-        target_checkpoint = max(
-            history, key=lambda c: c.get("metadata", {}).get("step", 0)
-        )
-        values = target_checkpoint["values"]
-        return values.get("messages", [])
-    else:
-        return []
+    run_messages = await _load_run_messages(context_id, task_run_id, request_headers)
+    return run_messages.stamped(task_id)
 
 
 async def handle_tasks_get(
-    request: ApiRequest, params: dict[str, Any]
+    request: ApiRequest, params: dict[str, Any], assistant_id: str
 ) -> dict[str, Any]:
     """Handle tasks/get requests to retrieve task status.
 
@@ -1806,6 +2432,9 @@ async def handle_tasks_get(
         task_id_raw = params.get("id")
         context_id_param = params.get("contextId")
         history_length = params.get("historyLength")
+        history_scope, history_scope_error = _resolve_history_scope(
+            params, request.headers
+        )
 
         if not task_id_raw:
             return {
@@ -1814,24 +2443,36 @@ async def handle_tasks_get(
                     "message": "Missing required parameter: id (task_id)",
                 }
             }
+        if not isinstance(task_id_raw, str) or (
+            context_id_param is not None and not isinstance(context_id_param, str)
+        ):
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": "Task id and contextId must be strings",
+                }
+            }
 
-        # Parse composite task_id to extract context_id and run_id
-        parsed_context_id, run_id = _parse_task_id(task_id_raw)
-
-        # Use contextId from params if provided, otherwise from task_id
-        context_id = context_id_param or parsed_context_id
-
-        if not context_id:
-            # If task_id isn't a composite ID and no contextId provided, task doesn't exist
+        task = await _resolve_task(
+            client,
+            task_id=task_id_raw,
+            context_id=context_id_param,
+            assistant_id=assistant_id,
+            headers=request.headers,
+        )
+        if task is None:
+            location = f" in context '{context_id_param}'" if context_id_param else ""
             return {
                 "error": {
                     "code": ERROR_CODE_TASK_NOT_FOUND,
-                    "message": f"Task not found: {task_id_raw}",
+                    "message": f"Task not found: {task_id_raw}{location}",
                 }
             }
 
         # Keep original task_id for A2A response (preserve what was sent/received)
-        task_id = task_id_raw
+        task_id = task.task_id
+        context_id = task.context_id
+        run_info = task.run
 
         if history_error := _validate_history_length(history_length):
             return {
@@ -1840,63 +2481,35 @@ async def handle_tasks_get(
                     "message": history_error,
                 }
             }
-
-        try:
-            # TODO: fix the N+1 query issue
-            run_info, thread_info = await asyncio.gather(
-                client.runs.get(
-                    thread_id=context_id,
-                    run_id=run_id,
-                    headers=request.headers,
-                ),
-                client.threads.get(
-                    thread_id=context_id,
-                    headers=request.headers,
-                ),
-            )
-        except Exception as e:
-            error_response = _map_runs_get_error_to_rpc(e, run_id, context_id)
-            if error_response.get("error", {}).get("code") == ERROR_CODE_INTERNAL_ERROR:
-                # For unmapped errors, re-raise to be caught by outer exception handler
-                raise
-            return error_response
+        if history_scope_error:
+            return {
+                "error": {
+                    "code": ERROR_CODE_INVALID_PARAMS,
+                    "message": history_scope_error,
+                }
+            }
 
         lg_status = run_info.get("status", "unknown")
-
-        if lg_status == "pending":
-            a2a_state = "TASK_STATE_SUBMITTED"
-        elif lg_status == "running":
-            a2a_state = "TASK_STATE_WORKING"
-        elif lg_status == "success":
-            # Hack hack: if the thread **at present** is interrupted, assume
-            # the run also is interrupted
-            if thread_info.get("status") == "interrupted":
-                a2a_state = "TASK_STATE_INPUT_REQUIRED"
-            else:
-                # Inspect whether there are next tasks
-                a2a_state = "TASK_STATE_COMPLETED"
-        elif (
-            lg_status == "interrupted"
-        ):  # Note that this is if you interrupt FROM the outside (i.e., with double texting)
-            a2a_state = "TASK_STATE_INPUT_REQUIRED"
-        elif lg_status in ["error", "timeout"]:
-            a2a_state = "TASK_STATE_FAILED"
-        else:
-            a2a_state = "TASK_STATE_SUBMITTED"
+        a2a_state = task.state
 
         thread_history = []
         if history_length != 0:
             try:
                 task_run_id = run_info.get("run_id")
                 messages = await _get_historical_messages_for_task(
-                    context_id, task_run_id, request.headers
+                    context_id, task_run_id, request.headers, task_id=task_id
                 )
                 thread_history = _convert_messages_to_a2a_format(
                     messages,
                     task_id,
                     context_id,
                     history_length=history_length,
+                    history_scope=history_scope,
+                    a2ui=_a2ui_context_for_run(run_info),
+                    task_ids_by_start_id=task.task_ids_by_start_id,
                 )
+            except A2UIValidationError:
+                raise
             except InvalidAgentResponseError as e:
                 return {
                     "error": {
@@ -1916,6 +2529,7 @@ async def handle_tasks_get(
             "contextId": context_id,
             "status": {
                 "state": a2a_state,
+                "timestamp": task.status_timestamp,
             },
         }
         if history_length != 0:
@@ -1956,7 +2570,7 @@ async def handle_tasks_get(
 
 
 async def handle_tasks_cancel(
-    request: ApiRequest, params: dict[str, Any]
+    request: ApiRequest, params: dict[str, Any], assistant_id: str
 ) -> dict[str, Any]:
     """Handle tasks/cancel requests to cancel running tasks.
 
@@ -1985,13 +2599,34 @@ async def handle_tasks_cancel(
                 "message": "Missing required parameter: id (task_id)",
             }
         }
+    if not isinstance(task_id_raw, str) or (
+        context_id_param is not None and not isinstance(context_id_param, str)
+    ):
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": "Task id and contextId must be strings",
+            }
+        }
 
-    # Parse composite task_id to extract context_id and run_id
-    parsed_context_id, run_id = _parse_task_id(task_id_raw)
-    context_id = context_id_param or parsed_context_id
+    try:
+        task = await _resolve_task(
+            client,
+            task_id=task_id_raw,
+            context_id=context_id_param,
+            assistant_id=assistant_id,
+            headers=request.headers,
+        )
+    except Exception:
+        logger.exception("Failed to resolve A2A task for cancellation")
+        return {
+            "error": {
+                "code": ERROR_CODE_INTERNAL_ERROR,
+                "message": "Failed to check task status",
+            }
+        }
 
-    if not context_id:
-        # If task_id isn't a composite ID and no contextId provided, task doesn't exist
+    if task is None:
         return {
             "error": {
                 "code": ERROR_CODE_TASK_NOT_FOUND,
@@ -1999,73 +2634,76 @@ async def handle_tasks_cancel(
             }
         }
 
-    # Check if the task exists first
-    try:
-        run_info = await client.runs.get(
-            thread_id=context_id,
-            run_id=run_id,
-            headers=request.headers,
-        )
-    except Exception as e:
-        # Check if it's a 404 error
-        if (
-            hasattr(e, "response")
-            and hasattr(e.response, "status_code")
-            and e.response.status_code == 404
-        ):
-            return {
-                "error": {
-                    "code": ERROR_CODE_TASK_NOT_FOUND,
-                    "message": f"Task not found: {task_id_raw}",
-                }
-            }
-        # For other errors, return internal error
+    if task.state in _TERMINAL_TASK_STATES:
         return {
             "error": {
-                "code": ERROR_CODE_INTERNAL_ERROR,
-                "message": f"Failed to check task status: {e!s}",
+                "code": ERROR_CODE_TASK_NOT_CANCELABLE,
+                "message": "Task is not cancelable in its current state",
             }
         }
 
-    # Check if the task is in a cancelable state
-    lg_status = run_info.get("status", "unknown")
-
-    # If task is already in a terminal state, return it as "canceled" per A2A spec
-    # The spec expects idempotent behavior - tasks/cancel always returns canceled state
-    if lg_status not in ("pending", "running"):
-        task_response = {
-            "kind": "task",
-            "id": task_id_raw,
-            "contextId": context_id,
-            "status": {
-                "state": "TASK_STATE_CANCELED",
-                "message": {
-                    "kind": "message",
-                    "role": "ROLE_AGENT",
-                    "parts": [
-                        {
-                            "kind": "text",
-                            "text": f"Task cancel acknowledged (was: {lg_status})",
-                        }
-                    ],
-                    "messageId": str(uuid.uuid4()),
-                    "taskId": task_id_raw,
-                },
-            },
-        }
-        return {"result": task_response}
-
-    # Cancel the run
+    marker_run_id: str | None = None
     try:
-        await client.runs.cancel(
-            thread_id=context_id,
-            run_id=run_id,
-            wait=True,  # Wait for cancellation to complete
-            action="interrupt",
-            headers=request.headers,
-        )
+        run_id = str(task.run["run_id"])
+        if task.state == "TASK_STATE_INPUT_REQUIRED":
+            canonical_task_id = _task_id_for_run(task.context_id, task.run)
+            marker_a2a = {**_run_a2a_metadata(task.run), "task_id": canonical_task_id}
+            marker = await client.runs.create(
+                thread_id=task.context_id,
+                assistant_id=assistant_id,
+                metadata={"a2a": marker_a2a},
+                # Keep the marker pending until it is persisted as canceled below.
+                after_seconds=3600,
+                headers=request.headers,
+            )
+            marker_run_id = str(marker["run_id"])
+            await client.runs.cancel(
+                thread_id=task.context_id,
+                run_id=marker_run_id,
+                wait=True,
+                action="interrupt",
+                headers=request.headers,
+            )
+            await client.threads.update_state(
+                task.context_id,
+                None,
+                as_node="__end__",
+                headers=request.headers,
+            )
+        elif task.run.get("status") not in {"pending", "running"}:
+            return {
+                "error": {
+                    "code": ERROR_CODE_TASK_NOT_CANCELABLE,
+                    "message": "Task has no active run to cancel",
+                }
+            }
+        else:
+            await client.runs.cancel(
+                thread_id=task.context_id,
+                run_id=run_id,
+                wait=True,
+                action="interrupt",
+                headers=request.headers,
+            )
     except Exception as e:
-        await logger.aerror(f"Failed to cancel run {run_id}: {e!s}", exc_info=True)
+        if marker_run_id is not None:
+            try:
+                await client.runs.delete(
+                    task.context_id,
+                    marker_run_id,
+                    headers=request.headers,
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to roll back A2A cancellation marker",
+                    task_id=task_id_raw,
+                    marker_run_id=marker_run_id,
+                )
+        await logger.aerror(
+            "Failed to cancel A2A task",
+            task_id=task_id_raw,
+            exc_info=True,
+        )
         return {
             "error": {
                 "code": ERROR_CODE_INTERNAL_ERROR,
@@ -2077,9 +2715,10 @@ async def handle_tasks_cancel(
     task_response = {
         "kind": "task",
         "id": task_id_raw,
-        "contextId": context_id,
+        "contextId": task.context_id,
         "status": {
             "state": "TASK_STATE_CANCELED",
+            "timestamp": datetime.now(UTC).isoformat(),
             "message": {
                 "kind": "message",
                 "role": "ROLE_AGENT",
@@ -2093,21 +2732,8 @@ async def handle_tasks_cancel(
     return {"result": task_response}
 
 
-def _lg_status_to_a2a_state(lg_status: str) -> str:
-    """Map a LangGraph run status to an A2A task state."""
-    mapping = {
-        "pending": "TASK_STATE_SUBMITTED",
-        "running": "TASK_STATE_WORKING",
-        "success": "TASK_STATE_COMPLETED",
-        "interrupted": "TASK_STATE_INPUT_REQUIRED",
-        "error": "TASK_STATE_FAILED",
-        "timeout": "TASK_STATE_FAILED",
-    }
-    return mapping.get(lg_status, "TASK_STATE_SUBMITTED")
-
-
 async def handle_list_tasks(
-    request: ApiRequest, params: dict[str, Any]
+    request: ApiRequest, params: dict[str, Any], assistant_id: str
 ) -> dict[str, Any]:
     """Handle ListTasks requests to list tasks with filtering and pagination.
 
@@ -2148,6 +2774,14 @@ async def handle_list_tasks(
             }
         }
     history_length: int | None = raw_history_length
+    history_scope, history_scope_error = _resolve_history_scope(params, request.headers)
+    if history_scope_error:
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": history_scope_error,
+            }
+        }
 
     valid_states = {
         "TASK_STATE_SUBMITTED",
@@ -2209,42 +2843,84 @@ async def handle_list_tasks(
 
     include_artifacts = params.get("includeArtifacts", False)
     context_id = params.get("contextId")
+    if context_id is not None and not isinstance(context_id, str):
+        return {
+            "error": {
+                "code": ERROR_CODE_INVALID_PARAMS,
+                "message": "contextId must be a string.",
+            }
+        }
 
     client = _client()
 
     try:
         # Determine which threads to search
-        if context_id:
-            thread_ids = [context_id]
+        if context_id is not None:
+            try:
+                thread = await client.threads.get(context_id, headers=request.headers)
+            except Exception as exc:
+                if _http_status_code(exc) not in {400, 404, 422}:
+                    raise
+                threads = []
+            else:
+                threads = [thread]
         else:
             threads = await client.threads.search(
-                limit=1000,
+                limit=_A2A_CONTEXT_SEARCH_LIMIT,
                 headers=request.headers,
             )
-            thread_ids = [t["thread_id"] for t in threads]
 
-        # Collect all runs from matching threads
-        all_tasks: list[dict[str, Any]] = []
-        for tid in thread_ids:
-            try:
-                runs = await client.runs.list(
-                    tid,
-                    limit=100,
-                    headers=request.headers,
+        # ponytail: runs are thread-scoped; bounded fan-out is the smallest safe
+        # option until the core API supports bulk run searches across threads.
+        semaphore = asyncio.Semaphore(_A2A_LIST_CONCURRENCY)
+
+        async def list_thread_runs(thread: dict[str, Any]) -> list[dict[str, Any]]:
+            tid = str(thread["thread_id"])
+            async with semaphore:
+                try:
+                    return await _list_context_runs(
+                        client, context_id=tid, headers=request.headers
+                    )
+                except Exception as exc:
+                    if _http_status_code(exc) in {401, 403}:
+                        raise
+                    await logger.awarning(
+                        "Failed to list runs for A2A context",
+                        context_id=tid,
+                        exc_info=True,
+                    )
+                    return []
+
+        runs_by_thread = await asyncio.gather(
+            *(list_thread_runs(thread) for thread in threads)
+        )
+
+        # Collect all tasks from matching threads.
+        tasks_by_id: dict[str, dict[str, Any]] = {}
+        seen_task_ids: set[str] = set()
+        a2ui_by_task_id: dict[str, A2UIContext] = {}
+        run_id_by_task_id: dict[str, str] = {}
+        task_ids_by_start_id_by_context: dict[str, dict[str, str]] = {}
+        for thread, runs in zip(threads, runs_by_thread, strict=True):
+            tid = str(thread["thread_id"])
+            context_latest_run_id = _latest_run_id(runs)
+            task_ids_by_start_id_by_context[tid] = _task_ids_by_start_id(
+                runs, tid, assistant_id
+            )
+            for run in _runs_for_assistant(runs, assistant_id):
+                task_id = _task_id_for_run(tid, run)
+                if task_id in seen_task_ids:
+                    continue
+                seen_task_ids.add(task_id)
+                a2a_state = _task_state_for_run(
+                    run,
+                    thread if str(run.get("run_id")) == context_latest_run_id else None,
                 )
-            except Exception:
-                continue
-
-            for run in runs:
-                task_id = _make_task_id(tid, run["run_id"])
-                a2a_state = _lg_status_to_a2a_state(run.get("status", "unknown"))
 
                 if status_filter and a2a_state != status_filter:
                     continue
 
-                timestamp = run.get("updated_at") or run.get("created_at") or ""
-                if hasattr(timestamp, "isoformat"):
-                    timestamp = timestamp.isoformat()
+                timestamp = _run_timestamp(run)
 
                 if status_timestamp_after and timestamp:
                     try:
@@ -2266,9 +2942,12 @@ async def handle_list_tasks(
                 if not include_artifacts:
                     task["artifacts"] = []
 
-                all_tasks.append(task)
+                tasks_by_id[task_id] = task
+                a2ui_by_task_id[task_id] = _a2ui_context_for_run(run)
+                run_id_by_task_id[task_id] = str(run["run_id"])
 
         # Sort by timestamp descending (newest first)
+        all_tasks = list(tasks_by_id.values())
         all_tasks.sort(
             key=lambda t: t["status"].get("timestamp", ""),
             reverse=True,
@@ -2281,15 +2960,22 @@ async def handle_list_tasks(
         if history_length != 0:
 
             async def populate_history(task: dict[str, Any]) -> None:
-                _, run_id = _parse_task_id(task["id"])
                 messages = await _get_historical_messages_for_task(
-                    task["contextId"], run_id, request.headers
+                    task["contextId"],
+                    run_id_by_task_id[task["id"]],
+                    request.headers,
+                    task_id=task["id"],
                 )
                 task["history"] = _convert_messages_to_a2a_format(
                     messages,
                     task["id"],
                     task["contextId"],
                     history_length=history_length,
+                    history_scope=history_scope,
+                    a2ui=a2ui_by_task_id[task["id"]],
+                    task_ids_by_start_id=task_ids_by_start_id_by_context.get(
+                        task["contextId"]
+                    ),
                 )
 
             await asyncio.gather(*(populate_history(task) for task in page_tasks))
@@ -2445,6 +3131,37 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         assistant.get("description") or f"{assistant_name} assistant"
     )
     input_modes, output_modes = _resolve_agent_card_modes(assistant)
+    extensions: list[dict[str, Any]] = [
+        {
+            "uri": HISTORY_SCOPE_EXTENSION_URI,
+            "description": "Choose task-only or full-context response history",
+            "required": False,
+            "params": {
+                "header": HISTORY_SCOPE_HEADER,
+                "values": ["context", "task"],
+                "default": "context",
+                "methods": ["SendMessage", "GetTask", "ListTasks"],
+            },
+        }
+    ]
+    if _a2ui_enabled(assistant):
+        if A2UI_MIME_TYPE not in input_modes:
+            input_modes.append(A2UI_MIME_TYPE)
+        if A2UI_MIME_TYPE not in output_modes:
+            output_modes.append(A2UI_MIME_TYPE)
+        extensions.append(
+            {
+                "uri": A2UI_EXTENSION_URI,
+                "description": "Ability to render A2UI v0.9",
+                "required": False,
+                "params": {
+                    "v0.9": {
+                        "supportedCatalogIds": [],
+                        "acceptsInlineCatalogs": False,
+                    }
+                },
+            }
+        )
 
     # For now, each assistant has one main skill - itself
     skills = [
@@ -2488,6 +3205,13 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
 
     agent_url = f"{base_url}{agent_path}"
 
+    capabilities: dict[str, Any] = {
+        "streaming": True,
+        "pushNotifications": False,  # Not implemented yet
+        "stateTransitionHistory": False,
+    }
+    capabilities["extensions"] = extensions
+
     return {
         "name": assistant_name,
         "description": assistant_description,
@@ -2495,15 +3219,11 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         "supportedInterfaces": [
             {
                 "url": agent_url,
-                "protocolBinding": "jsonrpc",
+                "protocolBinding": "JSONRPC",
                 "protocolVersion": "1.0",
             },
         ],
-        "capabilities": {
-            "streaming": True,
-            "pushNotifications": False,  # Not implemented yet
-            "stateTransitionHistory": False,
-        },
+        "capabilities": capabilities,
         "defaultInputModes": input_modes,
         "defaultOutputModes": output_modes,
         "skills": skills,
@@ -2678,12 +3398,112 @@ async def handle_message_stream(
                 )
                 return
 
+            context_id_from_message = message.get("contextId")
+            existing_task_id = message.get("taskId")
+            if context_id_from_message is not None and not isinstance(
+                context_id_from_message, str
+            ):
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "contextId must be a string",
+                        },
+                    },
+                )
+                return
+            if existing_task_id is not None and not isinstance(existing_task_id, str):
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": "taskId must be a string",
+                        },
+                    },
+                )
+                return
+
+            is_new_task = existing_task_id is None
+            if existing_task_id is None:
+                context_id = context_id_from_message or str(uuid.uuid4())
+                task_id = None
+                task_start_id = str(uuid7())
+                a2ui_mime_type = A2UI_MIME_TYPE
+            else:
+                task = await _resolve_task(
+                    client,
+                    task_id=existing_task_id,
+                    context_id=context_id_from_message,
+                    assistant_id=assistant_id,
+                    headers=request.headers,
+                )
+                if task is None:
+                    yield (
+                        b"message",
+                        {
+                            "jsonrpc": "2.0",
+                            "id": rpc_id,
+                            "error": {
+                                "code": ERROR_CODE_TASK_NOT_FOUND,
+                                "message": f"Task not found: {existing_task_id}",
+                            },
+                        },
+                    )
+                    return
+                if task.state in _TERMINAL_TASK_STATES:
+                    yield (
+                        b"message",
+                        {
+                            "jsonrpc": "2.0",
+                            "id": rpc_id,
+                            "error": {
+                                "code": ERROR_CODE_UNSUPPORTED_OPERATION,
+                                "message": "A terminal task cannot accept another message",
+                            },
+                        },
+                    )
+                    return
+                context_id = task.context_id
+                task_id = task.task_id
+                task_start_id = None
+                a2ui_mime_type = _a2ui_context_for_run(task.run).mime_type
+
             # Process A2A message parts into LangChain messages format
             try:
+                a2ui = _a2ui_message_context(
+                    params,
+                    assistant,
+                    request.headers,
+                    default_mime_type=a2ui_mime_type,
+                )
                 message_role = _normalize_input_role(message.get("role", "ROLE_USER"))
                 input_content = _process_a2a_message_parts(
-                    parts, message_role, message_id
+                    parts,
+                    message_role,
+                    message_id,
+                    a2ui=a2ui,
+                    task_id=task_id,
+                    task_start_id=task_start_id,
                 )
+            except A2UIValidationError as e:
+                yield (
+                    b"message",
+                    {
+                        "jsonrpc": "2.0",
+                        "id": rpc_id,
+                        "error": {
+                            "code": ERROR_CODE_INVALID_PARAMS,
+                            "message": str(e),
+                        },
+                    },
+                )
+                return
             except ValueError as e:
                 yield (
                     b"message",
@@ -2697,10 +3517,6 @@ async def handle_message_stream(
                     },
                 )
                 return
-
-            # Check if this is a continuation (taskId provided in message)
-            existing_task_id = message.get("taskId")
-            context_id_from_message = message.get("contextId")
 
             # Extract and validate command (LangGraph extension for resuming interrupts)
             command, command_error = _extract_and_validate_command(
@@ -2741,7 +3557,9 @@ async def handle_message_stream(
                 ) = await _maybe_promote_resume_to_command(
                     client=client,
                     parts=parts,
-                    context_id=context_id_from_message,
+                    context_id=(
+                        context_id if existing_task_id else context_id_from_message
+                    ),
                     task_id=existing_task_id,
                     input_content=input_content,
                     headers=request.headers,
@@ -2763,10 +3581,6 @@ async def handle_message_stream(
                     task_id=existing_task_id,
                 )
 
-            if context_id_from_message is None:
-                context_id_from_message = str(uuid.uuid4())
-            context_id = context_id_from_message
-
             stream = client.runs.stream(
                 thread_id=context_id,
                 assistant_id=assistant_id,
@@ -2775,6 +3589,12 @@ async def handle_message_stream(
                 input=input_content,
                 command=command,
                 context=run_context,
+                metadata=_a2a_run_metadata(
+                    assistant,
+                    a2ui,
+                    task_id=task_id,
+                    task_start_id=task_start_id,
+                ),
                 headers=request.headers,
             )
 
@@ -2783,9 +3603,15 @@ async def handle_message_stream(
             run_id = run_event.data.get("run_id")
             if not run_id:
                 raise ValueError("Stream did not include run_id")
+            run = await client.runs.get(
+                thread_id=context_id,
+                run_id=str(run_id),
+                headers=request.headers,
+            )
+            context_id = str(run["thread_id"])
+            if is_new_task:
+                task_id = _make_task_id(context_id, str(run_id))
 
-            # If continuing an existing task, preserve the original task_id
-            task_id = existing_task_id or _make_task_id(context_id, run_id)
             # Emit initial Task object to establish task context
             initial_task = {
                 "kind": "task",
@@ -2809,6 +3635,14 @@ async def handle_message_stream(
                 {"jsonrpc": "2.0", "id": rpc_id, "result": {"task": initial_task}},
             )
 
+            async def data_only_turn() -> list[Any] | None:
+                if command is not None or "messages" in input_content:
+                    return None
+                run_messages = await _load_run_messages(
+                    context_id, str(run_id), request.headers
+                )
+                return run_messages.added
+
             result = None
             err = None
             notified_is_working = False
@@ -2824,8 +3658,27 @@ async def handle_message_stream(
                             # the completed and interrupt paths).
                             final_parts: list[dict[str, Any]] | None = None
                             if isinstance(result, dict):
+                                turn = await data_only_turn()
                                 try:
-                                    final_parts = _extract_a2a_response(result)
+                                    final_parts = _extract_a2a_response(
+                                        result, a2ui=a2ui, turn=turn
+                                    )
+                                except A2UIValidationError:
+                                    await logger.aexception(
+                                        "Agent emitted an invalid A2UI payload"
+                                    )
+                                    yield (
+                                        b"message",
+                                        {
+                                            "jsonrpc": "2.0",
+                                            "id": rpc_id,
+                                            "error": {
+                                                "code": ERROR_CODE_INTERNAL_ERROR,
+                                                "message": "Internal server error",
+                                            },
+                                        },
+                                    )
+                                    return
                                 except InvalidAgentResponseError as e:
                                     yield (
                                         b"message",
@@ -3030,8 +3883,23 @@ async def handle_message_stream(
             # and we actually captured a result; a degenerate empty exit keeps
             # its plain terminal status-update.
             if fallback_state == "TASK_STATE_COMPLETED" and isinstance(result, dict):
+                turn = await data_only_turn()
                 try:
-                    fallback_parts = _extract_a2a_response(result)
+                    fallback_parts = _extract_a2a_response(result, a2ui=a2ui, turn=turn)
+                except A2UIValidationError:
+                    await logger.aexception("Agent emitted an invalid A2UI payload")
+                    yield (
+                        b"message",
+                        {
+                            "jsonrpc": "2.0",
+                            "id": rpc_id,
+                            "error": {
+                                "code": ERROR_CODE_INTERNAL_ERROR,
+                                "message": "Internal server error",
+                            },
+                        },
+                    )
+                    return
                 except InvalidAgentResponseError as e:
                     yield (
                         b"message",
@@ -3205,6 +4073,12 @@ a2a_routes = [
         "/a2a/{assistant_id}",
         handle_a2a_assistant_endpoint,
         methods=["GET", "POST", "DELETE"],
+    ),
+    ApiRoute(
+        "/a2a/{assistant_id}/",
+        handle_a2a_assistant_endpoint,
+        methods=["GET", "POST", "DELETE"],
+        include_in_schema=False,
     ),
     # Per-assistant agent card (multi-tenant pattern)
     ApiRoute(

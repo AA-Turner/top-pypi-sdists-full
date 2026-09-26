@@ -145,10 +145,10 @@ class ScriptsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptUpdateResponse:
-        """Upload a worker module to a Workers for Platforms namespace.
+        """Upload a Workers for Platforms script module to a dispatch namespace.
 
-        You can find more
-        about the multipart metadata on our docs:
+        You can
+        find more about the multipart metadata on our docs:
         https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.
 
         Args:
@@ -233,10 +233,10 @@ class ScriptsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """Delete a worker from a Workers for Platforms namespace.
+        """Delete a script from a Workers for Platforms dispatch namespace.
 
-        This call has no
-        response body on a successful delete.
+        This call has
+        no response body on a successful delete.
 
         Args:
           account_id: Identifier.
@@ -245,9 +245,10 @@ class ScriptsResource(SyncAPIResource):
 
           script_name: Name of the script, used in URLs and route configuration.
 
-          force: If set to true, delete will not be stopped by associated service binding,
-              durable object, or other binding. Any of these associated bindings/durable
-              objects will be deleted along with the script.
+          force: If true, delete the script even when other Workers still reference it. Service
+              bindings in those Workers may be left broken. Durable Object namespaces
+              implemented by the deleted script are deleted even if other Workers reference
+              them.
 
           extra_headers: Send extra headers
 
@@ -295,7 +296,8 @@ class ScriptsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
-        Fetch information about a script uploaded to a Workers for Platforms namespace.
+        Fetch information about a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.
@@ -396,10 +398,10 @@ class AsyncScriptsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ScriptUpdateResponse:
-        """Upload a worker module to a Workers for Platforms namespace.
+        """Upload a Workers for Platforms script module to a dispatch namespace.
 
-        You can find more
-        about the multipart metadata on our docs:
+        You can
+        find more about the multipart metadata on our docs:
         https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/.
 
         Args:
@@ -486,10 +488,10 @@ class AsyncScriptsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> object:
-        """Delete a worker from a Workers for Platforms namespace.
+        """Delete a script from a Workers for Platforms dispatch namespace.
 
-        This call has no
-        response body on a successful delete.
+        This call has
+        no response body on a successful delete.
 
         Args:
           account_id: Identifier.
@@ -498,9 +500,10 @@ class AsyncScriptsResource(AsyncAPIResource):
 
           script_name: Name of the script, used in URLs and route configuration.
 
-          force: If set to true, delete will not be stopped by associated service binding,
-              durable object, or other binding. Any of these associated bindings/durable
-              objects will be deleted along with the script.
+          force: If true, delete the script even when other Workers still reference it. Service
+              bindings in those Workers may be left broken. Durable Object namespaces
+              implemented by the deleted script are deleted even if other Workers reference
+              them.
 
           extra_headers: Send extra headers
 
@@ -548,7 +551,8 @@ class AsyncScriptsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Script:
         """
-        Fetch information about a script uploaded to a Workers for Platforms namespace.
+        Fetch information about a script uploaded to a Workers for Platforms dispatch
+        namespace.
 
         Args:
           account_id: Identifier.

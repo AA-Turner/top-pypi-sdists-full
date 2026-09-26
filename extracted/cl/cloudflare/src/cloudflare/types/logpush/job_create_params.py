@@ -81,6 +81,13 @@ class JobCreateParams(TypedDict, total=False):
     [Filters](https://developers.cloudflare.com/logs/reference/filters/).
     """
 
+    filter_attack_traffic: bool
+    """When true, excludes DDoS attack traffic from logs.
+
+    This option is supported for the `http_requests`, `firewall_events`, and
+    `network_analytics_logs` datasets.
+    """
+
     frequency: Optional[Literal["high", "low"]]
     """This field is deprecated.
 

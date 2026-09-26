@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: launchdarkly-server-sdk
-Version: 9.17.0
+Version: 9.18.0
 Summary: LaunchDarkly SDK for Python
 Project-URL: Homepage, https://docs.launchdarkly.com/sdk/server-side/python
 Project-URL: Repository, https://github.com/launchdarkly/python-server-sdk
@@ -72,6 +72,8 @@ Refer to the [SDK reference guide](https://docs.launchdarkly.com/sdk/server-side
 
 > [!NOTE]
 > Using Redis with the async client (big segments or a persistent data store) requires `redis>=4.2.0`, the version that introduced `redis.asyncio`. The `redis` extra itself still permits older versions for synchronous use, so install `redis>=4.2.0` when using Redis with the async client.
+>
+> Using DynamoDB with the async client requires the separate `async-dynamodb` extra (`aioboto3`), distinct from the synchronous `dynamodb` extra: `pip install launchdarkly-server-sdk[async,async-dynamodb]`.
 
 An async implementation, `AsyncLDClient`, is available for use with `asyncio`-based applications. It uses `aiohttp` for HTTP and requires installing the optional `async` extra:
 
@@ -81,11 +83,12 @@ pip install launchdarkly-server-sdk[async]
 
 ```python
 import asyncio
-from ldclient import Config, Context
+from ldclient import Context
 from ldclient.async_client import AsyncLDClient
+from ldclient.async_config import AsyncConfig
 
 async def main():
-    async with AsyncLDClient(Config("sdk-key")) as client:
+    async with AsyncLDClient(AsyncConfig("sdk-key")) as client:
         value = await client.variation("my-flag", Context.create("user-key"), False)
         print(value)
 

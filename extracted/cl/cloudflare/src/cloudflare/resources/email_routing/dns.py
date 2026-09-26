@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Type, Optional, cast
+from typing import Type, Optional, cast
 
 import httpx
 
@@ -17,11 +17,9 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ..._wrappers import ResultWrapper
-from ...pagination import SyncSinglePage, AsyncSinglePage
-from ..._base_client import AsyncPaginator, make_request_options
+from ..._base_client import make_request_options
 from ...types.email_routing import dns_get_params, dns_edit_params, dns_create_params
 from ...types.email_routing.settings import Settings
-from ...types.email_routing.dns_record import DNSRecord
 from ...types.email_routing.dns_get_response import DNSGetResponse
 
 __all__ = ["DNSResource", "AsyncDNSResource"]
@@ -59,7 +57,7 @@ class DNSResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Settings]:
-        """Enable you Email Routing zone.
+        """Enable your Email Routing zone.
 
         Add and lock the necessary MX and SPF records.
 
@@ -101,7 +99,7 @@ class DNSResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> SyncSinglePage[DNSRecord]:
+    ) -> Optional[Settings]:
         """Disable your Email Routing zone.
 
         Also removes additional MX records previously
@@ -120,14 +118,16 @@ class DNSResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get_api_list(
+        return self._delete(
             path_template("/zones/{zone_id}/email/routing/dns", zone_id=zone_id),
-            page=SyncSinglePage[DNSRecord],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[Settings]]._unwrapper,
             ),
-            model=DNSRecord,
-            method="delete",
+            cast_to=cast(Type[Optional[Settings]], ResultWrapper[Settings]),
         )
 
     def edit(
@@ -184,14 +184,15 @@ class DNSResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> DNSGetResponse:
+    ) -> Optional[DNSGetResponse]:
         """
         Show the DNS records needed to configure your Email Routing zone.
 
         Args:
           zone_id: Identifier.
 
-          subdomain: Domain of your zone.
+          subdomain: Deprecated. When supplied, the response shape differs from the documented
+              default and is not modeled in generated SDKs. Do not rely on this parameter.
 
           extra_headers: Send extra headers
 
@@ -203,19 +204,17 @@ class DNSResource(SyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return cast(
-            DNSGetResponse,
-            self._get(
-                path_template("/zones/{zone_id}/email/routing/dns", zone_id=zone_id),
-                options=make_request_options(
-                    extra_headers=extra_headers,
-                    extra_query=extra_query,
-                    extra_body=extra_body,
-                    timeout=timeout,
-                    query=maybe_transform({"subdomain": subdomain}, dns_get_params.DNSGetParams),
-                ),
-                cast_to=cast(Any, DNSGetResponse),  # Union types cannot be passed in as arguments in the type system
+        return self._get(
+            path_template("/zones/{zone_id}/email/routing/dns", zone_id=zone_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform({"subdomain": subdomain}, dns_get_params.DNSGetParams),
+                post_parser=ResultWrapper[Optional[DNSGetResponse]]._unwrapper,
             ),
+            cast_to=cast(Type[Optional[DNSGetResponse]], ResultWrapper[DNSGetResponse]),
         )
 
 
@@ -251,7 +250,7 @@ class AsyncDNSResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[Settings]:
-        """Enable you Email Routing zone.
+        """Enable your Email Routing zone.
 
         Add and lock the necessary MX and SPF records.
 
@@ -283,7 +282,7 @@ class AsyncDNSResource(AsyncAPIResource):
             cast_to=cast(Type[Optional[Settings]], ResultWrapper[Settings]),
         )
 
-    def delete(
+    async def delete(
         self,
         *,
         zone_id: str,
@@ -293,7 +292,7 @@ class AsyncDNSResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> AsyncPaginator[DNSRecord, AsyncSinglePage[DNSRecord]]:
+    ) -> Optional[Settings]:
         """Disable your Email Routing zone.
 
         Also removes additional MX records previously
@@ -312,14 +311,16 @@ class AsyncDNSResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return self._get_api_list(
+        return await self._delete(
             path_template("/zones/{zone_id}/email/routing/dns", zone_id=zone_id),
-            page=AsyncSinglePage[DNSRecord],
             options=make_request_options(
-                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                post_parser=ResultWrapper[Optional[Settings]]._unwrapper,
             ),
-            model=DNSRecord,
-            method="delete",
+            cast_to=cast(Type[Optional[Settings]], ResultWrapper[Settings]),
         )
 
     async def edit(
@@ -376,14 +377,15 @@ class AsyncDNSResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> DNSGetResponse:
+    ) -> Optional[DNSGetResponse]:
         """
         Show the DNS records needed to configure your Email Routing zone.
 
         Args:
           zone_id: Identifier.
 
-          subdomain: Domain of your zone.
+          subdomain: Deprecated. When supplied, the response shape differs from the documented
+              default and is not modeled in generated SDKs. Do not rely on this parameter.
 
           extra_headers: Send extra headers
 
@@ -395,19 +397,17 @@ class AsyncDNSResource(AsyncAPIResource):
         """
         if not zone_id:
             raise ValueError(f"Expected a non-empty value for `zone_id` but received {zone_id!r}")
-        return cast(
-            DNSGetResponse,
-            await self._get(
-                path_template("/zones/{zone_id}/email/routing/dns", zone_id=zone_id),
-                options=make_request_options(
-                    extra_headers=extra_headers,
-                    extra_query=extra_query,
-                    extra_body=extra_body,
-                    timeout=timeout,
-                    query=await async_maybe_transform({"subdomain": subdomain}, dns_get_params.DNSGetParams),
-                ),
-                cast_to=cast(Any, DNSGetResponse),  # Union types cannot be passed in as arguments in the type system
+        return await self._get(
+            path_template("/zones/{zone_id}/email/routing/dns", zone_id=zone_id),
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=await async_maybe_transform({"subdomain": subdomain}, dns_get_params.DNSGetParams),
+                post_parser=ResultWrapper[Optional[DNSGetResponse]]._unwrapper,
             ),
+            cast_to=cast(Type[Optional[DNSGetResponse]], ResultWrapper[DNSGetResponse]),
         )
 
 

@@ -1,4 +1,5 @@
-from typing import Literal, TypeAlias, TypeVar
+import operator
+from typing import Any, Literal, TypeAlias, TypeVar
 
 import numpy as np
 from numba.core.types import Type
@@ -31,10 +32,33 @@ NumericArrayT = TypeVar(
 T = TypeVar("T", bound=NumericScalar)
 
 
+def normalize_axis(axis: Any) -> tuple[int, ...]:
+    """
+    Normalize any axis spelling numpy accepts into a tuple of ints.
+
+    numpy takes `SupportsIndex | Sequence[SupportsIndex]`, so a Python `int`, a numpy
+    integer and a 0-d array are all single axes, while a list, tuple, range or 1-d
+    array is a set of them — dask passes a list.
+    """
+    try:
+        return (operator.index(axis),)
+    except TypeError:
+        return tuple(operator.index(ax) for ax in axis)
+
+
 def move_axes(arr: NDArray[T], axes: tuple[int, ...]):
     """
     Move & reshape a tuple of axes to an array's final axis, handling zero-length axes.
     """
+    if not axes:
+        # `axis=()` reduces nothing, and numpy expresses that as a reduction over a
+        # fresh length-1 axis: `np.nansum(a, axis=())` returns `a` with NaNs filled,
+        # `np.nanvar(a, axis=())` returns zeros. Appending that axis reproduces it.
+        # The general path below can't: `shape[:-len(axes)]` is `shape[:0]` when
+        # `axes` is empty, so it would flatten the whole array into the reduced axis
+        # and return a full reduction instead.
+        return arr.reshape(arr.shape + (1,))
+
     # np.moveaxis handles negative indices and raises AxisError for out-of-bounds
 
     # Move specified axes to the end

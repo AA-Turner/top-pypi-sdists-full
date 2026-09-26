@@ -12,7 +12,6 @@ import argparse
 from pathlib import Path
 from urllib.parse import quote
 
-from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
@@ -26,9 +25,10 @@ from src.cli.utils.formatters import (
     format_success,
     format_warning,
 )
+from src.cli.utils.presentation import make_console
 from src.domain.user_identity import IdentityPlatform
 
-console = Console()
+console = make_console()
 
 
 class OrganizationCommands:
@@ -741,7 +741,7 @@ class OrganizationCommands:
 
         That gap has teeth. MEMBER is the add default, and releases, board sync
         and ticket writes all require DEVELOPER or higher — so the common outcome
-        is a colleague who can read everything, and whose first `innoday release`
+        is a colleague who can read everything, and whose first `innoday blastoff`
         tags every repo and then fails to record the release.
         """
         async with InnoDayAPIClient(config) as client:

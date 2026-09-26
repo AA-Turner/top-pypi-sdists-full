@@ -6,67 +6,54 @@ and importing discovered sources into notebooks.
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 import logging
-import time
-from collections.abc import Sequence
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
-from .. import _research as _research_base
-from .. import research as _research_pub
-from .._idempotency import mark_unconfirmed
+from .._idempotency import (
+    bound_operation_journal_entry,
+    call_unconfirmed_on_transport_loss,
+    mark_unconfirmed,
+)
 from .._notebook_metadata import NotebookSourceLister
 from .._research import BaseResearchAPI, validate_discover
+from .._research_import import (
+    _WEB_RESEARCH_IMPORT_POLICY,
+    _import_research_read_timeout,
+    _ResearchImportBatch,
+)
 from .._runtime.config import (
     AUTO_READ_TIMEOUT,
     DEFAULT_TIMEOUT,
-    MIN_IMPORT_RESEARCH_ATTEMPT_TIMEOUT,
 )
 from .._types.research import (
     RESEARCH_SOURCE_TYPE_DRIVE,
     RESEARCH_SOURCE_TYPE_WEB,
     ResearchSource,
-    ResearchSourceInput,
     ResearchStart,
     ResearchStatus,
     ResearchTask,
 )
 from ..exceptions import (
-    AmbiguousResearchTaskError,
     AuthError,
     DecodingError,
     NetworkError,
     RateLimitError,
     ResearchStartUnavailableError,
-    ResearchTimeoutError,
     RPCError,
-    RPCTimeoutError,
     ServerError,
     ValidationError,
 )
+from ..outcomes import CommitState
 from ..rpc import RPCMethod
 from ..types import CitedSourceSelection
 from .contracts import RpcCaller
 from .notebooks import create_default_source_lister
-from .research_import import (
-    _import_research_read_timeout,
-    _imported_result,
-    _is_import_research_failed_precondition,
-    _is_importable_report_source,
-    _merge_imported_sources,
-    _no_import_verification_url_entry_count,
-    _normalize_import_verification_url,
-    _partition_requested_sources,
-    _reconcile_import_probe,
-    _requested_import_verification_urls,
-    _validate_research_task_provenance,
-)
 from .rows.research import ImportedSourceRow, ResearchStartRow, unwrap_import_rows
 from .rows.research_task import parse_discover_task, parse_research_task_models
 
 if TYPE_CHECKING:
-    from ..types import Source
+    from .._runtime.call_supervisor import CallSupervisor, OperationLease
 
 __all__ = [
     "CitedSourceSelection",
@@ -80,24 +67,6 @@ __all__ = [
 
 # Preserve the historical logger key across the whole-module move.
 logger = logging.getLogger("notebooklm._research")
-
-# Sentinel for "``initial_interval`` not passed" in ``wait_for_completion``. Kept
-# as ``object()`` (not literal ``5.0``) so the public-API compat default-repr
-# check sees no changed-default break; unset resolves to the default below.
-_INITIAL_INTERVAL_UNSET: Any = object()
-
-# Default poll cadence (seconds) when ``initial_interval`` is unset.
-_DEFAULT_RESEARCH_POLL_INTERVAL = 5.0
-
-
-def _coerce_research_source(source: ResearchSourceInput) -> ResearchSource:
-    if isinstance(source, ResearchSource):
-        return source
-    return ResearchSource.from_public_dict(source)
-
-
-def _coerce_research_sources(sources: Sequence[ResearchSourceInput]) -> list[ResearchSource]:
-    return [_coerce_research_source(source) for source in sources]
 
 
 def _is_deep_start_null_result_error(exc: RPCError) -> bool:
@@ -137,10 +106,19 @@ class WebResearchAPI(BaseResearchAPI):
                 )
     """
 
+    _import_policy = _WEB_RESEARCH_IMPORT_POLICY
+
+    def _operation_scope(
+        self, label: str
+    ) -> contextlib.AbstractAsyncContextManager[OperationLease]:
+        """Keep neutral research workflows under the Web supervisor."""
+        return self._supervisor.operation_scope(label)
+
     def __init__(
         self,
         rpc: RpcCaller,
         *,
+        supervisor: CallSupervisor,
         source_lister: NotebookSourceLister | None = None,
         base_timeout: float | None = DEFAULT_TIMEOUT,
         import_research_timeout: float | None = AUTO_READ_TIMEOUT,
@@ -149,11 +127,14 @@ class WebResearchAPI(BaseResearchAPI):
 
         Args:
             rpc: RPC dispatch surface (typically the shared client session).
+            supervisor: Owning client's call supervisor. Standalone construction
+                must supply a real supervisor so multi-call workflows participate
+                in lifecycle admission and shutdown fencing.
             base_timeout: The owning client's configured ``timeout=``. The
                 batch-scaled IMPORT_RESEARCH window is floored at it so a
                 caller's larger explicit budget is never silently shortened
-                (#2205). Standalone ``ResearchAPI(rpc)`` keeps the historical
-                behavior via the shared 30 s default.
+                (#2205). Standalone ``WebResearchAPI(rpc, supervisor=supervisor)``
+                keeps the historical behavior via the shared 30 s default.
             import_research_timeout: Per-attempt read window for
                 IMPORT_RESEARCH, read exactly like ``chat_timeout``: unset
                 (default) keeps the batch-scaled, ``base_timeout``-floored
@@ -163,11 +144,11 @@ class WebResearchAPI(BaseResearchAPI):
                 :meth:`import_sources_with_verification` to snapshot baseline
                 source IDs before the import call and probe sources on
                 timeout. When omitted, a default lister is built from
-                ``rpc`` — mirrors the ``WebNotebooksAPI`` wiring pattern, so
-                ``ResearchAPI(rpc)`` works standalone with no cross-API
-                dependency.
+                ``rpc`` — mirrors the ``WebNotebooksAPI`` wiring pattern and
+                avoids a cross-API dependency.
         """
         self._rpc = rpc
+        self._supervisor = supervisor
         super().__init__(
             source_lister=source_lister or create_default_source_lister(self._rpc),
             base_timeout=base_timeout,
@@ -187,7 +168,7 @@ class WebResearchAPI(BaseResearchAPI):
     ) -> Any:
         """Delegate through the current RPC caller for late-bound overrides.
 
-        Mirrors :meth:`WebNotebooksAPI._rpc_call` so direct ResearchAPI RPC paths
+        Mirrors :meth:`WebNotebooksAPI._rpc_call` so direct WebResearchAPI RPC paths
         pick up post-construction changes to the underlying caller's
         ``rpc_call`` method (advanced tests / instrumentation).
         """
@@ -211,37 +192,6 @@ class WebResearchAPI(BaseResearchAPI):
         """Build a standard web-source import entry used by IMPORT_RESEARCH."""
         return [None, None, [url, title], None, None, None, None, None, None, None, 2]
 
-    @staticmethod
-    def _normalize_url(url: str) -> str:
-        """Normalize source/report URLs for citation matching.
-
-        Thin wrapper retained for backward compatibility. Delegates to
-        :func:`notebooklm.research.normalize_url`.
-        """
-        return _research_pub.normalize_url(url)
-
-    @classmethod
-    def _web_extract_report_urls(cls, report: str) -> set[str]:
-        """Extract normalized URLs from research report markdown/text.
-
-        Thin wrapper retained for backward compatibility. Delegates to
-        :func:`notebooklm.research.extract_report_urls`.
-        """
-        return _research_pub.extract_report_urls(report)
-
-    @classmethod
-    def _web_select_cited_sources(
-        cls,
-        sources: Sequence[ResearchSourceInput],
-        report: str,
-    ) -> CitedSourceSelection:
-        """Return research sources cited by the completed report.
-
-        Thin wrapper retained for backward compatibility. Delegates to
-        :func:`notebooklm.research.select_cited_sources`.
-        """
-        return _research_pub.select_cited_sources(sources, report)
-
     async def _poll_task_models(self, notebook_id: str) -> list[ResearchTask]:
         params = [None, None, notebook_id]
         result = await self._rpc.rpc_call(
@@ -250,40 +200,6 @@ class WebResearchAPI(BaseResearchAPI):
             source_path=f"/notebook/{notebook_id}",
         )
         return parse_research_task_models(result)
-
-    @staticmethod
-    def _select_polled_tasks(
-        parsed_tasks: list[ResearchTask],
-        *,
-        notebook_id: str,
-        task_id: str | None,
-        raise_on_ambiguous: bool,
-    ) -> list[ResearchTask]:
-        # Task-id discriminator: when supplied, filter parsed_tasks down to
-        # the matched task so callers iterating ``tasks`` don't see siblings.
-        # When omitted but multiple tasks are in flight, the selection is
-        # ambiguous (which task did the caller mean?), so raise instead of
-        # silently guessing the latest task (ADR-0019: "ambiguous -> raise,
-        # never silently guess"). A single in-flight task with no task_id is
-        # unambiguous and still returned silently for convenience.
-        if task_id is not None:
-            return [task for task in parsed_tasks if task.task_id == task_id]
-        if raise_on_ambiguous and len(parsed_tasks) > 1:
-            raise AmbiguousResearchTaskError(
-                notebook_id=notebook_id,
-                task_ids=[task.task_id for task in parsed_tasks],
-            )
-        return parsed_tasks
-
-    @staticmethod
-    def _public_poll_result(
-        selected_task: ResearchTask,
-        parsed_tasks: list[ResearchTask],
-    ) -> ResearchTask:
-        # Carry the sibling tasks on the selected task's ``tasks`` field. The
-        # sub-tasks themselves leave ``tasks`` empty (their default), matching
-        # the historical nested-dict shape.
-        return replace(selected_task, tasks=tuple(parsed_tasks))
 
     async def start(
         self,
@@ -350,10 +266,14 @@ class WebResearchAPI(BaseResearchAPI):
             rpc_id = RPCMethod.START_DEEP_RESEARCH
 
         try:
-            result = await self._rpc.rpc_call(
-                rpc_id,
-                params,
-                source_path=f"/notebook/{notebook_id}",
+            result = await call_unconfirmed_on_transport_loss(
+                lambda: self._rpc.rpc_call(
+                    rpc_id,
+                    params,
+                    source_path=f"/notebook/{notebook_id}",
+                ),
+                method=rpc_id,
+                what=f"research.start ({mode_lower})",
             )
         except (AuthError, RateLimitError, ServerError, NetworkError):
             raise
@@ -532,112 +452,6 @@ class WebResearchAPI(BaseResearchAPI):
 
         return ResearchTask.empty()
 
-    async def _web_wait_for_completion(
-        self,
-        notebook_id: str,
-        task_id: str | None = None,
-        *,
-        timeout: float = 1800,
-        initial_interval: float = _INITIAL_INTERVAL_UNSET,
-    ) -> ResearchTask:
-        """Poll until research reaches a terminal state or times out.
-
-        When the first poll returns a concrete ``task_id``, subsequent polls
-        pass it back through :meth:`poll` as the discriminator. This prevents a
-        later concurrent research task in the same notebook from substituting
-        its sources/report into this wait loop.
-
-        Args:
-            notebook_id: The notebook ID.
-            task_id: Optional research task discriminator. Pass the value
-                returned by :meth:`start` when available. When ``None`` and two
-                or more tasks are in flight on the first poll,
-                :class:`~notebooklm.exceptions.AmbiguousResearchTaskError` is
-                raised; a single in-flight task is selected and pinned silently.
-            timeout: Maximum seconds to wait.
-            initial_interval: Seconds between status checks (default: 5). This
-                is the canonical poll-interval keyword, matching
-                :meth:`SourcesAPI.wait_until_ready` and
-                :meth:`ArtifactsAPI.wait_for_completion`.
-
-        Returns:
-            The final :meth:`poll` result (a
-            :class:`~notebooklm._types.research.ResearchTask`) for
-            ``COMPLETED`` or ``FAILED`` statuses. ``NO_RESEARCH`` is returned
-            immediately only when no task id is known; for a known/pinned task
-            it can be a transient live-API state before the task appears in
-            ``POLL_RESEARCH``. Unlike :meth:`poll`, this method never returns
-            ``NOT_FOUND`` — a pinned task that is temporarily absent from a poll
-            is treated as a transient replication-lag condition and keeps
-            polling until it appears, reaches a terminal state, or times out.
-            Use attribute access (``result.status``).
-
-        Raises:
-            AmbiguousResearchTaskError: If ``task_id`` is ``None`` and two or
-                more tasks are in flight on the first poll (pass ``task_id``).
-            ResearchTimeoutError: If research does not reach a terminal status
-                before ``timeout`` elapses. Subclass of
-                :class:`WaitTimeoutError` and the built-in :class:`TimeoutError`,
-                so ``except TimeoutError`` continues to catch it.
-            ValueError: If ``timeout`` is negative or the poll interval is not
-                positive.
-            TypeError: If the resolved poll interval is not a number.
-        """
-        # Unset sentinel → default cadence. An *explicit* non-numeric value
-        # (``None``, ``"1"``) is a caller bug: fail fast with TypeError rather
-        # than silently coercing it back to the default.
-        if initial_interval is _INITIAL_INTERVAL_UNSET:
-            poll_interval = _DEFAULT_RESEARCH_POLL_INTERVAL
-        elif isinstance(initial_interval, bool) or not isinstance(initial_interval, (int, float)):
-            raise TypeError("poll interval must be a number")
-        else:
-            poll_interval = float(initial_interval)
-
-        if timeout < 0:
-            raise ValueError("timeout must be non-negative")
-        if poll_interval <= 0:
-            raise ValueError("poll interval must be positive")
-
-        loop = asyncio.get_running_loop()
-        start = loop.time()
-        pinned_task_id = task_id
-
-        while True:
-            parsed_tasks = self._select_polled_tasks(
-                await self._poll_task_models(notebook_id),
-                notebook_id=notebook_id,
-                task_id=pinned_task_id,
-                raise_on_ambiguous=pinned_task_id is None,
-            )
-            selected_task = next(iter(parsed_tasks), None)
-            if pinned_task_id is None and selected_task is not None:
-                pinned_task_id = selected_task.task_id
-
-            status_val: ResearchStatus = (
-                selected_task.status if selected_task is not None else ResearchStatus.NO_RESEARCH
-            )
-            if selected_task is not None and status_val in (
-                ResearchStatus.COMPLETED,
-                ResearchStatus.FAILED,
-            ):
-                return self._public_poll_result(selected_task, parsed_tasks)
-            if status_val == ResearchStatus.NO_RESEARCH and pinned_task_id is None:
-                return ResearchTask.empty()
-
-            elapsed = loop.time() - start
-            if elapsed >= timeout:
-                task_label = pinned_task_id or "unknown"
-                raise ResearchTimeoutError(
-                    notebook_id,
-                    task_label,
-                    timeout,
-                    last_status=status_val.value,
-                )
-
-            sleep_for = min(poll_interval, timeout - elapsed)
-            if sleep_for > 0:
-                await asyncio.sleep(sleep_for)
-
     def _wait_observed_status(self, result: ResearchTask) -> ResearchStatus:
         """Preserve Web wait's pre-neutralization pinned-absence status."""
         if result.status is ResearchStatus.NOT_FOUND:
@@ -692,93 +506,24 @@ class WebResearchAPI(BaseResearchAPI):
             source_path=f"/notebook/{notebook_id}",
         )
 
-    async def import_sources(
+    async def _send_import(
         self,
         notebook_id: str,
-        task_id: str,
-        sources: Sequence[ResearchSourceInput],
+        batch: _ResearchImportBatch,
         *,
-        _remaining_budget: float | None = None,
+        _remaining_budget: float | None,
     ) -> list[dict[str, str]]:
-        """Import selected research sources into the notebook.
-
-        Args:
-            notebook_id: The notebook ID.
-            task_id: The research task ID.
-            sources: List of sources to import, each with 'url' and 'title'.
-                Deep research results from poll() may also include a report
-                entry with 'report_markdown' and 'research_task_id'.
-            _remaining_budget: Internal. What is left of
-                :meth:`import_sources_with_verification`'s ``max_elapsed``
-                when this attempt starts; clamps the per-attempt read timeout
-                so one attempt cannot outlive that loop's deadline (#2205).
-                Not part of the public contract — direct callers leave it
-                unset and get the full batch-scaled window.
-
-        Returns:
-            List of imported sources with 'id' and 'title'.
-
-        Note:
-            The API response can be incomplete - it may return fewer items than
-            were actually imported. All requested sources typically get imported
-            successfully, but the return value may not reflect all of them.
-            To reliably verify imports, check the notebook's source list using
-            `client.sources.list(notebook_id)` after calling this method.
-        """
-        if not sources:
-            return []
-        source_inputs: list[ResearchSourceInput] = list(sources)
-        source_models = _coerce_research_sources(source_inputs)
-        logger.debug(
-            "Importing %d research sources into notebook %s",
-            len(source_models),
-            notebook_id,
-        )
-
-        # Per-source ``research_task_id`` provenance: mismatches raise, a
-        # multi-task batch is refused, and the effective import task id is
-        # returned. Shared with ``import_sources_with_verification`` (which runs
-        # it up front, before the #1961 idempotency pre-filter) so provenance is
-        # validated even for entries the pre-filter would drop.
-        effective_task_id = _validate_research_task_provenance(source_models, task_id)
-
-        report_source_indexes = {
-            index
-            for index, (source_input, source) in enumerate(
-                zip(source_inputs, source_models, strict=True)
-            )
-            if _is_importable_report_source(source_input, source)
-        }
-        report_sources = [source_models[index] for index in sorted(report_source_indexes)]
-        valid_sources = [
-            source
-            for index, source in enumerate(source_models)
-            if source.url and index not in report_source_indexes
+        journal_entry = bound_operation_journal_entry()
+        source_array = [
+            self._build_report_import_entry(item.source.title, item.source.report_markdown)
+            if item.kind == "report"
+            else self._build_web_import_entry(item.source.url, item.source.title)
+            for item in batch.items
         ]
-        skipped_count = len(source_models) - len(valid_sources) - len(report_sources)
-        if skipped_count > 0:
-            logger.warning(
-                "Skipping %d source(s) that cannot be imported (missing URLs or report entries)",
-                skipped_count,
-            )
-        if not valid_sources and not report_sources:
-            return []
-
-        source_array = []
-        for report_source in report_sources:
-            source_array.append(
-                self._build_report_import_entry(
-                    report_source.title,
-                    report_source.report_markdown,
-                )
-            )
-        source_array.extend(
-            self._build_web_import_entry(src.url, src.title) for src in valid_sources
-        )
 
         result = await self._rpc.rpc_call(
             RPCMethod.IMPORT_RESEARCH,
-            [None, [1], effective_task_id, notebook_id, source_array],
+            [None, [1], batch.task_id, notebook_id, source_array],
             source_path=f"/notebook/{notebook_id}",
             read_timeout=_import_research_read_timeout(
                 len(source_array),
@@ -799,332 +544,16 @@ class WebResearchAPI(BaseResearchAPI):
             if src_id:
                 imported.append({"id": src_id, "title": row.title_slot})
 
+        if journal_entry is not None:
+            journal_entry.record(
+                CommitState.CONFIRMED,
+                "decoded research import",
+                known_resource_ids=tuple(item["id"] for item in imported),
+            )
         return imported
 
-    async def _import_sources_with_verification(
-        self,
-        notebook_id: str,
-        task_id: str,
-        sources: Sequence[ResearchSourceInput],
-        *,
-        max_elapsed: float = 1800,
-        initial_delay: float = 5,
-        backoff_factor: float = 2,
-        max_delay: float = 60,
-        allow_duplicate: bool = False,
-    ) -> list[dict[str, str]]:
-        """Import sources with timeout-tolerant verification.
 
-        Use this in preference to :meth:`import_sources` for deep research:
-        the underlying ``IMPORT_RESEARCH`` RPC commonly responds in >30 s on
-        deep-research payloads and a one-shot call times out at the client
-        even when the server has already committed.
-
-        Idempotency (#1961): unless ``allow_duplicate`` is true, requested
-        sources whose normalized URL already exists among the notebook's
-        current sources are pre-filtered out of *every* import attempt (not
-        just the timeout-retry path), so re-importing the same completed task
-        does not duplicate its sources. Report / pasted-text entries have no
-        dedupable URL and are always imported. The return value is a plain
-        ``list`` of the *newly-imported* entries; callers wanting the skipped
-        set read ``already_present`` off it (see :class:`_ImportedResearchSources`).
-        When the baseline snapshot fails, or ``allow_duplicate`` is true, no
-        pre-filter is applied (historical behavior).
-
-        Lifecycle:
-
-        1. Snapshot baseline sources via ``client.sources.list`` (also the URL
-           set used for the idempotency pre-filter above).
-        2. Call :meth:`import_sources`.
-        3. On :class:`RPCTimeoutError`, probe ``client.sources.list``: if every
-           requested URL now appears among *new* sources, treat as success;
-           otherwise filter out already-present URLs and retry the remainder.
-           IMPORT_RESEARCH's documented ``FAILED_PRECONDITION`` (#2187, #1926
-           F2b) shares only the verified-success half — anything less
-           re-raises rather than retrying the rejected task_id blindly.
-        4. Bound total elapsed time by ``max_elapsed``; back off between
-           retries (capped by ``max_delay``).
-        5. Report-only imports (no URLs to verify) cap retries at one
-           attempt to bound duplicate-inflation worst case.
-
-        This method preserves the #808 ``NON_IDEMPOTENT_NO_RETRY``
-        classification of the raw ``IMPORT_RESEARCH`` RPC: the executor
-        still refuses to retry internally; the safe retry happens here,
-        anchored on the pre-call snapshot, which is the disambiguation
-        the #808 analysis said was unavailable to the executor.
-
-        Raises:
-            RPCTimeoutError: If retries exhaust ``max_elapsed``.
-            RPCError: Immediately for any non-FAILED_PRECONDITION error, or
-                once a FAILED_PRECONDITION's post-error verification fails to
-                confirm every requested URL landed — no budget is spent on it.
-        """
-        if not sources:
-            return _imported_result([], [])
-        source_inputs: list[ResearchSourceInput] = list(sources)
-        source_models = _coerce_research_sources(sources)
-
-        # Validate research-task provenance on the FULL requested set up front —
-        # before the #1961 idempotency pre-filter can drop already-present
-        # entries — so a source carrying the wrong ``research_task_id`` is
-        # rejected even when its URL already exists in the notebook.
-        _validate_research_task_provenance(source_models, task_id)
-
-        started_at = time.monotonic()
-        delay = initial_delay
-        attempt = 1
-        verified_imported: list[dict[str, str]] = []
-        verified_imported_ids: set[str] = set()
-
-        # Anchor verified-success on URLs of *new* sources (not on a
-        # baseline→current URL delta) so concurrent additions from another
-        # session and pre-existing URLs cannot satisfy the check. The same
-        # snapshot doubles as the idempotency pre-filter baseline (#1961).
-        baseline: list[Source] | None
-        baseline_ids: set[str] | None
-        try:
-            # Research reconciliation needs every uniquely addressable row it
-            # can recover, even when GET_NOTEBOOK repeats one ID with drifted
-            # metadata. Envelope drift still raises in tolerant row mode; only
-            # row-level skips/first-occurrence dedup remain enabled so a known
-            # duplicate collision cannot disable the idempotency baseline.
-            baseline = await self._source_lister.list(notebook_id, strict=False)
-            baseline_ids = {src.id for src in baseline}
-        except (NetworkError, RPCError) as snapshot_exc:
-            logger.warning(
-                "Pre-import sources.list snapshot failed for %s: %s; "
-                "verified-success path and idempotency pre-filter disabled for this call",
-                notebook_id,
-                snapshot_exc,
-            )
-            baseline = None
-            baseline_ids = None
-
-        # Idempotency pre-filter (#1961): drop requested sources whose normalized
-        # URL already exists in the notebook so a repeat import does not
-        # duplicate them. Runs up front on every attempt — the timeout-retry
-        # path below already filters already-present URLs; this generalizes that
-        # to the happy path. Skipped when the caller opts into duplicates or the
-        # baseline snapshot failed (can't tell what's already present).
-        already_present: list[dict[str, str]] = []
-        if not allow_duplicate and baseline is not None:
-            existing_by_norm_url: dict[str, Source] = {}
-            for existing in baseline:
-                if existing.url:
-                    existing_by_norm_url.setdefault(
-                        _normalize_import_verification_url(existing.url), existing
-                    )
-            source_inputs, source_models, already_present = _partition_requested_sources(
-                source_inputs, source_models, existing_by_norm_url
-            )
-            if already_present:
-                logger.info(
-                    "Idempotent research import into %s: skipping %d source(s) already "
-                    "present by URL; importing %d new source(s)",
-                    notebook_id,
-                    len(already_present),
-                    len(source_models),
-                )
-            # Every requested source was already present — nothing new to
-            # import. Return without an RPC (and without entering the
-            # timeout-retry loop), reporting the skipped set.
-            if not source_inputs:
-                return _imported_result([], already_present)
-
-        requested_urls_norm = _requested_import_verification_urls(source_models)
-        # Track how many non-URL entries (research reports, pasted text) the
-        # request includes so concurrent no-URL additions cannot inflate the
-        # synthesized return after a timeout.
-        requested_no_url_count = _no_import_verification_url_entry_count(source_models)
-
-        def _log_discarded_progress() -> None:
-            # #2187 silent-failure-hunter finding: ``verified_imported`` (probe-
-            # confirmed commits from earlier iterations) carries no signal once
-            # this raises — surface it in logs so it isn't silently lost.
-            if verified_imported:
-                logger.error(
-                    "IMPORT_RESEARCH failing for notebook %s but %d source(s) "
-                    "were already confirmed imported before this failure (%s); "
-                    "check sources.list rather than assuming a total loss",
-                    notebook_id,
-                    len(verified_imported),
-                    [entry["id"] for entry in verified_imported],
-                )
-
-        last_error: RPCTimeoutError | RPCError | None = None
-        while True:
-            # Clamp this attempt's read window to what is left of ``max_elapsed``
-            # (#2205): without it a late retry is *granted* the full
-            # batch-scaled window — minutes of slack past a budget with seconds
-            # left. This bounds what the attempt is given, not how long it can
-            # take: ``read`` is an httpx inactivity slot, so connect/pool waits
-            # and a byte-dribbling server still sit outside it.
-            attempt_budget = max_elapsed - (time.monotonic() - started_at)
-            budget_is_viable = attempt_budget >= MIN_IMPORT_RESEARCH_ATTEMPT_TIMEOUT
-            if last_error is not None and not budget_is_viable:
-                # A retry that cannot outlast connection establishment is worse
-                # than no retry: it would overrun ``max_elapsed`` (the very
-                # thing the clamp exists to prevent) if run unclamped, and if
-                # run clamped it still SENDS a non-idempotent IMPORT_RESEARCH
-                # whose result it cannot observe — which the server may commit
-                # anyway, duplicating sources. So stop, and say why.
-                logger.warning(
-                    "IMPORT_RESEARCH retry budget for notebook %s is exhausted "
-                    "(%.1fs of the %.0fs max_elapsed left, under the %.0fs "
-                    "minimum viable attempt window); giving up rather than "
-                    "sending an attempt whose outcome could not be observed",
-                    notebook_id,
-                    attempt_budget,
-                    max_elapsed,
-                    MIN_IMPORT_RESEARCH_ATTEMPT_TIMEOUT,
-                )
-                _log_discarded_progress()
-                raise last_error
-            try:
-                imported = await self.import_sources(
-                    notebook_id,
-                    task_id,
-                    source_inputs,
-                    # The first attempt always runs on its natural window even
-                    # when the budget is already spent (``max_elapsed=0`` is a
-                    # documented "one shot" idiom); only retries must fit.
-                    _remaining_budget=attempt_budget if budget_is_viable else None,
-                )
-                return _imported_result(
-                    _merge_imported_sources(imported, verified_imported, verified_imported_ids),
-                    already_present,
-                )
-            except (RPCTimeoutError, RPCError) as exc:
-                last_error = exc
-                if isinstance(exc, RPCError) and not _is_import_research_failed_precondition(exc):
-                    _log_discarded_progress()
-                    raise  # non-FAILED_PRECONDITION RPCErrors surface immediately (#2187)
-                reason = (
-                    "timed out"
-                    if isinstance(exc, RPCTimeoutError)
-                    else "hit a retry-time FAILED_PRECONDITION"
-                )
-                elapsed = time.monotonic() - started_at
-                remaining = max_elapsed - elapsed
-
-                if requested_urls_norm:
-                    try:
-                        # As above, verification must not turn a known duplicate
-                        # row collision into a blind non-idempotent retry.
-                        current = await self._source_lister.list(notebook_id, strict=False)
-                        outcome = _reconcile_import_probe(
-                            current=current,
-                            baseline_ids=baseline_ids,
-                            requested_urls_norm=requested_urls_norm,
-                            requested_no_url_count=requested_no_url_count,
-                            source_inputs=source_inputs,
-                            source_models=source_models,
-                            already_verified_ids=verified_imported_ids,
-                            allow_duplicate=allow_duplicate,
-                        )
-                        if outcome.fully_verified_entries is not None:
-                            logger.warning(
-                                "IMPORT_RESEARCH %s for notebook %s but "
-                                "sources.list verifies every outstanding "
-                                "source; treating as success and skipping "
-                                "retry to avoid duplicate inflation",
-                                reason,
-                                notebook_id,
-                            )
-                            return _imported_result(
-                                _merge_imported_sources(
-                                    outcome.fully_verified_entries,
-                                    verified_imported,
-                                    verified_imported_ids,
-                                ),
-                                already_present,
-                            )
-                        if outcome.filtered:
-                            verified_imported.extend(outcome.newly_verified)
-                            verified_imported_ids.update(
-                                entry["id"] for entry in outcome.newly_verified
-                            )
-                            source_inputs = outcome.source_inputs
-                            source_models = outcome.source_models
-                            requested_urls_norm = outcome.requested_urls_norm
-                            requested_no_url_count = outcome.requested_no_url_count
-                            if isinstance(exc, RPCError):
-                                logger.warning(
-                                    "IMPORT_RESEARCH %s for notebook %s: %d "
-                                    "of %d requested source(s) verified "
-                                    "present, but the remainder can't be "
-                                    "confirmed — surfacing the error instead "
-                                    "of retrying the rejected task_id",
-                                    reason,
-                                    notebook_id,
-                                    outcome.removed_count,
-                                    outcome.removed_count + len(source_models),
-                                )
-                            else:
-                                logger.warning(
-                                    "IMPORT_RESEARCH %s for notebook %s after "
-                                    "%d requested source(s) were already "
-                                    "present; retrying with %d remaining "
-                                    "source(s)",
-                                    reason,
-                                    notebook_id,
-                                    outcome.removed_count,
-                                    len(source_models),
-                                )
-                    except (NetworkError, RPCError) as probe_exc:
-                        # CancelledError is a BaseException, not Exception, and
-                        # is not in this tuple — it propagates naturally for
-                        # callers that need to cancel the operation cleanly.
-                        logger.warning(
-                            "Failed to probe server state after %s: %s; %s",
-                            reason,
-                            probe_exc,
-                            "falling back to retry"
-                            if not isinstance(exc, RPCError)
-                            else "surfacing the original error",
-                        )
-
-                if remaining <= 0:
-                    _log_discarded_progress()
-                    raise
-
-                if isinstance(exc, RPCError):  # no verified-success return above
-                    _log_discarded_progress()
-                    raise
-
-                # Report-only imports cannot be reconciled: the retained live
-                # LoadSource round trip did not expose submitted Markdown.
-                # Never resend after a lost response.
-                if not requested_urls_norm:
-                    logger.warning(
-                        "IMPORT_RESEARCH %s for notebook %s with no URLs "
-                        "to verify; giving up after the first attempt to avoid "
-                        "duplicate inflation",
-                        reason,
-                        notebook_id,
-                    )
-                    _log_discarded_progress()
-                    raise
-
-                sleep_for = min(delay, max_delay, remaining)
-                logger.warning(
-                    "IMPORT_RESEARCH %s for notebook %s; retrying in "
-                    "%.1fs (attempt %d, %.1fs elapsed)",
-                    reason,
-                    notebook_id,
-                    sleep_for,
-                    attempt + 1,
-                    elapsed,
-                )
-                await asyncio.sleep(sleep_for)
-                delay = min(delay * backoff_factor, max_delay)
-                attempt += 1
-
-
-# Backward-compatible private-module spelling. Composition imports the explicit
-# backend class; existing direct imports keep resolving to the Web implementation.
+# Backward-compatible private Web-module spelling. Composition imports the
+# explicit backend class; existing direct imports keep resolving to the Web
+# implementation without making the neutral base import this module.
 ResearchAPI = WebResearchAPI
-
-# Restore the historical ``notebooklm._research.ResearchAPI`` identity after
-# this module has completed the circular-safe definition of the Web adapter.
-_research_base.ResearchAPI = ResearchAPI  # type: ignore[assignment]

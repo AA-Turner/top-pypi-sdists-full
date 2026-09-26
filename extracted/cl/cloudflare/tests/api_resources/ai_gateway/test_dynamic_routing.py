@@ -40,7 +40,7 @@ class TestDynamicRouting:
                     "type": "start",
                 }
             ],
-            name="name",
+            name="x",
         )
         assert_matches_type(DynamicRoutingCreateResponse, dynamic_routing, path=["response"])
 
@@ -56,7 +56,7 @@ class TestDynamicRouting:
                     "type": "start",
                 }
             ],
-            name="name",
+            name="x",
         )
 
         assert response.is_closed is True
@@ -76,7 +76,7 @@ class TestDynamicRouting:
                     "type": "start",
                 }
             ],
-            name="name",
+            name="x",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -99,7 +99,7 @@ class TestDynamicRouting:
                         "type": "start",
                     }
                 ],
-                name="name",
+                name="x",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `gateway_id` but received ''"):
@@ -113,7 +113,7 @@ class TestDynamicRouting:
                         "type": "start",
                     }
                 ],
-                name="name",
+                name="x",
             )
 
     @parametrize
@@ -740,7 +740,7 @@ class TestAsyncDynamicRouting:
                     "type": "start",
                 }
             ],
-            name="name",
+            name="x",
         )
         assert_matches_type(DynamicRoutingCreateResponse, dynamic_routing, path=["response"])
 
@@ -756,7 +756,7 @@ class TestAsyncDynamicRouting:
                     "type": "start",
                 }
             ],
-            name="name",
+            name="x",
         )
 
         assert response.is_closed is True
@@ -776,7 +776,7 @@ class TestAsyncDynamicRouting:
                     "type": "start",
                 }
             ],
-            name="name",
+            name="x",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -799,7 +799,7 @@ class TestAsyncDynamicRouting:
                         "type": "start",
                     }
                 ],
-                name="name",
+                name="x",
             )
 
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `gateway_id` but received ''"):
@@ -813,7 +813,7 @@ class TestAsyncDynamicRouting:
                         "type": "start",
                     }
                 ],
-                name="name",
+                name="x",
             )
 
     @parametrize

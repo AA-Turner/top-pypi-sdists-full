@@ -380,8 +380,10 @@ class ServicesResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
-        """
-        Removes a single Workers VPC connectivity service by its ID.
+        """Removes a single Workers VPC connectivity service by its ID.
+
+        Any Worker bindings
+        referencing this service will stop working.
 
         Args:
           extra_headers: Send extra headers
@@ -810,8 +812,10 @@ class AsyncServicesResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
-        """
-        Removes a single Workers VPC connectivity service by its ID.
+        """Removes a single Workers VPC connectivity service by its ID.
+
+        Any Worker bindings
+        referencing this service will stop working.
 
         Args:
           extra_headers: Send extra headers

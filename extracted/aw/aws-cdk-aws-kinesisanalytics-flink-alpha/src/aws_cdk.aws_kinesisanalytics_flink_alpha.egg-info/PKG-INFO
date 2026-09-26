@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-kinesisanalytics-flink-alpha
-Version: 2.270.0a0
+Version: 2.271.0a0
 Summary: A CDK Construct Library for Kinesis Analytics Flink applications
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -24,9 +24,9 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.270.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.271.0
 Requires-Dist: constructs<11.0.0,>=10.5.0
-Requires-Dist: jsii<2.0.0,>=1.139.0
+Requires-Dist: jsii<2.0.0,>=1.140.0
 Requires-Dist: publication>=0.0.3
 
 # Kinesis Analytics Flink
@@ -64,7 +64,7 @@ import aws_cdk.aws_kinesisanalytics_flink_alpha as flink
 app = core.App()
 stack = core.Stack(app, "FlinkAppTest")
 
-flink_runtimes = [flink.Runtime.FLINK_1_15, flink.Runtime.FLINK_1_18, flink.Runtime.FLINK_1_19, flink.Runtime.FLINK_1_20
+flink_runtimes = [flink.Runtime.FLINK_1_15, flink.Runtime.FLINK_1_18, flink.Runtime.FLINK_1_19, flink.Runtime.FLINK_1_20, flink.Runtime.FLINK_2_2
 ]
 
 flink_runtimes.for_each((runtime) => {
@@ -111,7 +111,7 @@ flink_app = flink.Application(self, "Application",
         }
     },
     # ...
-    runtime=flink.Runtime.FLINK_1_20,
+    runtime=flink.Runtime.FLINK_2_2,
     code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar")
 )
 ```
@@ -125,7 +125,7 @@ snapshotting, monitoring, and parallelism.
 
 flink_app = flink.Application(self, "Application",
     code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
-    runtime=flink.Runtime.FLINK_1_20,
+    runtime=flink.Runtime.FLINK_2_2,
     checkpointing_enabled=True,  # default is true
     checkpoint_interval=Duration.seconds(30),  # default is 1 minute
     min_pause_between_checkpoints=Duration.seconds(10),  # default is 5 seconds
@@ -147,7 +147,7 @@ Flink applications can optionally be deployed in a VPC:
 
 flink_app = flink.Application(self, "Application",
     code=flink.ApplicationCode.from_bucket(bucket, "my-app.jar"),
-    runtime=flink.Runtime.FLINK_1_20,
+    runtime=flink.Runtime.FLINK_2_2,
     vpc=vpc
 )
 ```

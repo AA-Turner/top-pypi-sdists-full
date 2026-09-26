@@ -2,23 +2,30 @@
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, Optional
 from typing_extensions import Literal, Required, TypeAlias, TypedDict
 
 __all__ = [
     "ConfigCreateParams",
-    "Origin",
-    "OriginPublicDatabase",
-    "OriginAccessProtectedDatabaseBehindCloudflareTunnel",
-    "OriginDatabaseReachableThroughAWorkersVPC",
-    "Caching",
-    "CachingHyperdriveHyperdriveCachingCommon",
-    "CachingHyperdriveHyperdriveCachingEnabled",
-    "MTLS",
+    "HyperdriveHyperdriveConfigCreateWithOrigin",
+    "HyperdriveHyperdriveConfigCreateWithOriginOrigin",
+    "HyperdriveHyperdriveConfigCreateWithOriginOriginPublicDatabase",
+    "HyperdriveHyperdriveConfigCreateWithOriginOriginAccessProtectedDatabaseBehindCloudflareTunnel",
+    "HyperdriveHyperdriveConfigCreateWithOriginOriginDatabaseReachableThroughAWorkersVPC",
+    "HyperdriveHyperdriveConfigCreateWithOriginCaching",
+    "HyperdriveHyperdriveConfigCreateWithOriginCachingHyperdriveHyperdriveCachingCreateDisabled",
+    "HyperdriveHyperdriveConfigCreateWithOriginCachingHyperdriveHyperdriveCachingCreateEnabled",
+    "HyperdriveHyperdriveConfigCreateWithOriginMTLS",
+    "HyperdriveHyperdriveConfigCreateWithIntegration",
+    "HyperdriveHyperdriveConfigCreateWithIntegrationIntegration",
+    "HyperdriveHyperdriveConfigCreateWithIntegrationCaching",
+    "HyperdriveHyperdriveConfigCreateWithIntegrationCachingHyperdriveHyperdriveCachingCreateDisabled",
+    "HyperdriveHyperdriveConfigCreateWithIntegrationCachingHyperdriveHyperdriveCachingCreateEnabled",
+    "HyperdriveHyperdriveConfigCreateWithIntegrationMTLS",
 ]
 
 
-class ConfigCreateParams(TypedDict, total=False):
+class HyperdriveHyperdriveConfigCreateWithOrigin(TypedDict, total=False):
     account_id: Required[str]
     """Define configurations using a unique string identifier."""
 
@@ -28,11 +35,16 @@ class ConfigCreateParams(TypedDict, total=False):
     Used to identify the configuration in the Cloudflare dashboard and API.
     """
 
-    origin: Required[Origin]
+    origin: Required[HyperdriveHyperdriveConfigCreateWithOriginOrigin]
+    """
+    Combines database connection fields with exactly one supported network location.
+    """
 
-    caching: Caching
+    caching: HyperdriveHyperdriveConfigCreateWithOriginCaching
 
-    mtls: MTLS
+    integration: Optional[object]
+
+    mtls: HyperdriveHyperdriveConfigCreateWithOriginMTLS
     """mTLS configuration for the origin connection.
 
     Cannot be used with VPC Service origins; TLS must be managed on the VPC Service.
@@ -50,12 +62,15 @@ class ConfigCreateParams(TypedDict, total=False):
     """
 
 
-class OriginPublicDatabase(TypedDict, total=False):
+class HyperdriveHyperdriveConfigCreateWithOriginOriginPublicDatabase(TypedDict, total=False):
     database: Required[str]
     """Set the name of your origin database."""
 
     host: Required[str]
-    """Defines the host (hostname or IP) of your origin database."""
+    """Defines the publicly reachable hostname or IP of your origin database.
+
+    Private, loopback, and link-local IP addresses are not allowed.
+    """
 
     password: Required[str]
     """Set the password needed to access your origin database.
@@ -76,7 +91,9 @@ class OriginPublicDatabase(TypedDict, total=False):
     """Set the user of your origin database."""
 
 
-class OriginAccessProtectedDatabaseBehindCloudflareTunnel(TypedDict, total=False):
+class HyperdriveHyperdriveConfigCreateWithOriginOriginAccessProtectedDatabaseBehindCloudflareTunnel(
+    TypedDict, total=False
+):
     access_client_id: Required[str]
     """
     Defines the Client ID of the Access token to use when connecting to the origin
@@ -108,7 +125,7 @@ class OriginAccessProtectedDatabaseBehindCloudflareTunnel(TypedDict, total=False
     """Set the user of your origin database."""
 
 
-class OriginDatabaseReachableThroughAWorkersVPC(TypedDict, total=False):
+class HyperdriveHyperdriveConfigCreateWithOriginOriginDatabaseReachableThroughAWorkersVPC(TypedDict, total=False):
     database: Required[str]
     """Set the name of your origin database."""
 
@@ -132,37 +149,46 @@ class OriginDatabaseReachableThroughAWorkersVPC(TypedDict, total=False):
     """Set the user of your origin database."""
 
 
-Origin: TypeAlias = Union[
-    OriginPublicDatabase, OriginAccessProtectedDatabaseBehindCloudflareTunnel, OriginDatabaseReachableThroughAWorkersVPC
+HyperdriveHyperdriveConfigCreateWithOriginOrigin: TypeAlias = Union[
+    HyperdriveHyperdriveConfigCreateWithOriginOriginPublicDatabase,
+    HyperdriveHyperdriveConfigCreateWithOriginOriginAccessProtectedDatabaseBehindCloudflareTunnel,
+    HyperdriveHyperdriveConfigCreateWithOriginOriginDatabaseReachableThroughAWorkersVPC,
 ]
 
 
-class CachingHyperdriveHyperdriveCachingCommon(TypedDict, total=False):
-    disabled: bool
-    """Set to true to disable caching of SQL responses. Default is false."""
+class HyperdriveHyperdriveConfigCreateWithOriginCachingHyperdriveHyperdriveCachingCreateDisabled(
+    TypedDict, total=False
+):
+    disabled: Required[Literal[True]]
+
+    max_age: Optional[int]
+
+    stale_while_revalidate: Optional[int]
 
 
-class CachingHyperdriveHyperdriveCachingEnabled(TypedDict, total=False):
-    disabled: bool
-    """Set to true to disable caching of SQL responses. Default is false."""
+class HyperdriveHyperdriveConfigCreateWithOriginCachingHyperdriveHyperdriveCachingCreateEnabled(TypedDict, total=False):
+    disabled: Literal[False]
 
-    max_age: int
+    max_age: Optional[int]
     """Specify the maximum duration (in seconds) items should persist in the cache.
 
     Defaults to 60 seconds if not specified.
     """
 
-    stale_while_revalidate: int
+    stale_while_revalidate: Optional[int]
     """Specify the number of seconds the cache may serve a stale response.
 
     Defaults to 15 seconds if not specified.
     """
 
 
-Caching: TypeAlias = Union[CachingHyperdriveHyperdriveCachingCommon, CachingHyperdriveHyperdriveCachingEnabled]
+HyperdriveHyperdriveConfigCreateWithOriginCaching: TypeAlias = Union[
+    HyperdriveHyperdriveConfigCreateWithOriginCachingHyperdriveHyperdriveCachingCreateDisabled,
+    HyperdriveHyperdriveConfigCreateWithOriginCachingHyperdriveHyperdriveCachingCreateEnabled,
+]
 
 
-class MTLS(TypedDict, total=False):
+class HyperdriveHyperdriveConfigCreateWithOriginMTLS(TypedDict, total=False):
     """mTLS configuration for the origin connection.
 
     Cannot be used with VPC Service origins; TLS must be managed on the VPC Service.
@@ -175,4 +201,136 @@ class MTLS(TypedDict, total=False):
     """Define mTLS certificate ID obtained after uploading client cert."""
 
     sslmode: str
-    """Set SSL mode to 'require', 'verify-ca', or 'verify-full' to verify the CA."""
+    """PostgreSQL accepts `require`, `verify-ca`, and `verify-full`.
+
+    MySQL accepts `REQUIRED`, `VERIFY_CA`, and `VERIFY_IDENTITY`. The verify modes
+    require a CA certificate; the require modes cannot be used with a CA
+    certificate.
+    """
+
+
+class HyperdriveHyperdriveConfigCreateWithIntegration(TypedDict, total=False):
+    account_id: Required[str]
+    """Define configurations using a unique string identifier."""
+
+    integration: Required[HyperdriveHyperdriveConfigCreateWithIntegrationIntegration]
+    """Connects to a PlanetScale database using credentials managed by Cloudflare.
+
+    The Cloudflare account must already be linked to PlanetScale in the Hyperdrive
+    dashboard.
+    """
+
+    name: Required[str]
+    """The name of the Hyperdrive configuration.
+
+    Used to identify the configuration in the Cloudflare dashboard and API.
+    """
+
+    caching: HyperdriveHyperdriveConfigCreateWithIntegrationCaching
+
+    mtls: HyperdriveHyperdriveConfigCreateWithIntegrationMTLS
+    """mTLS configuration for the origin connection.
+
+    Cannot be used with VPC Service origins; TLS must be managed on the VPC Service.
+    """
+
+    origin: Optional[object]
+
+    origin_connection_limit: int
+    """
+    The (soft) maximum number of connections the Hyperdrive is allowed to make to
+    the origin database.
+
+    Maximum allowed: 20 for free tier accounts, 100 for paid tier accounts. If not
+    specified, defaults to 20 for free tier and 60 for paid tier. Certain
+    Cloudflare-managed origins may be permitted a higher limit. Contact Cloudflare
+    if you need a higher limit.
+    """
+
+
+class HyperdriveHyperdriveConfigCreateWithIntegrationIntegration(TypedDict, total=False):
+    """Connects to a PlanetScale database using credentials managed by Cloudflare.
+
+    The Cloudflare account must already be linked to PlanetScale in the Hyperdrive dashboard.
+    """
+
+    database_branch_name: Required[str]
+    """The name of the PlanetScale database branch."""
+
+    database_name: Required[str]
+    """The name of the PlanetScale database."""
+
+    integration: Required[Literal["planetscale"]]
+    """The database integration used by this operation."""
+
+    organization_name: Required[str]
+    """The name of the PlanetScale organization."""
+
+    scheme: Required[Literal["postgres", "postgresql", "mysql"]]
+    """Specifies the URL scheme used to connect to your origin database."""
+
+    custom_database_name: str
+    """The database name to use when connecting.
+
+    Defaults to `postgres` for PostgreSQL and `mysql` for MySQL.
+    """
+
+
+class HyperdriveHyperdriveConfigCreateWithIntegrationCachingHyperdriveHyperdriveCachingCreateDisabled(
+    TypedDict, total=False
+):
+    disabled: Required[Literal[True]]
+
+    max_age: Optional[int]
+
+    stale_while_revalidate: Optional[int]
+
+
+class HyperdriveHyperdriveConfigCreateWithIntegrationCachingHyperdriveHyperdriveCachingCreateEnabled(
+    TypedDict, total=False
+):
+    disabled: Literal[False]
+
+    max_age: Optional[int]
+    """Specify the maximum duration (in seconds) items should persist in the cache.
+
+    Defaults to 60 seconds if not specified.
+    """
+
+    stale_while_revalidate: Optional[int]
+    """Specify the number of seconds the cache may serve a stale response.
+
+    Defaults to 15 seconds if not specified.
+    """
+
+
+HyperdriveHyperdriveConfigCreateWithIntegrationCaching: TypeAlias = Union[
+    HyperdriveHyperdriveConfigCreateWithIntegrationCachingHyperdriveHyperdriveCachingCreateDisabled,
+    HyperdriveHyperdriveConfigCreateWithIntegrationCachingHyperdriveHyperdriveCachingCreateEnabled,
+]
+
+
+class HyperdriveHyperdriveConfigCreateWithIntegrationMTLS(TypedDict, total=False):
+    """mTLS configuration for the origin connection.
+
+    Cannot be used with VPC Service origins; TLS must be managed on the VPC Service.
+    """
+
+    ca_certificate_id: str
+    """Define CA certificate ID obtained after uploading CA cert."""
+
+    mtls_certificate_id: str
+    """Define mTLS certificate ID obtained after uploading client cert."""
+
+    sslmode: str
+    """PostgreSQL accepts `require`, `verify-ca`, and `verify-full`.
+
+    MySQL accepts `REQUIRED`, `VERIFY_CA`, and `VERIFY_IDENTITY`. The verify modes
+    require a CA certificate; the require modes cannot be used with a CA
+    certificate.
+    """
+
+
+ConfigCreateParams: TypeAlias = Union[
+    HyperdriveHyperdriveConfigCreateWithOrigin, HyperdriveHyperdriveConfigCreateWithIntegration
+]

@@ -1,127 +1,191 @@
-[tool.poetry]
+[project]
 name = "pytest-alembic"
-version = "0.12.1"
+version = "0.13.0"
 description = "A pytest plugin for verifying alembic migrations."
-authors = ["Dan Cardin <ddcardin@gmail.com>"]
 license = "MIT"
-keywords = ["pytest", "sqlalchemy", "alembic", "migration", "revision"]
-classifiers = ["Framework :: Pytest"]
+license-files = ["LICENSE"]
+keywords = [
+    "pytest",
+    "sqlalchemy",
+    "alembic",
+    "migration",
+    "revision",
+]
+classifiers = [
+    "Framework :: Pytest",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+readme = "README.md"
+requires-python = ">=3.10,<4"
+dependencies = [
+    "pytest>=7.0",
+    "alembic>=1.9",
+    "sqlalchemy>=1.4",
+]
+
+[[project.authors]]
+name = "Dan Cardin"
+email = "ddcardin@gmail.com"
+
+[project.urls]
 repository = "https://github.com/schireson/pytest-alembic"
-packages = [{ include = "pytest_alembic", from = "src" }]
-readme = 'README.md'
-include = ["*.md"]
 
-[tool.poetry.dependencies]
-python = ">=3.9, <4"
-
-pytest = { version = ">=7.0" }
-alembic = "*"
-sqlalchemy = "*"
-
-[tool.poetry.group.dev.dependencies]
-asyncpg = "*"
-black = { version = "22.3.0", python = ">=3.6.2" }
-coverage = { version = ">=6.4.4", extras = ["toml"] }
-greenlet = ">=3.0"
-mypy = { version = ">=1.11", python = ">=3.8" }
-psycopg2-binary = "*"
-pytest = { version = ">=8.3.2", python = ">=3.8" }
-pytest-asyncio = "*"
-pytest-mock-resources = { version = ">=2.6.3", extras = ["docker"] }
-ruff = { version = '0.0.269' }
-sqlalchemy = { version = ">=1.4", extras = ["asyncio"] }
-types-dataclasses = "^0.1.7"
-
-[tool.poetry.plugins.pytest11]
+[project.entry-points.pytest11]
 pytest_alembic = "pytest_alembic.plugin"
 
-[tool.black]
-line_length = 100
+[build-system]
+requires = ["uv_build>=0.6,<0.13"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "asyncpg>=0.30",
+    "coverage[toml]>=6.4.4",
+    "deptry>=0.20",
+    "greenlet>=3.1",
+    "interrogate>=1.7",
+    "mypy>=1.11",
+    "psycopg2-binary>=2.9.10",
+    "pyflakes>=3.4.0",
+    "pytest-mock-resources[docker]>=2.13.0",
+    "ruff>=0.15.0",
+]
+ci = [
+    "coveralls>=4.0",
+    "tomli>=2.0",
+]
+docs = [
+    "myst-parser>=2.0",
+    "sphinx>=7.0",
+    "sphinx-autobuild>=2024.2.4",
+    "sphinx-autodoc-typehints>=2.0",
+    "sphinx-rtd-theme>=2.0",
+    "sphinx-pyproject>=0.3",
+]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "if __name__ == .__main__.:"]
-
-[tool.ruff]
-src = ["src", "tests"]
-target-version = "py37"
-line-length = 100
-select = [
-  "A",
-  "B",
-  "C",
-  "D",
-  "E",
-  "F",
-  "G",
-  "I",
-  "N",
-  "Q",
-  "S",
-  "T",
-  "W",
-  "ARG",
-  "BLE",
-  "DJ",
-  "DTZ",
-  "EM",
-  "ERA",
-  "EXE",
-  "FBT",
-  "ICN",
-  "INP",
-  "ISC",
-  "NPY",
-  "PD",
-  "PGH",
-  "PIE",
-  "PT",
-  "PTH",
-  "PYI",
-  "RET",
-  "RSE",
-  "RUF",
-  "SIM",
-  "SLF",
-  "TCH",
-  "TID",
-  "TRY",
-  "UP",
-  "YTT",
+fail_under = 100
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
 ]
-ignore = ["E501", "S101", "D1", "TRY200", "B007", "B904"]
-
-[tool.ruff.isort]
-order-by-type = false
-
-[tool.ruff.per-file-ignores]
-"src/pytest_alembic/tests/**/*.py" = ["S101", "BLE001"]
-"**/tests/**/*.py" = ["D", "S", "N801", "N802", "N806", "T201", "E501"]
-"examples/**/*.py" = ["INP001", "A", "D"]
-
-[tool.ruff.pydocstyle]
-convention = "google"
 
 [tool.coverage.run]
 source = ["src"]
 branch = true
 parallel = true
 
+[tool.ruff]
+src = [
+    "src",
+    "tests",
+]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "I",
+    "N",
+    "Q",
+    "S",
+    "T",
+    "W",
+    "ARG",
+    "BLE",
+    "DJ",
+    "DTZ",
+    "EM",
+    "ERA",
+    "EXE",
+    "FBT",
+    "ICN",
+    "INP",
+    "ISC",
+    "NPY",
+    "PD",
+    "PGH",
+    "PIE",
+    "PT",
+    "PTH",
+    "PYI",
+    "RET",
+    "RSE",
+    "RUF",
+    "SIM",
+    "SLF",
+    "TCH",
+    "TID",
+    "TRY",
+    "UP",
+    "YTT",
+]
+ignore = [
+    "E501",
+    "S101",
+    "D1",
+    "B904",
+    "B007",
+    "B904",
+]
+
+[tool.ruff.lint.isort]
+order-by-type = false
+
+[tool.ruff.lint.per-file-ignores]
+"src/pytest_alembic/tests/**/*.py" = [
+    "S101",
+    "BLE001",
+]
+"**/tests/**/*.py" = [
+    "D",
+    "S",
+    "N801",
+    "N802",
+    "N806",
+    "T201",
+    "E501",
+]
+"examples/**/*.py" = [
+    "INP001",
+    "A",
+    "D",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
 [tool.pytest.ini_options]
 doctest_optionflags = "NORMALIZE_WHITESPACE IGNORE_EXCEPTION_DETAIL ELLIPSIS"
 addopts = "--doctest-modules -vv --ff --strict-markers"
-pytest_alembic_exclude = 'up_down_consistency'
+pytest_alembic_exclude = "up_down_consistency"
 norecursedirs = ".* build dist *.egg"
 pytester_example_dir = "examples"
+markers = ["postgres: needs a reachable postgres; deselected on runners that have none"]
 filterwarnings = [
-  "error",
-  "default:.*which short-circuited the downgrade operation and may have passed the test.*:UserWarning",
-  "ignore:unclosed <socket.socket.*:ResourceWarning",
-  "ignore:unclosed transport.*:ResourceWarning",
-  "ignore:unclosed connection.*:ResourceWarning",
-  "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
-  "ignore:.*is deprecated and will be removed in Python 3.14.*:DeprecationWarning",
+    "error",
+    "default:.*which short-circuited the downgrade operation and may have passed the test.*:UserWarning",
+    "ignore:unclosed <socket.socket.*:ResourceWarning",
+    "ignore:unclosed transport.*:ResourceWarning",
+    "ignore:unclosed connection.*:ResourceWarning",
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",
+    "ignore:.*is deprecated and will be removed in Python 3.14.*:DeprecationWarning",
 ]
 
 [tool.mypy]
@@ -129,7 +193,26 @@ strict_optional = true
 ignore_missing_imports = true
 warn_unused_ignores = true
 incremental = true
+disallow_untyped_defs = true
 
-[build-system]
-requires = ["poetry_core>=1.0.8"]
-build-backend = "poetry.core.masonry.api"
+[tool.deptry.per_rule_ignores]
+DEP004 = ["coverage"]
+
+[tool.interrogate]
+fail-under = 100
+ignore-init-module = true
+ignore-magic = true
+ignore-nested-functions = true
+ignore-private = true
+ignore-semiprivate = true
+style = "google"
+exclude = [
+    "tests",
+    "examples",
+    "docs",
+    "build",
+    "dist",
+    ".venv",
+]
+omit-covered-files = false
+verbose = 1

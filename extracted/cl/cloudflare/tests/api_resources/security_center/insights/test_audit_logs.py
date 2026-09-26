@@ -128,7 +128,6 @@ class TestAuditLogs:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="path_params test expects ValueError for account_id/zone_id but endpoint accepts both")
     @parametrize
     def test_path_params_list_by_insight(self, client: Cloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `issue_id` but received ''"):
@@ -200,7 +199,6 @@ class TestAsyncAuditLogs:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="path_params test expects ValueError for account_id/zone_id but endpoint accepts both")
     @parametrize
     async def test_path_params_list(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"You must provide either account_id or zone_id"):
@@ -262,7 +260,6 @@ class TestAsyncAuditLogs:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="path_params test expects ValueError for account_id/zone_id but endpoint accepts both")
     @parametrize
     async def test_path_params_list_by_insight(self, async_client: AsyncCloudflare) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `issue_id` but received ''"):

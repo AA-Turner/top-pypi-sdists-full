@@ -64,7 +64,7 @@ class AssetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetCreateResponse]:
         """
-        Creates a new custom asset.
+        Creates a custom asset for an account or zone.
 
         Args:
           description: A short description of the custom asset.
@@ -138,7 +138,7 @@ class AssetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetUpdateResponse]:
         """
-        Updates the configuration of an existing custom asset.
+        Updates a custom asset for an account or zone.
 
         Args:
           asset_name: The unique name of the custom asset. Can only contain letters (A-Z, a-z),
@@ -213,12 +213,16 @@ class AssetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncV4PagePaginationArray[AssetListResponse]:
         """
-        Fetches all the custom assets.
+        Lists custom assets for an account or zone.
 
         Args:
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
+
+          page: Page number of paginated results.
+
+          per_page: Number of custom assets per page.
 
           extra_headers: Send extra headers
 
@@ -277,7 +281,7 @@ class AssetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
-        Deletes an existing custom asset.
+        Deletes a custom asset from an account or zone.
 
         Args:
           asset_name: The unique name of the custom asset. Can only contain letters (A-Z, a-z),
@@ -337,7 +341,7 @@ class AssetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetGetResponse]:
         """
-        Fetches the details of a custom asset.
+        Returns a custom asset for an account or zone.
 
         Args:
           asset_name: The unique name of the custom asset. Can only contain letters (A-Z, a-z),
@@ -423,7 +427,7 @@ class AsyncAssetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetCreateResponse]:
         """
-        Creates a new custom asset.
+        Creates a custom asset for an account or zone.
 
         Args:
           description: A short description of the custom asset.
@@ -497,7 +501,7 @@ class AsyncAssetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetUpdateResponse]:
         """
-        Updates the configuration of an existing custom asset.
+        Updates a custom asset for an account or zone.
 
         Args:
           asset_name: The unique name of the custom asset. Can only contain letters (A-Z, a-z),
@@ -572,12 +576,16 @@ class AsyncAssetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[AssetListResponse, AsyncV4PagePaginationArray[AssetListResponse]]:
         """
-        Fetches all the custom assets.
+        Lists custom assets for an account or zone.
 
         Args:
           account_id: The Account ID to use for this endpoint. Mutually exclusive with the Zone ID.
 
           zone_id: The Zone ID to use for this endpoint. Mutually exclusive with the Account ID.
+
+          page: Page number of paginated results.
+
+          per_page: Number of custom assets per page.
 
           extra_headers: Send extra headers
 
@@ -636,7 +644,7 @@ class AsyncAssetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
-        Deletes an existing custom asset.
+        Deletes a custom asset from an account or zone.
 
         Args:
           asset_name: The unique name of the custom asset. Can only contain letters (A-Z, a-z),
@@ -696,7 +704,7 @@ class AsyncAssetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Optional[AssetGetResponse]:
         """
-        Fetches the details of a custom asset.
+        Returns a custom asset for an account or zone.
 
         Args:
           asset_name: The unique name of the custom asset. Can only contain letters (A-Z, a-z),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numbagg
-Version: 0.9.5
+Version: 0.9.6
 Summary: Fast N-dimensional aggregation functions with Numba
 Author-email: Stephan Hoyer <shoyer@gmail.com>, Maximilian Roos <m@maxroos.com>
 License: License

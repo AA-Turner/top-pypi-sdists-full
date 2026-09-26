@@ -15,4 +15,5 @@ from .registrar_check_response import RegistrarCheckResponse as RegistrarCheckRe
 from .registration_edit_params import RegistrationEditParams as RegistrationEditParams
 from .registration_list_params import RegistrationListParams as RegistrationListParams
 from .registrar_search_response import RegistrarSearchResponse as RegistrarSearchResponse
+from .transfer_in_create_params import TransferInCreateParams as TransferInCreateParams
 from .registration_create_params import RegistrationCreateParams as RegistrationCreateParams

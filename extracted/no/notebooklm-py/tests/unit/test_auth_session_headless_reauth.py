@@ -28,9 +28,9 @@ import httpx
 import pytest
 
 from notebooklm._auth.cookie_types import CookieJar
-from notebooklm._auth.headless_reauth import HeadlessReauthResult, HeadlessReauthStatus
-from notebooklm._auth.session import refresh_auth_session
+from notebooklm._browser.headless_reauth import HeadlessReauthResult, HeadlessReauthStatus
 from notebooklm._web.transport.auth import AuthRefreshCoordinator
+from notebooklm._web.transport.session_auth import refresh_auth_session
 from notebooklm.auth import AuthTokens
 
 REFRESH_HTML = '"SNlM0e":"new_csrf_token_123" "FdrFJe":"new_session_id_456"'
@@ -65,11 +65,16 @@ def _write_recovered_storage(path: Path) -> None:
 
 
 def _auth(storage_path: Path | None = None) -> AuthTokens:
+    jar = httpx.Cookies()
+    jar.set("SID", "dead_sid", domain=".google.com", path="/")
+    jar.set("__Secure-1PSIDTS", "dead", domain=".google.com", path="/")
+    jar.set("HSID", "h", domain=".google.com", path="/")
     return AuthTokens(
         cookies={"SID": "dead_sid", "__Secure-1PSIDTS": "dead", "HSID": "h"},
         csrf_token="old_csrf",
         session_id="old_session",
         storage_path=storage_path,
+        cookie_jar=jar,
     )
 
 
@@ -206,7 +211,7 @@ async def test_dead_cookies_no_optin_raises_and_skips_l3(monkeypatch) -> None:
 
     # storage_path=None → ``_try_headless_reauth`` declines BEFORE reaching
     # ``attempt_headless_reauth`` (env-var auth has no writeable backing store).
-    import notebooklm._auth.headless_reauth as hr
+    import notebooklm._browser.headless_reauth as hr
 
     monkeypatch.setattr(hr, "attempt_headless_reauth", _spy)
 
@@ -224,7 +229,7 @@ async def test_dead_cookies_no_optin_raises_and_skips_l3(monkeypatch) -> None:
 @pytest.mark.asyncio
 async def test_dead_cookies_optin_but_unavailable_raises(monkeypatch, tmp_path: Path) -> None:
     state: dict[str, int] = {}
-    import notebooklm._auth.headless_reauth as hr
+    import notebooklm._browser.headless_reauth as hr
 
     monkeypatch.setattr(
         hr,
@@ -246,8 +251,8 @@ async def test_headless_reauth_uses_storage_specific_browser_profile(
     monkeypatch, tmp_path: Path
 ) -> None:
     """Custom storage files do not share an ambient L3 browser profile."""
-    import notebooklm._auth.headless_reauth as hr
-    import notebooklm._auth.session as session_mod
+    import notebooklm._browser.headless_reauth as hr
+    import notebooklm._web.transport.session_auth as session_mod
 
     browser_profiles: list[Path] = []
 
@@ -290,7 +295,7 @@ async def test_dead_cookies_optin_success_retries_and_refreshes(
     storage = tmp_path / "storage_state.json"
     _write_recovered_storage(storage)
     state: dict[str, int] = {}
-    import notebooklm._auth.headless_reauth as hr
+    import notebooklm._browser.headless_reauth as hr
 
     def _fake_attempt(**kwargs):
         # Simulate the headless re-mint "healing" the dead-cookie homepage.
@@ -331,7 +336,7 @@ async def test_concurrent_refreshes_coalesce_to_one_browser(monkeypatch, tmp_pat
     _write_recovered_storage(storage)
     state: dict[str, int] = {}
     drives = {"count": 0}
-    import notebooklm._auth.headless_reauth as hr
+    import notebooklm._browser.headless_reauth as hr
 
     def _fake_attempt(**kwargs):
         drives["count"] += 1

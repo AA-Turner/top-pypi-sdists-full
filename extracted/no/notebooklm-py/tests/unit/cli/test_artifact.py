@@ -11,7 +11,14 @@ from click.testing import CliRunner
 import notebooklm.auth as auth_module
 from notebooklm.cli import helpers as helpers_module
 from notebooklm.notebooklm_cli import cli
-from notebooklm.types import Artifact, GenerationStatus, MindMap, MindMapKind
+from notebooklm.types import (
+    Artifact,
+    ArtifactLookup,
+    ArtifactLookupStatus,
+    GenerationStatus,
+    MindMap,
+    MindMapKind,
+)
 
 from .conftest import create_mock_client, inject_client
 
@@ -95,7 +102,13 @@ class TestArtifactList:
         mock_client = create_mock_client()
         mock_client.artifacts.list = AsyncMock(
             return_value=[
-                Artifact(id="art_1", title="Test Artifact", _artifact_type=4, status=3),
+                Artifact(
+                    id="art_1",
+                    title="Test Artifact",
+                    _artifact_type=4,
+                    _variant=2,
+                    status=3,
+                ),
             ]
         )
         mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
@@ -116,6 +129,7 @@ class TestArtifactList:
         assert data["notebook_title"] == "Test Notebook"
         assert "artifacts" in data
         assert data["count"] == 1
+        assert data["artifacts"][0]["type"] == "Quiz"
         assert list(data["artifacts"][0]) == [
             "index",
             "id",
@@ -310,15 +324,27 @@ class TestArtifactGet:
         mock_client = create_mock_client()
         # Mock list for partial ID resolution
         mock_client.artifacts.list = AsyncMock(
-            return_value=[Artifact(id="art_123", title="Test Artifact", _artifact_type=4, status=3)]
+            return_value=[
+                Artifact(
+                    id="art_123",
+                    title="Test Artifact",
+                    _artifact_type=4,
+                    _variant=2,
+                    status=3,
+                )
+            ]
         )
-        mock_client.artifacts.get_or_none = AsyncMock(
-            return_value=Artifact(
-                id="art_123",
-                title="Test Artifact",
-                _artifact_type=4,
-                status=3,
-                created_at=datetime(2024, 1, 1),
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(
+                ArtifactLookupStatus.FOUND,
+                artifact=Artifact(
+                    id="art_123",
+                    title="Test Artifact",
+                    _artifact_type=4,
+                    _variant=2,
+                    status=3,
+                    created_at=datetime(2024, 1, 1),
+                ),
             )
         )
 
@@ -333,12 +359,15 @@ class TestArtifactGet:
         assert result.exit_code == 0
         assert "Test Artifact" in result.output
         assert "art_123" in result.output
+        assert "Quiz" in result.output
 
     def test_artifact_get_not_found(self, runner, mock_auth):
         mock_client = create_mock_client()
         # Mock list to return empty (no match for resolve_artifact_id)
         mock_client.artifacts.list = AsyncMock(return_value=[])
-        mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(ArtifactLookupStatus.MISSING)
+        )
 
         with patch.object(
             auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
@@ -358,15 +387,27 @@ class TestArtifactGet:
         """`artifact get --json` emits structured JSON mirroring the Artifact."""
         mock_client = create_mock_client()
         mock_client.artifacts.list = AsyncMock(
-            return_value=[Artifact(id="art_123", title="Test Artifact", _artifact_type=4, status=3)]
+            return_value=[
+                Artifact(
+                    id="art_123",
+                    title="Test Artifact",
+                    _artifact_type=4,
+                    _variant=2,
+                    status=3,
+                )
+            ]
         )
-        mock_client.artifacts.get_or_none = AsyncMock(
-            return_value=Artifact(
-                id="art_123",
-                title="Test Artifact",
-                _artifact_type=4,
-                status=3,
-                created_at=datetime(2024, 1, 1),
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(
+                ArtifactLookupStatus.FOUND,
+                artifact=Artifact(
+                    id="art_123",
+                    title="Test Artifact",
+                    _artifact_type=4,
+                    _variant=2,
+                    status=3,
+                    created_at=datetime(2024, 1, 1),
+                ),
             )
         )
 
@@ -389,7 +430,7 @@ class TestArtifactGet:
         # so cached responses share one schema across the two commands.
         assert data["notebook_id"] == "nb_123"
         # type / status / created_at keys must be present for automation
-        assert "type" in data
+        assert data["type"] == "Quiz"
         assert "status" in data
         assert "created_at" in data
 
@@ -409,7 +450,9 @@ class TestArtifactGet:
         mock_client.artifacts.list = AsyncMock(
             return_value=[Artifact(id="art_123", title="Doomed", _artifact_type=4, status=3)]
         )
-        mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(ArtifactLookupStatus.MISSING)
+        )
 
         with patch.object(
             auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
@@ -442,7 +485,9 @@ class TestArtifactGet:
         long_id = "abc12345-6789-4abc-def0-1234567890ab"
         mock_client = create_mock_client()
         mock_client.artifacts.list = AsyncMock(return_value=[])
-        mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(ArtifactLookupStatus.MISSING)
+        )
 
         with patch.object(
             auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
@@ -461,7 +506,9 @@ class TestArtifactGet:
         long_id = "abc12345-6789-4abc-def0-1234567890ab"
         mock_client = create_mock_client()
         mock_client.artifacts.list = AsyncMock(return_value=[])
-        mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(ArtifactLookupStatus.MISSING)
+        )
 
         with patch.object(
             auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock
@@ -488,7 +535,9 @@ class TestArtifactGet:
         mock_client.artifacts.list = AsyncMock(
             return_value=[Artifact(id="art_xyz", title="Doomed", _artifact_type=4, status=3)]
         )
-        mock_client.artifacts.get_or_none = AsyncMock(return_value=None)
+        mock_client.artifacts.lookup = AsyncMock(
+            return_value=ArtifactLookup(ArtifactLookupStatus.MISSING)
+        )
 
         with patch.object(
             auth_module, "fetch_tokens_with_domains", new_callable=AsyncMock

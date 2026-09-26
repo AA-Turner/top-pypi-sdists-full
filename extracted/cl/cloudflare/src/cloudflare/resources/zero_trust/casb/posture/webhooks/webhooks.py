@@ -73,6 +73,7 @@ class WebhooksResource(SyncAPIResource):
         label: str,
         headers: Iterable[webhook_create_params.Header] | Omit = omit,
         signing_secret: str | Omit = omit,
+        status: Literal["enabled", "disabled"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -95,6 +96,8 @@ class WebhooksResource(SyncAPIResource):
 
           signing_secret: Secret key used for HMAC signing when authentication_type is "HMAC-Signing".
 
+          status: Status of the webhook configuration. Defaults to enabled when omitted.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -114,6 +117,7 @@ class WebhooksResource(SyncAPIResource):
                     "label": label,
                     "headers": headers,
                     "signing_secret": signing_secret,
+                    "status": status,
                 },
                 webhook_create_params.WebhookCreateParams,
             ),
@@ -480,6 +484,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
         label: str,
         headers: Iterable[webhook_create_params.Header] | Omit = omit,
         signing_secret: str | Omit = omit,
+        status: Literal["enabled", "disabled"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -502,6 +507,8 @@ class AsyncWebhooksResource(AsyncAPIResource):
 
           signing_secret: Secret key used for HMAC signing when authentication_type is "HMAC-Signing".
 
+          status: Status of the webhook configuration. Defaults to enabled when omitted.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -521,6 +528,7 @@ class AsyncWebhooksResource(AsyncAPIResource):
                     "label": label,
                     "headers": headers,
                     "signing_secret": signing_secret,
+                    "status": status,
                 },
                 webhook_create_params.WebhookCreateParams,
             ),

@@ -9,31 +9,23 @@ __all__ = ["RegistrarSandboxCheckResponse", "Domain", "DomainPricing"]
 
 
 class DomainPricing(BaseModel):
-    """Provides annual pricing information for a registrable domain.
+    """
+    Provides annual pricing information for a given domain.
+    The API returns all per-year prices as strings to preserve decimal precision.
 
-    This object
-    appears only when `registrable` is `true`. The API returns all per-year
-    prices as strings to preserve decimal precision.
+    `renewal_cost` and `registration_cost` or `transfer_cost` are frequently the same value,
+    but may differ due to premium rates for certain domains.
 
-    `registration_cost` and `renewal_cost` frequently have the same value, but
-    may differ, especially when registries set different premium rates for
-    initial registration and renewal. For a multi-year registration (e.g., 4
-    years), `registration_cost` applies to the first year and `renewal_cost`
-    applies to each subsequent year. The values reflect the current registry
-    rate, which may change over time. Search and Check may surface premium
-    pricing, but this API currently supports standard registrations only.
+    For a multi-year operations, the operation's cost applies to the first year
+    and `renewal_cost` applies to each subsequent year. The values reflect the current
+    registry rate, which can change over time.
     """
 
     currency: str
     """ISO-4217 currency code for the prices (e.g., "USD", "EUR", "GBP")."""
 
     registration_cost: str
-    """The first-year cost to register this domain.
-
-    For premium domains (`tier: premium`), the registry sets this price, which may
-    significantly exceed standard pricing. For multi-year registrations, this cost
-    applies to the first year only; `renewal_cost` applies to subsequent years.
-    """
+    """The first-year cost to register this domain."""
 
     renewal_cost: str
     """Per-year renewal cost for this domain.
@@ -68,18 +60,16 @@ class Domain(BaseModel):
     """
 
     pricing: Optional[DomainPricing] = None
-    """Provides annual pricing information for a registrable domain.
-
-    This object appears only when `registrable` is `true`. The API returns all
+    """
+    Provides annual pricing information for a given domain. The API returns all
     per-year prices as strings to preserve decimal precision.
 
-    `registration_cost` and `renewal_cost` frequently have the same value, but may
-    differ, especially when registries set different premium rates for initial
-    registration and renewal. For a multi-year registration (e.g., 4 years),
-    `registration_cost` applies to the first year and `renewal_cost` applies to each
-    subsequent year. The values reflect the current registry rate, which may change
-    over time. Search and Check may surface premium pricing, but this API currently
-    supports standard registrations only.
+    `renewal_cost` and `registration_cost` or `transfer_cost` are frequently the
+    same value, but may differ due to premium rates for certain domains.
+
+    For a multi-year operations, the operation's cost applies to the first year and
+    `renewal_cost` applies to each subsequent year. The values reflect the current
+    registry rate, which can change over time.
     """
 
     reason: Optional[

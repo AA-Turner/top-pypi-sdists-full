@@ -6,7 +6,7 @@ from typing_extensions import Literal
 from ..._models import BaseModel
 from .login_design import LoginDesign
 
-__all__ = ["Organization", "CustomPages", "MfaConfig", "MfaPivKeyRequirements"]
+__all__ = ["Organization", "CustomPages", "MfaConfig", "MfaPivKeyRequirements", "ServiceTokenInactivity"]
 
 
 class CustomPages(BaseModel):
@@ -88,6 +88,25 @@ class MfaPivKeyRequirements(BaseModel):
     """
 
 
+class ServiceTokenInactivity(BaseModel):
+    """Configures automatic enforcement for inactive service tokens.
+
+    A service token is inactive if no policy references it, and it has not successfully authenticated with an Access application during the selected inactivity period. This setting applies to every service token in your Zero Trust account.
+    """
+
+    action: Literal["disable", "delete"]
+    """The action applied to an inactive service token."""
+
+    enabled: bool
+    """Whether automatic enforcement for inactive service tokens is enabled."""
+
+    inactivity_threshold_days: int
+    """
+    The number of days a service token must be inactive before the configured action
+    is applied.
+    """
+
+
 class Organization(BaseModel):
     allow_authenticate_via_warp: Optional[bool] = None
     """
@@ -148,6 +167,15 @@ class Organization(BaseModel):
 
     name: Optional[str] = None
     """The name of your Zero Trust organization."""
+
+    service_token_inactivity: Optional[ServiceTokenInactivity] = None
+    """Configures automatic enforcement for inactive service tokens.
+
+    A service token is inactive if no policy references it, and it has not
+    successfully authenticated with an Access application during the selected
+    inactivity period. This setting applies to every service token in your Zero
+    Trust account.
+    """
 
     session_duration: Optional[str] = None
     """The amount of time that tokens issued for applications will be valid.

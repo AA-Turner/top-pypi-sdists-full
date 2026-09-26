@@ -37,6 +37,7 @@ __all__ = [
     "SettingsBindingWorkersBindingKindMTLSCertificate",
     "SettingsBindingWorkersBindingKindPlainText",
     "SettingsBindingWorkersBindingKindPipelines",
+    "SettingsBindingWorkersBindingKindK2",
     "SettingsBindingWorkersBindingKindQueue",
     "SettingsBindingWorkersBindingKindRatelimit",
     "SettingsBindingWorkersBindingKindRatelimitSimple",
@@ -67,6 +68,7 @@ __all__ = [
     "SettingsMigrations",
     "SettingsMigrationsWorkersMultipleStepMigrations",
     "SettingsObservability",
+    "SettingsObservabilityIssues",
     "SettingsObservabilityLogs",
     "SettingsObservabilityTraces",
     "SettingsPlacement",
@@ -388,6 +390,19 @@ class SettingsBindingWorkersBindingKindPipelines(TypedDict, total=False):
     """The kind of resource that the binding provides."""
 
 
+class SettingsBindingWorkersBindingKindK2(TypedDict, total=False):
+    """A K2 stream binding. Available only to accounts enabled for K2."""
+
+    name: Required[str]
+    """A JavaScript variable name for the binding."""
+
+    stream: Required[str]
+    """ID of a K2 stream owned by the account deploying the Worker."""
+
+    type: Required[Literal["k2"]]
+    """The kind of resource that the binding provides."""
+
+
 class SettingsBindingWorkersBindingKindQueue(TypedDict, total=False):
     name: Required[str]
     """A JavaScript variable name for the binding."""
@@ -681,6 +696,7 @@ SettingsBinding: TypeAlias = Union[
     SettingsBindingWorkersBindingKindMTLSCertificate,
     SettingsBindingWorkersBindingKindPlainText,
     SettingsBindingWorkersBindingKindPipelines,
+    SettingsBindingWorkersBindingKindK2,
     SettingsBindingWorkersBindingKindQueue,
     SettingsBindingWorkersBindingKindRatelimit,
     SettingsBindingWorkersBindingKindR2Bucket,
@@ -928,6 +944,13 @@ class SettingsMigrationsWorkersMultipleStepMigrations(TypedDict, total=False):
 SettingsMigrations: TypeAlias = Union[SingleStepMigrationParam, SettingsMigrationsWorkersMultipleStepMigrations]
 
 
+class SettingsObservabilityIssues(TypedDict, total=False):
+    """Real-time Issues settings for the Worker."""
+
+    enabled: bool
+    """Whether real-time Issues are enabled for the Worker."""
+
+
 class SettingsObservabilityLogs(TypedDict, total=False):
     """Log settings for the Worker."""
 
@@ -987,6 +1010,9 @@ class SettingsObservability(TypedDict, total=False):
 
     From 0 to 1 (1 = 100%, 0.1 = 10%). Default is 1.
     """
+
+    issues: Optional[SettingsObservabilityIssues]
+    """Real-time Issues settings for the Worker."""
 
     logs: Optional[SettingsObservabilityLogs]
     """Log settings for the Worker."""

@@ -520,6 +520,18 @@ def test_scrub_response_noop_when_env_var_unset(monkeypatch):
 # --- (3) _web/transport/error_injection.py mode resolver ----------------------------------
 
 
+def test_web_error_guard_path_reexports_neutral_owner_by_identity() -> None:
+    from notebooklm._runtime import error_injection as neutral
+    from notebooklm._web.transport import error_injection as legacy
+
+    assert legacy.ERROR_INJECT_ENV_VAR is neutral.ERROR_INJECT_ENV_VAR
+    assert legacy._get_error_injection_mode is neutral._get_error_injection_mode
+    assert (
+        legacy._refuse_synthetic_error_outside_test_context
+        is neutral._refuse_synthetic_error_outside_test_context
+    )
+
+
 def test_core_get_error_injection_mode_unset(monkeypatch):
     monkeypatch.delenv(ERROR_INJECT_ENV_VAR, raising=False)
     assert _get_error_injection_mode() is None
@@ -563,14 +575,17 @@ async def test_error_injection_middleware_present_when_env_var_set_in_session(mo
     core = build_client_shell_for_tests(auth)
     try:
         await core.__aenter__()
-        assert core._collaborators.kernel.http_client is not None
+        assert core._web_runtime.kernel.http_client is not None
         # The middleware reads the env var per call; env-var-to-mode
         # resolution is covered by the dedicated middleware tests in
         # ``test_error_injection_middleware.py``.
-        assert any(isinstance(mw, ErrorInjectionMiddleware) for mw in core._composed.middlewares)
+        assert any(
+            isinstance(mw, ErrorInjectionMiddleware)
+            for mw in core._web_runtime.composed.middlewares
+        )
     finally:
-        if core._collaborators.kernel.http_client is not None:
-            await core._collaborators.kernel.get_http_client().aclose()
+        if core._web_runtime.kernel.http_client is not None:
+            await core._web_runtime.kernel.get_http_client().aclose()
 
 
 # --- (5) marker plumbing in tests/conftest.py --------------------------------

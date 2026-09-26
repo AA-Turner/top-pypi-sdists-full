@@ -26,6 +26,7 @@ Usage::
         ListKnowledgeBaseDocumentsPaginator,
         ListKnowledgeBasesPaginator,
         ListPromptsPaginator,
+        ListVpcConfigurationsPaginator,
     )
 
     session = Session()
@@ -45,6 +46,7 @@ Usage::
     list_knowledge_base_documents_paginator: ListKnowledgeBaseDocumentsPaginator = client.get_paginator("list_knowledge_base_documents")
     list_knowledge_bases_paginator: ListKnowledgeBasesPaginator = client.get_paginator("list_knowledge_bases")
     list_prompts_paginator: ListPromptsPaginator = client.get_paginator("list_prompts")
+    list_vpc_configurations_paginator: ListVpcConfigurationsPaginator = client.get_paginator("list_vpc_configurations")
     ```
 """
 
@@ -64,6 +66,7 @@ from .paginator import (
     ListKnowledgeBaseDocumentsPaginator,
     ListKnowledgeBasesPaginator,
     ListPromptsPaginator,
+    ListVpcConfigurationsPaginator,
 )
 
 Client = AgentsforBedrockClient
@@ -85,4 +88,5 @@ __all__ = (
     "ListKnowledgeBaseDocumentsPaginator",
     "ListKnowledgeBasesPaginator",
     "ListPromptsPaginator",
+    "ListVpcConfigurationsPaginator",
 )

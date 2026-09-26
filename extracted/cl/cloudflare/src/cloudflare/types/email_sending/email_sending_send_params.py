@@ -46,17 +46,15 @@ class EmailSendingSendParams(TypedDict, total=False):
     """File attachments and inline images."""
 
     bcc: Bcc
-    """Recipient(s).
+    """Blind carbon copy recipient(s).
 
-    Optional if cc or bcc is provided. A single email string, a named address
-    object, or an array of either.
+    Optional. A single email string, a named address object, or an array of either.
     """
 
     cc: Cc
-    """Recipient(s).
+    """Carbon copy recipient(s).
 
-    Optional if cc or bcc is provided. A single email string, a named address
-    object, or an array of either.
+    Optional. A single email string, a named address object, or an array of either.
     """
 
     headers: Dict[str, str]

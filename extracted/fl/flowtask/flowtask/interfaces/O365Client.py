@@ -25,6 +25,12 @@ from ..conf import (
 )
 from .credentials import CredentialsInterface
 from ..exceptions import InvalidArgument
+from ..utils.msgraph_patch import apply_msgraph_patches
+
+# Graph clients go through msgraph-core: restore its middleware pipeline under
+# kiota-http >= 1.14 (UrlReplace/Retry/Redirect are skipped otherwise) and
+# sanitise the HostOs telemetry header.
+apply_msgraph_patches()
 
 
 logging.getLogger('msal').setLevel(logging.INFO)

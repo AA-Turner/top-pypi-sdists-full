@@ -18,6 +18,9 @@ if typing.TYPE_CHECKING:
     from .agreement_v2backfill_trigger_request_request import AgreementV2BackfillTriggerRequestRequest
     from .agreement_v2backfill_trigger_response import AgreementV2BackfillTriggerResponse
     from .all_roles_project_list import AllRolesProjectList
+    from .all_roles_project_list_dm_column_defaults import AllRolesProjectListDmColumnDefaults
+    from .all_roles_project_list_dm_column_defaults_explore import AllRolesProjectListDmColumnDefaultsExplore
+    from .all_roles_project_list_dm_column_defaults_labeling import AllRolesProjectListDmColumnDefaultsLabeling
     from .annotation import Annotation
     from .annotation_history import AnnotationHistory
     from .annotation_history_action_enum import AnnotationHistoryActionEnum
@@ -32,6 +35,7 @@ if typing.TYPE_CHECKING:
     from .assignment_type_enum import AssignmentTypeEnum
     from .associated_project import AssociatedProject
     from .auth_method_enum import AuthMethodEnum
+    from .auth_mode_enum import AuthModeEnum
     from .auth_type_enum import AuthTypeEnum
     from .azure_blob_export_storage import AzureBlobExportStorage
     from .azure_blob_import_storage import AzureBlobImportStorage
@@ -48,6 +52,7 @@ if typing.TYPE_CHECKING:
     from .budget_reset_period_enum import BudgetResetPeriodEnum
     from .cancel_model_run_response import CancelModelRunResponse
     from .child_filter import ChildFilter
+    from .collection_mode_enum import CollectionModeEnum
     from .comment import Comment
     from .comment_request import CommentRequest
     from .comment_serializer_with_expanded_user import CommentSerializerWithExpandedUser
@@ -74,6 +79,9 @@ if typing.TYPE_CHECKING:
     from .file_upload import FileUpload
     from .filter import Filter
     from .filter_group import FilterGroup
+    from .filtered_label_distribution_unavailable import FilteredLabelDistributionUnavailable
+    from .flex_active_block import FlexActiveBlock
+    from .flex_checks import FlexChecks
     from .fsm_backfill_job_status_enum import FsmBackfillJobStatusEnum
     from .fsm_transition_execute_response import FsmTransitionExecuteResponse
     from .gcs_export_storage import GcsExportStorage
@@ -127,7 +135,16 @@ if typing.TYPE_CHECKING:
     from .lse_project import LseProject
     from .lse_project_counts import LseProjectCounts
     from .lse_project_create import LseProjectCreate
+    from .lse_project_create_dm_column_defaults import LseProjectCreateDmColumnDefaults
+    from .lse_project_create_dm_column_defaults_explore import LseProjectCreateDmColumnDefaultsExplore
+    from .lse_project_create_dm_column_defaults_labeling import LseProjectCreateDmColumnDefaultsLabeling
+    from .lse_project_dm_column_defaults import LseProjectDmColumnDefaults
+    from .lse_project_dm_column_defaults_explore import LseProjectDmColumnDefaultsExplore
+    from .lse_project_dm_column_defaults_labeling import LseProjectDmColumnDefaultsLabeling
     from .lse_project_response import LseProjectResponse
+    from .lse_project_response_dm_column_defaults import LseProjectResponseDmColumnDefaults
+    from .lse_project_response_dm_column_defaults_explore import LseProjectResponseDmColumnDefaultsExplore
+    from .lse_project_response_dm_column_defaults_labeling import LseProjectResponseDmColumnDefaultsLabeling
     from .lse_s3export_storage import LseS3ExportStorage
     from .lse_s3export_storage_request import LseS3ExportStorageRequest
     from .lse_s3import_storage import LseS3ImportStorage
@@ -173,6 +190,14 @@ if typing.TYPE_CHECKING:
     from .organization_member import OrganizationMember
     from .organization_member_contributed_to_projects_item import OrganizationMemberContributedToProjectsItem
     from .organization_member_created_projects_item import OrganizationMemberCreatedProjectsItem
+    from .organization_member_filter_schema import OrganizationMemberFilterSchema
+    from .organization_member_membership_option import OrganizationMemberMembershipOption
+    from .organization_member_membership_option_kind_enum import OrganizationMemberMembershipOptionKindEnum
+    from .organization_member_membership_project_option import OrganizationMemberMembershipProjectOption
+    from .organization_member_membership_project_option_kind_enum import (
+        OrganizationMemberMembershipProjectOptionKindEnum,
+    )
+    from .organization_member_skills_option import OrganizationMemberSkillsOption
     from .organization_member_tag import OrganizationMemberTag
     from .organization_member_tag_import_status import OrganizationMemberTagImportStatus
     from .organization_member_tag_import_status_status_enum import OrganizationMemberTagImportStatusStatusEnum
@@ -244,6 +269,7 @@ if typing.TYPE_CHECKING:
     from .redis_export_storage import RedisExportStorage
     from .redis_import_storage import RedisImportStorage
     from .refined_prompt_response import RefinedPromptResponse
+    from .reject_action_enum import RejectActionEnum
     from .requeue_rejected_tasks_mode_enum import RequeueRejectedTasksModeEnum
     from .review_criteria_enum import ReviewCriteriaEnum
     from .review_routing_rule import ReviewRoutingRule
@@ -252,6 +278,7 @@ if typing.TYPE_CHECKING:
     from .review_settings_request import ReviewSettingsRequest
     from .review_settings_sampling_enum import ReviewSettingsSamplingEnum
     from .role_based_task import RoleBasedTask
+    from .role_source_enum import RoleSourceEnum
     from .s3export_storage import S3ExportStorage
     from .s3import_storage import S3ImportStorage
     from .saml_settings import SamlSettings
@@ -320,6 +347,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AgreementV2BackfillTriggerRequestRequest": ".agreement_v2backfill_trigger_request_request",
     "AgreementV2BackfillTriggerResponse": ".agreement_v2backfill_trigger_response",
     "AllRolesProjectList": ".all_roles_project_list",
+    "AllRolesProjectListDmColumnDefaults": ".all_roles_project_list_dm_column_defaults",
+    "AllRolesProjectListDmColumnDefaultsExplore": ".all_roles_project_list_dm_column_defaults_explore",
+    "AllRolesProjectListDmColumnDefaultsLabeling": ".all_roles_project_list_dm_column_defaults_labeling",
     "Annotation": ".annotation",
     "AnnotationHistory": ".annotation_history",
     "AnnotationHistoryActionEnum": ".annotation_history_action_enum",
@@ -334,6 +364,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AssignmentTypeEnum": ".assignment_type_enum",
     "AssociatedProject": ".associated_project",
     "AuthMethodEnum": ".auth_method_enum",
+    "AuthModeEnum": ".auth_mode_enum",
     "AuthTypeEnum": ".auth_type_enum",
     "AzureBlobExportStorage": ".azure_blob_export_storage",
     "AzureBlobImportStorage": ".azure_blob_import_storage",
@@ -350,6 +381,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "BudgetResetPeriodEnum": ".budget_reset_period_enum",
     "CancelModelRunResponse": ".cancel_model_run_response",
     "ChildFilter": ".child_filter",
+    "CollectionModeEnum": ".collection_mode_enum",
     "Comment": ".comment",
     "CommentRequest": ".comment_request",
     "CommentSerializerWithExpandedUser": ".comment_serializer_with_expanded_user",
@@ -376,6 +408,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FileUpload": ".file_upload",
     "Filter": ".filter",
     "FilterGroup": ".filter_group",
+    "FilteredLabelDistributionUnavailable": ".filtered_label_distribution_unavailable",
+    "FlexActiveBlock": ".flex_active_block",
+    "FlexChecks": ".flex_checks",
     "FsmBackfillJobStatusEnum": ".fsm_backfill_job_status_enum",
     "FsmTransitionExecuteResponse": ".fsm_transition_execute_response",
     "GcsExportStorage": ".gcs_export_storage",
@@ -427,7 +462,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LseProject": ".lse_project",
     "LseProjectCounts": ".lse_project_counts",
     "LseProjectCreate": ".lse_project_create",
+    "LseProjectCreateDmColumnDefaults": ".lse_project_create_dm_column_defaults",
+    "LseProjectCreateDmColumnDefaultsExplore": ".lse_project_create_dm_column_defaults_explore",
+    "LseProjectCreateDmColumnDefaultsLabeling": ".lse_project_create_dm_column_defaults_labeling",
+    "LseProjectDmColumnDefaults": ".lse_project_dm_column_defaults",
+    "LseProjectDmColumnDefaultsExplore": ".lse_project_dm_column_defaults_explore",
+    "LseProjectDmColumnDefaultsLabeling": ".lse_project_dm_column_defaults_labeling",
     "LseProjectResponse": ".lse_project_response",
+    "LseProjectResponseDmColumnDefaults": ".lse_project_response_dm_column_defaults",
+    "LseProjectResponseDmColumnDefaultsExplore": ".lse_project_response_dm_column_defaults_explore",
+    "LseProjectResponseDmColumnDefaultsLabeling": ".lse_project_response_dm_column_defaults_labeling",
     "LseS3ExportStorage": ".lse_s3export_storage",
     "LseS3ExportStorageRequest": ".lse_s3export_storage_request",
     "LseS3ImportStorage": ".lse_s3import_storage",
@@ -469,6 +513,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OrganizationMember": ".organization_member",
     "OrganizationMemberContributedToProjectsItem": ".organization_member_contributed_to_projects_item",
     "OrganizationMemberCreatedProjectsItem": ".organization_member_created_projects_item",
+    "OrganizationMemberFilterSchema": ".organization_member_filter_schema",
+    "OrganizationMemberMembershipOption": ".organization_member_membership_option",
+    "OrganizationMemberMembershipOptionKindEnum": ".organization_member_membership_option_kind_enum",
+    "OrganizationMemberMembershipProjectOption": ".organization_member_membership_project_option",
+    "OrganizationMemberMembershipProjectOptionKindEnum": ".organization_member_membership_project_option_kind_enum",
+    "OrganizationMemberSkillsOption": ".organization_member_skills_option",
     "OrganizationMemberTag": ".organization_member_tag",
     "OrganizationMemberTagImportStatus": ".organization_member_tag_import_status",
     "OrganizationMemberTagImportStatusStatusEnum": ".organization_member_tag_import_status_status_enum",
@@ -532,6 +582,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RedisExportStorage": ".redis_export_storage",
     "RedisImportStorage": ".redis_import_storage",
     "RefinedPromptResponse": ".refined_prompt_response",
+    "RejectActionEnum": ".reject_action_enum",
     "RequeueRejectedTasksModeEnum": ".requeue_rejected_tasks_mode_enum",
     "ReviewCriteriaEnum": ".review_criteria_enum",
     "ReviewRoutingRule": ".review_routing_rule",
@@ -540,6 +591,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ReviewSettingsRequest": ".review_settings_request",
     "ReviewSettingsSamplingEnum": ".review_settings_sampling_enum",
     "RoleBasedTask": ".role_based_task",
+    "RoleSourceEnum": ".role_source_enum",
     "S3ExportStorage": ".s3export_storage",
     "S3ImportStorage": ".s3import_storage",
     "SamlSettings": ".saml_settings",
@@ -632,6 +684,9 @@ __all__ = [
     "AgreementV2BackfillTriggerRequestRequest",
     "AgreementV2BackfillTriggerResponse",
     "AllRolesProjectList",
+    "AllRolesProjectListDmColumnDefaults",
+    "AllRolesProjectListDmColumnDefaultsExplore",
+    "AllRolesProjectListDmColumnDefaultsLabeling",
     "Annotation",
     "AnnotationHistory",
     "AnnotationHistoryActionEnum",
@@ -646,6 +701,7 @@ __all__ = [
     "AssignmentTypeEnum",
     "AssociatedProject",
     "AuthMethodEnum",
+    "AuthModeEnum",
     "AuthTypeEnum",
     "AzureBlobExportStorage",
     "AzureBlobImportStorage",
@@ -662,6 +718,7 @@ __all__ = [
     "BudgetResetPeriodEnum",
     "CancelModelRunResponse",
     "ChildFilter",
+    "CollectionModeEnum",
     "Comment",
     "CommentRequest",
     "CommentSerializerWithExpandedUser",
@@ -688,6 +745,9 @@ __all__ = [
     "FileUpload",
     "Filter",
     "FilterGroup",
+    "FilteredLabelDistributionUnavailable",
+    "FlexActiveBlock",
+    "FlexChecks",
     "FsmBackfillJobStatusEnum",
     "FsmTransitionExecuteResponse",
     "GcsExportStorage",
@@ -739,7 +799,16 @@ __all__ = [
     "LseProject",
     "LseProjectCounts",
     "LseProjectCreate",
+    "LseProjectCreateDmColumnDefaults",
+    "LseProjectCreateDmColumnDefaultsExplore",
+    "LseProjectCreateDmColumnDefaultsLabeling",
+    "LseProjectDmColumnDefaults",
+    "LseProjectDmColumnDefaultsExplore",
+    "LseProjectDmColumnDefaultsLabeling",
     "LseProjectResponse",
+    "LseProjectResponseDmColumnDefaults",
+    "LseProjectResponseDmColumnDefaultsExplore",
+    "LseProjectResponseDmColumnDefaultsLabeling",
     "LseS3ExportStorage",
     "LseS3ExportStorageRequest",
     "LseS3ImportStorage",
@@ -781,6 +850,12 @@ __all__ = [
     "OrganizationMember",
     "OrganizationMemberContributedToProjectsItem",
     "OrganizationMemberCreatedProjectsItem",
+    "OrganizationMemberFilterSchema",
+    "OrganizationMemberMembershipOption",
+    "OrganizationMemberMembershipOptionKindEnum",
+    "OrganizationMemberMembershipProjectOption",
+    "OrganizationMemberMembershipProjectOptionKindEnum",
+    "OrganizationMemberSkillsOption",
     "OrganizationMemberTag",
     "OrganizationMemberTagImportStatus",
     "OrganizationMemberTagImportStatusStatusEnum",
@@ -844,6 +919,7 @@ __all__ = [
     "RedisExportStorage",
     "RedisImportStorage",
     "RefinedPromptResponse",
+    "RejectActionEnum",
     "RequeueRejectedTasksModeEnum",
     "ReviewCriteriaEnum",
     "ReviewRoutingRule",
@@ -852,6 +928,7 @@ __all__ = [
     "ReviewSettingsRequest",
     "ReviewSettingsSamplingEnum",
     "RoleBasedTask",
+    "RoleSourceEnum",
     "S3ExportStorage",
     "S3ImportStorage",
     "SamlSettings",

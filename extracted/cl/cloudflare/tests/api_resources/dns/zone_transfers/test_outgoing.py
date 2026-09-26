@@ -156,7 +156,6 @@ class TestOutgoing:
     def test_method_disable(self, client: Cloudflare) -> None:
         outgoing = client.dns.zone_transfers.outgoing.disable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, outgoing, path=["response"])
 
@@ -164,7 +163,6 @@ class TestOutgoing:
     def test_raw_response_disable(self, client: Cloudflare) -> None:
         response = client.dns.zone_transfers.outgoing.with_raw_response.disable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -176,7 +174,6 @@ class TestOutgoing:
     def test_streaming_response_disable(self, client: Cloudflare) -> None:
         with client.dns.zone_transfers.outgoing.with_streaming_response.disable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -191,14 +188,12 @@ class TestOutgoing:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             client.dns.zone_transfers.outgoing.with_raw_response.disable(
                 zone_id="",
-                body={},
             )
 
     @parametrize
     def test_method_enable(self, client: Cloudflare) -> None:
         outgoing = client.dns.zone_transfers.outgoing.enable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, outgoing, path=["response"])
 
@@ -206,7 +201,6 @@ class TestOutgoing:
     def test_raw_response_enable(self, client: Cloudflare) -> None:
         response = client.dns.zone_transfers.outgoing.with_raw_response.enable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -218,7 +212,6 @@ class TestOutgoing:
     def test_streaming_response_enable(self, client: Cloudflare) -> None:
         with client.dns.zone_transfers.outgoing.with_streaming_response.enable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -233,14 +226,12 @@ class TestOutgoing:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             client.dns.zone_transfers.outgoing.with_raw_response.enable(
                 zone_id="",
-                body={},
             )
 
     @parametrize
     def test_method_force_notify(self, client: Cloudflare) -> None:
         outgoing = client.dns.zone_transfers.outgoing.force_notify(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, outgoing, path=["response"])
 
@@ -248,7 +239,6 @@ class TestOutgoing:
     def test_raw_response_force_notify(self, client: Cloudflare) -> None:
         response = client.dns.zone_transfers.outgoing.with_raw_response.force_notify(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -260,7 +250,6 @@ class TestOutgoing:
     def test_streaming_response_force_notify(self, client: Cloudflare) -> None:
         with client.dns.zone_transfers.outgoing.with_streaming_response.force_notify(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -275,7 +264,6 @@ class TestOutgoing:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             client.dns.zone_transfers.outgoing.with_raw_response.force_notify(
                 zone_id="",
-                body={},
             )
 
     @parametrize
@@ -456,7 +444,6 @@ class TestAsyncOutgoing:
     async def test_method_disable(self, async_client: AsyncCloudflare) -> None:
         outgoing = await async_client.dns.zone_transfers.outgoing.disable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, outgoing, path=["response"])
 
@@ -464,7 +451,6 @@ class TestAsyncOutgoing:
     async def test_raw_response_disable(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.dns.zone_transfers.outgoing.with_raw_response.disable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -476,7 +462,6 @@ class TestAsyncOutgoing:
     async def test_streaming_response_disable(self, async_client: AsyncCloudflare) -> None:
         async with async_client.dns.zone_transfers.outgoing.with_streaming_response.disable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -491,14 +476,12 @@ class TestAsyncOutgoing:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             await async_client.dns.zone_transfers.outgoing.with_raw_response.disable(
                 zone_id="",
-                body={},
             )
 
     @parametrize
     async def test_method_enable(self, async_client: AsyncCloudflare) -> None:
         outgoing = await async_client.dns.zone_transfers.outgoing.enable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, outgoing, path=["response"])
 
@@ -506,7 +489,6 @@ class TestAsyncOutgoing:
     async def test_raw_response_enable(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.dns.zone_transfers.outgoing.with_raw_response.enable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -518,7 +500,6 @@ class TestAsyncOutgoing:
     async def test_streaming_response_enable(self, async_client: AsyncCloudflare) -> None:
         async with async_client.dns.zone_transfers.outgoing.with_streaming_response.enable(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -533,14 +514,12 @@ class TestAsyncOutgoing:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             await async_client.dns.zone_transfers.outgoing.with_raw_response.enable(
                 zone_id="",
-                body={},
             )
 
     @parametrize
     async def test_method_force_notify(self, async_client: AsyncCloudflare) -> None:
         outgoing = await async_client.dns.zone_transfers.outgoing.force_notify(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
         assert_matches_type(str, outgoing, path=["response"])
 
@@ -548,7 +527,6 @@ class TestAsyncOutgoing:
     async def test_raw_response_force_notify(self, async_client: AsyncCloudflare) -> None:
         response = await async_client.dns.zone_transfers.outgoing.with_raw_response.force_notify(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         )
 
         assert response.is_closed is True
@@ -560,7 +538,6 @@ class TestAsyncOutgoing:
     async def test_streaming_response_force_notify(self, async_client: AsyncCloudflare) -> None:
         async with async_client.dns.zone_transfers.outgoing.with_streaming_response.force_notify(
             zone_id="269d8f4853475ca241c4e730be286b20",
-            body={},
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -575,7 +552,6 @@ class TestAsyncOutgoing:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `zone_id` but received ''"):
             await async_client.dns.zone_transfers.outgoing.with_raw_response.force_notify(
                 zone_id="",
-                body={},
             )
 
     @parametrize

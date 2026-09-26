@@ -85,6 +85,7 @@ __all__ = (
     "ListKnowledgeBaseDocumentsPaginatorName",
     "ListKnowledgeBasesPaginatorName",
     "ListPromptsPaginatorName",
+    "ListVpcConfigurationsPaginatorName",
     "MemoryTypeType",
     "MetadataSourceTypeType",
     "MetadataValueTypeType",
@@ -115,6 +116,9 @@ __all__ = (
     "SupportedLanguagesType",
     "TypeType",
     "VectorSearchRerankingConfigurationTypeType",
+    "VpcConfigurationStatusType",
+    "VpcProtocolType",
+    "VpcResolutionModeType",
     "WebScopeTypeType",
 )
 
@@ -293,6 +297,7 @@ ListIngestionJobsPaginatorName = Literal["list_ingestion_jobs"]
 ListKnowledgeBaseDocumentsPaginatorName = Literal["list_knowledge_base_documents"]
 ListKnowledgeBasesPaginatorName = Literal["list_knowledge_bases"]
 ListPromptsPaginatorName = Literal["list_prompts"]
+ListVpcConfigurationsPaginatorName = Literal["list_vpc_configurations"]
 MemoryTypeType = Literal["SESSION_SUMMARY"]
 MetadataSourceTypeType = Literal["IN_LINE_ATTRIBUTE", "S3_LOCATION"]
 MetadataValueTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
@@ -330,6 +335,11 @@ SupplementalDataStorageLocationTypeType = Literal["S3"]
 SupportedLanguagesType = Literal["Python_3"]
 TypeType = Literal["array", "boolean", "integer", "number", "string"]
 VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
+VpcConfigurationStatusType = Literal[
+    "CREATED", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING"
+]
+VpcProtocolType = Literal["HTTP", "HTTPS"]
+VpcResolutionModeType = Literal["IN_VPC", "PUBLIC"]
 WebScopeTypeType = Literal["HOST_ONLY", "SUBDOMAINS"]
 AgentsforBedrockServiceName = Literal["bedrock-agent"]
 ServiceName = Literal[
@@ -412,6 +422,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -486,6 +497,7 @@ ServiceName = Literal[
     "emr-serverless",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -609,6 +621,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -782,4 +795,5 @@ PaginatorName = Literal[
     "list_knowledge_base_documents",
     "list_knowledge_bases",
     "list_prompts",
+    "list_vpc_configurations",
 ]

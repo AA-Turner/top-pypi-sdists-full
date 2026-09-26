@@ -80,7 +80,7 @@ class PublicEndpointParams(BaseModel):
 
 
 class NamespaceListResponse(BaseModel):
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     name: str
 

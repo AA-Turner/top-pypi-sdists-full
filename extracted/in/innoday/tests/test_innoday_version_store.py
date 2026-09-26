@@ -1,5 +1,5 @@
 """
-Tests for InnoDayVersionStore and the `innoday release`/`hotfix` proxy.
+Tests for InnoDayVersionStore and the `innoday blastoff`/`hotfix` proxy.
 
 The store is exercised against a mocked InnoDayAPIClient (mirroring
 test_releases_cli.py's mock style) -- the store's own logic is:
@@ -1339,7 +1339,7 @@ class TestTheProjectIsResolvedFromInnoDay:
 
 
 class TestTheCommandIsCalledBlastoff:
-    def test_blastoff_is_registered_with_release_and_hotfix_as_aliases(self):
+    def test_blastoff_is_registered_with_hotfix_but_not_release(self):
         from src.cli.main import create_parser
 
         parser = create_parser()
@@ -1350,9 +1350,12 @@ class TestTheCommandIsCalledBlastoff:
         ]
         assert actions, "`innoday blastoff` is not registered"
         choices = actions[0].choices
-        # The old names stay: `release` is what people have typed for months and
-        # `hotfix` is the short form worth keeping on its own merits.
-        assert "release" in choices and "hotfix" in choices
+        # `hotfix` stays -- it is `blastoff --hotfix`, not a second name for
+        # the command. The top-level `release` alias is gone: it sat one letter
+        # from `releases`, which reads records rather than shipping anything.
+        assert "hotfix" in choices
+        assert "release" not in choices
+        assert "blastoff" in choices["releases"]._subparsers._group_actions[0].choices
 
     def test_the_alias_lookup_flag_is_gone(self):
         """`-c` was a key into a file block. The project comes from the cwd."""

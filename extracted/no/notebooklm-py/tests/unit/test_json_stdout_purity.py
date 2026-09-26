@@ -22,7 +22,7 @@ import json
 import math
 import sys
 from collections.abc import Generator
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -58,7 +58,12 @@ from notebooklm.types import (
     ShareStatus,
     Source,
     SourceGuide,
+    UsageSummary,
+    UsageSummaryStatus,
+    UsageWindow,
+    UsageWindowKind,
 )
+from tests._helpers.downloads import configure_complete_artifact_listing
 
 
 def _research_task(spec: dict) -> ResearchTask:
@@ -229,6 +234,7 @@ def _make_client(extra_setup=None) -> MagicMock:
     )
     client.sources.list = AsyncMock(return_value=_stub_sources())
     client.artifacts.list = AsyncMock(return_value=_stub_artifacts())
+    configure_complete_artifact_listing(client)
     client.artifacts.suggest_reports = AsyncMock(return_value=[])
     client.notes.list = AsyncMock(return_value=_stub_notes())
     client.research.poll = AsyncMock(return_value=_research_task({"status": "no_research"}))
@@ -495,7 +501,7 @@ def _customize_research_wait(client: MagicMock) -> None:
 
 
 class _ImportedResearchSourcesStub(list):
-    """Mirrors ``notebooklm._web.research_import._ImportedResearchSources``: a ``list``
+    """Mirrors ``notebooklm._research_import._ImportedResearchSources``: a ``list``
     of newly-imported entries carrying the ``already_present`` side channel."""
 
     def __init__(self, items, already_present=()):
@@ -622,7 +628,21 @@ _FS_SETUPS = {
 }
 
 
+def _customize_usage(client: MagicMock) -> None:
+    """Exercise ready usage JSON, including timezone-aware reset timestamps."""
+    client.settings.get_usage = AsyncMock(
+        return_value=UsageSummary(
+            status=UsageSummaryStatus.READY,
+            windows=tuple(
+                UsageWindow(kind, 25.0, 75.0, datetime(2026, 9, 5, tzinfo=timezone.utc))
+                for kind in (UsageWindowKind.FIVE_HOUR, UsageWindowKind.WEEKLY)
+            ),
+        )
+    )
+
+
 JSON_COMMANDS: list[tuple[str, list[str], object]] = [
+    ("usage", ["usage", "--json"], _customize_usage),
     # source group
     ("source_list", ["source", "list", "-n", "abc123def456ghi789jkl", "--json"], None),
     (
